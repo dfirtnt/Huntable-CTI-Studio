@@ -630,7 +630,7 @@ class SigmaMatchingService:
                                 "weighted_before_penalties": match.get("weighted_before_penalties"),
                                 # Deterministic engine metadata (when sigma_atom_similarity used)
                                 "similarity_engine": match.get("similarity_engine", "legacy"),
-                                "semantic_details": match.get("semantic_details"),
+                                "atom_details": match.get("atom_details"),
                             }
                         )
 

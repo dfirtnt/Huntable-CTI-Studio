@@ -764,7 +764,7 @@ class TestAssessNoveltyDegradationWarnings:
 
         assert "warnings" in result
         assert len(result["warnings"]) == 1
-        assert "semantic_precompute_failed" in result["warnings"][0]
+        assert "atom_precompute_failed" in result["warnings"][0]
 
     def test_engine_used_is_legacy_when_semantic_precompute_raises(self, service, sample_rule):
         """engine_used must be 'legacy' when semantic precompute fails."""
@@ -803,7 +803,7 @@ class TestAssessNoveltyDegradationWarnings:
         ):
             service.assess_novelty(sample_rule, threshold=0.7)
 
-        assert any("semantic atom extraction" in r.message for r in caplog.records)
+        assert any("atom extraction" in r.message for r in caplog.records)
 
     def test_assess_novelty_with_snake_case_fields(self):
         """End-to-end: assess_novelty with snake_case fields finds matches against PascalCase candidates."""
@@ -1027,12 +1027,12 @@ class TestRetrieveCandidatesDeterministicOrdering:
 # Bug: `not N of filter_*` atoms mis-polarized as positive by the in-src
 # extractor polluted atom_jaccard on /sigma-ab-test (Todoist 6gqhWHxjgpWGHGP3).
 # Fix direction (b): pairwise comparison converges onto the precompute
-# (sigma_similarity package) extractor via compare_precomputed_semantics.
+# (sigma_similarity package) extractor via compare_precomputed_atoms.
 # ---------------------------------------------------------------------------
 
 
 class TestComparePrecomputedSemantics:
-    """Unit tests for SigmaNoveltyService.compare_precomputed_semantics.
+    """Unit tests for SigmaNoveltyService.compare_precomputed_atoms.
 
     The single scorer for the precomputed-atom path: assess_novelty's
     stored-atom branch and /sigma-ab-test /compare both call this.
@@ -1061,7 +1061,7 @@ class TestComparePrecomputedSemantics:
         sem_a = self._sem(positives, ["neg1|contains|f1", "neg2|contains|f2"])
         sem_b = self._sem(positives, [])
 
-        result = service.compare_precomputed_semantics(sem_a, sem_b)
+        result = service.compare_precomputed_atoms(sem_a, sem_b)
 
         assert result is not None
         assert result["atom_jaccard"] == 1.0
@@ -1081,21 +1081,21 @@ class TestComparePrecomputedSemantics:
         sem_a = self._sem(["fielda|contains|x", "shared||v"], ["neg1|contains|f"])
         sem_b = self._sem(["fieldb|endswith|y", "shared||v"], [])
 
-        result = service.compare_precomputed_semantics(sem_a, sem_b)
+        result = service.compare_precomputed_atoms(sem_a, sem_b)
 
         assert result["shared_atoms"] == ["shared:v"]
         assert result["added_atoms"] == ["fieldb|endswith:y"]
         assert result["removed_atoms"] == ["fielda|contains:x"]
         assert result["filter_differences"] == ["neg1|contains:f"]
 
-    def test_semantic_details_carry_containment_and_class(self, service):
+    def test_atom_details_carry_containment_and_class(self, service):
         positives = ["fielda|contains|x"]
         sem_a = self._sem(positives, [], surface=3)
         sem_b = self._sem(positives, [], surface=3)
 
-        result = service.compare_precomputed_semantics(sem_a, sem_b)
+        result = service.compare_precomputed_atoms(sem_a, sem_b)
 
-        details = result["semantic_details"]
+        details = result["atom_details"]
         assert details["canonical_class"] == "windows.process_creation"
         assert details["jaccard"] == 1.0
         assert details["containment_factor"] == 1.0
@@ -1111,23 +1111,23 @@ class TestComparePrecomputedSemantics:
         sem_a = self._sem(["regkey|contains|run"], [])
         sem_b = self._sem(["svc.name||foo"], [])
 
-        result = service.compare_precomputed_semantics(sem_a, sem_b)
+        result = service.compare_precomputed_atoms(sem_a, sem_b)
 
         assert result["atom_jaccard"] == 0.0
         assert result["logic_shape_similarity"] == 0.65
         assert result["similarity"] == 0.0
-        assert result["semantic_details"]["reason_flags"] == ["no_shared_atoms"]
+        assert result["atom_details"]["reason_flags"] == ["no_shared_atoms"]
 
     def test_empty_positive_sets_score_zero(self, service):
         sem_a = self._sem([], ["neg1|contains|f"])
         sem_b = self._sem([], [])
 
-        result = service.compare_precomputed_semantics(sem_a, sem_b)
+        result = service.compare_precomputed_atoms(sem_a, sem_b)
 
         assert result["atom_jaccard"] == 0.0
         assert result["similarity"] == 0.0
         assert result["filter_penalty"] == 0.0
-        assert result["semantic_details"]["reason_flags"] == ["no_shared_atoms"]
+        assert result["atom_details"]["reason_flags"] == ["no_shared_atoms"]
 
     def test_returns_none_when_package_primitives_unavailable(self, service, monkeypatch):
         """Callers fall back to the legacy in-src path when the
@@ -1135,7 +1135,7 @@ class TestComparePrecomputedSemantics:
         monkeypatch.setattr("src.services.sigma_novelty_service.compute_containment", None)
         sem = self._sem(["fielda|contains|x"], [])
 
-        assert service.compare_precomputed_semantics(sem, sem) is None
+        assert service.compare_precomputed_atoms(sem, sem) is None
 
     def test_field_alias_normalization_applies_to_both_sides(self, service):
         """LLM-style snake_case fields and stored canonical fields must
@@ -1144,7 +1144,7 @@ class TestComparePrecomputedSemantics:
         sem_a = self._sem(["command_line|contains|whoami"], [])
         sem_b = self._sem(["process.command_line|contains|WHOAMI"], [])
 
-        result = service.compare_precomputed_semantics(sem_a, sem_b)
+        result = service.compare_precomputed_atoms(sem_a, sem_b)
 
         assert result["atom_jaccard"] == 1.0
 
@@ -1346,4 +1346,4 @@ class TestSingleExtractorTimingConsolidation:
         assert result["canonical_class"] is None
         assert result["engine_used"] == "deterministic"
         assert result["top_matches"][0]["atom_jaccard"] == 1.0
-        assert result["top_matches"][0]["semantic_details"]["canonical_class"] is None
+        assert result["top_matches"][0]["atom_details"]["canonical_class"] is None

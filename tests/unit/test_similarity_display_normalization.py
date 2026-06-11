@@ -90,7 +90,7 @@ _CORE = {
     "added_atoms": [],
     "removed_atoms": [],
     "filter_differences": ["process.parent_image|contains:/programdata/"],
-    "semantic_details": _SEMANTIC_DETAILS,
+    "atom_details": _SEMANTIC_DETAILS,
 }
 
 # (a) Canonical serializer output (every route): canonical keys + containment
@@ -105,7 +105,7 @@ PAYLOAD_SERIALIZED = {
 
 # (b) Raw persisted engine match (queue similarity_scores cache + workflow
 #     execution records): canonical metric keys, NO top-level containment,
-#     NO aliases -- containment must come from semantic_details.overlap_ratio_a.
+#     NO aliases -- containment must come from atom_details.overlap_ratio_a.
 PAYLOAD_RAW_MATCH = dict(_CORE)
 
 # (c) Legacy-alias-only consumer shape (pre-serializer frontends): metrics only
@@ -122,7 +122,7 @@ PAYLOAD_ALIAS_ONLY = {
     "added_atoms": [],
     "removed_atoms": [],
     "filter_differences": ["process.parent_image|contains:/programdata/"],
-    "semantic_details": _SEMANTIC_DETAILS,
+    "atom_details": _SEMANTIC_DETAILS,
 }
 
 _COMPARED_FIELDS = [
@@ -180,20 +180,20 @@ class TestNormalizeAcrossSurfacePayloads:
         for i, n in enumerate(normalized[1:], start=1):
             assert {k: n[k] for k in _COMPARED_FIELDS} == reference, f"payload shape #{i} diverged"
 
-    def test_containment_prefers_top_level_then_semantic_details(self):
-        top = _normalize({"similarity": 0.4, "containment": 0.9, "semantic_details": {"overlap_ratio_a": 0.2}})
+    def test_containment_prefers_top_level_then_atom_details(self):
+        top = _normalize({"similarity": 0.4, "containment": 0.9, "atom_details": {"overlap_ratio_a": 0.2}})
         assert top["containment"] == 0.9
-        from_details = _normalize({"similarity": 0.4, "semantic_details": {"overlap_ratio_a": 0.2}})
+        from_details = _normalize({"similarity": 0.4, "atom_details": {"overlap_ratio_a": 0.2}})
         assert from_details["containment"] == 0.2
         absent = _normalize({"similarity": 0.4})
         assert absent["containment"] is None
 
     def test_containment_zero_is_kept_not_treated_as_absent(self):
         # 0.0 is a valid containment (disjoint atoms); it must NOT fall through
-        # to semantic_details.overlap_ratio_a via a falsy check.
-        n = _normalize({"similarity": 0.4, "containment": 0, "semantic_details": {"overlap_ratio_a": 0.7}})
+        # to atom_details.overlap_ratio_a via a falsy check.
+        n = _normalize({"similarity": 0.4, "containment": 0, "atom_details": {"overlap_ratio_a": 0.7}})
         assert n["containment"] == 0
-        from_details_zero = _normalize({"similarity": 0.4, "semantic_details": {"overlap_ratio_a": 0}})
+        from_details_zero = _normalize({"similarity": 0.4, "atom_details": {"overlap_ratio_a": 0}})
         assert from_details_zero["containment"] == 0
 
     def test_similarity_score_alias_absorbed(self):
@@ -212,8 +212,8 @@ class TestNormalizeAcrossSurfacePayloads:
         n = _normalize({"similarity": 0, "similarity_score": 0.99})
         assert n["similarity"] == 0
 
-    def test_surface_scores_absorbed_from_semantic_details(self):
-        n = _normalize({"similarity": 0.4, "semantic_details": {"surface_score_a": 16.0, "surface_score_b": 4.0}})
+    def test_surface_scores_absorbed_from_atom_details(self):
+        n = _normalize({"similarity": 0.4, "atom_details": {"surface_score_a": 16.0, "surface_score_b": 4.0}})
         assert n["surface_score_a"] == 16.0
         assert n["surface_score_b"] == 4.0
 
@@ -233,7 +233,7 @@ class TestNoveltyLabelsDeriveFromConstants:
                 "atom_jaccard": 0.3,
                 "logic_shape_similarity": 0.65,
                 "similarity_engine": "deterministic",
-                "semantic_details": {"reason_flags": []},
+                "atom_details": {"reason_flags": []},
             }
         )
         assert n["novelty_label"] == expected

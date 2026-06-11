@@ -2348,15 +2348,15 @@ def get_similar_rules_for_queued_rule(request: Request, queue_id: int, force: bo
                 }
                 if m.get("similarity_engine") is not None:
                     out["similarity_engine"] = str(m["similarity_engine"])
-                if m.get("semantic_details") is not None:
-                    out["semantic_details"] = m["semantic_details"]
+                if m.get("atom_details") is not None:
+                    out["atom_details"] = m["atom_details"]
                 return out
 
             # Only store matches with actual behavioral overlap (jaccard > 0)
             to_store = [
                 _json_safe_match(m)
                 for m in similar_matches[:10]
-                if (m.get("semantic_details") or {}).get("jaccard", m.get("atom_jaccard", 0)) > 0
+                if (m.get("atom_details") or {}).get("jaccard", m.get("atom_jaccard", 0)) > 0
             ]
 
             # Persist evidence columns so the on-the-fly recompute guard (above)

@@ -296,7 +296,7 @@ class SigmaNoveltyService:
         """
         try:
             _warnings: list[str] = []
-            semantic_extraction_failed = False
+            atom_extraction_failed = False
 
             # Step 1: Build canonical rule
             canonical_rule = self.build_canonical_rule(proposed_rule)
@@ -305,7 +305,7 @@ class SigmaNoveltyService:
             exact_hash = self.generate_exact_hash(canonical_rule)
             logsource_key, proposed_service = self.normalize_logsource(proposed_rule.get("logsource", {}))
 
-            # Try deterministic semantic precompute for proposed rule (enables precomputed-atom path)
+            # Try deterministic atom precompute for proposed rule (enables precomputed-atom path)
             proposed_sem = None
             if _sigma_compare_rules_available:
                 try:
@@ -313,11 +313,11 @@ class SigmaNoveltyService:
 
                     proposed_sem = extract_atom_fields(proposed_rule, require_canonical_class=False)
                 except Exception:
-                    semantic_extraction_failed = True
+                    atom_extraction_failed = True
                     logger.warning(
-                        "sigma_novelty: semantic atom extraction failed", exc_info=True
+                        "sigma_novelty: atom extraction failed", exc_info=True
                     )
-                    _warnings.append("semantic_precompute_failed: semantic atom extraction unavailable")
+                    _warnings.append("atom_precompute_failed: atom extraction unavailable")
 
             use_deterministic = proposed_sem is not None
             canonical_class = proposed_sem["canonical_class"] if proposed_sem else None
@@ -327,9 +327,9 @@ class SigmaNoveltyService:
             # generate_exact_hash collapses every such rule onto one value — which
             # would falsely short-circuit to DUPLICATE and suppress a novel rule.
             # Without atoms we cannot assert duplication, so report NOVEL.
-            semantic_atoms = canonical_rule.detection.get("atoms") or []
+            inapp_atoms = canonical_rule.detection.get("atoms") or []
             sem_atoms = (proposed_sem or {}).get("positive_atoms") or []
-            if not semantic_extraction_failed and not semantic_atoms and not sem_atoms:
+            if not atom_extraction_failed and not inapp_atoms and not sem_atoms:
                 _warnings.append(
                     "no_atoms_extracted: insufficient detection content to assess novelty; treated as NOVEL"
                 )
@@ -382,7 +382,7 @@ class SigmaNoveltyService:
                             "atom_jaccard": 1.0,
                             "logic_shape_similarity": 1.0,
                             "similarity_engine": "legacy",
-                            "semantic_details": None,
+                            "atom_details": None,
                             # Spec Item 6 (P2-C): inherit phase1_path from the candidate (set to
                             # "exact_hash" by retrieve_candidates). Downstream gate skips this path.
                             "phase1_path": candidate.get("phase1_path") if isinstance(candidate, dict) else None,
@@ -402,7 +402,7 @@ class SigmaNoveltyService:
                     # Pure set math via the single precomputed-atom scorer
                     # (shared with /sigma-ab-test /compare). Returns None when
                     # the sigma_similarity primitives are unavailable.
-                    det_match = self.compare_precomputed_semantics(
+                    det_match = self.compare_precomputed_atoms(
                         proposed_sem,
                         {
                             "positive_atoms": candidate_pos,
@@ -412,9 +412,9 @@ class SigmaNoveltyService:
                         },
                     )
                 elif proposed_sem is not None and isinstance(candidate, dict):
-                    candidate_sem = self._semantic_fields_for_rule(candidate, require_canonical_class=False)
+                    candidate_sem = self._atom_fields_for_rule(candidate, require_canonical_class=False)
                     if candidate_sem is not None:
-                        det_match = self.compare_precomputed_semantics(proposed_sem, candidate_sem)
+                        det_match = self.compare_precomputed_atoms(proposed_sem, candidate_sem)
 
                 if det_match is not None:
                     used_deterministic = True
@@ -427,13 +427,13 @@ class SigmaNoveltyService:
 
                 if not used_deterministic:
                     logger.debug(
-                        "sigma_novelty: semantic extraction unavailable for candidate %s; skipping comparison",
+                        "sigma_novelty: atom extraction unavailable for candidate %s; skipping comparison",
                         candidate.get("rule_id", "") if isinstance(candidate, dict) else "",
                     )
                     continue
 
                 if weighted_sim >= threshold:
-                    # Explainability from the same semantic atom sets, whether
+                    # Explainability from the same atom sets, whether
                     # they were stored at index time or computed live here.
                     explainability = {
                         "shared_atoms": det_match["shared_atoms"],
@@ -454,7 +454,7 @@ class SigmaNoveltyService:
                         # Spec Item 6 (P2-C): inherit Phase 1 retrieval path from the candidate so
                         # the downstream gate at sigma_matching_service.py:551 can scope itself.
                         "phase1_path": candidate.get("phase1_path") if isinstance(candidate, dict) else None,
-                        "semantic_details": det_match["semantic_details"],
+                        "atom_details": det_match["atom_details"],
                         **explainability,
                     }
 
@@ -468,7 +468,7 @@ class SigmaNoveltyService:
 
             # Metadata for empty-state differentiation (corpus unavailable vs no behavioral overlap)
             def _jaccard(m: dict) -> float:
-                sd = m.get("semantic_details")
+                sd = m.get("atom_details")
                 return sd.get("jaccard", m.get("atom_jaccard", 0.0)) if sd else m.get("atom_jaccard", 0.0)
 
             behavioral_matches_found = sum(1 for m in matches if _jaccard(m) > 0)
@@ -507,15 +507,15 @@ class SigmaNoveltyService:
                 "engine_used": "legacy",
             }
 
-    def compare_precomputed_semantics(self, sem_a: dict[str, Any], sem_b: dict[str, Any]) -> dict[str, Any] | None:
-        """Pairwise comparison of two precomputed semantic-field dicts (pure set math).
+    def compare_precomputed_atoms(self, sem_a: dict[str, Any], sem_b: dict[str, Any]) -> dict[str, Any] | None:
+        """Pairwise comparison of two precomputed atom-field dicts (pure set math).
 
         Single scorer for the precomputed-atom path: assess_novelty's stored-atom
         branch and /sigma-ab-test /compare both call this, so live-parse and
         precomputed scoring cannot diverge (the two-extractor polarity bug).
 
         Inputs are dicts shaped like precompute_atom_fields() output /
-        SigmaRuleTable semantic columns: canonical_class, positive_atoms,
+        SigmaRuleTable atom columns: canonical_class, positive_atoms,
         negative_atoms, surface_score. Returns None when the sigma_similarity
         primitives are unavailable.
 
@@ -587,7 +587,7 @@ class SigmaNoveltyService:
             "filter_penalty": filter_penalty,
             "weighted_before_penalties": weighted_before_penalties,
             "similarity_engine": "deterministic",
-            "semantic_details": {
+            "atom_details": {
                 "canonical_class": sem_a.get("canonical_class"),
                 "jaccard": atom_jaccard,
                 "containment_factor": logic_similarity,
@@ -604,16 +604,16 @@ class SigmaNoveltyService:
             "filter_differences": [_atom_identity_to_display(a) for a in sorted(filter_diff)],
         }
 
-    def _semantic_fields_for_rule(
+    def _atom_fields_for_rule(
         self, rule_data: dict[str, Any], *, require_canonical_class: bool = False
     ) -> dict[str, Any] | None:
-        """Live semantic extraction through the sigma_similarity package."""
+        """Live atom extraction through the sigma_similarity package."""
         try:
             from src.services.sigma_atom_precompute import extract_atom_fields
 
             return extract_atom_fields(rule_data, require_canonical_class=require_canonical_class)
         except Exception:
-            logger.debug("sigma_novelty: live semantic extraction failed", exc_info=True)
+            logger.debug("sigma_novelty: live atom extraction failed", exc_info=True)
             return None
 
     def _atom_identity_to_atom(self, atom_id: str, polarity: str) -> Atom:
@@ -632,8 +632,8 @@ class SigmaNoveltyService:
             polarity=polarity,
         )
 
-    def _semantic_fields_from_canonical(self, canonical_rule: CanonicalRule) -> dict[str, Any]:
-        """Build semantic-field dict from a CanonicalRule produced by this service."""
+    def _atom_fields_from_canonical(self, canonical_rule: CanonicalRule) -> dict[str, Any]:
+        """Build atom-field dict from a CanonicalRule produced by this service."""
         positive_atoms = []
         negative_atoms = []
         for atom in canonical_rule.detection.get("atoms", []) or []:
@@ -680,7 +680,7 @@ class SigmaNoveltyService:
         logsource_key, _ = self.normalize_logsource(rule_data.get("logsource", {}))
         product, category = logsource_key.split("|") if "|" in logsource_key else ("", "")
 
-        sem = self._semantic_fields_for_rule(rule_data, require_canonical_class=False)
+        sem = self._atom_fields_for_rule(rule_data, require_canonical_class=False)
         positive_atom_ids = sorted((sem or {}).get("positive_atoms") or [])
         negative_atom_ids = sorted((sem or {}).get("negative_atoms") or [])
         if sem is None:
@@ -1245,9 +1245,9 @@ class SigmaNoveltyService:
         Returns:
             Jaccard similarity (0-1)
         """
-        result = self.compare_precomputed_semantics(
-            self._semantic_fields_from_canonical(rule1),
-            self._semantic_fields_from_canonical(rule2),
+        result = self.compare_precomputed_atoms(
+            self._atom_fields_from_canonical(rule1),
+            self._atom_fields_from_canonical(rule2),
         )
         return result["atom_jaccard"] if result is not None else 0.0
 
@@ -1382,9 +1382,9 @@ class SigmaNoveltyService:
         Returns:
             Dictionary with similarity metrics
         """
-        semantic_result = self.compare_precomputed_semantics(
-            self._semantic_fields_from_canonical(rule1),
-            self._semantic_fields_from_canonical(rule2),
+        semantic_result = self.compare_precomputed_atoms(
+            self._atom_fields_from_canonical(rule1),
+            self._atom_fields_from_canonical(rule2),
         )
         atom_jaccard = semantic_result["atom_jaccard"] if semantic_result else 0.0
         logic_similarity = semantic_result["logic_shape_similarity"] if semantic_result else 0.0
@@ -1458,9 +1458,9 @@ class SigmaNoveltyService:
         Returns:
             Dictionary with explainability fields
         """
-        result = self.compare_precomputed_semantics(
-            self._semantic_fields_from_canonical(proposed),
-            self._semantic_fields_from_canonical(candidate),
+        result = self.compare_precomputed_atoms(
+            self._atom_fields_from_canonical(proposed),
+            self._atom_fields_from_canonical(candidate),
         )
         if result is None:
             return {"shared_atoms": [], "added_atoms": [], "removed_atoms": [], "filter_differences": []}

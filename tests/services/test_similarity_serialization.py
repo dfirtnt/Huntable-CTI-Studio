@@ -15,11 +15,11 @@ from src.services.similarity_serialization import serialize_similarity_match
 pytestmark = pytest.mark.unit
 
 
-def test_containment_is_lifted_from_semantic_details_to_top_level():
+def test_containment_is_lifted_from_atom_details_to_top_level():
     """`overlap_ratio_a` (directional containment) must surface as a top-level
     canonical `containment` field so every surface can read it the same way.
 
-    Today only the queue renderer reaches into semantic_details.overlap_ratio_a;
+    Today only the queue renderer reaches into atom_details.overlap_ratio_a;
     that is the exact divergence that let the 2026-06-05 containment bug hide.
     """
     match = {
@@ -28,7 +28,7 @@ def test_containment_is_lifted_from_semantic_details_to_top_level():
         "atom_jaccard": 0.5,
         "logic_shape_similarity": 0.3,
         "similarity_engine": "deterministic",
-        "semantic_details": {
+        "atom_details": {
             "overlap_ratio_a": 0.65,
             "containment_factor": 0.85,
             "jaccard": 0.5,
@@ -40,8 +40,8 @@ def test_containment_is_lifted_from_semantic_details_to_top_level():
     assert result["containment"] == 0.65
 
 
-def test_containment_is_none_for_legacy_engine_without_semantic_details():
-    """Legacy matches carry no semantic_details; containment must be None, not 0."""
+def test_containment_is_none_for_legacy_engine_without_atom_details():
+    """Legacy matches carry no atom_details; containment must be None, not 0."""
     match = {"rule_id": "x", "similarity": 0.1, "similarity_engine": "legacy"}
 
     result = serialize_similarity_match(match)
@@ -148,10 +148,10 @@ def test_legacy_aliases_removed_responses_are_canonical_only():
     assert result["logic_shape_similarity"] == 0.3
 
 
-def test_semantic_details_preserved_for_deterministic_surfaces():
+def test_atom_details_preserved_for_deterministic_surfaces():
     sd = {"overlap_ratio_a": 0.65, "containment_factor": 0.85, "jaccard": 0.5}
-    match = {"rule_id": "x", "similarity": 0.4, "semantic_details": sd}
+    match = {"rule_id": "x", "similarity": 0.4, "atom_details": sd}
 
     result = serialize_similarity_match(match)
 
-    assert result["semantic_details"] == sd
+    assert result["atom_details"] == sd

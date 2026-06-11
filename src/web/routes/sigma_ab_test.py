@@ -103,7 +103,7 @@ async def compare_rules(compare_request: CompareRequest):
     sem_a = precompute_atom_fields(rule_a_data)
     sem_b = precompute_atom_fields(rule_b_data)
     if sem_a is not None and sem_b is not None:
-        det_match = service.compare_precomputed_semantics(sem_a, sem_b)
+        det_match = service.compare_precomputed_atoms(sem_a, sem_b)
         if det_match is not None:
             # Phase-2 single source of truth for novelty thresholds, same as
             # every stored-atom surface.

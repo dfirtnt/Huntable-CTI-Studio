@@ -7380,7 +7380,7 @@ Please provide a detailed analysis based on the article content and the user's s
         closeSimilarRulesModal();
         await cleanupExistingModal('similarRulesModal');
         // Behavioral Overlap Engine: display only rules with jaccard > 0 (at least one shared atom)
-        const jaccard = (m) => m.atom_jaccard ?? m.semantic_details?.jaccard ?? 0;
+        const jaccard = (m) => m.atom_jaccard ?? m.atom_details?.jaccard ?? 0;
         matches = (matches || []).filter(m => jaccard(m) > 0);
         
         const modal = document.createElement('div');

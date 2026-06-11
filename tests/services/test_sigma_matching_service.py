@@ -504,7 +504,7 @@ class TestHardGateScopedToFallback:
             "filter_penalty": 0.0,
             "weighted_before_penalties": similarity,
             "similarity_engine": "deterministic",
-            "semantic_details": None,
+            "atom_details": None,
             "shared_atoms": [],
             "added_atoms": [],
             "removed_atoms": [],

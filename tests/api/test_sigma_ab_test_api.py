@@ -466,8 +466,8 @@ class TestSigmaAbTestCompareExtractorConvergence:
         data = response.json()
         assert data["similarity_engine"] == "deterministic"
         assert data["containment"] == 1.0
-        assert data["semantic_details"] is not None
-        assert data["semantic_details"]["canonical_class"]
+        assert data["atom_details"] is not None
+        assert data["atom_details"]["canonical_class"]
         # Contract behavior unchanged for identical rules.
         assert data["similarity"] == 1.0
         assert data["novelty_label"] == "DUPLICATE"

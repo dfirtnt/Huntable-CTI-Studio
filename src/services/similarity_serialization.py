@@ -37,17 +37,19 @@ def _round(value: Any) -> Any:
 def serialize_similarity_match(match: dict[str, Any]) -> dict[str, Any]:
     """Project a raw engine match onto the canonical similarity contract.
 
-    Canonical ``containment`` is lifted out of ``semantic_details`` (where the
+    Canonical ``containment`` is lifted out of ``atom_details`` (where the
     deterministic engine stores it as ``overlap_ratio_a``) so every surface reads
     directional containment the same way — the divergence behind the 2026-06-05
     containment bug.
     """
-    semantic_details = match.get("semantic_details") or None
+    # Read-fallback: rows persisted before the semantic_details -> atom_details
+    # rename still carry the old key, so accept either.
+    atom_details = match.get("atom_details") or match.get("semantic_details") or None
 
     similarity = _round(match.get("similarity", 0.0))
     atom_jaccard = _round(match.get("atom_jaccard", 0.0))
     logic_shape = _round(match.get("logic_shape_similarity"))  # None preserved
-    containment = _round((semantic_details or {}).get("overlap_ratio_a"))
+    containment = _round((atom_details or {}).get("overlap_ratio_a"))
 
     return {
         # --- identity / metadata ---
@@ -79,5 +81,5 @@ def serialize_similarity_match(match: dict[str, Any]) -> dict[str, Any]:
         "removed_atoms": match.get("removed_atoms") or [],
         "filter_differences": match.get("filter_differences") or [],
         # --- deterministic engine detail (preserved for surfaces that read it) ---
-        "semantic_details": semantic_details,
+        "atom_details": atom_details,
     }

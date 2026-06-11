@@ -218,7 +218,7 @@ class TestSigmaQueueRenderersExecute:
         "shared_atoms": ["process.image|endswith:/cmd.exe"],
         "added_atoms": [],
         "removed_atoms": [],
-        "semantic_details": {
+        "atom_details": {
             "jaccard": 1.0,
             "overlap_ratio_a": 1.0,
             "containment_factor": 1.0,
@@ -268,7 +268,7 @@ class TestSigmaQueueRenderersExecute:
             "total_candidates_evaluated": 7,
             "matches": [
                 self.CANONICAL_MATCH,
-                {"title": "no overlap", "atom_jaccard": 0, "semantic_details": {"jaccard": 0}},
+                {"title": "no overlap", "atom_jaccard": 0, "atom_details": {"jaccard": 0}},
             ],
         }
         info = {"queueId": 42, "title": "Cur Rule", "detection": {"selection": {"Image": "x"}}}

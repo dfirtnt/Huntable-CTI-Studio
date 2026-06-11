@@ -16015,7 +16015,7 @@ async function showSimilarRulesModal(matches, coverageSummary, generatedRules = 
     // Remove any existing modal
     closeSimilarRulesModal();
     // Behavioral Overlap Engine: display only rules with jaccard > 0 (at least one shared atom)
-    const jaccard = (m) => m.atom_jaccard ?? m.semantic_details?.jaccard ?? 0;
+    const jaccard = (m) => m.atom_jaccard ?? m.atom_details?.jaccard ?? 0;
     matches = (matches || []).filter(m => jaccard(m) > 0);
     const totalCandidatesEvaluated = metadata?.totalCandidatesEvaluated ?? -1;
     const behavioralMatchesFound = metadata?.behavioralMatchesFound ?? -1;

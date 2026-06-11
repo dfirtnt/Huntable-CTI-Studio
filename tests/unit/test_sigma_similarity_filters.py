@@ -18,7 +18,7 @@ pytestmark = pytest.mark.unit
 
 def _has_behavioral_overlap(match: dict) -> bool:
     """True if match has jaccard > 0 (behavioral atom overlap)."""
-    return (match.get("semantic_details") or {}).get("jaccard", match.get("atom_jaccard", 0)) > 0
+    return (match.get("atom_details") or {}).get("jaccard", match.get("atom_jaccard", 0)) > 0
 
 
 def _should_store(match: dict) -> bool:
@@ -37,7 +37,7 @@ def behavioral_match():
         "similarity": 0.75,
         "atom_jaccard": 0.6,
         "similarity_engine": "deterministic",
-        "semantic_details": {
+        "atom_details": {
             "jaccard": 0.6,
             "containment_factor": 0.8,
             "filter_penalty": 0.0,
@@ -53,7 +53,7 @@ def zero_jaccard_match():
         "similarity": 0.45,
         "atom_jaccard": 0.0,
         "similarity_engine": "deterministic",
-        "semantic_details": {
+        "atom_details": {
             "jaccard": 0.0,
             "containment_factor": 0.0,
             "filter_penalty": 0.0,
@@ -72,7 +72,7 @@ def semantic_fallback_match():
         "novelty_label": "NOVEL",
         "atom_jaccard": 0.0,
         "similarity_engine": "semantic",
-        "semantic_details": {
+        "atom_details": {
             "jaccard": 0.0,
             "containment_factor": 0.0,
             "filter_penalty": 0.0,
@@ -99,22 +99,22 @@ class TestBehavioralOverlapFilter:
         """Semantic matches have jaccard=0 by definition."""
         assert _has_behavioral_overlap(semantic_fallback_match) is False
 
-    def test_missing_semantic_details_uses_atom_jaccard(self):
-        """When semantic_details is None, fall back to atom_jaccard field."""
-        match = {"atom_jaccard": 0.3, "semantic_details": None}
+    def test_missing_atom_details_uses_atom_jaccard(self):
+        """When atom_details is None, fall back to atom_jaccard field."""
+        match = {"atom_jaccard": 0.3, "atom_details": None}
         assert _has_behavioral_overlap(match) is True
 
     def test_missing_both_fields_returns_false(self):
         """Match with no jaccard info at all is not behavioral."""
         assert _has_behavioral_overlap({}) is False
 
-    def test_empty_semantic_details_uses_atom_jaccard(self):
-        """Empty dict for semantic_details falls through to atom_jaccard."""
-        match = {"atom_jaccard": 0.5, "semantic_details": {}}
+    def test_empty_atom_details_uses_atom_jaccard(self):
+        """Empty dict for atom_details falls through to atom_jaccard."""
+        match = {"atom_jaccard": 0.5, "atom_details": {}}
         assert _has_behavioral_overlap(match) is True
 
     def test_fractional_jaccard_above_zero(self):
-        match = {"semantic_details": {"jaccard": 0.001}}
+        match = {"atom_details": {"jaccard": 0.001}}
         assert _has_behavioral_overlap(match) is True
 
 
@@ -142,7 +142,7 @@ class TestToStoreFilter:
         to_store = [
             m
             for m in similar_matches[:10]
-            if (m.get("semantic_details") or {}).get("jaccard", m.get("atom_jaccard", 0)) > 0
+            if (m.get("atom_details") or {}).get("jaccard", m.get("atom_jaccard", 0)) > 0
         ]
 
         assert len(to_store) == 1
@@ -162,7 +162,7 @@ class TestSoftCrossFieldMatchFiltering:
             "title": "Rundll32 via CommandLine",
             "atom_jaccard": 0.10,
             "similarity_engine": "deterministic",
-            "semantic_details": {"jaccard": 0.10, "containment_factor": 0.0, "filter_penalty": 0.0},
+            "atom_details": {"jaccard": 0.10, "containment_factor": 0.0, "filter_penalty": 0.0},
         }
         assert _should_store(soft_match) is True
 
@@ -172,16 +172,16 @@ class TestSoftCrossFieldMatchFiltering:
             "title": "DNS rule vs process rule",
             "atom_jaccard": 0.0,
             "similarity_engine": "deterministic",
-            "semantic_details": {"jaccard": 0.0},
+            "atom_details": {"jaccard": 0.0},
         }
         assert _should_store(no_overlap) is False
 
     def test_batch_with_soft_and_zero_matches(self):
         """Mixed batch: soft matches kept, zeros dropped."""
         matches = [
-            {"title": "Strong", "semantic_details": {"jaccard": 0.75}},
-            {"title": "Soft", "semantic_details": {"jaccard": 0.10}},
-            {"title": "Zero", "semantic_details": {"jaccard": 0.0}},
+            {"title": "Strong", "atom_details": {"jaccard": 0.75}},
+            {"title": "Soft", "atom_details": {"jaccard": 0.10}},
+            {"title": "Zero", "atom_details": {"jaccard": 0.0}},
             {"title": "Missing", "atom_jaccard": 0.0},
         ]
         stored = [m for m in matches if _should_store(m)]

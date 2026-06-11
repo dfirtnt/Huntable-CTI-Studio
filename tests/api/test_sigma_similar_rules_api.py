@@ -140,7 +140,7 @@ class TestSigmaSimilarRulesAPI:
     @pytest.mark.asyncio
     async def test_similar_rules_response_matches_use_canonical_contract(self):
         """Phase 1: returned matches are projected through the shared serializer,
-        exposing top-level `containment` (lifted from semantic_details.overlap_ratio_a)
+        exposing top-level `containment` (lifted from atom_details.overlap_ratio_a)
         so the queue modal reads the same canonical fields as every other surface."""
         from starlette.requests import Request
 
@@ -168,7 +168,7 @@ class TestSigmaSimilarRulesAPI:
             "atom_jaccard": 0.5,
             "logic_shape_similarity": 0.3,
             "similarity_engine": "deterministic",
-            "semantic_details": {"overlap_ratio_a": 0.65, "containment_factor": 0.85, "jaccard": 0.5},
+            "atom_details": {"overlap_ratio_a": 0.65, "containment_factor": 0.85, "jaccard": 0.5},
             "file_path": "rules/x.yml",
             "level": "high",
             "status": "stable",

@@ -90,18 +90,18 @@ function normalizeSimilarityData(match) {
     const filterPenalty = match.filter_penalty !== undefined ? match.filter_penalty : 0;
 
     const similarityEngine = match.similarity_engine || 'legacy';
-    const semanticDetails = match.semantic_details || null;
-    const reasonFlags = Array.isArray(semanticDetails?.reason_flags) ? semanticDetails.reason_flags : [];
+    const atomDetails = match.atom_details || match.semantic_details || null;
+    const reasonFlags = Array.isArray(atomDetails?.reason_flags) ? atomDetails.reason_flags : [];
 
     // Canonical containment: top-level field (serializer output) first, then
     // the deterministic engine's overlap_ratio_a, else null.
     const containment = match.containment !== undefined && match.containment !== null
         ? match.containment
-        : (semanticDetails?.overlap_ratio_a ?? null);
+        : (atomDetails?.overlap_ratio_a ?? null);
 
     // Surface scores (deterministic engine branch-count estimates).
-    const surfaceScoreA = semanticDetails?.surface_score_a ?? null;
-    const surfaceScoreB = semanticDetails?.surface_score_b ?? null;
+    const surfaceScoreA = atomDetails?.surface_score_a ?? null;
+    const surfaceScoreB = atomDetails?.surface_score_b ?? null;
 
     // For deterministic engine, derive novelty label from the deterministic
     // threshold row when not special-case
@@ -129,7 +129,7 @@ function normalizeSimilarityData(match) {
         service_penalty: servicePenalty,
         filter_penalty: filterPenalty,
         similarity_engine: similarityEngine,
-        semantic_details: semanticDetails,
+        atom_details: atomDetails,
         surface_score_a: surfaceScoreA,
         surface_score_b: surfaceScoreB,
         reason_flags: reasonFlags,
@@ -257,8 +257,8 @@ function renderSimilarityDisplay(data, options = {}) {
     const engineBadge = engine === 'deterministic'
         ? '<span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200">Deterministic Semantic Engine</span>'
         : '<span class="px-2 py-0.5 rounded text-xs font-medium bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200">Legacy Heuristic Engine</span>';
-    const jaccardVal = engine === 'deterministic' && normalized.semantic_details && normalized.semantic_details.jaccard != null
-        ? normalized.semantic_details.jaccard
+    const jaccardVal = engine === 'deterministic' && normalized.atom_details && normalized.atom_details.jaccard != null
+        ? normalized.atom_details.jaccard
         : atomJaccard;
     const jaccardZeroDeterministic = engine === 'deterministic' && showNumericScore && jaccardVal === 0;
     let scoreDisplay = showNumericScore ? `${similarityPercent}%` : '';
@@ -277,7 +277,7 @@ function renderSimilarityDisplay(data, options = {}) {
                 <div class="flex items-center justify-between mb-2">
                     <span class="text-lg font-semibold text-gray-700 dark:text-gray-300">${engine === 'deterministic' ? 'Behavioral Similarity' : 'Weighted Similarity'}</span>
                     <div class="flex items-center space-x-4 flex-wrap gap-y-1">
-                        <span id="${prefix}overallSimilarity" class="${scoreClass}" ${jaccardZeroDeterministic ? `title="Similarity: ${similarityPercent}% | Jaccard: 0% | Logic Shape: ${normalized.semantic_details && normalized.semantic_details.containment_factor != null ? (normalized.semantic_details.containment_factor * 100).toFixed(1) : '—'}% | Filter penalty: ${normalized.semantic_details && normalized.semantic_details.filter_penalty != null ? (normalized.semantic_details.filter_penalty * 100).toFixed(1) : '0'}%"` : ''}>${escapeHtml(scoreDisplay)}</span>
+                        <span id="${prefix}overallSimilarity" class="${scoreClass}" ${jaccardZeroDeterministic ? `title="Similarity: ${similarityPercent}% | Jaccard: 0% | Logic Shape: ${normalized.atom_details && normalized.atom_details.containment_factor != null ? (normalized.atom_details.containment_factor * 100).toFixed(1) : '—'}% | Filter penalty: ${normalized.atom_details && normalized.atom_details.filter_penalty != null ? (normalized.atom_details.filter_penalty * 100).toFixed(1) : '0'}%"` : ''}>${escapeHtml(scoreDisplay)}</span>
                         <span id="${prefix}engineBadge">${engineBadge}</span>
                         <span id="${prefix}noveltyLabel" class="${getNoveltyLabelClasses(noveltyLabel, engine)}">${noveltyLabel}</span>
                     </div>
@@ -323,8 +323,8 @@ function renderSimilarityDisplay(data, options = {}) {
                 </div>
             </div>
             ` : ''}
-            ${engine === 'deterministic' && normalized.semantic_details && !canonicalMismatch && !unsupportedOrDnf ? (() => {
-                const sd = normalized.semantic_details;
+            ${engine === 'deterministic' && normalized.atom_details && !canonicalMismatch && !unsupportedOrDnf ? (() => {
+                const sd = normalized.atom_details;
                 const jVal = sd.jaccard ?? atomJaccard;
                 const jIsZero = jVal === 0;
                 const j = (sd.jaccard != null ? (sd.jaccard * 100).toFixed(1) : '—') + '%';
@@ -397,9 +397,9 @@ function renderSimilarityDisplay(data, options = {}) {
         const compactEngineBadge = engine === 'deterministic'
             ? '<span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 mb-2">Deterministic Semantic Engine</span>'
             : '<span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 mb-2">Legacy Heuristic Engine</span>';
-        const showCompactDeterministic = engine === 'deterministic' && normalized.semantic_details && !canonicalMismatch && !unsupportedOrDnf;
+        const showCompactDeterministic = engine === 'deterministic' && normalized.atom_details && !canonicalMismatch && !unsupportedOrDnf;
         const compactDeterministicBlock = showCompactDeterministic ? (() => {
-            const sd = normalized.semantic_details;
+            const sd = normalized.atom_details;
             const jVal = sd.jaccard ?? atomJaccard;
             const jIsZero = jVal === 0;
             const j = (sd.jaccard != null ? (sd.jaccard * 100).toFixed(1) : '—') + '%';

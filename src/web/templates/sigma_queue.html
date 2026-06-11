@@ -649,7 +649,7 @@ function _escHtml(str) {
 // the shared component normalizes fields at render time.
 function _filterBehavioralMatches(matches) {
     return (matches || []).filter(m => {
-        const j = m.semantic_details?.jaccard ?? m.atom_jaccard ?? 0;
+        const j = m.atom_details?.jaccard ?? m.atom_jaccard ?? 0;
         return j > 0;
     });
 }
