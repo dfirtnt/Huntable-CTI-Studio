@@ -2297,7 +2297,7 @@ def get_similar_rules_for_queued_rule(request: Request, queue_id: int, force: bo
             similar_matches = match_result.get("matches", [])
             total_candidates_evaluated = match_result.get("total_candidates_evaluated", 0)
             behavioral_matches_found = match_result.get("behavioral_matches_found", 0)
-            engine_used = match_result.get("engine_used", "legacy")
+            engine_used = match_result.get("engine_used", "on-the-fly")
             match_canonical_class = match_result.get("canonical_class")
             match_logsource_key = match_result.get("logsource_key", "") or ""
 

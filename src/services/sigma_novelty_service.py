@@ -343,7 +343,7 @@ class SigmaNoveltyService:
                     "canonical_rule": asdict(canonical_rule),
                     "total_candidates_evaluated": 0,
                     "behavioral_matches_found": 0,
-                    "engine_used": "deterministic" if use_deterministic else "legacy",
+                    "engine_used": "precomputed" if use_deterministic else "on-the-fly",
                     # Machine-readable flag (not just the free-text warning, which
                     # downstream summarize_rule_novelty drops): this rule could not be
                     # assessed at all. Routing must treat it as inconclusive →
@@ -381,7 +381,7 @@ class SigmaNoveltyService:
                             "similarity": 1.0,
                             "atom_jaccard": 1.0,
                             "logic_shape_similarity": 1.0,
-                            "similarity_engine": "legacy",
+                            "similarity_engine": "on-the-fly",
                             "atom_details": None,
                             # Spec Item 6 (P2-C): inherit phase1_path from the candidate (set to
                             # "exact_hash" by retrieve_candidates). Downstream gate skips this path.
@@ -450,7 +450,7 @@ class SigmaNoveltyService:
                         "service_penalty": service_penalty,
                         "filter_penalty": filter_penalty,
                         "weighted_before_penalties": weighted_before_penalties,
-                        "similarity_engine": "deterministic" if used_deterministic else "legacy",
+                        "similarity_engine": "precomputed" if used_deterministic else "on-the-fly",
                         # Spec Item 6 (P2-C): inherit Phase 1 retrieval path from the candidate so
                         # the downstream gate at sigma_matching_service.py:551 can scope itself.
                         "phase1_path": candidate.get("phase1_path") if isinstance(candidate, dict) else None,
@@ -473,7 +473,7 @@ class SigmaNoveltyService:
 
             behavioral_matches_found = sum(1 for m in matches if _jaccard(m) > 0)
             engine_used = (
-                "deterministic" if any(m.get("similarity_engine") == "deterministic" for m in matches) else "legacy"
+                "precomputed" if any(m.get("similarity_engine") == "precomputed" for m in matches) else "on-the-fly"
             )
 
             return {
@@ -504,7 +504,7 @@ class SigmaNoveltyService:
                 "top_matches": [],
                 "total_candidates_evaluated": 0,
                 "behavioral_matches_found": 0,
-                "engine_used": "legacy",
+                "engine_used": "on-the-fly",
             }
 
     def compare_precomputed_atoms(self, sem_a: dict[str, Any], sem_b: dict[str, Any]) -> dict[str, Any] | None:
@@ -586,7 +586,7 @@ class SigmaNoveltyService:
             "service_penalty": 0.0,
             "filter_penalty": filter_penalty,
             "weighted_before_penalties": weighted_before_penalties,
-            "similarity_engine": "deterministic",
+            "similarity_engine": "precomputed",
             "atom_details": {
                 "canonical_class": sem_a.get("canonical_class"),
                 "jaccard": atom_jaccard,

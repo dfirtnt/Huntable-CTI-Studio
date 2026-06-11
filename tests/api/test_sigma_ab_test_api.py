@@ -424,7 +424,7 @@ class TestSigmaAbTestCompareExtractorConvergence:
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
-        assert data["similarity_engine"] == "deterministic"
+        assert data["similarity_engine"] == "precomputed"
         assert data["atom_jaccard"] == 1.0
         assert data["logic_shape_similarity"] == 1.0
         assert data["novelty_label"] == "DUPLICATE"
@@ -464,7 +464,7 @@ class TestSigmaAbTestCompareExtractorConvergence:
         )
 
         data = response.json()
-        assert data["similarity_engine"] == "deterministic"
+        assert data["similarity_engine"] == "precomputed"
         assert data["containment"] == 1.0
         assert data["atom_details"] is not None
         assert data["atom_details"]["canonical_class"]
@@ -496,7 +496,7 @@ detection:
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
-        assert data["similarity_engine"] == "legacy"
+        assert data["similarity_engine"] == "on-the-fly"
         assert data["similarity"] == 1.0
         assert data["novelty_label"] == "DUPLICATE"
 
@@ -557,7 +557,7 @@ detection:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["similarity_engine"] == "legacy"
+        assert data["similarity_engine"] == "on-the-fly"
 
         atom_jaccard = data["atom_jaccard"]
         logic_shape = data["logic_shape_similarity"]

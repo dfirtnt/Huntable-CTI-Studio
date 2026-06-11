@@ -27,7 +27,7 @@ def test_containment_is_lifted_from_atom_details_to_top_level():
         "similarity": 0.42,
         "atom_jaccard": 0.5,
         "logic_shape_similarity": 0.3,
-        "similarity_engine": "deterministic",
+        "similarity_engine": "precomputed",
         "atom_details": {
             "overlap_ratio_a": 0.65,
             "containment_factor": 0.85,
@@ -42,7 +42,7 @@ def test_containment_is_lifted_from_atom_details_to_top_level():
 
 def test_containment_is_none_for_legacy_engine_without_atom_details():
     """Legacy matches carry no atom_details; containment must be None, not 0."""
-    match = {"rule_id": "x", "similarity": 0.1, "similarity_engine": "legacy"}
+    match = {"rule_id": "x", "similarity": 0.1, "similarity_engine": "on-the-fly"}
 
     result = serialize_similarity_match(match)
 
@@ -57,7 +57,7 @@ def test_canonical_scalar_fields_passed_through():
         "logic_shape_similarity": 0.3,
         "novelty_label": "SIMILAR",
         "novelty_score": 0.58,
-        "similarity_engine": "deterministic",
+        "similarity_engine": "precomputed",
     }
 
     result = serialize_similarity_match(match)
@@ -67,7 +67,7 @@ def test_canonical_scalar_fields_passed_through():
     assert result["logic_shape_similarity"] == 0.3
     assert result["novelty_label"] == "SIMILAR"
     assert result["novelty_score"] == 0.58
-    assert result["similarity_engine"] == "deterministic"
+    assert result["similarity_engine"] == "precomputed"
 
 
 def test_none_logic_shape_is_preserved_not_coerced():
@@ -155,3 +155,21 @@ def test_atom_details_preserved_for_deterministic_surfaces():
     result = serialize_similarity_match(match)
 
     assert result["atom_details"] == sd
+
+
+def test_engine_label_alias_maps_old_persisted_values():
+    """Rows persisted before the deterministic/legacy -> precomputed/on-the-fly
+    rename still carry the old values; the serializer maps them on read so the
+    UI shows one vocabulary without a destructive backfill. New values pass through."""
+    det = serialize_similarity_match({"rule_id": "a", "similarity": 0.4, "similarity_engine": "deterministic"})
+    assert det["similarity_engine"] == "precomputed"
+
+    legacy = serialize_similarity_match({"rule_id": "b", "similarity": 0.1, "similarity_engine": "legacy"})
+    assert legacy["similarity_engine"] == "on-the-fly"
+
+    new = serialize_similarity_match({"rule_id": "c", "similarity": 0.4, "similarity_engine": "precomputed"})
+    assert new["similarity_engine"] == "precomputed"
+
+    # Missing engine defaults to the current on-the-fly label, not the old "legacy".
+    missing = serialize_similarity_match({"rule_id": "d", "similarity": 0.1})
+    assert missing["similarity_engine"] == "on-the-fly"

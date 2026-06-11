@@ -525,7 +525,7 @@ class SigmaMatchingService:
             # Metadata for empty-state differentiation
             total_candidates_evaluated = novelty_result.get("total_candidates_evaluated", 0)
             behavioral_matches_found = novelty_result.get("behavioral_matches_found", 0)
-            engine_used = novelty_result.get("engine_used", "legacy")
+            engine_used = novelty_result.get("engine_used", "on-the-fly")
             logsource_key_meta = novelty_result.get("logsource_key", "") or ""
             canonical_class_meta = novelty_result.get("canonical_class")
 
@@ -629,7 +629,7 @@ class SigmaMatchingService:
                                 "filter_penalty": match.get("filter_penalty", 0.0),
                                 "weighted_before_penalties": match.get("weighted_before_penalties"),
                                 # Deterministic engine metadata (when sigma_atom_similarity used)
-                                "similarity_engine": match.get("similarity_engine", "legacy"),
+                                "similarity_engine": match.get("similarity_engine", "on-the-fly"),
                                 "atom_details": match.get("atom_details"),
                             }
                         )
@@ -658,7 +658,7 @@ class SigmaMatchingService:
                 "matches": [],
                 "total_candidates_evaluated": 0,
                 "behavioral_matches_found": 0,
-                "engine_used": "legacy",
+                "engine_used": "on-the-fly",
                 "logsource_key": "",
                 "canonical_class": None,
             }

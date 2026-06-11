@@ -36,7 +36,7 @@ def behavioral_match():
         "title": "Process Creation via cmd.exe",
         "similarity": 0.75,
         "atom_jaccard": 0.6,
-        "similarity_engine": "deterministic",
+        "similarity_engine": "precomputed",
         "atom_details": {
             "jaccard": 0.6,
             "containment_factor": 0.8,
@@ -52,7 +52,7 @@ def zero_jaccard_match():
         "title": "Zero overlap candidate",
         "similarity": 0.45,
         "atom_jaccard": 0.0,
-        "similarity_engine": "deterministic",
+        "similarity_engine": "precomputed",
         "atom_details": {
             "jaccard": 0.0,
             "containment_factor": 0.0,
@@ -161,7 +161,7 @@ class TestSoftCrossFieldMatchFiltering:
         soft_match = {
             "title": "Rundll32 via CommandLine",
             "atom_jaccard": 0.10,
-            "similarity_engine": "deterministic",
+            "similarity_engine": "precomputed",
             "atom_details": {"jaccard": 0.10, "containment_factor": 0.0, "filter_penalty": 0.0},
         }
         assert _should_store(soft_match) is True
@@ -171,7 +171,7 @@ class TestSoftCrossFieldMatchFiltering:
         no_overlap = {
             "title": "DNS rule vs process rule",
             "atom_jaccard": 0.0,
-            "similarity_engine": "deterministic",
+            "similarity_engine": "precomputed",
             "atom_details": {"jaccard": 0.0},
         }
         assert _should_store(no_overlap) is False

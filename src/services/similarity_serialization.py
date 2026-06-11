@@ -23,6 +23,21 @@ from typing import Any
 # Single rounding policy for every similarity metric (was per-route before).
 _PRECISION = 4
 
+# Engine-label compatibility. The atom set-math engine's two scoring paths were
+# renamed "deterministic" -> "precomputed" and "legacy" -> "on-the-fly" (the old
+# names wrongly implied one path was non-deterministic). Rows persisted in
+# sigma_rule_queue.similarity_scores before the rename still carry the old
+# values, so map old -> new on READ rather than running a destructive backfill.
+# New values pass through unchanged.
+_ENGINE_LABEL_ALIAS = {"deterministic": "precomputed", "legacy": "on-the-fly"}
+
+
+def alias_engine_label(value: Any) -> Any:
+    """Map a persisted engine label to its current name; pass new values through."""
+    if value is None:
+        return None
+    return _ENGINE_LABEL_ALIAS.get(value, value)
+
 
 def _round(value: Any) -> Any:
     """Round a numeric metric to the canonical precision, preserving None."""
@@ -70,7 +85,7 @@ def serialize_similarity_match(match: dict[str, Any]) -> dict[str, Any]:
         "containment": containment,
         "novelty_label": match.get("novelty_label"),
         "novelty_score": _round(match.get("novelty_score")),
-        "similarity_engine": match.get("similarity_engine", "legacy"),
+        "similarity_engine": alias_engine_label(match.get("similarity_engine")) or "on-the-fly",
         # --- penalties (weighted subtotal vs final) ---
         "service_penalty": _round(match.get("service_penalty", 0.0)),
         "filter_penalty": _round(match.get("filter_penalty", 0.0)),

@@ -213,7 +213,7 @@ class TestSigmaQueueRenderersExecute:
         "similarity": 0.5,
         "atom_jaccard": 1.0,
         "logic_shape_similarity": 1.0,
-        "similarity_engine": "deterministic",
+        "similarity_engine": "precomputed",
         "detection": {"selection": {"Image": "cmd.exe"}},
         "shared_atoms": ["process.image|endswith:/cmd.exe"],
         "added_atoms": [],

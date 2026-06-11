@@ -48,6 +48,17 @@ const METRIC_LABELS = Object.freeze({
 });
 
 /**
+ * Engine-label compatibility (mirror of similarity_serialization.alias_engine_label).
+ * The atom set-math engine's scoring paths were renamed deterministic -> precomputed
+ * and legacy -> on-the-fly. Map any old value to the current one so rows persisted
+ * before the rename (or any non-serialized payload) render with one vocabulary.
+ */
+const ENGINE_LABEL_ALIAS = Object.freeze({ deterministic: 'precomputed', legacy: 'on-the-fly' });
+function aliasEngineLabel(value) {
+    return ENGINE_LABEL_ALIAS[value] || value;
+}
+
+/**
  * Normalizes similarity data structure to a consistent format.
  * Handles both direct properties and nested similarity_breakdown.
  *
@@ -89,7 +100,7 @@ function normalizeSimilarityData(match) {
     const servicePenalty = match.service_penalty !== undefined ? match.service_penalty : 0;
     const filterPenalty = match.filter_penalty !== undefined ? match.filter_penalty : 0;
 
-    const similarityEngine = match.similarity_engine || 'legacy';
+    const similarityEngine = aliasEngineLabel(match.similarity_engine) || 'on-the-fly';
     const atomDetails = match.atom_details || match.semantic_details || null;
     const reasonFlags = Array.isArray(atomDetails?.reason_flags) ? atomDetails.reason_flags : [];
 
@@ -106,7 +117,7 @@ function normalizeSimilarityData(match) {
     // For deterministic engine, derive novelty label from the deterministic
     // threshold row when not special-case
     let resolvedNoveltyLabel = noveltyLabel;
-    if (similarityEngine === 'deterministic' && !reasonFlags.includes('canonical_class_mismatch') &&
+    if (similarityEngine === 'precomputed' && !reasonFlags.includes('canonical_class_mismatch') &&
         !reasonFlags.includes('unsupported_sigma_feature') && !reasonFlags.includes('dnf_expansion_limit')) {
         const det = SIMILARITY_THRESHOLDS.deterministic;
         if (similarity >= det.duplicateSimilarity) resolvedNoveltyLabel = 'DUPLICATE';
@@ -169,11 +180,11 @@ function calculateNoveltyLabel(similarity, atomJaccard, logicShape) {
  * Deterministic engine: Duplicate=red, Similar=yellow, Novel=green. Legacy: current scheme.
  *
  * @param {string} noveltyLabel - Novelty label (DUPLICATE, SIMILAR, NOVEL)
- * @param {string} [similarityEngine] - 'deterministic' | 'legacy'
+ * @param {string} [similarityEngine] - 'precomputed' | 'on-the-fly'
  * @returns {string} CSS class string
  */
 function getNoveltyLabelClasses(noveltyLabel, similarityEngine) {
-    if (similarityEngine === 'deterministic') {
+    if (similarityEngine === 'precomputed') {
         if (noveltyLabel === 'DUPLICATE') {
             return 'px-3 py-1 rounded text-sm font-semibold bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300';
         }
@@ -198,8 +209,8 @@ function getNoveltyLabelClasses(noveltyLabel, similarityEngine) {
  * @returns {string} "Deterministic (No LLM)" | "LLM / Embedding"
  */
 function getScoringModeLabel(semanticComparison) {
-    if (semanticComparison && semanticComparison.similarity_engine === 'deterministic') {
-        return 'Deterministic (No LLM)';
+    if (semanticComparison && aliasEngineLabel(semanticComparison.similarity_engine) === 'precomputed') {
+        return 'Precomputed (No LLM)';
     }
     return 'LLM / Embedding';
 }
@@ -249,18 +260,18 @@ function renderSimilarityDisplay(data, options = {}) {
         : 'N/A';
     const hasLogicShape = logicShape !== null && logicShape !== undefined;
 
-    const engine = normalized.similarity_engine || 'legacy';
+    const engine = normalized.similarity_engine || 'on-the-fly';
     const reasonFlags = normalized.reason_flags || [];
     const canonicalMismatch = reasonFlags.includes('canonical_class_mismatch');
     const unsupportedOrDnf = reasonFlags.includes('unsupported_sigma_feature') || reasonFlags.includes('dnf_expansion_limit');
     const showNumericScore = !canonicalMismatch && !unsupportedOrDnf;
-    const engineBadge = engine === 'deterministic'
+    const engineBadge = engine === 'precomputed'
         ? '<span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200">Deterministic Semantic Engine</span>'
         : '<span class="px-2 py-0.5 rounded text-xs font-medium bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200">Legacy Heuristic Engine</span>';
-    const jaccardVal = engine === 'deterministic' && normalized.atom_details && normalized.atom_details.jaccard != null
+    const jaccardVal = engine === 'precomputed' && normalized.atom_details && normalized.atom_details.jaccard != null
         ? normalized.atom_details.jaccard
         : atomJaccard;
-    const jaccardZeroDeterministic = engine === 'deterministic' && showNumericScore && jaccardVal === 0;
+    const jaccardZeroDeterministic = engine === 'precomputed' && showNumericScore && jaccardVal === 0;
     let scoreDisplay = showNumericScore ? `${similarityPercent}%` : '';
     if (canonicalMismatch) scoreDisplay = 'Not Comparable (Different Telemetry Class)';
     else if (unsupportedOrDnf) scoreDisplay = 'Deterministic engine skipped (unsupported rule type)';
@@ -275,7 +286,7 @@ function renderSimilarityDisplay(data, options = {}) {
             <!-- Overall Similarity & Novelty Classification -->
             <div class="mb-6">
                 <div class="flex items-center justify-between mb-2">
-                    <span class="text-lg font-semibold text-gray-700 dark:text-gray-300">${engine === 'deterministic' ? 'Behavioral Similarity' : 'Weighted Similarity'}</span>
+                    <span class="text-lg font-semibold text-gray-700 dark:text-gray-300">${engine === 'precomputed' ? 'Behavioral Similarity' : 'Weighted Similarity'}</span>
                     <div class="flex items-center space-x-4 flex-wrap gap-y-1">
                         <span id="${prefix}overallSimilarity" class="${scoreClass}" ${jaccardZeroDeterministic ? `title="Similarity: ${similarityPercent}% | Jaccard: 0% | Logic Shape: ${normalized.atom_details && normalized.atom_details.containment_factor != null ? (normalized.atom_details.containment_factor * 100).toFixed(1) : '—'}% | Filter penalty: ${normalized.atom_details && normalized.atom_details.filter_penalty != null ? (normalized.atom_details.filter_penalty * 100).toFixed(1) : '0'}%"` : ''}>${escapeHtml(scoreDisplay)}</span>
                         <span id="${prefix}engineBadge">${engineBadge}</span>
@@ -287,7 +298,7 @@ function renderSimilarityDisplay(data, options = {}) {
                     <div id="${prefix}similarityBar" class="bg-blue-600 h-4 rounded-full transition-all duration-500" style="width: ${similarityPercent}%"></div>
                 </div>
                 ` : ''}
-                ${engine !== 'deterministic' ? `
+                ${engine !== 'precomputed' ? `
                 <div class="text-sm text-gray-600 dark:text-gray-400">
                     <span>Novelty Score: </span>
                     <span id="${prefix}noveltyScore" class="font-semibold">${noveltyScore}%</span>
@@ -296,7 +307,7 @@ function renderSimilarityDisplay(data, options = {}) {
                 ${unsupportedOrDnf && normalized.similarity !== undefined ? `<div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Fallback score (legacy): ${(normalized.similarity * 100).toFixed(1)}%</div>` : ''}
             </div>
 
-            ${engine !== 'deterministic' ? `
+            ${engine !== 'precomputed' ? `
             <!-- Behavioral Similarity Breakdown (Legacy engine only) -->
             <div class="mb-6">
                 <h4 class="text-md font-semibold text-gray-700 dark:text-gray-300 mb-3">🔍 Behavioral Similarity Breakdown</h4>
@@ -323,7 +334,7 @@ function renderSimilarityDisplay(data, options = {}) {
                 </div>
             </div>
             ` : ''}
-            ${engine === 'deterministic' && normalized.atom_details && !canonicalMismatch && !unsupportedOrDnf ? (() => {
+            ${engine === 'precomputed' && normalized.atom_details && !canonicalMismatch && !unsupportedOrDnf ? (() => {
                 const sd = normalized.atom_details;
                 const jVal = sd.jaccard ?? atomJaccard;
                 const jIsZero = jVal === 0;
@@ -394,10 +405,10 @@ function renderSimilarityDisplay(data, options = {}) {
         `;
     } else if (mode === 'compact') {
         // Compact mode: Engine badge, similarity %, breakdown grid, optionally semantic breakdown (deterministic), explainability
-        const compactEngineBadge = engine === 'deterministic'
+        const compactEngineBadge = engine === 'precomputed'
             ? '<span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 mb-2">Deterministic Semantic Engine</span>'
             : '<span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 mb-2">Legacy Heuristic Engine</span>';
-        const showCompactDeterministic = engine === 'deterministic' && normalized.atom_details && !canonicalMismatch && !unsupportedOrDnf;
+        const showCompactDeterministic = engine === 'precomputed' && normalized.atom_details && !canonicalMismatch && !unsupportedOrDnf;
         const compactDeterministicBlock = showCompactDeterministic ? (() => {
             const sd = normalized.atom_details;
             const jVal = sd.jaccard ?? atomJaccard;
@@ -430,12 +441,12 @@ function renderSimilarityDisplay(data, options = {}) {
                 </div>
             </div>`;
         })() : '';
-        const compactDeterministicFallback = engine === 'deterministic' && !showCompactDeterministic ? `
+        const compactDeterministicFallback = engine === 'precomputed' && !showCompactDeterministic ? `
             <div class="p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs">
                 <span class="font-semibold">Similarity: </span>
                 <span class="font-medium ${showNumericScore ? 'text-blue-700 dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'}">${escapeHtml(scoreDisplay)}</span>
             </div>` : '';
-        const compactLegacyBlock = engine !== 'deterministic' ? `
+        const compactLegacyBlock = engine !== 'precomputed' ? `
             <div class="p-2 bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded">
                 <div class="text-xs font-bold text-blue-900 dark:text-blue-100 mb-2">🔍 Behavioral Similarity Breakdown:</div>
                 <div class="grid grid-cols-2 gap-1 text-xs">

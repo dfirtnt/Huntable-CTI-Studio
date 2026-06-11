@@ -82,7 +82,7 @@ _CORE = {
     "atom_jaccard": 1.0,
     "logic_shape_similarity": 1.0,
     "novelty_label": "SIMILAR",
-    "similarity_engine": "deterministic",
+    "similarity_engine": "precomputed",
     "service_penalty": 0.0,
     "filter_penalty": 0.5,
     "weighted_before_penalties": 1.0,
@@ -114,7 +114,7 @@ PAYLOAD_ALIAS_ONLY = {
     "similarity_score": 0.5,
     "similarity_breakdown": {"atom_jaccard": 1.0, "logic_shape_similarity": 1.0},
     "novelty_label": "SIMILAR",
-    "similarity_engine": "deterministic",
+    "similarity_engine": "precomputed",
     "service_penalty": 0.0,
     "filter_penalty": 0.5,
     "weighted_before_penalties": 1.0,
@@ -232,7 +232,7 @@ class TestNoveltyLabelsDeriveFromConstants:
                 "similarity": similarity,
                 "atom_jaccard": 0.3,
                 "logic_shape_similarity": 0.65,
-                "similarity_engine": "deterministic",
+                "similarity_engine": "precomputed",
                 "atom_details": {"reason_flags": []},
             }
         )

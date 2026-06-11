@@ -116,7 +116,7 @@ class TestSigmaSimilarRulesAPI:
                 "matches": [],
                 "total_candidates_evaluated": 0,
                 "behavioral_matches_found": 0,
-                "engine_used": "legacy",
+                "engine_used": "on-the-fly",
                 "canonical_class": "windows.process_creation",
                 "logsource_key": "windows|process_creation",
             }
@@ -167,7 +167,7 @@ class TestSigmaSimilarRulesAPI:
             "similarity": 0.42,
             "atom_jaccard": 0.5,
             "logic_shape_similarity": 0.3,
-            "similarity_engine": "deterministic",
+            "similarity_engine": "precomputed",
             "atom_details": {"overlap_ratio_a": 0.65, "containment_factor": 0.85, "jaccard": 0.5},
             "file_path": "rules/x.yml",
             "level": "high",
@@ -185,7 +185,7 @@ class TestSigmaSimilarRulesAPI:
                 "matches": [engine_match],
                 "total_candidates_evaluated": 1,
                 "behavioral_matches_found": 1,
-                "engine_used": "deterministic",
+                "engine_used": "precomputed",
                 "canonical_class": "windows.process_creation",
                 "logsource_key": "windows|process_creation",
             }
@@ -196,7 +196,7 @@ class TestSigmaSimilarRulesAPI:
         assert len(response["matches"]) == 1
         served = response["matches"][0]
         assert served["containment"] == 0.65
-        assert served["similarity_engine"] == "deterministic"
+        assert served["similarity_engine"] == "precomputed"
         # Phase 5: canonical-only -- the legacy aliases are retired.
         assert served["similarity"] == 0.42
         assert "similarity_score" not in served
@@ -287,7 +287,7 @@ class TestSigmaSimilarRulesAPI:
                 "matches": [],
                 "total_candidates_evaluated": 0,
                 "behavioral_matches_found": 0,
-                "engine_used": "legacy",
+                "engine_used": "on-the-fly",
             }
 
             response = get_similar_rules_for_queued_rule(mock_request, queue_id=1, force=False)
@@ -360,7 +360,7 @@ tags:
                 "matches": [],
                 "total_candidates_evaluated": 0,
                 "behavioral_matches_found": 0,
-                "engine_used": "legacy",
+                "engine_used": "on-the-fly",
                 "canonical_class": "windows.process_creation",
                 "logsource_key": "windows|process_creation",
             }

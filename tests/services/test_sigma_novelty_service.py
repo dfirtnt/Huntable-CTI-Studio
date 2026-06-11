@@ -782,7 +782,7 @@ class TestAssessNoveltyDegradationWarnings:
         ):
             result = service.assess_novelty(sample_rule, threshold=0.7)
 
-        assert result["engine_used"] == "legacy"
+        assert result["engine_used"] == "on-the-fly"
 
     def test_warnings_logged_when_semantic_precompute_raises(self, service, sample_rule, caplog):
         """A logger.warning must be emitted (not just silently suppressed) on precompute failure."""
@@ -1072,7 +1072,7 @@ class TestComparePrecomputedSemantics:
         # the filter difference is counted.
         assert result["similarity"] == pytest.approx(0.5)
         assert result["weighted_before_penalties"] == pytest.approx(1.0)
-        assert result["similarity_engine"] == "deterministic"
+        assert result["similarity_engine"] == "precomputed"
 
     def test_explainability_sets_and_display_formatting(self, service):
         """shared/added/removed come from positive sets only; filter
@@ -1320,7 +1320,7 @@ class TestSingleExtractorTimingConsolidation:
 
         precomputed_match = precomputed_result["top_matches"][0]
         live_match = live_result["top_matches"][0]
-        assert live_match["similarity_engine"] == "deterministic"
+        assert live_match["similarity_engine"] == "precomputed"
         assert live_match["atom_jaccard"] == precomputed_match["atom_jaccard"]
         assert live_match["similarity"] == precomputed_match["similarity"]
         assert live_match["shared_atoms"] == precomputed_match["shared_atoms"]
@@ -1344,6 +1344,6 @@ class TestSingleExtractorTimingConsolidation:
         result = service.assess_novelty(proposed, threshold=0.0)
 
         assert result["canonical_class"] is None
-        assert result["engine_used"] == "deterministic"
+        assert result["engine_used"] == "precomputed"
         assert result["top_matches"][0]["atom_jaccard"] == 1.0
         assert result["top_matches"][0]["atom_details"]["canonical_class"] is None
