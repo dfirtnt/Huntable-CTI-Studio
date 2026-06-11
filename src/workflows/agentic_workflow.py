@@ -182,6 +182,7 @@ def summarize_rule_novelty(match_result: dict, threshold: float = 0.5) -> dict:
         "comparator_inconclusive": inconclusive,
         "canonical_class": canonical_class,
         "logsource_unresolved": canonical_class is None,
+        "logsource_lint_failures": ["unresolved_logsource"] if canonical_class is None else [],
     }
 
 
@@ -2455,6 +2456,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     queued_rules = []
                 else:
                     queued_rules = []
+                    lint_failures_count = 0
                     # Load article from DB instead of state
                     article = db_session.query(ArticleTable).filter(ArticleTable.id == state["article_id"]).first()
 
@@ -2505,6 +2507,9 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             # silent. Fail open: the rule is still enqueued either way.
                             rule_meta["canonical_class"] = rule_similarity.get("canonical_class")
                             rule_meta["logsource_unresolved"] = rule_similarity.get("logsource_unresolved", True)
+                            rule_meta["logsource_lint_failures"] = rule_similarity.get("logsource_lint_failures", [])
+                            if rule_meta["logsource_lint_failures"]:
+                                lint_failures_count += 1
                             if rule_meta["logsource_unresolved"]:
                                 logger.warning(
                                     f"[Workflow {state['execution_id']}] Generated rule idx={idx} "
@@ -2531,6 +2536,11 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
                 db_session.commit()
                 logger.info(f"[Workflow {state['execution_id']}] Queued {len(queued_rules)} rules")
+                if queued_rules:
+                    logger.info(
+                        f"[Workflow {state['execution_id']}] Logsource lint summary: "
+                        f"{lint_failures_count}/{len(queued_rules)} rules have logsource_lint_failures"
+                    )
 
             # Update execution record to completed
             execution = (

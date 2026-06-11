@@ -386,6 +386,7 @@ def add_rule_to_queue(request: Request, add_request: AddRuleToQueueRequest):
             if isinstance(rule_metadata, dict):
                 rule_metadata["canonical_class"] = canonical_class
                 rule_metadata["logsource_unresolved"] = canonical_class is None
+                rule_metadata["logsource_lint_failures"] = ["unresolved_logsource"] if canonical_class is None else []
                 if canonical_class is None:
                     logger.warning(
                         f"Queued rule (article_id={add_request.article_id}) has an unclassifiable "
