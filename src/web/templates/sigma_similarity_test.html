@@ -272,33 +272,12 @@ tags:
                 statusIcon = '⚠️';
             }
             
-            let similarityBreakdownHtml = '';
-            if (match.similarity_breakdown) {
-                const breakdown = match.similarity_breakdown;
-                similarityBreakdownHtml = `
-                    <div class="mt-3 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded">
-                        <div class="text-xs font-bold text-blue-900 dark:text-blue-300 mb-2">🔍 Embedding Similarity Breakdown:</div>
-                        <div class="grid grid-cols-2 gap-1 text-xs">
-                            <div class="flex justify-between">
-                                <span class="text-gray-700 dark:text-gray-300">Title:</span>
-                                <span class="font-medium text-blue-700 dark:text-blue-400">${(breakdown.title * 100).toFixed(1)}%</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-700 dark:text-gray-300">Description:</span>
-                                <span class="font-medium text-blue-700 dark:text-blue-400">${(breakdown.description * 100).toFixed(1)}%</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-700 dark:text-gray-300">Tags:</span>
-                                <span class="font-medium text-blue-700 dark:text-blue-400">${(breakdown.tags * 100).toFixed(1)}%</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-700 dark:text-gray-300">Signature:</span>
-                                <span class="font-medium text-blue-700 dark:text-blue-400">${(breakdown.signature * 100).toFixed(1)}%</span>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
+            // Behavioral similarity breakdown via the shared component -- renders
+            // the real atom_jaccard / logic_shape / containment from the
+            // serialized match. Replaces a dead embedding-era block that read
+            // sub-score fields the behavioral engine never returns and so
+            // rendered literal NaN%.
+            const similarityBreakdownHtml = renderSimilarityDisplay(match, { mode: 'compact', includeExplainability: true });
             
             let llmRerankHtml = '';
             if (match.llm_rerank) {
