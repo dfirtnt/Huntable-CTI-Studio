@@ -188,9 +188,29 @@ class TestNormalizeAcrossSurfacePayloads:
         absent = _normalize({"similarity": 0.4})
         assert absent["containment"] is None
 
+    def test_containment_zero_is_kept_not_treated_as_absent(self):
+        # 0.0 is a valid containment (disjoint atoms); it must NOT fall through
+        # to semantic_details.overlap_ratio_a via a falsy check.
+        n = _normalize({"similarity": 0.4, "containment": 0, "semantic_details": {"overlap_ratio_a": 0.7}})
+        assert n["containment"] == 0
+        from_details_zero = _normalize({"similarity": 0.4, "semantic_details": {"overlap_ratio_a": 0}})
+        assert from_details_zero["containment"] == 0
+
     def test_similarity_score_alias_absorbed(self):
         n = _normalize({"similarity_score": 0.73})
         assert n["similarity"] == 0.73
+
+    def test_canonical_similarity_wins_over_legacy_alias_when_both_present(self):
+        # Canonical 'similarity' is authoritative; the legacy 'similarity_score'
+        # alias is only a fallback when the canonical key is absent.
+        n = _normalize({"similarity": 0.6, "similarity_score": 0.99})
+        assert n["similarity"] == 0.6
+
+    def test_similarity_zero_is_kept_not_overridden_by_alias(self):
+        # similarity == 0 is a valid score (no behavioral overlap); a falsy
+        # check must not let similarity_score override it.
+        n = _normalize({"similarity": 0, "similarity_score": 0.99})
+        assert n["similarity"] == 0
 
     def test_surface_scores_absorbed_from_semantic_details(self):
         n = _normalize({"similarity": 0.4, "semantic_details": {"surface_score_a": 16.0, "surface_score_b": 4.0}})

@@ -7,6 +7,7 @@ import pytest
 # Import router; routes package loads llm_optimized_endpoint which creates async_db_manager.
 # Patch at SQLAlchemy source so async_manager gets a mock engine when it imports create_async_engine.
 with patch("sqlalchemy.ext.asyncio.create_async_engine", return_value=MagicMock()):
+    from src.web.routes.sigma_ab_test import _extract_yaml_block
     from src.web.routes.sigma_ab_test import router as _sigma_ab_test_router
 
 
@@ -571,3 +572,41 @@ detection:
             f"fallback label {data['novelty_label']} does not follow the legacy "
             f"table for jaccard={atom_jaccard}, logic_shape={logic_shape}"
         )
+
+
+@pytest.mark.api
+class TestExtractYamlBlockMarkerScanning:
+    """_extract_yaml_block must anchor markers to line starts (commit d943834a).
+
+    Two failure modes the line-anchored, text-order scan fixes:
+    - sorted-keys YAML (detection before title) -- covered by the API test above.
+    - mid-word substring matches -- a marker name embedded in a longer word on a
+      preceding line (e.g. 'subtitle:' contains 'title:') must NOT be mistaken for
+      the marker. The old priority-order bare find('title:') matched inside
+      'subtitle:' and truncated the rule at the wrong offset; this is that
+      regression with no prior coverage.
+    """
+
+    def test_midword_marker_substring_is_not_matched(self):
+        # 'subtitle:' contains the substring 'title:'; the real key is on the
+        # next line. Line-anchored scan must skip the mid-word match.
+        text = "subtitle: not the real title\ntitle: Real Rule\ndetection:\n  selection:\n    Image: cmd.exe\n  condition: selection"
+        result = _extract_yaml_block(text)
+        assert result.startswith("title: Real Rule"), result
+
+    def test_leading_prose_with_embedded_marker_word(self):
+        # 'invalid:' contains 'id:'; with no clean earlier marker the scan must
+        # still anchor to the real line-start 'title:'.
+        text = "The draft is invalid: see notes\ntitle: Real\ndetection:\n  selection:\n    Image: cmd.exe\n  condition: selection"
+        result = _extract_yaml_block(text)
+        assert result.startswith("title: Real"), result
+
+    def test_first_line_start_marker_wins_in_text_order(self):
+        # logsource appears on an earlier line than title -> text-order scan
+        # returns from logsource (the earliest line-anchored marker), preserving
+        # the whole block, not from the priority-first 'title'.
+        text = "logsource:\n  product: windows\n  category: process_creation\ntitle: Ordered Oddly\ndetection:\n  selection:\n    Image: cmd.exe\n  condition: selection"
+        result = _extract_yaml_block(text)
+        assert result.startswith("logsource:"), result
+        assert "title: Ordered Oddly" in result
+        assert "detection:" in result
