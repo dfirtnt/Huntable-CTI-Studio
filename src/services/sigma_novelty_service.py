@@ -6,7 +6,7 @@ relative to an existing SIGMA rule repository.
 
 Behavioral novelty answers: "Does this rule detect meaningfully new telemetry behavior?"
 
-When the standalone sigma_semantic_similarity package is installed, pairwise
+When the standalone sigma_atom_similarity package is installed, pairwise
 rule comparison uses its deterministic engine (canonical class, DNF, Jaccard,
 containment, filter penalty). Candidates missing stored atoms are extracted
 live with the same package path.
@@ -22,7 +22,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# Optional: deterministic sigma similarity engine (install sigma_semantic_similarity)
+# Optional: deterministic sigma similarity engine (install sigma_atom_similarity)
 try:
     from sigma_similarity.containment_estimator import compute_containment
     from sigma_similarity.filter_analyzer import filter_penalty as _sigma_filter_penalty

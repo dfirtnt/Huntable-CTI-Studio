@@ -2417,7 +2417,7 @@ async def api_get_sigma_matches(article_id: int, force: bool = False):
     Get Sigma rule matches by comparing generated SIGMA rules to SigmaHQ rules
     using behavioral novelty assessment.
 
-    When sigma_semantic_similarity is installed: deterministic engine
+    When sigma_atom_similarity is installed: deterministic engine
     (Jaccard × Containment − Filter penalty). Otherwise legacy:
     - Canonicalization of detection logic
     - Atomic predicate extraction (field+operator+value)

@@ -68,7 +68,7 @@ RUN curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /
 
 # Install Python dependencies via uv (locked, reproducible)
 COPY pyproject.toml uv.lock ./
-COPY sigma_semantic_similarity/ ./sigma_semantic_similarity/
+COPY sigma_atom_similarity/ ./sigma_atom_similarity/
 RUN uv sync --frozen --group test
 
 ENV PATH="/app/.venv/bin:$PATH"

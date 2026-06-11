@@ -257,7 +257,7 @@ def recompute_semantics_cmd():
 
         if not is_sigma_similarity_available():
             console.print(
-                "[bold red]✗[/bold red] sigma_similarity package not installed. Run: pip install -e sigma_semantic_similarity"
+                "[bold red]✗[/bold red] sigma_similarity package not installed. Run: pip install -e sigma_atom_similarity"
             )
             return
 

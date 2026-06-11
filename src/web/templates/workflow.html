@@ -16544,7 +16544,7 @@ function showHelp(fieldName) {
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>After generating a SIGMA rule, the system searches for similar existing rules using behavioral novelty assessment</li>
-                          <li><strong>Deterministic engine</strong> (when sigma_semantic_similarity is installed): Similarity = (Jaccard × Containment) − Filter penalty. Jaccard measures overlap of detection predicates; containment measures subset overlap; filter penalty reduces similarity for filter/logsource differences.</li>
+                          <li><strong>Deterministic engine</strong> (when sigma_atom_similarity is installed): Similarity = (Jaccard × Containment) − Filter penalty. Jaccard measures overlap of detection predicates; containment measures subset overlap; filter penalty reduces similarity for filter/logsource differences.</li>
                           <li><strong>Legacy engine</strong> (fallback): Similarity = 70% atom Jaccard + 30% logic shape similarity. Service mismatches and filter differences apply penalties.</li>
                           <li><strong>Atom Jaccard:</strong> Measures overlap of detection predicates (field/operator/value combinations)</li>
                           <li>If similarity > threshold: rule is NOT queued (duplicate detected)</li>

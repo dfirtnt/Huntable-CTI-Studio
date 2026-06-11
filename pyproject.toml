@@ -84,7 +84,7 @@ dependencies = [
     "mkdocs==1.6.1",
     "mkdocs-material==9.7.6",
     # Local packages
-    "sigma-semantic-similarity",
+    "sigma-atom-similarity",
 ]
 
 [dependency-groups]
@@ -128,10 +128,10 @@ test = [
 ]
 
 [tool.uv.workspace]
-members = ["sigma_semantic_similarity"]
+members = ["sigma_atom_similarity"]
 
 [tool.uv.sources]
-sigma-semantic-similarity = { workspace = true }
+sigma-atom-similarity = { workspace = true }
 
 [tool.ruff]
 target-version = "py311"

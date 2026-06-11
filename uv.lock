@@ -9,7 +9,7 @@ resolution-markers = [
 [manifest]
 members = [
     "cti-scraper",
-    "sigma-semantic-similarity",
+    "sigma-atom-similarity",
 ]
 
 [[package]]
@@ -923,7 +923,7 @@ dependencies = [
     { name = "rich" },
     { name = "scikit-learn" },
     { name = "sentence-transformers" },
-    { name = "sigma-semantic-similarity" },
+    { name = "sigma-atom-similarity" },
     { name = "spacy" },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "starlette" },
@@ -1026,7 +1026,7 @@ requires-dist = [
     { name = "rich", specifier = "==14.3.3" },
     { name = "scikit-learn", specifier = "==1.8.0" },
     { name = "sentence-transformers", specifier = "==5.5.1" },
-    { name = "sigma-semantic-similarity", editable = "sigma_semantic_similarity" },
+    { name = "sigma-atom-similarity", editable = "sigma_atom_similarity" },
     { name = "spacy", specifier = "==3.8.14" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = "==2.0.49" },
     { name = "starlette", specifier = "==1.0.1" },
@@ -4872,9 +4872,9 @@ wheels = [
 ]
 
 [[package]]
-name = "sigma-semantic-similarity"
+name = "sigma-atom-similarity"
 version = "0.1.0"
-source = { editable = "sigma_semantic_similarity" }
+source = { editable = "sigma_atom_similarity" }
 dependencies = [
     { name = "pyyaml" },
 ]
