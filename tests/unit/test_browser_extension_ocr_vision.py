@@ -338,3 +338,38 @@ def test_ocr_uses_legacy_core_for_v5_wasm_compatibility() -> None:
         "popup.js must set legacyCore: true in Tesseract.recognize options to select "
         "the bundled combined WASM file instead of the missing lstm-only split file"
     )
+
+
+# ---------------------------------------------------------------------------
+# Browser extension: OCR/Vision text preserves image position
+# ---------------------------------------------------------------------------
+
+
+def test_article_extraction_inserts_image_position_markers() -> None:
+    """Article extraction must preserve image positions as markers before OCR replacement."""
+    popup_text = POPUP_JS.read_text(encoding="utf-8")
+    content_text = (ROOT / "browser-extension" / "content.js").read_text(encoding="utf-8")
+
+    for source in (popup_text, content_text):
+        assert "function extractTextWithImageMarkers(contentElement)" in source
+        assert "document.createTextNode(`\\n\\n${imageMarker(src)}\\n\\n`)" in source
+        assert "data.content = extractTextWithImageMarkers(contentElement)" in source
+
+
+def test_image_extraction_carries_marker_for_send_time_join() -> None:
+    """Each extracted image must carry the same marker used in article text."""
+    text = POPUP_JS.read_text(encoding="utf-8")
+    assert "marker: imageMarker(src)" in text
+
+
+def test_scrape_replaces_image_markers_instead_of_appending_ocr_only() -> None:
+    """Scrape send path must replace markers, not blindly append OCR text to the end."""
+    text = POPUP_JS.read_text(encoding="utf-8")
+    scrape_body = _extract_function_body(text, "scrapeToCTIScraper")
+    replacement_body = _extract_function_body(text, "getContentWithOCRText")
+
+    assert "contentToSend = getContentWithOCRText(contentToSend)" in scrape_body
+    assert "contentToSend = contentToSend + ocrText" not in scrape_body
+    assert "contentWithOcr.split(marker).join(block)" in replacement_body
+    assert "unmatchedBlocks.push(block)" in replacement_body
+    assert r"replace(/\n*\[IMAGE:[^\]\n]+\]\n*/g" in replacement_body
