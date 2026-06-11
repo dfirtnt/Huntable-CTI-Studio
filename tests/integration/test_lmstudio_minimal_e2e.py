@@ -157,8 +157,7 @@ def minimal_test_article(db_session):
         db_session.commit()
 
 
-@pytest.mark.smoke
-def test_lmstudio_gemma3_1b_smoke_workflow_completes(db_session, minimal_active_config, minimal_test_article):
+def test_lmstudio_gemma3_1b_workflow_completes(db_session, minimal_active_config, minimal_test_article):
     missing = [model for model in (_MODEL_HINT,) if not any(model in loaded for loaded in _LOADED_MODELS)]
     if missing:
         pytest.skip(f"Required LMStudio model not loaded: {missing}. Loaded models: {_LOADED_MODELS}")
