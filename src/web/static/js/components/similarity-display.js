@@ -206,13 +206,13 @@ function getNoveltyLabelClasses(noveltyLabel, similarityEngine) {
  * Returns human-readable scoring mode label for atom comparison (e.g. evaluator).
  *
  * @param {Object} atomComparison - atom comparison object (may have similarity_engine)
- * @returns {string} "Deterministic (No LLM)" | "LLM / Embedding"
+ * @returns {string} "Precomputed (No LLM)" | "Atom Set-Math"
  */
 function getScoringModeLabel(atomComparison) {
     if (atomComparison && aliasEngineLabel(atomComparison.similarity_engine) === 'precomputed') {
         return 'Precomputed (No LLM)';
     }
-    return 'LLM / Embedding';
+    return 'Atom Set-Math';
 }
 
 /**

@@ -95,12 +95,11 @@ async def search_similar_rules(request: SimilaritySearchRequest):
         matches = raw_matches[:top_k]
 
         # Project each match onto the unified canonical contract (Phase 1).
-        # llm_rerank / semantic_overlap are page-specific extras the template reads.
+        # llm_rerank is a page-specific extra the template reads.
         formatted = [
             {
                 **serialize_similarity_match(m),
                 "llm_rerank": None,
-                "semantic_overlap": None,
             }
             for m in matches
         ]
