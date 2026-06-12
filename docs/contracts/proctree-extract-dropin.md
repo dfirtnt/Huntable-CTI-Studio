@@ -21,8 +21,10 @@ reconstruct, or synthesize lineage. Precision over recall — when in doubt, omi
 This extractor only covers explicit parent -> child process creation pairs where both
 parent and child resolve to a named .exe. It does NOT cover command lines, registry keys
 or values, service artifacts, scheduled-task artifacts, or finished detection logic
-(Sigma / KQL / SPL / EQL / XQL). cmd.exe parents are SKIPPED entirely (blanket omission —
-cmd.exe parents are noise at scale).
+(Sigma / KQL / SPL / EQL / XQL) AS ARTIFACTS — but a lineage pair stated inside
+detection logic (field conditions or descriptive prose) IS extracted; only the
+rule/query itself is out of scope. cmd.exe parents are SKIPPED entirely (blanket
+omission — cmd.exe parents are noise at scale).
 
 ## INPUT (flexible)
 I will give you ONE of the following each turn:
@@ -74,6 +76,9 @@ A pair is VALID only if ALL of the following are true.
 - Raw telemetry excerpts (Sysmon EID 1 showing ParentImage/Image, EDR process-tree events).
 - Tables, figures, inline code that STATE the parent/child relationship in prose-like form.
 - IOC tables and appendices (if they state lineage).
+- Detection, hunting, and mitigation sections — both descriptive prose and rule/query
+  bodies — when they explicitly state or encode the pair (see STRUCTURED TELEMETRY
+  EXTRACTION).
 
 ## STRUCTURED TELEMETRY EXTRACTION
 The following structured-telemetry shapes constitute explicit lineage evidence WITHOUT
@@ -82,6 +87,15 @@ requiring a natural-language creation verb. The field schema itself is the verb.
 - Sysmon Event ID 1: `ParentImage` -> `Image`
 - Windows Security Event 4688: `Creator Process Name` -> `New Process Name`
 - EDR process-tree records (`ParentProcessName` / `ProcessName` or equivalent fields)
+- Detection-logic field conditions in process-creation-scoped rules/queries: a
+  source/parent process field paired with a target/child process field (e.g.
+  `Source.Process.Name` + `Target.Process.File.Name`, `ParentImage` + `Image`,
+  Sigma `ParentImage|endswith` + `Image|endswith`). The rule/query artifact itself
+  is out of scope; only the lineage pair is extracted. Scope check: the rule/query
+  must target process creation (`Type: ("Process Creation")`,
+  `category: process_creation`, EID 1/4688) — socket, HTTP, file, and registry
+  event queries do NOT yield process pairs. A query with only a target/child
+  field and no source/parent field states no pair -> SKIP.
 
 A contiguous block of these key-value lines describing one event is treated as a single
 statement for the purposes of POSITIVE EXTRACTION SCOPE rules 2 and 3. Each block emits
@@ -104,13 +118,16 @@ Do NOT extract:
 - Shortcut files (.lnk). Windows .lnk shortcut files are NOT process images and are
   NEVER valid as parents or children in process creation pairs.
 - Process names reconstructed from command-line examples where lineage is not stated.
-- Pairs derived from code listings, shell commands, or script bodies rather than narrative.
+- Pairs derived from code listings, shell commands, or script bodies — a bare command
+  shows only the child-side invocation and does not state a parent/child pair.
 - Pairs derived from diagrams, flowcharts, attack-chain graphics, or image captions
   (including descriptions of those diagrams). Lineage must be in literal text.
-- Sigma rules, KQL, SPL, EQL, XQL, FQL, Carbon Black, or other detection logic.
-- YARA rules.
-- Hypothetical / speculative references ("attackers could spawn...", "it is possible...").
-- Defensive guidance or hardening recommendations.
+- YARA rules (file-content patterns; they encode no process lineage).
+- Hypothetical / speculative references ("attackers could spawn...", "it is possible...")
+  with no tie to the observed intrusion. NOTE: detection/hunting/mitigation prose and
+  rule/query bodies grounded in the article's intrusion are VALID sources (see Valid
+  sources and STRUCTURED TELEMETRY EXTRACTION) — this exclusion is for generic
+  speculation only.
 - Process lineage inferred from malware-family knowledge rather than explicitly stated.
 - Any ambiguity whatsoever.
 
@@ -170,6 +187,19 @@ observability, not interestingness.
     (cmd.exe, cmd.exe)           SKIP (parent is cmd.exe; also self-referential)
     (cmd.exe, powershell.exe)    SKIP (parent is cmd.exe)
   Apply all standard exclusion rules to each hop independently.
+- Hunt-query lineage: "query will search for an event where TeamCity process (java.exe)
+  creates a process of Windows task management utility (schtasks.exe)" + body
+  `Source.Process.Name: ("java.exe") AND Target.Process.File.Name: ("schtasks.exe")`
+  -> EXTRACT (java.exe, schtasks.exe) ONCE — prose and body state the same pair;
+  dedup, evidence references the first occurrence. A query with only a target/child
+  field and no source field states no pair -> SKIP.
+- Distributive child-list prose: "Child processes (cmd.exe, powershell.exe) spawned by
+  wsusservice.exe or w3wp.exe" -> extract each literal combination:
+  (wsusservice.exe, cmd.exe), (wsusservice.exe, powershell.exe), (w3wp.exe, cmd.exe),
+  (w3wp.exe, powershell.exe). LITERAL TEXT EXTRACTOR wins over chain inference.
+- schtasks.exe as parent is NOT excluded: "schtasks.exe spawned notepad.exe" stated
+  literally -> EXTRACT. Do not infer "what really happened" (svchost/taskhostw) from
+  Windows internals — family-knowledge inference is forbidden in BOTH directions.
 
 ## VERIFICATION CHECKLIST
 Apply to EVERY candidate before including it:
@@ -181,7 +211,8 @@ Apply to EVERY candidate before including it:
       telemetry block?
 - [ ] Does the text clearly indicate a NEW process was created (not injection /
       hollowing / DLL load)?
-- [ ] Is the source narrative or telemetry (not code / commands / detection logic)?
+- [ ] Is the source narrative, telemetry, or detection logic that explicitly pairs
+      parent and child (not a bare command listing)?
 - [ ] Is parent NOT cmd.exe after normalization?
 - [ ] Is there zero ambiguity?
 - [ ] If source is an arrow-notation chain, is each adjacent pair evaluated as a
@@ -218,6 +249,6 @@ Precision over recall. EDR observability overrides completeness.
 - If the parent is cmd.exe after normalization, SKIP.
 - If the relationship is implied ("used", "via", "leveraged") rather than stated, SKIP.
 - If injection, hollowing, or DLL loading is described, SKIP — that is not process creation.
-- If the source is a code listing or shell command without narrative or telemetry lineage, SKIP.
+- If the source is a bare command listing that names no parent, SKIP.
 - When in doubt, OMIT.
 ```
