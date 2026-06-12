@@ -955,9 +955,31 @@
         lmstudioEnabled: 'WORKFLOW_LMSTUDIO_ENABLED'
     };
 
-    // Load settings from localStorage and database
+    function scrubLegacyLocalSecretSettings(settings) {
+        const secretKeys = [
+            'aiOpenaiApiKey',
+            'workflowOpenaiApiKey',
+            'anthropicApiKey',
+            'workflowAnthropicApiKey',
+            'langfuseSecretKey',
+            'githubToken'
+        ];
+        let changed = false;
+        secretKeys.forEach(key => {
+            if (Object.prototype.hasOwnProperty.call(settings, key)) {
+                delete settings[key];
+                changed = true;
+            }
+        });
+        if (changed) {
+            localStorage.setItem('ctiScraperSettings', JSON.stringify(settings));
+        }
+        return settings;
+    }
+
+    // Load non-secret UI settings from localStorage and credentials from database
     async function loadSettings() {
-        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        const settings = scrubLegacyLocalSecretSettings(JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}'));
         
         
         
@@ -1014,14 +1036,14 @@
         const workflowOpenaiApiKey = parseWorkflowStringSetting(
             workflowAppSettings,
             WORKFLOW_PROVIDER_SETTING_KEYS.openaiApiKey,
-            settings.workflowOpenaiApiKey || ''
+            ''
         );
         document.getElementById('workflowOpenaiApiKey').value = workflowOpenaiApiKey;
 
         const workflowAnthropicApiKey = parseWorkflowStringSetting(
             workflowAppSettings,
             WORKFLOW_PROVIDER_SETTING_KEYS.anthropicApiKey,
-            settings.workflowAnthropicApiKey || ''
+            ''
         );
         document.getElementById('workflowAnthropicApiKey').value = workflowAnthropicApiKey;
 
@@ -1176,9 +1198,9 @@
     }
 
 
-    // Load Langfuse settings from database (with localStorage fallback)
+    // Load Langfuse settings from database
     async function loadLangfuseSettings() {
-        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        const settings = scrubLegacyLocalSecretSettings(JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}'));
         
         // Langfuse Public Key - check database first
         try {
@@ -1202,12 +1224,11 @@
             if (data.success && data.exists && data.value) {
                 document.getElementById('langfuseSecretKey').value = data.value;
             } else {
-                // Fallback to localStorage
-                document.getElementById('langfuseSecretKey').value = settings.langfuseSecretKey || '';
+                document.getElementById('langfuseSecretKey').value = '';
             }
         } catch (error) {
             console.log('Could not fetch LANGFUSE_SECRET_KEY from database:', error);
-            document.getElementById('langfuseSecretKey').value = settings.langfuseSecretKey || '';
+            document.getElementById('langfuseSecretKey').value = '';
         }
         
         // Langfuse Host - check database first
@@ -1545,7 +1566,7 @@
     }
 
     async function loadBackupSettings() {
-        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        const settings = scrubLegacyLocalSecretSettings(JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}'));
         const backupSettings = settings.backupSettings || {};
 
         applyBackupSettingsToForm(backupSettings);
@@ -1579,7 +1600,7 @@
 
             applyBackupSettingsToForm(mergedSettings);
             settings.backupSettings = mergedSettings;
-            localStorage.setItem('ctiScraperSettings', JSON.stringify(settings));
+            localStorage.setItem('ctiScraperSettings', JSON.stringify(scrubLegacyLocalSecretSettings(settings)));
             renderBackupCronJobs(state);
         } catch (error) {
             console.warn('Could not load backup cron state from server', error);
@@ -1713,32 +1734,29 @@
         }
     }
     
-    // Save settings to localStorage
+    // Save non-secret UI settings to localStorage; credentials are persisted via /api/settings only.
     async function saveSettings() {
         const backupSettings = collectBackupSettingsFromForm();
         const settings = {
             langfusePublicKey: document.getElementById('langfusePublicKey').value.trim() || '',
-            langfuseSecretKey: document.getElementById('langfuseSecretKey').value.trim() || '',
             langfuseHost: document.getElementById('langfuseHost').value.trim() || '',
             langfuseProjectId: document.getElementById('langfuseProjectId').value.trim() || '',
             workflowOpenaiEnabled: document.getElementById('workflowOpenaiEnabled').checked,
             workflowAnthropicEnabled: document.getElementById('workflowAnthropicEnabled').checked,
             workflowLmstudioEnabled: document.getElementById('workflowLmstudioEnabled').checked,
-            workflowOpenaiApiKey: document.getElementById('workflowOpenaiApiKey').value.trim() || '',
-            workflowAnthropicApiKey: document.getElementById('workflowAnthropicApiKey').value.trim() || '',
             lmstudioApiUrl: document.getElementById('lmstudioApiUrl')?.value.trim() || '',
             backupSettings: backupSettings
         };
 
-        localStorage.setItem('ctiScraperSettings', JSON.stringify(settings));
+        localStorage.setItem('ctiScraperSettings', JSON.stringify(scrubLegacyLocalSecretSettings(settings)));
 
         const lmstudioEnabledForSave = window.__proceedWithoutLmstudio ? false : settings.workflowLmstudioEnabled;
         const workflowSettingsPayload = {
             [WORKFLOW_PROVIDER_SETTING_KEYS.openaiEnabled]: settings.workflowOpenaiEnabled ? 'true' : 'false',
             [WORKFLOW_PROVIDER_SETTING_KEYS.anthropicEnabled]: settings.workflowAnthropicEnabled ? 'true' : 'false',
             [WORKFLOW_PROVIDER_SETTING_KEYS.lmstudioEnabled]: lmstudioEnabledForSave ? 'true' : 'false',
-            [WORKFLOW_PROVIDER_SETTING_KEYS.openaiApiKey]: settings.workflowOpenaiApiKey,
-            [WORKFLOW_PROVIDER_SETTING_KEYS.anthropicApiKey]: settings.workflowAnthropicApiKey,
+            [WORKFLOW_PROVIDER_SETTING_KEYS.openaiApiKey]: document.getElementById('workflowOpenaiApiKey').value.trim() || '',
+            [WORKFLOW_PROVIDER_SETTING_KEYS.anthropicApiKey]: document.getElementById('workflowAnthropicApiKey').value.trim() || '',
             'LMSTUDIO_API_URL': settings.lmstudioApiUrl || ''
         };
 
@@ -1938,9 +1956,9 @@
         }
     }
     
-    // Load GitHub PR settings from database (with localStorage fallback)
+    // Load GitHub PR settings from database
     async function loadGitHubPRSettings() {
-        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        const settings = scrubLegacyLocalSecretSettings(JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}'));
         
         // GitHub Token - check database first
         try {
@@ -1949,12 +1967,11 @@
             if (data.success && data.exists && data.value) {
                 document.getElementById('githubToken').value = data.value;
             } else {
-                // Fallback to localStorage or env default
-                document.getElementById('githubToken').value = settings.githubToken || '';
+                document.getElementById('githubToken').value = '';
             }
         } catch (error) {
             console.log('Could not fetch GITHUB_TOKEN from database:', error);
-            document.getElementById('githubToken').value = settings.githubToken || '';
+            document.getElementById('githubToken').value = '';
         }
         
         // SIGMA Repo Path - check database first

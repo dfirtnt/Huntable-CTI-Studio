@@ -137,7 +137,7 @@ OS_INDICATORS = {
 
 
 class OSDetectionService:
-    """OS detection service using CTI-BERT + classifier with Mistral-7B fallback."""
+    """OS detection service using keyword, classifier, then embedding similarity."""
 
     def __init__(
         self,

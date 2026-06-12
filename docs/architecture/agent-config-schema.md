@@ -24,6 +24,17 @@ Workflow agent configuration uses a **normalized hierarchical schema (v2)** with
 - **Write**: PUT and preset apply still accept the legacy flat shape. Config is persisted as flat in the DB. Optional: future endpoints can accept v2 JSON and normalize before persist.
 - **Legacy consumers**: `WorkflowConfigV2.flatten_for_llm_service()` produces the flat key format expected by LLMService, SigmaGenerationService, and the workflow. No change to those call sites until they are refactored to use nested config.
 
+### Compatibility retirement criteria
+
+Keep the legacy prompt/config compatibility paths until all of these are true:
+
+- No active or historical `agentic_workflow_config` rows contain v1 flat root keys, QA agent keys, `role`-only extractor prompts, `objective`, `user_template`, or double-encoded prompt JSON.
+- Every committed preset and exported customer preset imports through the v2 UI-ordered path without invoking `migrate_v1_to_v2()` legacy-key consumption.
+- LLMService, SigmaGenerationService, and workflow execution read nested `WorkflowConfigV2` data directly instead of `flatten_for_llm_service()`.
+- Regression tests covering `parsePromptParts()`, `_backfill_ui_ordered_sub_agents()`, and v1-to-v2 migration are updated to assert rejection or cleanup of the retired shapes.
+
+Until those checks pass, these paths are compatibility boundaries, not removable dead code.
+
 ## Modules
 
 | Module | Role |
@@ -46,4 +57,4 @@ Workflow agent configuration uses a **normalized hierarchical schema (v2)** with
 
 ExtractAgent is the parent config; sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract) inherit provider/model from ExtractAgent when not configured. The schema types `Agents.ExtractAgent` explicitly; fallback behavior is implemented in the workflow and LLMService.
 
-_Last updated: 2026-05-23_
+_Last updated: 2026-06-12_

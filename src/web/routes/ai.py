@@ -1755,7 +1755,7 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
 
 @router.post("/{article_id}/detect-os")
 async def api_detect_os(article_id: int, request: Request):
-    """Detect operating system from article content using CTI-BERT + classifier (with Mistral-7B fallback)."""
+    """Detect operating system from article content using keyword, classifier, then embedding similarity."""
     try:
         # Get the article
         article = await async_db_manager.get_article(article_id)
@@ -2300,12 +2300,11 @@ async def api_get_sigma_matches(article_id: int, force: bool = False):
     Get Sigma rule matches by comparing generated SIGMA rules to SigmaHQ rules
     using behavioral novelty assessment.
 
-    When sigma_atom_similarity is installed: deterministic engine
-    (Jaccard × Containment − Filter penalty). Otherwise legacy:
+    Sigma-to-Sigma matching uses atom set-math:
+    stored atoms when available, live extraction otherwise.
     - Canonicalization of detection logic
     - Atomic predicate extraction (field+operator+value)
-    - Structural similarity metrics (AST comparison)
-    - Weighted similarity: 0.70 × atom_jaccard + 0.30 × logic_shape
+    - Similarity: Jaccard × Containment − Filter penalty
 
     No LLM reranking - purely algorithmic.
     """

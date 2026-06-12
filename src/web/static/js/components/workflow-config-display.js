@@ -160,13 +160,16 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
         const modelsList = [];
         // Helper to add agent to list
         const addAgent = (agentId, displayName, indentLevel = 0, enabled = true, fallbackModel = null, fallbackProvider = null) => {
-            const model = agentModels[agentId] || agentModels[`${agentId}_model`] || fallbackModel;
+            const explicitModel = agentModels[agentId] || agentModels[`${agentId}_model`];
+            const explicitProvider = agentModels[`${agentId}_provider`];
+            const model = explicitModel || fallbackModel;
             if (!model) return;
 
-            const provider = agentModels[`${agentId}_provider`] || fallbackProvider || '';
+            const provider = explicitProvider || fallbackProvider || '';
+            const inheritedSuffix = !explicitModel && fallbackModel ? ' (inherited)' : '';
 
             modelsList.push({
-                text: `${displayName}: ${model} (${provider})`,
+                text: `${displayName}: ${model} (${provider})${inheritedSuffix}`,
                 indentLevel: indentLevel,
                 badge: makeStatusBadge(enabled)
             });
@@ -202,7 +205,7 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
         const fromConfig = currentConfig?.agent_prompts?.ExtractAgentSettings?.disabled_agents;
         const disabled = Array.isArray(fromConfig) ? new Set(fromConfig) : new Set();
 
-        // Sub-agents fall back to ExtractAgent model/provider when not explicitly configured
+        // Sub-agents inherit the ExtractAgent model/provider when not explicitly configured
         const extractModel = agentModels.ExtractAgent || null;
         const extractProvider = agentModels.ExtractAgent_provider || null;
 
@@ -214,11 +217,6 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
         // 5. SIGMA Agent
         if (agentModels.SigmaAgent) {
             addAgent('SigmaAgent', 'SIGMA', 0, true);
-        }
-        
-        // 6. OS Fallback
-        if (agentModels.OSDetectionAgent_fallback) {
-            addAgent('OSDetectionAgent_fallback', 'OS Fallback', 0, true);
         }
         
         selectedModels = addCmdlineAttentionPreprocessorStatus(modelsList);

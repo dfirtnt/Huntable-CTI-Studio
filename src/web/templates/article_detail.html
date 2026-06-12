@@ -6676,16 +6676,14 @@ Please provide a detailed analysis based on the article content and the user's s
             return;
         }
         
-        // Fetch workflow config to get actual model names
+        // Fetch workflow config to get actual embedding model name
         let embeddingModel = 'ibm-research/CTI-BERT';
-        let fallbackModel = 'mistralai/mistral-7b-instruct-v0.3';
         try {
             const configResponse = await fetch('/api/workflow/config');
             if (configResponse.ok) {
                 const config = await configResponse.json();
                 if (config.agent_models) {
                     embeddingModel = config.agent_models['OSDetectionAgent_embedding'] || embeddingModel;
-                    fallbackModel = config.agent_models['OSDetectionAgent_fallback'] || fallbackModel;
                 }
             }
         } catch (e) {
@@ -6696,7 +6694,6 @@ Please provide a detailed analysis based on the article content and the user's s
         const embeddingModelDisplay = embeddingModel.includes('CTI-BERT') ? 'CTI-BERT' : 
                                      embeddingModel.includes('SEC-BERT') ? 'SEC-BERT' : 
                                      embeddingModel.split('/').pop();
-        const fallbackModelDisplay = fallbackModel.split('/').pop() || 'Mistral-7B-Instruct-v0.3';
         
         // Show loading indicator
         const loadingModal = document.createElement('div');
@@ -6757,7 +6754,6 @@ Please provide a detailed analysis based on the article content and the user's s
                         <span class="ml-3 text-gray-300">Analyzing article content...</span>
                     </div>
                     <p class="text-xs text-gray-400 mt-4">Trying keyword matching, then ${embeddingModelDisplay} embeddings + classifier</p>
-                    <p class="text-xs text-gray-500 mt-1">Fallback: ${fallbackModelDisplay}</p>
                     <div class="mt-6 flex flex-col items-center space-y-3">
                         <button id="cancelBtnOs" class="px-6 py-2.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 focus:ring-offset-gray-900 shadow-sm transition-colors">
                             Cancel Operation
@@ -6875,7 +6871,6 @@ Please provide a detailed analysis based on the article content and the user's s
                                     '<div>Method: <span class="font-mono">Keyword Matching</span></div>' :
                                     `<div>Embedding: <span class="font-mono">${embeddingModelDisplay}</span></div>`
                                 }
-                                ${method.includes('fallback') || method.includes('LLM') ? `<div>LLM Fallback: <span class="font-mono">${fallbackModelDisplay}</span></div>` : ''}
                             </div>
                         </div>
                         
@@ -8346,6 +8341,9 @@ ${JSON.stringify(rule.logsource, null, 2)}
         `;
         document.body.appendChild(loadingModal);
         
+        let chunkDebugDismissed = false;
+        let chunkDebugOpeningResults = false;
+
         // Register with ModalManager for proper Escape key handling
         if (window.ModalManager) {
             window.ModalManager.register('chunkDebugLoadingModal', {
@@ -8353,6 +8351,9 @@ ${JSON.stringify(rule.logsource, null, 2)}
                 isDynamic: true,
                 hasInput: false,
                 onClose: () => {
+                    if (!chunkDebugOpeningResults) {
+                        chunkDebugDismissed = true;
+                    }
                     // ESC just closes the modal, operation continues in background
                     const modal = document.getElementById('chunkDebugLoadingModal');
                     if (modal && modal.parentNode) {
@@ -8433,11 +8434,13 @@ ${JSON.stringify(rule.logsource, null, 2)}
             
             // Remove loading modal
             if (loadingModal && loadingModal.parentNode) {
+                chunkDebugOpeningResults = true;
                 if (window.ModalManager) {
                     window.ModalManager.close('chunkDebugLoadingModal');
                 } else {
                     loadingModal.remove();
                 }
+                chunkDebugOpeningResults = false;
             }
             
             // Show truncation warnings if any
@@ -8447,8 +8450,10 @@ ${JSON.stringify(rule.logsource, null, 2)}
                 });
             }
             
-            // Show chunk debug modal
-            showChunkDebugResults(debugData);
+            // Show chunk debug modal unless the user dismissed the loading modal.
+            if (!chunkDebugDismissed) {
+                showChunkDebugResults(debugData);
+            }
             
         } catch (error) {
             console.error('Chunk debug error:', error);
@@ -8831,6 +8836,16 @@ ${JSON.stringify(rule.logsource, null, 2)}
                 // Double-check modal is visible
                 modal.classList.remove('hidden');
             }
+
+            const chunkDebugEscHandler = function(e) {
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    closeChunkDebugModal();
+                }
+            };
+            modal._escKeyHandler = chunkDebugEscHandler;
+            document.addEventListener('keydown', chunkDebugEscHandler, true);
             
             // Store debug data globally for filtering
             window.chunkDebugData = data;
@@ -9159,15 +9174,14 @@ ${JSON.stringify(rule.logsource, null, 2)}
     function closeChunkDebugModal() {
         const modal = document.getElementById('chunkDebugModal');
         if (modal) {
+            if (modal._escKeyHandler) {
+                document.removeEventListener('keydown', modal._escKeyHandler, true);
+                delete modal._escKeyHandler;
+            }
             // Use ModalManager if available
             if (window.ModalManager) {
                 window.ModalManager.close('chunkDebugModal');
             } else {
-                // Fallback: remove Esc key handler if it exists
-                if (modal._escKeyHandler) {
-                    document.removeEventListener('keydown', modal._escKeyHandler);
-                    delete modal._escKeyHandler;
-                }
                 modal.remove();
             }
         }

@@ -10,18 +10,18 @@
  * frontend (docs/development/sigma-similarity-unification-plan-2026-06-05.md,
  * section 5). No template or component may hardcode these numbers.
  *
- * Backend linkage: the `legacy` row mirrors
+ * Backend linkage: the on-the-fly threshold bucket mirrors
  * src/services/sigma_novelty_service.py::classify_match_novelty -- if either
  * side changes, change both (values are defined once per language by design).
  */
 const SIMILARITY_THRESHOLDS = Object.freeze({
-    // Legacy engine row: label from atom_jaccard + logic_shape.
+    // On-the-fly atom path row: label from atom_jaccard + logic_shape.
     legacy: Object.freeze({
         duplicateAtomJaccard: 0.95,
         duplicateLogicShape: 0.95,
         similarAtomJaccard: 0.80,
     }),
-    // Deterministic engine row: label from weighted similarity.
+    // Precomputed atom path row: label from weighted similarity.
     deterministic: Object.freeze({
         duplicateSimilarity: 0.75,
         similarSimilarity: 0.50,
@@ -105,17 +105,17 @@ function normalizeSimilarityData(match) {
     const reasonFlags = Array.isArray(atomDetails?.reason_flags) ? atomDetails.reason_flags : [];
 
     // Canonical containment: top-level field (serializer output) first, then
-    // the deterministic engine's overlap_ratio_a, else null.
+    // the atom-detail overlap ratio, else null.
     const containment = match.containment !== undefined && match.containment !== null
         ? match.containment
         : (atomDetails?.overlap_ratio_a ?? null);
 
-    // Surface scores (deterministic engine branch-count estimates).
+    // Surface scores (atom branch-count estimates).
     const surfaceScoreA = atomDetails?.surface_score_a ?? null;
     const surfaceScoreB = atomDetails?.surface_score_b ?? null;
 
-    // For deterministic engine, derive novelty label from the deterministic
-    // threshold row when not special-case
+    // For the precomputed atom path, derive novelty label from its threshold
+    // row when not special-case.
     let resolvedNoveltyLabel = noveltyLabel;
     if (similarityEngine === 'precomputed' && !reasonFlags.includes('canonical_class_mismatch') &&
         !reasonFlags.includes('unsupported_sigma_feature') && !reasonFlags.includes('dnf_expansion_limit')) {
@@ -177,7 +177,8 @@ function calculateNoveltyLabel(similarity, atomJaccard, logicShape) {
 
 /**
  * Gets CSS classes for novelty label badge.
- * Deterministic engine: Duplicate=red, Similar=yellow, Novel=green. Legacy: current scheme.
+ * Precomputed atom path: Duplicate=red, Similar=yellow, Novel=green.
+ * On-the-fly atom path: current scheme.
  *
  * @param {string} noveltyLabel - Novelty label (DUPLICATE, SIMILAR, NOVEL)
  * @param {string} [similarityEngine] - 'precomputed' | 'on-the-fly'
@@ -274,7 +275,7 @@ function renderSimilarityDisplay(data, options = {}) {
     const jaccardZeroDeterministic = engine === 'precomputed' && showNumericScore && jaccardVal === 0;
     let scoreDisplay = showNumericScore ? `${similarityPercent}%` : '';
     if (canonicalMismatch) scoreDisplay = 'Not Comparable (Different Telemetry Class)';
-    else if (unsupportedOrDnf) scoreDisplay = 'Deterministic engine skipped (unsupported rule type)';
+    else if (unsupportedOrDnf) scoreDisplay = 'Precomputed atom path skipped (unsupported rule type)';
     else if (jaccardZeroDeterministic) scoreDisplay = 'No Shared Behavioral Atoms';
     const scoreClass = showNumericScore ? 'text-3xl font-bold text-blue-600 dark:text-blue-400' : 'text-lg font-semibold text-gray-500 dark:text-gray-400';
     
@@ -304,11 +305,11 @@ function renderSimilarityDisplay(data, options = {}) {
                     <span id="${prefix}noveltyScore" class="font-semibold">${noveltyScore}%</span>
                 </div>
                 ` : ''}
-                ${unsupportedOrDnf && normalized.similarity !== undefined ? `<div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Fallback score (legacy): ${(normalized.similarity * 100).toFixed(1)}%</div>` : ''}
+                ${unsupportedOrDnf && normalized.similarity !== undefined ? `<div class="text-xs text-gray-500 dark:text-gray-400 mt-1">On-the-fly atom score: ${(normalized.similarity * 100).toFixed(1)}%</div>` : ''}
             </div>
 
             ${engine !== 'precomputed' ? `
-            <!-- Behavioral Similarity Breakdown (Legacy engine only) -->
+            <!-- Behavioral Similarity Breakdown (on-the-fly atom path) -->
             <div class="mb-6">
                 <h4 class="text-md font-semibold text-gray-700 dark:text-gray-300 mb-3">🔍 Behavioral Similarity Breakdown</h4>
                 <div class="bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
@@ -348,7 +349,7 @@ function renderSimilarityDisplay(data, options = {}) {
                 const cc = escapeHtml(sd.canonical_class || '—');
                 const rf = Array.isArray(sd.reason_flags) ? sd.reason_flags.join(', ') : '—';
                 return `
-            <!-- Atom Breakdown (Deterministic Engine) - primary breakdown when deterministic -->
+            <!-- Atom Breakdown (precomputed atom path) -->
             <div class="mb-6">
                 <details class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg" open>
                     <summary class="px-4 py-3 cursor-pointer text-md font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
@@ -404,7 +405,7 @@ function renderSimilarityDisplay(data, options = {}) {
             </div>
         `;
     } else if (mode === 'compact') {
-        // Compact mode: Engine badge, similarity %, breakdown grid, optionally atom breakdown (deterministic), explainability
+        // Compact mode: Engine badge, similarity %, breakdown grid, optionally atom breakdown, explainability
         const compactEngineBadge = engine === 'precomputed'
             ? '<span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 mb-2">Precomputed Atom Set-Math</span>'
             : '<span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 mb-2">On-the-Fly Atom Set-Math</span>';

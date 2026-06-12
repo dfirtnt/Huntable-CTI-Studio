@@ -2001,7 +2001,7 @@ tr.q-row-selected td {
                 <div class="section-body">
                   <div class="mt-3 space-y-4">
 
-                    <!-- Default model/provider for sub-agents (fallback when per-agent model is unset) -->
+                    <!-- Default model/provider for sub-agents when per-agent model is unset -->
                     <div id="extract-agent-model-container"></div>
 
                     <!-- Sub-Agents accordion -->
@@ -4527,6 +4527,78 @@ function getAgentUIDisplayLabel(agentPrefix) {
     return agentPrefix.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
+function getProviderLabel(provider) {
+    const normalized = (provider || '').toString().trim().toLowerCase();
+    return allProviderOptions.find(option => option.value === normalized)?.label || normalized || 'default provider';
+}
+
+function getConfiguredValue(agentModelsData, key) {
+    const value = agentModelsData?.[key];
+    return value === undefined || value === null ? '' : String(value).trim();
+}
+
+function getInheritedSubAgentModelInfo(config, agentModelsData = currentConfig?.agent_models || agentModels || {}) {
+    if (!config?.isSubAgent || !config.fallbackAgent) return null;
+
+    const fallbackConfig = getAgentConfig(config.fallbackAgent);
+    if (!fallbackConfig) return null;
+
+    const explicitProvider = getConfiguredValue(agentModelsData, config.providerKey);
+    const explicitModel = getConfiguredValue(agentModelsData, config.modelKey);
+    const inheritedProvider = getConfiguredValue(agentModelsData, fallbackConfig.providerKey) || getDefaultProvider();
+    const inheritedModel = getConfiguredValue(agentModelsData, fallbackConfig.modelKey);
+
+    if (explicitProvider && explicitModel) return null;
+
+    return {
+        missingProvider: !explicitProvider,
+        missingModel: !explicitModel,
+        inheritedProvider,
+        inheritedModel
+    };
+}
+
+function updateSubAgentInheritanceHints() {
+    const agentModelsData = currentConfig?.agent_models || agentModels || {};
+    getAgentConfigs({ isSubAgent: true, hasFallback: true }).forEach(config => {
+        const providerSelect = document.getElementById(`${config.prefix}-provider`);
+        if (!providerSelect) return;
+
+        const wrapper = providerSelect.closest('.space-y-2') || providerSelect.parentElement;
+        if (!wrapper) return;
+
+        let hint = document.getElementById(`${config.prefix}-inheritance-hint`);
+        if (!hint) {
+            hint = document.createElement('p');
+            hint.id = `${config.prefix}-inheritance-hint`;
+            hint.className = 'text-[10px] text-gray-500 dark:text-gray-400';
+            const grid = wrapper.querySelector('.grid.grid-cols-2') || providerSelect.closest('.grid');
+            if (grid && grid.parentElement === wrapper) {
+                grid.insertAdjacentElement('afterend', hint);
+            } else {
+                wrapper.appendChild(hint);
+            }
+        }
+
+        const inherited = getInheritedSubAgentModelInfo(config, agentModelsData);
+        if (!inherited) {
+            hint.textContent = '';
+            hint.classList.add('hidden');
+            return;
+        }
+
+        const inheritedParts = [];
+        if (inherited.missingProvider) {
+            inheritedParts.push(`provider ${getProviderLabel(inherited.inheritedProvider)}`);
+        }
+        if (inherited.missingModel) {
+            inheritedParts.push(`model ${inherited.inheritedModel || 'the Extract Agents default'}`);
+        }
+        hint.textContent = `Blank fields inherit ${inheritedParts.join(' and ')} from Extract Agents.`;
+        hint.classList.remove('hidden');
+    });
+}
+
 function getWorkflowConfigLabelText(el) {
     if (!el) return null;
     if (el.id) {
@@ -4919,7 +4991,7 @@ function buildAgentProviderModelUI(agentPrefix, currentProvider = 'lmstudio', cu
     const {
         showTemperature = false,
         temperatureDefault = 0.0,
-        lmstudioPlaceholder = config.isSubAgent ? 'Use Extract Agents Fallback Model' : 'Select a model',
+        lmstudioPlaceholder = config.isSubAgent ? 'Inherit Extract Agents Model' : 'Select a model',
         sizeClass = config.isSubAgent ? 'text-xs' : 'text-sm',
         paddingClass = config.isSubAgent ? 'px-2 py-1.5' : 'px-3 py-2'
     } = options;
@@ -5166,7 +5238,7 @@ function renderAgentModels() {
                         </p>
                     </div>
                     
-                    <!-- UNRELEASED / FUTURE FEATURE: LLM fallback for OS detection. Hidden until multi-OS support is implemented. -->
+                    <!-- Target OS selection is hidden until multi-OS support is implemented. -->
                     <div class="mb-3 hidden">
                     
                     <!-- OS Selection -->
@@ -5529,6 +5601,8 @@ function applyProviderSelections(models) {
             }
         }
     });
+
+    updateSubAgentInheritanceHints();
     
     // Update config display to reflect current UI state
     if (typeof updateConfigDisplay === 'function') {
@@ -5654,6 +5728,7 @@ function onAgentProviderChange(agentPrefix) {
     if (typeof normalizeWorkflowConfigControlBindings === 'function') {
         normalizeWorkflowConfigControlBindings();
     }
+    updateSubAgentInheritanceHints();
     autoSaveModelChange();
 }
 // Keep a reference the stub can call even if overwritten order varies
@@ -6766,24 +6841,6 @@ async function loadConfig(skipPromptReload = false) {
             // Always use fetched config from database (source of truth)
             currentConfig = fetchedConfig;
 
-            // Backfill extract sub-agents that have no model/provider from ExtractAgent defaults
-            if (currentConfig.agent_models) {
-                const am = currentConfig.agent_models;
-                const fallbackProvider = am.ExtractAgent_provider || 'lmstudio';
-                const fallbackModel = am.ExtractAgent || '';
-                extractSubAgents.forEach(agentName => {
-                    const modelKey = `${agentName}_model`;
-                    const providerKey = `${agentName}_provider`;
-                    if ((!am[modelKey] || am[modelKey] === '') && fallbackModel) {
-                        am[modelKey] = fallbackModel;
-                    }
-                    if ((!am[providerKey] || am[providerKey] === '') && fallbackProvider) {
-                        am[providerKey] = fallbackProvider;
-                    }
-                });
-
-            }
-
             // When skipPromptReload: agentPrompts was just updated by loadAgentPrompts() (post-save/rollback).
             // Sync currentConfig.agent_prompts so auto-save and other logic use fresh prompt data.
             if (skipPromptReload && agentPrompts && Object.keys(agentPrompts).length > 0) {
@@ -7068,7 +7125,7 @@ function repopulateSubAgentModelDropdown(agentPrefix, agentName) {
         const isUnavailable = !cachedAvailableModelIds.includes(modelId) ? ' (not in LM Studio)' : '';
         return `<option value="${escapeHtml(modelId)}" ${isSelected}>${escapeHtml(modelId)}${isUnavailable}</option>`;
     }).join('');
-    select.innerHTML = '<option value="">Use Extract Agents Fallback Model</option>' + modelOptions;
+    select.innerHTML = '<option value="">Inherit Extract Agents Model</option>' + modelOptions;
 }
 
 function renderAgentModels(lmstudioModels) {
@@ -7451,7 +7508,7 @@ function renderAgentModels(lmstudioModels) {
                 const isUnavailable = !availableModelIds.includes(modelId) ? ' (not in LM Studio)' : '';
                 return `<option value="${escapeHtml(modelId)}" ${isSelected}>${escapeHtml(modelId)}${isUnavailable}</option>`;
             }).join('');
-            select.innerHTML = '<option value="">Use Extract Agents Fallback Model</option>' + modelOptions;
+            select.innerHTML = '<option value="">Inherit Extract Agents Model</option>' + modelOptions;
             if (!select.getAttribute('onchange')) {
                 select.setAttribute('onchange', 'autoSaveConfig()');
             }
@@ -7480,10 +7537,10 @@ function renderAgentModels(lmstudioModels) {
                 const isUnavailable = !availableModelIds.includes(modelId) ? ' (not in LM Studio)' : '';
                 return `<option value="${escapeHtml(modelId)}" ${isSelected}>${escapeHtml(modelId)}${isUnavailable}</option>`;
             }).join('');
-            select.innerHTML = '<option value="">Use Extract Agents Fallback Model</option>' + modelOptions;
+            select.innerHTML = '<option value="">Inherit Extract Agents Model</option>' + modelOptions;
         } else {
             // Provider is not LMStudio - clear dropdown (commercial provider inputs will be visible)
-            select.innerHTML = '<option value="">Use Extract Agents Fallback Model</option>';
+            select.innerHTML = '<option value="">Inherit Extract Agents Model</option>';
         }
         // Add onChange handler if not already present
         if (!select.getAttribute('onchange')) {
@@ -8382,6 +8439,7 @@ window.autoSaveModelChange = function() {
                 resolve();
                 return;
             }
+            updateSubAgentInheritanceHints();
             // Validate agent models before saving.
             // Only block if a model was NEWLY changed to an invalid value -- a pre-existing
             // invalid model in the DB must not block unrelated parameter autosaves.
@@ -8597,7 +8655,7 @@ function getCurrentModelForAgent(agentName) {
     const activeModel = getActiveAgentModelValue(agentPrefix, provider);
     if (activeModel) return activeModel;
     
-    // Sub-agent fallback: inherit ExtractAgent model when empty
+    // Sub-agents inherit ExtractAgent model when empty
     const subAgentNames = [...EXTRACT_SUB_AGENTS];
     if (subAgentNames.includes(agentName)) {
         const extractProvider = document.getElementById('extractagent-provider')?.value || getDefaultProvider();
@@ -10460,8 +10518,7 @@ function initializeChangeTracking() {
         'rankagent-temperature',
         'extractagent-model-2',
         'sigmaagent-model-2',
-        'osdetectionagent-embedding-model-2',
-        'osdetectionagent-fallback-model-2'
+        'osdetectionagent-embedding-model-2'
     ];
     
     modelSelects.forEach(selectId => {
@@ -15127,7 +15184,7 @@ async function enrichRule() {
         return;
     }
 
-    // Get API key - try settings API first, fallback to localStorage (not needed for LMStudio)
+    // Get API key from server-side settings (not needed for LMStudio)
     let apiKey = null;
     if (selectedProvider !== 'lmstudio') {
         try {
@@ -15144,17 +15201,7 @@ async function enrichRule() {
                 }
             }
         } catch (error) {
-            console.warn('Could not fetch API key from settings API, trying localStorage:', error);
-        }
-
-        // Fallback to localStorage if not found in settings API
-        if (!apiKey) {
-            const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
-            if (selectedProvider === 'openai') {
-                apiKey = settings.aiOpenaiApiKey || settings.workflowOpenaiApiKey;
-            } else if (selectedProvider === 'anthropic') {
-                apiKey = settings.anthropicApiKey || settings.workflowAnthropicApiKey;
-            }
+            console.warn('Could not fetch API key from settings API:', error);
         }
 
         if (!apiKey || !apiKey.trim()) {
@@ -15406,7 +15453,7 @@ async function enrichRuleFurther() {
         return;
     }
     
-    // Get API key - try settings API first, fallback to localStorage (not needed for LMStudio)
+    // Get API key from server-side settings (not needed for LMStudio)
     let apiKey = null;
     if (selectedProvider !== 'lmstudio') {
         try {
@@ -15423,17 +15470,7 @@ async function enrichRuleFurther() {
                 }
             }
         } catch (error) {
-            console.warn('Could not fetch API key from settings API, trying localStorage:', error);
-        }
-        
-        // Fallback to localStorage if not found in settings API
-        if (!apiKey) {
-            const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
-            if (selectedProvider === 'openai') {
-                apiKey = settings.aiOpenaiApiKey || settings.workflowOpenaiApiKey;
-            } else if (selectedProvider === 'anthropic') {
-                apiKey = settings.anthropicApiKey || settings.workflowAnthropicApiKey;
-            }
+            console.warn('Could not fetch API key from settings API:', error);
         }
         
         if (!apiKey || !apiKey.trim()) {
@@ -16544,8 +16581,8 @@ function showHelp(fieldName) {
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>After generating a SIGMA rule, the system searches for similar existing rules using behavioral novelty assessment</li>
-                          <li><strong>Deterministic engine</strong> (when sigma_atom_similarity is installed): Similarity = (Jaccard × Containment) − Filter penalty. Jaccard measures overlap of detection predicates; containment measures subset overlap; filter penalty reduces similarity for filter/logsource differences.</li>
-                          <li><strong>Legacy engine</strong> (fallback): Similarity = 70% atom Jaccard + 30% logic shape similarity. Service mismatches and filter differences apply penalties.</li>
+                          <li><strong>Precomputed atom path</strong>: Similarity = (Jaccard × Containment) − Filter penalty using stored rule semantics. Jaccard measures overlap of detection predicates; containment measures subset overlap; filter penalty reduces similarity for filter/logsource differences.</li>
+                          <li><strong>On-the-fly atom path</strong>: Used when precomputed semantics are unavailable. Similarity = 70% atom Jaccard + 30% logic shape similarity. Service mismatches and filter differences apply penalties.</li>
                           <li><strong>Atom Jaccard:</strong> Measures overlap of detection predicates (field/operator/value combinations)</li>
                           <li>If similarity > threshold: rule is NOT queued (duplicate detected)</li>
                           <li>If similarity ≤ threshold: rule is queued (unique enough)</li>
