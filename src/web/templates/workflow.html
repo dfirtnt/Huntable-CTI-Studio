@@ -16581,8 +16581,8 @@ function showHelp(fieldName) {
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>After generating a SIGMA rule, the system searches for similar existing rules using behavioral novelty assessment</li>
-                          <li><strong>Precomputed atom path</strong>: Similarity = (Jaccard × Containment) − Filter penalty using stored rule semantics. Jaccard measures overlap of detection predicates; containment measures subset overlap; filter penalty reduces similarity for filter/logsource differences.</li>
-                          <li><strong>On-the-fly atom path</strong>: Used when precomputed semantics are unavailable. Similarity = 70% atom Jaccard + 30% logic shape similarity. Service mismatches and filter differences apply penalties.</li>
+                          <li><strong>Precomputed atom path</strong>: Similarity = (Jaccard x Containment) - Filter penalty using stored rule atoms and metadata. Jaccard measures overlap of detection predicates; containment measures subset overlap; filter penalty reduces similarity for filter/logsource differences.</li>
+                          <li><strong>On-the-fly atom path</strong>: Used when precomputed atoms are unavailable. Similarity = 70% atom Jaccard + 30% logic shape similarity. Service mismatches and filter differences apply penalties.</li>
                           <li><strong>Atom Jaccard:</strong> Measures overlap of detection predicates (field/operator/value combinations)</li>
                           <li>If similarity > threshold: rule is NOT queued (duplicate detected)</li>
                           <li>If similarity ≤ threshold: rule is queued (unique enough)</li>
