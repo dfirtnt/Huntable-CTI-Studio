@@ -50,13 +50,19 @@
   },
   {
     "url": "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793",
-    "expected_items": []
+    "expected_items": [
+      "java.exe -> schtasks.exe",
+      "java.exe -> cmd.exe",
+      "rundll32.exe -> cmd.exe"
+    ]
   },
   {
     "url": "https://www.picussecurity.com/resource/blog/cve-2025-59287-explained-wsus-unauthenticated-rce-vulnerability",
     "expected_items": [
       "wsusservice.exe -> cmd.exe",
-      "w3wp.exe -> cmd.exe"
+      "w3wp.exe -> cmd.exe",
+      "wsusservice.exe -> powershell.exe",
+      "w3wp.exe -> powershell.exe"
     ]
   }
 ]
