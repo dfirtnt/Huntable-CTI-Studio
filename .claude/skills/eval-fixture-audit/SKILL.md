@@ -11,7 +11,8 @@ description: >
   ground truth, or the evals spreadsheet — even if they don't say "audit". Also
   use it for re-audits after an extractor contract/spec change. Operator-gated
   propose-and-confirm: it extracts blind, reports divergences, and writes nothing
-  until the operator approves sink by sink.
+  until the operator approves sink by sink. Interactive-only — it depends on a
+  human answering its STOP gates; do not run it headless or autonomously.
 ---
 
 # Eval Fixture Audit (one extractor per run)
@@ -25,6 +26,30 @@ Run ONE agent per session. The recorded counts are *anchors*: if you read them
 before doing your own extraction, you will rationalize toward them (two prior
 model audits diverged on the same articles for exactly this reason). The
 discipline is extract-first, compare-second.
+
+## Execution requirements — interactive only, fail-closed
+
+This skill's ONLY safety mechanism is a human operator answering the ⛔ STOP gates
+(Step 1 rubric confirmation, Step 6 sink-by-sink write approval). That mechanism does
+not exist in a headless / autonomous / cloud run — so the skill must fail closed,
+never free-wheel:
+
+- **Do NOT run this audit without an interactive operator.** If you were dispatched
+  autonomously and no human will answer mid-run, STOP NOW and report that this audit
+  requires an interactive operator. Do not extract, write, commit, or push.
+- **At every ⛔ gate, no operator response = HALT.** Do not write any sink, do not
+  commit, do not push, do not self-approve to keep moving. A run that stops at a gate
+  and reports "blocked: need operator" is a SUCCESS; a run that routes around a gate
+  is a FAILURE even if its edits are correct.
+- **Never act as the operator.** "The operator confirms / directs / approves" always
+  means the human. You propose; only the operator disposes.
+- **Never push.** Pushing is always a separate, explicit operator instruction — never
+  an autonomous step, even on a `claude/*` session branch.
+- **A spot-fix is not an audit.** The run is not complete until Steps 3–5 produced a
+  blind per-article extraction for EVERY article and a divergence table across ALL
+  five sinks (xlsx, DB, yaml, articles.json, ground_truth.json). Spotting one bad item
+  by reading ground_truth.json is the anchored shortcut this skill exists to
+  prevent — not a passing run.
 
 ## Architectural principle (governs every step)
 
@@ -74,11 +99,13 @@ requested agent is not in the table, stop and tell the operator.
    will likely have you apply it here as a pre-extraction SPEC CHANGE.
 
 **STOP. Wait for the operator to confirm the rubric before extracting anything.**
-The operator may also AMEND the rubric at this gate — a deliberate pre-extraction
-SPEC CHANGE (a new, relaxed, or removed rule). That is legitimate and common: apply
-the doc edit in Step 7 order (doc → dropin → CHANGELOG), then extract against the
-amended rubric. A rubric amended here is still "the doc," never the seed — do not
-let seed-only rules ride in (see `references/hazards.md` "Seed-rule leak").
+No operator response = HALT (see Execution requirements); never self-confirm to
+proceed. The operator may also DIRECT a rubric amendment at this gate — a deliberate
+pre-extraction SPEC CHANGE (a new, relaxed, or removed rule). Apply it ONLY on the
+operator's explicit instruction (never your own initiative), in Step 7 order
+(doc → dropin → CHANGELOG), then extract against the amended rubric. A rubric amended
+here is still "the doc," never the seed — do not let seed-only rules ride in (see
+`references/hazards.md` "Seed-rule leak").
 
 ## Step 2 — Enumerate articles
 
@@ -156,9 +183,11 @@ new rule touches** (re-extract those; leave the rest), not a full restart. Multi
 rounds in one session are normal. Keep each round's spec edit and its fixture delta
 in **separate commits** so the era boundary stays legible in `git log`.
 
-**STOP. Offer write targets explicitly and wait:**
+**STOP. Offer write targets explicitly and wait** for the operator to choose:
 (1) xlsx Count+GroundTruth, (2) eval_articles.yaml, (3) articles.json +
 ground_truth.json, (4) DB latest rows, (5) subset/none.
+No operator response = HALT: write nothing, commit nothing, push nothing. Never
+self-select the targets to keep moving.
 
 Before ANY xlsx write, read `references/hazards.md` (OneDrive/Excel clobber,
 backup procedure, flat-array format). Use the write formats in
