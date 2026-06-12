@@ -23,8 +23,7 @@
       "HKLM\\SOFTWARE\\Microsoft\\Active Setup\\Installed Components\\",
       "HKLM\\SOFTWARE\\Microsoft\\Active Setup\\Installed Components\\{malicious-guid}",
       "HKCU\\SOFTWARE\\Microsoft\\Active Setup\\Installed Components\\",
-      "HKLM\\Software\\Microsoft\\Active Setup\\Installed Components\\<CLSID>",
-      "c:\\windows:svvchost.exe"
+      "HKLM\\Software\\Microsoft\\Active Setup\\Installed Components\\<CLSID>"
     ]
   },
   {
