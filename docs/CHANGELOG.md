@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [7.4.0 "Europa"] - 2026-06-11
 ### Added
 - **Langfuse: trace tags for workflow filtering** (2026-06-11, commit `2afcbc2d`): workflow traces now propagate `execution_id:<id>` and `article_id:<id>` tags, and LLM generation observations also propagate `model:<model>` via Langfuse `propagate_attributes`. This makes Langfuse dashboards filterable by workflow execution, article, and model without changing application behavior when Langfuse is disabled. Unit coverage updated in `tests/utils/test_langfuse_v4_api.py`.
 - **Langfuse: `sigma_repair_attempts` score per trace** (2026-06-11, commit `2645761a`): the sigma repair loop retries each invalid rule up to 3 times, but the total attempt count was only visible by counting raw spans in Langfuse. Added `score_langfuse_trace()` and `get_active_trace_id()` to `src/utils/langfuse_client.py`; `generate_sigma_node` now calls `score_langfuse_trace(name="sigma_repair_attempts", value=total_attempts)` against the active trace after every sigma generation so model YAML-compliance trends are queryable over time and across model changes. The score call is a no-op when Langfuse is disabled or no trace is active — no behavior change otherwise. 9 unit tests for the new helpers + 3 workflow integration tests verifying the score is emitted / suppressed correctly.
