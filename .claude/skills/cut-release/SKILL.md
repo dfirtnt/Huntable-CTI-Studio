@@ -25,7 +25,7 @@ Hold these in mind throughout:
 - **`main` is read-only between releases** via GitHub branch protection
   (`lock_branch`, `enforce_admins`, no force push, no deletions). Feature
   work lives on the release branch — the codename/version-named line,
-  currently `europa-7.2.1` (`scripts/release_cut.py` accepts any branch
+  currently `europa-dev` (`scripts/release_cut.py` accepts any branch
   matching `europa-*` or the historical `dev-europa*`, and rejects anything
   else). `main` only moves during release cuts.
 - **Canonical tag format is `vMAJOR.MINOR.PATCH` only.** The codename lives
@@ -71,7 +71,7 @@ Run these checks via Bash. Halt with a clear diagnostic on the first
 failure.
 
 ```bash
-git rev-parse --abbrev-ref HEAD          # must match europa-* or dev-europa* (e.g. europa-7.2.1)
+git rev-parse --abbrev-ref HEAD          # must match europa-* or dev-europa* (e.g. europa-dev)
 git status --porcelain                    # must be empty
 git fetch origin "$(git rev-parse --abbrev-ref HEAD)"
 git rev-parse HEAD                        # must equal the FETCH_HEAD sha
@@ -185,7 +185,7 @@ git push origin "$(git rev-parse --abbrev-ref HEAD)"   # the release branch; rel
 Direct the operator to open a PR manually on GitHub:
 
 - Base: `main`
-- Compare: the release branch (e.g. `europa-7.2.1`)
+- Compare: the release branch (e.g. `europa-dev`)
 - Title: `release: vX.Y.Z "Codename"` (match the commit subject)
 
 Wait for the operator to report the PR is open. Then wait for all CI
