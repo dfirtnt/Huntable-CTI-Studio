@@ -13,9 +13,15 @@ from dataclasses import dataclass
 
 
 def _normalize(s: str) -> str:
-    """Normalize a command-line string for comparison.
+    """Normalize an extracted artifact string for comparison.
 
-    - Lowercase
+    Shared across every item-list extractor (cmdline, registry paths, service
+    names, scheduled-task names, ...), so the rules are deliberately generic.
+
+    - Lowercase. Windows command lines, registry keys, and file paths are all
+      case-insensitive at the OS level, so a case-only difference between the
+      ground truth and the extraction is a true match, not a miss. (This is why
+      ground truth may carry mixed casing like SOFTWARE vs Software.)
     - Strip leading/trailing whitespace
     - Collapse internal whitespace runs to a single space
     - Defang IOC bracket notation: [.] -> .  [:]  -> :
