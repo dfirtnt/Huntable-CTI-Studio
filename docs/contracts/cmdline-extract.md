@@ -99,7 +99,7 @@ A command is VALID only if ALL conditions are met:
 
 Do NOT extract:
 
-- Placeholders: generic template slots \<command\>, {payload}, $(...) -> REJECT. (Allowed, preserve verbatim: [REDACTED] and analyst redaction labels that mask a real observed value, e.g. [Username], [IP Address], [Hostname], \<redacted\>; defanged indicators hxxp://, [.].) A bracketed/braced token is an allowed redaction when the command is otherwise literal/observed and the token conceals a real value; it is a rejected placeholder when it is a generic slot in a template or hypothetical command.
+- Placeholders: generic template slots `<command>`, `{payload}`, `$(...)` -> REJECT. (Allowed, preserve verbatim: `[REDACTED]` and analyst redaction labels that mask a real observed value, e.g. `[Username]`, `[IP Address]`, `[Hostname]`, `<redacted>`; defanged indicators `hxxp://`, `[.]`.) A bracketed/braced token is an allowed redaction when the command is otherwise literal/observed and the token conceals a real value; it is a rejected placeholder when it is a generic slot in a template or hypothetical command.
 - Bare commands with no arguments/syntax: whoami, ipconfig, hostname.
 - Chains with zero non-trivial components: whoami & hostname.
 - Single-token commands (no spaces).
@@ -161,7 +161,7 @@ If a command is technically present but has no detection engineering value, SKIP
 - Wrapped trivial command: cmd.exe /c whoami  -> SKIP (post-wrapper is trivial).
 - Wrapped valid chain:      cmd.exe /c ipconfig /all & whoami  -> Extract "ipconfig /all & whoami".
 - Quoted first token:       "net.exe" group "domain admins" /dom  -> Extract verbatim.
-- PowerShell block:         powershell.exe -NoP -W Hidden -enc \<base64\>  -> Extract verbatim.
+- PowerShell block:         powershell.exe -NoP -W Hidden -enc `<base64>`  -> Extract verbatim.
 - reg.exe command:          reg add HKLM\\...\\Run /v X /t REG_SZ /d Y  -> Extract the command; RegistryExtract pulls the key/value.
 - sc.exe command:           sc create MalSvc binPath= "C:\\m.exe" start= auto  -> Extract the command; ServicesExtract pulls the service artifact.
 - Wildcards:                dir C:\\Users\\*\\AppData\\*.dat          INVALID (non-deterministic copy-paste)
