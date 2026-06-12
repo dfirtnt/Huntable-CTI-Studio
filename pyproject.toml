@@ -68,7 +68,7 @@ dependencies = [
     # Agentic workflow
     "langgraph==1.1.8",
     "langgraph-checkpoint==4.1.1",
-    "langgraph-checkpoint-postgres==3.0.5",
+    "langgraph-checkpoint-postgres==3.1.0",
     "langgraph-cli==0.4.26",
     "langfuse==4.3.1",
     # MCP server
