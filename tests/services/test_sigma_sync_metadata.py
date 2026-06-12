@@ -1,7 +1,7 @@
 """Tests for SigmaSyncService.index_metadata() — metadata phase only, no embeddings."""
 
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -114,6 +114,45 @@ class TestIndexMetadata:
         assert len(rule.raw_yaml) > 0
         # Verify it's valid YAML text (contains the rule title)
         assert "Test Suspicious Process" in rule.raw_yaml
+
+    def test_metadata_stores_atom_precompute_fields(self, sync_service, mock_db_session):
+        """index_metadata persists the four atom fields when precompute_atom_fields succeeds."""
+        atom_result = {
+            "canonical_class": "process_creation",
+            "positive_atoms": [["CommandLine", "contains", "test.exe"]],
+            "negative_atoms": [],
+            "surface_score": 0.75,
+        }
+        added_objects = []
+        mock_db_session.add.side_effect = lambda obj: added_objects.append(obj)
+
+        with patch("src.services.sigma_atom_precompute.precompute_atom_fields", return_value=atom_result) as mock_fn:
+            sync_service.index_metadata(mock_db_session)
+
+        mock_fn.assert_called()
+        assert len(added_objects) >= 1
+        rule = added_objects[0]
+        assert rule.canonical_class == "process_creation"
+        assert rule.positive_atoms == [["CommandLine", "contains", "test.exe"]]
+        assert rule.negative_atoms == []
+        assert rule.surface_score == 0.75
+
+    def test_metadata_continues_when_atom_precompute_raises(self, sync_service, mock_db_session):
+        """index_metadata silently skips atom fields and still indexes the rule when precompute_atom_fields raises."""
+        added_objects = []
+        mock_db_session.add.side_effect = lambda obj: added_objects.append(obj)
+
+        with patch("src.services.sigma_atom_precompute.precompute_atom_fields", side_effect=Exception("boom")):
+            result = sync_service.index_metadata(mock_db_session)
+
+        # Rule is still indexed — the exception is logged at DEBUG, not re-raised
+        assert result["metadata_indexed"] >= 1
+        assert result["errors"] == 0
+        assert len(added_objects) >= 1
+        rule = added_objects[0]
+        # Atom fields are None when precompute skipped
+        assert rule.canonical_class is None
+        assert rule.positive_atoms is None
 
     def test_metadata_raw_yaml_matches_file_on_disk(self, sync_service, sigma_repo):
         """raw_yaml stored on the parsed object should equal the source file content."""
