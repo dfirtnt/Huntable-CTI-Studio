@@ -66,8 +66,14 @@ A pair is VALID only if ALL of the following are true:
 ### 1. Explicit process creation
 
 - The text clearly states that one executable created a new process.
-- Acceptable creation verbs: spawned, launched, executed, started, created (a process),
-  invoked (only if clearly process creation), initiated (only if clearly process creation).
+- Acceptable creation verbs (any tense): spawned/spawns, launched/launches, executed/executes,
+  started/starts, created/creates (a process), invoked/invokes (only if clearly process
+  creation), initiated/initiates (only if clearly process creation), ran/runs.
+- Multi-word forms: "creates a child process", "spawned a process", "launched a process".
+- Structured telemetry blocks (Sysmon EID 1 ParentImage/Image, Security 4688
+  ParentProcessName/NewProcessName, EDR process-tree records) constitute explicit creation
+  evidence WITHOUT requiring a natural-language verb. See STRUCTURED TELEMETRY EXTRACTION
+  below.
 
 ### 2. Both parent and child are named executables
 
@@ -75,11 +81,13 @@ A pair is VALID only if ALL of the following are true:
 - No paths retained.
 - No command-line arguments.
 - No quotes.
-- Both appear explicitly in the narrative text.
+- Both appear explicitly in narrative text OR structured telemetry fields.
 
-### 3. Same narrative statement
+### 3. Same statement
 
-- Parent, child, and creation verb appear in the same sentence or clearly unified statement.
+- Parent, child, and creation evidence appear in the same sentence, clearly unified
+  statement, OR single structured telemetry block (a contiguous block of key-value lines
+  describing one event).
 
 ### 4. New process required
 
@@ -93,6 +101,25 @@ A pair is VALID only if ALL of the following are true:
 - Raw telemetry excerpts (Sysmon EID 1 showing ParentImage/Image, EDR process-tree events).
 - Tables, figures, inline code that STATE the parent/child relationship in prose-like form.
 - IOC tables and appendices (if they state lineage).
+
+## STRUCTURED TELEMETRY EXTRACTION
+
+The following structured-telemetry shapes constitute explicit lineage evidence WITHOUT
+requiring a natural-language creation verb. The field schema itself is the verb.
+
+- Sysmon Event ID 1: `ParentImage` -> `Image`
+- Windows Security Event 4688: `Creator Process Name` -> `New Process Name`
+- EDR process-tree records (`ParentProcessName` / `ProcessName` or equivalent fields)
+
+A contiguous block of these key-value lines describing one event is treated as a single
+statement for the purposes of POSITIVE EXTRACTION SCOPE rules 2 and 3. Each block emits
+ONE (parent_image, child_image) pair.
+
+After extraction, apply all standard filters per the rest of this contract: strip paths
+to filename, normalize Windows built-ins per FIDELITY REQUIREMENTS, SKIP if parent is
+cmd.exe, SKIP if either endpoint is .lnk or otherwise non-.exe, SKIP self-referential
+hops where parent_image == child_image, and dedupe (parent_image, child_image) pairs
+that appear in multiple blocks across the article.
 
 ## NEGATIVE EXTRACTION SCOPE
 
@@ -125,7 +152,9 @@ Every extracted pair must be observable via at least one of:
 - Windows Security Event ID 4688 (New process creation, Creator Process Name)
 - EDR process-tree telemetry
 
-If a pair is technically present but has no detection engineering value, SKIP.
+If a pair cannot be observed via any of the above telemetry sources, SKIP. Whether a
+technically-observable pair has analytical value is a downstream decision; this gate is
+observability, not interestingness.
 
 ## FIDELITY REQUIREMENTS
 
@@ -181,8 +210,8 @@ If a pair is technically present but has no detection engineering value, SKIP.
 Apply to EVERY candidate before including it:
 
 - [ ] Are both processes explicitly named and resolvable to .exe?
-- [ ] Is there an explicit process-creation verb?
-- [ ] Are parent, child, and verb in the same narrative statement?
+- [ ] Is there an explicit process-creation verb, OR is the source a structured telemetry block (Sysmon EID 1 ParentImage/Image, 4688 Creator/New Process Name, EDR process-tree fields)?
+- [ ] Are parent, child, and creation evidence in the same narrative statement OR single telemetry block?
 - [ ] Does the text clearly indicate a NEW process was created (not injection/hollowing/DLL load)?
 - [ ] Is the source narrative or telemetry (not code/commands/detection logic)?
 - [ ] Is parent NOT cmd.exe after normalization?
@@ -253,7 +282,7 @@ Precision over recall. EDR observability overrides completeness.
 If the parent is cmd.exe after normalization, SKIP.
 If the relationship is implied ("used", "via", "leveraged") rather than stated, SKIP.
 If injection, hollowing, or DLL loading is described, SKIP -- that is not process creation.
-If the source is a code listing or shell command without narrative lineage, SKIP.
+If the source is a code listing or shell command without narrative or telemetry lineage, SKIP.
 When in doubt, OMIT.
 
-_Last updated: 2026-05-23_
+_Last updated: 2026-06-12_
