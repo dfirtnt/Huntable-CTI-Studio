@@ -126,6 +126,11 @@ If an artifact is technically present but has no detection engineering value, SK
 - Preserve original casing, abbreviations (HKLM vs HKEY_LOCAL_MACHINE), and backslash style.
 - Do NOT expand abbreviations.
 - Preserve obfuscated or encoded content exactly.
+- Transport-noise exception (ruled 2026-06-12): whitespace injected by HTML-to-text
+  conversion (stray spaces inside a path, e.g. `TaskCache\\ Tree\\ TASK_NAME`) and
+  command-syntax escaping around the artifact (PowerShell doubled backslashes,
+  `HKCU:` drive-colon notation) are not article content — strip them. This is noise
+  removal, not normalization.
 
 ## MULTI-LINE HANDLING
 
@@ -140,6 +145,10 @@ If an artifact is technically present but has no detection engineering value, SK
 - Same key with different values = multiple entries.
 - Same key with identical values mentioned multiple times = ONE entry.
 - Same key in different attack phases = separate entries ONLY if value_name or value_data differ.
+- Prose-enumerated value-name lists (ruled 2026-06-12): a list of value names named in
+  passing (e.g. "the values created within it (Id, Index, and SD)") collapses into the
+  parent key item. A value name stands alone as its own item ONLY when it has a
+  dedicated statement (e.g. "the threat actor deleted the SD value").
 
 ## EDGE CASES
 
