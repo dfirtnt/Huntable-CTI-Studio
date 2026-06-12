@@ -79,7 +79,7 @@ confirmation -- it is outside the Autonomy Envelope.
 2. Cherry-pick it to the release branch so the work is not lost:
 
    ```bash
-   BRANCH=europa-7.2.1   # current release branch (europa-* line; was dev-io/dev-europa historically)
+   BRANCH=europa-dev   # current release branch (europa-* line; was dev-io/dev-europa historically)
    git checkout "$BRANCH"
    git pull origin "$BRANCH"
    git cherry-pick <sha>
