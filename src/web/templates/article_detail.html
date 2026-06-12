@@ -470,7 +470,7 @@
             <div class="mb-4 space-y-3">
                 <div class="flex flex-wrap items-center gap-3">
                     <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Automatic keyword highlights</span>
-                    <button type="button" class="inline-flex items-center justify-center w-4 h-4 rounded-full text-xs font-bold text-gray-400 dark:text-gray-500 border border-gray-300 dark:border-gray-600 hover:text-gray-600 dark:hover:text-gray-300 hover:border-gray-400 dark:hover:border-gray-400 transition-colors" title="Overlapping keyword matches are split at every boundary. Each sub-span is won by the highest-priority category covering it (Perfect &gt; Good &gt; LOLBAS &gt; Intelligence &gt; Negative). On ties, the longer match wins. Adjacent sub-spans with the same winner are merged.">?</button>
+                    <button type="button" class="inline-flex items-center justify-center w-4 h-4 rounded-full text-xs font-bold text-gray-400 dark:text-gray-500 border border-gray-300 dark:border-gray-600 hover:text-gray-600 dark:hover:text-gray-300 hover:border-gray-400 dark:hover:border-gray-400 transition-colors" title="Overlapping keyword matches prefer Perfect Discriminators first. Other overlaps prefer the longer, more-specific match; ties use category priority (Good &gt; LOLBAS &gt; Intelligence &gt; Negative).">?</button>
                     {% for legend in keyword_resolution.automatic_legends %}
                     <span class="inline-flex items-center gap-2 px-2 py-1 rounded-md text-xs font-medium text-gray-900 dark:text-gray-100 {{ legend.classes }}" title="{{ legend.title }}">
                         <span class="w-3 h-3 rounded border border-current/30 {{ legend.classes }}"></span>
@@ -1863,10 +1863,10 @@ Please provide a detailed analysis based on the article content and the user's s
                     highlightSpan.className = `px-1 py-0.5 rounded text-xs font-medium border ${style.highlightClass}`;
                     highlightSpan.title = `${style.label}: ${text.substring(0, 50)}...`;
                     highlightSpan.dataset.annotationType = classification;
-                    highlightSpan.textContent = text;
                     
-                    // Replace the range content with our highlight span
-                    range.deleteContents();
+                    // Move the existing DOM fragment so server-rendered keyword highlights survive annotation restore.
+                    const selectedFragment = range.extractContents();
+                    highlightSpan.appendChild(selectedFragment);
                     range.insertNode(highlightSpan);
                     
                     console.log('Position-based highlighting successful');

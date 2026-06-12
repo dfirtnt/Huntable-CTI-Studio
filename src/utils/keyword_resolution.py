@@ -52,8 +52,12 @@ class ResolvedKeywordMatch:
         winner = KEYWORD_CATEGORY_METADATA[self.category].display_name
         if len(self.source_categories) == 1:
             return f"Category: {winner}"
+        winner_precedence = KEYWORD_CATEGORY_METADATA[self.category].precedence
+        best_source_precedence = min(KEYWORD_CATEGORY_METADATA[name].precedence for name in self.source_categories)
         contributors = ", ".join(KEYWORD_CATEGORY_METADATA[name].display_name for name in self.source_categories)
-        return f"Category: {winner} | Highest-priority match among: {contributors}"
+        if winner_precedence == best_source_precedence:
+            return f"Category: {winner} | Highest-priority match among: {contributors}"
+        return f"Category: {winner} | More-specific match among: {contributors}"
 
 
 @dataclass(frozen=True)
@@ -221,10 +225,13 @@ def collect_raw_keyword_matches(content: str, metadata: dict[str, Any] | None) -
     return raw_matches
 
 
-def _winner(match: RawKeywordMatch) -> tuple[int, int, int, str]:
+def _display_winner(match: RawKeywordMatch) -> tuple[int, int, int, int, str]:
+    if match.category == "perfect":
+        return (0, 0, KEYWORD_CATEGORY_METADATA[match.category].precedence, match.start, match.keyword.lower())
     return (
-        KEYWORD_CATEGORY_METADATA[match.category].precedence,
+        1,
         -(match.end - match.start),
+        KEYWORD_CATEGORY_METADATA[match.category].precedence,
         match.start,
         match.keyword.lower(),
     )
@@ -244,24 +251,27 @@ def resolve_keyword_matches(content: str, metadata: dict[str, Any] | None) -> li
         if not cluster:
             return
 
-        boundaries = sorted({match.start for match in cluster} | {match.end for match in cluster})
         segments: list[ResolvedKeywordMatch] = []
+        winning_matches: list[RawKeywordMatch] = []
 
-        for left, right in zip(boundaries, boundaries[1:]):
-            active = [match for match in cluster if match.start < right and match.end > left]
-            if not active:
+        for candidate in sorted(cluster, key=_display_winner):
+            if any(candidate.start < winner.end and candidate.end > winner.start for winner in winning_matches):
                 continue
+            winning_matches.append(candidate)
 
-            winning_match = min(active, key=_winner)
-            category_counts = Counter(match.category for match in active)
+        for winning_match in sorted(winning_matches, key=lambda match: (match.start, match.end)):
+            overlapping_matches = [
+                match for match in cluster if match.start < winning_match.end and match.end > winning_match.start
+            ]
+            category_counts = Counter(match.category for match in overlapping_matches)
             source_categories = tuple(
                 sorted(category_counts.keys(), key=lambda name: KEYWORD_CATEGORY_METADATA[name].precedence)
             )
             segments.append(
                 ResolvedKeywordMatch(
-                    text=content[left:right],
-                    start=left,
-                    end=right,
+                    text=content[winning_match.start : winning_match.end],
+                    start=winning_match.start,
+                    end=winning_match.end,
                     category=winning_match.category,
                     source_categories=source_categories,
                     occurrence_counts=dict(sorted(category_counts.items())),
