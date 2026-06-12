@@ -106,7 +106,7 @@ test = [
     "pytest-playwright==0.7.2",
     "factory-boy==3.3.3",
     "freezegun==1.5.5",
-    "responses==0.24.0",
+    "responses==0.26.1",
     "requests-mock==1.12.1",
     "testcontainers==3.7.0",
     "psutil==7.2.2",
