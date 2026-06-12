@@ -13,9 +13,9 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from src.database.manager import DatabaseManager
+from src.services.sigma_atom_precompute import precompute_atom_fields
 from src.services.sigma_matching_service import SigmaMatchingService
 from src.services.sigma_novelty_service import SigmaNoveltyService, classify_match_novelty
-from src.services.sigma_atom_precompute import precompute_atom_fields
 from src.services.similarity_serialization import serialize_similarity_match
 
 logger = logging.getLogger(__name__)
