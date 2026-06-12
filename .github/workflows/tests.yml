@@ -45,11 +45,13 @@ jobs:
           --ignore-vuln CVE-2026-6357
           --ignore-vuln PYSEC-2026-161
           --ignore-vuln PYSEC-2026-196
-        # --skip-editable: sigma-semantic-similarity is a local uv workspace member; not on PyPI
+          --ignore-vuln CVE-2025-3000
+        # --skip-editable: sigma-atom-similarity is a local uv workspace member; not on PyPI
         # nltk: no fixed release for GHSA-rf74 / CVE-2026-33230 / CVE-2026-33231 yet
         # PYSEC-2026-161: starlette 1.0.1 fix breaks FastAPI 0.135.1 at runtime; track as coordinated FastAPI+starlette upgrade
         # langchain-core GHSA-926x-3r5x-gfhw: transitive dep of langgraph; fix in 1.2.28
         # CVE-2026-3219 / CVE-2026-6357 / PYSEC-2026-196: affect pip the tool, not our code; runner upgrade path
+        # CVE-2025-3000: torch.jit.script memory corruption, local attack only, no fix released; we do not use torch.jit anywhere (grep -r torch.jit src/ tests/ scripts/ is empty); torch is only loaded for sentence-transformers embeddings inference
 
       # Optional: add step with pyupio/safety-action and secrets.SAFETY_API_KEY for Safety scan (requires account)
 
