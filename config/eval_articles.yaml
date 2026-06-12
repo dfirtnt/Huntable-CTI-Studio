@@ -68,7 +68,7 @@ subagents:
   - url: https://thedfirreport.com/2022/02/07/qbot-likes-to-move-it-move-it/
     expected_count: 2
   - url: https://thedfirreport.com/2025/01/27/cobalt-strike-and-a-pair-of-socks-lead-to-lockbit-ransomware/
-    expected_count: 1
+    expected_count: 2
   - url: https://www.huntress.com/blog/advanced-intrusion-targeting-executive-at-critical-marketing-research-company
     expected_count: 2
   - url: https://www.huntress.com/blog/cephalus-ransomware
@@ -76,11 +76,11 @@ subagents:
   - url: https://www.microsoft.com/en-us/security/blog/2022/04/12/tarrask-malware-uses-scheduled-tasks-for-defense-evasion/
     expected_count: 3
   - url: https://www.picussecurity.com/resource/blog/t1547-014-active-setup
-    expected_count: 5
+    expected_count: 3
   - url: https://www.zscaler.com/blogs/security-research/technical-analysis-matanbuchus-3-0
     expected_count: 1
   - url: https://www.zscaler.com/blogs/security-research/technical-analysis-xloader-versions-6-and-7-part-1
-    expected_count: 4
+    expected_count: 0
   windows_services:
   - url: https://blog.talosintelligence.com/kraken-ransomware-group/
     expected_count: 0
