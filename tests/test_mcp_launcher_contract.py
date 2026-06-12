@@ -1,12 +1,19 @@
 """Regression tests for the MCP launcher + committed .mcp.json contract.
 
-These lock the fix for the "MCP huntable-cti-studio: Server disconnected /
-Could not attach" failure. Root cause: MCP clients spawn the server in a clean
-environment and do NOT inherit an activated virtualenv, so the documented
-`python3 run_mcp.py` died with `ModuleNotFoundError: No module named 'mcp'`
-before the JSON-RPC handshake. The fix is a committed `.mcp.json` that launches
-`scripts/run_mcp_server.sh`, which selects the project venv by absolute path
-regardless of cwd or shell state.
+These lock two stacked fixes:
+
+  1. "MCP huntable-cti-studio: Server disconnected / Could not attach". MCP
+     clients spawn the server in a clean environment, so the documented
+     `python3 run_mcp.py` died with `ModuleNotFoundError: No module named 'mcp'`
+     before the JSON-RPC handshake. Fixed by a committed `.mcp.json` that
+     launches `scripts/run_mcp_server.sh` regardless of cwd or shell state.
+
+  2. "Could not load embedding model: 'NoneType' object is not callable" on
+     Intel Mac. torch / sentence-transformers have no macosx_x86_64 wheel, so a
+     host venv on Intel Mac cannot load the embedding model and every semantic
+     tool fails. Fixed by having the launcher run the server INSIDE the Docker
+     `cli` service (Linux, always has the ML deps), so semantic search works on
+     every platform.
 
 `tests/test_mcp_server_config.py` covers stdio_server env behaviour; this file
 covers the launcher and the .mcp.json/.gitignore contract — previously untested.
@@ -55,14 +62,20 @@ def test_launcher_is_executable():
 
 
 @pytest.mark.unit
-def test_launcher_prefers_project_venv_not_bare_python():
-    """Static guard: the launcher must select the project venv and exec the
-    server. A regression that 'simplifies' it back to bare `python3 run_mcp.py`
-    reintroduces the ModuleNotFoundError that broke MCP clients."""
+def test_launcher_runs_server_in_docker_cli_service():
+    """Static guard: the launcher must run the server inside the Docker `cli`
+    service so the Linux container's torch / sentence-transformers are available
+    (semantic search is dead on an Intel-Mac host venv, which lacks an
+    x86_64-darwin torch wheel). A regression that 'simplifies' it back to a bare
+    host interpreter reintroduces the "Could not load embedding model" failure.
+    """
     text = LAUNCHER.read_text()
-    assert ".venv/bin/python" in text, "launcher no longer prefers project venv"
     assert "run_mcp.py" in text, "launcher must run run_mcp.py"
-    assert "exec " in text, "launcher must exec the interpreter (clean stdio)"
+    assert "exec " in text, "launcher must exec the runner (clean stdio)"
+    # Must launch via compose's ephemeral `cli` service with stdio kept raw.
+    assert "run --rm -T cli" in text, "launcher must run the ephemeral cli container with -T (raw stdio)"
+    # Guard against a regression back to a host venv interpreter.
+    assert ".venv/bin/python" not in text, "launcher must not run the server on the host venv"
 
 
 @pytest.mark.unit
@@ -85,31 +98,35 @@ def test_mcp_json_is_not_gitignored():
     assert proc.returncode == 1, ".mcp.json is gitignored — !.mcp.json negation lost"
 
 
-def _launcher_interpreter():
-    """Replicate the launcher's interpreter choice for the skip pre-check."""
-    for candidate in (REPO_ROOT / ".venv/bin/python", REPO_ROOT / "venv/bin/python"):
-        if os.access(candidate, os.X_OK):
-            return str(candidate)
-    return shutil.which("python3")
+def _docker_available():
+    """The launcher runs the server in Docker, so the integration handshake
+    needs a reachable Docker daemon with a compose CLI."""
+    docker = shutil.which("docker")
+    if docker is None:
+        return False
+    if subprocess.run([docker, "info"], capture_output=True).returncode != 0:
+        return False
+    return subprocess.run([docker, "compose", "version"], capture_output=True).returncode == 0
 
 
+# Spinning up the Docker `cli` container (build/create + postgres/redis health
+# wait) legitimately exceeds the suite's default 60s pytest-timeout, so override
+# it for this one test rather than weaken the global budget.
 @pytest.mark.integration
+@pytest.mark.timeout(240)
 def test_launcher_handshake_from_clean_env_and_foreign_cwd(tmp_path):
-    """The canonical regression test for the reported bug.
+    """The canonical regression test for the reported bugs.
 
     Runs the committed launcher exactly as an MCP client would: from an
     unrelated cwd, with the virtualenv NOT activated (VIRTUAL_ENV unset and any
-    venv bin stripped from PATH), and drives a real JSON-RPC handshake. Before
-    the fix this failed (bare python3 → ModuleNotFoundError, generic disconnect);
-    after the fix it must initialize and list tools, with stdout kept pure for
-    JSON-RPC (logs on stderr).
+    venv bin stripped from PATH), and drives a real JSON-RPC handshake. The
+    launcher must spin up the Docker `cli` container and the server must
+    initialize and list tools, with stdout kept pure for JSON-RPC (logs on
+    stderr). This proves both the "Server disconnected" and the Intel-Mac
+    "Could not load embedding model" fixes hold end to end.
     """
-    interp = _launcher_interpreter()
-    if interp is None:
-        pytest.skip("no python interpreter available")
-    dep_check = subprocess.run([interp, "-c", "import mcp"], capture_output=True)
-    if dep_check.returncode != 0:
-        pytest.skip(f"interpreter {interp} lacks MCP deps (env limitation, not a regression)")
+    if not _docker_available():
+        pytest.skip("Docker daemon/compose unavailable (env limitation, not a regression)")
 
     # Simulate a client that did NOT activate the venv.
     env = dict(os.environ)
@@ -150,7 +167,9 @@ def test_launcher_handshake_from_clean_env_and_foreign_cwd(tmp_path):
         text=True,
     )
     try:
-        stdout, stderr = proc.communicate(input=handshake, timeout=60)
+        # Generous timeout: a cold `docker compose run` may build/create the
+        # container and wait on postgres/redis health before the handshake.
+        stdout, stderr = proc.communicate(input=handshake, timeout=180)
     except subprocess.TimeoutExpired:
         proc.kill()
         stdout, stderr = proc.communicate()

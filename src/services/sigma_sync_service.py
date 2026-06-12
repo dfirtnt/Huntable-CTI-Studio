@@ -5,6 +5,7 @@ Syncs and indexes Sigma detection rules from the SigmaHQ repository.
 Parses YAML rules, generates embeddings, and stores in database for semantic search.
 """
 
+import gc
 import json
 import logging
 import os
@@ -676,15 +677,24 @@ class SigmaSyncService:
             f" prefix={rule_id_prefix!r}" if rule_id_prefix else "",
         )
 
-        q = db_session.query(SigmaRuleTable)
+        # Fetch only the primary keys up front (cheap), then load/build/encode/commit
+        # one chunk at a time. Materializing every rule's full detection/logsource JSON
+        # plus all texts at once previously drove the container OOM on large corpora
+        # (3.7k+ rules), and a single trailing commit meant an OOM/interrupt mid-run
+        # rolled back ALL completed work — leaving 0 rows persisted despite progress.
+        id_q = db_session.query(SigmaRuleTable.id)
         if rule_id_prefix:
-            q = q.filter(SigmaRuleTable.rule_id.startswith(rule_id_prefix))
-        if force_reindex:
-            rules = q.all()
-        else:
-            rules = q.filter(SigmaRuleTable.embedding.is_(None)).all()
+            id_q = id_q.filter(SigmaRuleTable.rule_id.startswith(rule_id_prefix))
+        if not force_reindex:
+            id_q = id_q.filter(SigmaRuleTable.embedding.is_(None))
+        rule_pks = [row[0] for row in id_q.all()]
+        total = len(rule_pks)
 
-        logger.info(f"Found {len(rules)} rules needing embeddings")
+        logger.info(f"Found {total} rules needing embeddings")
+
+        if not total:
+            db_session.commit()
+            return {"embeddings_indexed": 0, "skipped": 0, "errors": 0}
 
         error_count = 0
         embedding_model_name = "intfloat/e5-base-v2"
@@ -693,42 +703,17 @@ class SigmaSyncService:
         def _valid(emb):
             return emb if emb and len(emb) == 768 else None
 
-        # First pass: build (rule_id, 5 texts) for each rule; skip on text-build failure
-        rule_by_id: dict[str, Any] = {}
-        payload_list: list[tuple[str, list[str]]] = []
-        for rule in rules:
-            try:
-                rule_data = {
-                    "title": rule.title,
-                    "description": rule.description,
-                    "tags": rule.tags or [],
-                    "logsource": rule.logsource or {},
-                    "detection": rule.detection or {},
-                }
-                # Only two vectors are scored downstream: the whole-rule embedding and the
-                # combined "signature" embedding (logsource + detection structure + fields).
-                # The former per-section vectors (title/description/tags) were write-only and
-                # their columns have been dropped, so we no longer encode them.
-                full_text = self.create_rule_embedding_text(rule_data)
-                signature_text = self.create_signature_embedding_text(rule_data)
-                texts = [full_text, signature_text]
-                payload_list.append((rule.rule_id, texts))
-                rule_by_id[rule.rule_id] = rule
-            except Exception as e:
-                error_count += 1
-                logger.error(f"Error preparing embeddings for rule {rule.rule_id}: {e}")
-                if progress_callback:
-                    progress_callback(len(payload_list) + error_count, len(rules))
-
-        if not payload_list:
-            db_session.commit()
-            return {
-                "embeddings_indexed": 0,
-                "skipped": len(rules) - error_count,
-                "errors": error_count,
-            }
-
+        # Chunk size bounds peak memory (texts built + embeddings held per iteration).
+        # Overridable via SIGMA_EMBED_RULES_PER_CHUNK for memory-constrained hosts —
+        # the full stack (web + workers + postgres) leaves the embedding job limited
+        # headroom, and a too-large chunk can spike past it and get OOM-killed.
         chunk_size = self._EMBED_RULES_PER_CHUNK
+        try:
+            _override = int(os.getenv("SIGMA_EMBED_RULES_PER_CHUNK", ""))
+            if _override > 0:
+                chunk_size = _override
+        except (TypeError, ValueError):
+            pass
         encoder_batch = self._EMBED_ENCODER_BATCH_SIZE
 
         try:
@@ -739,43 +724,75 @@ class SigmaSyncService:
             logger.error(f"Failed to initialize embedding service: {e}")
             return {
                 "embeddings_indexed": 0,
-                "skipped": len(rules) - error_count,
+                "skipped": total,
                 "errors": error_count + 1,
                 "error": str(e),
             }
 
         embeddings_indexed = 0
-        for chunk_start in range(0, len(payload_list), chunk_size):
-            chunk_payloads = payload_list[chunk_start : chunk_start + chunk_size]
-            flat_texts = [t for _, texts in chunk_payloads for t in texts]
-            try:
-                all_embeddings = embedding_service.generate_embeddings_batch(flat_texts, batch_size=encoder_batch)
-            except Exception as e:
-                logger.error(f"Encoder batch failed: {e}")
-                error_count += len(chunk_payloads)
-                if progress_callback:
-                    progress_callback(embeddings_indexed + error_count, len(rules))
-                continue
-            dim = 2  # texts per rule: [whole-rule, signature]
-            for i, (rule_id, _) in enumerate(chunk_payloads):
-                start = i * dim
-                slice_emb = all_embeddings[start : start + dim]
-                if len(slice_emb) < dim:
-                    slice_emb = slice_emb + [[0.0] * 768] * (dim - len(slice_emb))
-                rule = rule_by_id[rule_id]
-                rule.embedding = slice_emb[0]
-                rule.embedding_model = embedding_model_name
-                rule.embedded_at = now
-                rule.logsource_embedding = _valid(slice_emb[1])  # combined "signature" vector
-                embeddings_indexed += 1
+        dim = 2  # texts per rule: [whole-rule, signature]
+        for chunk_start in range(0, total, chunk_size):
+            chunk_pks = rule_pks[chunk_start : chunk_start + chunk_size]
+            chunk_rules = db_session.query(SigmaRuleTable).filter(SigmaRuleTable.id.in_(chunk_pks)).all()
+
+            # Build (rule, [whole-rule text, signature text]) for this chunk only.
+            # Only two vectors are scored downstream: the whole-rule embedding and the
+            # combined "signature" embedding (logsource + detection structure + fields).
+            chunk_payloads: list[tuple[Any, list[str]]] = []
+            for rule in chunk_rules:
+                try:
+                    rule_data = {
+                        "title": rule.title,
+                        "description": rule.description,
+                        "tags": rule.tags or [],
+                        "logsource": rule.logsource or {},
+                        "detection": rule.detection or {},
+                    }
+                    texts = [
+                        self.create_rule_embedding_text(rule_data),
+                        self.create_signature_embedding_text(rule_data),
+                    ]
+                    chunk_payloads.append((rule, texts))
+                except Exception as e:
+                    error_count += 1
+                    logger.error(f"Error preparing embeddings for rule {rule.rule_id}: {e}")
+
+            if chunk_payloads:
+                flat_texts = [t for _, texts in chunk_payloads for t in texts]
+                try:
+                    all_embeddings = embedding_service.generate_embeddings_batch(flat_texts, batch_size=encoder_batch)
+                except Exception as e:
+                    logger.error(f"Encoder batch failed: {e}")
+                    error_count += len(chunk_payloads)
+                    if progress_callback:
+                        progress_callback(embeddings_indexed + error_count, total)
+                    continue
+                for i, (rule, _) in enumerate(chunk_payloads):
+                    start = i * dim
+                    slice_emb = all_embeddings[start : start + dim]
+                    if len(slice_emb) < dim:
+                        slice_emb = slice_emb + [[0.0] * 768] * (dim - len(slice_emb))
+                    rule.embedding = slice_emb[0]
+                    rule.embedding_model = embedding_model_name
+                    rule.embedded_at = now
+                    rule.logsource_embedding = _valid(slice_emb[1])  # combined "signature" vector
+                    embeddings_indexed += 1
+
+            # Commit per chunk so completed work survives an interrupt/OOM, and the
+            # session can release this chunk's loaded rows before the next iteration.
+            db_session.commit()
             if progress_callback:
-                progress_callback(embeddings_indexed + error_count, len(rules))
+                progress_callback(embeddings_indexed + error_count, total)
             if embeddings_indexed % 100 == 0 and embeddings_indexed > 0:
                 logger.info(f"Embedded {embeddings_indexed} rules...")
-            db_session.flush()
+            # Drop this chunk's loaded rows + large embedding/text locals and force a
+            # collection. Without this the process memory creeps across chunks (full
+            # detection/logsource JSON + 768-float vectors) and OOM-kills mid-corpus.
+            db_session.expunge_all()
+            chunk_rules = chunk_payloads = None
+            gc.collect()
 
-        db_session.commit()
-        skipped = len(rules) - embeddings_indexed - error_count
+        skipped = total - embeddings_indexed - error_count
         logger.info(
             f"Embedding generation complete: {embeddings_indexed} indexed, {skipped} skipped, {error_count} errors"
         )

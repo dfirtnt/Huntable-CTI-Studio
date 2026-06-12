@@ -4,7 +4,7 @@ The **`huntable-cti-studio`** MCP server exposes **thirteen read-only tools** fo
 
 **Connecting a client.** The repo ships a committed `.mcp.json` registering this server via `scripts/run_mcp_server.sh`. Clients that read project `.mcp.json` (Claude Code launched in the repo) need no further setup — approve the server when prompted. For other clients, register the command `bash scripts/run_mcp_server.sh`.
 
-**Running by hand (debugging).** MCP clients spawn the server in a clean environment and do **not** inherit an activated virtualenv, so bare `python3 run_mcp.py` fails with `ModuleNotFoundError: No module named 'mcp'`. Use the project venv explicitly — `.venv/bin/python run_mcp.py` (or `bash scripts/run_mcp_server.sh`, which auto-selects it).
+**Running by hand (debugging).** `scripts/run_mcp_server.sh` runs the server **inside the Docker `cli` container** — required because query-time semantic search loads the local embedding model (torch / sentence-transformers), which has no `macosx_x86_64` wheel and so cannot run in a bare host process on an Intel Mac. Use `bash scripts/run_mcp_server.sh` (Docker must be running); it passes stdio through transparently for the JSON-RPC handshake.
 
 **Article IDs:** Search tools label each hit with **`Article ID`** (database primary key `articles.id`). Pass that value to `get_article`. The numbered list position (1, 2, …) is **not** the article ID.
 
