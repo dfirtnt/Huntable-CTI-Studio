@@ -53,6 +53,11 @@ WITH latest AS (
 SELECT * FROM latest ORDER BY article_url;
 ```
 
+Heads-up: `expected_items` is frequently NULL on historical rows even where
+`expected_count` is set — many past eval runs wrote only the count. Populating it to
+match `ground_truth.json` is a no-content **alignment**, not a divergence; do it with
+operator approval and don't report it as drift.
+
 Optional seed-drift FYI (Step 1.4 — report-only, never the rubric):
 
 ```sql
@@ -68,7 +73,8 @@ Path:
 - Sheet `articles_table`; filter rows where `HuntableType` matches the agent's
   type(s). Columns: Title, URL, Status, HuntableType, Count, Analysis,
   GroundTruth.
-- Read/write with `.venv/bin/python` + openpyxl. To READ, copy to /tmp first if
+- Read/write with `.venv/bin/python` + openpyxl (not in the base venv — install if
+  the import fails: `.venv/bin/pip install openpyxl`). To READ, copy to /tmp first if
   the OneDrive path misbehaves; load with `data_only=True` for verification
   reads, and WITHOUT `data_only` for edit-in-place (preserves formulas).
 - See `hazards.md` before any write — Excel must be closed.
@@ -93,6 +99,22 @@ Path:
   );
   ```
 
+  Some eval URLs have NO row yet — the eval set grew after the last eval run (seen
+  for ProcTree arts 8 & 9, 2026-06-12). For those, `INSERT` instead of `UPDATE`:
+
+  ```sql
+  INSERT INTO subagent_evaluations
+    (subagent_name, article_url, expected_count, expected_items, status,
+     workflow_config_version, created_at)
+  VALUES
+    ('<subagent_key>', '<url>', <N>, '<json>'::jsonb, 'completed',
+     <active_config_version>, NOW());
+  ```
+
+  (`status='completed'` matches existing fixture rows; `<active_config_version>` =
+  current active `agentic_workflow_config.version`.) Check existence per URL first;
+  UPDATE where a row exists, INSERT where none does.
+
 After writing, re-verify every touched sink and print a cross-sink consistency
 table (yaml = a.json = gt.json items-len = xlsx Count = xlsx GT-len = DB count =
 DB items-len).
@@ -108,8 +130,18 @@ DB items-len).
   AgentPromptVersionTable history row, and carries sibling agents forward.
   Never hand-write the config row with SQL.
 - Quickstart presets: `config/presets/AgentConfigs/quickstart/Quickstart-*.json`
-  (9 files). Each embeds `<AGENT>.Prompt.prompt` as a JSON-encoded copy of the
-  seed: inner string via `json.dumps(seed)` (default separators), outer file via
-  `json.dumps(obj, indent=2, ensure_ascii=False)` (+ trailing newline if the
-  original had one) — this round-trips byte-identically, so the diff is one
-  line per file.
+  (9 files). Each embeds `<AGENT>.Prompt.prompt` as a JSON-string copy of the seed
+  dict. **The drift-guard test
+  (`tests/config/test_subagent_traceability_contract.py::…parses_and_matches_source`)
+  compares SEMANTICALLY** — `json.loads(embedded) == json.loads(seed_file)` — NOT
+  byte-for-byte. So you don't need byte-identity; you need the embedded string to
+  parse back to the seed dict. To keep the diff to one line per file, **detect the
+  existing embedding's serialization and match it** rather than assuming: for
+  ProcTreeExtract (2026-06-12) it was COMPACT
+  `json.dumps(seed, separators=(',',':'))`, NOT the "default separators" form
+  (which inserts `, ` / `: ` spaces, yields a longer string, and does not reproduce
+  the existing embedding). Safest regeneration = surgical raw-text replace per
+  preset: `old_escaped = json.dumps(old_inner)`, `new_escaped =
+  json.dumps(new_inner)`, `raw.replace(old_escaped, new_escaped)` (assert it appears
+  exactly once), leaving every other key byte-untouched. Verify after:
+  `json.loads(preset['<AGENT>']['Prompt']['prompt']) == new_seed` for all 9.

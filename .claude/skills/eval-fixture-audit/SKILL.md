@@ -65,8 +65,20 @@ requested agent is not in the table, stop and tell the operator.
    output schema — citing the doc section each rule comes from.
 4. Optional hygiene (report-only, never changes the rubric): note where the seed
    `src/prompts/<AGENT>` has drifted from the doc. FYI for later prompt work.
+5. Check for a *ratified pending spec amendment* before printing the rubric. Some
+   fleet-wide decisions are recorded as design docs in `docs/development/` ahead of
+   the per-agent contract edit — e.g.
+   `docs/development/extractor-lane-partial-enablement-2026-06-12.md` ratifies
+   de-laning detection-logic sources (the "Complete-Artifact Rule") for Registry,
+   Services, ScheduledTasks, and Cmdline. If one applies to this agent, the operator
+   will likely have you apply it here as a pre-extraction SPEC CHANGE.
 
 **STOP. Wait for the operator to confirm the rubric before extracting anything.**
+The operator may also AMEND the rubric at this gate — a deliberate pre-extraction
+SPEC CHANGE (a new, relaxed, or removed rule). That is legitimate and common: apply
+the doc edit in Step 7 order (doc → dropin → CHANGELOG), then extract against the
+amended rubric. A rubric amended here is still "the doc," never the seed — do not
+let seed-only rules ride in (see `references/hazards.md` "Seed-rule leak").
 
 ## Step 2 — Enumerate articles
 
@@ -136,6 +148,13 @@ excerpts on request. For each ruling, state which kind it is:
 - **FIXTURE CORRECTION** → update sinks; no doc change.
 - **SPEC CHANGE** → queue a doc edit (Step 7) and note the score-comparability
   discontinuity.
+
+A SPEC CHANGE is often ruled mid-adjudication — a REVIEW item exposes a rule that
+should move (this happened twice in the ProcTree audit, 2026-06-12). When it does,
+apply the doc edit, then run a curated **delta re-sweep over ONLY the articles the
+new rule touches** (re-extract those; leave the rest), not a full restart. Multiple
+rounds in one session are normal. Keep each round's spec edit and its fixture delta
+in **separate commits** so the era boundary stays legible in `git log`.
 
 **STOP. Offer write targets explicitly and wait:**
 (1) xlsx Count+GroundTruth, (2) eval_articles.yaml, (3) articles.json +

@@ -53,6 +53,26 @@ Never open ground_truth.json, the xlsx, or DB expected values before finishing
 blind extraction. Two prior audits of the same articles diverged because the
 model read the recorded counts first and rationalized toward them.
 
+## Seed-rule leak into the rubric / fan-out prompt
+
+The rubric is the DOC (`docs/contracts/<agent>-extract.md`), never the seed
+(`src/prompts/<AGENT>`). The seed routinely carries extra rules the doc does not —
+agent-specific SKIPs added during prompt experimentation. During the ProcTree audit
+(2026-06-12) a seed-only rule (a blanket `schtasks.exe`-parent SKIP that exists in
+the seed but NOT the contract, and in fact contradicts it) was pasted from memory
+into the per-article fan-out prompt, silently contaminating the "operative rubric."
+The operator caught it; it forced a kill + relaunch of the extraction workflow.
+
+Guardrails:
+
+- Build the fan-out prompt's rule list ONLY from the merged doc spec written to
+  /tmp (Step 3). Do not paste rules from the seed or from memory.
+- After drafting the prompt, diff its rules against the doc. Any rule present in the
+  prompt but absent from the doc is a leak — remove it (or, if the operator wants it,
+  ratify it as a SPEC CHANGE in the doc FIRST, then it is legitimately the rubric).
+- If a leak is found after extraction has started, kill the run and relaunch — do not
+  try to mentally subtract the leaked rule from already-produced results.
+
 ## Placeholders are intentional
 
 `expected_items: []` in ground_truth.json marks a registered-but-uncurated
