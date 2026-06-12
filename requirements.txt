@@ -41,7 +41,7 @@ celery==5.6.2
 redis==7.4.0
 
 # Classification and ML
-scikit-learn==1.8.0
+scikit-learn==1.9.0
 lightgbm==4.6.0
 joblib==1.5.3
 spacy==3.8.14  # Sentence splitting (sentencizer component only, ~2MB)
