@@ -23,7 +23,10 @@ value data, value type, operation). It does NOT cover reg.exe / Set-ItemProperty
 lines themselves, process lineage, service ImagePath values, scheduled-task identity, or
 finished detection logic (Sigma / KQL / SPL / EQL / XQL). You MAY extract the registry
 key and value referenced BY a reg.exe or PowerShell command if the full hive-rooted path
-and value are explicitly present in the text.
+and value are explicitly present in the text. You MAY extract a registry key/value stated
+inside detection logic — in the rule/query field conditions or its descriptive prose —
+when the matched value is a complete hive-rooted artifact (see COMPLETE-ARTIFACT RULE);
+the rule/query text itself stays out of scope.
 
 ## INPUT (flexible)
 I will give you ONE of the following each turn:
@@ -57,6 +60,23 @@ Extract:
 - reg.exe or PowerShell commands (extract the key/value, not the command itself).
 - Tables, figures, and inline code containing registry paths.
 - IOC tables and appendices.
+- Detection, hunting, and mitigation sections — both descriptive prose and rule/query
+  bodies — when the registry artifact appears as a complete hive-rooted path (see
+  COMPLETE-ARTIFACT RULE).
+
+## COMPLETE-ARTIFACT RULE (detection-logic sources)
+A registry artifact inside a Sigma rule, KQL/SPL/EQL/XQL query, or vendor hunting query
+is extractable ONLY when the matched value is the COMPLETE artifact as positive scope
+defines it — a full hive-rooted key path. The decisive test is value shape: does the
+matched string, on its own, satisfy positive scope?
+- Exact-match conditions carry the whole value:
+  TargetObject: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\Evil' -> EXTRACT.
+- Fragment operators (|contains, |endswith, |startswith, |re) normally carry a
+  discriminator, not the artifact: TargetObject|endswith: '\CurrentVersion\Run' is a
+  hive-less suffix, fails the hive-root requirement -> SKIP. Do NOT reconstruct the
+  missing hive.
+- Value name / value data are extractable only when literally present in the matched
+  value, never implied by the field name or the rule's title.
 
 ## NEGATIVE EXTRACTION SCOPE
 Do NOT extract:
@@ -65,16 +85,17 @@ Do NOT extract:
 - Shorthand or aliases without full paths (e.g., "the Run key", "IFEO", "AppInit_DLLs").
   Do NOT expand shorthand.
 - Registry paths inside malware source code (C, C++, Python, Go, Rust, .NET, VB).
-- Registry paths that appear ONLY inside a Sigma rule, KQL/SPL/EQL/XQL query, or other
-  detection logic.
+- Hive-less fragments matched inside detection logic (e.g., TargetObject|endswith:
+  '\CurrentVersion\Run') — fails the hive-root requirement; see COMPLETE-ARTIFACT RULE.
 - Registry paths that appear ONLY inside a YARA rule.
 - API calls like RegSetValueEx, RegCreateKeyEx (extract the KEY if present, not the API).
-- Hypothetical / speculative references ("attackers could...", "it is possible to...",
-  "defenders should monitor...").
-- Defensive guidance or hardening recommendations not tied to observed attacker behavior.
+- Hypothetical / speculative references ("attackers could...", "it is possible to...").
+  NOTE: detection/hunting/mitigation prose and rule/query bodies grounded in the content
+  are VALID sources (see Valid sources and COMPLETE-ARTIFACT RULE) — this exclusion is
+  for generic speculation only.
 - Registry paths inferred from malware-family knowledge rather than explicitly stated.
-- reg.exe command lines, process lineage, service ImagePath, or detection logic
-  (those belong to other extractors).
+- reg.exe command lines, process lineage, service ImagePath, or finished detection-logic
+  text — the rule/query itself (those belong to other extractors).
 
 ## DETECTION RELEVANCE GATE
 Every extracted artifact must drive telemetry-based detection via at least one of:
@@ -118,16 +139,23 @@ If an artifact is technically present but has no detection-engineering value, SK
 - Multiple values under one key: emit one item per (key, value_name, value_data) tuple.
 - IOC appendices: valid extraction source; apply all other rules.
 - Shorthand ("the Run key"): SKIP. No expansion.
+- Detection logic:
+    TargetObject: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\Evil' (exact match)
+    -> EXTRACT (matched value is a full hive-rooted key).
+    TargetObject|endswith: '\CurrentVersion\Run' -> SKIP (hive-less suffix; do NOT
+    reconstruct the hive).
 
 ## VERIFICATION CHECKLIST
 Apply to EVERY candidate before including it:
 - [ ] Does the path start with a valid hive root?
 - [ ] Is the artifact explicitly present in the text (not inferred, expanded, or
       hypothetical)?
-- [ ] Is the source valid (not source code, detection logic, YARA, or defensive guidance)?
+- [ ] Is the source valid (not malware source code or a YARA rule)?
 - [ ] Does it have detection-engineering value (Sysmon 12/13/14, EDR registry monitoring)?
 - [ ] Can I point to the exact source_evidence?
 - [ ] If from a reg.exe command, did I extract only the key/value (not the command)?
+- [ ] If from detection logic, is the matched value a complete hive-rooted artifact
+      (not a hive-less suffix or fragment)?
 
 ## OUTPUT (default: readable Markdown table)
 Return a table, one row per unique (key, value_name, value_data) tuple:
@@ -162,6 +190,7 @@ Precision over recall. EDR observability overrides completeness.
 - If the article says "modified registry for persistence" with no specific path, SKIP.
 - If the article says "the Run key" without a hive-rooted path, SKIP — do NOT expand.
 - If the registry path is inside malware source code, SKIP.
-- If the reference is hypothetical, speculative, or defensive guidance, SKIP.
+- If the reference is hypothetical or speculative, SKIP.
+- If detection logic matches only a hive-less suffix, SKIP — do NOT reconstruct the hive.
 - When in doubt, OMIT.
 ```
