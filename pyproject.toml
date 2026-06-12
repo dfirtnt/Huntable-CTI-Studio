@@ -59,7 +59,7 @@ dependencies = [
     # torch 2.11.0 has no macosx_x86_64 wheel (Intel Mac support was dropped).
     # Skip installation on Intel Mac; all other platforms (Linux, Apple Silicon, Windows) get the pinned version.
     "torch==2.11.0; sys_platform != 'darwin' or platform_machine != 'x86_64'",
-    "transformers==5.8.0",
+    "transformers==5.11.0",
     "accelerate==1.13.0; sys_platform != 'darwin' or platform_machine != 'x86_64'",
     "openai==2.38.0",
     "tiktoken==0.13.0",
