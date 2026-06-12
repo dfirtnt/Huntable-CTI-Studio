@@ -189,7 +189,6 @@ class ObservableModelEvaluator:
                 continue
 
             text = article.content
-            gold_spans = [ann.selected_text for ann in annotations]
 
             # Run model inference
             predicted_spans_raw = self.inference_service.extract(text)

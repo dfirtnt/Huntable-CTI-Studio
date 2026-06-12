@@ -49,12 +49,6 @@
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <label class="flex flex-col">
-                    <span class="text-gray-700 dark:text-gray-300 mb-1 text-sm font-medium">Embedding Model (for similarity search):</span>
-                    <select id="embeddingModel" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
-                        <option value="">Loading models...</option>
-                    </select>
-                </label>
-                <label class="flex flex-col">
                     <span class="text-gray-700 dark:text-gray-300 mb-1 text-sm font-medium">LLM Model (for reranking):</span>
                     <select id="llmModel" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
                         <option value="">Loading models...</option>
@@ -74,10 +68,6 @@
                 <h4 class="text-md font-semibold text-gray-700 dark:text-gray-300 mb-3">Models Used</h4>
                 <div class="bg-gray-50 dark:bg-gray-900/20 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                        <div>
-                            <span class="text-gray-600 dark:text-gray-400">Embedding Model:</span>
-                            <span id="usedEmbeddingModel" class="ml-2 font-mono text-gray-900 dark:text-white"></span>
-                        </div>
                         <div>
                             <span class="text-gray-600 dark:text-gray-400">LLM Model:</span>
                             <span id="usedLLMModel" class="ml-2 font-mono text-gray-900 dark:text-white"></span>
@@ -102,6 +92,7 @@
     </div>
 </div>
 
+<script src="/static/js/components/similarity-display.js"></script>
 <script>
     // Example rule for testing
     const exampleRule = `title: Suspicious PowerShell Execution
@@ -181,7 +172,6 @@ tags:
             
             const ruleYaml = document.getElementById('ruleInput').value.trim();
             const useLLMRerank = document.getElementById('useLLMRerank').checked;
-            const embeddingModel = document.getElementById('embeddingModel').value;
             const llmModel = document.getElementById('llmModel').value;
             const topK = parseInt(document.getElementById('topK').value) || 10;
             
@@ -197,7 +187,6 @@ tags:
                 body: JSON.stringify({
                     rule_yaml: ruleYaml,
                     use_llm_rerank: useLLMRerank,
-                    embedding_model: embeddingModel,
                     llm_model: llmModel,
                     top_k: topK
                 })
@@ -234,7 +223,6 @@ tags:
         if (data.models_used) {
             const modelsSection = document.getElementById('modelsUsedSection');
             modelsSection.classList.remove('hidden');
-            document.getElementById('usedEmbeddingModel').textContent = data.models_used.embedding_model || 'Default';
             document.getElementById('usedLLMModel').textContent = data.models_used.llm_model || 'Not used';
         }
         
@@ -259,44 +247,24 @@ tags:
             const matchDiv = document.createElement('div');
             matchDiv.className = 'border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors';
             
-            // Determine status color based on similarity
+            // Determine status color based on similarity (bands come from the
+            // shared Phase-0 constants in similarity-display.js)
             let statusColor = 'blue';
             let statusIcon = '🔍';
-            if (match.similarity >= 0.90) {
+            if (match.similarity >= SIMILARITY_THRESHOLDS.display.strongMatch) {
                 statusColor = 'green';
                 statusIcon = '✅';
-            } else if (match.similarity >= 0.75) {
+            } else if (match.similarity >= SIMILARITY_THRESHOLDS.display.moderateMatch) {
                 statusColor = 'yellow';
                 statusIcon = '⚠️';
             }
             
-            let similarityBreakdownHtml = '';
-            if (match.similarity_breakdown) {
-                const breakdown = match.similarity_breakdown;
-                similarityBreakdownHtml = `
-                    <div class="mt-3 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded">
-                        <div class="text-xs font-bold text-blue-900 dark:text-blue-300 mb-2">🔍 Embedding Similarity Breakdown:</div>
-                        <div class="grid grid-cols-2 gap-1 text-xs">
-                            <div class="flex justify-between">
-                                <span class="text-gray-700 dark:text-gray-300">Title:</span>
-                                <span class="font-medium text-blue-700 dark:text-blue-400">${(breakdown.title * 100).toFixed(1)}%</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-700 dark:text-gray-300">Description:</span>
-                                <span class="font-medium text-blue-700 dark:text-blue-400">${(breakdown.description * 100).toFixed(1)}%</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-700 dark:text-gray-300">Tags:</span>
-                                <span class="font-medium text-blue-700 dark:text-blue-400">${(breakdown.tags * 100).toFixed(1)}%</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-700 dark:text-gray-300">Signature:</span>
-                                <span class="font-medium text-blue-700 dark:text-blue-400">${(breakdown.signature * 100).toFixed(1)}%</span>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
+            // Behavioral similarity breakdown via the shared component -- renders
+            // the real atom_jaccard / logic_shape / containment from the
+            // serialized match. Replaces a dead embedding-era block that read
+            // sub-score fields the behavioral engine never returns and so
+            // rendered literal NaN%.
+            const similarityBreakdownHtml = renderSimilarityDisplay(match, { mode: 'compact', includeExplainability: true });
             
             let llmRerankHtml = '';
             if (match.llm_rerank) {
@@ -310,34 +278,6 @@ tags:
                             <span class="font-medium">Reranked Similarity:</span> <span class="font-bold text-green-700 dark:text-green-400">${(match.llm_rerank.similarity * 100).toFixed(1)}%</span>
                         </div>
                         <div class="text-xs text-gray-800 dark:text-gray-200 italic mt-1">${match.llm_rerank.explanation || 'No explanation provided'}</div>
-                    </div>
-                `;
-            }
-            
-            let semanticOverlapHtml = '';
-            if (match.semantic_overlap) {
-                const overlap = match.semantic_overlap;
-                semanticOverlapHtml = `
-                    <div class="mt-3 p-2 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded">
-                        <div class="text-xs font-bold text-purple-900 dark:text-purple-300 mb-2">📊 Semantic Overlap:</div>
-                        <div class="grid grid-cols-2 gap-1 text-xs">
-                            <div class="flex justify-between">
-                                <span class="text-gray-700 dark:text-gray-300">Overall:</span>
-                                <span class="font-medium text-purple-700 dark:text-purple-400">${(overlap.semantic_overlap_ratio * 100).toFixed(1)}%</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-700 dark:text-gray-300">Process Overlap:</span>
-                                <span class="font-medium text-purple-700 dark:text-purple-400">${overlap.process_overlap || 0}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-700 dark:text-gray-300">Path Overlap:</span>
-                                <span class="font-medium text-purple-700 dark:text-purple-400">${overlap.path_overlap || 0}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-700 dark:text-gray-300">Cmdline Overlap:</span>
-                                <span class="font-medium text-purple-700 dark:text-purple-400">${overlap.cmdline_overlap || 0}</span>
-                            </div>
-                        </div>
                     </div>
                 `;
             }
@@ -368,8 +308,7 @@ tags:
                 
                 ${similarityBreakdownHtml}
                 ${llmRerankHtml}
-                ${semanticOverlapHtml}
-                
+
                 <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
                     <div><span class="font-medium text-gray-700 dark:text-gray-300">Rule ID:</span> <code class="text-xs bg-gray-100 dark:bg-gray-700 px-1 rounded text-gray-900 dark:text-white">${match.rule_id || 'N/A'}</code></div>
                     <div><span class="font-medium text-gray-700 dark:text-gray-300">Status:</span> ${match.status || 'N/A'}</div>
@@ -484,69 +423,35 @@ tags:
 
     // Load LMStudio models on page load
     async function loadLMStudioModels() {
+        // Populates the LLM reranking dropdown only. The similarity search itself
+        // is behavioral atom set-math (no embeddings), so there is no embedding
+        // model picker -- isEmbeddingModel() is used purely to exclude embedding
+        // models from the LLM (chat) list.
         try {
             const response = await fetch('/api/lmstudio-models');
             const data = await response.json();
-            
-            const embeddingSelect = document.getElementById('embeddingModel');
+
             const llmSelect = document.getElementById('llmModel');
-            
-            if (!embeddingSelect || !llmSelect) return;
-            
-            embeddingSelect.innerHTML = '';
+            if (!llmSelect) return;
+
             llmSelect.innerHTML = '';
-            
+
             if (data.success && data.all_models && data.all_models.length > 0) {
-                // Get current models from Settings
-                let currentEmbeddingModel = null;
+                // Current chat model from Settings (embedding models are not chat models)
                 let currentLLMModel = null;
                 try {
                     const settingsResponse = await fetch('/api/settings/lmstudio_model');
                     const settingsData = await settingsResponse.json();
-                    if (settingsData.success && settingsData.exists) {
-                        const savedModel = settingsData.value;
-                        if (isEmbeddingModel(savedModel)) {
-                            currentEmbeddingModel = savedModel;
-                        } else {
-                            currentLLMModel = savedModel;
-                        }
+                    if (settingsData.success && settingsData.exists && !isEmbeddingModel(settingsData.value)) {
+                        currentLLMModel = settingsData.value;
                     }
                 } catch (e) {
                     console.log('Could not fetch saved models:', e);
                 }
-                
-                // Separate embedding and chat models
-                const embeddingModels = [];
-                const chatModels = [];
-                
-                data.all_models.forEach(model => {
-                    if (isEmbeddingModel(model)) {
-                        embeddingModels.push(model);
-                    } else {
-                        chatModels.push(model);
-                    }
-                });
-                
-                // Populate embedding model dropdown
-                if (embeddingModels.length > 0) {
-                    // Sort embedding models alphabetically
-                    embeddingModels.sort();
-                    embeddingModels.forEach((model, index) => {
-                        const option = document.createElement('option');
-                        option.value = model;
-                        option.textContent = model;
-                        if ((currentEmbeddingModel && model === currentEmbeddingModel) || (!currentEmbeddingModel && index === 0)) {
-                            option.selected = true;
-                        }
-                        embeddingSelect.appendChild(option);
-                    });
-                } else {
-                    embeddingSelect.innerHTML = '<option value="">No embedding models available</option>';
-                }
-                
-                // Populate LLM model dropdown
+
+                // LLM reranking uses chat models only (exclude embedding models)
+                const chatModels = data.all_models.filter(model => !isEmbeddingModel(model));
                 if (chatModels.length > 0) {
-                    // Sort chat models alphabetically
                     chatModels.sort();
                     chatModels.forEach((model, index) => {
                         const option = document.createElement('option');
@@ -561,16 +466,11 @@ tags:
                     llmSelect.innerHTML = '<option value="">No chat models available</option>';
                 }
             } else {
-                embeddingSelect.innerHTML = '<option value="">No models available</option>';
                 llmSelect.innerHTML = '<option value="">No models available</option>';
             }
         } catch (error) {
             console.error('Error loading LMStudio models:', error);
-            const embeddingSelect = document.getElementById('embeddingModel');
             const llmSelect = document.getElementById('llmModel');
-            if (embeddingSelect) {
-                embeddingSelect.innerHTML = '<option value="">Error loading models</option>';
-            }
             if (llmSelect) {
                 llmSelect.innerHTML = '<option value="">Error loading models</option>';
             }

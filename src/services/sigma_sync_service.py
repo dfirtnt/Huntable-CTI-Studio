@@ -555,22 +555,22 @@ class SigmaSyncService:
                     except Exception as e:
                         logger.warning(f"Failed to compute canonical fields for rule {rule_id}: {e}")
 
-                # Deterministic semantic precompute (sigma_similarity) — eliminates recomputation during comparison
+                # Deterministic atom precompute (sigma_similarity) — eliminates recomputation during comparison
                 canonical_class = None
                 positive_atoms = None
                 negative_atoms = None
                 surface_score = None
                 try:
-                    from src.services.sigma_semantic_precompute import precompute_semantic_fields
+                    from src.services.sigma_atom_precompute import precompute_atom_fields
 
-                    sem = precompute_semantic_fields(rule_data)
+                    sem = precompute_atom_fields(rule_data)
                     if sem:
                         canonical_class = sem["canonical_class"]
                         positive_atoms = sem["positive_atoms"]
                         negative_atoms = sem["negative_atoms"]
                         surface_score = sem["surface_score"]
                 except Exception as e:
-                    logger.debug("Semantic precompute skipped for rule %s: %s", rule_id, e)
+                    logger.debug("Atom precompute skipped for rule %s: %s", rule_id, e)
 
                 # Create or update rule record (with no autoflush to prevent premature commits)
                 with db_session.no_autoflush:
@@ -586,7 +586,7 @@ class SigmaSyncService:
                         existing_rule.canonical_json = canonical_json
                         existing_rule.exact_hash = exact_hash
                         existing_rule.logsource_key = logsource_key
-                        # Deterministic semantic precompute
+                        # Deterministic atom precompute
                         existing_rule.canonical_class = canonical_class
                         existing_rule.positive_atoms = positive_atoms
                         existing_rule.negative_atoms = negative_atoms
@@ -614,7 +614,7 @@ class SigmaSyncService:
                             canonical_json=canonical_json,
                             exact_hash=exact_hash,
                             logsource_key=logsource_key,
-                            # Deterministic semantic precompute
+                            # Deterministic atom precompute
                             canonical_class=canonical_class,
                             positive_atoms=positive_atoms,
                             negative_atoms=negative_atoms,

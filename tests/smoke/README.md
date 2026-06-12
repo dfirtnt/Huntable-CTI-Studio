@@ -21,7 +21,7 @@ Smoke tests are distributed across multiple test files using the `@pytest.mark.s
 
 `@pytest.mark.ui_smoke` is a separate browser-only layer. Those tests are intentionally not part of `run_tests.py smoke` because the quick smoke path stays browserless in CI.
 
-**API Endpoints (24 tests)** - `tests/api/test_endpoints.py`
+**API Endpoints (30 tests)** - `tests/api/test_endpoints.py`
 - Dashboard home page
 - Articles listing
 - Article detail view
@@ -52,7 +52,7 @@ Smoke tests are distributed across multiple test files using the `@pytest.mark.s
 **System Integration (1 test)** - `tests/integration/test_system_integration.py`
 - System startup health check
 
-**Top-level HTML pages** - `tests/ui/test_top_level_pages_smoke_ui.py`
+**Top-level HTML pages (12 tests)** - `tests/smoke/test_top_level_pages_smoke.py`
 - Analytics
 - MLOps
 - Agent evals
@@ -63,6 +63,13 @@ Smoke tests are distributed across multiple test files using the `@pytest.mark.s
 - Observable training
 - Evaluations dashboard
 - Workflow redirect helpers
+
+**Browserless workflow and sources page checks (15 tests)** - `tests/ui/`
+- Workflow page and config API
+- Workflow configuration tab
+- Agent panel and preset selector rendering
+- Sources page and failing-sources API
+- Sources controls, modals, PDF upload, manual URL scraping, and breadcrumb
 
 **Browser UI Smoke (separate from `run_tests.py smoke`)** - `tests/ui/test_ui_flows.py`
 - Dashboard navigation
@@ -75,9 +82,13 @@ Smoke tests are distributed across multiple test files using the `@pytest.mark.s
 
 | File | Tests | Category |
 |------|-------|----------|
-| `tests/api/test_endpoints.py` | 24 | API endpoints |
+| `tests/api/test_endpoints.py` | 30 | API endpoints |
+| `tests/cli/test_cli_help.py` | 6 | CLI help and stats |
 | `tests/integration/test_system_integration.py` | 1 | System health |
-| `tests/ui/test_top_level_pages_smoke_ui.py` | top-level pages | HTML route coverage |
+| `tests/smoke/test_mcp_rag_smoke.py` | 6 | DB/RAG read checks |
+| `tests/smoke/test_top_level_pages_smoke.py` | 12 | HTML route coverage |
+| `tests/ui/test_agent_config_smoke_ui.py` | 6 | Browserless workflow page checks |
+| `tests/ui/test_sources_smoke_ui.py` | 9 | Browserless sources page checks |
 | `tests/ui/test_ui_flows.py` | browser smoke | UI navigation |
 | `tests/ui/test_workflow_comprehensive_ui.py` | browser smoke | Workflow tabs (consolidated) |
 
@@ -93,19 +104,19 @@ python3 run_tests.py smoke
 **Alternative methods:**
 ```bash
 # Using venv python directly
-.venv/bin/python run_tests.py smoke --verbose
+.venv/bin/python3 run_tests.py smoke --verbose
 
 # Activate venv first
 source .venv/bin/activate
-python run_tests.py smoke --verbose
+python3 run_tests.py smoke --verbose
 deactivate
 
 # Run browser smoke separately
-.venv/bin/python -m pytest tests/ -m ui_smoke -v
+.venv/bin/python3 -m pytest tests/ -m ui_smoke -v
 
 # Run specific test file
-.venv/bin/python -m pytest tests/api/test_endpoints.py -m smoke -v
-.venv/bin/python -m pytest tests/ui/test_top_level_pages_smoke_ui.py -m smoke -v
+.venv/bin/python3 -m pytest tests/api/test_endpoints.py -m smoke -v
+.venv/bin/python3 -m pytest tests/smoke/test_top_level_pages_smoke.py -m smoke -v
 ```
 
 ### Test Configuration
@@ -118,10 +129,10 @@ deactivate
 
 | Category | Tests | Duration | Purpose |
 |----------|-------|----------|---------|
-| **API Endpoints** | 24 | ~20s | Core API/export/health/backup/search/workflow/evaluations/metrics/annotations/jobs |
+| **API Endpoints** | 30 | ~20s | Core API/export/health/backup/search/workflow/evaluations/metrics/annotations/jobs |
 | **System Health** | 1 | ~2s | System startup verification |
-| **HTML Pages** | lightweight | ~5s | Critical page-load coverage without a browser |
-| **Database & Services** | 3 | ~5s | Database connectivity, Redis, Celery health |
+| **HTML Pages** | 27 | ~5s | Critical page-load coverage without a browser |
+| **Database & Services** | 6 | ~5s | Database connectivity, Redis, Celery health, RAG read checks |
 | **Workflow & Annotations** | 2 | ~5s | Workflow trigger and annotation endpoints |
 | **Browser UI Smoke** | separate | environment-dependent | Playwright smoke for navigation/search/workflow tabs |
 
@@ -130,13 +141,13 @@ deactivate
 ### GitHub Actions
 ```yaml
 - name: Run Smoke Tests
-  run: python run_tests.py smoke
+  run: python3 run_tests.py smoke
 ```
 
 ### Pre-deployment
 ```bash
 # Quick health check before deployment
-python tests/smoke/run_smoke_tests.py --verbose
+python3 tests/smoke/run_smoke_tests.py --verbose
 ```
 
 ## Monitoring Integration
@@ -174,17 +185,17 @@ pytest tests/ -m smoke --timeout=60
 **Missing Dependencies**
 ```bash
 # Install test dependencies
-pip install -r requirements-test.txt
+uv sync --frozen
 ```
 
 ### Debug Mode
 ```bash
 # Run with verbose output
-python tests/smoke/run_smoke_tests.py --verbose
+python3 tests/smoke/run_smoke_tests.py --verbose
 
 # Run specific smoke file
 pytest tests/api/test_endpoints.py -m smoke -v
-pytest tests/ui/test_top_level_pages_smoke_ui.py -m smoke -v
+pytest tests/smoke/test_top_level_pages_smoke.py -m smoke -v
 
 # Run browser-only smoke
 pytest tests/ui/test_ui_flows.py -m ui_smoke -v

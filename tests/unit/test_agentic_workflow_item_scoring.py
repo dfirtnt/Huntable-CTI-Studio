@@ -90,6 +90,29 @@ def test_partial_match_populates_item_metrics():
 
 
 @pytest.mark.unit
+def test_exception_during_update_marks_failed_not_stuck_pending():
+    """REGRESSION: if persisting the eval update raises mid-flight, the record must
+    reach a terminal 'failed' state rather than being stranded in 'pending' forever.
+
+    The original handler logged the exception and `pass`ed, leaving status='pending'.
+    A poll loop then never sees completion and the item shows as 'stuck' indefinitely.
+    """
+    eval_record = _make_eval_record(["whoami /groups"])
+    extraction_result = {"subresults": {"cmdline": {"items": [{"value": "whoami /groups"}], "count": 1}}}
+    execution = _make_execution(extraction_result)
+    db_session = MagicMock()
+    # First commit (the 'completed' write) fails; the recovery commit succeeds.
+    db_session.commit.side_effect = [RuntimeError("db write failed"), None]
+
+    # Must not raise (the workflow should not be failed by an eval-update error).
+    _update_single_eval_record(eval_record, execution, db_session)
+
+    assert eval_record.status == "failed"
+    db_session.rollback.assert_called_once()
+    assert db_session.commit.call_count == 2
+
+
+@pytest.mark.unit
 def test_no_expected_items_skips_item_scoring():
     """When the article has no ground truth, item-level fields stay None
     (count-only mode -- this is the documented fallback)."""

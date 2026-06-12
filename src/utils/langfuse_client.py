@@ -24,6 +24,25 @@ _active_trace_id: str | None = None
 _session_trace_cache: dict[str, str] = {}
 
 
+def _build_langfuse_tags(
+    *,
+    execution_id: int | str | None = None,
+    article_id: int | str | None = None,
+    model: str | None = None,
+    extra_tags: list[str] | None = None,
+) -> list[str]:
+    tags: list[str] = []
+    if execution_id is not None:
+        tags.append(f"execution_id:{execution_id}")
+    if article_id is not None:
+        tags.append(f"article_id:{article_id}")
+    if model:
+        tags.append(f"model:{model}")
+    if extra_tags:
+        tags.extend(tag for tag in extra_tags if tag)
+    return tags
+
+
 def _get_langfuse_setting(key: str, env_key: str, default: str | None = None) -> str | None:
     """Get Langfuse setting from database first, then fall back to environment variable.
 
@@ -181,6 +200,7 @@ class _LangfuseWorkflowTrace(AbstractContextManager):
                 session_id=session_id,
                 user_id=self.user_id or f"article_{self.article_id}",
                 trace_name=f"agentic_workflow_execution_{self.execution_id}",
+                tags=_build_langfuse_tags(execution_id=self.execution_id, article_id=self.article_id),
             )
             self._attributes_cm.__enter__()
 
@@ -464,6 +484,7 @@ def trace_llm_call(
                 session_id=resolved_session_id,
                 user_id=f"article_{article_id}" if article_id else None,
                 trace_name=name,
+                tags=_build_langfuse_tags(execution_id=execution_id, article_id=article_id, model=model),
             ):
                 generation = client.start_observation(**generation_kwargs)
         else:
@@ -650,6 +671,42 @@ def log_llm_error(generation, error: Exception, metadata: dict[str, Any] | None 
             logger.warning(f"LangFuse log_llm_error raised generator error (non-critical): {e}")
         else:
             logger.error(f"Error logging LLM error to LangFuse: {e}")
+
+
+def get_active_trace_id() -> str | None:
+    """Return the trace ID currently set by an active trace_workflow_execution context manager."""
+    return _active_trace_id
+
+
+def score_langfuse_trace(
+    trace_id: str,
+    name: str,
+    value: float,
+    comment: str | None = None,
+) -> None:
+    """Attach a numeric score to a Langfuse trace by its trace_id.
+
+    Silently no-ops when Langfuse is disabled or the call fails, so callers
+    never need to guard against tracing errors.
+    """
+    if not trace_id or not is_langfuse_enabled():
+        return
+    try:
+        client = get_langfuse_client()
+        if client is None:
+            return
+        kwargs: dict[str, Any] = {
+            "trace_id": trace_id,
+            "name": name,
+            "value": float(value),
+            "data_type": "NUMERIC",
+        }
+        if comment:
+            kwargs["comment"] = comment
+        client.score(**kwargs)
+        client.flush()
+    except Exception as e:
+        logger.debug("Failed to score Langfuse trace %s (%s=%s): %s", trace_id, name, value, e)
 
 
 def log_workflow_step(

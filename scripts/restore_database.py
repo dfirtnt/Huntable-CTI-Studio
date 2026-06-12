@@ -302,7 +302,7 @@ def verify_restore(backup_metadata: dict[str, Any] | None = None) -> None:
             "cti_postgres",
             f"psql -h {DB_CONFIG['host']} -U {DB_CONFIG['user']} -d {DB_CONFIG['database']} -c 'SELECT version();'",
         )
-        result = subprocess.run(conn_cmd, capture_output=True, text=True, check=True)
+        subprocess.run(conn_cmd, capture_output=True, text=True, check=True)
 
         # Get table count
         tables_cmd = get_docker_exec_cmd(

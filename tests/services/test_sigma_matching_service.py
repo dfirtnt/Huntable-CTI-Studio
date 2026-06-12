@@ -353,7 +353,7 @@ class TestSigmaMatchingService:
             "canonical_rule": {},
             "total_candidates_evaluated": 1165,
             "behavioral_matches_found": 0,
-            "engine_used": "deterministic",
+            "engine_used": "precomputed",
         }
         with patch("src.services.sigma_novelty_service.SigmaNoveltyService") as ns_cls:
             ns_cls.return_value.assess_novelty.return_value = novelty_payload
@@ -385,7 +385,7 @@ class TestSigmaMatchingService:
             "canonical_rule": {},
             "total_candidates_evaluated": 0,
             "behavioral_matches_found": 0,
-            "engine_used": "legacy",
+            "engine_used": "on-the-fly",
             "no_atoms_extracted": True,
         }
         with patch("src.services.sigma_novelty_service.SigmaNoveltyService") as ns_cls:
@@ -412,7 +412,7 @@ class TestSigmaMatchingService:
             "canonical_rule": {},
             "total_candidates_evaluated": 10,
             "behavioral_matches_found": 0,
-            "engine_used": "deterministic",
+            "engine_used": "precomputed",
         }
         with patch("src.services.sigma_novelty_service.SigmaNoveltyService") as ns_cls:
             ns_cls.return_value.assess_novelty.return_value = normal_payload
@@ -490,7 +490,7 @@ class TestHardGateScopedToFallback:
             "canonical_rule": {},
             "total_candidates_evaluated": 1,
             "behavioral_matches_found": 1,
-            "engine_used": "deterministic",
+            "engine_used": "precomputed",
         }
 
     def _make_match(self, rule_id, phase1_path, similarity=0.5):
@@ -503,8 +503,8 @@ class TestHardGateScopedToFallback:
             "service_penalty": 0.0,
             "filter_penalty": 0.0,
             "weighted_before_penalties": similarity,
-            "similarity_engine": "deterministic",
-            "semantic_details": None,
+            "similarity_engine": "precomputed",
+            "atom_details": None,
             "shared_atoms": [],
             "added_atoms": [],
             "removed_atoms": [],

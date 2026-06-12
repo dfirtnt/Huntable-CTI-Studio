@@ -30,6 +30,7 @@ from src.services.llm_service import WORKFLOW_PROVIDER_APPSETTING_KEYS
 from src.services.sigma_matching_service import SigmaMatchingService
 from src.services.sigma_pr_service import SigmaPRService
 from src.services.sigma_validator import validate_sigma_rule
+from src.services.similarity_serialization import serialize_similarity_match
 from src.utils.content_filter import ContentFilter
 from src.utils.prompt_loader import format_prompt
 
@@ -45,7 +46,7 @@ def _extract_yaml_block(text: str) -> str:
     text = text.strip()
     # Handle markdown code fences with optional "yaml" and support CRLF/newline variants.
     match = re.search(
-        r"```(?:yaml)?[ \t]*\r?\n(.*?)(?:\r?\n[ \t]*```|[ \t]*```|$)",
+        r"```(?:[a-z0-9]+)?[ \t]*\r?\n(.*?)(?:\r?\n[ \t]*```|[ \t]*```|$)",
         text,
         re.DOTALL | re.IGNORECASE,
     )
@@ -385,6 +386,7 @@ def add_rule_to_queue(request: Request, add_request: AddRuleToQueueRequest):
             if isinstance(rule_metadata, dict):
                 rule_metadata["canonical_class"] = canonical_class
                 rule_metadata["logsource_unresolved"] = canonical_class is None
+                rule_metadata["logsource_lint_failures"] = ["unresolved_logsource"] if canonical_class is None else []
                 if canonical_class is None:
                     logger.warning(
                         f"Queued rule (article_id={add_request.article_id}) has an unclassifiable "
@@ -1232,10 +1234,9 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                     enriched_yaml = raw_response
                     enrichment_result = None
 
-                # Extract YAML from response (remove markdown code blocks if present)
-                if enriched_yaml and enriched_yaml.startswith("```"):
-                    lines = enriched_yaml.split("\n")
-                    enriched_yaml = "\n".join(lines[1:-1]) if lines[-1].startswith("```") else "\n".join(lines[1:])
+                # Extract YAML from response (remove markdown code blocks / leading prose).
+                if enriched_yaml:
+                    enriched_yaml = _extract_yaml_block(enriched_yaml)
 
                 # Validate that we got a response
                 if not enriched_yaml or not enriched_yaml.strip():
@@ -2296,7 +2297,7 @@ def get_similar_rules_for_queued_rule(request: Request, queue_id: int, force: bo
             similar_matches = match_result.get("matches", [])
             total_candidates_evaluated = match_result.get("total_candidates_evaluated", 0)
             behavioral_matches_found = match_result.get("behavioral_matches_found", 0)
-            engine_used = match_result.get("engine_used", "legacy")
+            engine_used = match_result.get("engine_used", "on-the-fly")
             match_canonical_class = match_result.get("canonical_class")
             match_logsource_key = match_result.get("logsource_key", "") or ""
 
@@ -2347,15 +2348,15 @@ def get_similar_rules_for_queued_rule(request: Request, queue_id: int, force: bo
                 }
                 if m.get("similarity_engine") is not None:
                     out["similarity_engine"] = str(m["similarity_engine"])
-                if m.get("semantic_details") is not None:
-                    out["semantic_details"] = m["semantic_details"]
+                if m.get("atom_details") is not None:
+                    out["atom_details"] = m["atom_details"]
                 return out
 
             # Only store matches with actual behavioral overlap (jaccard > 0)
             to_store = [
                 _json_safe_match(m)
                 for m in similar_matches[:10]
-                if (m.get("semantic_details") or {}).get("jaccard", m.get("atom_jaccard", 0)) > 0
+                if (m.get("atom_details") or {}).get("jaccard", m.get("atom_jaccard", 0)) > 0
             ]
 
             # Persist evidence columns so the on-the-fly recompute guard (above)
@@ -2383,7 +2384,10 @@ def get_similar_rules_for_queued_rule(request: Request, queue_id: int, force: bo
             # Prepare response (include metadata for empty-state differentiation)
             response = {
                 "success": True,
-                "matches": similar_matches[:20],  # Return top 20
+                # Project onto the unified canonical contract (Phase 1). Storage
+                # (similarity_scores JSONB above) keeps its minimal shape; only the
+                # HTTP response is normalized so the queue modal reads canonical fields.
+                "matches": [serialize_similarity_match(m) for m in similar_matches[:20]],  # Return top 20
                 "max_similarity": max_similarity,
                 "total_candidates_evaluated": total_candidates_evaluated,
                 "behavioral_matches_found": behavioral_matches_found,

@@ -94,72 +94,91 @@ class DatabaseManager:
 
         try:
             Base.metadata.create_all(bind=self.engine)
-            with self.engine.begin() as conn:
-                for col_ddl in [
-                    "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS expected_items JSONB",
-                    "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS actual_items JSONB",
-                    "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS matched_count INTEGER",
-                    "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS missed_count INTEGER",
-                    "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS extra_count INTEGER",
-                    "ALTER TABLE sigma_rule_queue ADD COLUMN IF NOT EXISTS behavioral_matches_found INTEGER",
-                    "ALTER TABLE sigma_rule_queue ADD COLUMN IF NOT EXISTS total_candidates_evaluated INTEGER",
-                    # QA deprecation (2026-05-22): drop legacy columns no longer in the ORM
-                    "ALTER TABLE agentic_workflow_config DROP COLUMN IF EXISTS qa_enabled",
-                    "ALTER TABLE agentic_workflow_config DROP COLUMN IF EXISTS qa_max_retries",
-                    # osdetection_fallback_enabled always-False since 9797f699; drop the column
-                    "ALTER TABLE agentic_workflow_config DROP COLUMN IF EXISTS osdetection_fallback_enabled",
-                    # canonical_text was write-only dead data (no readers; operator always dropped
-                    # via an op/ops typo). Removed from the ORM 2026-06-01; drop the column.
-                    "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS canonical_text",
-                    # Per-section sigma embedding columns were write-only (never scored; only
-                    # `embedding` + `logsource_embedding` are read). Removed from the ORM 2026-06-01.
-                    "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS title_embedding",
-                    "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS description_embedding",
-                    "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS tags_embedding",
-                    "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS detection_structure_embedding",
-                    "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS detection_fields_embedding",
-                ]:
-                    conn.execute(text(col_ddl))
-                # Add primary keys to tables that pre-date PK enforcement.
-                # Each statement is a no-op if the constraint already exists.
-                # Will raise if duplicate IDs are still present -- that requires
-                # a data cleanup before the next startup.
-                for pk_ddl in [
-                    """
-                    DO $$ BEGIN
-                      IF NOT EXISTS (
-                        SELECT 1 FROM information_schema.table_constraints
-                        WHERE table_name = 'sources' AND constraint_type = 'PRIMARY KEY'
-                        AND table_schema = 'public'
-                      ) THEN
-                        ALTER TABLE sources ADD PRIMARY KEY (id);
-                      END IF;
-                    END $$
-                    """,
-                    """
-                    DO $$ BEGIN
-                      IF NOT EXISTS (
-                        SELECT 1 FROM information_schema.table_constraints
-                        WHERE table_name = 'subagent_evaluations' AND constraint_type = 'PRIMARY KEY'
-                        AND table_schema = 'public'
-                      ) THEN
-                        ALTER TABLE subagent_evaluations ADD PRIMARY KEY (id);
-                      END IF;
-                    END $$
-                    """,
-                    """
-                    DO $$ BEGIN
-                      IF NOT EXISTS (
-                        SELECT 1 FROM information_schema.table_constraints
-                        WHERE table_name = 'content_hashes' AND constraint_type = 'PRIMARY KEY'
-                        AND table_schema = 'public'
-                      ) THEN
-                        ALTER TABLE content_hashes ADD PRIMARY KEY (id);
-                      END IF;
-                    END $$
-                    """,
-                ]:
-                    conn.execute(text(pk_ddl))
+
+            # Idempotent schema-ensure DDL. On a healthy DB every statement below is a
+            # no-op, but each still needs ACCESS EXCLUSIVE briefly. If a worker is mid
+            # transaction on the target table (e.g. an eval run holding a row open across
+            # an LLM call), an unbounded ALTER queues for that lock -- and a *pending*
+            # ACCESS EXCLUSIVE request blocks ALL new readers of the table, freezing the
+            # app for tens of seconds. We therefore (1) bound each statement with a short
+            # lock_timeout so it gives up fast, and (2) run each in its own transaction so
+            # a skipped no-op never rolls back or blocks the rest -- nor crashes startup.
+            is_postgres = self.engine.url.drivername.startswith("postgresql")
+            col_ddls = [
+                "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS expected_items JSONB",
+                "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS actual_items JSONB",
+                "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS matched_count INTEGER",
+                "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS missed_count INTEGER",
+                "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS extra_count INTEGER",
+                "ALTER TABLE sigma_rule_queue ADD COLUMN IF NOT EXISTS behavioral_matches_found INTEGER",
+                "ALTER TABLE sigma_rule_queue ADD COLUMN IF NOT EXISTS total_candidates_evaluated INTEGER",
+                # QA deprecation (2026-05-22): drop legacy columns no longer in the ORM
+                "ALTER TABLE agentic_workflow_config DROP COLUMN IF EXISTS qa_enabled",
+                "ALTER TABLE agentic_workflow_config DROP COLUMN IF EXISTS qa_max_retries",
+                # osdetection_fallback_enabled always-False since 9797f699; drop the column
+                "ALTER TABLE agentic_workflow_config DROP COLUMN IF EXISTS osdetection_fallback_enabled",
+                # canonical_text was write-only dead data (no readers; operator always dropped
+                # via an op/ops typo). Removed from the ORM 2026-06-01; drop the column.
+                "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS canonical_text",
+                # Per-section sigma embedding columns were write-only (never scored; only
+                # `embedding` + `logsource_embedding` are read). Removed from the ORM 2026-06-01.
+                "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS title_embedding",
+                "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS description_embedding",
+                "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS tags_embedding",
+                "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS detection_structure_embedding",
+                "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS detection_fields_embedding",
+            ]
+            # Add primary keys to tables that pre-date PK enforcement. Each is a no-op if
+            # the constraint already exists; will raise if duplicate IDs remain (needs a
+            # data cleanup before the next startup).
+            pk_ddls = [
+                """
+                DO $$ BEGIN
+                  IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.table_constraints
+                    WHERE table_name = 'sources' AND constraint_type = 'PRIMARY KEY'
+                    AND table_schema = 'public'
+                  ) THEN
+                    ALTER TABLE sources ADD PRIMARY KEY (id);
+                  END IF;
+                END $$
+                """,
+                """
+                DO $$ BEGIN
+                  IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.table_constraints
+                    WHERE table_name = 'subagent_evaluations' AND constraint_type = 'PRIMARY KEY'
+                    AND table_schema = 'public'
+                  ) THEN
+                    ALTER TABLE subagent_evaluations ADD PRIMARY KEY (id);
+                  END IF;
+                END $$
+                """,
+                """
+                DO $$ BEGIN
+                  IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.table_constraints
+                    WHERE table_name = 'content_hashes' AND constraint_type = 'PRIMARY KEY'
+                    AND table_schema = 'public'
+                  ) THEN
+                    ALTER TABLE content_hashes ADD PRIMARY KEY (id);
+                  END IF;
+                END $$
+                """,
+            ]
+
+            for ddl in col_ddls + pk_ddls:
+                try:
+                    with self.engine.begin() as conn:
+                        if is_postgres:
+                            # SET LOCAL scopes the timeout to this transaction only.
+                            conn.execute(text("SET LOCAL lock_timeout = '3s'"))
+                        conn.execute(text(ddl))
+                except Exception as ddl_err:
+                    # Idempotent no-op on a healthy DB; skip on lock contention rather
+                    # than block startup or abort the remaining statements.
+                    logger.warning("Skipping schema-ensure DDL (lock contention or non-fatal): %s", ddl_err)
+
             logger.info("Database tables created successfully")
         except Exception as e:
             logger.error(f"Failed to create database tables: {e}")

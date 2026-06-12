@@ -1392,6 +1392,10 @@ async def get_subagent_eval_results(
     request: Request,
     subagent: str = Query(..., description="Subagent name"),
     eval_run_id: int | None = Query(None, description="Optional: filter by eval record ID"),
+    counts_only: bool = Query(
+        False,
+        description="Return only aggregate status counts (cheap GROUP BY) instead of the full per-record payload. Used by the run progress poller.",
+    ),
 ):
     """Get evaluation results for a subagent."""
     try:
@@ -1406,6 +1410,33 @@ async def get_subagent_eval_results(
                 lookup_values = set(lookup_values) if lookup_values else set()
                 lookup_values.add("hunt_queries_edr")
                 lookup_values = list(lookup_values)
+
+            # Fast path for the run progress poller: it only needs status counts, not the
+            # full per-record payload. Building that payload meant loading every row (1900+)
+            # plus title/execution enrichment on a 2s poll loop, which pinned the web worker.
+            # A single GROUP BY answers the poller cheaply. Counts MUST apply the same
+            # subagent + excluded-article filters as the full path so totals match exactly.
+            if counts_only:
+                from sqlalchemy import func, or_
+
+                count_query = db_session.query(SubagentEvaluationTable.status, func.count())
+                if lookup_values:
+                    count_query = count_query.filter(SubagentEvaluationTable.subagent_name.in_(lookup_values))
+                if eval_run_id:
+                    count_query = count_query.filter(SubagentEvaluationTable.id == eval_run_id)
+                if EXCLUDED_EVAL_ARTICLE_IDS:
+                    # Mirror the full path: drop excluded article_ids but keep NULL article_id rows.
+                    count_query = count_query.filter(
+                        or_(
+                            SubagentEvaluationTable.article_id.is_(None),
+                            SubagentEvaluationTable.article_id.notin_(EXCLUDED_EVAL_ARTICLE_IDS),
+                        )
+                    )
+                counts = {"completed": 0, "pending": 0, "failed": 0}
+                for status_value, n in count_query.group_by(SubagentEvaluationTable.status).all():
+                    counts[status_value] = counts.get(status_value, 0) + n
+                total = sum(counts.values())
+                return {"subagent": canonical_subagent, "counts": counts, "results": [], "total": total}
 
             query = db_session.query(SubagentEvaluationTable)
             if lookup_values:
@@ -2080,17 +2111,6 @@ async def get_subagent_eval_compare(
                 if rec.article_id is not None:
                     return (id_to_title.get(rec.article_id) or "").strip()
                 return ""
-
-            # Batch-fetch executions
-            execution_ids = [r.workflow_execution_id for r in all_records if r.workflow_execution_id]
-            executions_by_id: dict[int, AgenticWorkflowExecutionTable] = {}
-            if execution_ids:
-                exec_rows = (
-                    db_session.query(AgenticWorkflowExecutionTable)
-                    .filter(AgenticWorkflowExecutionTable.id.in_(execution_ids))
-                    .all()
-                )
-                executions_by_id = {e.id: e for e in exec_rows}
 
             preset_expected_by_url = _load_preset_expected_by_url(subagent)
 

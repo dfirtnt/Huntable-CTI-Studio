@@ -14,6 +14,9 @@ DEFAULT_CATALOG = {
     "openai": [
         "gpt-5",
         "gpt-5-mini",
+        "gpt-5.4",
+        "gpt-5.4-mini",
+        "gpt-5.5",
         "gpt-4.1",
         "gpt-4.1-mini",
         "gpt-4.1-nano",
@@ -35,6 +38,7 @@ DEFAULT_CATALOG = {
         "o1-lite",
     ],
     "anthropic": [
+        "claude-fable-5",
         "claude-haiku-4-5-20251001",
         "claude-opus-4-8",
         "claude-opus-4-7",
@@ -59,7 +63,7 @@ DEFAULT_CATALOG = {
 
 # Default context windows by model id. Values are the default total context
 # accepted by the API.
-# Anthropic: Opus 4.6+, Sonnet 4.6+, and Opus 4.7 have 1M context by default
+# Anthropic: Fable 5, Opus 4.6+, Sonnet 4.6+, and Opus 4.7 have 1M context by default
 # (no beta header needed). Older 3.7/4.x models cap at 200K by default but can
 # be extended to 1M with the `context-1m-2025-08-07` beta header; if you rely
 # on that, branch on the header in the caller.
@@ -76,6 +80,16 @@ MODEL_CONTEXT_TOKENS: dict[str, int] = {
     "gpt-5-chat-latest": 128_000,
     "gpt-5.1": 400_000,
     "gpt-5.1-chat-latest": 128_000,
+    "gpt-5.2": 400_000,
+    "gpt-5.2-chat-latest": 128_000,
+    "gpt-5.2-pro": 400_000,
+    "gpt-5.3-chat-latest": 128_000,
+    "gpt-5.4": 1_050_000,
+    "gpt-5.4-mini": 400_000,
+    "gpt-5.4-nano": 400_000,
+    "gpt-5.4-pro": 1_050_000,
+    "gpt-5.5": 1_050_000,
+    "gpt-5.5-pro": 1_050_000,
     "o1": 200_000,
     "o1-mini": 128_000,
     "o1-preview": 128_000,
@@ -104,6 +118,7 @@ MODEL_CONTEXT_TOKENS: dict[str, int] = {
     "claude-opus-4-6": 1_000_000,
     "claude-opus-4-7": 1_000_000,
     "claude-opus-4-8": 1_000_000,
+    "claude-fable-5": 1_000_000,
     "claude-sonnet-4-20250514": 200_000,
     "claude-sonnet-4-5-20250929": 200_000,
     "claude-2.1": 200_000,

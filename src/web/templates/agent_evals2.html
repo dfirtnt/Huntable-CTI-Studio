@@ -462,7 +462,9 @@
                 <div class="eval-section-label">SYS.03</div>
                 <h2 class="eval-section-title eval-body-font">Item-Level Results</h2>
             </div>
-            <div class="flex gap-2 flex-wrap">
+            <div class="flex gap-2 flex-wrap items-center">
+                <label id="configVersionLabel" class="eval-section-label" for="configVersionSelect" style="display: none;">VERSION</label>
+                <select id="configVersionSelect" class="eval-select" style="display: none; min-width: 12rem;" title="View item-level results for a specific config version"></select>
                 <button id="backfillEvalBtn" class="eval-btn eval-btn--accent eval-btn--sm">Update Pending</button>
                 <button id="clearPendingBtn" class="eval-btn eval-btn--danger eval-btn--sm">Clear Pending</button>
                 <button id="loadPreviousResultsBtn" class="eval-btn eval-btn--secondary eval-btn--sm">
@@ -504,7 +506,7 @@
                             <p class="font-semibold mb-2" style="color: var(--text-emphasis);">Notes</p>
                             <ul class="space-y-1" style="line-height: 1.7;">
                                 <li>Click any completed row to see missed and extra item lists.</li>
-                                <li>Only the most recent completed run per article is shown.</li>
+                                <li>Only the most recent completed run per article is shown, for the selected config <strong>version</strong> (default: latest across all runs). Use the <strong>VERSION</strong> dropdown to step back through past runs.</li>
                                 <li>Matching normalizes to lowercase, defangs <code>[.]</code>&rarr;<code>.</code>, collapses whitespace.</li>
                                 <li><span class="status-dim status-badge text-[10px]">count only</span> &mdash; article has no <code>expected_items</code> ground truth established yet.</li>
                             </ul>
@@ -586,6 +588,12 @@ let currentSubagent = 'cmdline';
 
 // Rows cache used by modal -- avoids passing data through DOM attributes
 let cachedResultRows = [];
+
+// Raw eval records (all config versions) + preset map from the last load, so the
+// config-version dropdown can re-render historical results client-side without refetching.
+let cachedRawResults = [];
+let cachedPresetByUrl = {};
+const LATEST_CONFIG_VERSION = '__latest__';
 
 const THROTTLE_LS_KEY = 'eval2.concurrency_throttle_seconds';
 const THROTTLE_DEFAULT = 5;
@@ -887,19 +895,32 @@ function pollResults() {
 
     function poll() {
         attempts++;
-        fetch('/api/evaluations/subagent-eval-results?subagent=' + encodeURIComponent(currentSubagent))
+        // counts_only=true returns a cheap GROUP BY of status counts instead of the full
+        // per-record payload -- avoids loading 1900+ rows on every 2s poll.
+        fetch('/api/evaluations/subagent-eval-results?counts_only=true&subagent=' + encodeURIComponent(currentSubagent))
             .then(function(resp) {
                 if (!resp.ok) { setTimeout(poll, 2000); return; }
                 return resp.json();
             })
             .then(function(data) {
                 if (!data) return;
-                const results = data.results || [];
-                const completed = results.filter(function(r) { return r.status === 'completed'; }).length;
-                const pending = results.filter(function(r) { return r.status === 'pending'; }).length;
-                const failed = results.filter(function(r) { return r.status === 'failed'; }).length;
-                statusText.textContent = 'Completed: ' + completed + '/' + results.length + ', Pending: ' + pending + ', Failed: ' + failed;
-                if (completed + failed === results.length || attempts >= maxAttempts) {
+                // Prefer the aggregate counts payload; fall back to filtering results for
+                // backward compatibility if an older endpoint returns the full list.
+                let completed, pending, failed, total;
+                if (data.counts) {
+                    completed = data.counts.completed || 0;
+                    pending = data.counts.pending || 0;
+                    failed = data.counts.failed || 0;
+                    total = (typeof data.total === 'number') ? data.total : (completed + pending + failed);
+                } else {
+                    const results = data.results || [];
+                    completed = results.filter(function(r) { return r.status === 'completed'; }).length;
+                    pending = results.filter(function(r) { return r.status === 'pending'; }).length;
+                    failed = results.filter(function(r) { return r.status === 'failed'; }).length;
+                    total = results.length;
+                }
+                statusText.textContent = 'Completed: ' + completed + '/' + total + ', Pending: ' + pending + ', Failed: ' + failed;
+                if (completed + failed === total || attempts >= maxAttempts) {
                     statusText.textContent = 'All executions completed. Refreshing results...';
                     statusText.style.color = '#34d399';
                     document.getElementById('evalSpinner').classList.add('hidden');
@@ -957,6 +978,11 @@ async function loadPreviousResults() {
         const data = await resp.json();
         const results = data.results || [];
 
+        // Cache the raw records (every config version) + preset map so the
+        // config-version dropdown can re-render history without a refetch.
+        cachedRawResults = results;
+        cachedPresetByUrl = presetByUrl;
+
         if (results.length === 0) {
             while (resultsEl.firstChild) resultsEl.removeChild(resultsEl.firstChild);
             const p = document.createElement('p');
@@ -965,50 +991,12 @@ async function loadPreviousResults() {
             p.textContent = 'No previous results found for this subagent.';
             resultsEl.appendChild(p);
             document.getElementById('aggregateSummary').classList.add('hidden');
+            populateConfigVersionOptions(results);
             return;
         }
 
-        // Group by article URL: one bucket per article
-        const byUrl = {};
-        results.forEach(function(r) {
-            const url = (r.url || '').trim();
-            const key = url ? ('url:' + url) : ('id:' + (r.article_id != null ? r.article_id : r.id));
-            if (!byUrl[key]) byUrl[key] = [];
-            byUrl[key].push(r);
-        });
-
-        // Pick the most recent completed run per bucket (fallback to most recent any-status)
-        const articleRows = Object.values(byUrl).map(function(rows) {
-            const completed = rows.filter(function(r) { return r.status === 'completed'; });
-            const pool = completed.length > 0 ? completed : rows;
-            pool.sort(function(a, b) {
-                const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
-                const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
-                return tb - ta;
-            });
-            const row = Object.assign({}, pool[0]);
-            // Merge preset data
-            const preset = presetByUrl[row.url];
-            if (preset) {
-                if (row.expected_count == null) row.expected_count = preset.expected_count;
-                if (!row.expected_items && preset.expected_items) row.expected_items = preset.expected_items;
-            }
-            return row;
-        });
-
-        // Sort by article_id, then URL
-        articleRows.sort(function(a, b) {
-            if (a.article_id != null && b.article_id != null) return a.article_id - b.article_id;
-            if (a.article_id != null) return -1;
-            if (b.article_id != null) return 1;
-            return (a.url || '').localeCompare(b.url || '');
-        });
-
-        // Store in cache for modal lookups (safe -- no DOM roundtrip with data)
-        cachedResultRows = articleRows;
-
-        renderItemLevelTable(articleRows);
-        renderAggregateSummary(articleRows);
+        const selectedVersion = populateConfigVersionOptions(results);
+        renderResultsForVersion(selectedVersion);
 
     } catch (e) {
         console.error('Error loading results:', e);
@@ -1019,6 +1007,128 @@ async function loadPreviousResults() {
         errP.textContent = 'Error: ' + e.message;
         resultsEl.appendChild(errP);
     }
+}
+
+// ─── Config-version history selector ──────────────────────────────────────────
+
+// Populate the VERSION dropdown from the distinct config_version values present
+// in the loaded records. Returns the value that should be rendered (preserves
+// the operator's current selection if it still exists, else the latest sentinel).
+function populateConfigVersionOptions(results) {
+    const select = document.getElementById('configVersionSelect');
+    const label = document.getElementById('configVersionLabel');
+    if (!select) return LATEST_CONFIG_VERSION;
+
+    const prior = select.value;
+
+    // Distinct, defined config versions, newest-first. Versions are integers in
+    // practice; sort numerically when possible, lexically otherwise.
+    const versions = Array.from(new Set(
+        results
+            .map(function(r) { return r.config_version; })
+            .filter(function(v) { return v != null && v !== ''; })
+            .map(String)
+    ));
+    versions.sort(function(a, b) {
+        const na = Number(a), nb = Number(b);
+        if (Number.isFinite(na) && Number.isFinite(nb)) return nb - na;
+        return b.localeCompare(a);
+    });
+
+    while (select.firstChild) select.removeChild(select.firstChild);
+
+    const latestOpt = document.createElement('option');
+    latestOpt.value = LATEST_CONFIG_VERSION;
+    latestOpt.textContent = 'Latest (all runs)';
+    select.appendChild(latestOpt);
+
+    versions.forEach(function(v) {
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = 'v' + v;
+        select.appendChild(opt);
+    });
+
+    // Show the selector only when there is at least one config version to pick.
+    const visible = versions.length > 0;
+    select.style.display = visible ? '' : 'none';
+    if (label) label.style.display = visible ? '' : 'none';
+
+    // Preserve the prior selection if it is still available; otherwise default
+    // to the latest-all-runs view.
+    const keepPrior = prior && (prior === LATEST_CONFIG_VERSION || versions.indexOf(prior) !== -1);
+    const chosen = keepPrior ? prior : LATEST_CONFIG_VERSION;
+    select.value = chosen;
+    return chosen;
+}
+
+// Collapse raw records to one row per article: the most recent completed run
+// (fallback to most recent any-status), with preset ground-truth merged in.
+function groupResultsToArticleRows(results) {
+    const byUrl = {};
+    results.forEach(function(r) {
+        const url = (r.url || '').trim();
+        const key = url ? ('url:' + url) : ('id:' + (r.article_id != null ? r.article_id : r.id));
+        if (!byUrl[key]) byUrl[key] = [];
+        byUrl[key].push(r);
+    });
+
+    const articleRows = Object.values(byUrl).map(function(rows) {
+        const completed = rows.filter(function(r) { return r.status === 'completed'; });
+        const pool = completed.length > 0 ? completed : rows;
+        pool.sort(function(a, b) {
+            const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+            const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+            return tb - ta;
+        });
+        const row = Object.assign({}, pool[0]);
+        const preset = cachedPresetByUrl[row.url];
+        if (preset) {
+            if (row.expected_count == null) row.expected_count = preset.expected_count;
+            if (!row.expected_items && preset.expected_items) row.expected_items = preset.expected_items;
+        }
+        return row;
+    });
+
+    articleRows.sort(function(a, b) {
+        if (a.article_id != null && b.article_id != null) return a.article_id - b.article_id;
+        if (a.article_id != null) return -1;
+        if (b.article_id != null) return 1;
+        return (a.url || '').localeCompare(b.url || '');
+    });
+
+    return articleRows;
+}
+
+// Render the item-level table + aggregate summary for one config version.
+// versionValue === LATEST_CONFIG_VERSION renders the latest run per article
+// across every version (the historical default); otherwise the cached records
+// are filtered to that config_version before grouping.
+function renderResultsForVersion(versionValue) {
+    const resultsEl = document.getElementById('resultsTable');
+    const subset = (versionValue === LATEST_CONFIG_VERSION)
+        ? cachedRawResults
+        : cachedRawResults.filter(function(r) { return String(r.config_version) === String(versionValue); });
+
+    const articleRows = groupResultsToArticleRows(subset);
+
+    if (articleRows.length === 0) {
+        while (resultsEl.firstChild) resultsEl.removeChild(resultsEl.firstChild);
+        const p = document.createElement('p');
+        p.className = 'eval-mono';
+        p.style.cssText = 'color: var(--text-muted-slate); font-size: 0.75rem;';
+        p.textContent = 'No results for the selected config version.';
+        resultsEl.appendChild(p);
+        document.getElementById('aggregateSummary').classList.add('hidden');
+        cachedResultRows = [];
+        return;
+    }
+
+    // Store in cache for modal lookups (safe -- no DOM roundtrip with data)
+    cachedResultRows = articleRows;
+
+    renderItemLevelTable(articleRows);
+    renderAggregateSummary(articleRows);
 }
 
 // ─── Render item-level table (safe DOM construction) ─────────────────────────
@@ -1514,6 +1624,9 @@ async function clearPendingRecords() {
 document.getElementById('loadEvalArticlesBtn').addEventListener('click', loadEvalArticles);
 document.getElementById('runEvalBtn').addEventListener('click', runEvaluation);
 document.getElementById('loadPreviousResultsBtn').addEventListener('click', loadPreviousResults);
+document.getElementById('configVersionSelect').addEventListener('change', function() {
+    renderResultsForVersion(this.value);
+});
 document.getElementById('backfillEvalBtn').addEventListener('click', backfillEvalRecords);
 document.getElementById('clearPendingBtn').addEventListener('click', clearPendingRecords);
 document.getElementById('closeItemDetailModal').addEventListener('click', closeItemDetailModal);

@@ -445,7 +445,7 @@ def verify_restore(components: set[str]) -> bool:
             conn_cmd = get_docker_exec_cmd(
                 "cti_postgres", f"psql -U {DB_CONFIG['user']} -d {DB_CONFIG['database']} -c 'SELECT version();'"
             )
-            result = subprocess.run(conn_cmd, capture_output=True, text=True, check=True)
+            subprocess.run(conn_cmd, capture_output=True, text=True, check=True)
 
             # Get table count
             tables_cmd = get_docker_exec_cmd(

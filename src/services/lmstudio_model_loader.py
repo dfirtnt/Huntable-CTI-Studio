@@ -102,7 +102,6 @@ def extract_lmstudio_models(
         return set()
 
     models_to_load = set()
-    disabled_agents_set = set(disabled_agents) if disabled_agents else set()
 
     # Main agents (model key = agent name)
     main_agents = ["RankAgent", "ExtractAgent", "SigmaAgent"]

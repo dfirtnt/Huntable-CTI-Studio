@@ -22,7 +22,6 @@ async def test_sort_by_rejects_invalid_column(monkeypatch):
     from src.web.routes import articles as mod
 
     captured = {}
-    original_list = mod.async_db_manager.list_articles
 
     async def spy_list(article_filter=None, **kwargs):
         captured["sort_by"] = getattr(article_filter, "sort_by", None)

@@ -541,7 +541,7 @@ class RunTestRunner:
         "database": "unit",
         "quality": "unit",
         "scripts": "unit",
-        "sigma_semantic_similarity": "unit",
+        "sigma_atom_similarity": "unit",
         "templates": "unit",
         "worker": "unit",
         "api": "api",

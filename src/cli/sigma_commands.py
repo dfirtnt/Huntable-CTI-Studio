@@ -8,6 +8,7 @@ import click
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
+from sqlalchemy import text
 
 from src.database.manager import DatabaseManager
 from src.database.models import SigmaRuleTable
@@ -246,17 +247,17 @@ def index_embeddings_cmd(force: bool):
         logger.error(f"Embedding generation failed: {e}")
 
 
-@sigma_group.command("recompute-semantics")
-def recompute_semantics_cmd():
-    """Recompute deterministic semantic fields (canonical_class, atoms, surface_score) for all indexed SigmaHQ rules."""
-    console.print("[bold blue]Recomputing Sigma semantic precompute fields...[/bold blue]")
+@sigma_group.command("recompute-atoms")
+def recompute_atoms_cmd():
+    """Recompute deterministic atom fields (canonical_class, atoms, surface_score) for all indexed SigmaHQ rules."""
+    console.print("[bold blue]Recomputing Sigma atom precompute fields...[/bold blue]")
 
     try:
-        from src.services.sigma_semantic_precompute import is_sigma_similarity_available, precompute_semantic_fields
+        from src.services.sigma_atom_precompute import is_sigma_similarity_available, precompute_atom_fields
 
         if not is_sigma_similarity_available():
             console.print(
-                "[bold red]✗[/bold red] sigma_similarity package not installed. Run: pip install -e sigma_semantic_similarity"
+                "[bold red]✗[/bold red] sigma_similarity package not installed. Run: pip install -e sigma_atom_similarity"
             )
             return
 
@@ -270,40 +271,93 @@ def recompute_semantics_cmd():
         processed = 0
         failures = 0
         unsupported = 0
+        cleared = 0
+        touched = 0
 
         for rule in rules:
-            rule_data = {
-                "logsource": rule.logsource or {},
-                "detection": rule.detection or {},
-            }
-            sem = precompute_semantic_fields(rule_data)
-            if sem is None:
-                unsupported += 1
-                continue
             try:
+                rule_data = {
+                    "logsource": rule.logsource or {},
+                    "detection": rule.detection or {},
+                }
+                sem = precompute_atom_fields(rule_data)
+                if sem is None:
+                    unsupported += 1
+                    had_atom_fields = any(
+                        field is not None
+                        for field in (
+                            rule.canonical_class,
+                            rule.positive_atoms,
+                            rule.negative_atoms,
+                            rule.surface_score,
+                        )
+                    )
+                    rule.canonical_class = None
+                    rule.positive_atoms = None
+                    rule.negative_atoms = None
+                    rule.surface_score = None
+                    if had_atom_fields:
+                        cleared += 1
+                        touched += 1
+                    continue
+
                 rule.canonical_class = sem["canonical_class"]
                 rule.positive_atoms = sem["positive_atoms"]
                 rule.negative_atoms = sem["negative_atoms"]
                 rule.surface_score = sem["surface_score"]
                 processed += 1
-                if processed % 100 == 0:
+                touched += 1
+                if touched % 100 == 0:
                     session.commit()
-                    console.print(f"  Processed {processed}...")
+                    console.print(f"  Updated {touched}...")
             except Exception as e:
                 logger.warning("Failed to update rule %s: %s", rule.rule_id, e)
                 failures += 1
+
+        json_null_cleaned = _clean_json_null_atoms(session)
 
         session.commit()
         session.close()
 
         console.print(f"[bold green]✓[/bold green] Total processed: {processed}")
         console.print(f"[yellow]  Unsupported (skipped): {unsupported}[/yellow]")
+        if cleared > 0:
+            console.print(f"[yellow]  Cleared stale atom fields: {cleared}[/yellow]")
+        if json_null_cleaned > 0:
+            console.print(f"[yellow]  Cleaned JSON null atom rows: {json_null_cleaned}[/yellow]")
         if failures > 0:
             console.print(f"[red]  Failures: {failures}[/red]")
 
     except Exception as e:
         console.print(f"[bold red]✗[/bold red] Error: {e}")
-        logger.error("Recompute semantics failed: %s", e)
+        logger.error("Recompute atoms failed: %s", e)
+
+
+def _clean_json_null_atoms(session) -> int:
+    """Normalize JSON null atom fields to SQL NULL for accurate counts."""
+    bind = session.get_bind()
+    if bind.dialect.name != "postgresql":
+        return 0
+
+    result = session.execute(
+        text(
+            """
+            UPDATE sigma_rules
+            SET
+                positive_atoms = CASE
+                    WHEN positive_atoms = CAST('null' AS jsonb) THEN NULL
+                    ELSE positive_atoms
+                END,
+                negative_atoms = CASE
+                    WHEN negative_atoms = CAST('null' AS jsonb) THEN NULL
+                    ELSE negative_atoms
+                END
+            WHERE positive_atoms = CAST('null' AS jsonb)
+               OR negative_atoms = CAST('null' AS jsonb)
+            """
+        )
+    )
+    return result.rowcount or 0
 
 
 @sigma_group.command("backfill-metadata")

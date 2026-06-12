@@ -205,3 +205,39 @@ def test_summarize_missing_canonical_class_key_treated_as_unresolved():
     )
     assert r["canonical_class"] is None
     assert r["logsource_unresolved"] is True
+
+
+@pytest.mark.unit
+def test_summarize_includes_lint_failures_when_unresolved():
+    """logsource_lint_failures must be ['unresolved_logsource'] when canonical_class is None.
+
+    The offender shape (service: sysmon with no category and no EID — e.g. queue ids 198-201)
+    produces canonical_class=None. The lint_failures list is the per-rule tag for trending."""
+    r = summarize_rule_novelty(
+        {
+            "matches": [],
+            "total_candidates_evaluated": 5,
+            "behavioral_matches_found": 0,
+            "canonical_class": None,
+        },
+        0.5,
+    )
+    assert r["logsource_lint_failures"] == ["unresolved_logsource"]
+
+
+@pytest.mark.unit
+def test_summarize_lint_failures_empty_when_resolved():
+    """logsource_lint_failures must be [] when canonical_class resolves successfully.
+
+    A well-formed rule with category: process_creation should produce no lint failures —
+    regression guard to prevent the category-first constraint from over-triggering."""
+    r = summarize_rule_novelty(
+        {
+            "matches": [{"similarity": 0.4}],
+            "total_candidates_evaluated": 10,
+            "behavioral_matches_found": 3,
+            "canonical_class": "windows.process_creation",
+        },
+        0.5,
+    )
+    assert r["logsource_lint_failures"] == []

@@ -40,9 +40,30 @@ author: {author}
 date: {date}
 observables_used: [REQUIRED: 0-based indices from the Observables list that this rule uses, e.g. [0, 3]; use [] if none apply]
 logsource:
-  # Prefer generic category + product. Use `service:` ONLY when no category
-  # covers the source (e.g. service: security for Windows Security Event Log
-  # logon/privilege events 4624/4625/4673).
+  # LOGSOURCE RULES — read before writing any logsource block:
+  #
+  # RULE 1 — category: FIRST. Use a SigmaHQ category: whenever the behavior
+  # maps to one: process_creation, network_connection, registry_event, file_event,
+  # image_load, driver_load, ps_script, ps_module, dns_query. This applies even
+  # when the source article explicitly names Sysmon — map Sysmon behaviors to
+  # their SigmaHQ category equivalents, not to service: sysmon.
+  #
+  # RULE 2 — service: sysmon is FORBIDDEN without a paired EventID selection
+  # field. The resolver cannot disambiguate EIDs 1/3/7/22/… without it. If the
+  # rule describes Sysmon EID 1 (process creation), use category: process_creation.
+  # BAD:
+  #   logsource:
+  #     product: windows
+  #     service: sysmon           # <- FORBIDDEN: no EID, ambiguous
+  # GOOD:
+  #   logsource:
+  #     category: process_creation
+  #     product: windows
+  #
+  # RULE 3 — service: security is FORBIDDEN without a paired EventID. For EID
+  # 4688 (process creation via audit policy), use category: process_creation
+  # instead. For logon/privilege events (4624/4625/4673) that have no clean
+  # category: equivalent, keep service: security WITH the EventID in selection.
   category: [process_creation/network_connection/registry_event/file_event/image_load/driver_load/ps_script/ps_module/dns_query]
   product: [windows/linux/macos]
 detection:

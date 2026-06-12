@@ -45,7 +45,7 @@ class TestTraceLlmCallUsesV4Api:
                 model="gpt-4",
                 execution_id=1,
                 article_id=42,
-            ) as observation:
+            ):
                 mock_client.start_observation.assert_called_once()
                 call_kwargs = mock_client.start_observation.call_args.kwargs
                 assert call_kwargs["name"] == "test_gen"
@@ -55,7 +55,10 @@ class TestTraceLlmCallUsesV4Api:
                 assert "trace_context" not in call_kwargs
                 # session_id must travel via propagate_attributes; trace_name labels standalone traces
                 mock_propagate.assert_called_once_with(
-                    session_id="workflow_exec_1", user_id="article_42", trace_name="test_gen"
+                    session_id="workflow_exec_1",
+                    user_id="article_42",
+                    trace_name="test_gen",
+                    tags=["execution_id:1", "article_id:42", "model:gpt-4"],
                 )
                 # v3 method should NOT have been called
                 mock_client.start_generation.assert_not_called()
@@ -147,7 +150,10 @@ class TestTraceLlmCallUsesV4Api:
                 assert "session_id" not in call_kwargs["trace_context"]
                 # session must still travel via propagate_attributes; trace_name labels standalone traces
                 mock_propagate.assert_called_once_with(
-                    session_id="workflow_exec_7", user_id="article_10", trace_name="linked_gen"
+                    session_id="workflow_exec_7",
+                    user_id="article_10",
+                    trace_name="linked_gen",
+                    tags=["execution_id:7", "article_id:10", "model:gpt-4"],
                 )
 
     def test_no_propagate_attributes_when_no_session(self):
@@ -272,6 +278,7 @@ class TestWorkflowTraceUsesV4Api:
                 session_id="workflow_exec_1",
                 user_id="article_42",
                 trace_name="agentic_workflow_execution_1",
+                tags=["execution_id:1", "article_id:42"],
             )
             mock_attributes_cm.__enter__.assert_called_once()
             mock_client.start_as_current_observation.assert_called_once()
@@ -310,6 +317,7 @@ class TestWorkflowTraceUsesV4Api:
                 session_id="custom-session-abc",
                 user_id="article_10",
                 trace_name="agentic_workflow_execution_99",
+                tags=["execution_id:99", "article_id:10"],
             )
             trace.__exit__(None, None, None)
 
@@ -362,3 +370,132 @@ class TestWorkflowTraceUsesV4Api:
             assert len(actual_session_id) == 200
             assert actual_session_id == "x" * 200
             trace.__exit__(None, None, None)
+
+
+class TestGetActiveTraceId:
+    """Verify get_active_trace_id reflects the module-level _active_trace_id."""
+
+    def test_returns_active_trace_id_when_set(self):
+        import src.utils.langfuse_client as mod
+
+        with patch.object(mod, "_active_trace_id", "trace-xyz-999"):
+            assert mod.get_active_trace_id() == "trace-xyz-999"
+
+    def test_returns_none_when_not_set(self):
+        import src.utils.langfuse_client as mod
+
+        with patch.object(mod, "_active_trace_id", None):
+            assert mod.get_active_trace_id() is None
+
+
+class TestScoreLangfuseTrace:
+    """Verify score_langfuse_trace calls client.score() correctly and fails open."""
+
+    def test_calls_client_score_with_correct_args(self):
+        """When enabled, score() should be called with trace_id, name, value, data_type."""
+        import src.utils.langfuse_client as mod
+
+        mock_client = MagicMock()
+
+        with (
+            patch.object(mod, "_langfuse_enabled", True),
+            patch.object(mod, "get_langfuse_client", return_value=mock_client),
+        ):
+            mod.score_langfuse_trace(trace_id="trace-abc", name="sigma_repair_attempts", value=3.0)
+
+        mock_client.score.assert_called_once_with(
+            trace_id="trace-abc",
+            name="sigma_repair_attempts",
+            value=3.0,
+            data_type="NUMERIC",
+        )
+        mock_client.flush.assert_called_once()
+
+    def test_includes_comment_when_provided(self):
+        import src.utils.langfuse_client as mod
+
+        mock_client = MagicMock()
+
+        with (
+            patch.object(mod, "_langfuse_enabled", True),
+            patch.object(mod, "get_langfuse_client", return_value=mock_client),
+        ):
+            mod.score_langfuse_trace(
+                trace_id="trace-abc",
+                name="sigma_repair_attempts",
+                value=5.0,
+                comment="execution_id=7 rules=2",
+            )
+
+        call_kwargs = mock_client.score.call_args.kwargs
+        assert call_kwargs["comment"] == "execution_id=7 rules=2"
+
+    def test_no_op_when_langfuse_disabled(self):
+        import src.utils.langfuse_client as mod
+
+        mock_client = MagicMock()
+
+        with (
+            patch.object(mod, "_langfuse_enabled", False),
+            patch.object(mod, "_langfuse_client", None),
+            patch.object(mod, "get_langfuse_client", return_value=None),
+        ):
+            mod.score_langfuse_trace(trace_id="trace-abc", name="sigma_repair_attempts", value=1.0)
+
+        mock_client.score.assert_not_called()
+
+    def test_no_op_when_trace_id_is_none(self):
+        import src.utils.langfuse_client as mod
+
+        mock_client = MagicMock()
+
+        with (
+            patch.object(mod, "_langfuse_enabled", True),
+            patch.object(mod, "get_langfuse_client", return_value=mock_client),
+        ):
+            mod.score_langfuse_trace(trace_id=None, name="sigma_repair_attempts", value=2.0)
+
+        mock_client.score.assert_not_called()
+
+    def test_no_op_when_trace_id_is_empty_string(self):
+        import src.utils.langfuse_client as mod
+
+        mock_client = MagicMock()
+
+        with (
+            patch.object(mod, "_langfuse_enabled", True),
+            patch.object(mod, "get_langfuse_client", return_value=mock_client),
+        ):
+            mod.score_langfuse_trace(trace_id="", name="sigma_repair_attempts", value=2.0)
+
+        mock_client.score.assert_not_called()
+
+    def test_fails_open_when_score_raises(self):
+        """An exception from client.score() must not propagate to the caller."""
+        import src.utils.langfuse_client as mod
+
+        mock_client = MagicMock()
+        mock_client.score.side_effect = RuntimeError("Langfuse unreachable")
+
+        with (
+            patch.object(mod, "_langfuse_enabled", True),
+            patch.object(mod, "get_langfuse_client", return_value=mock_client),
+        ):
+            # Must not raise
+            mod.score_langfuse_trace(trace_id="trace-abc", name="sigma_repair_attempts", value=1.0)
+
+    def test_int_value_coerced_to_float(self):
+        """Integer values should be accepted and coerced to float for the score call."""
+        import src.utils.langfuse_client as mod
+
+        mock_client = MagicMock()
+
+        with (
+            patch.object(mod, "_langfuse_enabled", True),
+            patch.object(mod, "get_langfuse_client", return_value=mock_client),
+        ):
+            mod.score_langfuse_trace(trace_id="trace-abc", name="sigma_repair_attempts", value=4)
+
+        call_kwargs = mock_client.score.call_args.kwargs
+        assert isinstance(call_kwargs["value"], float)
+        assert call_kwargs["value"] == 4.0

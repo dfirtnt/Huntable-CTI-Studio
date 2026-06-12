@@ -39,7 +39,7 @@ def compare_evaluations_page(request: Request, baseline_id: int = Query(...), cu
         comparison = tracker.compare_evaluations(baseline_id, current_id)
 
         return templates.TemplateResponse(request, "evaluation_comparison.html", {"comparison": comparison})
-    except ValueError as e:
+    except ValueError:
         return templates.TemplateResponse(
             request, "error.html", {"error": "An unexpected error occurred"}, status_code=400
         )

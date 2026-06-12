@@ -1,6 +1,6 @@
-# Sigma Semantic Similarity
+# Sigma Atom Similarity
 
-Deterministic Sigma rule semantic similarity engine. Compares two Sigma rules and returns a structured `SimilarityResult` using canonical telemetry class matching, modifier-aware atom extraction, DNF normalization, Jaccard overlap, containment heuristics, and filter penalties.
+Deterministic Sigma rule atom-similarity engine. Compares two Sigma rules and returns a structured `SimilarityResult` using canonical telemetry class matching, modifier-aware atom extraction, DNF normalization, Jaccard overlap, containment heuristics, and filter penalties.
 
 **No embeddings. No cosine similarity. No metadata comparison. No fuzzy matching.**
 
@@ -59,9 +59,9 @@ Field resolution is case-insensitive: `Image`, `image`, and `process_path` all r
 
 ## Integration with Huntable CTI Studio
 
-When this package is installed in the same environment as Huntable CTI Studio (e.g. `pip install -e sigma_semantic_similarity/` from the repo root), the app uses it for:
+When this package is installed in the same environment as Huntable CTI Studio (e.g. `pip install -e sigma_atom_similarity/` from the repo root), the app uses it for:
 
-- **Novelty assessment** (`SigmaNoveltyService`): Pairwise rule comparison uses the deterministic engine when available; otherwise the in-app atom/jaccard + logic-shape similarity is used.
+- **Novelty assessment** (`SigmaNoveltyService`): Pairwise rule comparison uses the deterministic atom engine when available; exact-hash duplicate checks are the only retained legacy label.
 - **Eval semantic scoring** (`SigmaSemanticScorer`): When no LLM service is configured, the evaluator uses the deterministic engine for `similarity_score` (no missing/extraneous behavior details).
 
 The dependency is optional: if the package is not installed, the app falls back to existing (LLM/embedding or in-app) logic.

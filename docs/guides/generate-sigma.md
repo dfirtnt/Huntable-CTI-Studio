@@ -25,7 +25,7 @@ Sigma runs automatically after extraction:
 ```bash
 EXECUTION_ID=$(curl -s -X POST "http://localhost:8001/api/workflow/articles/${ARTICLE_ID}/trigger" | jq -r '.execution_id')
 ```
-The Sigma agent uses filtered article content (minus junk) when `sigma_fallback_enabled` is true. Otherwise, it uses `extraction_result.content` when `discrete_huntables_count > 0`.
+The Sigma agent uses junk-filtered full article content as the main generation content when `sigma_fallback_enabled` is true. Otherwise, it uses `extraction_result.content` when `discrete_huntables_count > 0`. Extracted observables remain available to the Sigma prompt when present; the toggle changes the main `{content}` block, not whether observables are collected.
 
 ## 3) Retrieve generated rules
 ```bash

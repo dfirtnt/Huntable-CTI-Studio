@@ -73,6 +73,23 @@ Dead code: `uv run vulture src scripts vulture_whitelist.py --min-confidence 80`
 
 ---
 
+## Runtime
+
+The live dev app is Docker Compose at http://localhost:8001 (single environment -- there is
+no separate "served from main" deployment).
+
+- `cti_web` bind-mounts `./src`, `./config`, `./scripts`, `./tests` into the container.
+  Template (`.html`) edits are live per-request. **`.py` edits require a container restart**:
+  `docker restart cti_web` for web code; also restart `cti_worker` / `cti_workflow_worker` /
+  `cti_scheduler` for Celery task code.
+- **`sigma_atom_similarity/` is NOT bind-mounted** -- it is COPY'd into the image at build
+  time (`Dockerfile:71`). Edits there require `docker compose build` plus an explicit
+  `docker compose --profile tools build cli`; a restart is not enough.
+- Containers: `cti_postgres` (5432), `cti_redis`, `cti_web` (8001), `cti_worker`,
+  `cti_workflow_worker`, `cti_scheduler`, `cti_cli` (tools profile).
+
+---
+
 ## Common Traps
 
 - **Source config precedence**: `config/sources.yaml` seeds new installs only. Existing
@@ -185,14 +202,14 @@ Default: read-only (SELECT with LIMIT). No INSERT/UPDATE/DELETE without explicit
 ## Release Flow
 
 `main` is read-only between releases (GitHub branch protection locked by scripts).
-Feature work lands on `dev-io`.
+Feature work lands on the release branch — the `europa-*` line (currently `europa-7.2.1`).
 
 ```bash
-# On dev-io, working tree clean:
+# On the release branch (europa-*, e.g. europa-7.2.1), working tree clean:
 scripts/release_cut.py 7.1.0 "Codename" --summary "<one-line>"
 
 scripts/release_unlock.sh              # remove protection
-git push origin dev-io                 # create PR dev-io -> main
+git push origin europa-7.2.1           # push release branch; open PR -> main
 git push origin v7.1.0                 # triggers release.yml
 scripts/release_lock.sh                # restore read-only lock
 ```

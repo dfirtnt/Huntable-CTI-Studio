@@ -1484,7 +1484,6 @@ async def api_gpt4o_rank(article_id: int, request: Request):
 
         # Get request body
         body = await request.json()
-        article_url = body.get("url")
         # Try header first (prevents corruption with large payloads), fallback to body for backward compatibility
         api_key_raw = request.headers.get("X-OpenAI-API-Key") or body.get("api_key")
         # Strip whitespace from API key (common issue when copying/pasting)
@@ -1591,7 +1590,6 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
 
         # Get request body
         body = await request.json()
-        article_url = body.get("url")
         # Try header first (prevents corruption with large payloads), fallback to body for backward compatibility
         api_key_raw = request.headers.get("X-OpenAI-API-Key") or body.get("api_key")
         # Strip whitespace from API key (common issue when copying/pasting)
@@ -2296,130 +2294,13 @@ async def api_generate_sigma(article_id: int, request: Request):
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-def calculate_semantic_overlap(generated_rule: dict, sigmahq_rule: dict) -> dict[str, Any]:
-    """
-    Calculate semantic overlap between two SIGMA rules by comparing actual detection values.
-
-    Args:
-        generated_rule: The generated rule dictionary
-        sigmahq_rule: The SigmaHQ rule dictionary to compare against
-
-    Returns:
-        Dictionary with overlap metrics
-    """
-
-    def extract_values_from_detection(detection: dict, field_name: str) -> set[str]:
-        """Extract all values for a specific field from detection logic."""
-        values = set()
-        if not isinstance(detection, dict):
-            return values
-
-        for key, value in detection.items():
-            # Skip condition and timeframe keys
-            if key in ["condition", "timeframe"]:
-                continue
-
-            if isinstance(value, dict):
-                # Recursively search nested structures
-                nested_values = extract_values_from_detection(value, field_name)
-                values.update(nested_values)
-
-                # Check if this dict has the field we're looking for
-                for field_key, field_value in value.items():
-                    if field_name.lower() in field_key.lower():
-                        if isinstance(field_value, list):
-                            values.update(str(v).lower() for v in field_value)
-                        elif isinstance(field_value, str):
-                            values.add(field_value.lower())
-
-        return values
-
-    def normalize_path(path: str) -> str:
-        """Normalize file paths for comparison."""
-        return path.lower().replace("\\\\", "\\").replace("/", "\\").strip()
-
-    try:
-        gen_detection = generated_rule.get("detection", {})
-        sig_detection = sigmahq_rule.get("detection", {})
-
-        # Extract process/image names
-        gen_processes = extract_values_from_detection(gen_detection, "image")
-        gen_processes.update(extract_values_from_detection(gen_detection, "initiatingprocess"))
-        gen_processes.update(extract_values_from_detection(gen_detection, "parentimage"))
-
-        sig_processes = extract_values_from_detection(sig_detection, "image")
-        sig_processes.update(extract_values_from_detection(sig_detection, "initiatingprocess"))
-        sig_processes.update(extract_values_from_detection(sig_detection, "parentimage"))
-
-        # Extract file paths
-        gen_paths = extract_values_from_detection(gen_detection, "path")
-        gen_paths.update(extract_values_from_detection(gen_detection, "folderpath"))
-        gen_paths.update(extract_values_from_detection(gen_detection, "targetfilename"))
-        gen_paths = {normalize_path(p) for p in gen_paths}
-
-        sig_paths = extract_values_from_detection(sig_detection, "path")
-        sig_paths.update(extract_values_from_detection(sig_detection, "folderpath"))
-        sig_paths.update(extract_values_from_detection(sig_detection, "targetfilename"))
-        sig_paths = {normalize_path(p) for p in sig_paths}
-
-        # Extract command line keywords
-        gen_cmdline = extract_values_from_detection(gen_detection, "commandline")
-        sig_cmdline = extract_values_from_detection(sig_detection, "commandline")
-
-        # Calculate overlaps
-        process_overlap = len(gen_processes & sig_processes) if gen_processes and sig_processes else 0
-        path_overlap = len(gen_paths & sig_paths) if gen_paths and sig_paths else 0
-        cmdline_overlap = len(gen_cmdline & sig_cmdline) if gen_cmdline and sig_cmdline else 0
-
-        # Calculate ratios
-        total_gen_indicators = len(gen_processes) + len(gen_paths) + len(gen_cmdline)
-        total_sig_indicators = len(sig_processes) + len(sig_paths) + len(sig_cmdline)
-        total_overlaps = process_overlap + path_overlap + cmdline_overlap
-
-        # Overall semantic overlap ratio
-        if total_gen_indicators == 0 or total_sig_indicators == 0:
-            semantic_overlap_ratio = 0.0
-        else:
-            # Use average of indicators from both rules as denominator
-            avg_indicators = (total_gen_indicators + total_sig_indicators) / 2
-            semantic_overlap_ratio = total_overlaps / avg_indicators if avg_indicators > 0 else 0.0
-
-        return {
-            "semantic_overlap_ratio": min(1.0, semantic_overlap_ratio),
-            "process_overlap": process_overlap,
-            "path_overlap": path_overlap,
-            "cmdline_overlap": cmdline_overlap,
-            "gen_processes": list(gen_processes),
-            "sig_processes": list(sig_processes),
-            "gen_paths": list(gen_paths),
-            "sig_paths": list(sig_paths),
-            "gen_cmdline": list(gen_cmdline),
-            "sig_cmdline": list(sig_cmdline),
-        }
-
-    except Exception as e:
-        logger.warning(f"Error calculating semantic overlap: {e}")
-        return {
-            "semantic_overlap_ratio": 0.0,
-            "process_overlap": 0,
-            "path_overlap": 0,
-            "cmdline_overlap": 0,
-            "gen_processes": [],
-            "sig_processes": [],
-            "gen_paths": [],
-            "sig_paths": [],
-            "gen_cmdline": [],
-            "sig_cmdline": [],
-        }
-
-
 @router.get("/{article_id}/sigma-matches")
 async def api_get_sigma_matches(article_id: int, force: bool = False):
     """
     Get Sigma rule matches by comparing generated SIGMA rules to SigmaHQ rules
     using behavioral novelty assessment.
 
-    When sigma_semantic_similarity is installed: deterministic engine
+    When sigma_atom_similarity is installed: deterministic engine
     (Jaccard × Containment − Filter penalty). Otherwise legacy:
     - Canonicalization of detection logic
     - Atomic predicate extraction (field+operator+value)
@@ -2432,6 +2313,8 @@ async def api_get_sigma_matches(article_id: int, force: bool = False):
         from src.database.async_manager import AsyncDatabaseManager
         from src.database.manager import DatabaseManager
         from src.services.sigma_matching_service import SigmaMatchingService
+        from src.services.sigma_novelty_service import classify_match_novelty
+        from src.services.similarity_serialization import serialize_similarity_match
 
         # Get article with generated rules
         async_db_manager = AsyncDatabaseManager()
@@ -2537,53 +2420,15 @@ async def api_get_sigma_matches(article_id: int, force: bool = False):
             # Sort by similarity (descending) and return top matches
             matches = sorted(all_matches.values(), key=lambda x: x.get("similarity", 0), reverse=True)[:20]
 
-            # Classify each match using behavioral novelty assessment (per spec)
-            # Use novelty_label directly from behavioral metrics
+            # Classify each match using the shared per-match novelty classifier
+            # (single source of truth for the legacy thresholds + exact-hash override;
+            # Phase 2 of the sigma-similarity unification). Per-match semantics are
+            # preserved: each candidate is judged on its own metrics.
             for match in matches:
-                # Get behavioral metrics from novelty assessment
-                behavioral_similarity = match.get("similarity", 0)
-                atom_jaccard = match.get("atom_jaccard", 0.0)
-                logic_shape_raw = match.get("logic_shape_similarity")
-                # Handle None (early exit case) - treat as perfect match for classification
-                logic_shape = 1.0 if logic_shape_raw is None else logic_shape_raw
-
-                # Debug logging
-                logic_shape_display = "N/A" if match.get("logic_shape_similarity") is None else f"{logic_shape:.3f}"
-                logger.debug(
-                    f"Classifying match '{match.get('rule_id', 'unknown')}': "
-                    f"atom_jaccard={atom_jaccard:.3f}, logic_shape={logic_shape_display}"
-                )
-
-                # Check for exact hash match (duplicate)
-                is_exact_match = match.get("exact_hash_match", False)
-
-                # Classify using behavioral novelty thresholds (per spec)
-                # DUPLICATE: atom_jaccard > 0.95 AND logic_similarity > 0.95
-                # SIMILAR: atom_jaccard > 0.80
-                # NOVEL: Everything else
-                if is_exact_match:
-                    novelty_label = "DUPLICATE"
-                    logger.debug(f"Match '{match.get('rule_id')}' classified as DUPLICATE (exact hash match)")
-                elif atom_jaccard > 0.95 and logic_shape > 0.95:
-                    novelty_label = "DUPLICATE"
-                    logger.debug(
-                        f"Match '{match.get('rule_id')}' classified as DUPLICATE (atom_jaccard={atom_jaccard:.3f}, logic_shape={logic_shape_display})"
-                    )
-                elif atom_jaccard > 0.80:
-                    novelty_label = "SIMILAR"
-                    logger.debug(
-                        f"Match '{match.get('rule_id')}' classified as SIMILAR (atom_jaccard={atom_jaccard:.3f})"
-                    )
-                else:
-                    novelty_label = "NOVEL"
-                    logger.debug(
-                        f"Match '{match.get('rule_id')}' classified as NOVEL (atom_jaccard={atom_jaccard:.3f}, logic_shape={logic_shape_display})"
-                    )
-
-                # Store novelty classification
+                novelty_label = str(classify_match_novelty(match))
                 match["novelty_label"] = novelty_label
 
-                # Map novelty_label to coverage_status for UI display
+                # Map novelty_label to coverage_status for UI display (article-specific)
                 # DUPLICATE → covered, SIMILAR → extend, NOVEL → new
                 if novelty_label == "DUPLICATE":
                     match["coverage_status"] = "covered"
@@ -2604,7 +2449,12 @@ async def api_get_sigma_matches(article_id: int, force: bool = False):
             # Note: Using pure behavioral novelty assessment (no LLM reranking per spec)
             result = {
                 "success": True,
-                "matches": matches,
+                # Project onto the unified canonical contract (Phase 1), preserving
+                # the article-specific coverage_status. (The local novelty
+                # re-classification above is removed in Phase 2.)
+                "matches": [
+                    {**serialize_similarity_match(m), "coverage_status": m.get("coverage_status")} for m in matches
+                ],
                 "coverage_summary": {
                     "covered": len([m for m in matches if m.get("coverage_status") == "covered"]),
                     "extend": len([m for m in matches if m.get("coverage_status") == "extend"]),

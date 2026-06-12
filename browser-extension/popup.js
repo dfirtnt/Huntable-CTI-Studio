@@ -21,6 +21,10 @@ document.addEventListener('DOMContentLoaded', function() {
     let extractedImages = [];
     let ocrResults = {};
 
+    function imageMarker(src) {
+        return `[IMAGE:${src}]`;
+    }
+
     // Check if URL is from non-routable IP address
     function isNonRoutableIP(url) {
         try {
@@ -126,6 +130,55 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Function to extract article data (injected into page)
     function extractArticleDataFromPage() {
+        function getImageSource(img) {
+            if (img.dataset && img.dataset.src) {
+                return img.dataset.src;
+            }
+            if (img.dataset && img.dataset.lazySrc) {
+                return img.dataset.lazySrc;
+            }
+            return img.currentSrc || img.src || '';
+        }
+
+        function imageMarker(src) {
+            return `[IMAGE:${src}]`;
+        }
+
+        function extractTextWithImageMarkers(contentElement) {
+            const clone = contentElement.cloneNode(true);
+
+            const unwantedSelectors = [
+                'nav', 'header', 'footer', '.nav', '.navigation', '.menu',
+                '.sidebar', '.advertisement', '.ad', '.ads', '.social',
+                '.comments', '.comment', '.related', '.recommended',
+                '.newsletter', '.subscribe', '.cookie', '.cookie-banner',
+                'script', 'style', 'noscript', '.header', '.footer',
+                '.breadcrumb', '.breadcrumbs', '.pagination', '.pager',
+                '.site-header', '.site-footer', '.site-navigation',
+                '.skip-link', '.usa-skipnav', '.usa-banner',
+                '.usa-header', '.usa-footer', '.usa-nav'
+            ];
+
+            unwantedSelectors.forEach(selector => {
+                const elements = clone.querySelectorAll(selector);
+                elements.forEach(el => el.remove());
+            });
+
+            clone.querySelectorAll('img').forEach(img => {
+                const src = getImageSource(img);
+                if (!src || src.startsWith('data:image/svg') || (src.startsWith('data:') && src.length < 1000)) {
+                    img.remove();
+                    return;
+                }
+
+                const marker = document.createTextNode(`\n\n${imageMarker(src)}\n\n`);
+                img.parentNode.insertBefore(marker, img);
+                img.remove();
+            });
+
+            return clone.textContent.trim();
+        }
+
         const data = {
             url: window.location.href,
             title: '',
@@ -222,29 +275,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         if (contentElement) {
-            // Clean up the content by removing unwanted elements
-            const clone = contentElement.cloneNode(true);
-            
-            // Remove unwanted elements (less aggressive for government sites)
-            const unwantedSelectors = [
-                'nav', 'header', 'footer', '.nav', '.navigation', '.menu',
-                '.sidebar', '.advertisement', '.ad', '.ads', '.social',
-                '.comments', '.comment', '.related', '.recommended',
-                '.newsletter', '.subscribe', '.cookie', '.cookie-banner',
-                'script', 'style', 'noscript', '.header', '.footer',
-                '.breadcrumb', '.breadcrumbs', '.pagination', '.pager',
-                // Government site specific
-                '.site-header', '.site-footer', '.site-navigation',
-                '.skip-link', '.usa-skipnav', '.usa-banner',
-                '.usa-header', '.usa-footer', '.usa-nav'
-            ];
-
-            unwantedSelectors.forEach(selector => {
-                const elements = clone.querySelectorAll(selector);
-                elements.forEach(el => el.remove());
-            });
-
-            data.content = clone.textContent.trim();
+            data.content = extractTextWithImageMarkers(contentElement);
         }
 
         // Calculate word count
@@ -334,13 +365,10 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // Append OCR text to content if enabled
+        // Insert OCR text at image marker positions if enabled.
         let contentToSend = currentArticleData.content || '';
         if (enableOcrCheckbox.checked && Object.keys(ocrResults).length > 0) {
-            const ocrText = getOCRText();
-            if (ocrText) {
-                contentToSend = contentToSend + ocrText;
-            }
+            contentToSend = getContentWithOCRText(contentToSend);
         }
 
         showStatus('Sending to Huntable CTI Studio...', 'loading');
@@ -456,6 +484,30 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Function injected into page to extract images
     function extractImagesFromPageDOM() {
+        function getImageSource(img) {
+            if (img.dataset && img.dataset.src) {
+                return img.dataset.src;
+            }
+            if (img.dataset && img.dataset.lazySrc) {
+                return img.dataset.lazySrc;
+            }
+            return img.currentSrc || img.src || '';
+        }
+
+        function isExtractableImage(img, src) {
+            if (!src || src.startsWith('data:image/svg')) {
+                return false;
+            }
+            if (img.naturalWidth < 50 || img.naturalHeight < 50) {
+                return false;
+            }
+            return !(src.startsWith('data:') && src.length < 1000);
+        }
+
+        function imageMarker(src) {
+            return `[IMAGE:${src}]`;
+        }
+
         const images = Array.from(document.querySelectorAll('img'));
         const imageData = [];
 
@@ -470,24 +522,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // Get image source
-            let src = img.src || img.currentSrc;
-            
-            // Try to get full resolution image
-            if (img.dataset.src) {
-                src = img.dataset.src;
-            } else if (img.dataset.lazySrc) {
-                src = img.dataset.lazySrc;
-            }
+            const src = getImageSource(img);
 
             // Skip if no valid source
-            if (!src || src.startsWith('data:image/svg')) {
+            if (!isExtractableImage(img, src)) {
                 return;
             }
 
             imageData.push({
                 id: `img_${index}`,
                 src: src,
+                marker: imageMarker(src),
                 alt: img.alt || `Image ${index + 1}`,
                 width: img.naturalWidth || img.width,
                 height: img.naturalHeight || img.height
@@ -732,7 +777,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Hybrid: try Vision LLM first, fall back to OCR on failure
     async function performHybrid(imageId) {
-        const apiKey = visionApiKeyInput.value.trim();
         try {
             await performVisionLLM(imageId);
             const statusEl = document.getElementById(`status-${imageId}`);
@@ -743,20 +787,37 @@ document.addEventListener('DOMContentLoaded', function() {
         await performOCR(imageId);
     }
 
-    // Get OCR text to append to content
-    function getOCRText() {
+    // Insert OCR/Vision text where each source image appeared in the article.
+    function getContentWithOCRText(content) {
         if (!enableOcrCheckbox.checked || Object.keys(ocrResults).length === 0) {
-            return '';
+            return content;
         }
 
-        const ocrTexts = [];
+        let contentWithOcr = content || '';
+        const unmatchedBlocks = [];
+
         extractedImages.forEach(img => {
             if (ocrResults[img.id]) {
-                ocrTexts.push(`\n\n[Image OCR: ${img.alt || 'Image'}]\n${ocrResults[img.id]}`);
+                const block = `[Image OCR: ${img.alt || 'Image'}]\n${ocrResults[img.id]}`;
+                const marker = img.marker || imageMarker(img.src);
+                if (contentWithOcr.includes(marker)) {
+                    contentWithOcr = contentWithOcr.split(marker).join(block);
+                } else {
+                    unmatchedBlocks.push(block);
+                }
             }
         });
 
-        return ocrTexts.join('\n\n');
+        contentWithOcr = contentWithOcr.replace(/\n*\[IMAGE:[^\]\n]+\]\n*/g, '\n\n').trim();
+        if (unmatchedBlocks.length > 0) {
+            contentWithOcr = `${contentWithOcr}\n\n${unmatchedBlocks.join('\n\n')}`.trim();
+        }
+
+        return contentWithOcr;
+    }
+
+    function getOCRText() {
+        return getContentWithOCRText('');
     }
 
 

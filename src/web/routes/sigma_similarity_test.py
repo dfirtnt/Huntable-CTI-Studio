@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 from src.database.manager import DatabaseManager
 from src.services.sigma_matching_service import SigmaMatchingService
+from src.services.similarity_serialization import serialize_similarity_match
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ def _extract_yaml_block(text: str) -> str:
     if not text or not text.strip():
         return text.strip() if text else ""
     text = text.strip()
-    fence_open = re.match(r"```(?:yaml)?[ \t]*\r?\n", text, re.IGNORECASE)
+    fence_open = re.match(r"```(?:[a-z0-9]+)?[ \t]*\r?\n", text, re.IGNORECASE)
     if fence_open:
         content_start = fence_open.end()
         fence_close = text.find("\n```", content_start)
@@ -46,7 +47,6 @@ def _extract_yaml_block(text: str) -> str:
 class SimilaritySearchRequest(BaseModel):
     rule_yaml: str
     use_llm_rerank: bool = False
-    embedding_model: str = ""
     llm_model: str = ""
     top_k: int = Field(default=10, ge=1, le=50)
 
@@ -94,47 +94,21 @@ async def search_similar_rules(request: SimilaritySearchRequest):
         top_k = request.top_k
         matches = raw_matches[:top_k]
 
-        formatted = []
-        for m in matches:
-            # Build similarity_breakdown in the richer format the template expects
-            breakdown = m.get("similarity_breakdown") or {}
-            atom_jaccard = m.get("atom_jaccard", breakdown.get("atom_jaccard", 0.0))
-            logic_shape = m.get("logic_shape_similarity", breakdown.get("logic_shape_similarity"))
-
-            formatted.append(
-                {
-                    "rule_id": m.get("rule_id", ""),
-                    "title": m.get("title", ""),
-                    "description": m.get("description", ""),
-                    "logsource": m.get("logsource"),
-                    "detection": m.get("detection"),
-                    "tags": m.get("tags", []),
-                    "level": m.get("level"),
-                    "status": m.get("status"),
-                    "file_path": m.get("file_path"),
-                    "similarity": round(m.get("similarity", 0.0), 4),
-                    "similarity_breakdown": {
-                        "atom_jaccard": round(atom_jaccard, 4),
-                        "logic_shape_similarity": round(logic_shape, 4) if logic_shape is not None else None,
-                    },
-                    "shared_atoms": m.get("shared_atoms", []),
-                    "added_atoms": m.get("added_atoms", []),
-                    "removed_atoms": m.get("removed_atoms", []),
-                    "filter_differences": m.get("filter_differences", []),
-                    "novelty_label": m.get("novelty_label"),
-                    "service_penalty": m.get("service_penalty", 0.0),
-                    "filter_penalty": m.get("filter_penalty", 0.0),
-                    "llm_rerank": None,
-                    "semantic_overlap": None,
-                }
-            )
+        # Project each match onto the unified canonical contract (Phase 1).
+        # llm_rerank is a page-specific extra the template reads.
+        formatted = [
+            {
+                **serialize_similarity_match(m),
+                "llm_rerank": None,
+            }
+            for m in matches
+        ]
 
         return {
             "success": True,
             "matches": formatted,
             "total_candidates_evaluated": result.get("total_candidates_evaluated", 0),
             "models_used": {
-                "embedding_model": request.embedding_model or "behavioral-novelty-engine",
                 "llm_model": "not used" if not request.use_llm_rerank else (request.llm_model or "none"),
             },
             "input_rule": {

@@ -12,11 +12,15 @@ pytestmark = pytest.mark.unit
 from src.services import provider_model_catalog as catalog_module
 from src.services.provider_model_catalog import (
     DEFAULT_CATALOG,
+    MODEL_CONTEXT_TOKENS,
+    get_model_context_tokens,
     load_catalog,
     save_catalog,
     update_provider_models,
 )
 from src.utils.model_validation import PROJECT_OPENAI_ALLOWLIST
+
+CATALOG_FILE = Path(__file__).resolve().parents[2] / "config" / "provider_model_catalog.json"
 
 
 class TestLoadCatalog:
@@ -159,6 +163,15 @@ class TestOnDiskCatalog:
         codex_models = [m for m in models if "-codex" in m.lower()]
         assert codex_models == [], f"Codex models found in catalog: {codex_models}"
 
+    def test_newer_gpt5_models_present(self):
+        """Regression: the catalog froze at gpt-5.1 because the daily refresh read an
+        empty env key instead of the DB key. gpt-5.4 / gpt-5.4-mini / gpt-5.5 had been
+        live for weeks but never surfaced. Pin their presence so a refresh regression
+        (or a manual revert) is caught."""
+        models = json.loads(CATALOG_FILE.read_text())["openai"]
+        for expected in ("gpt-5.4", "gpt-5.4-mini", "gpt-5.5"):
+            assert expected in models, f"{expected} missing from on-disk catalog"
+
     def test_gpt5_family_survives_full_load_pipeline(self, tmp_path):
         """gpt-5.x models in the catalog all reach the dropdown after both filters."""
 
@@ -228,3 +241,39 @@ class TestUpdateProviderModels:
             result = update_provider_models("custom", ["model-a"])
         assert result["custom"] == ["model-a"]
         assert json.loads(path.read_text())["custom"] == ["model-a"]
+
+
+class TestContextWindowCoverage:
+    """Every model offered in the dropdown should have a context-window entry.
+
+    The provider /v1/models API does not return context sizes, so MODEL_CONTEXT_TOKENS
+    is hand-maintained. When a new model is added to the catalog its context window is
+    easy to forget; an absent entry silently degrades token budgeting to a default.
+    This guard fails loudly so the entry is added alongside the model.
+    """
+
+    def _on_disk_models(self) -> list[str]:
+        data = json.loads(CATALOG_FILE.read_text())
+        return list(data.get("openai", [])) + list(data.get("anthropic", []))
+
+    def test_every_catalog_model_has_context_window(self):
+        missing = [m for m in self._on_disk_models() if get_model_context_tokens(m) is None]
+        assert not missing, f"Catalog models missing a MODEL_CONTEXT_TOKENS entry: {missing}"
+
+    def test_context_windows_are_positive_ints(self):
+        for m in self._on_disk_models():
+            tokens = get_model_context_tokens(m)
+            if tokens is not None:
+                assert isinstance(tokens, int) and tokens > 0, f"{m} has invalid context window: {tokens!r}"
+
+    def test_get_model_context_tokens_unknown_returns_none(self):
+        assert get_model_context_tokens("definitely-not-a-real-model") is None
+
+    def test_newer_gpt5_context_windows(self):
+        """Pin the verified context windows for the newly-added gpt-5.x models."""
+        assert MODEL_CONTEXT_TOKENS["gpt-5.4"] == 1_050_000
+        assert MODEL_CONTEXT_TOKENS["gpt-5.4-mini"] == 400_000
+        assert MODEL_CONTEXT_TOKENS["gpt-5.5"] == 1_050_000
+        # chat-latest pointers are 128K context regardless of family
+        assert MODEL_CONTEXT_TOKENS["gpt-5.2-chat-latest"] == 128_000
+        assert MODEL_CONTEXT_TOKENS["gpt-5.3-chat-latest"] == 128_000

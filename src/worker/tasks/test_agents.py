@@ -81,7 +81,6 @@ def test_sub_agent_task(
         config = _get_active_config(db_session)
 
         content = _filter_content(article, use_junk_filter, junk_filter_threshold)
-        source_name = article.source.name if article.source else "Unknown"
 
         # Build prompt config for the requested sub-agent
         agent_prompts = config.agent_prompts or {}

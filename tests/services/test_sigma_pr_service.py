@@ -54,7 +54,6 @@ class TestResolveDefaultBaseBranch:
 
     def _mock_git(self, responses: dict[str, str]):
         """Mock _run_git_command to return specific stdout per git subcommand."""
-        orig = self.svc._run_git_command
 
         def side_effect(cmd, check=True):
             for key, stdout in responses.items():

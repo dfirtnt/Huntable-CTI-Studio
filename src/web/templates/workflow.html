@@ -927,6 +927,7 @@
 
 .q-table {
   width: 100%;
+  min-width: 1100px;
   border-collapse: separate;
   border-spacing: 0;
 }
@@ -2256,7 +2257,7 @@ tr.q-row-selected td {
                       <div class="flex items-center justify-between">
                         <div>
                           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Use Full Article Content (Minus Junk)</label>
-                          <p class="text-xs text-gray-500 dark:text-gray-400">If enabled, SIGMA uses junk-filtered article content instead of extracted observables summary.</p>
+                          <p class="text-xs text-gray-500 dark:text-gray-400">If enabled, SIGMA uses the junk-filtered full article as the main content block instead of the extracted-artifact summary. Extracted observables, if any, are still included in the prompt either way.</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                           <input type="checkbox" id="sigma-fallback-enabled" name="sigma_fallback_enabled" aria-label="Use Full Article Content (Minus Junk)" class="sr-only peer" onchange="autoSaveConfig();">
@@ -3284,6 +3285,10 @@ tr.q-row-selected td {
                     </div>
                 </div>
                 <div class="space-y-4 max-h-[70vh] overflow-y-auto">
+                    <div class="flex items-center gap-2 text-xs px-1">
+                        <span class="text-gray-500 dark:text-gray-400">Active config:</span>
+                        <span id="enrichPresetState" class="font-medium px-2 py-0.5 rounded bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">Unsaved config</span>
+                    </div>
                     <div class="flex items-center space-x-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-md">
                         <input type="checkbox" id="includeArticleContent" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
                         <label for="includeArticleContent" class="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
@@ -3666,6 +3671,7 @@ END SYSTEM PROMPT</textarea>
 
 <script src="/static/js/components/observable-utils.js"></script>
 <script src="/static/js/components/similarity-display.js"></script>
+<script src="/static/js/components/similar-rule-modal.js"></script>
 <script>
 // Helper function to parse UTC timestamp and convert to local time
 // Tab Management
@@ -4283,12 +4289,24 @@ const defaultCommercialModelCatalog = {
         'claude-instant-1.2'
     ]
 };
+// Cached catalog is only trusted for this long. The server re-renders the live
+// catalog inline on every page load (window.initialCommercialModelCatalog) and
+// refreshes the persisted file daily, so a stale localStorage copy must expire —
+// otherwise newly-added models never surface until the user clears storage.
+const PROVIDER_CATALOG_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+
 function getCachedProviderCatalog() {
     if (typeof localStorage === 'undefined') return null;
     try {
         const cached = localStorage.getItem('providerModelCatalog');
         if (!cached) return null;
         const parsed = JSON.parse(cached);
+        // Honor the stored TTL: ignore (and clear) a cache older than the window.
+        if (parsed && typeof parsed.updatedAt === 'number' &&
+            Date.now() - parsed.updatedAt > PROVIDER_CATALOG_CACHE_TTL_MS) {
+            localStorage.removeItem('providerModelCatalog');
+            return null;
+        }
         if (parsed && typeof parsed.data === 'object') {
             return parsed.data;
         }
@@ -4330,14 +4348,21 @@ async function refreshCommercialModelCatalog() {
 }
 
 const cachedProviderCatalog = getCachedProviderCatalog();
-let commercialModelCatalog = cachedProviderCatalog || window.initialCommercialModelCatalog || defaultCommercialModelCatalog;
-// If cached catalog is present but empty, fall back to server/default catalogs
-if (
-    !commercialModelCatalog ||
-    (Array.isArray(commercialModelCatalog.openai) && commercialModelCatalog.openai.length === 0 &&
-     Array.isArray(commercialModelCatalog.anthropic) && commercialModelCatalog.anthropic.length === 0)
-) {
-    commercialModelCatalog = window.initialCommercialModelCatalog || defaultCommercialModelCatalog;
+// Prefer the server-rendered catalog (always current as of this page load) over the
+// localStorage cache, so freshly-added models appear immediately. The cache is only a
+// fallback for when the server didn't inline a catalog. Empty lists fall through too.
+function _catalogHasModels(c) {
+    return !!c && ((Array.isArray(c.openai) && c.openai.length > 0) ||
+                   (Array.isArray(c.anthropic) && c.anthropic.length > 0));
+}
+let commercialModelCatalog =
+    (_catalogHasModels(window.initialCommercialModelCatalog) && window.initialCommercialModelCatalog) ||
+    (_catalogHasModels(cachedProviderCatalog) && cachedProviderCatalog) ||
+    window.initialCommercialModelCatalog ||
+    defaultCommercialModelCatalog;
+// Keep the cache in sync with the fresh server catalog we just chose.
+if (_catalogHasModels(window.initialCommercialModelCatalog)) {
+    cacheProviderCatalog(window.initialCommercialModelCatalog);
 }
 
 // ============================================================================
@@ -7664,7 +7689,16 @@ async function pollTestStatus(taskId, agentName, articleId) {
                     if (!displayText) {
                         displayText = JSON.stringify(payload, null, 2);
                     }
-                    
+
+                    // Pretty-print for readability: extractors return compact, single-line
+                    // JSON strings in llm_response/raw_response. Re-indent if it parses as JSON;
+                    // leave non-JSON responses (e.g. SigmaAgent YAML/prose) untouched.
+                    try {
+                        displayText = JSON.stringify(JSON.parse(displayText), null, 2);
+                    } catch (e) {
+                        // Not JSON — keep the original text as-is.
+                    }
+
                     resultsContent.textContent = displayText;
                     resultsContent.className = 'bg-green-50 dark:bg-green-900/20 p-3 rounded border border-green-200 dark:border-green-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
                 } else {
@@ -8581,6 +8615,30 @@ function getCurrentModelForAgent(agentName) {
     return null;
 }
 
+// Render the parsed fields of a Standard Extractor Contract prompt as readable,
+// line-broken labeled blocks for the read-only System Prompt view. The templateData
+// values are the PARSED strings (real newlines), unlike the raw config JSON stored in
+// promptParts.system where newlines are escaped (\n) and never break under
+// whitespace-pre-wrap. Each field is escaped; empty fields are omitted.
+function renderExtractorConfigFields(templateData) {
+    const td = templateData || {};
+    const sections = [
+        ['Role', td.role],
+        ['Task', td.task],
+        ['JSON Example', td.json_example],
+        ['Instructions', td.instructions],
+    ];
+    const blocks = sections
+        .filter(([, value]) => value && String(value).trim())
+        .map(([label, value]) => `
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">${escapeHtml(label)}</div>
+                <div class="font-mono whitespace-pre-wrap break-words text-gray-800 dark:text-gray-200">${escapeHtml(String(value))}</div>
+            </div>
+        `);
+    return blocks.length ? blocks.join('') : '<span class="text-gray-400 italic">(empty)</span>';
+}
+
 function renderSinglePrompt(agentName, promptData, prefix) {
     const prompt = promptData.prompt || '';
     const instructions = promptData.instructions || '';
@@ -8634,7 +8692,19 @@ function renderSinglePrompt(agentName, promptData, prefix) {
     // Check if this is one of the locked extractor prompts
     const isExtractionAgent = isLockedExtractorPrompt(agentName);
     const isLockedScaffoldAgent = isExtractionAgent || isLockedCanonicalPrompt(agentName);
-    
+
+    // Standard Extractor Contract prompts (CmdlineExtract, ProcTreeExtract, ...) store the
+    // raw config JSON in promptParts.system so Save round-trips it verbatim. Rendering that
+    // raw JSON read-only produces a wall of text (escaped \n never break under
+    // whitespace-pre-wrap). When viewing (not editing) such a prompt, render the parsed
+    // templateData fields instead. The edit textarea and save path are untouched.
+    const systemIsConfigJson = typeof promptParts.system === 'string'
+        && promptParts.system.trim().startsWith('{');
+    const showReadableExtractorConfig = !isEditing && isTemplateFormat && systemIsConfigJson;
+    const systemDisplayHtml = showReadableExtractorConfig
+        ? `<div id="${agentId}-prompt-system-display-2" class="text-sm space-y-4 bg-gray-50 dark:bg-gray-900 border-l-4 border-blue-500 border border-gray-200 dark:border-gray-700 pl-4 p-3 rounded-md max-h-96 overflow-y-auto leading-relaxed text-gray-800 dark:text-gray-200">${renderExtractorConfigFields(templateData)}</div>`
+        : `<div id="${agentId}-prompt-system-display-2" class="text-sm font-mono bg-gray-50 dark:bg-gray-900 border-l-4 border-blue-500 border border-gray-200 dark:border-gray-700 pl-4 p-3 rounded-md whitespace-pre-wrap break-words max-h-96 overflow-y-auto leading-relaxed ${!promptParts.system ? 'text-gray-400 italic' : 'text-gray-800 dark:text-gray-200'}">${escapeHtml(promptParts.system || '(empty)')}</div>`;
+
     return `
         <div id="${panelId}-root" class="border border-gray-200 dark:border-gray-700 rounded-lg">
             <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" style="background-color: var(--panel-header);">
@@ -8713,9 +8783,7 @@ function renderSinglePrompt(agentName, promptData, prefix) {
                                               data-derived-binding-kind="prompt-system"
                                               placeholder="Enter system prompt (agent role, behavior, constraints)..."
                                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.system)}</textarea>
-                                ` : `
-                                    <div id="${agentId}-prompt-system-display-2" class="text-sm font-mono bg-gray-50 dark:bg-gray-900 border-l-4 border-blue-500 border border-gray-200 dark:border-gray-700 pl-4 p-3 rounded-md whitespace-pre-wrap break-words max-h-96 overflow-y-auto leading-relaxed ${!promptParts.system ? 'text-gray-400 italic' : 'text-gray-800 dark:text-gray-200'}">${escapeHtml(promptParts.system || '(empty)')}</div>
-                                `}
+                                ` : systemDisplayHtml}
                                 <div id="${agentId}-validate-result-2" class="hidden mt-2"></div>
                             </div>
                         ${isLockedScaffoldAgent ? `
@@ -13897,75 +13965,58 @@ function resetQualityReviewCard() {
     // Quality review card removed; keep stub in case preview logic still calls it.
 }
 
-let enrichProviderCatalog = {};
 let enrichmentPresetRestoredThisSession = false;
 
 async function loadEnrichProviderModelCatalog() {
-    try {
-        const response = await fetch('/api/provider-model-catalog');
-        if (response.ok) {
-            const data = await response.json();
-            if (data.catalog) {
-                enrichProviderCatalog = data.catalog;
-                populateEnrichProviderDropdown();
-                
-                // Try to get default provider from settings
-                const settingsResponse = await fetch('/api/settings');
-                if (settingsResponse.ok) {
-                    const settingsData = await settingsResponse.json();
-                    const settings = settingsData.settings || {};
-                    
-                    let defaultProvider = null;
-                    // Check for LMStudio first (no API key needed)
-                    if (settings.LMSTUDIO_ENABLED === 'true' || settings.LMSTUDIO_URL) {
-                        defaultProvider = 'lmstudio';
-                    } else if (settings.WORKFLOW_OPENAI_ENABLED === 'true' && settings.WORKFLOW_OPENAI_API_KEY && enrichProviderCatalog.openai) {
-                        defaultProvider = 'openai';
-                    } else if (settings.WORKFLOW_ANTHROPIC_ENABLED === 'true' && settings.WORKFLOW_ANTHROPIC_API_KEY && enrichProviderCatalog.anthropic) {
-                        defaultProvider = 'anthropic';
-                    }
-                    
-                    if (defaultProvider) {
-                        const providerSelect = document.getElementById('enrichProviderSelect');
-                        if (providerSelect) {
-                            providerSelect.value = defaultProvider;
-                            await populateEnrichModelDropdown(defaultProvider);
-                        }
-                    }
-                }
-            }
+    // Use the already-loaded commercialModelCatalog (populated at page load by
+    // loadEnabledProviders) so the enrich modal always shows the same model list
+    // as every other picker on the page — no separate fetch needed.
+    populateEnrichProviderDropdown();
+
+    // Derive the default provider from the enabledProviders map (same source the
+    // rest of the workflow UI uses).
+    let defaultProvider = null;
+    if (enabledProviders.lmstudio) {
+        defaultProvider = 'lmstudio';
+    } else if (enabledProviders.openai && commercialModelCatalog.openai) {
+        defaultProvider = 'openai';
+    } else if (enabledProviders.anthropic && commercialModelCatalog.anthropic) {
+        defaultProvider = 'anthropic';
+    }
+
+    if (defaultProvider) {
+        const providerSelect = document.getElementById('enrichProviderSelect');
+        if (providerSelect) {
+            providerSelect.value = defaultProvider;
+            await populateEnrichModelDropdown(defaultProvider);
         }
-    } catch (error) {
-        console.error('Error loading provider catalog:', error);
     }
 }
 
 function populateEnrichProviderDropdown() {
     const providerSelect = document.getElementById('enrichProviderSelect');
     if (!providerSelect) return;
-    
+
     providerSelect.innerHTML = '<option value="">Select provider...</option>';
-    
+
     const providers = ['lmstudio', 'openai', 'anthropic'];
     providers.forEach(provider => {
-        // Always show LMStudio, for others check if catalog has models
         if (provider === 'lmstudio') {
             const option = document.createElement('option');
             option.value = provider;
             option.textContent = 'LMStudio';
             providerSelect.appendChild(option);
-        } else if (enrichProviderCatalog[provider] && enrichProviderCatalog[provider].length > 0) {
+        } else if (commercialModelCatalog[provider] && commercialModelCatalog[provider].length > 0) {
             const option = document.createElement('option');
             option.value = provider;
             option.textContent = provider.charAt(0).toUpperCase() + provider.slice(1);
             providerSelect.appendChild(option);
         }
     });
-    
+
     // Add event listener for provider change
     providerSelect.addEventListener('change', async function() {
-        const selectedProvider = this.value;
-        await populateEnrichModelDropdown(selectedProvider);
+        await populateEnrichModelDropdown(this.value);
     });
 }
 
@@ -14014,17 +14065,16 @@ async function populateEnrichModelDropdown(provider) {
             option.disabled = true;
             modelSelect.appendChild(option);
         }
-    } else if (provider && enrichProviderCatalog[provider]) {
-        enrichProviderCatalog[provider].forEach(model => {
+    } else if (provider && commercialModelCatalog[provider]) {
+        const models = getCommercialProviderModels(provider) || commercialModelCatalog[provider];
+        models.forEach(model => {
             const option = document.createElement('option');
             option.value = model;
             option.textContent = model;
             modelSelect.appendChild(option);
         });
-        
-        // Select first model by default
-        if (enrichProviderCatalog[provider].length > 0) {
-            modelSelect.value = enrichProviderCatalog[provider][0];
+        if (models.length > 0) {
+            modelSelect.value = models[0];
         }
     }
 }
@@ -14243,6 +14293,11 @@ END SYSTEM PROMPT`;
     }
     _syncEnrichDisplay();
     _enrichSPViewMode();
+    // A fresh open starts from the latest saved prompt, not a named preset.
+    _wireEnrichDriftListeners();
+    enrichLoadedPreset = null;
+    _captureEnrichBaseline();
+    updateEnrichPresetState();
     const _vr = document.getElementById('enrichValidateResult');
     if (_vr) { _vr.style.display = 'none'; _vr.textContent = ''; }
 
@@ -14360,6 +14415,7 @@ async function cancelEnrichSystemPrompt() {
     } catch (e) { /* keep current value on network error */ }
     _syncEnrichDisplay();
     _enrichSPViewMode();
+    updateEnrichPresetState();
 }
 
 async function saveEnrichSystemPromptEdit() {
@@ -14432,6 +14488,7 @@ async function saveEnrichExpanded() {
     }
     document.getElementById('enrichSystemPrompt').value = sp;
     _syncEnrichDisplay();
+    updateEnrichPresetState();
     closeEnrichExpanded();
     await saveEnrichmentPrompt();
 }
@@ -14593,28 +14650,88 @@ async function loadPromptVersion(versionId) {
     }
 }
 
+// --- Enrich preset active-config state tracking ---
+// Mirrors the "what's active / what's saved / what's drifted" model used by the
+// agent-config prompt editors. enrichLoadedPreset is the preset currently loaded
+// into the modal (null = none); enrichBaseline is the config snapshot it was
+// loaded/saved at, so edits made on top of a preset surface as "modified".
+let enrichLoadedPreset = null;   // { id, name } or null
+let enrichBaseline = null;       // { provider, model, systemPrompt, userInstruction }
+let _enrichDriftWired = false;
+
+function _enrichCurrentConfig() {
+    return {
+        provider: document.getElementById('enrichProviderSelect')?.value || '',
+        model: document.getElementById('enrichModelSelect')?.value || '',
+        systemPrompt: (document.getElementById('enrichSystemPrompt')?.value || '').trim(),
+        userInstruction: (document.getElementById('enrichInstruction')?.value || '').trim(),
+    };
+}
+
+function _captureEnrichBaseline() {
+    enrichBaseline = _enrichCurrentConfig();
+}
+
+function _enrichConfigDrifted() {
+    if (!enrichBaseline) return false;
+    const cur = _enrichCurrentConfig();
+    return cur.provider !== enrichBaseline.provider
+        || cur.model !== enrichBaseline.model
+        || cur.systemPrompt !== enrichBaseline.systemPrompt
+        || cur.userInstruction !== enrichBaseline.userInstruction;
+}
+
+function updateEnrichPresetState() {
+    const el = document.getElementById('enrichPresetState');
+    if (!el) return;
+    const base = 'font-medium px-2 py-0.5 rounded';
+    if (!enrichLoadedPreset) {
+        el.textContent = 'Unsaved config';
+        el.className = base + ' bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300';
+    } else if (_enrichConfigDrifted()) {
+        el.textContent = `Preset: ${enrichLoadedPreset.name} · modified`;
+        el.className = base + ' bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300';
+    } else {
+        el.textContent = `Preset: ${enrichLoadedPreset.name} · clean`;
+        el.className = base + ' bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300';
+    }
+}
+
+function _wireEnrichDriftListeners() {
+    if (_enrichDriftWired) return;
+    ['enrichProviderSelect', 'enrichModelSelect'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', updateEnrichPresetState);
+    });
+    ['enrichInstruction', 'enrichSystemPrompt'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', updateEnrichPresetState);
+    });
+    _enrichDriftWired = true;
+}
+
 async function saveEnrichmentPreset() {
     const provider = document.getElementById('enrichProviderSelect').value;
     const model = document.getElementById('enrichModelSelect').value;
     const systemPrompt = document.getElementById('enrichSystemPrompt').value.trim();
     const userInstruction = document.getElementById('enrichInstruction').value.trim();
-    
+
     if (!provider || !model) {
         showNotification('Please select both a provider and model', 'error');
         return;
     }
-    
+
     if (!systemPrompt) {
         showNotification('System prompt cannot be empty', 'error');
         return;
     }
-    
-    // Prompt for preset name and description
-    const name = prompt('Enter a name for this preset:');
+
+    // Prompt for preset name and description. When a preset is already loaded,
+    // default to its name so the save updates it in place (the backend upserts
+    // by name); clearing the name and entering a new one saves-as-new.
+    const name = prompt('Enter a name for this preset:', enrichLoadedPreset ? enrichLoadedPreset.name : '');
     if (!name || !name.trim()) {
         return; // User cancelled
     }
-    
+
     const description = prompt('Enter a description (optional):') || null;
     
     try {
@@ -14639,6 +14756,11 @@ async function saveEnrichmentPreset() {
             throw new Error(data.detail || 'Failed to save preset');
         }
         
+        // The just-saved config is now the clean baseline for this preset.
+        enrichLoadedPreset = { id: data.id, name: name.trim() };
+        _captureEnrichBaseline();
+        updateEnrichPresetState();
+
         showNotification('Preset "' + name + '" ' + data.message, 'success');
     } catch (error) {
         console.error('Error saving preset:', error);
@@ -14761,8 +14883,13 @@ async function loadPresetById(presetId, opts = {}) {
         _syncEnrichDisplay();
         _enrichSPViewMode();
 
+        // Record the loaded preset + its config snapshot so later edits read as drift.
+        enrichLoadedPreset = { id, name: data.name };
+        _captureEnrichBaseline();
+        updateEnrichPresetState();
+
         localStorage.setItem('enrichmentLastPresetId', String(id));
-        
+
         if (!silent) {
             closePresetListModal();
             showNotification('Preset "' + data.name + '" loaded', 'success');
@@ -15888,7 +16015,7 @@ async function showSimilarRulesModal(matches, coverageSummary, generatedRules = 
     // Remove any existing modal
     closeSimilarRulesModal();
     // Behavioral Overlap Engine: display only rules with jaccard > 0 (at least one shared atom)
-    const jaccard = (m) => m.atom_jaccard ?? m.semantic_details?.jaccard ?? 0;
+    const jaccard = (m) => m.atom_jaccard ?? m.atom_details?.jaccard ?? 0;
     matches = (matches || []).filter(m => jaccard(m) > 0);
     const totalCandidatesEvaluated = metadata?.totalCandidatesEvaluated ?? -1;
     const behavioralMatchesFound = metadata?.behavioralMatchesFound ?? -1;
@@ -15951,7 +16078,7 @@ async function showSimilarRulesModal(matches, coverageSummary, generatedRules = 
             : 'No indexed rules share detection logic with this rule.';
         matchesHtml = `
             <div class="text-center py-8">
-                <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 mb-4">Deterministic Semantic Engine</span>
+                <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 mb-4">Precomputed Atom Set-Math</span>
                 <p class="text-lg font-semibold text-gray-900 dark:text-white mb-2">${emptyTitle}</p>
                 ${hasMetadata ? `<p class="text-sm text-gray-600 dark:text-gray-400 mb-2">${Number(totalCandidatesEvaluated).toLocaleString()} candidates evaluated${filterHintHtml}</p>` : ''}
                 <p class="text-gray-600 dark:text-gray-400">${emptySubtitle}</p>
@@ -15968,7 +16095,7 @@ async function showSimilarRulesModal(matches, coverageSummary, generatedRules = 
         }
         
         matchesHtml = matches.map((match, index) => {
-            const similarityPercent = ((match.similarity_score || match.similarity || 0) * 100).toFixed(1);
+            const similarityPercent = ((match.similarity || 0) * 100).toFixed(1);
             const coverageStatus = match.coverage_status || 'unknown';
             const statusIcon = coverageStatus === 'covered' ? '✓' : 
                               coverageStatus === 'extend' ? '⚡' : '✨';
@@ -16020,8 +16147,8 @@ async function showSimilarRulesModal(matches, coverageSummary, generatedRules = 
                         </div>
                     ` : ''}
                     
-                    ${match.similarity_breakdown || match.atom_jaccard !== undefined ? renderSimilarityDisplay(match, { 
-                        mode: 'compact', 
+                    ${match.atom_jaccard !== undefined ? renderSimilarityDisplay(match, {
+                        mode: 'compact',
                         includeExplainability: true,
                         ruleALabel: 'Current Rule',
                         ruleBLabel: 'Similar Rule'
@@ -16417,7 +16544,7 @@ function showHelp(fieldName) {
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>After generating a SIGMA rule, the system searches for similar existing rules using behavioral novelty assessment</li>
-                          <li><strong>Deterministic engine</strong> (when sigma_semantic_similarity is installed): Similarity = (Jaccard × Containment) − Filter penalty. Jaccard measures overlap of detection predicates; containment measures subset overlap; filter penalty reduces similarity for filter/logsource differences.</li>
+                          <li><strong>Deterministic engine</strong> (when sigma_atom_similarity is installed): Similarity = (Jaccard × Containment) − Filter penalty. Jaccard measures overlap of detection predicates; containment measures subset overlap; filter penalty reduces similarity for filter/logsource differences.</li>
                           <li><strong>Legacy engine</strong> (fallback): Similarity = 70% atom Jaccard + 30% logic shape similarity. Service mismatches and filter differences apply penalties.</li>
                           <li><strong>Atom Jaccard:</strong> Measures overlap of detection predicates (field/operator/value combinations)</li>
                           <li>If similarity > threshold: rule is NOT queued (duplicate detected)</li>
@@ -16674,193 +16801,8 @@ function showHelp(fieldName) {
     window.ModalManager.register(modalId, { isDynamic: true, hasInput: false, forceUpdate: true });
     window.ModalManager.open(modalId);
 }
-// Show similar rule details in a modal
-function showSimilarRuleDetails(ruleIdx, resultIdx) {
-    const clickedElement = event.currentTarget;
-    const ruleDataStr = clickedElement.getAttribute('data-rule-data');
-    if (!ruleDataStr) return;
-    
-    try {
-        const ruleData = JSON.parse(ruleDataStr.replace(/&#39;/g, "'"));
-        const sourceFromRepo = (ruleData.rule_id && String(ruleData.rule_id).startsWith('cust-')) || (ruleData.file_path && String(ruleData.file_path).startsWith('customer/'));
-        const sourceLabel = sourceFromRepo ? 'Your repo' : 'SigmaHQ';
-        const sourceBadgeClass = sourceFromRepo ? 'bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300';
-        
-        // Remove any existing modal
-        const existingModal = document.getElementById('similarRuleModal');
-        if (existingModal) {
-            if (window.ModalManager) {
-                const stack = window.ModalManager.getStack();
-                while (stack.includes('similarRuleModal')) {
-                    const index = stack.indexOf('similarRuleModal');
-                    stack.splice(index, 1);
-                }
-            }
-            existingModal.remove();
-        }
-        
-        // Create modal
-        const modal = document.createElement('div');
-        modal.id = 'similarRuleModal';
-        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[70]';
-        
-        // Format tags
-        const tagsHtml = ruleData.tags && ruleData.tags.length > 0 ? `
-            <div class="mb-4">
-                <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-2">Tags:</h4>
-                <div class="flex flex-wrap gap-2">
-                    ${ruleData.tags.map(tag => 
-                        `<span class="px-3 py-1 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded text-sm">${tag}</span>`
-                    ).join('')}
-                </div>
-            </div>
-        ` : '';
-        
-        // Format detection if available
-        const detectionHtml = ruleData.detection ? `
-            <div class="mb-4">
-                <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-2">Detection Logic:</h4>
-                <pre class="bg-gray-50 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">${JSON.stringify(ruleData.detection, null, 2)}</pre>
-            </div>
-        ` : '';
-        
-        // Format logsource if available
-        const logsourceHtml = ruleData.logsource ? `
-            <div class="mb-4">
-                <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-2">Log Source:</h4>
-                <pre class="bg-gray-50 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">${JSON.stringify(ruleData.logsource, null, 2)}</pre>
-            </div>
-        ` : '';
-        
-        modal.innerHTML = `
-            <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-gray-800 border border-gray-700" style="margin-bottom: 50px;">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-medium text-gray-900 dark:text-white"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg> Similar Rule Details</h3>
-                    <button onclick="closeSimilarRuleModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
-                </div>
-                
-                <div class="space-y-4 text-gray-700 dark:text-gray-300 max-h-96 overflow-y-auto">
-                    <div>
-                        <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Title:</h4>
-                        <div class="text-base flex items-center gap-2 flex-wrap">
-                            <span>${ruleData.title || 'Untitled Rule'}</span>
-                            <span class="text-xs px-2 py-0.5 rounded ${sourceBadgeClass}">${sourceLabel}</span>
-                        </div>
-                    </div>
-                    
-                    ${ruleData.description ? `
-                        <div>
-                            <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Description:</h4>
-                            <div class="text-sm">${ruleData.description}</div>
-                        </div>
-                    ` : ''}
-                    
-                    <div class="grid grid-cols-2 gap-4">
-                        ${ruleData.rule_id ? `
-                            <div>
-                                <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Rule ID:</h4>
-                                <div class="text-sm">${ruleData.rule_id}</div>
-                            </div>
-                        ` : ''}
-                        ${ruleData.status ? `
-                            <div>
-                                <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Status:</h4>
-                                <div class="text-sm"><span class="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded">${ruleData.status}</span></div>
-                            </div>
-                        ` : ''}
-                        <div>
-                            <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Similarity:</h4>
-                            <div class="text-sm font-bold text-blue-600 dark:text-blue-400">${((ruleData.similarity || 0) * 100).toFixed(1)}%</div>
-                        </div>
-                    </div>
-                    
-                    ${ruleData.file_path ? `
-                        <div>
-                            <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">File Path:</h4>
-                            <div class="text-xs font-mono text-gray-600 dark:text-gray-400">${ruleData.file_path}</div>
-                        </div>
-                    ` : ''}
-                    
-                    ${tagsHtml}
-                    ${logsourceHtml}
-                    ${detectionHtml}
-                </div>
-                
-                <div class="mt-6 flex justify-end">
-                    <button onclick="closeSimilarRuleModal()" 
-                            class="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors">
-                        Close
-                    </button>
-                </div>
-            </div>
-        `;
-        
-        // Add click outside to close
-        modal.addEventListener('click', function(e) {
-            if (e.target === modal) {
-                closeSimilarRuleModal();
-            }
-        });
-        
-        // ESC key handled by unified handler
-        
-        document.body.appendChild(modal);
-        
-        // Ensure modal is visible
-        modal.classList.remove('hidden');
-        
-        // Register and open with ModalManager
-        if (window.ModalManager) {
-            setTimeout(() => {
-                window.ModalManager.register('similarRuleModal', {
-                    isDynamic: true,
-                    hasInput: false
-                });
-                window.ModalManager.open('similarRuleModal', true);
-                modal.classList.remove('hidden');
-            }, 50);
-        } else {
-            // Fallback to old system
-            pushModal('similarRuleModal', true);
-        }
-        
-        // Ensure modal is visible
-        modal.classList.remove('hidden');
-        
-        // Register and open with ModalManager
-        if (window.ModalManager) {
-            setTimeout(() => {
-                window.ModalManager.register('similarRuleModal', {
-                    isDynamic: true,
-                    hasInput: false
-                });
-                window.ModalManager.open('similarRuleModal', true);
-                modal.classList.remove('hidden');
-            }, 50);
-        } else {
-            // Fallback to old system
-            pushModal('similarRuleModal', true);
-        }
-    } catch (error) {
-        console.error('Error parsing rule data:', error);
-        showNotification('Error displaying rule details', 'error');
-    }
-}
-
-function closeSimilarRuleModal() {
-    if (window.ModalManager) {
-        window.ModalManager.close('similarRuleModal');
-    } else {
-        const modal = document.getElementById('similarRuleModal');
-        if (modal) {
-            modal.remove();
-        }
-    }
-}
+// showSimilarRuleDetails / closeSimilarRuleModal moved to shared component:
+// /static/js/components/similar-rule-modal.js
 
 // Navigate to queued rules
 function navigateToQueuedRules(executionId, ruleIds) {

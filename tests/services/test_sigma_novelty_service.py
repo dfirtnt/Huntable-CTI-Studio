@@ -7,11 +7,20 @@ import pytest
 from src.services.sigma_novelty_service import (
     NoveltyLabel,
     SigmaNoveltyService,
+    _atom_identity_to_display,
     _normalize_atom_identity,
 )
 
 # Mark all tests in this file as unit tests (use mocks, no real infrastructure)
 pytestmark = pytest.mark.unit
+
+
+def _service_atoms(service: SigmaNoveltyService, detection: dict, logsource: dict | None = None) -> list[dict]:
+    rule = {
+        "logsource": logsource or {"product": "windows", "category": "process_creation"},
+        "detection": detection,
+    }
+    return service.build_canonical_rule(rule).detection["atoms"]
 
 
 class TestSigmaNoveltyService:
@@ -123,8 +132,6 @@ class TestSigmaNoveltyService:
             },
             "level": "medium",
         }
-        canonical = service.build_canonical_rule(sample_rule)
-        exact_hash = service.generate_exact_hash(canonical)
         # Candidate without exact_hash_match so we go through similarity computation
         service.retrieve_candidates = Mock(
             return_value=[
@@ -175,10 +182,10 @@ class TestSigmaNoveltyService:
             ],
         }
 
-        atoms = service.extract_atomic_predicates(detection)
+        atoms = _service_atoms(service, detection)
 
         assert len(atoms) >= 2
-        values = " ".join(a.value for a in atoms).lower()
+        values = " ".join(a["value"] for a in atoms).lower()
         assert "curl.exe" in values
         assert "dnscat2" in values
 
@@ -354,7 +361,7 @@ class TestExactHashAtomLessReturnsNone:
 
 
 class TestKeywordListSelectionsProduceAtoms:
-    """extract_atomic_predicates handles top-level list-of-scalars selections."""
+    """The service canonical path handles top-level list-of-scalars selections."""
 
     @pytest.fixture
     def service(self):
@@ -365,14 +372,14 @@ class TestKeywordListSelectionsProduceAtoms:
             "keywords": ["<script>", "onerror=", "javascript:"],
             "condition": "keywords",
         }
-        atoms = service.extract_atomic_predicates(detection)
-        values = sorted(a.value for a in atoms)
+        atoms = _service_atoms(service, detection)
+        values = sorted(a["value"] for a in atoms)
         assert values == sorted(["<script>", "onerror=", "javascript:"])
         for a in atoms:
-            assert a.field == ""
-            assert a.op == "contains"
-            assert a.op_type == "literal"
-            assert a.polarity == "positive"
+            assert a["field"] == ""
+            assert a["op"] == "contains"
+            assert a["op_type"] == "literal"
+            assert a["polarity"] == "positive"
 
     def test_xss_vs_ssti_rules_produce_distinct_atom_sets(self, service):
         """The actual residual collision Item 12 closes: both rules share the
@@ -392,12 +399,12 @@ class TestKeywordListSelectionsProduceAtoms:
             "filter": {"sc-status": 404},
             "condition": "select_method and keywords and not filter",
         }
-        xss_keys = {(a.field, a.op, a.value, a.polarity) for a in service.extract_atomic_predicates(xss)}
-        ssti_keys = {(a.field, a.op, a.value, a.polarity) for a in service.extract_atomic_predicates(ssti)}
+        xss_keys = {(a["field"], a["op"], a["value"], a["polarity"]) for a in _service_atoms(service, xss)}
+        ssti_keys = {(a["field"], a["op"], a["value"], a["polarity"]) for a in _service_atoms(service, ssti)}
         assert xss_keys != ssti_keys
         # Both still carry the shared boilerplate
         shared = xss_keys & ssti_keys
-        assert any(k[2] == "GET" for k in shared), "shared cs-method=GET atom should be in both"
+        assert any(k[2] == "get" for k in shared), "shared cs-method=GET atom should be in both"
         # XSS has unique keyword content that SSTI lacks
         xss_only = xss_keys - ssti_keys
         assert any("script" in k[2].lower() for k in xss_only)
@@ -408,10 +415,10 @@ class TestKeywordListSelectionsProduceAtoms:
             "initselection": [0, 6],
             "condition": "initselection",
         }
-        atoms = service.extract_atomic_predicates(detection)
-        values = sorted(a.value for a in atoms)
+        atoms = _service_atoms(service, detection)
+        values = sorted(a["value"] for a in atoms)
         assert values == ["0", "6"]
-        assert all(a.field == "" and a.op == "contains" for a in atoms)
+        assert all(a["field"] == "" and a["op"] == "contains" for a in atoms)
 
     def test_keyword_list_negated_in_condition_has_negative_polarity(self, service):
         detection = {
@@ -419,10 +426,10 @@ class TestKeywordListSelectionsProduceAtoms:
             "keywords": ["error", "fail"],
             "condition": "selection and not keywords",
         }
-        atoms = service.extract_atomic_predicates(detection)
-        keyword_atoms = [a for a in atoms if a.field == ""]
+        atoms = _service_atoms(service, detection)
+        keyword_atoms = [a for a in atoms if a["field"] == ""]
         assert len(keyword_atoms) == 2
-        assert all(a.polarity == "negative" for a in keyword_atoms)
+        assert all(a["polarity"] == "negative" for a in keyword_atoms)
 
     def test_mixed_list_of_dicts_and_scalars(self, service):
         """Edge case: a list containing both maps and scalars. Both contributors
@@ -432,13 +439,13 @@ class TestKeywordListSelectionsProduceAtoms:
             "mixed": [{"Image|endswith": "\\foo.exe"}, "scalar_keyword"],
             "condition": "mixed",
         }
-        atoms = service.extract_atomic_predicates(detection)
-        values = [a.value for a in atoms]
-        assert "\\foo.exe" in values
+        atoms = _service_atoms(service, detection)
+        values = [a["value"] for a in atoms]
+        assert "/foo.exe" in values
         assert "scalar_keyword" in values
         # The dict contributed a field-bearing atom; the scalar contributed a keyword atom.
-        field_atoms = [a for a in atoms if a.field != ""]
-        keyword_atoms = [a for a in atoms if a.field == ""]
+        field_atoms = [a for a in atoms if a["field"] != ""]
+        keyword_atoms = [a for a in atoms if a["field"] == ""]
         assert len(field_atoms) == 1
         assert len(keyword_atoms) == 1
 
@@ -450,10 +457,10 @@ class TestKeywordListSelectionsProduceAtoms:
             "selection": {"CommandLine|contains": "powershell.exe"},
             "condition": "selection",
         }
-        atoms = service.extract_atomic_predicates(detection)
+        atoms = _service_atoms(service, detection)
         assert len(atoms) == 1
-        assert atoms[0].field != ""
-        assert atoms[0].value == "powershell.exe"
+        assert atoms[0]["field"] != ""
+        assert atoms[0]["value"] == "powershell.exe"
 
     def test_former_keyword_only_rule_no_longer_atomless(self, service):
         """Direct assertion that Item 12 reduces the Item-11 atom-less population:
@@ -485,12 +492,12 @@ class TestKeywordListSelectionsProduceAtoms:
             "filter": ["@", ":"],
             "condition": "tools and filter",
         }
-        atoms = service.extract_atomic_predicates(detection)
-        filter_atoms = [a for a in atoms if a.value in ("@", ":")]
+        atoms = _service_atoms(service, detection)
+        filter_atoms = [a for a in atoms if a["value"] in ("@", ":")]
         assert len(filter_atoms) == 2
-        assert all(a.polarity == "positive" for a in filter_atoms), (
+        assert all(a["polarity"] == "positive" for a in filter_atoms), (
             f"filter atoms must be positive when condition positively references the "
-            f"selection; got polarities: {[a.polarity for a in filter_atoms]}"
+            f"selection; got polarities: {[a['polarity'] for a in filter_atoms]}"
         )
 
     def test_filter_keyword_list_negated_in_condition_has_negative_polarity(self, service):
@@ -502,12 +509,12 @@ class TestKeywordListSelectionsProduceAtoms:
             "filter": ["benign1", "benign2"],
             "condition": "tools and not filter",
         }
-        atoms = service.extract_atomic_predicates(detection)
-        filter_atoms = [a for a in atoms if a.value in ("benign1", "benign2")]
+        atoms = _service_atoms(service, detection)
+        filter_atoms = [a for a in atoms if a["value"] in ("benign1", "benign2")]
         assert len(filter_atoms) == 2
-        assert all(a.polarity == "negative" for a in filter_atoms), (
+        assert all(a["polarity"] == "negative" for a in filter_atoms), (
             f"filter atoms must be negative when condition explicitly negates the "
-            f"selection; got polarities: {[a.polarity for a in filter_atoms]}"
+            f"selection; got polarities: {[a['polarity'] for a in filter_atoms]}"
         )
 
 
@@ -538,12 +545,12 @@ class TestDictBlockSelectionPolarity:
             "filter": {"Image|endswith": "\\benign.exe"},
             "condition": "selection and filter",
         }
-        atoms = service.extract_atomic_predicates(detection)
-        filter_atoms = [a for a in atoms if a.value == "\\benign.exe"]
+        atoms = _service_atoms(service, detection)
+        filter_atoms = [a for a in atoms if a["value"] == "/benign.exe"]
         assert len(filter_atoms) == 1
-        assert filter_atoms[0].polarity == "positive", (
+        assert filter_atoms[0]["polarity"] == "positive", (
             f"dict filter block must be positive when condition positively references the "
-            f"selection; got polarity: {filter_atoms[0].polarity}"
+            f"selection; got polarity: {filter_atoms[0]['polarity']}"
         )
 
     def test_dict_filter_negated_in_condition_has_negative_polarity(self, service):
@@ -555,12 +562,12 @@ class TestDictBlockSelectionPolarity:
             "filter": {"Image|endswith": "\\benign.exe"},
             "condition": "selection and not filter",
         }
-        atoms = service.extract_atomic_predicates(detection)
-        filter_atoms = [a for a in atoms if a.value == "\\benign.exe"]
+        atoms = _service_atoms(service, detection)
+        filter_atoms = [a for a in atoms if a["value"] == "/benign.exe"]
         assert len(filter_atoms) == 1
-        assert filter_atoms[0].polarity == "negative", (
+        assert filter_atoms[0]["polarity"] == "negative", (
             f"dict filter block must be negative when condition explicitly negates the "
-            f"selection; got polarity: {filter_atoms[0].polarity}"
+            f"selection; got polarity: {filter_atoms[0]['polarity']}"
         )
 
 
@@ -672,6 +679,41 @@ class TestNormalizeAtomIdentity:
         assert _normalize_atom_identity("justafieldname") == "justafieldname"
 
 
+# ── Precomputed-path explainability display format (3-slot → human-readable) ──
+# The precomputed (deterministic) path stores raw `field|modifier_chain|value`
+# identities; _atom_identity_to_display renders them in the same `field|op:value`
+# shape as the full-parse path's _atom_to_string so both surfaces match.
+
+
+class TestAtomIdentityToDisplay:
+    """`_atom_identity_to_display` mirrors the full-parse `_atom_to_string` format."""
+
+    def test_modifier_atom_renders_field_op_value(self):
+        assert _atom_identity_to_display("process.image|endswith|/php.exe") == "process.image|endswith:/php.exe"
+
+    def test_no_double_modifier_in_output(self):
+        # The old 4-slot bug surfaced `process.image|endswith|endswith|/php.exe`.
+        out = _atom_identity_to_display("process.image|endswith|/php.exe")
+        assert out.count("endswith") == 1
+
+    def test_eq_atom_empty_chain_renders_field_value(self):
+        # Empty modifier chain (`field||value`) ⟹ default eq ⟹ `field:value`.
+        assert _atom_identity_to_display("originalfilename||powershell.exe") == "originalfilename:powershell.exe"
+
+    def test_all_modifier_chain_uses_leading_op(self):
+        # `contains|all` ⟹ op is the leading token `contains`.
+        assert (
+            _atom_identity_to_display("process.command_line|contains|all|delete")
+            == "process.command_line|contains:delete"
+        )
+
+    def test_keyword_atom_field_less(self):
+        assert _atom_identity_to_display("|contains|whoami") == "|contains:whoami"
+
+    def test_malformed_passes_through(self):
+        assert _atom_identity_to_display("justafield") == "justafield"
+
+
 # ── Regression: silent-pass degradation warnings (2026-04-30) ─────────────────
 # assess_novelty() must surface degradation in return dict when the deterministic
 # semantic precompute path fails, so the execution trace UI shows the fallback.
@@ -714,7 +756,7 @@ class TestAssessNoveltyDegradationWarnings:
                 True,
             ),
             patch(
-                "src.services.sigma_semantic_precompute.precompute_semantic_fields",
+                "src.services.sigma_atom_precompute.extract_atom_fields",
                 side_effect=RuntimeError("precompute boom"),
             ),
         ):
@@ -722,7 +764,7 @@ class TestAssessNoveltyDegradationWarnings:
 
         assert "warnings" in result
         assert len(result["warnings"]) == 1
-        assert "semantic_precompute_failed" in result["warnings"][0]
+        assert "atom_precompute_failed" in result["warnings"][0]
 
     def test_engine_used_is_legacy_when_semantic_precompute_raises(self, service, sample_rule):
         """engine_used must be 'legacy' when semantic precompute fails."""
@@ -734,13 +776,13 @@ class TestAssessNoveltyDegradationWarnings:
                 True,
             ),
             patch(
-                "src.services.sigma_semantic_precompute.precompute_semantic_fields",
+                "src.services.sigma_atom_precompute.extract_atom_fields",
                 side_effect=RuntimeError("precompute boom"),
             ),
         ):
             result = service.assess_novelty(sample_rule, threshold=0.7)
 
-        assert result["engine_used"] == "legacy"
+        assert result["engine_used"] == "on-the-fly"
 
     def test_warnings_logged_when_semantic_precompute_raises(self, service, sample_rule, caplog):
         """A logger.warning must be emitted (not just silently suppressed) on precompute failure."""
@@ -754,14 +796,14 @@ class TestAssessNoveltyDegradationWarnings:
                 True,
             ),
             patch(
-                "src.services.sigma_semantic_precompute.precompute_semantic_fields",
+                "src.services.sigma_atom_precompute.extract_atom_fields",
                 side_effect=RuntimeError("precompute boom"),
             ),
             caplog.at_level(logging.WARNING, logger="src.services.sigma_novelty_service"),
         ):
             service.assess_novelty(sample_rule, threshold=0.7)
 
-        assert any("semantic precompute" in r.message for r in caplog.records)
+        assert any("atom extraction" in r.message for r in caplog.records)
 
     def test_assess_novelty_with_snake_case_fields(self):
         """End-to-end: assess_novelty with snake_case fields finds matches against PascalCase candidates."""
@@ -978,3 +1020,330 @@ class TestRetrieveCandidatesDeterministicOrdering:
         assert call_names.index("order_by") < call_names.index("limit"), (
             f"order_by must come BEFORE limit; got call sequence: {call_names}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Extractor convergence (/compare slice of the extractor-collapse task).
+# Bug: `not N of filter_*` atoms mis-polarized as positive by the in-src
+# extractor polluted atom_jaccard on /sigma-ab-test (Todoist 6gqhWHxjgpWGHGP3).
+# Fix direction (b): pairwise comparison converges onto the precompute
+# (sigma_similarity package) extractor via compare_precomputed_atoms.
+# ---------------------------------------------------------------------------
+
+
+class TestComparePrecomputedSemantics:
+    """Unit tests for SigmaNoveltyService.compare_precomputed_atoms.
+
+    The single scorer for the precomputed-atom path: assess_novelty's
+    stored-atom branch and /sigma-ab-test /compare both call this.
+    Pure set math over semantic-field dicts; no YAML parsing.
+    """
+
+    @pytest.fixture
+    def service(self):
+        return SigmaNoveltyService()
+
+    @staticmethod
+    def _sem(positive, negative, surface=4, canonical_class="windows.process_creation"):
+        return {
+            "canonical_class": canonical_class,
+            "positive_atoms": list(positive),
+            "negative_atoms": list(negative),
+            "surface_score": surface,
+        }
+
+    def test_filter_only_difference_penalized_once_not_jaccard_polluted(self, service):
+        """Filter atoms affect the score through exactly ONE mechanism (the
+        filter penalty). They must not leak into the positive jaccard set:
+        identical positives + divergent filters => jaccard stays 1.0 and the
+        whole difference lands in filter_penalty (no double-count)."""
+        positives = ["fielda|contains|x", "fieldb|endswith|y", "fieldc||z"]
+        sem_a = self._sem(positives, ["neg1|contains|f1", "neg2|contains|f2"])
+        sem_b = self._sem(positives, [])
+
+        result = service.compare_precomputed_atoms(sem_a, sem_b)
+
+        assert result is not None
+        assert result["atom_jaccard"] == 1.0
+        assert result["logic_shape_similarity"] == 1.0
+        assert result["filter_penalty"] == pytest.approx(0.5)  # min(0.5, 2/3)
+        assert result["service_penalty"] == 0.0
+        # similarity = jaccard * containment - filter_penalty: the ONLY place
+        # the filter difference is counted.
+        assert result["similarity"] == pytest.approx(0.5)
+        assert result["weighted_before_penalties"] == pytest.approx(1.0)
+        assert result["similarity_engine"] == "precomputed"
+
+    def test_explainability_sets_and_display_formatting(self, service):
+        """shared/added/removed come from positive sets only; filter
+        differences from negative sets; all rendered via the shared
+        3-slot display format (field|op:value)."""
+        sem_a = self._sem(["fielda|contains|x", "shared||v"], ["neg1|contains|f"])
+        sem_b = self._sem(["fieldb|endswith|y", "shared||v"], [])
+
+        result = service.compare_precomputed_atoms(sem_a, sem_b)
+
+        assert result["shared_atoms"] == ["shared:v"]
+        assert result["added_atoms"] == ["fieldb|endswith:y"]
+        assert result["removed_atoms"] == ["fielda|contains:x"]
+        assert result["filter_differences"] == ["neg1|contains:f"]
+
+    def test_atom_details_carry_containment_and_class(self, service):
+        positives = ["fielda|contains|x"]
+        sem_a = self._sem(positives, [], surface=3)
+        sem_b = self._sem(positives, [], surface=3)
+
+        result = service.compare_precomputed_atoms(sem_a, sem_b)
+
+        details = result["atom_details"]
+        assert details["canonical_class"] == "windows.process_creation"
+        assert details["jaccard"] == 1.0
+        assert details["containment_factor"] == 1.0
+        assert details["overlap_ratio_a"] == 1.0
+        assert details["overlap_ratio_b"] == 1.0
+        assert details["surface_score_a"] == 3.0
+        assert details["surface_score_b"] == 3.0
+        assert details["reason_flags"] == []
+
+    def test_disjoint_positive_sets_flag_no_shared_atoms(self, service):
+        """Non-exe disjoint positives: jaccard 0, containment floor 0.65,
+        similarity 0, reason flag set."""
+        sem_a = self._sem(["regkey|contains|run"], [])
+        sem_b = self._sem(["svc.name||foo"], [])
+
+        result = service.compare_precomputed_atoms(sem_a, sem_b)
+
+        assert result["atom_jaccard"] == 0.0
+        assert result["logic_shape_similarity"] == 0.65
+        assert result["similarity"] == 0.0
+        assert result["atom_details"]["reason_flags"] == ["no_shared_atoms"]
+
+    def test_empty_positive_sets_score_zero(self, service):
+        sem_a = self._sem([], ["neg1|contains|f"])
+        sem_b = self._sem([], [])
+
+        result = service.compare_precomputed_atoms(sem_a, sem_b)
+
+        assert result["atom_jaccard"] == 0.0
+        assert result["similarity"] == 0.0
+        assert result["filter_penalty"] == 0.0
+        assert result["atom_details"]["reason_flags"] == ["no_shared_atoms"]
+
+    def test_returns_none_when_package_primitives_unavailable(self, service, monkeypatch):
+        """Callers fall back to the legacy in-src path when the
+        sigma_similarity package is not importable."""
+        monkeypatch.setattr("src.services.sigma_novelty_service.compute_containment", None)
+        sem = self._sem(["fielda|contains|x"], [])
+
+        assert service.compare_precomputed_atoms(sem, sem) is None
+
+    def test_field_alias_normalization_applies_to_both_sides(self, service):
+        """LLM-style snake_case fields and stored canonical fields must
+        resolve to the same atom identity (regression for the runtime
+        alias safety net)."""
+        sem_a = self._sem(["command_line|contains|whoami"], [])
+        sem_b = self._sem(["process.command_line|contains|WHOAMI"], [])
+
+        result = service.compare_precomputed_atoms(sem_a, sem_b)
+
+        assert result["atom_jaccard"] == 1.0
+
+
+class TestPackageExtractorConvergence:
+    """AC pins for the convergence: the package extractor (the single
+    extractor /compare now uses) classifies `not N of filter_*` polarity
+    correctly, and live extraction matches the stored DB atom snapshot."""
+
+    # DB snapshot 2026-06-10 (sigma_rules.id=2002, SigmaHQ 178e615d-...,
+    # "Suspicious Command Patterns In Scheduled Task Creation" family pair).
+    # If the package's atom identity logic changes intentionally, update this
+    # snapshot AND run recompute-atoms so stored atoms stay in lockstep.
+    RULE_2002_LOGSOURCE = {"product": "windows", "category": "process_creation"}
+    RULE_2002_DETECTION = {
+        "condition": "all of selection_* and not 1 of filter_main_* and not 1 of filter_optional_*",
+        "selection_user": {"LogonId": "0x3e7", "User|contains": ["AUTHORI", "AUTORI"]},
+        "selection_shell": [
+            {"Image|endswith": ["\\powershell.exe", "\\powershell_ise.exe", "\\pwsh.exe", "\\cmd.exe"]},
+            {"OriginalFileName": ["PowerShell.EXE", "powershell_ise.EXE", "pwsh.dll", "Cmd.Exe"]},
+        ],
+        "filter_main_generic": {
+            "ParentImage|contains": [
+                ":\\Program Files (x86)\\",
+                ":\\Program Files\\",
+                ":\\ProgramData\\",
+                ":\\Windows\\System32\\",
+                ":\\Windows\\SysWOW64\\",
+                ":\\Windows\\Temp\\",
+                ":\\Windows\\WinSxS\\",
+            ]
+        },
+        "filter_optional_asgard": {
+            "CommandLine|contains": ':\\WINDOWS\\system32\\cmd.exe /c "',
+            "CurrentDirectory|contains": ":\\WINDOWS\\Temp\\asgard2-agent\\",
+        },
+        "filter_main_parent_null": {"ParentImage": None},
+        "filter_main_parent_empty": {"ParentImage": ["", "-"]},
+        "filter_optional_manageengine": {
+            "Image|endswith": "\\cmd.exe",
+            "ParentImage|endswith": ":\\ManageEngine\\ADManager Plus\\pgsql\\bin\\postgres.exe",
+        },
+        "filter_optional_ibm_spectrumprotect": {
+            "CommandLine|contains": ":\\IBM\\SpectrumProtect\\webserver\\scripts\\",
+            "ParentImage|contains": ":\\IBM\\SpectrumProtect\\webserver\\scripts\\",
+        },
+    }
+    RULE_2002_STORED_POS = [
+        "logonid||0x3e7",
+        "originalfilename||cmd.exe",
+        "originalfilename||powershell.exe",
+        "originalfilename||powershell_ise.exe",
+        "originalfilename||pwsh.dll",
+        "process.image|endswith|/cmd.exe",
+        "process.image|endswith|/powershell.exe",
+        "process.image|endswith|/powershell_ise.exe",
+        "process.image|endswith|/pwsh.exe",
+        "user|contains|authori",
+        "user|contains|autori",
+    ]
+    RULE_2002_STORED_NEG = [
+        "currentdirectory|contains|:/windows/temp/asgard2-agent/",
+        "process.command_line|contains|:/ibm/spectrumprotect/webserver/scripts/",
+        'process.command_line|contains|:/windows/system32/cmd.exe /c "',
+        "process.image|endswith|/cmd.exe",
+        "process.parent_image|contains|:/ibm/spectrumprotect/webserver/scripts/",
+        "process.parent_image|contains|:/program files (x86)/",
+        "process.parent_image|contains|:/program files/",
+        "process.parent_image|contains|:/programdata/",
+        "process.parent_image|contains|:/windows/system32/",
+        "process.parent_image|contains|:/windows/syswow64/",
+        "process.parent_image|contains|:/windows/temp/",
+        "process.parent_image|contains|:/windows/winsxs/",
+        "process.parent_image|endswith|:/manageengine/admanager plus/pgsql/bin/postgres.exe",
+        "process.parent_image||",
+        "process.parent_image||-",
+    ]
+
+    def test_not_n_of_filter_wildcard_atoms_classified_negative(self):
+        """Regression (Todoist 6gqhWHxjgpWGHGP3): atoms under selections
+        negated via `not N of <prefix>_*` wildcard-quantified references are
+        polarity=negative and therefore excluded from the positive jaccard set."""
+        pytest.importorskip("sigma_similarity")
+        from src.services.sigma_atom_precompute import precompute_atom_fields
+
+        rule = {
+            "logsource": {"product": "windows", "category": "process_creation"},
+            "detection": {
+                "selection": {"Image|endswith": "\\evil.exe"},
+                "filter_main_legit": {"ParentImage|contains": ":\\Program Files\\"},
+                "filter_optional_tool": {"CommandLine|contains": "safedeploy"},
+                "condition": "selection and not 1 of filter_main_* and not 1 of filter_optional_*",
+            },
+        }
+
+        sem = precompute_atom_fields(rule)
+
+        assert sem is not None
+        positives = sem["positive_atoms"]
+        negatives = sem["negative_atoms"]
+        assert len(positives) == 1
+        assert "evil.exe" in positives[0]
+        assert len(negatives) == 2
+        assert any("program files" in a for a in negatives)
+        assert any("safedeploy" in a for a in negatives)
+        assert not any("program files" in a or "safedeploy" in a for a in positives)
+
+    def test_package_extraction_parity_with_db_snapshot_rule_2002(self):
+        """Live package extraction of the repro rule equals its stored DB
+        atoms (11 positive / 15 negative) -- the extractor-agreement proof
+        that live-parse and precomputed scoring use one extractor."""
+        pytest.importorskip("sigma_similarity")
+        from src.services.sigma_atom_precompute import precompute_atom_fields
+
+        sem = precompute_atom_fields({"logsource": self.RULE_2002_LOGSOURCE, "detection": self.RULE_2002_DETECTION})
+
+        assert sem is not None
+        assert sem["canonical_class"] == "windows.process_creation"
+        assert sem["surface_score"] == 16
+        assert sem["positive_atoms"] == self.RULE_2002_STORED_POS
+        assert sem["negative_atoms"] == self.RULE_2002_STORED_NEG
+
+
+class TestSingleExtractorTimingConsolidation:
+    """Precomputed and live fallback timings must use the same package extractor."""
+
+    @pytest.fixture
+    def service(self):
+        return SigmaNoveltyService()
+
+    def test_legacy_extract_atomic_predicates_entrypoint_removed(self, service):
+        assert not hasattr(service, "extract_atomic_predicates")
+
+    def test_candidate_with_null_atoms_scores_same_as_precomputed_candidate(self, service):
+        from src.services.sigma_atom_precompute import extract_atom_fields
+
+        proposed = {
+            "title": "Proposed Cmd",
+            "logsource": {"product": "windows", "category": "process_creation"},
+            "detection": {
+                "selection": {"CommandLine|contains": "whoami", "Image|endswith": "\\cmd.exe"},
+                "condition": "selection",
+            },
+        }
+        candidate = {
+            "title": "Candidate Cmd",
+            "rule_id": "candidate-cmd",
+            "logsource": {"product": "windows", "category": "process_creation"},
+            "detection": {
+                "selection": {"CommandLine|contains": "whoami", "Image|endswith": "\\cmd.exe"},
+                "condition": "selection",
+            },
+            "exact_hash": "different",
+            "exact_hash_match": False,
+        }
+        sem = extract_atom_fields(candidate, require_canonical_class=False)
+        assert sem is not None
+
+        service.retrieve_candidates = Mock(
+            return_value=[
+                {
+                    **candidate,
+                    "positive_atoms": sem["positive_atoms"],
+                    "negative_atoms": sem["negative_atoms"],
+                    "surface_score": sem["surface_score"],
+                }
+            ]
+        )
+        precomputed_result = service.assess_novelty(proposed, threshold=0.0)
+
+        service.retrieve_candidates = Mock(return_value=[candidate])
+        live_result = service.assess_novelty(proposed, threshold=0.0)
+
+        precomputed_match = precomputed_result["top_matches"][0]
+        live_match = live_result["top_matches"][0]
+        assert live_match["similarity_engine"] == "precomputed"
+        assert live_match["atom_jaccard"] == precomputed_match["atom_jaccard"]
+        assert live_match["similarity"] == precomputed_match["similarity"]
+        assert live_match["shared_atoms"] == precomputed_match["shared_atoms"]
+
+    def test_unknown_canonical_class_still_scores_with_live_package_atoms(self, service):
+        proposed = {
+            "title": "Unknown Telemetry Proposed",
+            "logsource": {"product": "custom", "category": "application"},
+            "detection": {"keywords": ["suspicious-token"], "condition": "keywords"},
+        }
+        candidate = {
+            "title": "Unknown Telemetry Candidate",
+            "rule_id": "custom-candidate",
+            "logsource": {"product": "custom", "category": "application"},
+            "detection": {"keywords": ["suspicious-token"], "condition": "keywords"},
+            "exact_hash": "different",
+            "exact_hash_match": False,
+        }
+
+        service.retrieve_candidates = Mock(return_value=[candidate])
+        result = service.assess_novelty(proposed, threshold=0.0)
+
+        assert result["canonical_class"] is None
+        assert result["engine_used"] == "precomputed"
+        assert result["top_matches"][0]["atom_jaccard"] == 1.0
+        assert result["top_matches"][0]["atom_details"]["canonical_class"] is None

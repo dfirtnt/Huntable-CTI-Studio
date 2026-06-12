@@ -14,7 +14,7 @@ Computes and stores for every rule missing canonical data:
 Ordering
 --------
 Must run AFTER migrate_sigma_canonical_fields.py (requires the columns to exist).
-Safe to run before or after migrate_sigma_semantic_precompute.py.
+Safe to run before or after migrate_sigma_atom_precompute.py.
 
 Idempotent: by default only processes rows where canonical fields are NULL.
 Use --force to recompute all rows (e.g. after a normalization logic change).

@@ -568,7 +568,6 @@ class ContentProcessor:
     def _detect_content_type(self, article: ArticleCreate) -> str:
         """Detect the type of content based on title, content, and metadata."""
         title_lower = article.title.lower()
-        content_lower = article.content.lower()
 
         # Podcast detection
         if any(keyword in title_lower for keyword in ["stormcast", "podcast", "episode"]):

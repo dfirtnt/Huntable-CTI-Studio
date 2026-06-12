@@ -145,6 +145,67 @@ class TestDatabaseManager:
         mock_chain.limit.assert_called_once_with(1)
         assert result is None
 
+    def test_create_tables_bounds_ddl_with_lock_timeout(self):
+        """create_tables() must set a lock_timeout before the idempotent schema-ensure DDL.
+
+        Regression: with no lock_timeout, an ALTER TABLE issued at startup queues for
+        ACCESS EXCLUSIVE behind a worker's idle-in-transaction session, and the pending
+        lock then blocks ALL readers of that table for tens of seconds (app-wide freeze).
+        A bounded lock_timeout makes the no-op ALTER give up fast instead.
+        """
+        mock_conn = Mock()
+        mock_conn.__enter__ = Mock(return_value=mock_conn)
+        mock_conn.__exit__ = Mock(return_value=False)
+
+        mock_engine = Mock()
+        mock_engine.begin.return_value = mock_conn
+        mock_engine.url = Mock()
+        mock_engine.url.drivername = "postgresql"
+
+        with (
+            patch("src.database.manager.create_engine", return_value=mock_engine),
+            patch("src.database.manager.Base.metadata.create_all"),
+        ):
+            # Unique URL so the class-level engine cache doesn't skip create_tables().
+            manager = DatabaseManager(database_url="postgresql://u:p@h/db_locktimeout")
+
+        assert manager is not None
+        executed_sql = " ".join(str(call.args[0]) for call in mock_conn.execute.call_args_list)
+        assert "lock_timeout" in executed_sql.lower()
+
+    def test_create_tables_survives_locked_ddl(self):
+        """A lock-timeout error on one idempotent DDL must not abort startup or the
+        remaining DDL -- these are no-ops on a healthy DB, so a busy table is skippable."""
+        from sqlalchemy.exc import OperationalError
+
+        def _execute(stmt, *args, **kwargs):
+            if "expected_items" in str(stmt):
+                raise OperationalError("ALTER ...", {}, Exception("canceling: lock_timeout"))
+            return Mock()
+
+        mock_conn = Mock()
+        mock_conn.__enter__ = Mock(return_value=mock_conn)
+        mock_conn.__exit__ = Mock(return_value=False)
+        mock_conn.execute = Mock(side_effect=_execute)
+
+        mock_engine = Mock()
+        mock_engine.begin.return_value = mock_conn
+        mock_engine.url = Mock()
+        mock_engine.url.drivername = "postgresql"
+
+        with (
+            patch("src.database.manager.create_engine", return_value=mock_engine),
+            patch("src.database.manager.Base.metadata.create_all"),
+        ):
+            # Must NOT raise even though one DDL statement errors. Unique URL so the
+            # class-level engine cache doesn't skip create_tables().
+            manager = DatabaseManager(database_url="postgresql://u:p@h/db_lockedddl")
+
+        executed_sql = " ".join(str(call.args[0]) for call in mock_conn.execute.call_args_list)
+        # A statement issued AFTER the failing one still ran (PK DDL is last).
+        assert "ADD PRIMARY KEY" in executed_sql
+        assert manager is not None
+
     def test_create_tables_executes_pk_ddl_for_three_tables(self):
         """create_tables() must execute idempotent ADD PRIMARY KEY DDL for sources, subagent_evaluations, content_hashes."""
         mock_conn = Mock()
@@ -160,7 +221,7 @@ class TestDatabaseManager:
             patch("src.database.manager.create_engine", return_value=mock_engine),
             patch("src.database.manager.Base.metadata.create_all"),
         ):
-            manager = DatabaseManager(database_url="postgresql://u:p@h/db")
+            DatabaseManager(database_url="postgresql://u:p@h/db")
 
         # Collect all SQL text strings passed to conn.execute
         executed_sql = " ".join(str(call.args[0]) for call in mock_conn.execute.call_args_list)

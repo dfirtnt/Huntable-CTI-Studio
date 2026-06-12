@@ -591,7 +591,7 @@ show_post_install_info() {
     
     echo "   2. Configure API keys in .env file if needed (OpenAI, Anthropic)"
     echo "   3. Verify automated backups are working"
-    echo "   4. Configure your sources in config/sources.yaml"
+    echo "   4. Install the browser extension - see http://127.0.0.1:8000/guides/browser-extension/"
     if [[ -d "../Huntable-SIGMA-Rules" ]]; then
         echo "   5. Sigma PRs: Add your GitHub Personal Access Token (PAT) in Settings → GitHub"
         echo "      Create token at https://github.com/settings/tokens (repo scope required)"

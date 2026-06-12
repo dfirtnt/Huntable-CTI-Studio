@@ -36,6 +36,7 @@ from sqlalchemy.orm import Session
 
 from src.database.models import ArticleSigmaMatchTable, ArticleTable, ChunkAnalysisResultTable, SigmaRuleTable
 from src.services.embedding_service import EmbeddingService
+from src.services.similarity_serialization import alias_engine_label
 
 logger = logging.getLogger(__name__)
 
@@ -525,7 +526,7 @@ class SigmaMatchingService:
             # Metadata for empty-state differentiation
             total_candidates_evaluated = novelty_result.get("total_candidates_evaluated", 0)
             behavioral_matches_found = novelty_result.get("behavioral_matches_found", 0)
-            engine_used = novelty_result.get("engine_used", "legacy")
+            engine_used = novelty_result.get("engine_used", "on-the-fly")
             logsource_key_meta = novelty_result.get("logsource_key", "") or ""
             canonical_class_meta = novelty_result.get("canonical_class")
 
@@ -628,9 +629,9 @@ class SigmaMatchingService:
                                 "service_penalty": match.get("service_penalty", 0.0),
                                 "filter_penalty": match.get("filter_penalty", 0.0),
                                 "weighted_before_penalties": match.get("weighted_before_penalties"),
-                                # Deterministic engine metadata (when sigma_semantic_similarity used)
-                                "similarity_engine": match.get("similarity_engine", "legacy"),
-                                "semantic_details": match.get("semantic_details"),
+                                # Deterministic engine metadata (when sigma_atom_similarity used)
+                                "similarity_engine": match.get("similarity_engine", "on-the-fly"),
+                                "atom_details": match.get("atom_details"),
                             }
                         )
 
@@ -641,7 +642,10 @@ class SigmaMatchingService:
                 "matches": matches,
                 "total_candidates_evaluated": total_candidates_evaluated,
                 "behavioral_matches_found": behavioral_matches_found,
-                "engine_used": engine_used,
+                # Symmetric with the per-match similarity_engine alias: normalize the
+                # aggregate engine_used to current vocabulary so no surface (incl. any
+                # re-surfaced pre-rename value) leaks "deterministic"/"legacy".
+                "engine_used": alias_engine_label(engine_used),
                 "logsource_key": logsource_key_meta,
                 "canonical_class": canonical_class_meta,
                 # Pass through the atom-less signal so summarize_rule_novelty can route
@@ -658,7 +662,7 @@ class SigmaMatchingService:
                 "matches": [],
                 "total_candidates_evaluated": 0,
                 "behavioral_matches_found": 0,
-                "engine_used": "legacy",
+                "engine_used": "on-the-fly",
                 "logsource_key": "",
                 "canonical_class": None,
             }

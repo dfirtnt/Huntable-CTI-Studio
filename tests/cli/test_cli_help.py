@@ -47,12 +47,12 @@ def test_rescore_help_shows_options(runner):
     assert "rescore" in result.output.lower() or "Rescore" in result.output
 
 
-def test_sigma_help_shows_recompute_semantics(runner):
-    """sigma --help lists recompute-semantics subcommand."""
+def test_sigma_help_shows_recompute_atoms(runner):
+    """sigma --help lists recompute-atoms subcommand."""
     result = runner.invoke(cli, ["sigma", "--help"])
     assert result.exit_code == 0, result.output
     assert "sigma" in result.output.lower()
-    assert "recompute-semantics" in result.output
+    assert "recompute-atoms" in result.output
 
 
 def test_stats_runs_and_shows_summary(runner):

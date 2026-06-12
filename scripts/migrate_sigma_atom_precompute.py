@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Migration: add semantic precompute fields to sigma_rules table.
+"""Migration: add atom precompute fields to sigma_rules table.
 
 Why
 ---
@@ -24,7 +24,7 @@ Idempotent: each column and index is checked before creation -- safe to re-run.
 
 Usage
 -----
-    python scripts/migrate_sigma_semantic_precompute.py
+    python scripts/migrate_sigma_atom_precompute.py
 """
 
 import os
@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 
 
 def run_migration():
-    """Add semantic precompute fields to sigma_rules table if they don't exist."""
+    """Add atom precompute fields to sigma_rules table if they don't exist."""
     database_url = os.getenv("DATABASE_URL")
     if not database_url:
         logger.error("DATABASE_URL environment variable not set")

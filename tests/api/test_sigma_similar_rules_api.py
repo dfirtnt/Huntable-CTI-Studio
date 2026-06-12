@@ -51,6 +51,25 @@ class TestExtractYamlBlock:
         assert out.strip().startswith("title:")
         assert "Some text" not in out
 
+    def test_extract_strips_json_fence(self):
+        """Content in ```json ... ``` is extracted (LLMs sometimes use this language tag)."""
+        _extract_yaml_block = _sigma_queue_module._extract_yaml_block
+
+        wrapped = "```json\n" + VALID_RULE_YAML.strip() + "\n```"
+        out = _extract_yaml_block(wrapped)
+        assert out.strip().startswith("title:")
+        assert "```" not in out
+
+    def test_extract_strips_json_fence_with_leading_prose(self):
+        """Prose before a ```json fence is stripped; YAML content is returned."""
+        _extract_yaml_block = _sigma_queue_module._extract_yaml_block
+
+        wrapped = "Here is the enriched rule:\n\n```json\n" + VALID_RULE_YAML.strip() + "\n```"
+        out = _extract_yaml_block(wrapped)
+        assert out.strip().startswith("title:")
+        assert "Here is" not in out
+        assert "```" not in out
+
     def test_extract_empty_or_whitespace_returns_stripped(self):
         """Empty or whitespace returns stripped string."""
         _extract_yaml_block = _sigma_queue_module._extract_yaml_block
@@ -97,7 +116,7 @@ class TestSigmaSimilarRulesAPI:
                 "matches": [],
                 "total_candidates_evaluated": 0,
                 "behavioral_matches_found": 0,
-                "engine_used": "legacy",
+                "engine_used": "on-the-fly",
                 "canonical_class": "windows.process_creation",
                 "logsource_key": "windows|process_creation",
             }
@@ -117,6 +136,71 @@ class TestSigmaSimilarRulesAPI:
         assert "logsource_key" in d
         assert d["total_sigma_rules"] == 0
         assert d["logsource_key"] == "windows|process_creation"
+
+    @pytest.mark.asyncio
+    async def test_similar_rules_response_matches_use_canonical_contract(self):
+        """Phase 1: returned matches are projected through the shared serializer,
+        exposing top-level `containment` (lifted from atom_details.overlap_ratio_a)
+        so the queue modal reads the same canonical fields as every other surface."""
+        from starlette.requests import Request
+
+        get_similar_rules_for_queued_rule = _sigma_queue_module.get_similar_rules_for_queued_rule
+
+        mock_rule = MagicMock()
+        mock_rule.id = 1
+        mock_rule.rule_yaml = VALID_RULE_YAML
+        mock_rule.max_similarity = None
+        mock_rule.behavioral_matches_found = None
+        mock_rule.total_candidates_evaluated = None
+        mock_rule.similarity_scores = None
+        mock_rule.status = "pending"
+
+        mock_session = MagicMock()
+        queue_chain = MagicMock()
+        queue_chain.filter.return_value.first.return_value = mock_rule
+        mock_session.query.return_value = queue_chain
+
+        engine_match = {
+            "id": 5,
+            "rule_id": "repo-1",
+            "title": "Repo Rule",
+            "similarity": 0.42,
+            "atom_jaccard": 0.5,
+            "logic_shape_similarity": 0.3,
+            "similarity_engine": "precomputed",
+            "atom_details": {"overlap_ratio_a": 0.65, "containment_factor": 0.85, "jaccard": 0.5},
+            "file_path": "rules/x.yml",
+            "level": "high",
+            "status": "stable",
+        }
+
+        mock_request = MagicMock(spec=Request)
+
+        with (
+            patch.object(_sigma_queue_module, "DatabaseManager") as mock_db,
+            patch.object(_sigma_queue_module, "SigmaMatchingService") as mock_matching_cls,
+        ):
+            mock_db.return_value.get_session.return_value = mock_session
+            mock_matching_cls.return_value.assess_rule_novelty.return_value = {
+                "matches": [engine_match],
+                "total_candidates_evaluated": 1,
+                "behavioral_matches_found": 1,
+                "engine_used": "precomputed",
+                "canonical_class": "windows.process_creation",
+                "logsource_key": "windows|process_creation",
+            }
+
+            response = get_similar_rules_for_queued_rule(mock_request, queue_id=1, force=False)
+
+        assert response["success"] is True
+        assert len(response["matches"]) == 1
+        served = response["matches"][0]
+        assert served["containment"] == 0.65
+        assert served["similarity_engine"] == "precomputed"
+        # Phase 5: canonical-only -- the legacy aliases are retired.
+        assert served["similarity"] == 0.42
+        assert "similarity_score" not in served
+        assert "similarity_breakdown" not in served
 
     @pytest.mark.asyncio
     async def test_similar_rules_404_when_queue_rule_missing(self):
@@ -203,7 +287,7 @@ class TestSigmaSimilarRulesAPI:
                 "matches": [],
                 "total_candidates_evaluated": 0,
                 "behavioral_matches_found": 0,
-                "engine_used": "legacy",
+                "engine_used": "on-the-fly",
             }
 
             response = get_similar_rules_for_queued_rule(mock_request, queue_id=1, force=False)
@@ -276,7 +360,7 @@ tags:
                 "matches": [],
                 "total_candidates_evaluated": 0,
                 "behavioral_matches_found": 0,
-                "engine_used": "legacy",
+                "engine_used": "on-the-fly",
                 "canonical_class": "windows.process_creation",
                 "logsource_key": "windows|process_creation",
             }

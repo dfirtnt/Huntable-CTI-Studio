@@ -465,102 +465,103 @@
         </div>
     </div>
 
-    <!-- ═══ Configuration Panel ═══ -->
-    <div class="eval-panel mb-5 eval-animate-in">
-        <div class="eval-panel-header">
-            <div>
-                <h2 class="eval-section-title eval-body-font">Configuration</h2>
-            </div>
-            <div class="flex items-center gap-2">
-                <span class="eval-status-dot eval-status-dot--live"></span>
-                <span class="eval-mono" style="color: var(--action-execute); font-size: 0.75rem;">ACTIVE</span>
-            </div>
-        </div>
-        <div class="eval-panel-body">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Subagent Selection -->
+    <!-- ═══ Run Setup (Configuration · Articles · Run) ═══ -->
+    <div class="grid grid-cols-1 xl:grid-cols-12 gap-5 mb-5 items-start">
+
+        <!-- ── Configuration ── -->
+        <div class="eval-panel eval-animate-in xl:col-span-5">
+            <div class="eval-panel-header">
                 <div>
-                    <label class="eval-section-label block mb-2">EXTRACTOR SUBAGENT</label>
-                    <select id="subagentSelect" class="eval-select">
-                        <option value="cmdline">CommandLine</option>
-                        <option value="process_lineage">Process Lineage</option>
-                        <option value="hunt_queries">Hunt Queries</option>
-                        <option value="registry_artifacts">Registry Artifacts</option>
-                        <option value="windows_services">Windows Services</option>
-                        <option value="scheduled_tasks">Scheduled Tasks</option>
-                    </select>
-                    <button id="loadEvalArticlesBtn" class="eval-btn eval-btn--accent mt-3">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                        Load Eval Articles
-                    </button>
+                    <h2 class="eval-section-title eval-body-font">Configuration</h2>
                 </div>
-                <!-- Current Config Display -->
-                <div>
-                    {% set show_eval_config_help = true %}
-                    {% include 'components/workflow_config_snippet.html' %}
+                <div class="flex items-center gap-2">
+                    <span class="eval-status-dot eval-status-dot--live"></span>
+                    <span class="eval-mono" style="color: var(--action-execute); font-size: 0.75rem;">ACTIVE</span>
                 </div>
             </div>
+            <div class="eval-panel-body">
+                <div class="space-y-5">
+                    <!-- Subagent Selection -->
+                    <div>
+                        <label class="eval-section-label block mb-2">EXTRACTOR SUBAGENT</label>
+                        <select id="subagentSelect" class="eval-select">
+                            <option value="cmdline">CommandLine</option>
+                            <option value="process_lineage">Process Lineage</option>
+                            <option value="hunt_queries">Hunt Queries</option>
+                            <option value="registry_artifacts">Registry Artifacts</option>
+                            <option value="windows_services">Windows Services</option>
+                            <option value="scheduled_tasks">Scheduled Tasks</option>
+                        </select>
+                        <button id="loadEvalArticlesBtn" class="eval-btn eval-btn--accent mt-3">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                            Load Eval Articles
+                        </button>
+                    </div>
+                    <!-- Current Config Display -->
+                    <div>
+                        {% set show_eval_config_help = true %}
+                        {% include 'components/workflow_config_snippet.html' %}
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
 
-    <!-- ═══ Article Selection Panel ═══ -->
-    <div class="eval-panel mb-5 eval-animate-in">
-        <div class="eval-panel-header">
-            <div>
-                <h2 class="eval-section-title eval-body-font">Evaluation Articles</h2>
+        <!-- ── Evaluation Articles + Run ── -->
+        <div class="eval-panel eval-animate-in xl:col-span-7 flex flex-col">
+            <div class="eval-panel-header">
+                <div>
+                    <h2 class="eval-section-title eval-body-font">Evaluation Articles</h2>
+                </div>
+                <div class="flex gap-2">
+                    <button id="selectAllBtn" class="eval-btn eval-btn--secondary eval-btn--sm">Select All</button>
+                    <button id="deselectAllBtn" class="eval-btn eval-btn--secondary eval-btn--sm">Deselect All</button>
+                </div>
             </div>
-            <div class="flex gap-2">
-                <button id="selectAllBtn" class="eval-btn eval-btn--secondary eval-btn--sm">Select All</button>
-                <button id="deselectAllBtn" class="eval-btn eval-btn--secondary eval-btn--sm">Deselect All</button>
+            <div class="eval-panel-body flex-1">
+                <div id="articleList" class="eval-article-list space-y-2">
+                    <p class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.75rem;">Load a dataset to see articles.</p>
+                </div>
             </div>
-        </div>
-        <div class="eval-panel-body">
-            <div id="articleList" class="eval-article-list space-y-2">
-                <p class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.75rem;">Load a dataset to see articles.</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- ═══ Run Evaluation ═══ -->
-    <div class="eval-panel mb-5 eval-animate-in">
-        <div class="eval-panel-body" style="padding: 1.25rem 1.5rem;">
-            <div class="flex items-center gap-3 mb-3" style="flex-wrap: wrap;">
-                <label for="evalMultiplier" class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.75rem;">
-                    Runs per article
-                </label>
-                <input
-                    id="evalMultiplier"
-                    type="number"
-                    min="1"
-                    max="50"
-                    value="1"
-                    class="eval-mono"
-                    style="width: 5rem; padding: 0.4rem 0.6rem; background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.15); border-radius: 6px; color: var(--text-primary); font-size: 0.85rem;"
-                    title="Number of evaluation runs per selected article (1-50)"
-                />
-                <span id="evalMultiplierHint" class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.7rem;"></span>
-                <label for="evalConcurrencyThrottle" class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.75rem;">
-                    Concurrency Throttle (s)
-                </label>
-                <input
-                    id="evalConcurrencyThrottle"
-                    type="number"
-                    min="0"
-                    max="60"
-                    step="0.5"
-                    value="5"
-                    class="eval-mono"
-                    style="width: 5rem; padding: 0.4rem 0.6rem; background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.15); border-radius: 6px; color: var(--text-primary); font-size: 0.85rem;"
-                    title="Seconds between article dispatches (0-60). Raise if results show TPM RATE LIMIT warnings."
-                />
-            </div>
-            <button id="runEvalBtn" class="eval-run-btn" disabled>
-                RUN EVALUATION
-            </button>
-            <div id="evalStatus" class="mt-4 hidden">
-                <div class="flex items-center gap-3" style="padding: 0.5rem 0;">
-                    <div id="evalSpinner" class="animate-spin rounded-full h-4 w-4 border-2 border-transparent" style="border-top-color: var(--action-execute); border-right-color: var(--action-execute);"></div>
-                    <span class="eval-mono" style="color: var(--text-muted-slate);" id="evalStatusText"></span>
+            <!-- Run action bar (anchored to article selection) -->
+            <div class="eval-panel-body" style="padding: 1.25rem 1.5rem; border-top: 1px solid rgba(139, 92, 246, 0.06);">
+                <div class="flex items-center gap-3 mb-3" style="flex-wrap: wrap;">
+                    <label for="evalMultiplier" class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.75rem;">
+                        Runs per article
+                    </label>
+                    <input
+                        id="evalMultiplier"
+                        type="number"
+                        min="1"
+                        max="50"
+                        value="1"
+                        class="eval-mono"
+                        style="width: 5rem; padding: 0.4rem 0.6rem; background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.15); border-radius: 6px; color: var(--text-primary); font-size: 0.85rem;"
+                        title="Number of evaluation runs per selected article (1-50)"
+                    />
+                    <span id="evalMultiplierHint" class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.7rem;"></span>
+                    <label for="evalConcurrencyThrottle" class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.75rem;">
+                        Concurrency Throttle (s)
+                    </label>
+                    <input
+                        id="evalConcurrencyThrottle"
+                        type="number"
+                        min="0"
+                        max="60"
+                        step="0.5"
+                        value="5"
+                        class="eval-mono"
+                        style="width: 5rem; padding: 0.4rem 0.6rem; background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.15); border-radius: 6px; color: var(--text-primary); font-size: 0.85rem;"
+                        title="Seconds between article dispatches (0-60). Raise if results show TPM RATE LIMIT warnings."
+                    />
+                </div>
+                <button id="runEvalBtn" class="eval-run-btn" disabled>
+                    RUN EVALUATION
+                </button>
+                <div id="evalStatus" class="mt-4 hidden">
+                    <div class="flex items-center gap-3" style="padding: 0.5rem 0;">
+                        <div id="evalSpinner" class="animate-spin rounded-full h-4 w-4 border-2 border-transparent" style="border-top-color: var(--action-execute); border-right-color: var(--action-execute);"></div>
+                        <span class="eval-mono" style="color: var(--text-muted-slate);" id="evalStatusText"></span>
+                    </div>
                 </div>
             </div>
         </div>

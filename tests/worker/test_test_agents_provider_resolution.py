@@ -62,9 +62,9 @@ def _run_task(agent_name: str, agent_models: dict, agent_prompts: dict | None = 
         # expects `(agent_name, article_id, ...)`. For the mocked passthrough,
         # `test_sub_agent_task` is the raw function needing a manual `self`.
         if hasattr(test_sub_agent_task, "app"):  # real Celery Task instance
-            result = test_sub_agent_task.run(agent_name, 1916)
+            test_sub_agent_task.run(agent_name, 1916)
         else:  # passthrough-mocked: raw function with `self` first param
-            result = test_sub_agent_task(MagicMock(), agent_name, 1916)
+            test_sub_agent_task(MagicMock(), agent_name, 1916)
 
     assert mock_run.call_count == 1
     return mock_run.call_args

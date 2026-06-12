@@ -746,5 +746,5 @@ def test_<family>_category_resolves():
 **Operational (NOT a restart):** `sigma_semantic_similarity` is COPY'd into the image, not
 bind-mounted. After editing:
 `docker compose build && docker compose --profile tools build cli && docker compose up -d`,
-then `./run_cli.sh sigma recompute-semantics`. Verify `canonical_class IS NOT NULL` count
+then `./run_cli.sh sigma recompute-atoms`. Verify `canonical_class IS NOT NULL` count
 rises. See `docs/features/sigma-rules.md` for the live modeled-class list.

@@ -13,8 +13,10 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from src.database.manager import DatabaseManager
+from src.services.sigma_atom_precompute import precompute_atom_fields
 from src.services.sigma_matching_service import SigmaMatchingService
-from src.services.sigma_novelty_service import NoveltyLabel, SigmaNoveltyService
+from src.services.sigma_novelty_service import SigmaNoveltyService, classify_match_novelty
+from src.services.similarity_serialization import serialize_similarity_match
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +30,7 @@ def _extract_yaml_block(text: str) -> str:
     text = text.strip()
     # Handle markdown code fences with optional "yaml" and support CRLF/newline variants.
     # Use plain string search (no backtracking) to avoid ReDoS on crafted input.
-    fence_open = re.match(r"```(?:yaml)?[ \t]*\r?\n", text, re.IGNORECASE)
+    fence_open = re.match(r"```(?:[a-z0-9]+)?[ \t]*\r?\n", text, re.IGNORECASE)
     if fence_open:
         content_start = fence_open.end()
         fence_close = text.find("\n```", content_start)
@@ -36,13 +38,16 @@ def _extract_yaml_block(text: str) -> str:
             fence_close = text.find("```", content_start)
         content = text[content_start:fence_close].strip() if fence_close != -1 else text[content_start:].strip()
         return content
-    for start in ("title:", "id:", "logsource:", "detection:"):
-        idx = text.find(start)
-        if idx != -1:
-            # If the YAML is followed by another code fence / prose, truncate at the next fence.
-            candidate = text[idx:].strip()
-            candidate = re.split(r"```", candidate, maxsplit=1)[0].strip()
-            return candidate
+    # Earliest line-anchored marker in TEXT order. Priority-order find() used to
+    # truncate everything before `title:` when title was not the first key
+    # (e.g. alphabetically-sorted yaml.safe_dump output starts with detection:),
+    # and bare substring search matched mid-word (e.g. "rapid:").
+    marker = re.search(r"^(?:title|id|logsource|detection):", text, re.MULTILINE)
+    if marker:
+        # If the YAML is followed by another code fence / prose, truncate at the next fence.
+        candidate = text[marker.start() :].strip()
+        candidate = re.split(r"```", candidate, maxsplit=1)[0].strip()
+        return candidate
     # No obvious YAML boundary markers; fall back to raw content.
     return text.strip()
 
@@ -76,15 +81,6 @@ def _parse_and_validate_rule(raw: str, field: str) -> dict[str, Any]:
     return data
 
 
-def _classify_pairwise_novelty(weighted_sim: float) -> str:
-    """Classify novelty from pairwise similarity (0-1)."""
-    if weighted_sim >= 0.95:
-        return NoveltyLabel.DUPLICATE
-    if weighted_sim >= 0.80:
-        return NoveltyLabel.SIMILAR
-    return NoveltyLabel.NOVEL
-
-
 @router.post("/compare")
 async def compare_rules(compare_request: CompareRequest):
     """
@@ -96,6 +92,24 @@ async def compare_rules(compare_request: CompareRequest):
     rule_b_data = _parse_and_validate_rule(compare_request.rule_b, "rule_b")
 
     service = SigmaNoveltyService(db_session=None)
+
+    # Deterministic-first: extract BOTH rules with the same precompute
+    # (sigma_similarity package) extractor used at index time, then score via
+    # the shared precomputed-atom scorer. One extractor, two timings -- the
+    # in-src parse below is only a fallback for rules the package cannot
+    # classify, so /compare cannot diverge from stored-atom scoring
+    # (filter-polarity bug: `not N of filter_*` atoms leaked into the
+    # positive jaccard and produced false-NOVEL verdicts).
+    sem_a = precompute_atom_fields(rule_a_data)
+    sem_b = precompute_atom_fields(rule_b_data)
+    if sem_a is not None and sem_b is not None:
+        det_match = service.compare_precomputed_atoms(sem_a, sem_b)
+        if det_match is not None:
+            # Phase-2 single source of truth for novelty thresholds, same as
+            # every stored-atom surface.
+            det_match["novelty_label"] = classify_match_novelty(det_match)
+            return {"success": True, **serialize_similarity_match(det_match)}
+
     canonical_a = service.build_canonical_rule(rule_a_data)
     canonical_b = service.build_canonical_rule(rule_b_data)
 
@@ -112,24 +126,33 @@ async def compare_rules(compare_request: CompareRequest):
 
     explainability = service.generate_explainability(canonical_a, canonical_b, {})
 
-    novelty_label = _classify_pairwise_novelty(weighted_sim)
-
-    return {
-        "success": True,
-        "similarity": round(weighted_sim, 4),
-        "novelty_label": novelty_label,
-        "atom_jaccard": round(atom_jaccard, 4),
-        "logic_shape_similarity": round(logic_similarity, 4),
+    # Project onto the unified canonical contract (Phase 1). /compare computes
+    # metrics directly rather than via assess_rule_novelty, so assemble a match
+    # dict and serialize it for a shape consistent with every other surface.
+    fallback_match = {
+        "similarity": weighted_sim,
+        "atom_jaccard": atom_jaccard,
+        "logic_shape_similarity": logic_similarity,
         "shared_atoms": explainability["shared_atoms"],
         "added_atoms": explainability["added_atoms"],
         "removed_atoms": explainability["removed_atoms"],
+        "service_penalty": service_penalty,
+        "filter_penalty": filter_penalty,
     }
+    # Phase-3 fold: the legacy fallback classifies via the same single source
+    # of truth as every other surface (classify_match_novelty / legacy
+    # threshold row), retiring the old weighted-similarity pairwise classifier.
+    fallback_match["novelty_label"] = classify_match_novelty(fallback_match)
+    serialized = serialize_similarity_match(fallback_match)
+    return {"success": True, **serialized}
 
 
 @router.post("/compare-to-repository")
 async def compare_rule_to_repository(compare_request: CompareToRepositoryRequest):
     """
-    Compare a SIGMA rule against the repository (embedding-based similarity).
+    Compare a SIGMA rule against the repository (behavioral atom set-math via
+    assess_rule_novelty; proposed-rule atoms come from the same precompute
+    extractor used at index time).
     """
     rule_data = _parse_and_validate_rule(compare_request.rule, "rule")
 
@@ -150,16 +173,7 @@ async def compare_rule_to_repository(compare_request: CompareToRepositoryRequest
         matches = result.get("matches", [])[:20]
         return {
             "success": True,
-            "matches": [
-                {
-                    "rule_id": m.get("rule_id", ""),
-                    "title": m.get("title", ""),
-                    "similarity": m.get("similarity", 0.0),
-                    "atom_jaccard": m.get("atom_jaccard"),
-                    "logic_shape_similarity": m.get("logic_shape_similarity"),
-                }
-                for m in matches
-            ],
+            "matches": [serialize_similarity_match(m) for m in matches],
         }
     finally:
         db_session.close()

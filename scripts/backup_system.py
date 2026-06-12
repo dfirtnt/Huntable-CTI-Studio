@@ -428,7 +428,7 @@ def backup_docker_volume(volume_name: str, backup_dir: Path) -> dict[str, Any]:
             ".",
         ]
 
-        result = subprocess.run(backup_cmd, capture_output=True, text=True, check=True)
+        subprocess.run(backup_cmd, capture_output=True, text=True, check=True)
 
         if not backup_filepath.exists():
             raise RuntimeError("Volume backup file was not created")

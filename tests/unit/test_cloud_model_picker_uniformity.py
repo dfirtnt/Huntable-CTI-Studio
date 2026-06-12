@@ -261,3 +261,86 @@ class TestWorkflowCloudInputType:
             "settings.html diagnosis picker must pass use_select=true so cloud fields "
             "render as catalog-driven dropdowns, not free-text inputs"
         )
+
+
+# ─── Provider catalog cache freshness (workflow.html) ────────────────────────
+
+
+@pytest.mark.unit
+class TestProviderCatalogCacheFreshness:
+    """
+    workflow.html caches the provider catalog in localStorage. A stale cache must
+    not mask newly-added models:
+      - the cache read must honor a TTL (the stored updatedAt must be checked), and
+      - initialization must prefer the always-fresh server-rendered catalog over
+        the cache.
+
+    Regression: cacheProviderCatalog() stored an updatedAt that getCachedProviderCatalog()
+    never read, so a stale cache won over fresh data indefinitely and new models
+    (gpt-5.4/5.5) never appeared until the user cleared storage.
+    """
+
+    @pytest.fixture(scope="class")
+    def workflow_src(self) -> str:
+        return (TEMPLATE_DIR / "workflow.html").read_text()
+
+    def test_cache_read_honors_ttl(self, workflow_src):
+        assert "PROVIDER_CATALOG_CACHE_TTL_MS" in workflow_src, (
+            "workflow.html must define a TTL constant for the provider catalog cache"
+        )
+        # getCachedProviderCatalog must actually consult updatedAt against the TTL.
+        m = re.search(r"function getCachedProviderCatalog\(\).*?\n}", workflow_src, re.DOTALL)
+        assert m, "getCachedProviderCatalog() not found in workflow.html"
+        body = m.group(0)
+        assert "updatedAt" in body and "PROVIDER_CATALOG_CACHE_TTL_MS" in body, (
+            "getCachedProviderCatalog() must compare the stored updatedAt against the TTL "
+            "(a stored timestamp that is never read is the original cache-staleness bug)"
+        )
+
+    def test_init_prefers_server_catalog_over_cache(self, workflow_src):
+        """commercialModelCatalog initialization must prefer the fresh server-rendered
+        window.initialCommercialModelCatalog over the localStorage cache."""
+        m = re.search(
+            r"let commercialModelCatalog\s*=(.*?);",
+            workflow_src,
+            re.DOTALL,
+        )
+        assert m, "commercialModelCatalog initializer not found"
+        initializer = m.group(1)
+        idx_initial = initializer.find("window.initialCommercialModelCatalog")
+        idx_cache = initializer.find("cachedProviderCatalog")
+        assert idx_initial != -1, "initializer must reference window.initialCommercialModelCatalog"
+        assert idx_cache != -1, "initializer must reference cachedProviderCatalog as a fallback"
+        assert idx_initial < idx_cache, (
+            "the fresh server-rendered catalog must be preferred BEFORE the localStorage "
+            "cache, otherwise a stale cache hides newly-added models"
+        )
+
+
+# ─── Enrich modal shares the single catalog source ───────────────────────────
+
+
+@pytest.mark.unit
+class TestEnrichModalCatalogSource:
+    """
+    The Sigma enrichment modal must read from the shared commercialModelCatalog,
+    not a private per-modal copy. A separate catalog variable drifts out of sync
+    with every other picker on the page (the modal showed an older model list).
+    """
+
+    @pytest.fixture(scope="class")
+    def workflow_src(self) -> str:
+        return (TEMPLATE_DIR / "workflow.html").read_text()
+
+    def test_no_private_enrich_catalog_variable(self, workflow_src):
+        assert "enrichProviderCatalog" not in workflow_src, (
+            "enrich modal must not maintain its own enrichProviderCatalog; it should use "
+            "the shared commercialModelCatalog so it stays in sync with other pickers"
+        )
+
+    def test_enrich_model_dropdown_uses_shared_catalog(self, workflow_src):
+        m = re.search(r"async function populateEnrichModelDropdown\(.*?\n}", workflow_src, re.DOTALL)
+        assert m, "populateEnrichModelDropdown() not found"
+        assert "commercialModelCatalog" in m.group(0), (
+            "populateEnrichModelDropdown() must source models from commercialModelCatalog"
+        )

@@ -2,6 +2,56 @@
 (function() {
     'use strict';
 
+    function getImageSource(img) {
+        if (img.dataset && img.dataset.src) {
+            return img.dataset.src;
+        }
+        if (img.dataset && img.dataset.lazySrc) {
+            return img.dataset.lazySrc;
+        }
+        return img.currentSrc || img.src || '';
+    }
+
+    function imageMarker(src) {
+        return `[IMAGE:${src}]`;
+    }
+
+    function extractTextWithImageMarkers(contentElement) {
+        const clone = contentElement.cloneNode(true);
+
+        const unwantedSelectors = [
+            'nav', 'header', 'footer', '.nav', '.navigation', '.menu',
+            '.sidebar', '.advertisement', '.ad', '.ads', '.social',
+            '.comments', '.comment', '.related', '.recommended',
+            '.newsletter', '.subscribe', '.cookie', '.cookie-banner',
+            'script', 'style', 'noscript', '.header', '.footer',
+            '.breadcrumb', '.breadcrumbs', '.pagination', '.pager',
+            // Government site specific
+            '.site-header', '.site-footer', '.site-navigation',
+            '.skip-link', '.usa-skipnav', '.usa-banner',
+            '.usa-header', '.usa-footer', '.usa-nav'
+        ];
+
+        unwantedSelectors.forEach(selector => {
+            const elements = clone.querySelectorAll(selector);
+            elements.forEach(el => el.remove());
+        });
+
+        clone.querySelectorAll('img').forEach(img => {
+            const src = getImageSource(img);
+            if (!src || src.startsWith('data:image/svg') || (src.startsWith('data:') && src.length < 1000)) {
+                img.remove();
+                return;
+            }
+
+            const marker = document.createTextNode(`\n\n${imageMarker(src)}\n\n`);
+            img.parentNode.insertBefore(marker, img);
+            img.remove();
+        });
+
+        return clone.textContent.trim();
+    }
+
     // Extract article information from the current page
     function extractArticleData() {
         const data = {
@@ -95,29 +145,7 @@
         }
 
         if (contentElement) {
-            // Clean up the content by removing unwanted elements
-            const clone = contentElement.cloneNode(true);
-            
-            // Remove unwanted elements (less aggressive for government sites)
-            const unwantedSelectors = [
-                'nav', 'header', 'footer', '.nav', '.navigation', '.menu',
-                '.sidebar', '.advertisement', '.ad', '.ads', '.social',
-                '.comments', '.comment', '.related', '.recommended',
-                '.newsletter', '.subscribe', '.cookie', '.cookie-banner',
-                'script', 'style', 'noscript', '.header', '.footer',
-                '.breadcrumb', '.breadcrumbs', '.pagination', '.pager',
-                // Government site specific
-                '.site-header', '.site-footer', '.site-navigation',
-                '.skip-link', '.usa-skipnav', '.usa-banner',
-                '.usa-header', '.usa-footer', '.usa-nav'
-            ];
-
-            unwantedSelectors.forEach(selector => {
-                const elements = clone.querySelectorAll(selector);
-                elements.forEach(el => el.remove());
-            });
-
-            data.content = clone.textContent.trim();
+            data.content = extractTextWithImageMarkers(contentElement);
         }
 
         // Calculate word count
