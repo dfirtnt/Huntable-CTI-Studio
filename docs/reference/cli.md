@@ -320,6 +320,8 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 
 **Note:** Sigma rule embeddings use local sentence-transformers (`intfloat/e5-base-v2`) inside the CLI container; LM Studio is not required for indexing. Run `sigma index-metadata` first (or `sigma index`); then run `sigma index-embeddings` to enable Sigma rule retrieval via MCP. Use `capabilities check` to see current feature status.
 
+`index-embeddings` embeds rules in chunks and commits each chunk, so it is **resumable**: without `--force` it processes only rules whose embedding is missing, and re-running after an interrupt (e.g. an OOM kill on a memory-constrained host) continues from where it stopped. On low-memory hosts, set `SIGMA_EMBED_RULES_PER_CHUNK` (default 64) lower to reduce peak memory, e.g. `SIGMA_EMBED_RULES_PER_CHUNK=32 ./run_cli.sh sigma index-embeddings`.
+
 **See also:** [Generate Sigma](../guides/generate-sigma.md), [Sigma Detection Rules](../features/sigma-rules.md).
 
 ---

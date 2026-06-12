@@ -33,6 +33,8 @@ The previous in-app RAG Chat UI was removed in v6.0.0 and the in-app `/search` p
 
 Point an MCP-capable client at the Huntable MCP server. See [MCP tools reference](../reference/mcp-tools.md).
 
+The committed `.mcp.json` launches the server via `scripts/run_mcp_server.sh`, which runs it **inside the Docker `cli` container**. This is required, not incidental: query-time semantic search loads the local embedding model (torch / sentence-transformers), and those packages have no `macosx_x86_64` wheel — so a bare host process on an Intel Mac fails with `Could not load embedding model`. Running in the Linux container makes semantic search work on every platform. **Docker must be running** when the client launches the server.
+
 Available tools (non-exhaustive):
 
 | Tool | Purpose |
@@ -53,8 +55,16 @@ Run once after setup, then again whenever Sigma rules change:
 ./run_cli.sh embed stats
 ```
 
+Indexing runs inside the `cli` container and embeds rules **in chunks, committing each chunk** as it goes. This means the operation is **resumable**: without `--force` it only processes rules whose `embedding` is `NULL`, so if a run is interrupted (e.g. the container is OOM-killed on a memory-constrained host while the full stack is up), simply re-run the same command and it continues from where it stopped — already-embedded rows are kept. Check progress any time with `./run_cli.sh embed stats` or MCP `get_stats`.
+
+On a low-memory host, lower the per-chunk working set with the `SIGMA_EMBED_RULES_PER_CHUNK` environment variable (default 64) to reduce peak memory at the cost of more commits:
+
+```
+SIGMA_EMBED_RULES_PER_CHUNK=32 ./run_cli.sh sigma index-embeddings
+```
+
 ## Embedding coverage API
 
 `GET /api/embeddings/stats` returns a `sigma_corpus` block (SigmaHQ row counts vs. rows with embeddings). Consumed by CLI `embed stats` and MCP `get_stats`.
 
-_Last updated: 2026-05-23_
+_Last updated: 2026-06-08_

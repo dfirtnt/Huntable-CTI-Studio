@@ -155,6 +155,26 @@ startup_migrate_pgvector_indexes() {
     fi
 }
 
+# Pick a SIGMA_EMBED_RULES_PER_CHUNK value for the embedding job based on the
+# memory Docker has available. The cli container has no mem_limit, so on a
+# constrained host (Docker's allotment is small, e.g. an Intel Mac at ~8 GB) the
+# full corpus can spike past available headroom — with the web app + workers
+# already running — and get OOM-killed mid-run. A smaller chunk lowers peak
+# memory. Well-resourced hosts keep the faster default (empty => code default 64).
+_startup_sigma_embed_chunk_size() {
+    local mem_bytes
+    mem_bytes=$($DOCKER_CMD info --format '{{.MemTotal}}' 2>/dev/null || echo "")
+    case "$mem_bytes" in
+        ''|*[!0-9]*) echo ""; return ;;  # unknown → let the code default apply
+    esac
+    # < ~10 GiB Docker memory → conservative chunk; otherwise default.
+    if [ "$mem_bytes" -lt 10737418240 ]; then
+        echo "16"
+    else
+        echo ""
+    fi
+}
+
 startup_sigma_sync_and_index() {
     echo ""
     _startup_log_info "Sigma: syncing SigmaHQ repo..."
@@ -166,10 +186,26 @@ startup_sigma_sync_and_index() {
         fi
 
         if [ -z "$SKIP_SIGMA_INDEX" ]; then
-            if $DOCKER_COMPOSE_CMD run --rm cli python -m src.cli.main sigma index-embeddings 2>/dev/null; then
+            # On a memory-constrained host, bound peak memory so the job doesn't
+            # OOM mid-corpus. index-embeddings commits per chunk and is resumable
+            # (re-run embeds only the still-NULL rows), so a single retry finishes
+            # any rules a first pass couldn't reach.
+            local chunk_size chunk_env
+            chunk_size=$(_startup_sigma_embed_chunk_size)
+            chunk_env=()
+            if [ -n "$chunk_size" ]; then
+                chunk_env=(-e "SIGMA_EMBED_RULES_PER_CHUNK=$chunk_size")
+                _startup_log_info "Sigma embeddings: low Docker memory detected — using chunk size $chunk_size."
+            fi
+
+            if $DOCKER_COMPOSE_CMD run --rm "${chunk_env[@]}" cli python -m src.cli.main sigma index-embeddings 2>/dev/null; then
                 _startup_log_info "✅ Sigma rule embeddings generated"
+            elif $DOCKER_COMPOSE_CMD run --rm "${chunk_env[@]}" cli python -m src.cli.main sigma index-embeddings 2>/dev/null; then
+                # First pass may have been OOM-killed after committing some chunks;
+                # the resumable retry completes the remaining rules.
+                _startup_log_info "✅ Sigma rule embeddings generated (completed on retry)"
             else
-                _startup_log_warn "Sigma embeddings skipped (run manually: \"./run_cli.sh sigma index-embeddings\")"
+                _startup_log_warn "Sigma embeddings incomplete (resumable — re-run: \"./run_cli.sh sigma index-embeddings\")"
             fi
         else
             # When user chose "No RAG" in setup, RAG_DISABLED_BY_USER is set; skip the warning (they already got instructions).
