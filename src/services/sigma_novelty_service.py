@@ -314,9 +314,7 @@ class SigmaNoveltyService:
                     proposed_sem = extract_atom_fields(proposed_rule, require_canonical_class=False)
                 except Exception:
                     atom_extraction_failed = True
-                    logger.warning(
-                        "sigma_novelty: atom extraction failed", exc_info=True
-                    )
+                    logger.warning("sigma_novelty: atom extraction failed", exc_info=True)
                     _warnings.append("atom_precompute_failed: atom extraction unavailable")
 
             use_deterministic = proposed_sem is not None
@@ -408,7 +406,9 @@ class SigmaNoveltyService:
                             "positive_atoms": candidate_pos,
                             "negative_atoms": candidate_neg or [],
                             "surface_score": candidate_surface,
-                            "canonical_class": candidate.get("canonical_class") if isinstance(candidate, dict) else None,
+                            "canonical_class": candidate.get("canonical_class")
+                            if isinstance(candidate, dict)
+                            else None,
                         },
                     )
                 elif proposed_sem is not None and isinstance(candidate, dict):

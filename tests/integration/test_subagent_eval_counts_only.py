@@ -48,14 +48,10 @@ def test_counts_only_matches_full_path():
         # Called directly (not via FastAPI), so every Query()-defaulted param must be
         # passed explicitly -- otherwise eval_run_id stays as the Query default object.
         counts_resp = asyncio.run(
-            get_subagent_eval_results(
-                request=None, subagent=_TEST_SUBAGENT, eval_run_id=None, counts_only=True
-            )
+            get_subagent_eval_results(request=None, subagent=_TEST_SUBAGENT, eval_run_id=None, counts_only=True)
         )
         full_resp = asyncio.run(
-            get_subagent_eval_results(
-                request=None, subagent=_TEST_SUBAGENT, eval_run_id=None, counts_only=False
-            )
+            get_subagent_eval_results(request=None, subagent=_TEST_SUBAGENT, eval_run_id=None, counts_only=False)
         )
 
         # Shape: counts_only returns aggregate counts and an empty results list.
@@ -75,8 +71,8 @@ def test_counts_only_matches_full_path():
         assert counts_resp["counts"] == full_tally
         assert counts_resp["total"] == len(full_results)
     finally:
-        session.query(SubagentEvaluationTable).filter(
-            SubagentEvaluationTable.subagent_name == _TEST_SUBAGENT
-        ).delete(synchronize_session=False)
+        session.query(SubagentEvaluationTable).filter(SubagentEvaluationTable.subagent_name == _TEST_SUBAGENT).delete(
+            synchronize_session=False
+        )
         session.commit()
         session.close()

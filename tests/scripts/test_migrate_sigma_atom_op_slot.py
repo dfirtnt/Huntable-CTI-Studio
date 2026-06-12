@@ -58,7 +58,10 @@ def script():
     "legacy,expected",
     [
         # single modifier: op duplicated in slot 1 and 2
-        ("process.image|endswith|endswith|/env", "process.image|endswith|endswith|/env".replace("|endswith|endswith|", "|endswith|")),
+        (
+            "process.image|endswith|endswith|/env",
+            "process.image|endswith|endswith|/env".replace("|endswith|endswith|", "|endswith|"),
+        ),
         ("process.command_line|contains|contains|apached", "process.command_line|contains|apached"),
         # multi-modifier chain: op duplicates the first chain token
         ("scriptblocktext|contains|contains|all|-path", "scriptblocktext|contains|all|-path"),
@@ -84,8 +87,8 @@ def test_strip_op_slot_single_mod_explicit(script):
 @pytest.mark.parametrize(
     "already_3slot",
     [
-        "process.image|endswith|/env",       # single modifier, new form
-        "process_name||powershell.exe",      # default eq, new form
+        "process.image|endswith|/env",  # single modifier, new form
+        "process_name||powershell.exe",  # default eq, new form
         "scriptblocktext|contains|all|-path",  # genuine multi-modifier, new form
         "c-uri|contains|/pwndrop/",
     ],
@@ -116,8 +119,8 @@ def test_strip_op_slot_is_idempotent(script):
     [
         "",
         "field",
-        "field|value",            # 2 segments, nothing to strip
-        "field|mod|value",        # 3 segments, new form
+        "field|value",  # 2 segments, nothing to strip
+        "field|mod|value",  # 3 segments, new form
     ],
 )
 def test_strip_op_slot_short_strings_passthrough(script, atom):
@@ -143,9 +146,9 @@ def test_strip_op_slot_value_with_pipes_unaffected_tail(script):
 
 def test_migrate_atom_list_counts_changes(script):
     atoms = [
-        "process.image|endswith|endswith|/env",   # changes
-        "process_name|eq||powershell.exe",        # changes
-        "c-uri|contains|/pwndrop/",               # already 3-slot, no change
+        "process.image|endswith|endswith|/env",  # changes
+        "process_name|eq||powershell.exe",  # changes
+        "c-uri|contains|/pwndrop/",  # already 3-slot, no change
     ]
     new_atoms, changed = script.migrate_atom_list(atoms)
     assert changed == 2

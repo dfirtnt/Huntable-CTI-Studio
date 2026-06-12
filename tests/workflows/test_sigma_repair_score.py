@@ -122,7 +122,9 @@ def _run_workflow_with_sigma_result(generation_result: dict, active_trace_id: st
             return_value=mock_sigma_service,
         ),
         patch("src.workflows.agentic_workflow.get_active_trace_id", return_value=active_trace_id),
-        patch("src.workflows.agentic_workflow.score_langfuse_trace", side_effect=lambda **kw: score_calls.append(kw)) as mock_score,
+        patch(
+            "src.workflows.agentic_workflow.score_langfuse_trace", side_effect=lambda **kw: score_calls.append(kw)
+        ) as mock_score,
     ):
         mock_cf_cls.return_value.filter_content.return_value = filter_result
 
@@ -140,9 +142,7 @@ def _run_workflow_with_sigma_result(generation_result: dict, active_trace_id: st
         mock_trace.return_value.__enter__ = Mock(return_value=None)
         mock_trace.return_value.__exit__ = Mock(return_value=False)
 
-        asyncio.get_event_loop().run_until_complete(
-            run_workflow(article_id=1, db_session=db_session, execution_id=100)
-        )
+        asyncio.get_event_loop().run_until_complete(run_workflow(article_id=1, db_session=db_session, execution_id=100))
 
     return score_calls, mock_score
 

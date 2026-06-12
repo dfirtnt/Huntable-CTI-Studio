@@ -53,9 +53,7 @@ def _function_body(source: str, name: str) -> str:
 
 def test_indicator_element_present():
     src = _source()
-    assert 'id="enrichPresetState"' in src, (
-        "The #enrichPresetState indicator element must exist in the enrich modal"
-    )
+    assert 'id="enrichPresetState"' in src, "The #enrichPresetState indicator element must exist in the enrich modal"
 
 
 def test_update_function_renders_three_states():

@@ -53,9 +53,7 @@ class TestReadableExtractorDisplayWiring:
     def test_helper_renders_all_four_contract_fields(self):
         """Role / Task / JSON Example / Instructions must all be surfaced (no info regression)."""
         for field in ("role", "task", "json_example", "instructions"):
-            assert f"td.{field}" in HELPER_BODY, (
-                f"renderExtractorConfigFields must render templateData.{field}"
-            )
+            assert f"td.{field}" in HELPER_BODY, f"renderExtractorConfigFields must render templateData.{field}"
         for label in ("Role", "Task", "JSON Example", "Instructions"):
             assert f"'{label}'" in HELPER_BODY, f"Readable display is missing the '{label}' label"
 

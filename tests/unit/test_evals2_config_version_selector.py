@@ -52,9 +52,7 @@ class TestEvals2ConfigVersionSelector:
         )
         assert match, "renderResultsForVersion body not found"
         body = match.group(1)
-        assert "config_version" in body, (
-            "renderResultsForVersion must filter on the config_version field"
-        )
+        assert "config_version" in body, "renderResultsForVersion must filter on the config_version field"
         # The latest-all-runs branch may reference the sentinel directly or via its
         # named constant LATEST_CONFIG_VERSION.
         assert LATEST_SENTINEL in body or "LATEST_CONFIG_VERSION" in body, (
@@ -73,9 +71,7 @@ class TestEvals2ConfigVersionSelector:
         pattern = re.compile(
             r"getElementById\(\s*['\"]configVersionSelect['\"]\s*\)[\s\S]{0,120}addEventListener\(\s*['\"]change['\"]"
         )
-        assert pattern.search(template_text), (
-            "configVersionSelect must have a 'change' event listener wired"
-        )
+        assert pattern.search(template_text), "configVersionSelect must have a 'change' event listener wired"
 
     def test_legend_mentions_selected_version(self, template_text: str) -> None:
         """The 'How to read this table' legend must reflect the version filter."""
