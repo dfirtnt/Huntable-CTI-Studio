@@ -12,7 +12,15 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import torch
+
+try:
+    import torch
+
+    _TORCH_AVAILABLE = True
+except ImportError:
+    torch = None  # type: ignore[assignment]
+    _TORCH_AVAILABLE = False
+
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics.pairwise import cosine_similarity as sklearn_cosine_similarity
@@ -149,7 +157,7 @@ class OSDetectionService:
         """
         self.model_name = model_name
         self.classifier_type = classifier_type
-        self.device = 0 if use_gpu and torch.cuda.is_available() else -1
+        self.device = 0 if use_gpu and _TORCH_AVAILABLE and torch.cuda.is_available() else -1
         self.tokenizer = None
         self.model = None
         self.classifier = None
