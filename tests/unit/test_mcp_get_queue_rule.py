@@ -167,7 +167,7 @@ class TestGetQueueRuleError:
         @asynccontextmanager
         async def _bad_session():
             raise RuntimeError("DB connection failed")
-            yield  # noqa: unreachable
+            yield  # makes _bad_session an async generator; unreachable by design
 
         db.get_session = _bad_session
         fn = _make_tool_fn(db)
