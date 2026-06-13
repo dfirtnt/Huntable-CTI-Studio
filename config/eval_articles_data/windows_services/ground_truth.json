@@ -24,7 +24,8 @@
   {
     "url": "https://www.huntress.com/blog/advanced-intrusion-targeting-executive-at-critical-marketing-research-company",
     "expected_items": [
-      "WebrootCheck"
+      "WebrootCheck",
+      "C:\\Users\\Default\\AppData\\Local\\Temp\\service.exe"
     ]
   },
   {
