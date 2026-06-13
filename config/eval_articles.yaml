@@ -13,7 +13,7 @@ subagents:
   - url: https://www.elastic.co/security-labs/roningloader
     expected_count: 2
   - url: https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793
-    expected_count: 14
+    expected_count: 26
   - url: https://www.fortinet.com/blog/threat-research/unveiling-a-new-variant-of-the-darkcloud-campaign
     expected_count: 1
   - url: https://www.huntress.com/blog/why-old-ransomware-playbooks-never-die

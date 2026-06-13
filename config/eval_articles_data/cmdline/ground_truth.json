@@ -96,7 +96,19 @@
       "schtasks.exe /run /tn \"\\Microsoft\\Windows\\IISUpdateService\"",
       "ntdsutil.exe 'ac i ntds' 'ifm' 'create full C:\\tempp' q q",
       "net user <redacted> \"<password redacted>\" /add",
-      "echo <redacted> | c:\\TeamCity\\bin\\anydesk.exe --set-password"
+      "echo <redacted> | c:\\TeamCity\\bin\\anydesk.exe --set-password",
+      "echo 167043640 > C:/Windows/Temp/0",
+      "echo 2W1EVQsV5piPbyW6FSsNC8D7irR",
+      "echo 2W28BTpkdCjcRPQNkSF5qFCphlG",
+      "echo 2W2GZqAg8k6ipgBTcHyK5wABDSW",
+      "echo 9fW99pdqfpXU21zd",
+      "whoami /all",
+      "reg.exe save HKLM\\SYSTEM \"C:\\Windows\\temp\\1\\sy.sa\" /y",
+      "reg.exe save HKLM\\SAM",
+      "chcp 65001 > NUL & netstat -afn -p TCP",
+      "chcp 65001 > NUL & wmic datafile where Name=\"C:\\Windows\\system32\\ntoskrnl.exe\" get Version",
+      "chcp 65001 > NUL & echo %userdomain%*%computername%**%username%",
+      "chcp 65001 > NUL & tasklist"
     ]
   },
   {
