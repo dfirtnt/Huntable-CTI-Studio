@@ -109,3 +109,13 @@ subagents:
     expected_count: 0
   - url: https://www.microsoft.com/en-us/security/blog/2022/04/12/tarrask-malware-uses-scheduled-tasks-for-defense-evasion/
     expected_count: 1
+  - url: https://thedfirreport.com/2021/06/03/weblogic-rce-leads-to-xmrig/
+    expected_count: 1
+  - url: https://thedfirreport.com/2024/12/02/the-curious-case-of-an-egg-cellent-resume/
+    expected_count: 1
+  - url: https://the-hunters-ledger.com/reports/opendirectory-62-60-237-100-20260506/
+    expected_count: 1
+  - url: https://www.huntress.com/blog/the-gentlemen-ransomware-defense-evasion-ttps
+    expected_count: 1
+  - url: https://www.elastic.co/security-labs/blockchain-c2-phantompulse-rat-sinkhole
+    expected_count: 4
