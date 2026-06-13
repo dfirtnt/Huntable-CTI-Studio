@@ -22,7 +22,7 @@ trafilatura==2.0.0  # Content extraction fallback for selector inference in sour
 playwright==1.60.0  # Headless browser for JS-rendered content
 
 # Data processing and storage
-pandas==3.0.2
+pandas==3.0.3
 numpy==2.4.6
 sqlalchemy[asyncio]==2.0.49
 asyncpg==0.31.0
