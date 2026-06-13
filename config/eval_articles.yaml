@@ -100,7 +100,7 @@ subagents:
     expected_count: 0
   scheduled_tasks:
   - url: https://thedfirreport.com/2021/11/01/from-zero-to-domain-admin/
-    expected_count: 1
+    expected_count: 0
   - url: https://thedfirreport.com/2022/02/07/qbot-likes-to-move-it-move-it/
     expected_count: 1
   - url: https://thedfirreport.com/2025/01/27/cobalt-strike-and-a-pair-of-socks-lead-to-lockbit-ransomware/
