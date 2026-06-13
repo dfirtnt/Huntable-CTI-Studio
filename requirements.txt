@@ -97,7 +97,7 @@ langchain-core==1.3.3  # CVE-2026-40087 + CVE-2026-44843 fixes
 langsmith==0.8.9  # streaming token events bypass output redaction
 Mako==1.3.12  # path traversal + CVE-2026-44307 fixes
 python-multipart==0.0.27  # CVE-2026-40347: DoS via large multipart preamble/epilogue
-idna==3.16  # CVE-2026-45409 fix; exact pin, mirrors pyproject.toml
+idna==3.18  # CVE-2026-45409 fix; exact pin, mirrors pyproject.toml
 pymdown-extensions==10.21.3  # CVE-2026-46338 fix
 PyJWT==2.13.0  # CVE PYSEC-2026-175/177/178/179; transitive via mcp[cli]
 
