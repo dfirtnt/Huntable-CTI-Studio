@@ -73,6 +73,34 @@ Guardrails:
 - If a leak is found after extraction has started, kill the run and relaunch — do not
   try to mentally subtract the leaked rule from already-produced results.
 
+## Curated-truth DB rows must not stamp config provenance
+
+When a fixture correction expands an eval set (new articles) or replaces stale
+DB expected values, the operator may direct an INSERT/UPDATE into
+`subagent_evaluations`. Those rows are **operator-curated truth**, not eval-run
+results. They differ from eval-run rows by what's NULL:
+
+|                              | eval-run row | curated-truth row |
+|------------------------------|--------------|-------------------|
+| `actual_count`, `score`,     | populated    | **NULL**          |
+| `workflow_execution_id`,     |              |                   |
+| `matched/missed/extra_count` |              |                   |
+| `workflow_config_id`,        | populated    | **NULL**          |
+| `workflow_config_version`    | (legit prov.) | (no prov. to claim) |
+
+Stamping curated rows with the currently-active `workflow_config_id`/`_version`
+out of habit creates **false provenance** — the row reads as "produced by an
+eval run against config vX" when it was never run by any config. The next eval
+reads `expected_count`/`expected_items` from the latest row per URL via
+`DISTINCT ON ... ORDER BY created_at DESC`; nothing in that path needs the
+config columns, so leaving them NULL is correct and honest.
+
+Detection: a curated insert has `COUNT(actual_count) = 0` across its latest
+rows. A real eval run has all of `actual_count`, `score`, and
+`workflow_execution_id` populated. The first sign someone confused the two is
+usually a `created_at` cluster of identical timestamps (curated batches) sharing
+one `workflow_config_version` (the active one when the operator ran the audit).
+
 ## Placeholders are intentional
 
 `expected_items: []` in ground_truth.json marks a registered-but-uncurated
