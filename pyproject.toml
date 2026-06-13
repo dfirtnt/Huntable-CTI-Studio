@@ -117,7 +117,7 @@ test = [
     # to read uv.lock metadata in CI - never installs untrusted archives.
     # Dependabot alert #152 dismissed (tolerable_risk). Bump when upstream
     # ships a fix that lets us pin to a non-vulnerable pip.
-    "pip-audit==2.10.0",
+    "pip-audit==2.10.1",
     "safety==3.8.1",
     "black==26.3.1",
     "isort==5.12.0",
