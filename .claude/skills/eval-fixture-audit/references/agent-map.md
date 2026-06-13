@@ -84,9 +84,27 @@ Path:
 - **xlsx**: `Count` = len(items); `GroundTruth` =
   `json.dumps(items, ensure_ascii=False)` — a FLAT JSON array of strings.
   Back up first: `shutil.copy2(src, src + '.bak-YYYY-MM-DD-<scope>')`.
-- **yaml**: `yaml.safe_dump(data, sort_keys=False, allow_unicode=True)`
-- **gt.json / articles.json**:
-  `json.dumps(obj, indent=2, ensure_ascii=False) + '\n'`
+- **yaml**: `yaml.safe_dump(data, sort_keys=False, allow_unicode=True)` reflows the
+  ENTIRE file. For a single-value change or for appends, prefer a **surgical text
+  edit** anchored on the `<subagent_key>:` line (the URL may appear under several
+  subagents — anchor on the section, not the bare URL) to keep the diff to the lines
+  you changed.
+- **gt.json / articles.json**: ⚠️ **The existing fixtures are NOT format-uniform —
+  three serializations are live across agents** (verified 2026-06-12):
+  - `indent=2, ensure_ascii=False, + '\n'` — cmdline, process_lineage,
+    registry_artifacts, hunt_queries/gt
+  - `indent=2, ensure_ascii=True, NO trailing newline` — scheduled_tasks/articles,
+    windows_services/articles, hunt_queries/articles
+  - `indent=2, ensure_ascii=False, NO trailing newline` — scheduled_tasks/gt,
+    windows_services/gt
+
+  So **DETECT the target file's exact serialization first** (probe indent /
+  ensure_ascii / trailing-newline against the raw bytes) and match it, OR surgically
+  text-edit just the changed value / append. Blindly re-dumping with the wrong
+  `ensure_ascii` re-encodes every `content` field (`\uXXXX` ⇄ literal UTF-8) — a
+  massive spurious diff that collides with parallel sessions. `ensure_ascii=False +
+  '\n'` is the preferred shape for NEW files only; never impose it on an existing
+  file mid-audit.
 - **DB**: `UPDATE` the latest row per URL only (preserve eval-run history):
 
   ```sql
