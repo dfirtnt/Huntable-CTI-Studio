@@ -14,7 +14,7 @@ dependencies = [
     "feedparser==6.0.12",
     "extruct==0.18.0",
     "iocextract==1.16.1",
-    "trafilatura==2.0.0",
+    "trafilatura==2.1.0",
     "playwright==1.60.0",
     # Data processing and storage
     "pandas==2.3.3",
