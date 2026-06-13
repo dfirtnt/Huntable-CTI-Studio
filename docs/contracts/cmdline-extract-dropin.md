@@ -20,8 +20,9 @@ reconstruct, or synthesize commands. Precision over recall — when in doubt, om
 ## SCOPE NOTE
 This extractor only covers single-line Windows command lines. It does NOT cover
 parent-child process trees, bare registry keys/values, service artifacts, scheduled-task
-artifacts, or finished detection logic (Sigma / KQL / SPL / EQL / XQL). Out-of-scope items
-should be ignored.
+artifacts, or the finished detection-logic artifact itself (the Sigma / KQL / SPL / EQL / XQL
+rule or query). A command line stated INSIDE a rule/query IS extractable — see the
+COMPLETE-ARTIFACT RULE. Other out-of-scope items should be ignored.
 
 ## INPUT (flexible)
 I will give you ONE of the following each turn:
@@ -97,11 +98,38 @@ Do NOT extract:
 - Behavioral descriptions, summaries, hypotheticals ("attackers could run…",
   "a possible command…").
 - Commands inside malware source code (C, C++, Python, Go, Rust, .NET, VB).
-- Commands that appear ONLY inside a Sigma rule, KQL/SPL/EQL/XQL query, or other detection
-  logic.
+- Command FRAGMENTS matched inside detection logic — a `CommandLine|contains:`, `|re:`,
+  `|startswith:`, or `|endswith:` predicate (a representation, not the command). A FULL literal
+  command inside a rule/query IS extractable — see COMPLETE-ARTIFACT RULE.
 - Commands that appear ONLY inside a YARA rule.
 - Truncated commands (containing literal "..." to mark truncation).
 - ARGV array representations: ARGV: ["cmd.exe","/c","whoami"].
+
+## COMPLETE-ARTIFACT RULE (detection-logic sources)
+Detection, hunting, and mitigation content — Sigma rules, KQL / SPL / EQL / XQL / vendor hunting
+queries — is a VALID source for command lines, subject to one guard. Descriptive prose was already
+eligible; this opens the rule/query bodies too.
+
+A command matched inside detection logic is extractable ONLY when the matched value is the command
+ITSELF — a verbatim, single-line invocation that independently satisfies POSITIVE EXTRACTION SCOPE —
+never a predicate over the command. Two signals decide, in order:
+
+1. Matching operator (primary) — the operator discloses fidelity.
+   - EXTRACTABLE (full value): Sigma default match or `|equals`; KQL `==` / `=~`; SPL exact match.
+   - SKIP (fragment): `|contains`, `|contains|all`, `|startswith`, `|endswith`, `|re`;
+     KQL `contains` / `has` / `matches regex` / `startswith` / `endswith`; SPL `*wildcard*` / `like` / `rex`.
+2. Value shape (fallback when the operator is ambiguous) — does the matched string, on its own,
+   satisfy POSITIVE EXTRACTION SCOPE? If yes -> extract; if it is a keyword / substring / regex -> SKIP.
+
+A `CommandLine|contains:` condition is a representation in a field — the same category as the
+ARGV-array exclusion and the "not assembled from fields or representations" rule. YARA rules remain
+excluded entirely.
+
+Examples:
+- `Target.Process.CommandLine: ("/C \"chcp 65001 > NUL & netstat -afn -p TCP\"")` -> EXTRACT
+  `chcp 65001 > NUL & netstat -afn -p TCP`.
+- `CommandLine|contains: 'wsuspool'` -> SKIP (fragment).
+- `ProcessCommandLine =~ "powershell.exe -enc <b64>"` -> EXTRACT (full literal command).
 
 ## DETECTION RELEVANCE GATE
 Every extracted command must be observable via at least one of:
@@ -109,7 +137,9 @@ Every extracted command must be observable via at least one of:
 - Windows Security Event ID 4688 (New process creation, CommandLine if auditing enabled)
 - EDR / XDR CommandLine telemetry
 
-If a command is technically present but has no detection-engineering value, SKIP.
+If a command cannot be observed via any of the above telemetry sources, SKIP. Whether a
+technically-observable command has analytical value is a downstream decision; this gate is
+observability, not interestingness.
 
 ## FIDELITY REQUIREMENTS
 - Preserve EXACTLY as written. Do NOT normalize.
@@ -178,7 +208,8 @@ Apply to EVERY candidate before including it:
 - [ ] If wrapped, wrapper was correctly stripped (cmd.exe or %COMSPEC% only) and post-wrapper
       still valid?
 - [ ] Preserves exact casing, spacing, quoting, punctuation?
-- [ ] Source is valid (not source code, detection logic, or YARA)?
+- [ ] Source is valid (not malware source code, not YARA)? If from detection logic, is the matched
+      value a COMPLETE literal command (not a contains / regex fragment)?
 - [ ] Has detection-engineering value (Sysmon 1, Security 4688, EDR CommandLine)?
 
 ## OUTPUT (default: readable Markdown table)
@@ -213,6 +244,7 @@ Precision over recall. EDR observability overrides completeness.
 - If the command is bare (no arguments), SKIP.
 - If the command is multi-line or visually wrapped, SKIP.
 - If a cmd.exe wrapper strips down to a trivial command, SKIP.
-- If the source is malware source code or detection logic, SKIP.
+- If the source is malware source code, SKIP. Detection logic is a valid source under the
+  COMPLETE-ARTIFACT RULE — a full literal command inside a rule/query is extractable; a fragment is not.
 - When in doubt, OMIT.
 ```
