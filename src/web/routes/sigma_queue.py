@@ -566,7 +566,7 @@ def approve_queued_rule(request: Request, queue_id: int, update: QueueUpdateRequ
             rule.status = update.status or "approved"
             rule.reviewed_at = datetime.now()
             rule.review_notes = update.review_notes
-            rule.reviewed_by = "system"  # TODO: Get from auth context
+            rule.reviewed_by = _sigma_author_from_db(db_session)
 
             # Update rule YAML if provided
             if update.rule_yaml:
@@ -605,7 +605,7 @@ async def reject_queued_rule(request: Request, queue_id: int):
 
             rule.status = "rejected"
             rule.reviewed_at = datetime.now()
-            rule.reviewed_by = "system"  # TODO: Get from auth context
+            rule.reviewed_by = _sigma_author_from_db(db_session)
 
             # Try to parse JSON body first (new format with rule_yaml support)
             try:
@@ -682,10 +682,11 @@ def bulk_action_queued_rules(bulk: BulkActionRequest):
                     "approved" if bulk.action == "approve" else "rejected" if bulk.action == "reject" else bulk.status
                 )
                 now = datetime.now()
+                reviewer = _sigma_author_from_db(db_session)
                 for rule in rules:
                     rule.status = target_status
                     rule.reviewed_at = now
-                    rule.reviewed_by = "system"
+                    rule.reviewed_by = reviewer
                     if bulk.review_notes is not None:
                         rule.review_notes = bulk.review_notes
 
