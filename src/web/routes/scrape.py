@@ -431,6 +431,48 @@ async def _scrape_single_url(
                     "existing": True,
                 }
 
+            # Also guard against canonical_url conflicts — a different content_hash
+            # (e.g. OCR-enriched content) still cannot be INSERTed over an existing URL.
+            # Apply the same OCR-append logic used in the force_scrape=False path.
+            existing_by_url = (
+                session.query(ArticleTable)
+                .filter(ArticleTable.canonical_url == url, ~ArticleTable.archived)
+                .first()
+            )
+            if existing_by_url:
+                if pre_scraped_content:
+                    safe_content = pre_scraped_content[:50_000]
+                    ocr_blocks = re.findall(r"\[Image OCR:[^\]]{0,2000}\]\n[^\[]{0,10000}", safe_content)
+                    existing_content = existing_by_url.content or ""
+                    new_blocks = [b for b in ocr_blocks if b.strip() not in existing_content]
+                    if new_blocks:
+                        from src.database.async_manager import AsyncDatabaseManager
+                        from src.models.article import ArticleUpdate
+
+                        appended = existing_content + "\n\n" + "\n\n".join(new_blocks).strip()
+                        async_db_manager = AsyncDatabaseManager()
+                        await async_db_manager.update_article(existing_by_url.id, ArticleUpdate(content=appended))
+                        logger.info(
+                            "Force scrape: appended %d OCR block(s) to existing article %s",
+                            len(new_blocks),
+                            existing_by_url.id,
+                        )
+                        return {
+                            "success": True,
+                            "article_id": existing_by_url.id,
+                            "article_title": existing_by_url.title,
+                            "message": f"Article updated with {len(new_blocks)} OCR block(s)",
+                            "existing": True,
+                        }
+                logger.info(f"Force scrape: URL already stored (ID: {existing_by_url.id}), returning existing")
+                return {
+                    "success": True,
+                    "article_id": existing_by_url.id,
+                    "article_title": existing_by_url.title,
+                    "message": "Article already exists in database",
+                    "existing": True,
+                }
+
     article_data = ArticleCreate(
         source_id=manual_source_id,
         canonical_url=url,

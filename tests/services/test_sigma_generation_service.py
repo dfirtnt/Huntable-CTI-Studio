@@ -185,9 +185,16 @@ level: medium
                         assert result.get("errors") is None
                         # Check for rule-scoped conversation log
                         conversation_log = result["metadata"].get("conversation_log", [])
-                        if conversation_log:
-                            # New approach uses rule-scoped logging
-                            assert "rule_id" in conversation_log[0] or "attempt" in conversation_log[0]
+                        assert conversation_log
+                        generation_call = conversation_log[0]
+                        assert generation_call["event_type"] == "generation_call"
+                        assert generation_call["attempt"] == 1
+                        assert generation_call["llm_response"] == sample_sigma_rule
+                        assert generation_call["generated_rule_count"] >= 1
+                        assert generation_call["valid_rule_count"] >= 1
+                        assert generation_call["invalid_rule_count"] == 0
+                        assert generation_call["messages"][0]["role"] == "system"
+                        assert generation_call["messages"][1]["role"] == "user"
 
     @pytest.mark.asyncio
     async def test_generate_sigma_rules_with_retry(self, service, sample_article_data):
@@ -902,15 +909,18 @@ level: high
                         # Check rule-scoped logging structure
                         conversation_log = result["metadata"].get("conversation_log", [])
                         assert len(conversation_log) > 0
-                        for log_entry in conversation_log:
+                        generation_call = conversation_log[0]
+                        assert generation_call["event_type"] == "generation_call"
+                        assert generation_call["generated_rule_count"] >= 1
+                        rule_logs = conversation_log[1:]
+                        assert rule_logs
+                        for log_entry in rule_logs:
                             assert isinstance(log_entry, dict)
-                            # Should have rule_id or attempt (backward compatibility)
-                            assert "rule_id" in log_entry or "attempt" in log_entry
-                            # Should have generation_phase or be backward compatible
-                            if "rule_id" in log_entry:
-                                assert "generation_phase" in log_entry
-                                assert "final_status" in log_entry
-                                assert "repair_attempts" in log_entry
+                            assert log_entry["event_type"] == "rule_validation"
+                            assert "rule_id" in log_entry
+                            assert "generation_phase" in log_entry
+                            assert "final_status" in log_entry
+                            assert "repair_attempts" in log_entry
 
     def test_build_observables_section_formats_extraction_result(self):
         """_build_observables_section formats extraction_result.observables with 0-based indices."""
