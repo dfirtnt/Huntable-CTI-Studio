@@ -51,17 +51,17 @@ subagents:
   - url: https://www.cisa.gov/news-events/analysis-reports/ar25-338a
     expected_count: 0
   - url: https://www.crowdstrike.com/en-us/blog/crowdstrike-detects-blocks-sharepoint-zero-day-exploitation/
-    expected_count: 1
+    expected_count: 2
   - url: https://www.crowdstrike.com/en-us/blog/falcon-prevents-cookie-spider-shamos-delivery-macos/
     expected_count: 3
   - url: https://www.microsoft.com/en-us/security/blog/2025/08/21/think-before-you-clickfix-analyzing-the-clickfix-social-engineering-technique/
-    expected_count: 2
+    expected_count: 6
   - url: https://www.microsoft.com/en-us/security/blog/2025/12/09/shai-hulud-2-0-guidance-for-detecting-investigating-and-defending-against-the-supply-chain-attack/
-    expected_count: 3
+    expected_count: 5
   - url: https://www.microsoft.com/en-us/security/blog/2025/12/15/defending-against-the-cve-2025-55182-react2shell-vulnerability-in-react-server-components/
-    expected_count: 4
+    expected_count: 8
   - url: https://www.microsoft.com/en-us/security/blog/2026/01/06/phishing-actors-exploit-complex-routing-and-misconfigurations-to-spoof-domains/
-    expected_count: 3
+    expected_count: 6
   registry_artifacts:
   - url: https://securelist.com/crystalx-rat-with-prankware-features/119283/
     expected_count: 1
