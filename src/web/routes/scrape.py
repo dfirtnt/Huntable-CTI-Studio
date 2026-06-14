@@ -435,9 +435,7 @@ async def _scrape_single_url(
             # (e.g. OCR-enriched content) still cannot be INSERTed over an existing URL.
             # Apply the same OCR-append logic used in the force_scrape=False path.
             existing_by_url = (
-                session.query(ArticleTable)
-                .filter(ArticleTable.canonical_url == url, ~ArticleTable.archived)
-                .first()
+                session.query(ArticleTable).filter(ArticleTable.canonical_url == url, ~ArticleTable.archived).first()
             )
             if existing_by_url:
                 if pre_scraped_content:
