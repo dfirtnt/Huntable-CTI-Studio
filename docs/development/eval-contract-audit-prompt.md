@@ -5,7 +5,7 @@ extractor's eval fixtures (Eval1 expected counts + Eval2 ground-truth items).
 That prompt encoded an older authority model (the live DB config as the
 contract source) and has been replaced.
 
-**Use the project skill instead:** [`.claude/skills/eval-fixture-audit/SKILL.md`](../../.claude/skills/eval-fixture-audit/SKILL.md)
+**Use the project skill instead:** `.claude/skills/eval-fixture-audit/SKILL.md` (in the repo root, alongside this `docs/` tree).
 
 In any Claude session opened at the repo root, just ask:
 
