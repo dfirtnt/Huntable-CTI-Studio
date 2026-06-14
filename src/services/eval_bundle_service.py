@@ -444,6 +444,11 @@ class EvalBundleService:
                     if isinstance(entry, dict) and entry.get("attempt") == attempt:
                         attempt_entry = entry
                         break
+            if not attempt_entry and log_key == "generate_sigma":
+                for entry in conversation_log:
+                    if isinstance(entry, dict) and entry.get("event_type") == "generation_call":
+                        attempt_entry = entry
+                        break
             # If attempt not specified or not found, use last entry
             if not attempt_entry and conversation_log:
                 attempt_entry = conversation_log[-1]

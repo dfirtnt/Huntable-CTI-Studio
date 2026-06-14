@@ -1349,7 +1349,7 @@ async function enrichRule() {
     const rule = queue.find(r => r.id === currentRuleId);
     if (!rule) return;
     
-    // Get API key - try settings API first, fallback to localStorage
+    // Get API key from server-side settings only.
     let apiKey = null;
     try {
         const response = await fetch('/api/settings');
@@ -1359,13 +1359,7 @@ async function enrichRule() {
             apiKey = settings.WORKFLOW_OPENAI_API_KEY || settings.OPENAI_API_KEY;
         }
     } catch (error) {
-        console.warn('Could not fetch API key from settings API, trying localStorage:', error);
-    }
-    
-    // Fallback to localStorage if not found in settings API
-    if (!apiKey) {
-        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
-        apiKey = settings.aiOpenaiApiKey || settings.workflowOpenaiApiKey;
+        console.warn('Could not fetch API key from settings API:', error);
     }
     
     if (!apiKey) {
@@ -1506,7 +1500,7 @@ async function enrichRuleFurther() {
         return;
     }
     
-    // Get API key
+    // Get API key from server-side settings only.
     let apiKey = null;
     try {
         const response = await fetch('/api/settings');
@@ -1516,12 +1510,7 @@ async function enrichRuleFurther() {
             apiKey = settings.WORKFLOW_OPENAI_API_KEY || settings.OPENAI_API_KEY;
         }
     } catch (error) {
-        console.warn('Could not fetch API key from settings API, trying localStorage:', error);
-    }
-    
-    if (!apiKey) {
-        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
-        apiKey = settings.aiOpenaiApiKey || settings.workflowOpenaiApiKey;
+        console.warn('Could not fetch API key from settings API:', error);
     }
     
     if (!apiKey) {

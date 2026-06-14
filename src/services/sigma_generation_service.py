@@ -20,6 +20,48 @@ from src.utils.llm_optimizer import optimize_article_content
 logger = logging.getLogger(__name__)
 
 SIGMA_RULE_AUTHOR = "Huntable CTI Studio"
+DEFAULT_SIGMA_SYSTEM_PROMPT = (
+    "You are a SIGMA rule creation expert. Output ONLY valid YAML starting with 'title:'. Use exact 2-space "
+    "indentation. logsource and detection must be nested dictionaries. No markdown, no explanations. IMPORTANT: "
+    "If title or description contains special YAML characters (?, :, [, ], {, }, |, &, *, #, @, `), quote the "
+    'value with double quotes, e.g., title: "Rule Title with ?". REQUIRED: When observables are provided, every '
+    "rule MUST include the field observables_used: [indices] listing which 0-based observable indices grounded "
+    "that rule. Never omit this field when observables are listed."
+)
+_TRACE_MESSAGE_MAX_CHARS = 3000
+_TRACE_RESPONSE_MAX_CHARS = 20000
+
+
+def _truncate_trace_text(value: str, max_chars: int) -> str:
+    """Bound live-trace payload size without mutating the source value."""
+    return value[:max_chars] + "..." if len(value) > max_chars else value
+
+
+def _build_sigma_generation_log(
+    *,
+    generation_phase: str,
+    attempt: int,
+    prompt: str,
+    response: str,
+    system_prompt: str | None,
+    validation_results: "ValidationResults",
+) -> dict[str, Any]:
+    return {
+        "event_type": "generation_call",
+        "generation_phase": generation_phase,
+        "attempt": attempt,
+        "messages": [
+            {
+                "role": "system",
+                "content": _truncate_trace_text(system_prompt or DEFAULT_SIGMA_SYSTEM_PROMPT, _TRACE_MESSAGE_MAX_CHARS),
+            },
+            {"role": "user", "content": _truncate_trace_text(prompt, _TRACE_MESSAGE_MAX_CHARS)},
+        ],
+        "llm_response": _truncate_trace_text(response, _TRACE_RESPONSE_MAX_CHARS),
+        "generated_rule_count": len(validation_results.all_rules),
+        "valid_rule_count": len(validation_results.valid_rules),
+        "invalid_rule_count": len(validation_results.invalid_rules),
+    }
 
 
 def _sigma_rule_date() -> str:
@@ -415,7 +457,27 @@ class SigmaGenerationService:
 
             # Build final rules list and conversation log
             final_rules = []
-            conversation_log = []
+            conversation_log = [
+                _build_sigma_generation_log(
+                    generation_phase="generation",
+                    attempt=1,
+                    prompt=sigma_prompt,
+                    response=generated_yaml,
+                    system_prompt=sigma_system_prompt,
+                    validation_results=validation_results,
+                )
+            ]
+            if expansion_validation:
+                conversation_log.append(
+                    _build_sigma_generation_log(
+                        generation_phase="expansion",
+                        attempt=2,
+                        prompt=expansion_prompt,
+                        response=expansion_yaml,
+                        system_prompt=sigma_system_prompt,
+                        validation_results=expansion_validation,
+                    )
+                )
 
             # Process all rules and build rule-scoped logs
             for rule_result in all_valid_rules + expansion_rules:
@@ -445,6 +507,7 @@ class SigmaGenerationService:
 
                 # Build conversation log entry for this rule
                 rule_log = {
+                    "event_type": "rule_validation",
                     "rule_id": rule_result.rule_id,
                     "generation_phase": rule_result.generation_phase,
                     "final_status": rule_result.final_status,
@@ -887,8 +950,7 @@ Focus on generating rules for the uncovered categories listed above."""
         model_name = raw_model_name
 
         # Use provided system prompt or fall back to default
-        default_system_prompt = "You are a SIGMA rule creation expert. Output ONLY valid YAML starting with 'title:'. Use exact 2-space indentation. logsource and detection must be nested dictionaries. No markdown, no explanations. IMPORTANT: If title or description contains special YAML characters (?, :, [, ], {, }, |, &, *, #, @, `), quote the value with double quotes, e.g., title: \"Rule Title with ?\". REQUIRED: When observables are provided, every rule MUST include the field observables_used: [indices] listing which 0-based observable indices grounded that rule. Never omit this field when observables are listed."
-        system_content = system_prompt if system_prompt else default_system_prompt
+        system_content = system_prompt if system_prompt else DEFAULT_SIGMA_SYSTEM_PROMPT
 
         messages = [{"role": "system", "content": system_content}, {"role": "user", "content": prompt}]
 

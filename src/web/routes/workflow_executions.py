@@ -37,6 +37,102 @@ def get_db_manager() -> DatabaseManager:
     return _db_manager
 
 
+def _conversation_entry_is_new(agent_name: str, entry: dict[str, Any], last_conversation_log: list[Any]) -> bool:
+    for last_entry in last_conversation_log:
+        if not isinstance(last_entry, dict):
+            continue
+
+        if last_entry.get("event_type") == entry.get("event_type"):
+            if entry.get("event_type") == "rule_validation" and last_entry.get("rule_id") == entry.get("rule_id"):
+                return False
+            if entry.get("event_type") == "generation_call" and last_entry.get("generation_phase") == entry.get(
+                "generation_phase"
+            ):
+                return False
+
+        # Check by attempt number (for rank_article, legacy generate_sigma)
+        if last_entry.get("attempt") is not None and entry.get("attempt") is not None:
+            if last_entry.get("attempt") == entry.get("attempt"):
+                return False
+
+        # Check by agent name + items_count (for extract_agent sub-agents)
+        elif agent_name == "extract_agent":
+            if last_entry.get("agent") == entry.get("agent") and last_entry.get("items_count") == entry.get(
+                "items_count"
+            ):
+                return False
+
+        # Fallback: if both have no attempt and no agent, compare by shape
+        elif (
+            last_entry.get("attempt") is None
+            and entry.get("attempt") is None
+            and last_entry.get("agent") is None
+            and entry.get("agent") is None
+        ):
+            return False
+
+    return True
+
+
+def _build_conversation_stream_events(
+    agent_name: str,
+    agent_log: dict[str, Any],
+    last_agent_log: dict[str, Any],
+    timestamp: str,
+) -> list[dict[str, Any]]:
+    conversation_log = agent_log.get("conversation_log", [])
+    last_conversation_log = last_agent_log.get("conversation_log", [])
+    if not conversation_log or not isinstance(conversation_log, list):
+        return []
+    if not isinstance(last_conversation_log, list):
+        last_conversation_log = []
+
+    events = []
+    removed_agents = {"SigExtract", "EventCodeExtract", "RegExtract"}
+
+    for entry in conversation_log:
+        if not isinstance(entry, dict):
+            continue
+        if not _conversation_entry_is_new(agent_name, entry, last_conversation_log):
+            continue
+
+        event_type = entry.get("event_type")
+        if agent_name == "generate_sigma" and event_type == "rule_validation":
+            continue
+
+        display_agent = entry.get("agent", agent_name) if agent_name == "extract_agent" else agent_name
+        if display_agent in removed_agents:
+            continue
+
+        event_payload = {
+            "type": "llm_interaction",
+            "step": agent_name,
+            "agent": display_agent,
+            "messages": entry.get("messages", []),
+            "response": entry.get("llm_response", ""),
+            "attempt": entry.get("attempt", 1),
+            "timestamp": timestamp,
+        }
+        score = entry.get("score")
+        if score is not None:
+            event_payload["score"] = score
+        discrete_huntables_count = entry.get("discrete_huntables_count")
+        if discrete_huntables_count is None:
+            discrete_huntables_count = entry.get("items_count")
+        if discrete_huntables_count is not None:
+            event_payload["discrete_huntables_count"] = discrete_huntables_count
+        if entry.get("attention_preprocessor") is not None:
+            event_payload["attention_preprocessor"] = entry["attention_preprocessor"]
+        if agent_name == "generate_sigma" and event_type == "generation_call":
+            event_payload["generation_phase"] = entry.get("generation_phase")
+            event_payload["generated_rule_count"] = entry.get("generated_rule_count")
+            event_payload["valid_rule_count"] = entry.get("valid_rule_count")
+            event_payload["invalid_rule_count"] = entry.get("invalid_rule_count")
+        events.append(event_payload)
+
+    return events
+
+
 def calculate_extraction_counts(extraction_result: dict[str, Any] | None) -> dict[str, int]:
     """
     Derive observable counts from extract agent results.
@@ -618,84 +714,13 @@ async def stream_execution_updates(execution_id: int):
                             if not isinstance(last_agent_log, dict):
                                 last_agent_log = {}
 
-                            # Check for conversation_log (Rank, Extract, SIGMA, etc.)
-                            if "conversation_log" in agent_log:
-                                conversation_log = agent_log["conversation_log"]
-                                last_conversation_log = last_agent_log.get("conversation_log", [])
-
-                                if conversation_log and isinstance(conversation_log, list):
-                                    # Only send new entries (entries not in last_error_log)
-                                    for entry in conversation_log:
-                                        # Check if this entry is new
-                                        # For extract_agent: use agent name + items_count as unique key
-                                        # For other agents: use attempt number
-                                        is_new = True
-                                        if isinstance(last_conversation_log, list):
-                                            for last_entry in last_conversation_log:
-                                                if isinstance(last_entry, dict) and isinstance(entry, dict):
-                                                    # Check by attempt number (for rank_article, generate_sigma)
-                                                    if (
-                                                        last_entry.get("attempt") is not None
-                                                        and entry.get("attempt") is not None
-                                                    ):
-                                                        if last_entry.get("attempt") == entry.get("attempt"):
-                                                            is_new = False
-                                                            break
-                                                    # Check by agent name + items_count (for extract_agent sub-agents)
-                                                    elif agent_name == "extract_agent":
-                                                        if last_entry.get("agent") == entry.get(
-                                                            "agent"
-                                                        ) and last_entry.get("items_count") == entry.get("items_count"):
-                                                            is_new = False
-                                                            break
-                                                    # Fallback: if both have no attempt and no agent, compare by index
-                                                    elif (
-                                                        last_entry.get("attempt") is None
-                                                        and entry.get("attempt") is None
-                                                        and last_entry.get("agent") is None
-                                                        and entry.get("agent") is None
-                                                    ):
-                                                        # Same entry structure - consider duplicate
-                                                        is_new = False
-                                                        break
-
-                                        if is_new and isinstance(entry, dict):
-                                            # For extract_agent sub-agents, use the sub-agent name
-                                            display_agent = (
-                                                entry.get("agent", agent_name)
-                                                if agent_name == "extract_agent"
-                                                else agent_name
-                                            )
-
-                                            # Filter out removed subagents (SigExtract, EventCodeExtract, RegExtract)
-                                            removed_agents = {
-                                                "SigExtract",
-                                                "EventCodeExtract",
-                                                "RegExtract",
-                                            }
-                                            if display_agent in removed_agents:
-                                                continue  # Skip displaying removed agents
-
-                                            # Add step context to event - map agent_name to workflow step
-                                            step_context = agent_name  # Default to agent_name as step
-
-                                            event_payload = {
-                                                "type": "llm_interaction",
-                                                "step": step_context,
-                                                "agent": display_agent,
-                                                "messages": entry.get("messages", []),
-                                                "response": entry.get("llm_response", ""),
-                                                "attempt": entry.get("attempt", 1),
-                                                "score": entry.get("score"),
-                                                "discrete_huntables_count": entry.get("discrete_huntables_count")
-                                                or entry.get("items_count"),
-                                                "timestamp": datetime.now().isoformat(),
-                                            }
-                                            if entry.get("attention_preprocessor") is not None:
-                                                event_payload["attention_preprocessor"] = entry[
-                                                    "attention_preprocessor"
-                                                ]
-                                            yield f"data: {json.dumps(event_payload)}\n\n"
+                            for event_payload in _build_conversation_stream_events(
+                                agent_name,
+                                agent_log,
+                                last_agent_log,
+                                datetime.now().isoformat(),
+                            ):
+                                yield f"data: {json.dumps(event_payload)}\n\n"
 
                         # Update last_error_log after processing
                         last_error_log = json.loads(json.dumps(current_error_log)) if current_error_log else {}

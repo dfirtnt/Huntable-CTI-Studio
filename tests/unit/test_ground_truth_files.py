@@ -106,11 +106,23 @@ def test_ground_truth_no_duplicate_urls(subagent):
 
 @pytest.mark.parametrize("subagent", SUBAGENTS)
 def test_ground_truth_ascii_only(subagent):
-    """Items must be ASCII-only (repo convention).
+    """Items must be ASCII-only (repo convention) — except hunt_queries.
 
     Non-ASCII characters (smart quotes, em-dashes, etc.) can silently break
-    exact-match scoring when the extractor outputs plain ASCII.
+    exact-match scoring when the extractor outputs plain ASCII for the
+    short-artifact extractors (cmdline, registry keys, service names, etc.).
+
+    hunt_queries is exempt: its items are full EDR/SIEM queries and Sigma
+    YAML rules that can legitimately contain intentional Unicode in their
+    detection logic (e.g. the ClickFix Microsoft blog hunting query targets
+    `RegistryValueData has "✅"` and a Unicode regex char class spanning
+    Cyrillic/Greek/Hebrew/Arabic/Thai ranges; the React2Shell query carries
+    a U+2013 EN-DASH inside a `[-/–]` regex char class). HuntQueriesExtract
+    FIDELITY ("Preserve obfuscated or encoded values exactly. Do NOT escape
+    or unescape characters.") requires preserving these verbatim.
     """
+    if subagent == "hunt_queries":
+        pytest.skip("hunt_queries items are full queries; intentional Unicode is preserved per FIDELITY")
     data = _load_ground_truth(subagent)
     violations = []
     for entry in data:

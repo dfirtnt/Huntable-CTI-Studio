@@ -435,6 +435,43 @@ class TestEvalBundleServiceHelpers:
         assert filtered["agent_models"]["CmdlineExtract"]["provider"] == "openai"
         assert filtered["agent_models"]["CmdlineExtract"]["model"] == "gpt-4o-mini"
 
+    def test_generate_sigma_bundle_prefers_generation_call_over_validation_entry(self):
+        service = EvalBundleService(Mock())
+        execution = Mock()
+        execution.id = 778
+        execution.error_log = {
+            "generate_sigma": {
+                "conversation_log": [
+                    {
+                        "event_type": "generation_call",
+                        "attempt": 1,
+                        "messages": [{"role": "user", "content": "Generate Sigma"}],
+                        "llm_response": "title: Test Rule",
+                    },
+                    {
+                        "event_type": "rule_validation",
+                        "rule_id": "rule-1",
+                        "generation_phase": "generation",
+                        "final_status": "valid",
+                        "validation": {"is_valid": True},
+                    },
+                ]
+            }
+        }
+        execution.config_snapshot = {"agent_models": {"SigmaAgent": {"provider": "lmstudio", "model": "test-model"}}}
+
+        with patch("src.services.eval_bundle_service.is_langfuse_enabled", return_value=False):
+            llm_request, llm_response, warnings, actual_attempt = service._extract_llm_call_data(
+                execution=execution,
+                agent_name="generate_sigma",
+                attempt=None,
+            )
+
+        assert warnings == []
+        assert actual_attempt == 1
+        assert llm_request["messages"] == [{"role": "user", "content": "Generate Sigma"}]
+        assert llm_response["text_output"] == "title: Test Rule"
+
     def test_extract_context_and_metadata_helpers(self):
         service = EvalBundleService(Mock())
         warnings: list[str] = []

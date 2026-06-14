@@ -205,7 +205,7 @@ Generated Rule
        (a) canonical_class path: filter sigma_rules.canonical_class = X (no LIMIT)
        (b) logsource_key fallback: filter sigma_rules.logsource_key = X (LIMIT 20)
      Each candidate is tagged with the phase1_path it came from.
-  3. Phase 2 scoring — Jaccard × Containment − Filter, deterministic engine
+  3. Phase 2 scoring — Jaccard × Containment − Filter over atom sets
   4. Phase 3 safety gate (scoped) — drop logsource_key mismatches ONLY on the
      logsource_key-fallback path. The canonical_class path's SQL filter is the
      authoritative scoping; gating it would re-impose the narrower predicate the
@@ -238,7 +238,7 @@ in place for malformed or unmodeled rules that may arrive in the future.
 
 ### Behavioral Novelty Scoring
 
-**Deterministic path** (when `sigma_atom_similarity` package is installed):
+**Precomputed atom path** (stored atom columns are available):
 
 ```
 novelty_score = 1 - similarity_score
@@ -372,7 +372,7 @@ For each (proposed, candidate) pair:
 
 Rules whose Sigma syntax exceeds the AST builder (unsupported correlation, DNF expansion limit) return `None` from extraction and are skipped.
 
-**Code labels:** `similarity_engine: "deterministic"` means the precomputed-atom scorer ran; `"legacy"` is retained only for exact-hash duplicate short-circuits. Both use the same set-math engine when scoring.
+**Code labels:** `similarity_engine: "precomputed"` means stored atom columns were used; `"on-the-fly"` means live atom extraction was used because stored atoms were unavailable. Historical rows with the old labels are mapped on read.
 
 ### Similarity Thresholds
 
@@ -592,7 +592,7 @@ entry for display in the Sigma Queue UI.
 | Normalizer | `sigma_behavioral_normalizer.py` | Resolves field aliases (PascalCase / snake_case / lowercase) to canonical identities |
 | Novelty detector | `sigma_novelty_detector.py` | Near-duplicate heuristics before full scoring |
 | Huntability scorer | `sigma_huntability_scorer.py` | Post-generation quality assessment (coverage, specificity) |
-| External engine | `sigma_atom_similarity` pkg | Optional deterministic engine; used when installed |
+| External engine | `sigma_atom_similarity` pkg | Atom set-math package; used for Sigma-to-Sigma behavioral similarity |
 
 ### Vocabulary: "semantic", "embedding", "vector" mean three different things here
 
@@ -609,8 +609,8 @@ The word **"semantic"** is overloaded across the Sigma code and is the single bi
 | Canonical term | Code label (`similarity_scores`) | What it is |
 |---|---|---|
 | **index-time atoms** | `"precomputed"` | Atoms stored in `positive_atoms`/etc.; comparison reads stored strings |
-| **live extraction** | `"precomputed"` | `extract_atom_fields()` at comparison time when stored atoms are absent |
-| **exact-hash duplicate** | `"on-the-fly"` | Short-circuit only; no set-math scoring |
+| **live extraction** | `"on-the-fly"` | `extract_atom_fields()` at comparison time when stored atoms are absent |
+| **exact-hash duplicate** | `"precomputed"` | Short-circuit before pairwise scoring; no live extraction needed |
 
 Neither path uses embeddings. The only probabilistic/fuzzy similarity is article and article→rule vector search (first two rows above). The active service names are `precompute_atom_fields` / `extract_atom_fields` because this path is atom extraction, not embedding work.
 

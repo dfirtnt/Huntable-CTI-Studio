@@ -23,9 +23,11 @@ This extractor only covers Windows scheduled-task identity and scheduling metada
 does NOT cover: the schtasks.exe / at.exe / Register-ScheduledTask command line, the
 <Command>/<Arguments> payload the task runs, HKLM\...\Schedule\TaskCache\* registry
 paths (those are registry artifacts, NEVER store_path), process lineage when a task
-fires, Windows service definitions, or finished detection logic (Sigma / KQL / SPL /
-EQL / XQL). Cron, systemd timers, launchd, and any non-Windows schedulers are out of
-scope entirely.
+fires, Windows service definitions, or the finished detection-logic artifact itself
+(Sigma rules / KQL / SPL / EQL / XQL queries — those belong to HuntQueriesExtract).
+Cron, systemd timers, launchd, and any non-Windows schedulers are out of scope entirely.
+Task identities (task_name / task_path) that appear inside detection logic ARE in scope
+under the Complete-Artifact Rule — see POSITIVE EXTRACTION SCOPE valid sources.
 
 Soft-overlap rule: A task name that appears as the value of a /tn argument inside a
 schtasks invocation, or inside an XML <RegistrationInfo><URI> element, IS extractable
@@ -78,6 +80,10 @@ Extract:
 - schtasks.exe command lines — extract the /tn value only (soft-overlap rule above).
 - Tables, figures, and inline code containing task paths or store paths.
 - IOC tables and appendices.
+- Detection queries and rules (Sigma, KQL, SPL, EQL, XQL, vendor hunting queries) — when a
+  TaskName condition carries a COMPLETE task name or task path as the matched value.
+  Complete-Artifact Rule: a TaskName|contains:, |endswith:, |re:, or other partial-match
+  condition carries a fragment — SKIP.
 
 ## NEGATIVE EXTRACTION SCOPE
 Do NOT extract:
@@ -94,6 +100,9 @@ Do NOT extract:
 - Any store_path containing \Schedule\TaskCache\ — that is a registry path, not a
   filesystem path.
 - Cron, systemd timers, launchd, or any non-Windows schedulers.
+- Task name fragments from partial-match detection conditions (TaskName|contains:,
+  |endswith:, |re:, |windash:) — SKIP. Only full task names or paths from exact-match
+  conditions are eligible.
 
 ## DETECTION RELEVANCE GATE
 Every extracted artifact must drive telemetry-based detection via at least one of:
@@ -152,6 +161,8 @@ Apply to EVERY candidate before including it:
       command)?
 - [ ] Is store_path a filesystem path (not a registry path; no \Schedule\TaskCache\)?
 - [ ] Are trigger and principal (when non-blank) literal substrings of source_evidence?
+- [ ] If from detection logic, is the matched TaskName value a COMPLETE task name/path
+      (not a fragment, suffix, or partial-match predicate)?
 
 ## OUTPUT (default: readable Markdown table)
 Return a table, one row per unique task:
@@ -194,5 +205,7 @@ Precision over recall. EDR observability overrides completeness.
   rule: extract the name, leave trigger blank.
 - If a store_path contains \Schedule\TaskCache\, SKIP — that is a registry path.
 - If the reference is hypothetical, speculative, or defensive guidance, SKIP.
+- If a TaskName value inside detection logic is a fragment (|contains:, |endswith:, |re:),
+  SKIP — it is a predicate, not the task identity.
 - When in doubt, OMIT.
 ```

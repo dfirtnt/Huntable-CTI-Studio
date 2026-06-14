@@ -34,7 +34,10 @@ You are a sub-agent of ExtractAgent. Sibling extractors:
   RegistryExtract owns the resulting KEY/VALUE.
 - Do NOT extract service-creation metadata (service_name, ImagePath) separately; you own the COMMAND,
   ServicesExtract owns the service artifact.
-- Do NOT extract Sigma, KQL, SPL, EQL, XQL, FQL, Carbon Black, or any finished detection logic (HuntQueriesExtract).
+- Do NOT extract the finished detection-logic artifact itself — a Sigma/KQL/SPL/EQL/XQL/FQL/Carbon Black
+  rule or query (HuntQueriesExtract owns it). A command line stated INSIDE such a rule/query IS
+  extractable under the COMPLETE-ARTIFACT RULE below; the rule/query stays HuntQueriesExtract's, the
+  command is yours.
 
 ### Overlap carve-outs
 
@@ -99,7 +102,7 @@ A command is VALID only if ALL conditions are met:
 
 Do NOT extract:
 
-- Placeholders: generic template slots \<command\>, {payload}, $(...) -> REJECT. (Allowed, preserve verbatim: [REDACTED] and analyst redaction labels that mask a real observed value, e.g. [Username], [IP Address], [Hostname], \<redacted\>; defanged indicators hxxp://, [.].) A bracketed/braced token is an allowed redaction when the command is otherwise literal/observed and the token conceals a real value; it is a rejected placeholder when it is a generic slot in a template or hypothetical command.
+- Placeholders: generic template slots `<command>`, `{payload}`, `$(...)` -> REJECT. (Allowed, preserve verbatim: `[REDACTED]` and analyst redaction labels that mask a real observed value, e.g. `[Username]`, `[IP Address]`, `[Hostname]`, `<redacted>`; defanged indicators `hxxp://`, `[.]`.) A bracketed/braced token is an allowed redaction when the command is otherwise literal/observed and the token conceals a real value; it is a rejected placeholder when it is a generic slot in a template or hypothetical command.
 - Bare commands with no arguments/syntax: whoami, ipconfig, hostname.
 - Chains with zero non-trivial components: whoami & hostname.
 - Single-token commands (no spaces).
@@ -107,10 +110,53 @@ Do NOT extract:
 - Commands that require reconstruction from multiple lines or fields.
 - Behavioral descriptions, summaries, hypotheticals ("attackers could run...", "a possible command...").
 - Commands inside malware source code (C, C++, Python, Go, Rust, .NET, VB).
-- Commands that appear ONLY inside a Sigma rule, KQL/SPL/EQL/XQL query, or other detection logic (HuntQueriesExtract).
+- Command FRAGMENTS matched inside detection logic — a `CommandLine|contains:`, `|re:`, `|startswith:`,
+  or `|endswith:` predicate (a representation of a command, not the command). A FULL literal command
+  inside a rule/query IS extractable — see COMPLETE-ARTIFACT RULE.
 - Commands that appear ONLY inside a YARA rule.
 - Truncated commands (containing literal "..." to mark truncation).
 - ARGV array representations: ARGV: ["cmd.exe","/c","whoami"].
+
+## COMPLETE-ARTIFACT RULE (detection-logic sources)
+
+Detection, hunting, and mitigation content — Sigma rules, KQL/SPL/EQL/XQL/FQL/Carbon Black and vendor
+hunting queries — is a VALID source for command lines, subject to one guard. (Descriptive
+detection/hunting/mitigation *prose* was already eligible; this opens the rule/query *bodies* too.)
+Under partial agent enablement the old blanket deference was a coverage hole: an enabled CmdlineExtract
+running without HuntQueriesExtract extracted nothing from a rule body even when a full literal command
+sat inside it.
+
+A command matched inside detection logic is extractable ONLY when the matched value is the COMMAND
+ITSELF — a verbatim, single-line invocation that independently satisfies POSITIVE EXTRACTION SCOPE —
+never a predicate over the command. Two signals decide, in order:
+
+1. **Matching operator (primary). The operator discloses fidelity.**
+   - EXTRACTABLE (carries a full value): exact match — Sigma default field match or `|equals`;
+     KQL `==` / `=~`; SPL exact `=` / explicit full-string match.
+   - SKIP (carries a fragment): `|contains`, `|contains|all`, `|startswith`, `|endswith`, `|re`;
+     KQL `contains` / `has` / `hasprefix` / `matches regex` / `startswith` / `endswith`;
+     SPL `*wildcard*` / `like` / `rex`.
+2. **Value shape (fallback when the operator is ambiguous** — e.g. a vendor query field with no
+   explicit modifier). Does the matched string, on its own, satisfy POSITIVE EXTRACTION SCOPE
+   (recognized first token + >=1 non-trivial component, single physical line, no `...` truncation,
+   no placeholder)? If yes -> extract; if it is a keyword / substring / regex -> SKIP.
+
+This is not a new principle. A `CommandLine|contains:` condition is a representation/predicate in a
+field — the same category as the ARGV-array exclusion ("representation, not a command line") and the
+POSITIVE/1 rule "not assembled from multiple locations, fields, or representations." The guard simply
+names that detection-logic field conditions are representations unless the matched value is a full
+literal command.
+
+The rule/query artifact itself stays HuntQueriesExtract's; only the command line is extracted. YARA
+rules remain excluded entirely (file-content signatures, not telemetry detection logic).
+
+Worked examples:
+- `Target.Process.CommandLine: ("/C \"chcp 65001 > NUL & netstat -afn -p TCP\"")` (vendor query, exact
+  value) -> EXTRACT `chcp 65001 > NUL & netstat -afn -p TCP` (full chain; `netstat -afn` non-trivial).
+- `CommandLine|contains: 'wsuspool'` -> SKIP (fragment operator; `wsuspool` is a discriminator
+  substring, not a command).
+- `ProcessCommandLine =~ "powershell.exe -enc <b64>"` (KQL exact match) -> EXTRACT (full literal
+  command as the matched value).
 
 ## DETECTION RELEVANCE GATE
 
@@ -120,7 +166,9 @@ Every extracted command must be observable via at least one of:
 - Windows Security Event ID 4688 (New process creation, CommandLine if auditing enabled)
 - EDR / XDR CommandLine telemetry
 
-If a command is technically present but has no detection engineering value, SKIP.
+If a command cannot be observed via any of the above telemetry sources, SKIP. Whether a
+technically-observable command has analytical value is a downstream decision; this gate is
+observability, not interestingness.
 
 ## FIDELITY REQUIREMENTS
 
@@ -161,7 +209,7 @@ If a command is technically present but has no detection engineering value, SKIP
 - Wrapped trivial command: cmd.exe /c whoami  -> SKIP (post-wrapper is trivial).
 - Wrapped valid chain:      cmd.exe /c ipconfig /all & whoami  -> Extract "ipconfig /all & whoami".
 - Quoted first token:       "net.exe" group "domain admins" /dom  -> Extract verbatim.
-- PowerShell block:         powershell.exe -NoP -W Hidden -enc \<base64\>  -> Extract verbatim.
+- PowerShell block:         powershell.exe -NoP -W Hidden -enc `<base64>`  -> Extract verbatim.
 - reg.exe command:          reg add HKLM\\...\\Run /v X /t REG_SZ /d Y  -> Extract the command; RegistryExtract pulls the key/value.
 - sc.exe command:           sc create MalSvc binPath= "C:\\m.exe" start= auto  -> Extract the command; ServicesExtract pulls the service artifact.
 - Wildcards:                dir C:\\Users\\*\\AppData\\*.dat          INVALID (non-deterministic copy-paste)
@@ -192,9 +240,9 @@ Apply to EVERY candidate before including it:
 - [ ] Contains at least one space AND at least one non-trivial argument/switch/pipe/redirect/chain component?
 - [ ] If wrapped, wrapper was correctly stripped (cmd.exe or %COMSPEC% only) and post-wrapper still valid?
 - [ ] Preserves exact casing, spacing, quoting, punctuation?
-- [ ] Source is valid (not source code, detection logic, or YARA)?
+- [ ] Source is valid (not malware source code, not YARA)? If from detection logic, is the matched value a COMPLETE literal command (not a contains/regex fragment)?
 - [ ] Has detection engineering value (Sysmon 1, Security 4688, EDR CommandLine)?
-- [ ] NOT owned by a sibling extractor (no lineage statements, no bare registry keys, no Sigma/KQL)?
+- [ ] NOT a sibling's artifact (no lineage pairs, no bare registry keys, not the finished rule/query itself)?
 - [ ] Are all four traceability fields populated (value, source_evidence, extraction_justification, confidence_score)?
 
 ---
@@ -261,7 +309,9 @@ Precision over recall. EDR observability overrides completeness.
 If the command is bare (no arguments), SKIP.
 If the command is multi-line or visually wrapped, SKIP.
 If a cmd.exe wrapper strips down to a trivial command, SKIP.
-If the source is malware source code or detection logic, SKIP.
+If the source is malware source code, SKIP. Detection logic is now a valid source under the
+COMPLETE-ARTIFACT RULE — a full literal command inside a rule/query is extractable; a contains/regex
+fragment is not.
 When in doubt, OMIT.
 
-_Last updated: 2026-05-23_
+_Last updated: 2026-06-13_

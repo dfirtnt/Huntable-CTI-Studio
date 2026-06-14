@@ -96,3 +96,40 @@ def test_panel_context_dedupes_lower_priority_duplicates() -> None:
     assert [item.text for item in panel_groups["lolbas"]] == ["cmd.exe"]
     assert [item.text for item in panel_groups["intelligence"]] == ["incident"]
     assert "Highest-priority match among: Perfect, LOLBAS" in panel_groups["perfect"][0].title
+
+
+def test_compound_lolbas_executable_is_not_fragmented_by_exe_good_match() -> None:
+    content = "The actor launched cmd.exe from AppData."
+    metadata = {
+        "perfect_keyword_matches": [],
+        "good_keyword_matches": [".exe"],
+        "lolbas_matches": ["cmd.exe"],
+        "intelligence_matches": [],
+        "negative_matches": [],
+    }
+
+    context = build_keyword_resolution_context(content, metadata)
+    resolved = context["matches"]
+    panel_groups = {group["key"]: group["items"] for group in context["panel_groups"]}
+
+    assert [(match.text, match.category) for match in resolved] == [("cmd.exe", "lolbas")]
+    assert [item.text for item in panel_groups["lolbas"]] == ["cmd.exe"]
+    assert panel_groups["good"] == []
+    assert "More-specific match among: Good, LOLBAS" in panel_groups["lolbas"][0].title
+
+
+def test_perfect_discriminator_supersedes_overlapping_keyword_matches() -> None:
+    content = "The actor launched cmd.exe from AppData."
+    metadata = {
+        "perfect_keyword_matches": ["cmd.exe"],
+        "good_keyword_matches": [".exe"],
+        "lolbas_matches": ["cmd.exe"],
+        "intelligence_matches": [],
+        "negative_matches": [],
+    }
+
+    resolved = resolve_keyword_matches(content, metadata)
+
+    assert [(match.text, match.category) for match in resolved] == [("cmd.exe", "perfect")]
+    assert resolved[0].source_categories == ("perfect", "good", "lolbas")
+    assert "Highest-priority match among: Perfect, Good, LOLBAS" in resolved[0].title

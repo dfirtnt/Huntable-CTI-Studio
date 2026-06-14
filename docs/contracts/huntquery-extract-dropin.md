@@ -68,9 +68,24 @@ Handling:
 
 High-confidence platform indicators (require at least one verbatim occurrence):
 
-Microsoft Defender (KQL):
+Microsoft Defender for Endpoint (KQL):
     DeviceProcessEvents, DeviceNetworkEvents, DeviceFileEvents, DeviceRegistryEvents,
     ProcessCommandLine, InitiatingProcessCommandLine
+
+Microsoft Defender for Office 365 (KQL):
+    EmailEvents, EmailAttachmentInfo, EmailUrlInfo, EmailPostDeliveryEvents,
+    UrlClickEvents
+
+Microsoft Defender for Cloud / cloud-workload KQL:
+    CloudProcessEvents, CloudAuditEvents, AlertEvidence
+    (qualify alone if at least one Defender/ECS field — ProcessCommandLine,
+     ParentProcessName, KubernetesPodName, etc. — appears verbatim in the same block)
+
+Microsoft Sentinel ASIM (KQL):
+    _Im_NetworkSession, _Im_WebSession, _Im_Dns, _Im_AuthenticationEvent,
+    imFileEvent, imProcessCreate, imProcessTerminate, imRegistryEvent
+    (ASIM parsers are first-class hunting tables in Sentinel; one verbatim
+     occurrence suffices)
 
 CrowdStrike Falcon (FQL):
     ProcessRollup2, ScriptControlScanTelemetry, CommandHistory, DnsRequest, NetworkConnect

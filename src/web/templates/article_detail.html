@@ -470,7 +470,7 @@
             <div class="mb-4 space-y-3">
                 <div class="flex flex-wrap items-center gap-3">
                     <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Automatic keyword highlights</span>
-                    <button type="button" class="inline-flex items-center justify-center w-4 h-4 rounded-full text-xs font-bold text-gray-400 dark:text-gray-500 border border-gray-300 dark:border-gray-600 hover:text-gray-600 dark:hover:text-gray-300 hover:border-gray-400 dark:hover:border-gray-400 transition-colors" title="Overlapping keyword matches are split at every boundary. Each sub-span is won by the highest-priority category covering it (Perfect &gt; Good &gt; LOLBAS &gt; Intelligence &gt; Negative). On ties, the longer match wins. Adjacent sub-spans with the same winner are merged.">?</button>
+                    <button type="button" class="inline-flex items-center justify-center w-4 h-4 rounded-full text-xs font-bold text-gray-400 dark:text-gray-500 border border-gray-300 dark:border-gray-600 hover:text-gray-600 dark:hover:text-gray-300 hover:border-gray-400 dark:hover:border-gray-400 transition-colors" title="Overlapping keyword matches prefer Perfect Discriminators first. Other overlaps prefer the longer, more-specific match; ties use category priority (Good &gt; LOLBAS &gt; Intelligence &gt; Negative).">?</button>
                     {% for legend in keyword_resolution.automatic_legends %}
                     <span class="inline-flex items-center gap-2 px-2 py-1 rounded-md text-xs font-medium text-gray-900 dark:text-gray-100 {{ legend.classes }}" title="{{ legend.title }}">
                         <span class="w-3 h-3 rounded border border-current/30 {{ legend.classes }}"></span>
@@ -1863,10 +1863,10 @@ Please provide a detailed analysis based on the article content and the user's s
                     highlightSpan.className = `px-1 py-0.5 rounded text-xs font-medium border ${style.highlightClass}`;
                     highlightSpan.title = `${style.label}: ${text.substring(0, 50)}...`;
                     highlightSpan.dataset.annotationType = classification;
-                    highlightSpan.textContent = text;
                     
-                    // Replace the range content with our highlight span
-                    range.deleteContents();
+                    // Move the existing DOM fragment so server-rendered keyword highlights survive annotation restore.
+                    const selectedFragment = range.extractContents();
+                    highlightSpan.appendChild(selectedFragment);
                     range.insertNode(highlightSpan);
                     
                     console.log('Position-based highlighting successful');
@@ -6676,16 +6676,14 @@ Please provide a detailed analysis based on the article content and the user's s
             return;
         }
         
-        // Fetch workflow config to get actual model names
+        // Fetch workflow config to get actual embedding model name
         let embeddingModel = 'ibm-research/CTI-BERT';
-        let fallbackModel = 'mistralai/mistral-7b-instruct-v0.3';
         try {
             const configResponse = await fetch('/api/workflow/config');
             if (configResponse.ok) {
                 const config = await configResponse.json();
                 if (config.agent_models) {
                     embeddingModel = config.agent_models['OSDetectionAgent_embedding'] || embeddingModel;
-                    fallbackModel = config.agent_models['OSDetectionAgent_fallback'] || fallbackModel;
                 }
             }
         } catch (e) {
@@ -6696,7 +6694,6 @@ Please provide a detailed analysis based on the article content and the user's s
         const embeddingModelDisplay = embeddingModel.includes('CTI-BERT') ? 'CTI-BERT' : 
                                      embeddingModel.includes('SEC-BERT') ? 'SEC-BERT' : 
                                      embeddingModel.split('/').pop();
-        const fallbackModelDisplay = fallbackModel.split('/').pop() || 'Mistral-7B-Instruct-v0.3';
         
         // Show loading indicator
         const loadingModal = document.createElement('div');
@@ -6757,7 +6754,6 @@ Please provide a detailed analysis based on the article content and the user's s
                         <span class="ml-3 text-gray-300">Analyzing article content...</span>
                     </div>
                     <p class="text-xs text-gray-400 mt-4">Trying keyword matching, then ${embeddingModelDisplay} embeddings + classifier</p>
-                    <p class="text-xs text-gray-500 mt-1">Fallback: ${fallbackModelDisplay}</p>
                     <div class="mt-6 flex flex-col items-center space-y-3">
                         <button id="cancelBtnOs" class="px-6 py-2.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 focus:ring-offset-gray-900 shadow-sm transition-colors">
                             Cancel Operation
@@ -6875,7 +6871,6 @@ Please provide a detailed analysis based on the article content and the user's s
                                     '<div>Method: <span class="font-mono">Keyword Matching</span></div>' :
                                     `<div>Embedding: <span class="font-mono">${embeddingModelDisplay}</span></div>`
                                 }
-                                ${method.includes('fallback') || method.includes('LLM') ? `<div>LLM Fallback: <span class="font-mono">${fallbackModelDisplay}</span></div>` : ''}
                             </div>
                         </div>
                         
@@ -8346,6 +8341,9 @@ ${JSON.stringify(rule.logsource, null, 2)}
         `;
         document.body.appendChild(loadingModal);
         
+        let chunkDebugDismissed = false;
+        let chunkDebugOpeningResults = false;
+
         // Register with ModalManager for proper Escape key handling
         if (window.ModalManager) {
             window.ModalManager.register('chunkDebugLoadingModal', {
@@ -8353,6 +8351,9 @@ ${JSON.stringify(rule.logsource, null, 2)}
                 isDynamic: true,
                 hasInput: false,
                 onClose: () => {
+                    if (!chunkDebugOpeningResults) {
+                        chunkDebugDismissed = true;
+                    }
                     // ESC just closes the modal, operation continues in background
                     const modal = document.getElementById('chunkDebugLoadingModal');
                     if (modal && modal.parentNode) {
@@ -8433,11 +8434,13 @@ ${JSON.stringify(rule.logsource, null, 2)}
             
             // Remove loading modal
             if (loadingModal && loadingModal.parentNode) {
+                chunkDebugOpeningResults = true;
                 if (window.ModalManager) {
                     window.ModalManager.close('chunkDebugLoadingModal');
                 } else {
                     loadingModal.remove();
                 }
+                chunkDebugOpeningResults = false;
             }
             
             // Show truncation warnings if any
@@ -8447,8 +8450,10 @@ ${JSON.stringify(rule.logsource, null, 2)}
                 });
             }
             
-            // Show chunk debug modal
-            showChunkDebugResults(debugData);
+            // Show chunk debug modal unless the user dismissed the loading modal.
+            if (!chunkDebugDismissed) {
+                showChunkDebugResults(debugData);
+            }
             
         } catch (error) {
             console.error('Chunk debug error:', error);
@@ -8831,6 +8836,16 @@ ${JSON.stringify(rule.logsource, null, 2)}
                 // Double-check modal is visible
                 modal.classList.remove('hidden');
             }
+
+            const chunkDebugEscHandler = function(e) {
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    closeChunkDebugModal();
+                }
+            };
+            modal._escKeyHandler = chunkDebugEscHandler;
+            document.addEventListener('keydown', chunkDebugEscHandler, true);
             
             // Store debug data globally for filtering
             window.chunkDebugData = data;
@@ -9159,15 +9174,14 @@ ${JSON.stringify(rule.logsource, null, 2)}
     function closeChunkDebugModal() {
         const modal = document.getElementById('chunkDebugModal');
         if (modal) {
+            if (modal._escKeyHandler) {
+                document.removeEventListener('keydown', modal._escKeyHandler, true);
+                delete modal._escKeyHandler;
+            }
             // Use ModalManager if available
             if (window.ModalManager) {
                 window.ModalManager.close('chunkDebugModal');
             } else {
-                // Fallback: remove Esc key handler if it exists
-                if (modal._escKeyHandler) {
-                    document.removeEventListener('keydown', modal._escKeyHandler);
-                    delete modal._escKeyHandler;
-                }
                 modal.remove();
             }
         }

@@ -167,11 +167,15 @@ class ContentCleaner:
             for tag in soup.find_all(["p", "div", "h1", "h2", "h3", "h4", "h5", "h6", "li", "br"]):
                 tag.insert_after("\n")
 
-            # Extract text
-            text = soup.get_text(separator=" ", strip=True)
+            # Extract text. strip=False is deliberate: the block-level "\n"
+            # inserted above are whitespace-only and would be dropped by
+            # strip=True. normalize_whitespace_keep_newlines() below collapses
+            # the resulting extra spaces while preserving the block newlines.
+            text = soup.get_text(separator=" ", strip=False)
 
-            # Clean up whitespace and normalize
-            text = ContentCleaner.normalize_whitespace(text)
+            # Clean up whitespace and normalize (preserve block newlines so
+            # command-line / multi-line artifacts stay segmentable downstream)
+            text = ContentCleaner.normalize_whitespace_keep_newlines(text)
 
             # Remove non-printable characters
             text = ContentCleaner.clean_text_characters(text)
@@ -180,13 +184,34 @@ class ContentCleaner:
         except Exception as e:
             logger.warning(f"Error in html_to_text: {e}")
             # Fallback to simple text extraction
-            return ContentCleaner.normalize_whitespace(str(html))
+            return ContentCleaner.normalize_whitespace_keep_newlines(str(html))
 
     @staticmethod
     def normalize_whitespace(text: str) -> str:
         """Normalize whitespace in text."""
         # Replace multiple whitespace characters with single space
         text = re.sub(r"\s+", " ", text)
+        return text.strip()
+
+    @staticmethod
+    def normalize_whitespace_keep_newlines(text: str) -> str:
+        """Normalize whitespace while preserving newlines (block structure).
+
+        Collapses runs of *horizontal* whitespace (spaces, tabs, carriage
+        returns) to a single space but keeps ``\\n`` intact, so command-line and
+        multi-line artifacts stay segmentable for downstream extractors. Trims
+        horizontal space hugging each newline and caps blank-line runs at one.
+
+        Use this for article *body* text. Titles/tags/authors should keep using
+        :meth:`normalize_whitespace`, which flattens to a single line.
+        """
+        if not text:
+            return ""
+        # ``[^\S\n]`` = any whitespace that is NOT a newline (space/tab/\r/etc.)
+        text = re.sub(r"[^\S\n]+", " ", text)
+        # Drop spaces hugging newlines, then cap consecutive blank lines at one
+        text = re.sub(r" *\n *", "\n", text)
+        text = re.sub(r"\n{3,}", "\n\n", text)
         return text.strip()
 
     @staticmethod

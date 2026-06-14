@@ -172,8 +172,14 @@ class TestMacroUsedInWorkflowTemplate:
 
 
 @pytest.mark.unit
-class TestExtractAgentFallbackOption:
-    """Extract agents (not QA) must have the fallback model option."""
+class TestExtractAgentInheritOption:
+    """Extract sub-agents must expose the "inherit from ExtractAgent" model option.
+
+    The label was renamed from "Use Extract Agents Fallback Model" to
+    "Inherit Extract Agents Model" by `036945d4 chore: retire stale fallback
+    surfaces` (2026-06-12). The behaviour is unchanged — an empty value tells the
+    runtime to inherit ExtractAgent's model.
+    """
 
     EXTRACT_PREFIXES = [
         "cmdlineextract",
@@ -185,7 +191,7 @@ class TestExtractAgentFallbackOption:
     ]
 
     @pytest.mark.parametrize("prefix", EXTRACT_PREFIXES)
-    def test_extract_agent_has_fallback(self, rendered_blocks, prefix):
-        assert "Use Extract Agents Fallback Model" in rendered_blocks[prefix], (
-            f"Extract agent '{prefix}' must have fallback model option"
+    def test_extract_agent_has_inherit_option(self, rendered_blocks, prefix):
+        assert "Inherit Extract Agents Model" in rendered_blocks[prefix], (
+            f"Extract agent '{prefix}' must expose the inherit-from-ExtractAgent model option"
         )

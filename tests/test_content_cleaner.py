@@ -231,6 +231,49 @@ class TestContentCleaner:
         assert "<strong>" not in text
         assert "<em>" not in text
 
+    def test_html_to_text_preserves_newlines_between_blocks(self, content_cleaner):
+        """Separate block elements must stay on separate lines.
+
+        Regression guard for the ``re.sub(r"\\s+", " ", ...)`` collapse that
+        flattened every stored article to one physical line, making per-command
+        segmentation impossible (2026-06-13 CmdlineExtract eval-fixture audit).
+        """
+        html = (
+            "<p>dir &gt; abc1.pdf</p>"
+            "<p>tasklist &gt;&gt; abc1.pdf</p>"
+            "<p>systeminfo &gt;&gt; C:\\programdata\\abc1.pdf</p>"
+        )
+
+        text = content_cleaner.html_to_text(html)
+
+        lines = [ln for ln in text.splitlines() if ln.strip()]
+        assert lines == [
+            "dir > abc1.pdf",
+            "tasklist >> abc1.pdf",
+            "systeminfo >> C:\\programdata\\abc1.pdf",
+        ]
+
+    def test_html_to_text_collapses_horizontal_whitespace_within_a_line(self, content_cleaner):
+        """Runs of spaces/tabs inside one block still collapse to a single space."""
+        html = "<p>net   use\t\tZ: mapped</p>"
+
+        text = content_cleaner.html_to_text(html).strip()
+
+        assert text == "net use Z: mapped"
+
+    def test_normalize_whitespace_keeps_titles_single_line(self):
+        """The shared normalize_whitespace stays single-line (used for titles/tags)."""
+        assert ContentCleaner.normalize_whitespace("Title\nwith\r\nbreaks") == "Title with breaks"
+
+    def test_normalize_whitespace_keep_newlines(self):
+        """Helper: collapse horizontal whitespace, preserve newlines, tidy edges."""
+        fn = ContentCleaner.normalize_whitespace_keep_newlines
+
+        assert fn("a   b\t\tc") == "a b c"  # horizontal runs -> single space
+        assert fn("line1   \n   line2") == "line1\nline2"  # trim spaces hugging newline
+        assert fn("a\n\n\n\nb") == "a\n\nb"  # cap blank-line runs at one
+        assert fn("keep\nsingle\nlines") == "keep\nsingle\nlines"
+
     def test_clean_html_empty_input(self, content_cleaner):
         """Test HTML cleaning with empty input."""
         # Empty string

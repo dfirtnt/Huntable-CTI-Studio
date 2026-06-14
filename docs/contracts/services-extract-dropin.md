@@ -67,17 +67,19 @@ service_name that passes both gates. Ignore subsequent mentions of the same serv
 - Tables, figures, inline code showing service attributes.
 - IOC tables and appendices.
 
+## Complete-Artifact guard for detection-logic sources
+Service artifacts inside Sigma / KQL / SPL / EQL / XQL detection logic are extractable only when
+the matched value is a complete service_name or image_path satisfying Gate 2 — not a suffix,
+substring, or predicate fragment. A ServiceName|contains: 'Mal' predicate value fails Gate 2 → SKIP.
+
 ## NEGATIVE EXTRACTION SCOPE
 Do NOT extract:
 - Generic statements that fail Gate 2 ("the malware runs as a service", "persistence via
   services").
 - Subsequent mentions of the same service (already extracted on first occurrence).
 - Service artifacts inside malware source code.
-- Service artifacts that appear ONLY inside a Sigma rule, KQL/SPL/EQL/XQL query, or
-  other detection logic.
 - Service artifacts that appear ONLY inside a YARA rule.
 - Hypothetical / speculative references ("attackers could install a service...").
-- Defensive guidance or hardening recommendations.
 - Service details inferred from malware-family knowledge rather than explicitly stated.
 - API calls like CreateServiceA / ChangeServiceConfig (extract the artifact if present,
   not the API).
@@ -158,7 +160,9 @@ Apply to EVERY candidate before including it:
 - [ ] Does Gate 2 pass (service_name OR image_path present)?
 - [ ] Are all service attributes explicitly present in the text (not inferred or
       expanded)?
-- [ ] Is the source valid (not source code, detection logic, YARA, or defensive guidance)?
+- [ ] Is the source valid (not malware source code or YARA rule body)?
+- [ ] If the source is detection logic, is the matched value a COMPLETE service_name or
+      image_path — not a suffix, substring, or predicate fragment?
 - [ ] Does the artifact have detection-engineering value (7045, 4697, Sysmon 12/13, EDR)?
 - [ ] Can I point to the exact source_evidence?
 - [ ] Is this the FIRST valid occurrence of this service in document order?
@@ -207,7 +211,7 @@ fields that are blank (do not emit null or empty string). If nothing qualifies, 
 Precision over recall. EDR observability overrides completeness.
 - If both service_name and image_path are absent, SKIP (Gate 2 failure).
 - If only a generic "runs as a service" statement is present, SKIP.
-- If the source is malware source code, detection logic, or defensive guidance, SKIP.
+- If the source is malware source code or a YARA rule body, SKIP.
 - Only the FIRST valid occurrence of each unique service is extracted.
 - When in doubt, OMIT.
 ```

@@ -24,5 +24,38 @@
     "expected_items": [
       "WinUpdate"
     ]
+  },
+  {
+    "url": "https://thedfirreport.com/2021/06/03/weblogic-rce-leads-to-xmrig/",
+    "expected_items": [
+      "BrowserUpdate"
+    ]
+  },
+  {
+    "url": "https://thedfirreport.com/2024/12/02/the-curious-case-of-an-egg-cellent-resume/",
+    "expected_items": [
+      "8766714F94DD"
+    ]
+  },
+  {
+    "url": "https://the-hunters-ledger.com/reports/opendirectory-62-60-237-100-20260506/",
+    "expected_items": [
+      "watchermgmt"
+    ]
+  },
+  {
+    "url": "https://www.huntress.com/blog/the-gentlemen-ransomware-defense-evasion-ttps",
+    "expected_items": [
+      "WindowsConnSvc"
+    ]
+  },
+  {
+    "url": "https://www.elastic.co/security-labs/blockchain-c2-phantompulse-rat-sinkhole",
+    "expected_items": [
+      "DotNetSvcUpdateTask",
+      "DotNetSvcCoreTask",
+      "DotNetSvcUserTask",
+      "DotNetSvcElevateTask"
+    ]
   }
 ]
