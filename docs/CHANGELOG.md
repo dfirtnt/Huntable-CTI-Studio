@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- **AGENTS.md contract: "No hard LMStudio dependency" feature constraint** (2026-06-15): added a `Feature Constraints` section to `AGENTS.md` requiring new features to work with cloud models alone (OpenAI / Anthropic). LMStudio (local inference) is an optional provider — many deployments are cloud-only and never run a local model server — so a feature must never *require* a local provider; local-only paths are gated behind capability checks (`src/services/capability_service.py`, `src/utils/model_validation.py`) and degrade gracefully when only cloud providers are configured.
 
 ## [7.4.1 "Europa"] - 2026-06-14
 ### Changed
