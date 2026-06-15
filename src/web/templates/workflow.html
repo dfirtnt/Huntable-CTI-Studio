@@ -13241,9 +13241,28 @@ async function saveNewRule() {
         if (response.ok && data.success) {
             isCreateMode = false;
             showNotification('Draft rule added to queue', 'success');
-            closeRuleModal();
+            // Refresh the queue so the saved row is available, then transition this
+            // same modal into the standard Preview of the new rule. Validate / Enrich /
+            // Similarity Search / Approve all act on a saved queue ID, so they only
+            // become available once the draft has been persisted.
             queuePage = 1;
+            const statusFilterEl = document.getElementById('queueStatusFilter');
+            if (statusFilterEl && statusFilterEl.value) statusFilterEl.value = ''; // ensure the new pending row is visible
             await loadQueue();
+            const saved = queue.find(r => r.id === data.queue_id);
+            if (saved) {
+                // In-place transition (modal already open): mirror previewRule() without re-pushing.
+                currentRuleId = data.queue_id;
+                isEditMode = false;
+                originalYaml = saved.rule_yaml;
+                editedYaml = saved.rule_yaml;
+                const titleEl = document.getElementById('ruleModalTitle');
+                if (titleEl) titleEl.textContent = 'SIGMA Rule Preview';
+                updateURLParameter('previewId', data.queue_id);
+                renderRulePreview(saved);
+            } else {
+                closeRuleModal();
+            }
         } else {
             const msg = data.detail || 'Failed to add rule to queue';
             showError(typeof msg === 'string' ? msg : JSON.stringify(msg));
