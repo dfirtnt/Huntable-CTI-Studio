@@ -785,6 +785,74 @@ class SubagentEvaluationTable(Base):
         return f"<SubagentEvaluation(id={self.id}, subagent='{self.subagent_name}', url='{self.article_url[:50]}...', score={self.score})>"
 
 
+class SigmaEvaluationTable(Base):
+    """Per-article results for the end-to-end Sigma rule eval.
+
+    Unlike SubagentEvaluationTable (which scores flat item counts for a single
+    extractor), this scores the Sigma rules the full pipeline generated against
+    the rules an article *should* produce, at two granularities: logsource
+    (canonical telemetry class) and detection atoms. Scoring is performed by
+    src/services/sigma_eval_service.py via src/services/sigma_eval_scorer.py.
+    """
+
+    __tablename__ = "sigma_evaluations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    article_url = Column(Text, nullable=False, index=True)  # Full URL (survives rehydration)
+    article_id = Column(Integer, ForeignKey("articles.id"), nullable=True, index=True)
+
+    # Count layer (Eval1 analog)
+    expected_rule_count = Column(Integer, nullable=False)
+    actual_rule_count = Column(Integer, nullable=True)
+
+    # Logsource layer: precision/recall over canonical telemetry classes
+    logsource_precision = Column(Float, nullable=True)
+    logsource_recall = Column(Float, nullable=True)
+
+    # Detection-atom layer: precision/recall over normalized field|modifier|value atoms
+    atom_precision = Column(Float, nullable=True)
+    atom_recall = Column(Float, nullable=True)
+
+    # Ground truth and generated rules (for the drill-down UI)
+    expected_rules = Column(JSONB, nullable=True)  # list of {logsource, detection, ...}
+    actual_rules = Column(JSONB, nullable=True)  # generated rules from execution.sigma_rules
+
+    # Matched/missed/extra detail (atoms and logsources)
+    matched_atoms = Column(JSONB, nullable=True)
+    missed_atoms = Column(JSONB, nullable=True)
+    extra_atoms = Column(JSONB, nullable=True)
+    matched_logsources = Column(JSONB, nullable=True)
+    missed_logsources = Column(JSONB, nullable=True)
+    extra_logsources = Column(JSONB, nullable=True)
+
+    # Decomposition health
+    actual_undecomposable = Column(Integer, nullable=True)
+    actual_logsource_unresolved = Column(Integer, nullable=True)
+
+    # Workflow execution and config tracking
+    workflow_execution_id = Column(Integer, ForeignKey("agentic_workflow_executions.id"), nullable=True, index=True)
+    workflow_config_id = Column(Integer, ForeignKey("agentic_workflow_config.id"), nullable=True, index=True)
+    workflow_config_version = Column(Integer, nullable=True)
+
+    # Status tracking
+    status = Column(String(20), nullable=False, default="pending", index=True)  # pending, completed, failed
+
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=func.now(), index=True)
+    completed_at = Column(DateTime, nullable=True)
+
+    # Relationships
+    article = relationship("ArticleTable", backref="sigma_evaluations")
+    workflow_execution = relationship("AgenticWorkflowExecutionTable", backref="sigma_evaluations")
+    workflow_config = relationship("AgenticWorkflowConfigTable", backref="sigma_evaluations")
+
+    def __repr__(self):
+        return (
+            f"<SigmaEvaluation(id={self.id}, url='{self.article_url[:50]}...', "
+            f"expected={self.expected_rule_count}, actual={self.actual_rule_count}, status='{self.status}')>"
+        )
+
+
 class EvalPresetSnapshotTable(Base):
     """Database table for immutable preset snapshots used in evaluation."""
 

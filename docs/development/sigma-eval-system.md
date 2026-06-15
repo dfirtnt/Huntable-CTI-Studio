@@ -1,6 +1,7 @@
 # End-to-End Sigma Rule Eval System
 
-Status: **Phase 1 landed** (scorer + seed fixtures + tests). Phases 2-3 planned.
+Status: **Phases 1-2 landed** (scorer + fixtures + persistence + full-pipeline
+workflow wiring + run/results APIs). Phase 3 (UI) planned.
 
 ## Why
 
@@ -80,19 +81,33 @@ security-analyst vetting.
 Runnable standalone against any list of generated rules; no schema/UI/workflow
 changes, so zero risk to the running pipeline.
 
-### Phase 2 -- persistence + workflow wiring
+### Phase 2 -- persistence + workflow wiring (DONE)
 
-- New `SigmaEvaluationTable` (mirrors `SubagentEvaluationTable`): article_url/id,
-  workflow_execution_id, workflow_config_id+version, status; count fields;
-  `logsource_precision/recall`, `atom_precision/recall`; JSONB `expected_rules`,
-  `actual_rules`, `matched_atoms`, `missed_atoms`, `extra_atoms`, lint failures.
-  A separate table (rather than overloading `SubagentEvaluationTable`, whose
-  columns are count/item-centric) keeps each contract clean.
-- Alembic migration for the new table.
-- Route a `sigma` eval target through the full pipeline (do not early-exit at
-  extraction) and add `_update_single_sigma_eval_record()` parallel to
-  `_update_single_eval_record()`: pull `sigma_rules` + `sigma_metadata` from the
-  execution, score, persist.
+- `SigmaEvaluationTable` in `src/database/models.py` (mirrors
+  `SubagentEvaluationTable`): article_url/id, workflow_execution_id,
+  workflow_config_id+version, status; count fields; `logsource_precision/recall`,
+  `atom_precision/recall`; JSONB `expected_rules`, `actual_rules`,
+  `matched/missed/extra_atoms`, `matched/missed/extra_logsources`, decomposition
+  health counters. A separate table (rather than overloading
+  `SubagentEvaluationTable`, whose columns are count/item-centric) keeps each
+  contract clean. Auto-created by `Base.metadata.create_all`; standalone migration
+  `scripts/migrate_sigma_evaluation_table.py` for existing DBs.
+- `src/services/sigma_eval_service.py`: `load_sigma_ground_truth()`,
+  `build_eval_values()` (pure scorer-to-columns mapping),
+  `score_and_persist_execution()`, `mark_pending_sigma_evals_as_failed()`.
+- Workflow wiring in `src/workflows/agentic_workflow.py`:
+  - A dedicated `sigma_eval` config flag overrides the blanket
+    `eval_run -> skip-sigma` router so the full pipeline reaches `generate_sigma`.
+  - `promote_to_queue_node` skips queue promotion for sigma eval runs (rules are
+    scored, never pushed to the production review queue).
+  - `score_and_persist_execution()` is called at execution completion (next to
+    `_update_subagent_eval_on_completion`); `mark_pending_sigma_evals_as_failed()`
+    runs on terminal failure.
+- APIs in `src/web/routes/evaluation_api.py`: `POST /api/evaluations/run-sigma-eval`
+  (creates executions with the sigma-eval snapshot + pending rows, triggers
+  workflows) and `GET /api/evaluations/sigma-eval-results`.
+- Tests: `tests/services/test_sigma_eval_service.py` (loader + build_eval_values
+  + column contract).
 
 ### Phase 3 -- UI + bundle/diagnosis reuse
 
