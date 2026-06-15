@@ -1,0 +1,353 @@
+{% extends "base.html" %}
+
+{% block title %}Sigma Evals - Huntable CTI Studio{% endblock %}
+
+{% block content %}
+<style>
+    /* Score badges -- colors from theme tokens only (no hardcoded hex). */
+    .pr-badge {
+        display: inline-block;
+        min-width: 3rem;
+        text-align: center;
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+    .pr-good { background: var(--action-execute-fill); color: var(--action-execute); }
+    .pr-mid  { background: var(--action-warning-fill); color: var(--action-warning); }
+    .pr-low  { background: var(--action-danger-fill); color: var(--action-danger); }
+    .pr-na   { color: var(--text-muted); }
+
+    .se-status {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .se-status--completed { color: var(--action-execute); }
+    .se-status--pending   { color: var(--action-warning); }
+    .se-status--failed    { color: var(--action-danger); }
+
+    .se-table { width: 100%; border-collapse: collapse; }
+    .se-table th, .se-table td {
+        text-align: left;
+        padding: 8px 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        font-size: 12px;
+        vertical-align: top;
+    }
+    .se-table th {
+        color: var(--text-muted-slate);
+        font-weight: 600;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+    .se-atom-list {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 12px;
+        color: var(--text-secondary);
+        margin: 0;
+        padding-left: 1.1rem;
+    }
+    .se-atom-list li { margin-bottom: 2px; word-break: break-all; }
+</style>
+
+<div class="max-w-6xl mx-auto px-4 py-6">
+    <!-- Page header -->
+    <div class="flex items-center gap-3 mb-4">
+        <div>
+            <nav class="flex text-xs text-gray-400 mb-0.5" aria-label="Breadcrumb">
+                <a href="/mlops" class="hover:text-purple-400">MLOps</a>
+                <span class="mx-1.5">/</span>
+                <span>Sigma Evals</span>
+            </nav>
+            <h1 class="text-xl font-bold text-white leading-tight">Sigma Rule Evals</h1>
+        </div>
+        <p class="hidden sm:block ml-4 text-sm text-gray-400 border-l border-gray-700 pl-4">
+            Run the full pipeline on fixture articles and score generated Sigma rules
+            against ground truth (logsource + detection-atom precision/recall).
+        </p>
+    </div>
+
+    <!-- Run panel -->
+    <div class="card p-4 mb-4">
+        <div class="flex items-center justify-between mb-3">
+            <h2 class="text-base font-semibold text-white">Run</h2>
+            <div class="flex items-center gap-2">
+                <label for="concurrency" class="text-[10px] font-medium text-gray-400">Throttle (s)</label>
+                <input id="concurrency" type="number" min="0" max="60" step="1" value="5"
+                       class="w-16 px-2 py-1 border border-gray-600 rounded-md bg-gray-700 text-white font-mono text-xs focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                       aria-label="Concurrency throttle in seconds" />
+                <button id="runBtn" type="button"
+                        class="bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-md px-5 py-1.5 transition-colors">
+                    Run Selected
+                </button>
+            </div>
+        </div>
+        <div class="flex items-center gap-2 mb-2 text-xs text-gray-400">
+            <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                <input id="selectAll" type="checkbox" checked class="accent-purple-600" aria-label="Select all fixture articles" />
+                Select all
+            </label>
+        </div>
+        <div id="articleList" class="text-sm text-gray-400">Loading fixture articles...</div>
+    </div>
+
+    <!-- Results panel -->
+    <div class="card p-4">
+        <div class="flex items-center justify-between mb-3">
+            <h2 class="text-base font-semibold text-white">Results</h2>
+            <button id="refreshBtn" type="button"
+                    class="border border-gray-600 text-gray-300 hover:bg-gray-700 text-xs rounded-md px-3 py-1.5 transition-colors">
+                Refresh
+            </button>
+        </div>
+        <div id="resultsContainer" class="overflow-x-auto text-sm text-gray-400">Loading results...</div>
+    </div>
+</div>
+
+<!-- Detail modal -->
+<div id="sigmaDetailModal" class="hidden fixed inset-0 z-50 flex items-center justify-center"
+     style="background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);"
+     role="dialog" aria-modal="true" aria-label="Sigma eval detail">
+    <div class="card-elevated p-0 w-full max-w-3xl mx-4 max-h-[85vh] overflow-hidden flex flex-col">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-gray-700">
+            <h3 id="sigmaDetailTitle" class="text-base font-semibold text-white">Sigma Eval Detail</h3>
+            <button id="closeSigmaDetail" type="button" class="text-gray-400 hover:text-gray-200" aria-label="Close detail modal">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <div id="sigmaDetailBody" class="p-4 overflow-y-auto"></div>
+    </div>
+</div>
+
+<script>
+(function () {
+    "use strict";
+
+    var API = "/api/evaluations";
+
+    function notify(msg, type) {
+        if (window.showNotification) { window.showNotification(msg, type || "info"); }
+    }
+
+    function prBadge(value) {
+        if (value === null || value === undefined) {
+            return '<span class="pr-badge pr-na">n/a</span>';
+        }
+        var pct = Math.round(value * 100);
+        var cls = value >= 0.8 ? "pr-good" : (value >= 0.5 ? "pr-mid" : "pr-low");
+        return '<span class="pr-badge ' + cls + '">' + pct + "%</span>";
+    }
+
+    function esc(s) {
+        var d = document.createElement("div");
+        d.textContent = (s === null || s === undefined) ? "" : String(s);
+        return d.innerHTML;
+    }
+
+    function shortUrl(url) {
+        try {
+            var u = new URL(url);
+            var path = u.pathname.replace(/\/$/, "");
+            var tail = path.split("/").filter(Boolean).pop() || u.hostname;
+            return u.hostname + "/" + tail;
+        } catch (e) {
+            return url;
+        }
+    }
+
+    // ---- Fixture article list -------------------------------------------
+    var articles = [];
+
+    async function loadArticles() {
+        var container = document.getElementById("articleList");
+        try {
+            var resp = await fetch(API + "/sigma-eval-articles");
+            var data = await resp.json();
+            articles = (data && data.articles) || [];
+            if (!articles.length) {
+                container.innerHTML = '<p class="text-gray-400 text-sm">No fixture articles found in ground truth.</p>';
+                return;
+            }
+            container.innerHTML = articles.map(function (a, i) {
+                var warn = a.in_database ? "" :
+                    ' <span class="se-status se-status--failed">not in DB</span>';
+                return (
+                    '<label class="flex items-center gap-2 py-1 cursor-pointer">' +
+                    '<input type="checkbox" class="article-cb accent-purple-600" data-url="' + esc(a.url) + '"' +
+                    (a.in_database ? " checked" : " disabled") + ' />' +
+                    '<span class="font-mono text-xs text-gray-300">' + esc(shortUrl(a.url)) + "</span>" +
+                    '<span class="text-[10px] text-gray-500">expected ' + esc(a.expected_rule_count) + " rule(s)</span>" +
+                    warn +
+                    "</label>"
+                );
+            }).join("");
+        } catch (e) {
+            container.innerHTML = '<p class="se-status se-status--failed text-sm">Failed to load articles.</p>';
+        }
+    }
+
+    function selectedUrls() {
+        var out = [];
+        document.querySelectorAll(".article-cb:checked").forEach(function (cb) {
+            out.push(cb.getAttribute("data-url"));
+        });
+        return out;
+    }
+
+    // ---- Run ------------------------------------------------------------
+    async function runEval() {
+        var urls = selectedUrls();
+        if (!urls.length) { notify("Select at least one article", "warning"); return; }
+        var throttle = parseFloat(document.getElementById("concurrency").value || "5");
+        var btn = document.getElementById("runBtn");
+        btn.disabled = true;
+        btn.textContent = "Running...";
+        try {
+            var resp = await fetch(API + "/run-sigma-eval", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ article_urls: urls, concurrency_throttle_seconds: throttle })
+            });
+            var data = await resp.json();
+            if (data && data.success) {
+                notify("Triggered " + data.found_articles + " execution(s)", "success");
+                setTimeout(loadResults, 1500);
+                startPolling();
+            } else {
+                notify("Run failed", "error");
+            }
+        } catch (e) {
+            notify("Run failed", "error");
+        } finally {
+            btn.disabled = false;
+            btn.textContent = "Run Selected";
+        }
+    }
+
+    // ---- Results --------------------------------------------------------
+    var lastResults = [];
+
+    async function loadResults() {
+        var container = document.getElementById("resultsContainer");
+        try {
+            var resp = await fetch(API + "/sigma-eval-results");
+            var data = await resp.json();
+            lastResults = (data && data.results) || [];
+            if (!lastResults.length) {
+                container.innerHTML = '<p class="text-gray-400 text-sm">No eval runs yet.</p>';
+                return;
+            }
+            var rows = lastResults.map(function (r, i) {
+                var rules = (r.actual_rule_count === null || r.actual_rule_count === undefined)
+                    ? "-" : (r.actual_rule_count + " / " + r.expected_rule_count);
+                return (
+                    "<tr>" +
+                    '<td class="font-mono">' + esc(shortUrl(r.article_url)) + "</td>" +
+                    '<td><span class="se-status se-status--' + esc(r.status) + '">' + esc(r.status) + "</span></td>" +
+                    "<td>" + esc(rules) + "</td>" +
+                    "<td>" + prBadge(r.logsource_precision) + " / " + prBadge(r.logsource_recall) + "</td>" +
+                    "<td>" + prBadge(r.atom_precision) + " / " + prBadge(r.atom_recall) + "</td>" +
+                    '<td><button type="button" class="detail-btn border border-gray-600 text-gray-300 hover:bg-gray-700 text-xs rounded-md px-2 py-0.5" data-idx="' + i + '">Details</button></td>' +
+                    "</tr>"
+                );
+            }).join("");
+            container.innerHTML =
+                '<table class="se-table"><thead><tr>' +
+                "<th>Article</th><th>Status</th><th>Rules (act/exp)</th>" +
+                "<th>Logsource P / R</th><th>Atom P / R</th><th></th>" +
+                "</tr></thead><tbody>" + rows + "</tbody></table>";
+            container.querySelectorAll(".detail-btn").forEach(function (b) {
+                b.addEventListener("click", function () {
+                    openDetail(lastResults[parseInt(b.getAttribute("data-idx"), 10)]);
+                });
+            });
+        } catch (e) {
+            container.innerHTML = '<p class="se-status se-status--failed text-sm">Failed to load results.</p>';
+        }
+    }
+
+    var pollTimer = null;
+    function startPolling() {
+        if (pollTimer) { return; }
+        var ticks = 0;
+        pollTimer = setInterval(function () {
+            ticks += 1;
+            loadResults();
+            var anyPending = lastResults.some(function (r) { return r.status === "pending"; });
+            if (!anyPending || ticks > 40) {
+                clearInterval(pollTimer);
+                pollTimer = null;
+            }
+        }, 4000);
+    }
+
+    // ---- Detail modal ---------------------------------------------------
+    function atomList(items, emptyLabel) {
+        if (!items || !items.length) {
+            return '<p class="text-xs text-gray-500">' + esc(emptyLabel) + "</p>";
+        }
+        return '<ul class="se-atom-list">' + items.map(function (a) {
+            return "<li>" + esc(a) + "</li>";
+        }).join("") + "</ul>";
+    }
+
+    function openDetail(r) {
+        if (!r) { return; }
+        document.getElementById("sigmaDetailTitle").textContent = shortUrl(r.article_url);
+        var body = document.getElementById("sigmaDetailBody");
+        body.innerHTML =
+            '<div class="grid grid-cols-2 gap-4 mb-4">' +
+            '<div><div class="text-[10px] text-gray-500 uppercase mb-1">Logsource P / R</div>' +
+            prBadge(r.logsource_precision) + " / " + prBadge(r.logsource_recall) + "</div>" +
+            '<div><div class="text-[10px] text-gray-500 uppercase mb-1">Atom P / R</div>' +
+            prBadge(r.atom_precision) + " / " + prBadge(r.atom_recall) + "</div>" +
+            "</div>" +
+            '<div class="mb-3"><div class="text-xs font-semibold text-white mb-1">Missed atoms (in ground truth, not generated)</div>' +
+            atomList(r.missed_atoms, "None") + "</div>" +
+            '<div class="mb-3"><div class="text-xs font-semibold text-white mb-1">Extra atoms (generated, not in ground truth)</div>' +
+            atomList(r.extra_atoms, "None") + "</div>" +
+            '<div class="mb-3"><div class="text-xs font-semibold text-white mb-1">Matched atoms</div>' +
+            atomList(r.matched_atoms, "None") + "</div>" +
+            '<div class="mb-1"><div class="text-xs font-semibold text-white mb-1">Logsources (missed / extra)</div>' +
+            atomList(r.missed_logsources, "No missed logsources") +
+            atomList(r.extra_logsources, "No extra logsources") + "</div>";
+        if (window.ModalManager) {
+            window.ModalManager.register("sigmaDetailModal", { onClose: null });
+            window.ModalManager.open("sigmaDetailModal");
+        } else {
+            document.getElementById("sigmaDetailModal").classList.remove("hidden");
+        }
+    }
+
+    function closeDetail() {
+        if (window.ModalManager) {
+            window.ModalManager.close("sigmaDetailModal");
+        } else {
+            document.getElementById("sigmaDetailModal").classList.add("hidden");
+        }
+    }
+
+    // ---- Wire up --------------------------------------------------------
+    document.addEventListener("DOMContentLoaded", function () {
+        document.getElementById("runBtn").addEventListener("click", runEval);
+        document.getElementById("refreshBtn").addEventListener("click", loadResults);
+        document.getElementById("closeSigmaDetail").addEventListener("click", closeDetail);
+        document.getElementById("selectAll").addEventListener("change", function (e) {
+            document.querySelectorAll(".article-cb:not(:disabled)").forEach(function (cb) {
+                cb.checked = e.target.checked;
+            });
+        });
+        loadArticles();
+        loadResults();
+    });
+})();
+</script>
+{% endblock %}

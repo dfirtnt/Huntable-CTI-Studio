@@ -178,6 +178,21 @@ async def agent_evals2_page(request: Request):
         )
 
 
+@router.get("/mlops/sigma-evals", response_class=HTMLResponse)
+async def sigma_evals_page(request: Request):
+    """End-to-end Sigma rule evaluation page."""
+    try:
+        return templates.TemplateResponse(request, "sigma_evals.html")
+    except Exception as exc:
+        logger.error("Sigma evals page error: %s", exc)
+        return templates.TemplateResponse(
+            request,
+            "error.html",
+            {"error": "An unexpected error occurred"},
+            status_code=500,
+        )
+
+
 @router.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
     """Settings page."""

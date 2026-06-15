@@ -1,7 +1,8 @@
 # End-to-End Sigma Rule Eval System
 
-Status: **Phases 1-2 landed** (scorer + fixtures + persistence + full-pipeline
-workflow wiring + run/results APIs). Phase 3 (UI) planned.
+Status: **Phases 1-3 landed** (scorer + fixtures + persistence + full-pipeline
+workflow wiring + run/results APIs + standalone MLOps UI). Live browser
+verification of the UI is pending (requires the Docker stack).
 
 ## Why
 
@@ -109,11 +110,31 @@ changes, so zero risk to the running pipeline.
 - Tests: `tests/services/test_sigma_eval_service.py` (loader + build_eval_values
   + column contract).
 
-### Phase 3 -- UI + bundle/diagnosis reuse
+### Phase 3 -- UI (DONE; live browser verification pending)
 
-- Add a Sigma section/column to `/mlops/agent-evals` with count + P/R badges and
-  a cell-click modal showing matched/missed/extra atoms, lint failures, and the
-  generated YAML.
+- Standalone page `src/web/templates/sigma_evals.html` at route
+  `/mlops/sigma-evals` (`src/web/routes/pages.py`). A standalone page was chosen
+  over threading into the 3622-line `agent_evals.html` to avoid risking that
+  central template -- especially since the environment has no Docker stack for
+  the contract-required browser verification.
+- Built on the documented UI components (`.card` / `.card-elevated`, theme
+  tokens, `modal-manager.js`, `window.showNotification`, inline SVG icons, locked
+  font scale) rather than copying the bespoke `eval-*` CSS.
+- Surfaces: a Run panel (fixture article checkboxes + throttle + Run), a results
+  table (count, logsource P/R, atom P/R badges), and a ModalManager detail modal
+  (matched / missed / extra atoms and logsources). Calls
+  `/sigma-eval-articles`, `/run-sigma-eval`, `/sigma-eval-results`.
+- Linked from the MLOps landing page (`src/web/templates/mlops.html`, card M-04).
+- New API: `GET /api/evaluations/sigma-eval-articles` (lists fixture articles).
+- Static verification: `tests/unit/test_sigma_evals_page.py` (template compiles,
+  route registered, DOM hooks + endpoint calls present, ASCII, ModalManager use).
+
+**Pending operator step:** live browser verification on the Docker stack --
+start the app, open `/mlops/sigma-evals`, run the eval, confirm results render
+and the detail modal opens.
+
+### Future -- bundle/diagnosis reuse
+
 - Extend eval-bundle export and AI diagnosis to cover Sigma evals.
 
 ## Possible future refinements

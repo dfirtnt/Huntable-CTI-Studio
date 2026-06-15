@@ -1390,6 +1390,27 @@ def _sigma_eval_config_snapshot(active_config: AgenticWorkflowConfigTable) -> di
     }
 
 
+@router.get("/sigma-eval-articles")
+async def get_sigma_eval_articles(request: Request):
+    """List the fixture articles available for the Sigma eval (from ground truth)."""
+    try:
+        ground_truth = load_sigma_ground_truth()
+        urls = list(ground_truth.keys())
+        url_to_id = resolve_articles_by_urls(urls) if urls else {}
+        articles = [
+            {
+                "url": url,
+                "expected_rule_count": entry.get("expected_rule_count", 0),
+                "in_database": url_to_id.get(url) is not None,
+            }
+            for url, entry in ground_truth.items()
+        ]
+        return {"success": True, "count": len(articles), "articles": articles}
+    except Exception as e:
+        logger.error(f"Error listing sigma eval articles: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
 @router.post("/run-sigma-eval")
 async def run_sigma_eval(request: Request, eval_request: SigmaEvalRunRequest):
     """Run the end-to-end Sigma rule eval against selected articles.
