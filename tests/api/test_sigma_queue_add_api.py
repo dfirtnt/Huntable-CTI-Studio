@@ -85,3 +85,25 @@ class TestAddRuleToQueueYamlValidation:
         assert response.status_code == 404, (
             f"Expected 404 (article not found), got {response.status_code}. Body: {response.text[:300]}"
         )
+
+    @pytest.mark.asyncio
+    async def test_draft_without_article_id_succeeds(self, async_client):
+        """A hand-authored "from scratch" draft (no article_id) is queued with article_id null."""
+        payload = {"rule_yaml": VALID_SIGMA_YAML}  # no article_id key
+        response = await async_client.post("/api/sigma-queue/add", json=payload)
+        assert response.status_code == 200, (
+            f"Expected 200 (draft queued), got {response.status_code}. Body: {response.text[:300]}"
+        )
+        body = response.json()
+        assert body.get("success") is True
+        queue_id = body.get("queue_id")
+        assert queue_id, f"Response missing queue_id: {body!r}"
+
+        # The queued draft is listed and carries no article linkage.
+        list_resp = await async_client.get("/api/sigma-queue/list?limit=500")
+        assert list_resp.status_code == 200
+        items = list_resp.json().get("items", [])
+        match = next((it for it in items if it["id"] == queue_id), None)
+        assert match is not None, f"Queued draft {queue_id} not found in list"
+        assert match["article_id"] is None
+        assert match["article_title"] is None

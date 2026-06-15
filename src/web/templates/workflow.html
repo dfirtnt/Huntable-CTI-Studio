@@ -795,6 +795,14 @@
   background: var(--action-execute-dark);
   box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
 }
+.q-cmd-btn.create {
+  background: var(--purple-primary);
+  border-color: rgba(139, 92, 246, 0.3);
+}
+.q-cmd-btn.create:hover {
+  background: var(--purple-hover);
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.25);
+}
 .q-cmd-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -3119,6 +3127,10 @@ tr.q-row-selected td {
 
         <!-- Command Strip -->
         <div class="q-command-strip">
+            <button onclick="createNewRule()" class="q-cmd-btn create">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Create New Rule
+            </button>
             <button onclick="loadQueue()" class="q-cmd-btn refresh">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
                 Refresh
@@ -3223,7 +3235,7 @@ tr.q-row-selected td {
         <div id="ruleModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
             <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-4/5 lg:w-3/4 shadow-lg rounded-md bg-gray-800 border border-gray-700 max-h-[90vh]">
                 <div class="flex justify-between items-center mb-4 sticky top-0 bg-gray-800 border border-gray-700 pb-2 border-b">
-                    <h3 class="text-xl font-bold text-gray-900 dark:text-white">SIGMA Rule Preview</h3>
+                    <h3 id="ruleModalTitle" class="text-xl font-bold text-gray-900 dark:text-white">SIGMA Rule Preview</h3>
                     <button onclick="closeRuleModal()" class="text-gray-400 hover:text-gray-600">✕</button>
                 </div>
                 <div class="space-y-4 max-h-[70vh] overflow-y-auto">
@@ -12806,6 +12818,7 @@ function refreshExecutions() {
 // Queue Functions
 let currentRuleId = null;
 let isEditMode = false;
+let isCreateMode = false; // true while authoring a brand-new "from scratch" draft in the rule modal
 let currentEnrichedYaml = null; // Track current enriched state for iterative enrichment
 let enrichIteration = 0; // Track number of enrichment iterations
 let originalYaml = '';
@@ -13063,9 +13076,9 @@ function renderQueue() {
                 <td class="q-status-indicator-cell" aria-hidden="true"></td>
                 <td class="q-cell-id" style="padding-left:24px">${rule.id}</td>
                 <td class="q-cell-article">
-                    <a href="/articles/${rule.article_id}" title="${((rule.article_title || 'Article ' + rule.article_id) + '').replace(/"/g, '&quot;')}">
-                        ${rule.article_title || 'Article ' + rule.article_id}
-                    </a>
+                    ${rule.article_id
+                        ? `<a href="/articles/${rule.article_id}" title="${((rule.article_title || 'Article ' + rule.article_id) + '').replace(/"/g, '&quot;')}">${rule.article_title || 'Article ' + rule.article_id}</a>`
+                        : `<span class="italic" style="color: var(--text-muted-slate)">Manual draft</span>`}
                 </td>
                 <td class="q-cell-title" title="${(title || '').replace(/"/g, '&quot;')}">${title}</td>
                 <td class="q-cell-obs">${observablesUsedCount}</td>
@@ -13136,14 +13149,121 @@ function goToQueuePage(pageNum) {
 
 var cachedObservablesForRulePreview = null;
 
+// --- Author a brand-new "from scratch" SIGMA rule ---------------------------
+
+function ruleSkeletonYaml(author) {
+    // Skeleton draft: title, description, author, status, logsource, detection.
+    // Indented with 4 spaces to match SigmaHQ conventions; the user edits this in place.
+    return [
+        'title: Place draft rule title here',
+        'description: Place a short description of what this rule detects here',
+        'status: experimental',
+        'author: ' + author,
+        'logsource:',
+        '    product: windows',
+        '    category: process_creation',
+        'detection:',
+        '    selection:',
+        "        # Place your detection fields here, for example:",
+        "        # Image|endswith: '\\\\example.exe'",
+        "        # CommandLine|contains: 'suspicious-string'",
+        '    condition: selection',
+        ''
+    ].join('\n');
+}
+
+async function createNewRule() {
+    isCreateMode = true;
+    isEditMode = false;
+    currentRuleId = null;
+    originalYaml = '';
+    editedYaml = '';
+    resetQualityReviewCard();
+
+    // Default the author from Settings (sigmaAuthor) when available.
+    let author = 'Huntable CTI Studio User';
+    try {
+        const r = await fetch('/api/settings');
+        if (r.ok) {
+            const d = await r.json();
+            const s = d.settings || {};
+            if (s.sigmaAuthor && String(s.sigmaAuthor).trim()) author = String(s.sigmaAuthor).trim();
+        }
+    } catch (e) { /* fall back to default author */ }
+
+    pushModal('ruleModal', false);
+    renderCreateRuleForm(author);
+}
+
+function renderCreateRuleForm(author) {
+    const titleEl = document.getElementById('ruleModalTitle');
+    if (titleEl) titleEl.textContent = 'Create New SIGMA Rule';
+
+    const skeleton = ruleSkeletonYaml(author);
+    document.getElementById('rulePreviewContent').innerHTML = `
+        <div class="space-y-4 text-gray-600 dark:text-gray-300">
+            <p class="text-sm italic text-gray-400">Place your draft rule here. Edit the skeleton below &mdash; fill in the title, description, author, status, log source, and detection &mdash; then save it to the queue.</p>
+            <div>
+                <h4 class="font-semibold mb-2">Rule YAML:</h4>
+                <textarea id="createYamlEditor" class="w-full bg-gray-100 dark:bg-gray-900 p-4 rounded border border-gray-300 dark:border-gray-600 font-mono text-xs text-gray-600 dark:text-gray-300" rows="22" style="font-family: 'JetBrains Mono', monospace;">${escapeHtml(skeleton)}</textarea>
+            </div>
+            <div id="createRuleError" class="hidden p-3 bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 rounded text-sm text-red-700 dark:text-red-300"></div>
+        </div>
+    `;
+    updateActionButtons();
+    setTimeout(() => {
+        const editor = document.getElementById('createYamlEditor');
+        if (editor) editor.focus();
+    }, 100);
+}
+
+async function saveNewRule() {
+    const editor = document.getElementById('createYamlEditor');
+    const errEl = document.getElementById('createRuleError');
+    const showError = (msg) => {
+        if (errEl) { errEl.textContent = msg; errEl.classList.remove('hidden'); }
+    };
+    if (!editor) return;
+
+    const yamlText = editor.value.trim();
+    if (!yamlText) {
+        showError('Rule YAML cannot be empty.');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/sigma-queue/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rule_yaml: yamlText })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (response.ok && data.success) {
+            isCreateMode = false;
+            showNotification('Draft rule added to queue', 'success');
+            closeRuleModal();
+            queuePage = 1;
+            await loadQueue();
+        } else {
+            const msg = data.detail || 'Failed to add rule to queue';
+            showError(typeof msg === 'string' ? msg : JSON.stringify(msg));
+        }
+    } catch (e) {
+        showError('Network error: ' + e.message);
+    }
+}
+
 async function previewRule(ruleId) {
     const rule = queue.find(r => r.id === ruleId);
     if (!rule) return;
     
     currentRuleId = ruleId;
     isEditMode = false;
+    isCreateMode = false;
     originalYaml = rule.rule_yaml;
     editedYaml = rule.rule_yaml;
+    const titleEl = document.getElementById('ruleModalTitle');
+    if (titleEl) titleEl.textContent = 'SIGMA Rule Preview';
     resetQualityReviewCard();
     
     // Update URL with previewId parameter
@@ -13231,7 +13351,7 @@ function renderRulePreview(rule, observablesData) {
     const content = `
         <div class="space-y-4 text-gray-600 dark:text-gray-300">
             <div><strong>Rule ID:</strong> ${rule.id}</div>
-            <div><strong>Article:</strong> <a href="/articles/${rule.article_id}" class="text-purple-600">${rule.article_title || 'Article ' + rule.article_id}</a></div>
+            <div><strong>Article:</strong> ${rule.article_id ? `<a href="/articles/${rule.article_id}" class="text-purple-600">${escapeHtml(rule.article_title || 'Article ' + rule.article_id)}</a>` : '<span class="italic" style="color: var(--text-muted-slate)">None (hand-authored draft)</span>'}</div>
             ${Number.isInteger(rule.workflow_execution_id) ? `<div><strong>Job:</strong> <a href="#executions" class="text-purple-600" onclick="closeModal(); switchTab('executions'); setTimeout(() => viewExecution(${rule.workflow_execution_id}), 100); return false;" title="Open workflow execution ${rule.workflow_execution_id}">Execution #${rule.workflow_execution_id}</a></div>` : ''}
             <div><strong>Max Similarity:</strong> ${typeof rule.max_similarity === 'number' ? (rule.max_similarity * 100).toFixed(1) + '%' : 'N/A'}</div>
             ${similarRulesHtml}
@@ -13299,7 +13419,19 @@ function getCurrentRuleYamlFromModal() {
 function updateActionButtons() {
     const buttonContainer = document.getElementById('actionButtons');
     if (!buttonContainer) return;
-    
+
+    if (isCreateMode) {
+        buttonContainer.innerHTML = `
+            <button id="createSaveBtn" onclick="saveNewRule()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md">
+                <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Save to Queue
+            </button>
+            <button onclick="closeRuleModal()" class="px-4 py-2 border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg">
+                Cancel
+            </button>
+        `;
+        return;
+    }
+
     if (isEditMode) {
         buttonContainer.innerHTML = `
             <button onclick="saveYamlEdit()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
@@ -13467,8 +13599,12 @@ function closeRuleModal() {
     
     currentRuleId = null;
     isEditMode = false;
+    isCreateMode = false;
     originalYaml = '';
     editedYaml = '';
+    // Restore the default modal title (create mode swaps it out)
+    const titleEl = document.getElementById('ruleModalTitle');
+    if (titleEl) titleEl.textContent = 'SIGMA Rule Preview';
     resetQualityReviewCard();
     // Remove previewId from URL
     removeURLParameter('previewId');

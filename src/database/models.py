@@ -587,7 +587,8 @@ class SigmaRuleQueueTable(Base):
     __tablename__ = "sigma_rule_queue"
 
     id = Column(Integer, primary_key=True, index=True)
-    article_id = Column(Integer, ForeignKey("articles.id", ondelete="CASCADE"), nullable=False, index=True)
+    # Nullable: hand-authored "from scratch" draft rules have no source article.
+    article_id = Column(Integer, ForeignKey("articles.id", ondelete="CASCADE"), nullable=True, index=True)
     workflow_execution_id = Column(
         Integer, ForeignKey("agentic_workflow_executions.id", ondelete="CASCADE"), nullable=True, index=True
     )
