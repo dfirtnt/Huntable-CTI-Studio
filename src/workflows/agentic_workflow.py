@@ -3258,6 +3258,12 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                     if not execution.current_step or execution.current_step == "promote_to_queue":
                         execution.current_step = final_state.get("current_step", "generate_sigma")
                         db_session.commit()
+
+                # Reconcile any pending Sigma eval rows so an error-in-state
+                # completion (finished ainvoke() without raising) does not strand
+                # them in 'pending'. The outer `except` covers raised exceptions;
+                # this covers has_error completions that return normally.
+                mark_pending_sigma_evals_as_failed(execution, db_session)
             elif execution.status == "running":
                 # No error - mark as completed (even if stopped by thresholds)
                 execution.status = "completed"
