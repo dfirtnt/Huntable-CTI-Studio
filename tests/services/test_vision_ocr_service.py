@@ -45,8 +45,8 @@ def test_ocr_config_strict_defaults():
 
 def test_ocr_article_outcome_fields():
     o = OcrArticleOutcome(blocks=[], original_img_urls=[], processed_img_urls=[],
-                          status=OcrStatus.skipped_no_images, error_counts={}, total_marker_count=0)
-    assert o.processed_img_urls == [] and o.total_marker_count == 0
+                          status=OcrStatus.skipped_no_images, error_counts={})
+    assert o.processed_img_urls == [] and o.status == OcrStatus.skipped_no_images
 
 
 def _src(cfg):
@@ -290,7 +290,7 @@ async def test_completed_with_text(monkeypatch):
     assert out.status == OcrStatus.completed
     assert out.blocks == [("[Image OCR: https://s.test/a.png]", "payload")]
     assert "https://s.test/a.png" in out.processed_img_urls
-    assert out.total_marker_count == 1
+    assert len(out.blocks) == 1
 
 
 @pytest.mark.asyncio

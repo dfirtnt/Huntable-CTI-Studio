@@ -47,7 +47,6 @@ class OcrArticleOutcome:
     processed_img_urls: list[str]
     status: OcrStatus
     error_counts: dict[str, int]
-    total_marker_count: int
 
 
 @dataclass(frozen=True)
@@ -302,11 +301,11 @@ async def ocr_article_images(
     - Budget exhausted mid-loop → failed_timeout (partial blocks kept).
     """
     if existing_status in ("completed", "skipped_no_images"):
-        return OcrArticleOutcome([], [], [], OcrStatus(existing_status), {}, 0)
+        return OcrArticleOutcome([], [], [], OcrStatus(existing_status), {})
 
     candidates = _filter_images(search_root, article_url, config)
     if not candidates:
-        return OcrArticleOutcome([], [], [], OcrStatus.skipped_no_images, {}, 0)
+        return OcrArticleOutcome([], [], [], OcrStatus.skipped_no_images, {})
 
     start = time.monotonic()
     deadline = start + config.article_budget_s
@@ -353,7 +352,7 @@ async def ocr_article_images(
     if blocks:
         logger.info("OCR %s: blocks=%d errors=%s status=%s elapsed=%.1fs",
                     article_url, len(blocks), errors, status.value, time.monotonic() - start)
-    return OcrArticleOutcome(blocks, list(candidates), processed, status, errors, len(blocks))
+    return OcrArticleOutcome(blocks, list(candidates), processed, status, errors)
 
 
 # ---------------------------------------------------------------------------

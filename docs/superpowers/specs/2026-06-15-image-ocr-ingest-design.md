@@ -171,7 +171,6 @@ class OcrArticleOutcome:               # return of ocr_article_images (was a 4-t
     processed_img_urls: list[str]      # URLs with a TERMINAL decision (got text OR confirmed empty-ok)
     status: OcrStatus
     error_counts: dict[str, int]       # decode_failed/tesseract_error/timeout/fetch_failed
-    total_marker_count: int            # [Image OCR:] markers present in final content (drives ocr_image_count)
 
 @dataclass(frozen=True)
 class OcrConfig:                       # global, not per-source-granular in v1
@@ -247,7 +246,7 @@ async def ocr_raw_articles(articles, config):
                 art.content = str(soup)
             art.article_metadata = (art.article_metadata or {}) | {
                 "ocr_status": outcome.status.value,
-                "ocr_image_count": outcome.total_marker_count,         # total markers, not just new
+                "ocr_image_count": len(_parse_existing_ocr_urls(art.content or "")),  # total markers in final content
                 "ocr_ran_at": _utcnow_iso(),
                 "original_img_urls": outcome.original_img_urls,        # all candidates found
                 "ocr_processed_img_urls": outcome.processed_img_urls,  # terminal-decision set (idempotency key)
@@ -433,7 +432,7 @@ relative-URL-vs-`canonical_url`); `ocr_image_bytes` error mapping incl. the **Pi
 decode path** (`UnidentifiedImageError` before Tesseract) and bomb guard; all status-
 derivation rows; idempotent short-circuit **preserves** metadata; partial-retry guard via
 `ocr_processed_img_urls` (timeout retry re-attempts only never-reached URLs; no
-double-append; `total_marker_count` correct); SSRF matrix
+double-append; ocr_image_count counts total markers in final content); SSRF matrix
 (metadata IP, loopback/private, `file://`/`gopher://`, userinfo, redirect-to-private,
 redirect-loop); `ContentCleaner` golden-file (behavior preserved) + `prepare_soup_for_selection`
 idempotency; integration (full pre-pass → `process_articles` → metrics reflect OCR text;
