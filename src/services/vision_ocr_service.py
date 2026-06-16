@@ -174,9 +174,12 @@ async def _stream_image_safely(client: httpx.AsyncClient, url: str, config: OcrC
                     hops += 1
                     if hops > config.max_redirects:
                         return None
-                    current = str(resp.headers.get("location", ""))
-                    if not current:
+                    location = str(resp.headers.get("location", ""))
+                    if not location:
                         return None
+                    # Resolve relative redirects (e.g. "/cdn/image.png") against the
+                    # current URL; the absolute result is re-validated at the loop top.
+                    current = urljoin(current, location)
                     continue
                 ctype = resp.headers.get("content-type", "")
                 if not ctype.startswith("image/"):
@@ -402,9 +405,11 @@ async def ocr_raw_articles(articles, config) -> None:
                     div.append(NavigableString(text))
                 target.append(div)
                 art.content = str(soup)
+            # Total [Image OCR:] markers present in the final content (pre-existing +
+            # newly injected), NOT just this run's blocks — correct on partial retries.
             art.article_metadata = meta | {
                 "ocr_status": outcome.status.value,
-                "ocr_image_count": outcome.total_marker_count,
+                "ocr_image_count": len(_parse_existing_ocr_urls(art.content or "")),
                 "ocr_ran_at": _utcnow_iso(),
                 "original_img_urls": outcome.original_img_urls,
                 "ocr_processed_img_urls": list(done | set(outcome.processed_img_urls)),

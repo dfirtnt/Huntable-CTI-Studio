@@ -268,18 +268,20 @@ async def _ocr_refetch(
             logger.warning("backfill: failed to refetch %s: %s", canonical_url, exc)
             return [], [], [], OcrStatus.failed_error, {}
 
-    soup = BeautifulSoup(html, "lxml")
-    ContentCleaner.prepare_soup_for_selection(soup)
-    target = ContentCleaner.find_main_content_node(soup) or soup.body or soup
+        # Image fetches below MUST run while the client is still open, so the
+        # soup parse + ocr_article_images stay inside the `async with` block.
+        soup = BeautifulSoup(html, "lxml")
+        ContentCleaner.prepare_soup_for_selection(soup)
+        target = ContentCleaner.find_main_content_node(soup) or soup.body or soup
 
-    outcome = await ocr_article_images(
-        client,
-        target,
-        canonical_url,
-        config,
-        already_processed=already_processed,
-        existing_status=existing_status,
-    )
+        outcome = await ocr_article_images(
+            client,
+            target,
+            canonical_url,
+            config,
+            already_processed=already_processed,
+            existing_status=existing_status,
+        )
     return (
         outcome.blocks,
         outcome.original_img_urls,

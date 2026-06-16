@@ -21,6 +21,8 @@ Step 4 tests (factored-function integration, no real DB needed):
 
 import hashlib
 
+import pytest
+
 from scripts.backfill_image_ocr import (
     ArticleUpdateIntent,
     append_ocr_plaintext,
@@ -302,3 +304,58 @@ def test_existing_basis_in_metadata_cached():
     # Must NOT skip (cached basis avoids the None detection)
     assert not intent.skipped
     assert intent.basis == "async_raw"
+
+
+# ---------------------------------------------------------------------------
+# P1 regression — --allow-refetch must keep the HTTP client open through OCR
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_refetch_keeps_client_open_for_image_fetch(monkeypatch):
+    """Regression: _ocr_refetch previously closed the client (async-with exit) before
+    ocr_article_images ran, so every refetched image fetch hit a closed client. The
+    OCR call must run while the client is still open."""
+    import io as _io
+
+    from PIL import Image
+
+    from scripts import backfill_image_ocr as B
+    from src.services.vision_ocr_service import OcrConfig, OcrResult
+
+    buf = _io.BytesIO()
+    Image.new("RGB", (320, 240), "white").save(buf, format="PNG")
+    png = buf.getvalue()
+
+    class _FakeResp:
+        text = (
+            "<html><body><article><p>" + "w " * 30
+            + "<img src='https://s.test/a.png'></p></article></body></html>"
+        )
+
+    class _FakeClient:
+        def __init__(self):
+            self.closed = False
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            self.closed = True
+
+        async def get(self, url, **kw):
+            return _FakeResp()
+
+    fake = _FakeClient()
+    monkeypatch.setattr(B, "_build_safe_client", lambda config: fake)
+
+    async def _stream_check(client, url, config):
+        assert not client.closed, "client closed before image fetch (P1 regression)"
+        return png
+
+    monkeypatch.setattr("src.services.vision_ocr_service._stream_image_safely", _stream_check)
+    monkeypatch.setattr("src.services.vision_ocr_service.ocr_image_bytes",
+                        lambda *a, **k: OcrResult(text="REFETCHED", error="ok"))
+
+    blocks, *_ = await B._ocr_refetch("https://s.test/p", OcrConfig(), set(), None)
+    assert blocks and blocks[0][1] == "REFETCHED"

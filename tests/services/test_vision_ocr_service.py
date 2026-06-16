@@ -447,3 +447,66 @@ async def test_failed_timeout_logs_warning(monkeypatch, caplog):
     assert out.status == OcrStatus.failed_timeout
     assert any("budget exhausted" in r.message.lower() or "budget exhausted" in r.getMessage().lower()
                for r in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_ocr_image_count_counts_total_markers_on_retry(monkeypatch):
+    """P2 regression: ocr_image_count = total [Image OCR:] markers in the final content
+    (pre-existing + new), not just this run's newly-appended blocks."""
+    import types
+
+    monkeypatch.setattr("src.services.vision_ocr_service._stream_image_safely", _async_ret(b"img"))
+    monkeypatch.setattr("src.services.vision_ocr_service.ocr_image_bytes",
+                        lambda *a, **k: OcrResult(text="NEW", error="ok"))
+    # Article already carries a marker for a.png (inside the main node) + a fresh image b.png.
+    content = ("<article><h1>T</h1><p>" + "w " * 30
+               + " [Image OCR: https://s.test/a.png]\nold</p>"
+               "<p><img src='https://s.test/b.png'></p></article>")
+    art = types.SimpleNamespace(content=content, canonical_url="https://s.test/p",
+                                article_metadata={})
+    await ocr_raw_articles([art], OcrConfig())
+    assert "[Image OCR: https://s.test/b.png]" in art.content
+    assert "[Image OCR: https://s.test/a.png]" in art.content
+    # Both markers counted, not just the single new block.
+    assert art.article_metadata["ocr_image_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_stream_resolves_relative_redirect(monkeypatch):
+    """P3 regression: a relative Location ("/cdn/x.png") is urljoin'd to an absolute URL
+    and followed (re-validated), not rejected as no-host."""
+    from src.services.vision_ocr_service import _stream_image_safely
+
+    monkeypatch.setattr("src.services.vision_ocr_service._resolve_ips",
+                        lambda host: ["93.184.216.34"])
+    png = _png_bytes()
+
+    class _Resp:
+        def __init__(self, status, headers, body=b""):
+            self.status_code = status
+            self.headers = headers
+            self._body = body
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def aiter_bytes(self):
+            yield self._body
+
+    class _RedirectClient:
+        def __init__(self):
+            self.urls = []
+
+        def stream(self, method, url, headers=None):
+            self.urls.append(url)
+            if len(self.urls) == 1:
+                return _Resp(302, {"location": "/cdn/image.png"})
+            return _Resp(200, {"content-type": "image/png"}, png)
+
+    client = _RedirectClient()
+    data = await _stream_image_safely(client, "https://host.test/page", OcrConfig())
+    assert data == png
+    assert client.urls[1] == "https://host.test/cdn/image.png"  # urljoin'd absolute
