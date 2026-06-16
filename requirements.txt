@@ -61,7 +61,7 @@ urllib3==2.7.0
 filelock==3.29.0  # CVE-2026-22701 fix
 pygments==2.20.0  # CVE-2026-4539 fix
 charset-normalizer==3.4.7
-python-multipart==0.0.27
+python-multipart==0.0.32
 cryptography==48.0.0  # CVE-2026-34073, CVE-2026-39892 fixes
 
 # PDF processing
@@ -96,7 +96,7 @@ Pillow==12.2.0  # CVE-2026-40192: FITS GZIP decompression bomb
 langchain-core==1.3.3  # CVE-2026-40087 + CVE-2026-44843 fixes
 langsmith==0.8.9  # streaming token events bypass output redaction
 Mako==1.3.12  # path traversal + CVE-2026-44307 fixes
-python-multipart==0.0.27  # CVE-2026-40347: DoS via large multipart preamble/epilogue
+python-multipart==0.0.32  # DoS (preamble/epilogue, negative Content-Length) + Content-Disposition/querystring parameter smuggling fixes (<0.0.31)
 idna==3.16  # CVE-2026-45409 fix; exact pin, mirrors pyproject.toml
 pymdown-extensions==10.21.3  # CVE-2026-46338 fix
 PyJWT==2.13.0  # CVE PYSEC-2026-175/177/178/179; transitive via mcp[cli]
