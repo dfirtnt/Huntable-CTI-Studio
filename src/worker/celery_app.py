@@ -16,6 +16,11 @@ from celery.schedules import crontab
 from celery.signals import worker_process_init
 
 from src.services.scheduled_jobs_service import ScheduledJobsService, cron_expression_to_kwargs
+from src.services.vision_ocr_service import (
+    check_tesseract_available,
+    ocr_raw_articles,
+    resolve_ocr_config,
+)
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -130,6 +135,11 @@ def reset_db_connections_on_fork(**kwargs):
         DatabaseManager._session_cache.clear()
     except Exception as exc:  # noqa: BLE001
         logger.warning("Fork-safe DB reset failed: %s", exc)
+    _tess = check_tesseract_available()
+    if _tess["status"] != "ok":
+        logger.error("Tesseract probe at worker init: %s", _tess)
+    else:
+        logger.info("Tesseract available: %s", _tess["version"])
 
 
 # Load task modules from all registered app configs.
@@ -364,6 +374,14 @@ def check_all_sources(self):
                                     f"  ✓ {source.name}: {len(articles)} articles collected via {fetch_result.method}"
                                 )
 
+                                try:
+                                    _ocr_cfg = resolve_ocr_config(source)
+                                    await ocr_raw_articles(articles, _ocr_cfg)
+                                except Exception as _ocr_exc:  # OCR must never break ingest
+                                    logger.error(
+                                        "OCR pre-pass failed for %s: %s",
+                                        getattr(source, "name", "?"), _ocr_exc,
+                                    )
                                 source_config = source.config if source.config else None
                                 dedup_result = await processor.process_articles(
                                     articles,
@@ -617,6 +635,14 @@ def check_source(self, source_identifier: str):
                                 f"  ✓ {source.name}: {len(fetch_result.articles)} articles collected via {fetch_result.method}"
                             )
 
+                            try:
+                                _ocr_cfg = resolve_ocr_config(source)
+                                await ocr_raw_articles(fetch_result.articles, _ocr_cfg)
+                            except Exception as _ocr_exc:  # OCR must never break ingest
+                                logger.error(
+                                    "OCR pre-pass failed for %s: %s",
+                                    getattr(source, "name", "?"), _ocr_exc,
+                                )
                             # Process articles through deduplication
                             dedup_result = await processor.process_articles(
                                 fetch_result.articles, existing_hashes, existing_urls
@@ -1212,6 +1238,14 @@ def collect_from_source(self, source_id: int):
                                 f"  ✓ {source.name}: {len(real_articles)} articles collected via {fetch_result.method}"
                             )
 
+                            try:
+                                _ocr_cfg = resolve_ocr_config(source)
+                                await ocr_raw_articles(real_articles, _ocr_cfg)
+                            except Exception as _ocr_exc:  # OCR must never break ingest
+                                logger.error(
+                                    "OCR pre-pass failed for %s: %s",
+                                    getattr(source, "name", "?"), _ocr_exc,
+                                )
                             # Process articles through deduplication
                             dedup_result = await processor.process_articles(real_articles, existing_hashes)
 

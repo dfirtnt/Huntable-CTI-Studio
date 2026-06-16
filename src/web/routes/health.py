@@ -190,6 +190,11 @@ async def api_services_health() -> dict[str, Any]:
         else:
             services_status["lmstudio"] = {"status": "not_configured", "message": "LMStudio disabled"}
 
+        # Check Tesseract (always reported; missing is non-fatal when OCR is disabled)
+        from src.services.vision_ocr_service import check_tesseract_available
+
+        services_status["tesseract"] = check_tesseract_available()
+
         # Check LangFuse
         try:
             from src.utils.langfuse_client import (

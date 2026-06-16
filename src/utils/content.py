@@ -9,7 +9,7 @@ import re
 from datetime import datetime
 from typing import Any
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 from dateutil import parser as date_parser
 
 from .sentence_splitter import split_sentences
@@ -20,21 +20,27 @@ logger = logging.getLogger(__name__)
 class ContentCleaner:
     """Utility class for cleaning and normalizing content."""
 
-    @staticmethod
-    def clean_html(html: str) -> str:
-        """Clean HTML content and extract readable text."""
-        # Temporarily disabled readability due to Python 3 compatibility issues
-        # Always use enhanced cleaning for now
-        return ContentCleaner.enhanced_html_clean(html)
+    _MAIN_CONTENT_SELECTORS = (
+        "article",
+        '[role="main"]',
+        "main",
+        ".content",
+        ".post-content",
+        ".entry-content",
+        ".blog-content",
+        ".article-content",
+        "#content",
+    )
 
     @staticmethod
-    def enhanced_html_clean(html: str) -> str:
-        """Enhanced HTML cleaning that extracts clean text."""
-        if not html:
-            return ""
+    def prepare_soup_for_selection(soup: BeautifulSoup) -> None:
+        """In-place prune of unwanted tags and class/id-pattern elements.
 
-        soup = BeautifulSoup(html, "lxml")
-
+        Decomposes navigation, UI chrome, and advertising elements from the
+        soup tree so that subsequent content-selector queries only see article
+        body content.  Safe to call more than once (idempotent: decomposed
+        nodes are already gone on the second pass).
+        """
         # Remove unwanted elements completely
         unwanted_tags = [
             "script",
@@ -107,29 +113,32 @@ class ContentCleaner:
         ):
             element.decompose()
 
-        # Find main content area
-        content_selectors = [
-            "article",
-            '[role="main"]',
-            "main",
-            ".content",
-            ".post-content",
-            ".entry-content",
-            ".blog-content",
-            ".article-content",
-            "#content",
-        ]
+    @staticmethod
+    def find_main_content_node(soup: BeautifulSoup) -> Tag | None:
+        """Return the first _MAIN_CONTENT_SELECTORS node with >50 chars of text, else None."""
+        for selector in ContentCleaner._MAIN_CONTENT_SELECTORS:
+            node = soup.select_one(selector)
+            if node and len(node.get_text(strip=True)) > 50:
+                return node
+        return None
 
-        main_content = None
-        for selector in content_selectors:
-            main_content = soup.select_one(selector)
-            if main_content and len(main_content.get_text(strip=True)) > 50:  # Lower threshold
-                break
+    @staticmethod
+    def clean_html(html: str) -> str:
+        """Clean HTML content and extract readable text."""
+        # Temporarily disabled readability due to Python 3 compatibility issues
+        # Always use enhanced cleaning for now
+        return ContentCleaner.enhanced_html_clean(html)
 
+    @staticmethod
+    def enhanced_html_clean(html: str) -> str:
+        """Enhanced HTML cleaning that extracts clean text."""
+        if not html:
+            return ""
+        soup = BeautifulSoup(html, "lxml")
+        ContentCleaner.prepare_soup_for_selection(soup)
+        main_content = ContentCleaner.find_main_content_node(soup)
         if main_content:
-            # Extract clean text from main content
             return ContentCleaner.html_to_text(str(main_content))
-        # Fallback: extract from body but clean aggressively
         return ContentCleaner.html_to_text(str(soup))
 
     @staticmethod

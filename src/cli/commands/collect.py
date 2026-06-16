@@ -8,6 +8,7 @@ from rich.progress import Progress
 from models.source import SourceFilter
 from src.core.fetcher import ContentFetcher
 from src.core.processor import ContentProcessor
+from src.services.vision_ocr_service import ocr_raw_articles, resolve_ocr_config
 
 from ..context import CLIContext, get_managers
 from ..utils import _display_fetch_results, console
@@ -67,7 +68,13 @@ def collect(ctx: CLIContext, source: str | None, force: bool, dry_run: bool):
 
                 # Process articles
                 all_articles = []
-                for result in fetch_results:
+                for src, result in zip(sources, fetch_results):
+                    if result.articles:
+                        try:
+                            _ocr_cfg = resolve_ocr_config(src)
+                            await ocr_raw_articles(result.articles, _ocr_cfg)
+                        except Exception as _ocr_exc:  # OCR must never break ingest
+                            console.print(f"[yellow]OCR pre-pass failed for {src.name}: {_ocr_exc}[/yellow]")
                     all_articles.extend(result.articles)
 
                 if all_articles:

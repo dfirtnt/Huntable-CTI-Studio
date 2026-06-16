@@ -49,6 +49,9 @@ RUN apt-get update \
         libgtk-3-0 \
         libgdk-pixbuf-2.0-0 \
         libpangocairo-1.0-0 \
+        # OCR support
+        tesseract-ocr \
+        tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv
