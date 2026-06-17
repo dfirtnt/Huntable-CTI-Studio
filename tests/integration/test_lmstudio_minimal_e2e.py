@@ -185,6 +185,7 @@ def test_lmstudio_gemma3_1b_workflow_completes(db_session, minimal_active_config
                 "RegistryExtract",
                 "ServicesExtract",
                 "ScheduledTasksExtract",
+                "NetworkIndicatorExtract",
             ]
         },
         "config_id": minimal_active_config.id,

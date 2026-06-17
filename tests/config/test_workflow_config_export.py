@@ -295,6 +295,14 @@ def test_ui_ordered_to_legacy_includes_min_hunt_and_auto_trigger():
             "TopP": 0.9,
             "Prompt": {},
         },
+        "NetworkIndicatorExtract": {
+            "Enabled": True,
+            "Provider": "openai",
+            "Model": "gpt-4",
+            "Temperature": 0,
+            "TopP": 0.9,
+            "Prompt": {},
+        },
         "SigmaAgent": {
             "Provider": "openai",
             "Model": "gpt-4",
@@ -450,6 +458,14 @@ def test_load_preset_without_extract_agent_prompt_succeeds():
             "Prompt": {},
         },
         "ScheduledTasksExtract": {
+            "Enabled": True,
+            "Provider": "openai",
+            "Model": "gpt-4",
+            "Temperature": 0,
+            "TopP": 0.9,
+            "Prompt": {},
+        },
+        "NetworkIndicatorExtract": {
             "Enabled": True,
             "Provider": "openai",
             "Model": "gpt-4",

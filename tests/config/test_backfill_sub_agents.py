@@ -22,7 +22,7 @@ pytestmark = pytest.mark.unit
 
 
 # Sub-agents that have backfill defaults; each must support the full backfill contract.
-BACKFILL_AGENTS = ["RegistryExtract", "ServicesExtract", "ScheduledTasksExtract"]
+BACKFILL_AGENTS = ["RegistryExtract", "ServicesExtract", "ScheduledTasksExtract", "NetworkIndicatorExtract"]
 
 
 def _base_agent_block():
@@ -72,6 +72,7 @@ def _make_preset_without(agent_name: str) -> dict:
         "RegistryExtract": dict(base),
         "ServicesExtract": dict(base),
         "ScheduledTasksExtract": dict(base),
+        "NetworkIndicatorExtract": dict(base),
         "SigmaAgent": {
             "Provider": "openai",
             "Model": "gpt-4",

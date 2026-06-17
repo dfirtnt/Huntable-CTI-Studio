@@ -221,6 +221,7 @@ class TestCrossAgentResolution:
             "RegistryExtract",
             "ServicesExtract",
             "ScheduledTasksExtract",
+            "NetworkIndicatorExtract",
         ],
     )
     def test_each_subagent_gets_own_provider(self, agent_name):
