@@ -171,3 +171,31 @@ class TestLLMServiceNormalization:
         # value-carrying simple extractor (agent name) + recognized LLM array key
         assert '"NetworkIndicatorExtract"' in source
         assert '"network_indicators"' in source
+
+
+class TestWorkflowHelpers:
+    def test_extract_actual_count(self):
+        from src.workflows.agentic_workflow import _extract_actual_count
+
+        subresults = {
+            "network_indicators": {
+                "items": [
+                    {"value": "evil[.]com", "indicator_type": "domain"},
+                    {"value": "8.8.8[.]8", "indicator_type": "ip"},
+                ],
+                "count": 2,
+            }
+        }
+        assert _extract_actual_count("network_indicators", subresults, execution_id=1) == 2
+
+    def test_extract_actual_items_reads_value(self):
+        from src.workflows.agentic_workflow import _extract_actual_items
+
+        subresults = {
+            "network_indicators": {
+                "items": [{"value": "evil[.]com", "indicator_type": "domain"}],
+                "count": 1,
+            }
+        }
+        items = _extract_actual_items("network_indicators", subresults)
+        assert items == ["evil[.]com"]

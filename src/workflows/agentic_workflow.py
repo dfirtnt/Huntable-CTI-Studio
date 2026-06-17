@@ -524,6 +524,7 @@ _AGENT_NAME_TO_SUBAGENT: dict[str, str] = {
     "RegistryExtract": "registry_artifacts",
     "ServicesExtract": "windows_services",
     "ScheduledTasksExtract": "scheduled_tasks",
+    "NetworkIndicatorExtract": "network_indicators",
 }
 
 
@@ -1283,6 +1284,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     "registry_artifacts": "RegistryExtract",
                     "windows_services": "ServicesExtract",
                     "scheduled_tasks": "ScheduledTasksExtract",
+                    "network_indicators": "NetworkIndicatorExtract",
                 }
                 if subagent_eval not in subagent_to_agent:
                     logger.warning(
@@ -1298,6 +1300,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 "registry_artifacts": {"items": [], "count": 0},
                 "windows_services": {"items": [], "count": 0},
                 "scheduled_tasks": {"items": [], "count": 0},
+                "network_indicators": {"items": [], "count": 0},
             }
 
             # Get config models for LLMService
@@ -1365,6 +1368,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 ("RegistryExtract", "registry_artifacts"),
                 ("ServicesExtract", "windows_services"),
                 ("ScheduledTasksExtract", "scheduled_tasks"),
+                ("NetworkIndicatorExtract", "network_indicators"),
             ]
 
             # Initialize conversation log for extract_agent
@@ -1414,7 +1418,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             )
 
             # Filter out deleted subagents (SigExtract, RegExtract, EventCodeExtract)
-            # Valid subagents: CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract
+            # Valid subagents: CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract, NetworkIndicatorExtract
             deleted_agents = {"SigExtract", "RegExtract", "EventCodeExtract"}
 
             logger.info(
@@ -1796,6 +1800,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 "registry_artifacts": "RegistryExtract",
                 "windows_services": "ServicesExtract",
                 "scheduled_tasks": "ScheduledTasksExtract",
+                "network_indicators": "NetworkIndicatorExtract",
             }
             cat_to_subagent_name = {
                 "cmdline": "Command-line Extractor",
@@ -1804,6 +1809,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 "registry_artifacts": "Registry Extractor",
                 "windows_services": "Windows Services Extractor",
                 "scheduled_tasks": "Scheduled Tasks Extractor",
+                "network_indicators": "Network Indicators Extractor",
             }
 
             # Enrich subresults items with traceability system fields (observable traceability feature)
