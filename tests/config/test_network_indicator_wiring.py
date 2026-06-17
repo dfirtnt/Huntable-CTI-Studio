@@ -199,3 +199,36 @@ class TestWorkflowHelpers:
         }
         items = _extract_actual_items("network_indicators", subresults)
         assert items == ["evil[.]com"]
+
+
+class TestPresetFiles:
+    """NetworkIndicatorExtract must be present in every quickstart preset with valid config."""
+
+    _QUICKSTART_DIR = _REPO / "config" / "presets" / "AgentConfigs" / "quickstart"
+    _PRESETS = sorted(_QUICKSTART_DIR.glob("*.json"))
+
+    @pytest.mark.parametrize("preset_path", _PRESETS, ids=lambda p: p.stem)
+    def test_nie_present(self, preset_path):
+        data = json.loads(preset_path.read_text())
+        assert "NetworkIndicatorExtract" in data, f"{preset_path.name}: NetworkIndicatorExtract section missing"
+
+    @pytest.mark.parametrize("preset_path", _PRESETS, ids=lambda p: p.stem)
+    def test_nie_model_non_empty(self, preset_path):
+        data = json.loads(preset_path.read_text())
+        section = data.get("NetworkIndicatorExtract", {})
+        assert section.get("Model", ""), f"{preset_path.name}: NetworkIndicatorExtract.Model is empty"
+
+    @pytest.mark.parametrize("preset_path", _PRESETS, ids=lambda p: p.stem)
+    def test_nie_prompt_non_empty(self, preset_path):
+        data = json.loads(preset_path.read_text())
+        section = data.get("NetworkIndicatorExtract", {})
+        prompt = section.get("Prompt", {})
+        assert prompt.get("prompt", ""), f"{preset_path.name}: NetworkIndicatorExtract.Prompt.prompt is empty"
+
+    @pytest.mark.parametrize("preset_path", _PRESETS, ids=lambda p: p.stem)
+    def test_nie_no_qa(self, preset_path):
+        data = json.loads(preset_path.read_text())
+        section = data.get("NetworkIndicatorExtract", {})
+        assert "QAEnabled" not in section and "QA" not in section, (
+            f"{preset_path.name}: NetworkIndicatorExtract must not have QA keys"
+        )
