@@ -62,10 +62,10 @@ filelock==3.29.0  # CVE-2026-22701 fix
 pygments==2.20.0  # CVE-2026-4539 fix
 charset-normalizer==3.4.7
 python-multipart==0.0.32
-cryptography==48.0.0  # CVE-2026-34073, CVE-2026-39892 fixes
+cryptography==48.0.1  # CVE-2026-34073, CVE-2026-39892 + GHSA-537c-gmf6-5ccf (vulnerable bundled OpenSSL) fixes
 
 # PDF processing
-pypdf==6.12.2
+pypdf==6.13.0  # CVE-2026-54530/54531: infinite-loop DoS (layout text extraction, outline writer)
 
 # SIGMA rule validation and repository management
 pysigma==1.3.3
