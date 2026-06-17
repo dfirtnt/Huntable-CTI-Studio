@@ -72,6 +72,12 @@
                 <strong>Purpose:</strong> Extracts Windows scheduled-task identity and scheduling metadata (task name, path, trigger, principal, store path, operation) explicitly present in CTI articles for detection engineering via Task Scheduler events (EID 4698-4702).
             </p>
         </div>
+        {% elif subagent_name == 'NetworkIndicatorExtract' %}
+        <div class="mt-4 p-4 bg-blue-50 dark:bg-blue-900 rounded-lg">
+            <p class="text-sm text-gray-700 dark:text-gray-300">
+                <strong>Purpose:</strong> Extracts network indicators (domain/DNS, IP+port, URL, URI path, User-Agent) verbatim; the downstream SIGMA Agent generalizes them into detection rules.
+            </p>
+        </div>
         {% endif %}
     </div>
 

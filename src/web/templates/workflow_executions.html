@@ -508,7 +508,8 @@ async function viewExecution(executionId) {
                                     'CmdlineExtract': 'Command Line Extraction', 'ProcTreeExtract': 'Process Lineage Extraction',
                                     'HuntQueriesExtract': 'Hunt Queries Extraction', 'RegistryExtract': 'Registry Artifacts Extraction',
                                     'ServicesExtract': 'Windows Services Extraction',
-                                    'ScheduledTasksExtract': 'Scheduled Tasks Extraction'
+                                    'ScheduledTasksExtract': 'Scheduled Tasks Extraction',
+                                    'NetworkIndicatorExtract': 'Network Indicators Extraction'
                                 };
                                 const subAgents = [
                                     { key: 'cmdline', name: 'CmdlineExtract', display: _DN['CmdlineExtract'], icon: '💻', order: 1 },
@@ -516,7 +517,8 @@ async function viewExecution(executionId) {
                                     { key: 'hunt_queries', name: 'HuntQueriesExtract', display: _DN['HuntQueriesExtract'], icon: '🔍', order: 3 },
                                     { key: 'registry_artifacts', name: 'RegistryExtract', display: _DN['RegistryExtract'], icon: '🗝️', order: 4 },
                                     { key: 'windows_services', name: 'ServicesExtract', display: _DN['ServicesExtract'], icon: '⚙️', order: 5 },
-                                    { key: 'scheduled_tasks', name: 'ScheduledTasksExtract', display: _DN['ScheduledTasksExtract'], icon: '📅', order: 6 }
+                                    { key: 'scheduled_tasks', name: 'ScheduledTasksExtract', display: _DN['ScheduledTasksExtract'], icon: '📅', order: 6 },
+                                    { key: 'network_indicators', name: 'NetworkIndicatorExtract', display: _DN['NetworkIndicatorExtract'], icon: '&#x1F310;', order: 7 }
                                 ];
                                 
                                 const extractConversationLog = exec.error_log?.extract_agent?.conversation_log || [];
