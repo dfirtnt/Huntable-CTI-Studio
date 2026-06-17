@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
+import yaml
 from pydantic import ValidationError
 
 from src.config.workflow_config_loader import (
@@ -231,4 +232,82 @@ class TestPresetFiles:
         section = data.get("NetworkIndicatorExtract", {})
         assert "QAEnabled" not in section and "QA" not in section, (
             f"{preset_path.name}: NetworkIndicatorExtract must not have QA keys"
+        )
+
+
+# ===========================================================================
+# Eval articles data
+# ===========================================================================
+
+
+class TestEvalArticlesData:
+    """Static eval articles directory and YAML contract for network_indicators."""
+
+    _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+    _EVAL_DIR = _REPO_ROOT / "config" / "eval_articles_data" / "network_indicators"
+    _YAML_PATH = _REPO_ROOT / "config" / "eval_articles.yaml"
+
+    def test_eval_articles_directory_exists(self):
+        assert self._EVAL_DIR.exists(), f"Eval articles dir missing: {self._EVAL_DIR}"
+
+    def test_articles_json_exists(self):
+        articles_file = self._EVAL_DIR / "articles.json"
+        assert articles_file.exists(), "articles.json missing"
+
+    def test_yaml_network_indicators_key_present_and_non_empty(self):
+        data = yaml.safe_load(self._YAML_PATH.read_text())
+        subagents = data.get("subagents", {})
+        assert "network_indicators" in subagents, "network_indicators key missing from eval_articles.yaml"
+        entries = subagents["network_indicators"]
+        assert isinstance(entries, list) and len(entries) > 0, (
+            "network_indicators in eval_articles.yaml must be a non-empty list"
+        )
+
+    def test_articles_json_parses_as_list(self):
+        articles = json.loads((self._EVAL_DIR / "articles.json").read_text())
+        assert isinstance(articles, list), "articles.json must be a list"
+
+    def test_articles_json_required_fields(self):
+        articles = json.loads((self._EVAL_DIR / "articles.json").read_text())
+        required = {"url", "title", "content", "expected_count"}
+        for i, entry in enumerate(articles):
+            missing = required - set(entry.keys())
+            assert not missing, f"articles.json entry {i} missing fields: {missing}"
+
+    def test_articles_json_expected_count_non_negative_int(self):
+        articles = json.loads((self._EVAL_DIR / "articles.json").read_text())
+        for i, entry in enumerate(articles):
+            ec = entry.get("expected_count")
+            assert isinstance(ec, int), f"entry {i}: expected_count must be int, got {type(ec).__name__}"
+            assert ec >= 0, f"entry {i}: expected_count must be >= 0, got {ec}"
+
+    def test_articles_json_no_duplicate_urls(self):
+        articles = json.loads((self._EVAL_DIR / "articles.json").read_text())
+        urls = [a.get("url") for a in articles]
+        seen: set = set()
+        dupes: list = []
+        for u in urls:
+            if u in seen:
+                dupes.append(u)
+            seen.add(u)
+        assert not dupes, f"Duplicate URLs in articles.json: {dupes}"
+
+    def test_yaml_and_articles_json_count_match(self):
+        yaml_data = yaml.safe_load(self._YAML_PATH.read_text())
+        yaml_entries = yaml_data["subagents"]["network_indicators"]
+        articles = json.loads((self._EVAL_DIR / "articles.json").read_text())
+        assert len(yaml_entries) == len(articles), (
+            f"eval_articles.yaml has {len(yaml_entries)} network_indicators entries "
+            f"but articles.json has {len(articles)}"
+        )
+
+    def test_yaml_urls_present_in_articles_json(self):
+        yaml_data = yaml.safe_load(self._YAML_PATH.read_text())
+        yaml_urls = {e["url"] for e in yaml_data["subagents"]["network_indicators"] if e.get("url")}
+        json_urls = {
+            a["url"] for a in json.loads((self._EVAL_DIR / "articles.json").read_text()) if a.get("url")
+        }
+        missing = yaml_urls - json_urls
+        assert not missing, (
+            f"URLs in eval_articles.yaml (network_indicators) missing from articles.json: {sorted(missing)}"
         )

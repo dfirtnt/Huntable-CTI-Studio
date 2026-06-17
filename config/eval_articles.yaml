@@ -98,6 +98,23 @@ subagents:
     expected_count: 4
   - url: https://www.zscaler.com/blogs/security-research/latest-mustang-panda-arsenal-paklog-corklog-and-splatcloak-p2
     expected_count: 0
+  network_indicators:
+  - url: https://www.huntress.com/blog/malspam-to-loader-delivery-chain-analysis
+    expected_count: 10
+  - url: http://ctrlaltintel.com/research/MuddyWater/
+    expected_count: 18
+  - url: https://www.welivesecurity.com/en/eset-research/oceanlotus-external-espionage-domestic-targeting/
+    expected_count: 12
+  - url: https://www.zscaler.com/blogs/security-research/tropic-trooper-pivots-adaptixc2-and-custom-beacon-listener
+    expected_count: 5
+  - url: https://www.vmray.com/threat-intelligence-insights-pivoting-off-the-blockchain/
+    expected_count: 12
+  - url: https://www.group-ib.com/blog/colunmtk-apt41/
+    expected_count: 12
+  - url: https://www.security.com/threat-intelligence/dragonforce-msteams-backdoor
+    expected_count: 10
+  - url: https://isc.sans.edu/diary/rss/33080
+    expected_count: 3
   scheduled_tasks:
   - url: https://thedfirreport.com/2021/11/01/from-zero-to-domain-admin/
     expected_count: 0
