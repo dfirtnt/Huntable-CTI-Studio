@@ -3019,7 +3019,7 @@ async function showCommandlines(executionId, articleUrl, count) {
                     if (typeof item === 'object' && item !== null) {
                         const value = item.value || item.indicator || 'N/A';
                         const indicatorType = item.indicator_type || item.type || 'unknown';
-                        const context = item.context || item.source_context || '';
+                        const context = item.context || item.source_context || item.source_evidence || '';
                         const contextDisplay = context ? ` - ${escapeHtml(context)}` : '';
                         displayContent = `<span class="px-2 py-1 text-xs rounded bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">${escapeHtml(indicatorType)}</span> <span class="font-mono">${escapeHtml(String(value))}</span>${contextDisplay}`;
                     } else {
