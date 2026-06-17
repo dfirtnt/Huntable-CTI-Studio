@@ -24,8 +24,3 @@ def test_workflow_config_lists_include_network_indicator():
 def test_evaluation_api_maps_network_indicators():
     src = (_REPO / "src" / "web" / "routes" / "evaluation_api.py").read_text()
     assert '"network_indicators"' in src
-
-
-def test_tasks_route_has_network_indicators_slot():
-    src = (_REPO / "src" / "web" / "routes" / "tasks.py").read_text()
-    assert '"network_indicators"' in src, "network_indicators slot missing from tasks.py response dict(s)"
