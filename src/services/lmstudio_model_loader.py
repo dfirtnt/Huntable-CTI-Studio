@@ -120,6 +120,7 @@ def extract_lmstudio_models(
         "RegistryExtract",
         "ServicesExtract",
         "ScheduledTasksExtract",
+        "NetworkIndicatorExtract",
     ]
     for agent_name in sub_agents:
         model_key = f"{agent_name}_model"

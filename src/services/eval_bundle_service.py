@@ -187,6 +187,7 @@ class EvalBundleService:
             "RegistryExtract": "registry_artifacts",
             "ServicesExtract": "windows_services",
             "ScheduledTasksExtract": "scheduled_tasks",
+            "NetworkIndicatorExtract": "network_indicators",
         }
         subagent_name = agent_to_subagent_map.get(agent_name)
         expected_count = None
@@ -402,6 +403,7 @@ class EvalBundleService:
             "RegistryExtract": "extract_agent",
             "ServicesExtract": "extract_agent",
             "ScheduledTasksExtract": "extract_agent",
+            "NetworkIndicatorExtract": "extract_agent",
         }
 
         log_key = agent_key_map.get(agent_name, agent_name)
@@ -624,6 +626,7 @@ class EvalBundleService:
             "RegistryExtract": "ExtractAgent",
             "ServicesExtract": "ExtractAgent",
             "ScheduledTasksExtract": "ExtractAgent",
+            "NetworkIndicatorExtract": "ExtractAgent",
         }
 
         model_config_key = model_key_map.get(agent_name, agent_name)
@@ -637,6 +640,7 @@ class EvalBundleService:
             "RegistryExtract",
             "ServicesExtract",
             "ScheduledTasksExtract",
+            "NetworkIndicatorExtract",
         ]
         is_sub_agent = agent_name in sub_agents
 
@@ -1376,6 +1380,7 @@ class EvalBundleService:
                 "RegistryExtract",
                 "ServicesExtract",
                 "ScheduledTasksExtract",
+                "NetworkIndicatorExtract",
             ]
             if agent_name in sub_agents:
                 # Try agent-specific flat keys first
