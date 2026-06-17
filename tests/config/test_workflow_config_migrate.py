@@ -141,4 +141,4 @@ def test_missing_required_sections_get_defaults():
     assert "Agents" in migrated
     assert migrated["Thresholds"]["MinHuntScore"] == 97.0
     config = WorkflowConfigV2.model_validate(migrated)
-    assert len(config.Agents) == 9
+    assert len(config.Agents) == 10

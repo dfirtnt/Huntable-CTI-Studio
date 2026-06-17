@@ -10,6 +10,7 @@ AGENT_TO_SUBAGENT = {
     "registryextract": "registry_artifacts",
     "servicesextract": "windows_services",
     "scheduledtasksextract": "scheduled_tasks",
+    "networkindicatorextract": "network_indicators",
 }
 
 # Reverse map from canonical alias to agent name (CamelCase)
@@ -50,6 +51,11 @@ SUBAGENT_CANONICAL = {
     "scheduled-tasks": "scheduled_tasks",
     "scheduledtasksextract": "scheduled_tasks",
     "schedtasks": "scheduled_tasks",
+    "network_indicators": "network_indicators",
+    "networkindicators": "network_indicators",
+    "network-indicators": "network_indicators",
+    "networkindicatorextract": "network_indicators",
+    "network": "network_indicators",
 }
 
 __all__ = [

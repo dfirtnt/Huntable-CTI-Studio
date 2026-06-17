@@ -109,6 +109,7 @@ AGENT_NAMES_SUB = [
     "RegistryExtract",
     "ServicesExtract",
     "ScheduledTasksExtract",
+    "NetworkIndicatorExtract",
 ]
 AGENT_NAMES_QA: list[str] = []
 AGENT_NAMES_SPECIAL: list[str] = []
@@ -129,6 +130,7 @@ AGENT_DISPLAY_NAMES: dict[str, str] = {
     "RegistryExtract": "Registry Artifacts Extraction",
     "ServicesExtract": "Windows Services Extraction",
     "ScheduledTasksExtract": "Scheduled Tasks Extraction",
+    "NetworkIndicatorExtract": "Network Indicators Extraction",
 }
 
 # QA agents fully deprecated (2026-05-22). These dicts are intentionally empty.
@@ -248,14 +250,7 @@ class WorkflowConfigV2(BaseModel):
         """
         out: dict[str, Any] = {}
         main_model_keys = {"RankAgent", "ExtractAgent", "SigmaAgent"}
-        sub_agents = {
-            "CmdlineExtract",
-            "ProcTreeExtract",
-            "HuntQueriesExtract",
-            "RegistryExtract",
-            "ServicesExtract",
-            "ScheduledTasksExtract",
-        }
+        sub_agents = set(AGENT_NAMES_SUB)
         for agent_name, agent in self.Agents.items():
             if not isinstance(agent, AgentConfig):
                 continue

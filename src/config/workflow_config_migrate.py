@@ -35,6 +35,7 @@ _AGENT_FLAT_PREFIXES = [
     ("RegistryExtract", "RegistryExtract", "RegistryExtract_model"),
     ("ServicesExtract", "ServicesExtract", "ServicesExtract_model"),
     ("ScheduledTasksExtract", "ScheduledTasksExtract", "ScheduledTasksExtract_model"),
+    ("NetworkIndicatorExtract", "NetworkIndicatorExtract", "NetworkIndicatorExtract_model"),
 ]
 
 

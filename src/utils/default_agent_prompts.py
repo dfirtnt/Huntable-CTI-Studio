@@ -21,6 +21,7 @@ AGENT_PROMPT_FILES = {
     "RegistryExtract": "RegistryExtract",
     "ServicesExtract": "ServicesExtract",
     "ScheduledTasksExtract": "ScheduledTasksExtract",
+    "NetworkIndicatorExtract": "NetworkIndicatorExtract",
     "OSDetectionAgent": "OSDetectionAgent",
 }
 

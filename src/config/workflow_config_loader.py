@@ -30,6 +30,7 @@ EXTRACT_AGENTS = [
     "RegistryExtract",
     "ServicesExtract",
     "ScheduledTasksExtract",
+    "NetworkIndicatorExtract",
 ]
 QA_AGENTS: list[str] = []
 UTILITY_AGENTS: list[str] = []
@@ -44,6 +45,7 @@ AGENTS_ORDER_UI = [
     "RegistryExtract",
     "ServicesExtract",
     "ScheduledTasksExtract",
+    "NetworkIndicatorExtract",
     "SigmaAgent",
 ]
 
@@ -82,6 +84,7 @@ UI_ORDERED_TOP_LEVEL_ORDER = [
     "RegistryExtract",
     "ServicesExtract",
     "ScheduledTasksExtract",
+    "NetworkIndicatorExtract",
     "SigmaAgent",
 ]
 
@@ -140,6 +143,10 @@ _UI_ORDERED_REQUIRED: list[tuple[str, list[str]]] = [
     ),
     (
         "ScheduledTasksExtract",
+        ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt"],
+    ),
+    (
+        "NetworkIndicatorExtract",
         ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt"],
     ),
     (
@@ -227,6 +234,7 @@ def v2_to_ui_ordered_export(v2: dict[str, Any]) -> dict[str, Any]:
         "RegistryExtract",
         "ServicesExtract",
         "ScheduledTasksExtract",
+        "NetworkIndicatorExtract",
     ]:
         cfg = _agent_cfg(agents, base)
         enabled = base not in disabled
@@ -370,6 +378,17 @@ _OPTIONAL_SUB_AGENT_SECTIONS: list[tuple[str, dict[str, Any]]] = [
             "Prompt": {"prompt": "", "instructions": ""},
         },
     ),
+    (
+        "NetworkIndicatorExtract",
+        {
+            "Enabled": False,
+            "Provider": "",
+            "Model": "",
+            "Temperature": 0.0,
+            "TopP": 0.9,
+            "Prompt": {"prompt": "", "instructions": ""},
+        },
+    ),
 ]
 
 
@@ -427,6 +446,7 @@ def ui_ordered_to_v2(ui: dict[str, Any]) -> dict[str, Any]:
         "RegistryExtract",
         "ServicesExtract",
         "ScheduledTasksExtract",
+        "NetworkIndicatorExtract",
     ]:
         block = ui.get(base) or {}
         if not block:
