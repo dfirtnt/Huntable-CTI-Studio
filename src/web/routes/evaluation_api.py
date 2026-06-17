@@ -292,7 +292,7 @@ def _load_static_eval_articles(subagent_key: str) -> dict[str, dict]:
     out: dict[str, dict] = {}
     # Strict allowlist on subagent_key (defense-in-depth above the resolve/startswith
     # containment guard below). Real keys are lowercase identifiers like "cmdline",
-    # "hunt_queries", "process_lineage" — never contain "/" or ".".
+    # "hunt_queries", "process_lineage" - never contain "/" or ".".
     if not isinstance(subagent_key, str) or not _SUBAGENT_KEY_RE.fullmatch(subagent_key):
         return out
     data_dir = (_EVAL_ARTICLES_DATA_DIR / subagent_key).resolve()
@@ -1546,6 +1546,8 @@ async def get_sigma_eval_results(
                     "status": r.status,
                     "expected_rule_count": r.expected_rule_count,
                     "actual_rule_count": r.actual_rule_count,
+                    "expected_rules": r.expected_rules,
+                    "actual_rules": r.actual_rules,
                     "logsource_precision": r.logsource_precision,
                     "logsource_recall": r.logsource_recall,
                     "atom_precision": r.atom_precision,
