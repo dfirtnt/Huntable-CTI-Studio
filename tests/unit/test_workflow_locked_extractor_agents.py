@@ -58,6 +58,7 @@ class TestLockedExtractorAgents:
             "RegistryExtract",
             "ServicesExtract",
             "ScheduledTasksExtract",
+            "NetworkIndicatorExtract",
         }
         missing = required - names
         assert not missing, f"Missing genuine extraction agents from list: {sorted(missing)}"
@@ -105,6 +106,7 @@ _EXPECTED_RENDER_ENTRIES = [
     ("registry_artifacts", "RegistryExtract"),
     ("windows_services", "ServicesExtract"),
     ("scheduled_tasks", "ScheduledTasksExtract"),
+    ("network_indicators", "NetworkIndicatorExtract"),
 ]
 
 
@@ -117,10 +119,10 @@ class TestSubAgentsRenderingArray:
             "exec.extraction_result?.subresults block of workflow.html"
         )
 
-    def test_exactly_six_entries(self):
+    def test_exactly_seven_entries(self):
         count = len(re.findall(r"\{\s*key:", _RENDER_ARRAY_BLOCK))
-        assert count == 6, (
-            f"Expected 6 sub-agent rendering entries, found {count}. Update this count when adding a new extractor."
+        assert count == 7, (
+            f"Expected 7 sub-agent rendering entries, found {count}. Update this count when adding a new extractor."
         )
 
     @pytest.mark.parametrize("key,agent_name", _EXPECTED_RENDER_ENTRIES)
@@ -134,9 +136,16 @@ class TestSubAgentsRenderingArray:
             f"Rendering array is missing agent name '{agent_name}'. The card for key '{key}' will not render correctly."
         )
 
-    def test_scheduled_tasks_is_last(self):
-        """ScheduledTasksExtract must be order 6 (last) -- it was added after the other five."""
+    def test_network_indicator_is_last(self):
+        """ScheduledTasksExtract is order 6; NetworkIndicatorExtract was added after it as order 7 (last)."""
         assert "order: 6" in _RENDER_ARRAY_BLOCK, "ScheduledTasksExtract must have order: 6 in the rendering array."
+        assert "order: 7" in _RENDER_ARRAY_BLOCK, "NetworkIndicatorExtract must have order: 7 in the rendering array."
+        # NetworkIndicatorExtract must be the final entry (highest order, appears last).
+        last_order = max(int(n) for n in re.findall(r"order:\s*(\d+)", _RENDER_ARRAY_BLOCK))
+        assert last_order == 7, f"Expected the last rendering entry to be order 7, found highest order {last_order}."
+        assert _RENDER_ARRAY_BLOCK.rfind("NetworkIndicatorExtract") > _RENDER_ARRAY_BLOCK.rfind(
+            "ScheduledTasksExtract"
+        ), "NetworkIndicatorExtract must be the last entry in the rendering array (after ScheduledTasksExtract)."
 
 
 # ---------------------------------------------------------------------------
