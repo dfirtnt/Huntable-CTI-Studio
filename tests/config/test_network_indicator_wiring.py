@@ -273,6 +273,13 @@ class TestEvalArticlesData:
         for i, entry in enumerate(articles):
             missing = required - set(entry.keys())
             assert not missing, f"articles.json entry {i} missing fields: {missing}"
+            assert isinstance(entry["url"], str) and entry["url"].startswith(("http://", "https://")), (
+                f"entry {i}: url must be an http(s) URL"
+            )
+            assert isinstance(entry["title"], str) and entry["title"].strip(), f"entry {i}: title must be non-empty"
+            assert isinstance(entry["content"], str) and entry["content"].strip(), (
+                f"entry {i}: content must be non-empty"
+            )
 
     def test_articles_json_expected_count_non_negative_int(self):
         articles = json.loads((self._EVAL_DIR / "articles.json").read_text())
@@ -304,10 +311,32 @@ class TestEvalArticlesData:
     def test_yaml_urls_present_in_articles_json(self):
         yaml_data = yaml.safe_load(self._YAML_PATH.read_text())
         yaml_urls = {e["url"] for e in yaml_data["subagents"]["network_indicators"] if e.get("url")}
-        json_urls = {
-            a["url"] for a in json.loads((self._EVAL_DIR / "articles.json").read_text()) if a.get("url")
-        }
+        json_urls = {a["url"] for a in json.loads((self._EVAL_DIR / "articles.json").read_text()) if a.get("url")}
         missing = yaml_urls - json_urls
         assert not missing, (
             f"URLs in eval_articles.yaml (network_indicators) missing from articles.json: {sorted(missing)}"
         )
+
+    def test_articles_json_urls_present_in_yaml(self):
+        yaml_data = yaml.safe_load(self._YAML_PATH.read_text())
+        yaml_urls = {e["url"] for e in yaml_data["subagents"]["network_indicators"] if e.get("url")}
+        json_urls = {a["url"] for a in json.loads((self._EVAL_DIR / "articles.json").read_text()) if a.get("url")}
+        extra = json_urls - yaml_urls
+        assert not extra, f"URLs in articles.json missing from eval_articles.yaml (network_indicators): {sorted(extra)}"
+
+    def test_yaml_and_articles_json_expected_counts_match_by_url(self):
+        yaml_data = yaml.safe_load(self._YAML_PATH.read_text())
+        yaml_counts = {
+            e["url"]: e["expected_count"] for e in yaml_data["subagents"]["network_indicators"] if e.get("url")
+        }
+        json_counts = {
+            a["url"]: a["expected_count"]
+            for a in json.loads((self._EVAL_DIR / "articles.json").read_text())
+            if a.get("url")
+        }
+        mismatches = {
+            url: {"yaml": yaml_counts[url], "articles_json": json_counts[url]}
+            for url in sorted(yaml_counts.keys() & json_counts.keys())
+            if yaml_counts[url] != json_counts[url]
+        }
+        assert not mismatches, f"network_indicators expected_count mismatch by URL: {mismatches}"
