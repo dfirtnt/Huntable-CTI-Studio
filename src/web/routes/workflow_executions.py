@@ -498,6 +498,7 @@ def _build_observables_response(
         "registry_artifacts",
         "windows_services",
         "scheduled_tasks",
+        "network_indicators",
     )
     grouped: dict[str, list[ObservableTraceabilityItem]] = {t: [] for t in OBS_TYPES}
     if not extraction_result or not isinstance(extraction_result, dict):

@@ -219,6 +219,7 @@ _SUBAGENT_TO_AGENT = {
     "registry_artifacts": "RegistryExtract",
     "windows_services": "ServicesExtract",
     "scheduled_tasks": "ScheduledTasksExtract",
+    "network_indicators": "NetworkIndicatorExtract",
 }
 
 
@@ -244,6 +245,9 @@ def _actual_count_from_agent_result(subagent_name: str, agent_result: dict) -> i
         return len(items) if isinstance(items, list) else agent_result.get("count")
     if subagent_name == "scheduled_tasks":
         items = agent_result.get("scheduled_tasks") or agent_result.get("items", [])
+        return len(items) if isinstance(items, list) else agent_result.get("count")
+    if subagent_name == "network_indicators":
+        items = agent_result.get("network_indicators") or agent_result.get("items", [])
         return len(items) if isinstance(items, list) else agent_result.get("count")
     n = agent_result.get("count")
     if n is not None:
@@ -816,6 +820,10 @@ async def get_execution_commandlines(
                         commandlines = [
                             obs.get("value", str(obs)) for obs in observables if obs.get("type") == "scheduled_tasks"
                         ]
+                    elif result_key == "network_indicators":
+                        commandlines = [
+                            obs.get("value", str(obs)) for obs in observables if obs.get("type") == "network_indicators"
+                        ]
 
                 # Also check subresults
                 if not commandlines:
@@ -868,6 +876,14 @@ async def get_execution_commandlines(
                             )
                             if isinstance(sched_result, dict):
                                 items = sched_result.get("items", [])
+                                if items:
+                                    commandlines = items if isinstance(items, list) else [items]
+                        elif result_key == "network_indicators":
+                            network_result = subresults.get("network_indicators", {}) or subresults.get(
+                                "NetworkIndicatorExtract", {}
+                            )
+                            if isinstance(network_result, dict):
+                                items = network_result.get("items", [])
                                 if items:
                                     commandlines = items if isinstance(items, list) else [items]
 
@@ -2574,6 +2590,7 @@ async def get_config_versions_models(
                     "RegistryExtract",
                     "ServicesExtract",
                     "ScheduledTasksExtract",
+                    "NetworkIndicatorExtract",
                 ]:
                     model_key = f"{agent}_model"
                     if agent_models.get(model_key) and agent not in disabled_set:
@@ -2891,6 +2908,7 @@ _SUBAGENT_TO_BUNDLE_AGENT = {
     "registry_artifacts": "RegistryExtract",
     "windows_services": "ServicesExtract",
     "scheduled_tasks": "ScheduledTasksExtract",
+    "network_indicators": "NetworkIndicatorExtract",
 }
 
 
