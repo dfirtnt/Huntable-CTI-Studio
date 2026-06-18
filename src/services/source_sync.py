@@ -84,6 +84,13 @@ class SourceSyncService:
                 # Use check_frequency and lookback_days from the SourceCreate's config model
                 from src.models.source import SourceConfig
 
+                # Preserve the operator-owned image OCR override: DB value wins over
+                # YAML for this key, so a UI opt-out/opt-in survives sync-sources.
+                # YAML may still seed it only when the key is absent in the DB.
+                existing_ocr = (existing.config or {}).get("image_ocr_enabled")
+                if existing_ocr is not None:
+                    config_dict["image_ocr_enabled"] = existing_ocr
+
                 check_freq = config.config.check_frequency if hasattr(config.config, "check_frequency") else 3600
                 lookback = config.config.lookback_days if hasattr(config.config, "lookback_days") else 180
                 source_config_model = SourceConfig(

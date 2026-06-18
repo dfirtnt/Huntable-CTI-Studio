@@ -158,3 +158,64 @@ async def test_sync_to_db_calls_update_for_existing_identifiers():
     db_manager.update_source.assert_awaited_once()
     db_manager.create_source.assert_not_awaited()
     assert len(result) == 1
+
+
+@pytest.mark.asyncio
+async def test_sync_preserves_db_image_ocr_override():
+    """DB-side image_ocr_enabled must survive a sync that omits the key in YAML.
+
+    Regression guard for the operator UI override: when an operator sets
+    image_ocr_enabled=False via the UI (stored in source.config), a subsequent
+    source-sync must not silently wipe that value by replacing config wholesale
+    with the YAML-derived dict (which omits the key entirely).
+
+    DB value wins; YAML may only seed image_ocr_enabled for brand-new sources.
+    """
+    from datetime import datetime
+
+    now = datetime.now()
+    # Existing source has image_ocr_enabled=False set by the operator in the DB.
+    existing = Source(
+        id=42,
+        identifier="cisco-talos",
+        name="Cisco Talos",
+        url="https://blog.talosintelligence.com",
+        check_frequency=3600,
+        lookback_days=180,
+        active=True,
+        config={"image_ocr_enabled": False},  # operator UI override
+        consecutive_failures=0,
+        total_articles=0,
+        average_response_time=0.0,
+        created_at=now,
+        updated_at=now,
+    )
+
+    # YAML config for the same source does NOT include image_ocr_enabled.
+    yaml_config = SourceCreate(
+        identifier="cisco-talos",
+        name="Cisco Talos",
+        url="https://blog.talosintelligence.com",
+        active=True,
+        config=SourceConfig(check_frequency=3600, lookback_days=180),
+        # note: no image_ocr_enabled in the inner config dict
+    )
+
+    # update_source returns a source; we capture the call args to inspect what
+    # was passed, not what was returned.
+    updated_source = existing  # returned value is irrelevant to the assertion
+    service, db_manager = _make_service(
+        list_sources_return=[existing],
+        update_return=updated_source,
+    )
+
+    await service._sync_to_db([yaml_config], remove_missing=False, new_only=False)
+
+    # The SourceUpdate that was passed to update_source must carry image_ocr_enabled=False.
+    db_manager.update_source.assert_awaited_once()
+    call_args = db_manager.update_source.call_args  # (args, kwargs)
+    source_update_arg = call_args[0][1]  # second positional arg is the SourceUpdate
+    inner_config_dict = source_update_arg.config.config  # SourceConfig.config -> dict
+    assert inner_config_dict.get("image_ocr_enabled") is False, (
+        "image_ocr_enabled DB value was wiped by sync — preservation logic is missing"
+    )
