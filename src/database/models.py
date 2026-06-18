@@ -12,6 +12,7 @@ from sqlalchemy import (
     Enum,
     Float,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
@@ -486,6 +487,43 @@ class AppSettingsTable(Base):
 
     def __repr__(self):
         return f"<AppSettings(key='{self.key}', value='{self.value[:50] if self.value else None}...')>"
+
+
+class AuditEventTable(Base):
+    """Durable enterprise audit event record."""
+
+    __tablename__ = "audit_events"
+    __table_args__ = (
+        Index("ix_audit_events_created_at", "created_at"),
+        Index("ix_audit_events_actor_id", "actor_id"),
+        Index("ix_audit_events_action", "action"),
+        Index("ix_audit_events_request_id", "request_id"),
+        Index("ix_audit_events_target_type_target_id", "target_type", "target_id"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    created_at = Column(DateTime, nullable=False, default=func.now())
+    request_id = Column(String(128), nullable=True)
+
+    actor_type = Column(String(50), nullable=False)
+    actor_id = Column(String(255), nullable=True)
+    actor_email = Column(String(500), nullable=True)
+    actor_roles = Column(JSONB, nullable=False, default=list)
+    source_ip = Column(String(128), nullable=True)
+    user_agent = Column(Text, nullable=True)
+
+    action = Column(String(150), nullable=False)
+    target_type = Column(String(100), nullable=True)
+    target_id = Column(String(255), nullable=True)
+    status = Column(String(50), nullable=False)
+    summary = Column(Text, nullable=False)
+    event_metadata = Column("metadata", JSONB, nullable=False, default=dict)
+    before_hash = Column(String(64), nullable=True)
+    after_hash = Column(String(64), nullable=True)
+    error_code = Column(String(100), nullable=True)
+
+    def __repr__(self):
+        return f"<AuditEvent(id={self.id}, action='{self.action}', status='{self.status}')>"
 
 
 class AgenticWorkflowConfigTable(Base):

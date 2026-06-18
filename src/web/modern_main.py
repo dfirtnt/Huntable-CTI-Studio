@@ -22,7 +22,8 @@ from src.services.source_sync import SourceSyncService
 from src.web.dependencies import DEFAULT_SOURCE_USER_AGENT, logger, templates
 from src.web.routes import register_routes
 from src.web.security.config import load_security_config
-from src.web.security.middleware import IdentityMiddleware, RequestIDMiddleware
+from src.web.security.middleware import AuthorizationMiddleware, IdentityMiddleware, RequestIDMiddleware
+from src.web.security.route_manifest import build_route_manifest, validate_route_manifest
 
 # Startup DB retry: wait for postgres to be ready (e.g. after compose up).
 STARTUP_DB_RETRIES = int(os.getenv("STARTUP_DB_RETRIES", "5"))
@@ -201,12 +202,15 @@ app.add_middleware(
 )
 # IdentityMiddleware added before RequestIDMiddleware so request-ID wraps
 # outermost and is available to identity logging and every response.
+app.add_middleware(AuthorizationMiddleware, config=SECURITY_CONFIG)
 app.add_middleware(IdentityMiddleware, config=SECURITY_CONFIG)
 app.add_middleware(RequestIDMiddleware)
 
 app.mount("/static", StaticFiles(directory="src/web/static"), name="static")
 
 register_routes(app)
+app.state.route_manifest = build_route_manifest(app)
+validate_route_manifest(app, SECURITY_CONFIG)
 
 
 @app.exception_handler(404)

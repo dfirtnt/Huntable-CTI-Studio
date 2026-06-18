@@ -33,6 +33,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import defer, selectinload
 
+from src.database.audit_schema import AUDIT_INDEX_DDLS, missing_audit_schema_objects
 from src.database.models import (
     ArticleAnnotationTable,
     ArticleTable,
@@ -179,10 +180,45 @@ class AsyncDatabaseManager:
                 except Exception as ddl_err:
                     logger.warning("Skipping schema-ensure DDL (lock contention or non-fatal): %s", ddl_err)
 
+            for index_ddl in AUDIT_INDEX_DDLS:
+                try:
+                    async with self.engine.begin() as conn:
+                        await conn.execute(text("SET LOCAL lock_timeout = '3s'"))
+                        await conn.execute(text(index_ddl))
+                except Exception as ddl_err:
+                    logger.warning("Skipping audit schema-ensure DDL (lock contention or non-fatal): %s", ddl_err)
+
+            if os.getenv("APP_ENV", "").lower() == "production":
+                await self.validate_audit_schema()
+
             logger.info("Database tables created successfully")
         except Exception as e:
             logger.error(f"Failed to create tables: {e}")
             raise
+
+    async def validate_audit_schema(self) -> None:
+        """Validate required audit schema objects for production startup."""
+        if not self.engine.url.drivername.startswith("postgresql"):
+            return
+
+        async with self.engine.connect() as conn:
+            table_result = await conn.execute(text("SELECT to_regclass('public.audit_events') IS NOT NULL"))
+            table_exists = bool(table_result.scalar())
+            index_result = await conn.execute(
+                text(
+                    """
+                    SELECT indexname
+                    FROM pg_indexes
+                    WHERE schemaname = 'public'
+                      AND tablename = 'audit_events'
+                    """
+                )
+            )
+            existing_indexes = tuple(str(row[0]) for row in index_result.fetchall())
+
+        missing = missing_audit_schema_objects(table_exists=table_exists, existing_indexes=existing_indexes)
+        if missing:
+            raise RuntimeError(f"Missing required audit schema objects: {', '.join(missing)}")
 
     async def get_database_stats(self) -> dict[str, Any]:
         """Get comprehensive database statistics."""
@@ -519,9 +555,7 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to update min_content_length for source {source_id}: {e}")
             raise
 
-    async def update_source_image_ocr_override(
-        self, source_id: int, value: bool | None
-    ) -> dict[str, Any] | None:
+    async def update_source_image_ocr_override(self, source_id: int, value: bool | None) -> dict[str, Any] | None:
         """Set or clear the per-source image OCR override.
 
         value True/False writes config['image_ocr_enabled']; value None removes the
@@ -532,9 +566,7 @@ class AsyncDatabaseManager:
 
         try:
             async with self.get_session() as session:
-                result = await session.execute(
-                    select(SourceTable).where(SourceTable.id == source_id).limit(1)
-                )
+                result = await session.execute(select(SourceTable).where(SourceTable.id == source_id).limit(1))
                 db_source = result.scalar_one_or_none()
                 if not db_source:
                     return None
@@ -562,7 +594,8 @@ class AsyncDatabaseManager:
                 state = "inherit" if value is None else ("on" if value else "off")
                 logger.info(
                     "Updated image_ocr_enabled for source %s -> %s",
-                    db_source.identifier, state,
+                    db_source.identifier,
+                    state,
                 )
                 return {
                     "success": True,

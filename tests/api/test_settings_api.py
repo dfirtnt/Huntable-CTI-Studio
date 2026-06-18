@@ -1,9 +1,19 @@
 """API tests for Settings endpoints: GET merge, bulk update, and Langfuse singleton reset."""
 
 import json
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastapi import HTTPException
+
+
+def _fake_request():
+    return SimpleNamespace(
+        state=SimpleNamespace(request_id="test-request"),
+        client=SimpleNamespace(host="127.0.0.1"),
+        headers={"user-agent": "pytest"},
+    )
 
 
 @pytest.mark.api
@@ -71,7 +81,7 @@ class TestSettingsAPILMStudioURLs:
                 mock_mgr.get_session.return_value = Ctx()
                 from src.web.routes.settings import SettingsBulkUpdate, update_settings_bulk
 
-                result = await update_settings_bulk(SettingsBulkUpdate(settings=settings_dict))
+                result = await update_settings_bulk(SettingsBulkUpdate(settings=settings_dict), _fake_request())
 
             assert result["success"] is True
             assert "LMSTUDIO_API_URL" in result["updated_keys"]
@@ -124,7 +134,7 @@ class TestSettingsLangfuseReset:
             ):
                 from src.web.routes.settings import SettingUpdate, update_setting
 
-                await update_setting(SettingUpdate(key="LANGFUSE_PUBLIC_KEY", value="pk-lf-new"))
+                await update_setting(SettingUpdate(key="LANGFUSE_PUBLIC_KEY", value="pk-lf-new"), _fake_request())
 
         assert len(reset_calls) == 1
 
@@ -141,9 +151,47 @@ class TestSettingsLangfuseReset:
             ):
                 from src.web.routes.settings import SettingUpdate, update_setting
 
-                await update_setting(SettingUpdate(key="SOME_OTHER_KEY", value="value"))
+                await update_setting(SettingUpdate(key="SOME_OTHER_KEY", value="value"), _fake_request())
 
         assert len(reset_calls) == 0
+
+
+@pytest.mark.api
+class TestSettingsAudit:
+    """Settings mutations must share the mutation and mandatory audit transaction."""
+
+    @pytest.mark.asyncio
+    async def test_update_setting_does_not_commit_when_mandatory_audit_fails(self):
+        mock_session = MagicMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_session.execute = AsyncMock(return_value=mock_result)
+        mock_session.commit = AsyncMock()
+        mock_session.add = MagicMock()
+
+        class Ctx:
+            async def __aenter__(self):
+                return mock_session
+
+            async def __aexit__(self, *a):
+                pass
+
+        with patch("src.web.routes.settings.async_db_manager") as mock_mgr:
+            mock_mgr.get_session.return_value = Ctx()
+            with patch(
+                "src.web.routes.settings.AsyncAuditService.record_mandatory",
+                AsyncMock(side_effect=RuntimeError("audit write failed")),
+            ):
+                from src.web.routes.settings import SettingUpdate, update_setting
+
+                with pytest.raises(HTTPException) as exc_info:
+                    await update_setting(
+                        SettingUpdate(key="WORKFLOW_OPENAI_API_KEY", value="sk-test"),
+                        _fake_request(),
+                    )
+
+        assert exc_info.value.status_code == 500
+        mock_session.commit.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_bulk_update_with_langfuse_key_resets_singleton(self):
@@ -173,7 +221,8 @@ class TestSettingsLangfuseReset:
                 from src.web.routes.settings import SettingsBulkUpdate, update_settings_bulk
 
                 await update_settings_bulk(
-                    SettingsBulkUpdate(settings={"LANGFUSE_SECRET_KEY": "sk-lf-new", "OTHER": "val"})
+                    SettingsBulkUpdate(settings={"LANGFUSE_SECRET_KEY": "sk-lf-new", "OTHER": "val"}),
+                    _fake_request(),
                 )
 
         assert len(reset_calls) == 1
@@ -205,6 +254,6 @@ class TestSettingsLangfuseReset:
             ):
                 from src.web.routes.settings import SettingsBulkUpdate, update_settings_bulk
 
-                await update_settings_bulk(SettingsBulkUpdate(settings={"UNRELATED_KEY": "val"}))
+                await update_settings_bulk(SettingsBulkUpdate(settings={"UNRELATED_KEY": "val"}), _fake_request())
 
         assert len(reset_calls) == 0

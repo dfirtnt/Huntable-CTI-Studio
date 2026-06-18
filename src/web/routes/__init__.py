@@ -15,6 +15,7 @@ from . import (
     ai,
     analytics,
     articles,
+    audit,
     backup,
     cron,
     dashboard,
@@ -59,6 +60,7 @@ def register_routes(app: FastAPI) -> None:
     """
     app.include_router(pages.router)
     app.include_router(health.router)
+    app.include_router(audit.router)
     app.include_router(sources.router)
     app.include_router(backup.router)
     app.include_router(cron.router)
