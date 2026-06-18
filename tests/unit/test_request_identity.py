@@ -80,3 +80,13 @@ def test_parse_untrusted_peer_rejected_even_with_marker():
     )
     assert res.identity.is_authenticated is False
     assert res.spoof_attempt is True
+
+
+def test_parse_with_marker_but_no_user_id_is_not_authenticated():
+    res = parse_trusted_identity(
+        {"X-Huntable-Verified": "true", "X-Huntable-Email": "u1@x.io"},
+        "10.0.0.9",
+        _cfg(),
+    )
+    assert res.identity.is_authenticated is False
+    assert res.spoof_attempt is False
