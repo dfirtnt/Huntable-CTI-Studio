@@ -385,7 +385,9 @@
                 <div class="overflow-wrap">
                     <button class="btn-overflow" onclick="toggleOverflow(this)" title="More actions" aria-label="More actions for {{ source.name }}" aria-expanded="false">...</button>
                     <div class="src-dropdown">
-                        <button class="dd-item" onclick="openSourceConfig({{ source.id }}, {{ source.lookback_days }}, {{ source.check_frequency // 60 }}, {{ source.config.min_content_length if source.config and source.config.min_content_length else 200 }})">Configure</button>
+                        <button class="dd-item"
+                                data-image-ocr="{{ (source.config.image_ocr_enabled | default(none)) | tojson if source.config else 'null' }}"
+                                onclick="openSourceConfig(this, {{ source.id }}, {{ source.lookback_days }}, {{ source.check_frequency // 60 }}, {{ source.config.min_content_length if source.config and source.config.min_content_length else 200 }})">Configure</button>
                         <button class="dd-item" onclick="toggleSourceStatus({{ source.id }})">Toggle Status</button>
                         <button class="dd-item" onclick="showSourceStats({{ source.id }})">Stats</button>
                     </div>
@@ -520,6 +522,17 @@
                                style="background-color:var(--panel-bg-0); border-color:var(--border-muted); color:var(--text-primary);"
                                placeholder="Enter minimum characters">
                         <p class="mt-1 text-xs" style="color:var(--text-muted-slate);">Articles shorter than this length will be filtered out.</p>
+                    </div>
+                    <div>
+                        <label for="configImageOcr" class="block text-sm font-medium mb-2" style="color:var(--text-secondary);">Image OCR</label>
+                        <select id="configImageOcr"
+                                class="w-full bg-panel-0 border rounded-lg px-3 py-2 focus:outline-none focus:ring-1"
+                                style="background-color:var(--panel-bg-0); border-color:var(--border-muted); color:var(--text-primary);">
+                            <option value="inherit">Inherit (default: On)</option>
+                            <option value="on">On</option>
+                            <option value="off">Off</option>
+                        </select>
+                        <p class="mt-1 text-xs" style="color:var(--text-muted-slate);">OCR text from images in articles. Inherit follows the global default.</p>
                     </div>
                 </div>
             </div>
@@ -796,11 +809,15 @@ function closeModal() {
 
 // ── Source config ──
 let currentSourceId = null;
-function openSourceConfig(sourceId, currentDays, currentCheckFrequencyMinutes, currentMinLength) {
+function openSourceConfig(el, sourceId, currentDays, currentCheckFrequencyMinutes, currentMinLength) {
     currentSourceId = sourceId;
     document.getElementById('configLookbackDays').value = currentDays;
     document.getElementById('configCheckFrequency').value = currentCheckFrequencyMinutes;
     document.getElementById('configMinContentLength').value = currentMinLength;
+    // data-image-ocr is the string "true" | "false" | "null"
+    const raw = el ? el.dataset.imageOcr : 'null';
+    document.getElementById('configImageOcr').value =
+        raw === 'true' ? 'on' : (raw === 'false' ? 'off' : 'inherit');
     if (window.ModalManager) { window.ModalManager.open('sourceConfigModal'); }
     else { document.getElementById('sourceConfigModal').classList.remove('hidden'); }
 }
@@ -816,6 +833,8 @@ function saveSourceConfig() {
     if (!days || days < 1 || days > 999) { showNotification('Please enter a valid number between 1 and 999 days.', 'error'); return; }
     if (!checkFrequencyMinutes || checkFrequencyMinutes < 1 || checkFrequencyMinutes > 1440) { showNotification('Please enter a valid number between 1 and 1440 minutes.', 'error'); return; }
     if (isNaN(minLength) || minLength < 0) { showNotification('Please enter a valid non-negative number for minimum content length.', 'error'); return; }
+    const ocrSel = document.getElementById('configImageOcr').value;
+    const ocrValue = ocrSel === 'on' ? true : (ocrSel === 'off' ? false : null);
     const saveBtn = document.getElementById('saveSourceConfigBtn');
     const originalText = saveBtn.textContent;
     saveBtn.textContent = 'Saving…';
@@ -823,7 +842,8 @@ function saveSourceConfig() {
     Promise.all([
         fetch(`/api/sources/${currentSourceId}/lookback`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({lookback_days:days}) }),
         fetch(`/api/sources/${currentSourceId}/check_frequency`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({check_frequency:checkFrequencyMinutes*60}) }),
-        fetch(`/api/sources/${currentSourceId}/min_content_length`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({min_content_length:minLength}) })
+        fetch(`/api/sources/${currentSourceId}/min_content_length`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({min_content_length:minLength}) }),
+        fetch(`/api/sources/${currentSourceId}/image_ocr`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({image_ocr_enabled:ocrValue}) })
     ])
     .then(responses => Promise.all(responses.map(r => r.json())))
     .then(results => {
