@@ -1,5 +1,6 @@
 import io
 import types
+from types import SimpleNamespace
 
 import httpcore
 import pytest
@@ -11,6 +12,7 @@ from src.services.vision_ocr_service import (
     OcrConfig,
     OcrResult,
     OcrStatus,
+    PROTECTED_INTERNAL_SOURCE_IDENTIFIERS,
     _build_safe_client,
     _filter_images,
     _is_safe_image_url,
@@ -510,3 +512,36 @@ async def test_stream_resolves_relative_redirect(monkeypatch):
     data = await _stream_image_safely(client, "https://host.test/page", OcrConfig())
     assert data == png
     assert client.urls[1] == "https://host.test/cdn/image.png"  # urljoin'd absolute
+
+
+# ---------------------------------------------------------------------------
+# Internal-source protection guard tests
+# ---------------------------------------------------------------------------
+
+def test_protected_internal_sources_never_ocr(monkeypatch):
+    monkeypatch.setenv("OCR_INGEST_ENABLED", "true")
+    for ident in ("eval_articles", "manual"):
+        src = SimpleNamespace(identifier=ident, config={"image_ocr_enabled": True})
+        assert resolve_ocr_config(src) is None  # config True is ignored for protected sources
+
+
+def test_protected_set_contents():
+    assert PROTECTED_INTERNAL_SOURCE_IDENTIFIERS == frozenset({"eval_articles", "manual"})
+
+
+def test_non_internal_inherits_env_on(monkeypatch):
+    monkeypatch.setenv("OCR_INGEST_ENABLED", "true")
+    src = SimpleNamespace(identifier="huntress_blog", config={})
+    assert resolve_ocr_config(src) is not None  # absent key inherits env-on
+
+
+def test_non_internal_inherits_env_off(monkeypatch):
+    monkeypatch.delenv("OCR_INGEST_ENABLED", raising=False)
+    src = SimpleNamespace(identifier="huntress_blog", config={})
+    assert resolve_ocr_config(src) is None
+
+
+def test_explicit_false_overrides_env_on(monkeypatch):
+    monkeypatch.setenv("OCR_INGEST_ENABLED", "true")
+    src = SimpleNamespace(identifier="dark_reading", config={"image_ocr_enabled": False})
+    assert resolve_ocr_config(src) is None

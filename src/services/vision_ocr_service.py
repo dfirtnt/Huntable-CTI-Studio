@@ -70,6 +70,10 @@ class OcrConfig:
 
 logger = logging.getLogger(__name__)
 
+# Internal/synthetic sources whose article rows must never be OCR-mutated
+# (eval ground truth + manual entries). Enforced in code, not just config.
+PROTECTED_INTERNAL_SOURCE_IDENTIFIERS = frozenset({"eval_articles", "manual"})
+
 
 def _resolve_ips(host: str) -> list[str]:
     try:
@@ -234,7 +238,11 @@ def _filter_images(search_root, base_url: str, config: OcrConfig) -> list[str]:
 
 def resolve_ocr_config(source: Any) -> OcrConfig | None:
     """Tri-state: source.config['image_ocr_enabled'] None=inherit env, True=force on,
-    False=force off. Returns OcrConfig when OCR should run, else None."""
+    False=force off. Returns OcrConfig when OCR should run, else None.
+
+    Protected internal sources (eval/manual) always return None regardless of config/env."""
+    if getattr(source, "identifier", None) in PROTECTED_INTERNAL_SOURCE_IDENTIFIERS:
+        return None
     cfg = getattr(source, "config", None) or {}
     override = cfg.get("image_ocr_enabled")
     if override is True:
