@@ -554,17 +554,17 @@
             <div class="flex items-center gap-3">
                 <label class="eval-section-label" for="trendModelSelect">MODEL</label>
                 <select id="trendModelSelect" class="eval-select" style="min-width: 18rem;">
-                    <option value="">-- select a model --</option>
+                    <option value="">-- all models --</option>
                 </select>
             </div>
         </div>
         <div class="eval-panel-body">
             <p class="eval-mono mb-3 text-xs" style="color: var(--text-muted-slate);">
                 Macro-averaged Precision, Recall, and F1 across articles with human-validated ground truth, plotted per <strong>config_version</strong>.
-                Only versions where this subagent used the selected model are shown. Articles without <code>expected_items</code> are excluded.
+                Use the model dropdown to show all config versions, or only versions where this subagent used a selected model. Articles without <code>expected_items</code> are excluded.
             </p>
             <div id="trendChartEmpty" class="eval-mono text-center py-8 text-xs" style="color: var(--text-muted-slate);">
-                Select a model above to plot its precision/recall/F1 trajectory across config versions.
+                Select all models or a single model above to plot precision/recall/F1 trajectory across config versions.
             </div>
             <div id="trendChartContainer" class="hidden">
                 <div style="position: relative; height: 380px; width: 100%;">
@@ -1693,21 +1693,29 @@ async function loadTrendModels() {
             opt.value = '';
             opt.textContent = '-- no models with eval data --';
             modelSelect.appendChild(opt);
-            renderTrendChart(null, []);
+            const empty = document.getElementById('trendChartEmpty');
+            const container = document.getElementById('trendChartContainer');
+            const meta = document.getElementById('trendChartMeta');
+            if (container) container.classList.add('hidden');
+            if (empty) {
+                empty.classList.remove('hidden');
+                empty.textContent = `No models with eval data found for subagent "${currentSubagent}".`;
+            }
+            if (trendChartInstance) { trendChartInstance.destroy(); trendChartInstance = null; }
+            if (meta) meta.textContent = '';
             return;
         }
-        const placeholder = document.createElement('option');
-        placeholder.value = '';
-        placeholder.textContent = '-- select a model --';
-        modelSelect.appendChild(placeholder);
+        const allOption = document.createElement('option');
+        allOption.value = '';
+        allOption.textContent = '-- all models --';
+        modelSelect.appendChild(allOption);
         for (const m of models) {
             const opt = document.createElement('option');
             opt.value = m.name;
             opt.textContent = `${m.name} (${m.config_count} config${m.config_count === 1 ? '' : 's'})`;
             modelSelect.appendChild(opt);
         }
-        // Clear chart until user picks a model.
-        renderTrendChart(null, []);
+        loadTrendData('');
     } catch (err) {
         console.error('Failed to load trend models:', err);
         modelSelect.innerHTML = '<option value="">-- error loading --</option>';
@@ -1715,14 +1723,11 @@ async function loadTrendModels() {
 }
 
 async function loadTrendData(model) {
-    if (!model) {
-        renderTrendChart(null, []);
-        return;
-    }
     try {
+        const modelParam = model ? `&model=${encodeURIComponent(model)}` : '';
         const url = `/api/evaluations/subagent-eval-aggregate`
             + `?subagent=${encodeURIComponent(currentSubagent)}`
-            + `&model=${encodeURIComponent(model)}`;
+            + modelParam;
         const resp = await fetch(url);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json();
@@ -1733,7 +1738,7 @@ async function loadTrendData(model) {
         );
         // Sort ascending by config_version so the line moves left-to-right in time order.
         scored.sort((a, b) => Number(a.config_version) - Number(b.config_version));
-        renderTrendChart(model, scored);
+        renderTrendChart(model || 'all models', scored);
     } catch (err) {
         console.error('Failed to load trend data:', err);
         renderTrendChart(model, []);
@@ -1746,14 +1751,6 @@ function renderTrendChart(model, aggregates) {
     const meta = document.getElementById('trendChartMeta');
     if (!empty || !container) return;
 
-    if (!model) {
-        container.classList.add('hidden');
-        empty.classList.remove('hidden');
-        empty.textContent = 'Select a model above to plot its precision/recall/F1 trajectory across config versions.';
-        if (trendChartInstance) { trendChartInstance.destroy(); trendChartInstance = null; }
-        if (meta) meta.textContent = '';
-        return;
-    }
     if (!aggregates || aggregates.length === 0) {
         container.classList.add('hidden');
         empty.classList.remove('hidden');
