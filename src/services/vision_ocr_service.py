@@ -20,6 +20,7 @@ import httpcore
 import httpx
 from bs4 import BeautifulSoup, NavigableString
 
+from src.models.source import INTERNAL_SOURCE_IDENTIFIERS
 from src.utils.content import ContentCleaner
 from src.utils.http import RequestConfig
 
@@ -72,7 +73,8 @@ logger = logging.getLogger(__name__)
 
 # Internal/synthetic sources whose article rows must never be OCR-mutated
 # (eval ground truth + manual entries). Enforced in code, not just config.
-PROTECTED_INTERNAL_SOURCE_IDENTIFIERS = frozenset({"eval_articles", "manual"})
+# Derived from the canonical list in src.models.source so the two never drift.
+PROTECTED_INTERNAL_SOURCE_IDENTIFIERS = frozenset(INTERNAL_SOURCE_IDENTIFIERS)
 
 
 def _resolve_ips(host: str) -> list[str]:
