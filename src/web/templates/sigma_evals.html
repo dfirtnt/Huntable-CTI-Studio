@@ -465,7 +465,7 @@
                 <div class="px-4 pb-4 pt-2 text-xs" style="color: var(--text-muted-slate); line-height: 1.6;">
                     <div class="grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));">
                         <p><strong style="color: var(--text-emphasis);">Rules</strong> shows generated count over expected count. Higher than expected often means over-broad Sigma generation.</p>
-                        <p><strong style="color: var(--text-emphasis);">Logsource P/R/F1</strong> scores canonical telemetry class matching. <strong style="color: var(--text-emphasis);">Atom P/R/F1</strong> scores normalized detection atoms.</p>
+                        <p><strong style="color: var(--text-emphasis);">Combined F1</strong> is the harmonic mean of logsource F1 and atom F1, so weak telemetry-class matching lowers the headline score. Raw P/R/F1 remains visible for diagnosis.</p>
                         <p><strong style="color: var(--text-emphasis);">Details</strong> shows matched, missed, and extra atoms/logsources plus expected and generated rule payloads when available.</p>
                     </div>
                 </div>
@@ -756,6 +756,10 @@
         return 2 * precision * recall / (precision + recall);
     }
 
+    function combinedF1(logsourceF1, atomF1) {
+        return f1Score(logsourceF1, atomF1);
+    }
+
     function renderSummary() {
         var container = document.getElementById("aggregateScores");
         if (!displayedResults.length) {
@@ -772,13 +776,16 @@
         var meanLogsourceRecall = average(completed.map(function (r) { return r.logsource_recall; }));
         var meanAtomPrecision = average(completed.map(function (r) { return r.atom_precision; }));
         var meanAtomRecall = average(completed.map(function (r) { return r.atom_recall; }));
+        var logsourceF1 = f1Score(meanLogsourcePrecision, meanLogsourceRecall);
+        var atomF1 = f1Score(meanAtomPrecision, meanAtomRecall);
         var cards = [
             ["Runs", completed.length + " / " + displayedResults.length + " completed"],
             ["Rules", actual + " / " + expected + " actual/expected"],
+            ["Combined F1", formatScore(combinedF1(logsourceF1, atomF1))],
             ["Logsource P/R", formatScore(meanLogsourcePrecision) + " / " + formatScore(meanLogsourceRecall)],
-            ["Logsource F1", formatScore(f1Score(meanLogsourcePrecision, meanLogsourceRecall))],
+            ["Logsource F1", formatScore(logsourceF1)],
             ["Atom P/R", formatScore(meanAtomPrecision) + " / " + formatScore(meanAtomRecall)],
-            ["Atom F1", formatScore(f1Score(meanAtomPrecision, meanAtomRecall))],
+            ["Atom F1", formatScore(atomF1)],
             ["Queue", pending + " pending, " + failed + " failed"]
         ];
         container.innerHTML = cards.map(function (card) {
@@ -829,6 +836,7 @@
         }).map(function (agg) {
             agg.logsource_f1 = f1Score(agg.logsource_precision, agg.logsource_recall);
             agg.atom_f1 = f1Score(agg.atom_precision, agg.atom_recall);
+            agg.combined_f1 = combinedF1(agg.logsource_f1, agg.atom_f1);
             return agg;
         }).filter(function (agg) {
             return agg.logsource_precision !== null || agg.logsource_recall !== null || agg.atom_precision !== null || agg.atom_recall !== null;
@@ -951,6 +959,7 @@
         result.innerHTML =
             '<div class="sigma-summary-grid mb-4">' +
             metricSummaryCard("Completed Runs", baseline.scored_articles, candidate.scored_articles, "", "") +
+            metricSummaryCard("Combined F1", scoreValue(baseline.combined_f1), scoreValue(candidate.combined_f1), "%", "pp") +
             metricSummaryCard("Logsource Precision", scoreValue(baseline.logsource_precision), scoreValue(candidate.logsource_precision), "%", "pp") +
             metricSummaryCard("Logsource Recall", scoreValue(baseline.logsource_recall), scoreValue(candidate.logsource_recall), "%", "pp") +
             metricSummaryCard("Logsource F1", scoreValue(baseline.logsource_f1), scoreValue(candidate.logsource_f1), "%", "pp") +
@@ -998,6 +1007,7 @@
         var atomRecallColor = getThemeColor("--action-execute") || "#10b981";
         var logsourceF1Color = getThemeColor("--chart-purple") || "#a855f7";
         var atomF1Color = getThemeColor("--chart-yellow") || "#eab308";
+        var combinedF1Color = getThemeColor("--text-emphasis") || "#f8fafc";
         var canvas = document.getElementById("sigmaTrendChart");
         if (!canvas || typeof Chart === "undefined") {
             return;
@@ -1010,6 +1020,16 @@
             data: {
                 labels: labels,
                 datasets: [
+                    {
+                        label: "Combined F1",
+                        data: aggregates.map(function (agg) { return pctOrNull(agg.combined_f1); }),
+                        borderColor: combinedF1Color,
+                        backgroundColor: combinedF1Color,
+                        borderWidth: 3,
+                        tension: 0.25,
+                        pointRadius: 5,
+                        pointHoverRadius: 7
+                    },
                     {
                         label: "Logsource Precision",
                         data: aggregates.map(function (agg) { return pctOrNull(agg.logsource_precision); }),
@@ -1192,6 +1212,7 @@
             '<div class="sigma-summary-grid mb-5">' +
             '<div class="sigma-summary-card"><div class="eval-section-label mb-2">Status</div>' + statusBadge(result.status) + '</div>' +
             '<div class="sigma-summary-card"><div class="eval-section-label mb-2">Rules</div><div class="eval-mono text-sm" style="color: var(--text-primary);">' + esc((result.actual_rule_count === null || result.actual_rule_count === undefined ? "-" : result.actual_rule_count) + " / " + result.expected_rule_count) + '</div></div>' +
+            '<div class="sigma-summary-card"><div class="eval-section-label mb-2">Combined F1</div>' + scoreBadge(combinedF1(f1Score(result.logsource_precision, result.logsource_recall), f1Score(result.atom_precision, result.atom_recall))) + '</div>' +
             '<div class="sigma-summary-card"><div class="eval-section-label mb-2">Logsource P/R</div>' + scoreBadge(result.logsource_precision) + ' <span class="eval-mono text-xs" style="color: var(--text-muted-slate);">/</span> ' + scoreBadge(result.logsource_recall) + '</div>' +
             '<div class="sigma-summary-card"><div class="eval-section-label mb-2">Logsource F1</div>' + scoreBadge(f1Score(result.logsource_precision, result.logsource_recall)) + '</div>' +
             '<div class="sigma-summary-card"><div class="eval-section-label mb-2">Atom P/R</div>' + scoreBadge(result.atom_precision) + ' <span class="eval-mono text-xs" style="color: var(--text-muted-slate);">/</span> ' + scoreBadge(result.atom_recall) + '</div>' +
