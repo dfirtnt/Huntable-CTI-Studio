@@ -737,12 +737,10 @@
             return;
         }
         var aggregates = buildVersionAggregates(allResults);
-        if (aggregates.length < 2) {
+        if (aggregates.length === 0) {
             chartContainer.classList.add("hidden");
             empty.classList.remove("hidden");
-            empty.textContent = aggregates.length === 1
-                ? "Only one scored config version is available; run another version to plot a trend."
-                : "No completed Sigma eval versions with scored precision/recall are available yet.";
+            empty.textContent = "No completed Sigma eval versions with scored precision/recall are available yet.";
             if (meta) {
                 meta.textContent = "";
             }
@@ -851,7 +849,9 @@
         });
         if (meta) {
             var total = aggregates.reduce(function (sum, agg) { return sum + agg.scored_articles; }, 0);
-            meta.textContent = aggregates.length + " config versions plotted from " + total + " completed article-run(s)";
+            var versionLabel = aggregates.length === 1 ? "config version" : "config versions";
+            var suffix = aggregates.length === 1 ? "; add another scored version to see movement over time" : "";
+            meta.textContent = aggregates.length + " " + versionLabel + " plotted from " + total + " completed article-run(s)" + suffix;
         }
     }
 
