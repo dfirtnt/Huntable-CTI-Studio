@@ -79,17 +79,17 @@ We follow PEP 8 with some modifications:
 
 ### Python Code Style
 
-- **Line length**: 88 characters (Black default)
-- **Import order**: Use `isort` for consistent import ordering
+- **Line length**: 88 characters
+- **Import order**: Managed by `ruff` (isort-compatible)
 - **Type hints**: Required for all public functions and methods
 - **Docstrings**: Use Google-style docstrings
 
 ### Code Formatting
 
-The project uses `ruff` for linting and formatting (configured in `pyproject.toml`). Pre-commit hooks run automatically on `git commit`:
+The project uses `ruff` for linting and formatting (configured in `pyproject.toml`). Pre-commit hooks run automatically on `git commit`. Install via `uv` (the project package manager):
 
 ```bash
-pip3 install pre-commit
+uv add --dev pre-commit
 pre-commit install
 ```
 
@@ -367,4 +367,4 @@ Thank you to all contributors who have helped make Huntable CTI Studio better! Y
 
 ---
 
-_Last updated: 2026-05-23_
+_Last updated: 2026-06-18_

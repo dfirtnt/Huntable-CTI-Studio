@@ -1,7 +1,7 @@
 # Huntable CTI Studio — Brand & Style Guide
 ### Handoff Document for Presentation / Pitch Deck Agents
 
-**Product:** Huntable CTI Studio v7.1.0 "Europa"  
+**Product:** Huntable CTI Studio v7.4.1 "Europa"  
 **Category:** Cyber Threat Intelligence (CTI) ML/AI Workbench  
 **Audience:** Security Operations, Threat Hunters, Detection Engineers  
 **Tone:** Precision-tool. Operational. No hype. Quietly confident.
@@ -347,4 +347,4 @@ TEXT                 FONTS
 
 ---
 
-*Source: extracted from `src/web/static/css/theme-variables.css` and `src/web/templates/base.html`, `dashboard.html`. Last updated 2026-05-25.*
+*Source: extracted from `src/web/static/css/theme-variables.css` and `src/web/templates/base.html`, `dashboard.html`. Last updated 2026-06-18.*
