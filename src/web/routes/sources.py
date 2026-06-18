@@ -187,7 +187,7 @@ async def api_update_source_image_ocr(source_id: int, request: dict):
             raise HTTPException(status_code=400, detail="image_ocr_enabled is required")
 
         value = request["image_ocr_enabled"]
-        if value not in (True, False, None):
+        if value is not None and not isinstance(value, bool):
             raise HTTPException(
                 status_code=400,
                 detail="image_ocr_enabled must be true, false, or null",

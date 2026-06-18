@@ -8,6 +8,8 @@ unwraps accordingly.
 import pytest
 import httpx
 
+pytestmark = pytest.mark.api
+
 
 async def _first_source_id(async_client: httpx.AsyncClient) -> int:
     resp = await async_client.get("/api/sources")
@@ -54,3 +56,18 @@ async def test_image_ocr_endpoint_rejects_bad_value(async_client: httpx.AsyncCli
 async def test_image_ocr_endpoint_unknown_source_404(async_client: httpx.AsyncClient):
     resp = await async_client.put("/api/sources/999999/image_ocr", json={"image_ocr_enabled": True})
     assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_image_ocr_endpoint_sets_false(async_client: httpx.AsyncClient):
+    sid = await _first_source_id(async_client)
+    resp = await async_client.put(f"/api/sources/{sid}/image_ocr", json={"image_ocr_enabled": False})
+    assert resp.status_code == 200
+    assert resp.json()["state"] == "off"
+
+
+@pytest.mark.asyncio
+async def test_image_ocr_endpoint_rejects_integer_one(async_client: httpx.AsyncClient):
+    sid = await _first_source_id(async_client)
+    resp = await async_client.put(f"/api/sources/{sid}/image_ocr", json={"image_ocr_enabled": 1})
+    assert resp.status_code == 400
