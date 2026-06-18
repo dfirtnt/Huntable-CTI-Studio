@@ -277,6 +277,30 @@
         height: 16rem;
         position: relative;
     }
+    .sigma-delta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 3.4rem;
+        padding: 0.15rem 0.45rem;
+        border-radius: 6px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.75rem;
+        font-weight: 700;
+        border: 1px solid rgba(139, 92, 246, 0.1);
+        background: var(--panel-bg-5);
+        color: var(--text-muted-slate);
+    }
+    .sigma-delta--up {
+        background: var(--action-execute-fill);
+        color: var(--action-execute);
+        border-color: rgba(16, 185, 129, 0.18);
+    }
+    .sigma-delta--down {
+        background: var(--action-danger-fill);
+        color: var(--action-danger);
+        border-color: rgba(220, 38, 38, 0.2);
+    }
     .eval-modal-backdrop {
         background: rgba(0, 0, 0, 0.65);
         backdrop-filter: blur(4px);
@@ -412,6 +436,26 @@
                 <div id="sigmaTrendChartContainer" class="sigma-chart-wrap hidden">
                     <canvas id="sigmaTrendChart"></canvas>
                 </div>
+            </div>
+            <div id="versionComparePanel" class="mb-5" style="background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.08); border-radius: 10px; padding: 1.25rem;">
+                <div class="flex justify-between items-start mb-4 flex-wrap gap-3">
+                    <div>
+                        <h3 class="eval-section-title">Version Compare</h3>
+                        <p id="compareHint" class="eval-mono mt-1 text-[10px]" style="color: var(--text-muted-slate);">Compare aggregate and per-article Sigma scores between two config versions.</p>
+                    </div>
+                    <div class="flex items-end gap-3 flex-wrap">
+                        <div>
+                            <label class="block eval-section-label mb-1" for="compareVersionA">Baseline</label>
+                            <select id="compareVersionA" class="eval-select" title="Baseline config version"></select>
+                        </div>
+                        <div>
+                            <label class="block eval-section-label mb-1" for="compareVersionB">Candidate</label>
+                            <select id="compareVersionB" class="eval-select" title="Candidate config version"></select>
+                        </div>
+                        <button id="runCompareBtn" type="button" class="eval-btn eval-btn--accent eval-btn--sm">Compare</button>
+                    </div>
+                </div>
+                <div id="compareResult" class="hidden"></div>
             </div>
             <details id="resultsLegend" class="mb-4" style="background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.08); border-radius: 10px;">
                 <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none text-xs" style="list-style: none; color: var(--text-muted-slate); font-family: 'JetBrains Mono', monospace;">
@@ -606,6 +650,7 @@
             var data = await resp.json();
             allResults = data && data.results ? data.results : [];
             populateVersionFilter();
+            populateCompareVersionSelects();
             applyVersionFilter();
             renderResults();
         } catch (e) {
@@ -613,17 +658,21 @@
         }
     }
 
-    function populateVersionFilter() {
-        var select = document.getElementById("configVersionSelect");
-        var label = document.getElementById("configVersionLabel");
-        var current = select.value || "";
+    function availableVersions() {
         var versions = [];
         allResults.forEach(function (result) {
             if (result.workflow_config_version !== null && result.workflow_config_version !== undefined && versions.indexOf(result.workflow_config_version) === -1) {
                 versions.push(result.workflow_config_version);
             }
         });
-        versions.sort(function (a, b) { return b - a; });
+        return versions.sort(function (a, b) { return b - a; });
+    }
+
+    function populateVersionFilter() {
+        var select = document.getElementById("configVersionSelect");
+        var label = document.getElementById("configVersionLabel");
+        var current = select.value || "";
+        var versions = availableVersions();
         if (!versions.length) {
             select.classList.add("hidden");
             label.classList.add("hidden");
@@ -637,6 +686,47 @@
         }
         select.classList.remove("hidden");
         label.classList.remove("hidden");
+    }
+
+    function populateCompareVersionSelects() {
+        var baseline = document.getElementById("compareVersionA");
+        var candidate = document.getElementById("compareVersionB");
+        var button = document.getElementById("runCompareBtn");
+        var hint = document.getElementById("compareHint");
+        if (!baseline || !candidate || !button) {
+            return;
+        }
+        var versions = availableVersions();
+        var previousA = baseline.value;
+        var previousB = candidate.value;
+        var options = versions.map(function (version) {
+            return '<option value="' + esc(version) + '">v' + esc(version) + '</option>';
+        }).join("");
+        baseline.innerHTML = options;
+        candidate.innerHTML = options;
+        if (versions.length < 2) {
+            baseline.disabled = true;
+            candidate.disabled = true;
+            button.disabled = true;
+            document.getElementById("compareResult").classList.add("hidden");
+            if (hint) {
+                hint.textContent = versions.length === 1
+                    ? "Need at least two Sigma config versions to compare."
+                    : "No Sigma config versions are available to compare.";
+            }
+            return;
+        }
+        baseline.disabled = false;
+        candidate.disabled = false;
+        button.disabled = false;
+        baseline.value = versions.map(String).indexOf(String(previousA)) !== -1 ? previousA : String(versions[1]);
+        candidate.value = versions.map(String).indexOf(String(previousB)) !== -1 ? previousB : String(versions[0]);
+        if (baseline.value === candidate.value && versions.length > 1) {
+            baseline.value = String(versions[1]);
+        }
+        if (hint) {
+            hint.textContent = "Compare aggregate and per-article Sigma scores between two config versions.";
+        }
     }
 
     function applyVersionFilter() {
@@ -727,6 +817,128 @@
 
     function pctOrNull(value) {
         return value === null || value === undefined ? null : +(value * 100).toFixed(2);
+    }
+
+    function signedNumber(value, suffix) {
+        if (value === null || value === undefined || Number.isNaN(value)) {
+            return "n/a";
+        }
+        var rounded = Math.round(value * 10) / 10;
+        var prefix = rounded > 0 ? "+" : "";
+        return prefix + rounded + (suffix || "");
+    }
+
+    function deltaBadge(value, suffix) {
+        if (value === null || value === undefined || Number.isNaN(value)) {
+            return '<span class="sigma-delta">n/a</span>';
+        }
+        var cls = value > 0 ? "sigma-delta--up" : value < 0 ? "sigma-delta--down" : "";
+        return '<span class="sigma-delta ' + cls + '">' + esc(signedNumber(value, suffix)) + "</span>";
+    }
+
+    function versionAggregate(version) {
+        return buildVersionAggregates(allResults).filter(function (agg) {
+            return String(agg.config_version) === String(version);
+        })[0] || null;
+    }
+
+    function latestRowsByArticle(version) {
+        var rows = {};
+        allResults.forEach(function (result) {
+            if (String(result.workflow_config_version) !== String(version) || result.status !== "completed") {
+                return;
+            }
+            if (!rows[result.article_url]) {
+                rows[result.article_url] = result;
+            }
+        });
+        return rows;
+    }
+
+    function scoreValue(value) {
+        return value === null || value === undefined ? null : Number(value) * 100;
+    }
+
+    function rulesValue(row) {
+        if (!row || row.actual_rule_count === null || row.actual_rule_count === undefined) {
+            return null;
+        }
+        return Number(row.actual_rule_count);
+    }
+
+    function metricSummaryCard(label, baselineValue, candidateValue, valueSuffix, deltaSuffix) {
+        var delta = baselineValue === null || baselineValue === undefined || candidateValue === null || candidateValue === undefined
+            ? null
+            : candidateValue - baselineValue;
+        return (
+            '<div class="sigma-summary-card">' +
+            '<div class="eval-section-label mb-2">' + esc(label) + '</div>' +
+            '<div class="eval-mono text-xs mb-2" style="color: var(--text-muted-slate);">Baseline ' + esc(baselineValue === null || baselineValue === undefined ? "n/a" : signedNumber(baselineValue, valueSuffix).replace("+", "")) +
+            ' / Candidate ' + esc(candidateValue === null || candidateValue === undefined ? "n/a" : signedNumber(candidateValue, valueSuffix).replace("+", "")) + '</div>' +
+            deltaBadge(delta, deltaSuffix) +
+            '</div>'
+        );
+    }
+
+    function runVersionCompare() {
+        var baselineVersion = document.getElementById("compareVersionA").value;
+        var candidateVersion = document.getElementById("compareVersionB").value;
+        var result = document.getElementById("compareResult");
+        if (!baselineVersion || !candidateVersion || baselineVersion === candidateVersion) {
+            result.classList.remove("hidden");
+            result.innerHTML = '<p class="eval-mono text-xs" style="color: var(--text-muted-slate);">Choose two different config versions.</p>';
+            return;
+        }
+
+        var baseline = versionAggregate(baselineVersion);
+        var candidate = versionAggregate(candidateVersion);
+        if (!baseline || !candidate) {
+            result.classList.remove("hidden");
+            result.innerHTML = '<p class="eval-mono text-xs" style="color: var(--text-muted-slate);">Both versions need completed scored Sigma eval rows before they can be compared.</p>';
+            return;
+        }
+
+        var baselineRows = latestRowsByArticle(baselineVersion);
+        var candidateRows = latestRowsByArticle(candidateVersion);
+        var urls = Object.keys(Object.assign({}, baselineRows, candidateRows)).sort(function (a, b) {
+            return shortUrl(a).localeCompare(shortUrl(b));
+        });
+        var articleRows = urls.map(function (url) {
+            var a = baselineRows[url];
+            var b = candidateRows[url];
+            var ruleDelta = rulesValue(a) === null || rulesValue(b) === null ? null : rulesValue(b) - rulesValue(a);
+            var logsourceDelta = scoreValue(a && a.logsource_recall) === null || scoreValue(b && b.logsource_recall) === null
+                ? null
+                : scoreValue(b.logsource_recall) - scoreValue(a.logsource_recall);
+            var atomDelta = scoreValue(a && a.atom_recall) === null || scoreValue(b && b.atom_recall) === null
+                ? null
+                : scoreValue(b.atom_recall) - scoreValue(a.atom_recall);
+            return (
+                "<tr>" +
+                '<td class="eval-mono text-xs" style="color: var(--text-primary);">' + esc(shortUrl(url)) + "</td>" +
+                '<td class="eval-mono text-xs" style="color: var(--text-secondary);">' + esc(a ? rulesValue(a) + " / " + a.expected_rule_count : "n/a") + "</td>" +
+                '<td class="eval-mono text-xs" style="color: var(--text-secondary);">' + esc(b ? rulesValue(b) + " / " + b.expected_rule_count : "n/a") + "</td>" +
+                "<td>" + deltaBadge(ruleDelta, "") + "</td>" +
+                "<td>" + deltaBadge(logsourceDelta, "pp") + "</td>" +
+                "<td>" + deltaBadge(atomDelta, "pp") + "</td>" +
+                "</tr>"
+            );
+        }).join("");
+
+        result.classList.remove("hidden");
+        result.innerHTML =
+            '<div class="sigma-summary-grid mb-4">' +
+            metricSummaryCard("Completed Runs", baseline.scored_articles, candidate.scored_articles, "", "") +
+            metricSummaryCard("Logsource Precision", scoreValue(baseline.logsource_precision), scoreValue(candidate.logsource_precision), "%", "pp") +
+            metricSummaryCard("Logsource Recall", scoreValue(baseline.logsource_recall), scoreValue(candidate.logsource_recall), "%", "pp") +
+            metricSummaryCard("Atom Precision", scoreValue(baseline.atom_precision), scoreValue(candidate.atom_precision), "%", "pp") +
+            metricSummaryCard("Atom Recall", scoreValue(baseline.atom_recall), scoreValue(candidate.atom_recall), "%", "pp") +
+            '</div>' +
+            '<div class="overflow-x-auto">' +
+            '<table class="sigma-table"><thead><tr>' +
+            '<th>Article</th><th>Baseline Rules</th><th>Candidate Rules</th><th>Rule Delta</th><th>Logsource Recall Delta</th><th>Atom Recall Delta</th>' +
+            '</tr></thead><tbody>' + articleRows + '</tbody></table>' +
+            '</div>';
     }
 
     function renderTrendChart() {
@@ -981,6 +1193,7 @@
             applyVersionFilter();
             renderResults();
         });
+        document.getElementById("runCompareBtn").addEventListener("click", runVersionCompare);
         loadActiveConfig();
         loadArticles();
         loadResults();
