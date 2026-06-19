@@ -1,7 +1,7 @@
 # QA Agent Contract
 
 Version: 1.1
-Last Updated: 2026-05-12
+Last Updated: 2026-06-19
 Applies To: **Archived — all QA agents removed**
 
 > **Deprecated (v7.1.0, 2026-05-22):** The entire QA agent subsystem was removed. `RankAgentQA` and all extractor QA agents (CmdLineQA, ProcTreeQA, HuntQueriesQA, RegistryQA, ServicesQA, ScheduledTasksQA) no longer exist in the pipeline, schema, or codebase. This document is retained as a historical reference only.
@@ -394,4 +394,4 @@ A: The pipeline will attempt to parse it. If parsing fails, the evaluation is tr
 
 QA agents are the final safeguard before outputs enter downstream systems. Invest time in clear, specific evaluation criteria and evidence-based reasoning. A well-designed QA prompt prevents hallucinations and schema violations from propagating through the pipeline.
 
-_Last updated: 2026-05-23_
+_Last updated: 2026-06-19_

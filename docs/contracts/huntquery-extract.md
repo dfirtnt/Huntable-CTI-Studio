@@ -284,4 +284,4 @@ If the query is presented as "you could detect..." or "defenders should...", SKI
 If the content is pseudocode or narrative description without runnable text, SKIP.
 When in doubt, OMIT.
 
-_Last updated: 2026-06-13 — extended KQL indicator list to Microsoft Defender for Office 365 (EmailEvents et al.), Microsoft Defender for Cloud (CloudProcessEvents, CloudAuditEvents), and Sentinel ASIM parsers (_Im_NetworkSession, _Im_WebSession, imFileEvent, etc.). Era boundary._
+_Last updated: 2026-06-19 — extended KQL indicator list to Microsoft Defender for Office 365 (EmailEvents et al.), Microsoft Defender for Cloud (CloudProcessEvents, CloudAuditEvents), and Sentinel ASIM parsers (_Im_NetworkSession, _Im_WebSession, imFileEvent, etc.). Era boundary._

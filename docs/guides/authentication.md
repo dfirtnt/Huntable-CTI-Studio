@@ -15,4 +15,4 @@ The deployment model for this application is single-user, local-only. If you int
 
 All backup, cron, and source-management endpoints accept requests without any authentication header. See [`docs/guides/backup-and-restore.md`](backup-and-restore.md) for usage.
 
-_Last updated: 2026-05-23_
+_Last updated: 2026-06-19_

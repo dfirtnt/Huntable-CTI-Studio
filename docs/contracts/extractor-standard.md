@@ -1,7 +1,7 @@
 # Extractor Agent Prompt Standard
 
 Version: 1.1
-Last Updated: 2026-05-23
+Last Updated: 2026-06-19
 Applies To: All ExtractAgent sub-agents (CmdLine, ProcTree, Registry, Services, HuntQueries, future extractors)
 
 ## Jump to an agent contract
@@ -445,4 +445,4 @@ This can produce false-NOVEL classifications for behaviorally equivalent rules.
 This structural limitation is tracked separately and requires cross-class comparison
 support to resolve (Option B).
 
-_Last updated: 2026-05-23_
+_Last updated: 2026-06-19_
