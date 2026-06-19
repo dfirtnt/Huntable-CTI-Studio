@@ -14,6 +14,25 @@ Both expected and actual rules are decomposed through the same extractor
 `sigma_similarity` package), so scoring is robust to cosmetic YAML differences
 and prompt drift. Scoring lives in `src/services/sigma_eval_scorer.py`.
 
+## Files
+
+This directory is self-contained, like the extractor eval sets:
+
+- **`articles.json`** -- the article content snapshot the eval runs on. Seeded
+  into the DB by `src/services/seed_eval_articles.py` (it globs `*/articles.json`),
+  so the Sigma eval has content to run against without depending on any other
+  subagent's snapshot. Each entry is `{url, title, content, expected_count}`,
+  where `expected_count` mirrors `ground_truth.json`'s `expected_rule_count`.
+- **`ground_truth.json`** -- the expected Sigma rules per URL (format below).
+  This, not `eval_articles.yaml`, is the source of truth for the Sigma eval's
+  expected count, so this set is intentionally **not** wired into
+  `config/eval_articles.yaml`.
+
+`articles.json` content is a verbatim copy of the same articles in the extractor
+snapshots -- never re-scraped -- so the Sigma eval scores against identical text.
+`tests/unit/test_sigma_ground_truth_files.py` enforces that every ground-truth URL
+has a matching, non-empty article snapshot and that the counts agree.
+
 ## `ground_truth.json` format
 
 JSON array. Each element:
@@ -35,8 +54,8 @@ JSON array. Each element:
 }
 ```
 
-- **url** (string): Canonical article URL. Must match a URL present in an
-  extractor `articles.json` snapshot so the eval has article content to run on.
+- **url** (string): Canonical article URL. Must have a matching entry in this
+  directory's `articles.json` so the eval has article content to run on.
 - **expected_rule_count** (int): Expected number of valid Sigma rules.
 - **expected_rules** (array): Each entry is an ordinary Sigma rule fragment with
   at least `logsource` and `detection`. Author these the way you would write a

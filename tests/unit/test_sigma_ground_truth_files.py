@@ -20,11 +20,18 @@ from src.services.sigma_atom_precompute import extract_atom_fields, is_sigma_sim
 
 ROOT = pathlib.Path(__file__).parent.parent.parent / "config" / "eval_articles_data" / "sigma"
 GT_PATH = ROOT / "ground_truth.json"
+ARTICLES_PATH = ROOT / "articles.json"
 
 
 def _load_ground_truth() -> list[dict]:
     assert GT_PATH.exists(), f"sigma ground_truth.json missing: {GT_PATH}"
     with open(GT_PATH) as f:
+        return json.load(f)
+
+
+def _load_articles() -> list[dict]:
+    assert ARTICLES_PATH.exists(), f"sigma articles.json missing: {ARTICLES_PATH}"
+    with open(ARTICLES_PATH) as f:
         return json.load(f)
 
 
@@ -104,3 +111,53 @@ def test_every_expected_rule_decomposes():
             if fields is None or not fields.get("positive_atoms"):
                 failures.append(f"{entry['url']} rule[{j}]")
     assert not failures, f"expected rules that did not decompose into atoms: {failures}"
+
+
+# --- Self-contained article snapshot ----------------------------------------
+# The Sigma eval owns its own articles.json content snapshot (like the extractor
+# evals), so it no longer depends on an article URL incidentally appearing in
+# some other subagent's snapshot. seed_eval_articles globs */articles.json, so
+# this file is what seeds the Sigma eval articles into the DB.
+
+
+@pytest.mark.unit
+def test_articles_snapshot_is_valid_json_list():
+    data = _load_articles()
+    assert isinstance(data, list), "sigma articles.json top-level must be a list"
+    assert len(data) > 0, "sigma articles.json is empty"
+
+
+@pytest.mark.unit
+def test_articles_snapshot_covers_ground_truth_urls():
+    """Every ground-truth URL must have a self-owned article snapshot with content.
+
+    This is the contract that decouples the Sigma eval from the extractor
+    snapshots: the eval has article content to run on without relying on
+    cmdline/process_lineage carrying the same URL.
+    """
+    gt_urls = {e["url"] for e in _load_ground_truth()}
+    articles = {a["url"]: a for a in _load_articles()}
+    missing = sorted(gt_urls - set(articles))
+    assert not missing, f"sigma ground-truth URLs with no article snapshot: {missing}"
+    for url in gt_urls:
+        art = articles[url]
+        assert (art.get("title") or "").strip(), f"{url}: empty title"
+        assert (art.get("content") or "").strip(), f"{url}: empty content"
+
+
+@pytest.mark.unit
+def test_articles_expected_count_matches_rule_count():
+    """articles.json expected_count must equal ground_truth expected_rule_count.
+
+    Sigma's expected count lives in ground_truth.json (expected_rule_count), not
+    in eval_articles.yaml. Mirroring it onto the snapshot keeps the data-integrity
+    contract (non-negative int expected_count) honest and self-consistent.
+    """
+    gt_count = {e["url"]: e["expected_rule_count"] for e in _load_ground_truth()}
+    for art in _load_articles():
+        url = art["url"]
+        if url in gt_count:
+            assert art.get("expected_count") == gt_count[url], (
+                f"{url}: articles.json expected_count={art.get('expected_count')} "
+                f"but ground_truth expected_rule_count={gt_count[url]}"
+            )
