@@ -1,8 +1,8 @@
 # Entity-Driven Platform Classification — Design Spec
 
 - Date: 2026-06-19
-- Status: **Phase A implemented** (Windows/Linux/macOS entity-KB classifier is the
-  primary decider; embedding paths retired as decider). Phases B–D proposed.
+- Status: **Phases A & B implemented** (entity-KB gate is the primary decider; LLM
+  adjudicates only the low-confidence/Unknown tail). Phases C–D proposed.
 - Architecture: **hybrid confirmed by operator 2026-06-19** — deterministic KB gate
   runs first; the LLM is invoked *only* for the low-confidence / Unknown tail (never
   LLM-always). The KB doubles as the cost gate that decides when to spend an LLM call.
@@ -214,7 +214,15 @@ uses no LLM; this is an additive, bounded cost.
   1542→Unknown(low, web-layer article, no host signal) — 0/4→2/4 Linux, **no false
   Windows**. The Windows keyword check remains a deterministic safety net for thin
   evidence; the BERT classifier/similarity methods are dormant (delete in Phase D).
-- **Phase B — LLM adjudication** on low-confidence/conflict only.
+- **Phase B — LLM adjudication on the low-confidence/Unknown tail. ✅ DONE 2026-06-19.**
+  Shipped `src/services/platform_adjudicator.py` (prompt builder + robust JSON parser +
+  `adjudicate_platforms(content, llm_call=...)` with injected LLM call; any failure →
+  Unknown). Wired into `os_detection_node` via `_maybe_adjudicate_platform` — fires only
+  when the KB gate returns `confidence=="low"`, uses the configured PlatformAdjudicator
+  model (falls back to ExtractAgent/RankAgent), and never raises. Tests:
+  `tests/services/test_platform_adjudicator.py` (11). Live result: 1542 (KB→Unknown) →
+  LLM → Linux(high) with evidence; 4441 stays KB-confident with **no LLM call**. The KB
+  is the cost gate — the LLM fires only on the tail it can't resolve.
 - **Phase C — ATT&CK technique extraction** → technique→platform signal (imports
   maintained taxonomy; also benefits Sigma `tags`).
 - **Phase D — Domains + Products dimensions**; delete the embedding path entirely. This

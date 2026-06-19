@@ -1037,6 +1037,60 @@ def _parse_agent_result(agent_name: str, result_key: str, agent_result: dict) ->
     return items, subresult_entry
 
 
+async def _maybe_adjudicate_platform(
+    content: str,
+    agent_models: dict[str, Any],
+    os_result: dict[str, Any],
+    detected_os: Any,
+    execution_id: int,
+) -> tuple[dict[str, Any], Any]:
+    """Phase B: LLM platform adjudication for the inconclusive (KB Unknown/low) tail.
+
+    Invoked only when the deterministic KB gate could not classify the article. Uses
+    the configured PlatformAdjudicator model (falling back to ExtractAgent/RankAgent).
+    Returns possibly-updated (os_result, detected_os); never raises.
+    See docs/superpowers/specs/2026-06-19-entity-driven-platform-classification-design.md (§6).
+    """
+    try:
+        from src.services.llm_service import LLMService
+        from src.services.platform_adjudicator import adjudicate_platforms
+
+        models = agent_models or {}
+        provider = (
+            models.get("PlatformAdjudicator_provider")
+            or models.get("ExtractAgent_provider")
+            or models.get("RankAgent_provider")
+            or "openai"
+        )
+        model_name = models.get("PlatformAdjudicator") or models.get("ExtractAgent") or models.get("RankAgent")
+        llm_service = LLMService(config_models=models)
+
+        async def _adj_call(messages: list[dict]) -> str:
+            resp = await llm_service.request_chat(
+                provider=provider,
+                model_name=model_name,
+                messages=messages,
+                max_tokens=400,
+                temperature=0.0,
+                timeout=60.0,
+                failure_context="platform_adjudication",
+            )
+            choices = resp.get("choices", []) if isinstance(resp, dict) else []
+            return choices[0].get("message", {}).get("content", "") if choices else ""
+
+        adj = await adjudicate_platforms(content, llm_call=_adj_call)
+        if adj.platforms:
+            logger.info(
+                f"[Workflow {execution_id}] Platform adjudicated via LLM: "
+                f"{adj.platforms} (confidence={adj.confidence})"
+            )
+            new_result = adj.as_os_result()
+            return new_result, new_result.get("operating_system", detected_os)
+    except Exception as e:
+        logger.warning(f"[Workflow {execution_id}] Platform adjudication skipped: {e}")
+    return os_result, detected_os
+
+
 def create_agentic_workflow(db_session: Session) -> StateGraph:
     """
     Create LangGraph workflow for agentic processing.
@@ -1118,6 +1172,14 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     use_classifier=True,
                 )
                 detected_os = os_result.get("operating_system", "Unknown") if os_result else "Unknown"
+
+                # Phase B: deterministic gate inconclusive -> LLM adjudication on the
+                # low-confidence / Unknown tail only (never on the eval-skip path above).
+                # "low" is the canonical inconclusive signal from the KB gate (Unknown).
+                if content and (os_result or {}).get("confidence") == "low":
+                    os_result, detected_os = await _maybe_adjudicate_platform(
+                        content, agent_models, os_result, detected_os, state["execution_id"]
+                    )
 
             similarities = os_result.get("similarities", {}) if os_result else {}
             windows_similarity = similarities.get("Windows", 0.0) if isinstance(similarities, dict) else 0.0
