@@ -1,0 +1,89 @@
+# Platform Classification Knowledge Base (Phase A: Windows / Linux / macOS)
+#
+# Entity -> platform signal for the entity-driven article classifier.
+# See docs/superpowers/specs/2026-06-19-entity-driven-platform-classification-design.md
+#
+# Each entry:
+#   match:     literal, case-insensitive substring tested against article content
+#   platforms: one or more of [windows, linux, macos]
+#   weight:    3 = strong/unambiguous discriminator, 2 = medium, 1 = weak hint
+#
+# Deliberately EXCLUDED (phase-one observable contract §5: do not infer an OS from
+# generic cross-platform commands): bash, sh, curl, wget, ssh, python, perl, nginx,
+# apache, docker, kubernetes (containers/cloud are deferred to Phase D).
+
+entities:
+  # --- Windows: strong ---
+  - {match: "lsass", platforms: [windows], weight: 3}
+  - {match: "mimikatz", platforms: [windows], weight: 3}
+  - {match: "hklm", platforms: [windows], weight: 3}
+  - {match: "hkcu", platforms: [windows], weight: 3}
+  - {match: "hkey_", platforms: [windows], weight: 3}
+  - {match: 'c:\windows', platforms: [windows], weight: 3}
+  - {match: '\system32', platforms: [windows], weight: 3}
+  - {match: "ntds.dit", platforms: [windows], weight: 3}
+  # --- Windows: medium ---
+  - {match: "powershell", platforms: [windows], weight: 2}
+  - {match: "cmd.exe", platforms: [windows], weight: 2}
+  - {match: "rundll32", platforms: [windows], weight: 2}
+  - {match: "regsvr32", platforms: [windows], weight: 2}
+  - {match: "schtasks", platforms: [windows], weight: 2}
+  - {match: "wmic", platforms: [windows], weight: 2}
+  - {match: ".ps1", platforms: [windows], weight: 2}
+  - {match: "event id", platforms: [windows], weight: 2}
+  - {match: "sysmon", platforms: [windows], weight: 2}
+  - {match: "ntlm", platforms: [windows], weight: 2}
+  - {match: "windows defender", platforms: [windows], weight: 2}
+  - {match: '\appdata\', platforms: [windows], weight: 2}
+  - {match: '\programdata\', platforms: [windows], weight: 2}
+  # --- Windows: weak ---
+  - {match: ".exe", platforms: [windows], weight: 1}
+  - {match: ".dll", platforms: [windows], weight: 1}
+
+  # --- Linux: strong ---
+  - {match: "/etc/cron", platforms: [linux], weight: 3}
+  - {match: "/etc/systemd", platforms: [linux], weight: 3}
+  - {match: "/etc/passwd", platforms: [linux], weight: 3}
+  - {match: "/etc/shadow", platforms: [linux], weight: 3}
+  - {match: "ld_preload", platforms: [linux], weight: 3}
+  - {match: "/dev/shm", platforms: [linux], weight: 3}
+  - {match: "crontab", platforms: [linux], weight: 3}
+  - {match: ".bashrc", platforms: [linux], weight: 3}
+  - {match: ".bash_profile", platforms: [linux], weight: 3}
+  # --- Linux: medium ---
+  - {match: "systemctl", platforms: [linux], weight: 2}
+  - {match: "systemd", platforms: [linux], weight: 2}
+  - {match: "/var/log", platforms: [linux], weight: 2}
+  - {match: "/usr/bin/", platforms: [linux], weight: 2}
+  - {match: "/usr/sbin/", platforms: [linux], weight: 2}
+  - {match: "chmod +x", platforms: [linux], weight: 2}
+  - {match: "dpkg", platforms: [linux], weight: 2}
+  - {match: "apt-get", platforms: [linux], weight: 2}
+  - {match: "setuid", platforms: [linux], weight: 2}
+  - {match: "iptables", platforms: [linux], weight: 2}
+  - {match: "/root/", platforms: [linux], weight: 2}
+  - {match: "/bin/bash", platforms: [linux], weight: 2}
+  # --- Linux: weak ---
+  - {match: "/tmp/", platforms: [linux], weight: 1}
+  - {match: "/proc/", platforms: [linux], weight: 1}
+  - {match: ".so", platforms: [linux], weight: 1}
+
+  # --- macOS: strong ---
+  - {match: "launchdaemon", platforms: [macos], weight: 3}
+  - {match: "launchagent", platforms: [macos], weight: 3}
+  - {match: "/library/launchdaemons", platforms: [macos], weight: 3}
+  - {match: "/library/launchagents", platforms: [macos], weight: 3}
+  - {match: "dscl", platforms: [macos], weight: 3}
+  - {match: "tcc.db", platforms: [macos], weight: 3}
+  - {match: "kextload", platforms: [macos], weight: 3}
+  # --- macOS: medium ---
+  - {match: "launchd", platforms: [macos], weight: 2}
+  - {match: ".plist", platforms: [macos], weight: 2}
+  - {match: "osascript", platforms: [macos], weight: 2}
+  - {match: "com.apple", platforms: [macos], weight: 2}
+  - {match: "plutil", platforms: [macos], weight: 2}
+  - {match: "mach-o", platforms: [macos], weight: 2}
+  - {match: "info.plist", platforms: [macos], weight: 2}
+  - {match: "gatekeeper", platforms: [macos], weight: 2}
+  # --- macOS: weak ---
+  - {match: "/applications/", platforms: [macos], weight: 1}

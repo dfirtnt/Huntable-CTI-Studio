@@ -409,32 +409,43 @@ class OSDetectionService:
         """
         Detect OS from content.
 
-        Detection order:
-        1. Windows keyword check (>= min_windows_keywords matches -> Windows)
-        2. BERT classifier (if available)
-        3. BERT similarity-based detection
+        Detection order (Phase A — entity-driven; embedding paths retired):
+        1. Entity KB classification (primary decider).
+        2. Windows keyword safety net for low-KB-evidence content (deterministic).
+        3. Otherwise Unknown (Phase B will adjudicate this tail with an LLM).
+
+        The BERT classifier/similarity methods remain on the class but are no longer
+        called: they were non-discriminative for non-Windows content (every class ~0.5,
+        the `Other`/`multiple` tie-break winning). See
+        docs/superpowers/specs/2026-06-19-entity-driven-platform-classification-design.md.
 
         Args:
             content: Article content
-            use_classifier: Try to use trained classifier first (after keyword check)
-            min_windows_keywords: Minimum Windows keyword matches to return Windows (default: 3)
+            use_classifier: Deprecated/ignored (embedding classifier retired).
+            min_windows_keywords: Windows keyword matches for the deterministic safety net.
 
         Returns:
             Dict with operating_system, method, and confidence
         """
-        # Step 1: Check Windows keywords first
+        from src.services.platform_classifier import classify_platforms
+
+        # Step 1: Entity-driven KB classification — explainable, no model, multi-label.
+        kb = classify_platforms(content)
+        if kb.confidence != "low":
+            logger.info(
+                f"Platform detected via entity KB: {kb.platforms} "
+                f"(confidence={kb.confidence}, scores={kb.scores})"
+            )
+            return kb.as_os_result()
+
+        # Step 2: deterministic Windows keyword safety net for thin KB evidence.
         keyword_result = self._check_windows_keywords(content, min_matches=min_windows_keywords)
         if keyword_result:
             return keyword_result
 
-        # Step 2: Try classifier if available
-        if use_classifier:
-            result = self._detect_with_classifier(content)
-            if result:
-                return result
-
-        # Step 3: Similarity-based detection
-        return self._detect_with_similarity(content)
+        # Step 3: genuinely insufficient signal -> Unknown (no embedding guesswork).
+        logger.info(f"Platform classification inconclusive (scores={kb.scores}); returning Unknown")
+        return kb.as_os_result()
 
     def train_classifier(self, training_data: list[dict[str, Any]], save_path: Path | None = None) -> dict[str, Any]:
         """
