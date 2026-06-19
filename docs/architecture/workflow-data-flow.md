@@ -90,7 +90,12 @@ for cat, data in subresults.items():
             "type": cat,
             "value": normalized_value,
             "original_data": item if isinstance(item, dict) else None,
-            "source": "supervisor_aggregation"
+            "source": "supervisor_aggregation",
+            "platform": "linux",
+            "platform_confidence": "medium",
+            "telemetry_category": "process_creation",
+            "telemetry_confidence": "medium",
+            "logsource_hint": {"product": "linux", "category": "process_creation"}
         })
         content_summary.append(f"- {json.dumps(item, indent=None) if isinstance(item, dict) else item}")
     content_summary.append("")
@@ -100,10 +105,12 @@ extraction_result = {
     "summary": {
         "count": len(all_observables),
         "source_url": article.canonical_url,
-        "platforms_detected": ["Windows"]
+        "platforms_detected": ["linux"]
     },
     "discrete_huntables_count": len(all_observables),
     "subresults": subresults,
+    "capability_skips": [...],
+    "extractor_capabilities": {...},
     "content": "\n".join(content_summary) if content_summary else "",
     "raw_response": json.dumps(subresults, indent=2)
 }

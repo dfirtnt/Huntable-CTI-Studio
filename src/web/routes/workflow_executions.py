@@ -215,6 +215,12 @@ class ObservableTraceabilityItem(BaseModel):
 
     observable_value: Any
     observable_type: str
+    platform: str | None = None
+    platform_confidence: str | None = None
+    platform_rationale: str | None = None
+    telemetry_category: str | None = None
+    telemetry_confidence: str | None = None
+    logsource_hint: dict[str, Any] | str | None = None
     source_evidence: str | None = None
     extraction_justification: str | None = None
     confidence_score: float | None = None
@@ -516,6 +522,12 @@ def _build_observables_response(
         item = ObservableTraceabilityItem(
             observable_value=val,
             observable_type=obs_type,
+            platform=obs.get("platform"),
+            platform_confidence=obs.get("platform_confidence"),
+            platform_rationale=obs.get("platform_rationale"),
+            telemetry_category=obs.get("telemetry_category"),
+            telemetry_confidence=obs.get("telemetry_confidence"),
+            logsource_hint=obs.get("logsource_hint"),
             source_evidence=obs.get("source_evidence"),
             extraction_justification=obs.get("extraction_justification"),
             confidence_score=obs.get("confidence_score"),

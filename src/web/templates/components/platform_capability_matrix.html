@@ -1,0 +1,78 @@
+<div id="platform-capability-matrix" class="card-elevated p-4">
+    <div class="flex items-center justify-between gap-3 mb-3">
+        <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Platform Capability Matrix</h4>
+        <span class="text-xs text-gray-500 dark:text-gray-400">Read-only</span>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full text-xs text-left">
+            <thead class="text-gray-500 dark:text-gray-400 uppercase">
+                <tr>
+                    <th class="py-2 pr-4 font-semibold">Extractor</th>
+                    <th class="py-2 px-3 font-semibold">Windows</th>
+                    <th class="py-2 px-3 font-semibold">Linux</th>
+                    <th class="py-2 px-3 font-semibold">macOS</th>
+                    <th class="py-2 px-3 font-semibold">Cross/Unknown</th>
+                    <th class="py-2 pl-3 font-semibold">Telemetry Scope</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-700 text-gray-700 dark:text-gray-300">
+                <tr>
+                    <td class="py-2 pr-4 font-mono text-gray-900 dark:text-gray-100">CmdlineExtract</td>
+                    <td class="py-2 px-3">Supported</td>
+                    <td class="py-2 px-3">Supported</td>
+                    <td class="py-2 px-3">Supported</td>
+                    <td class="py-2 px-3">Display only unless logsource-ready</td>
+                    <td class="py-2 pl-3">Process execution command lines</td>
+                </tr>
+                <tr>
+                    <td class="py-2 pr-4 font-mono text-gray-900 dark:text-gray-100">ProcTreeExtract</td>
+                    <td class="py-2 px-3">Supported</td>
+                    <td class="py-2 px-3">Supported</td>
+                    <td class="py-2 px-3">Supported</td>
+                    <td class="py-2 px-3">Display only unless logsource-ready</td>
+                    <td class="py-2 pl-3">Process lineage and process execution</td>
+                </tr>
+                <tr>
+                    <td class="py-2 pr-4 font-mono text-gray-900 dark:text-gray-100">NetworkIndicatorExtract</td>
+                    <td class="py-2 px-3">Supported</td>
+                    <td class="py-2 px-3">Supported</td>
+                    <td class="py-2 px-3">Supported</td>
+                    <td class="py-2 px-3">Supported</td>
+                    <td class="py-2 pl-3">Network observables with platform/logsource confidence</td>
+                </tr>
+                <tr>
+                    <td class="py-2 pr-4 font-mono text-gray-900 dark:text-gray-100">HuntQueriesExtract</td>
+                    <td class="py-2 px-3">Supported</td>
+                    <td class="py-2 px-3">Supported</td>
+                    <td class="py-2 px-3">Supported</td>
+                    <td class="py-2 px-3">Supported</td>
+                    <td class="py-2 pl-3">Backend/query-language detections</td>
+                </tr>
+                <tr>
+                    <td class="py-2 pr-4 font-mono text-gray-900 dark:text-gray-100">RegistryExtract</td>
+                    <td class="py-2 px-3">Supported</td>
+                    <td class="py-2 px-3">Skipped</td>
+                    <td class="py-2 px-3">Skipped</td>
+                    <td class="py-2 px-3">Skipped</td>
+                    <td class="py-2 pl-3">Windows registry artifacts</td>
+                </tr>
+                <tr>
+                    <td class="py-2 pr-4 font-mono text-gray-900 dark:text-gray-100">ServicesExtract</td>
+                    <td class="py-2 px-3">Supported</td>
+                    <td class="py-2 px-3">Skipped</td>
+                    <td class="py-2 px-3">Skipped</td>
+                    <td class="py-2 px-3">Skipped</td>
+                    <td class="py-2 pl-3">Windows service creation</td>
+                </tr>
+                <tr>
+                    <td class="py-2 pr-4 font-mono text-gray-900 dark:text-gray-100">ScheduledTasksExtract</td>
+                    <td class="py-2 px-3">Supported</td>
+                    <td class="py-2 px-3">Skipped</td>
+                    <td class="py-2 px-3">Skipped</td>
+                    <td class="py-2 px-3">Skipped</td>
+                    <td class="py-2 pl-3">Windows scheduled task artifacts</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>

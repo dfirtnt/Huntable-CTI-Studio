@@ -6,7 +6,7 @@ const BASE = process.env.CTI_SCRAPER_URL || 'http://127.0.0.1:8001';
 const PANEL_INFO: Record<string, { step: string; container: string; label: string }> = {
   'rank-agent-configs-panel': { step: 's2', container: '#rank-agent-model-container', label: 'Rank Agent' },
   'extract-agent-panel': { step: 's3', container: '#extract-agent-model-container', label: 'Extract Agent' },
-  'os-detection-panel': { step: 's0', container: '#os-detection-model-container', label: 'OS Detection' },
+  'os-detection-panel': { step: 's0', container: '#os-detection-model-container', label: 'Platform Detection' },
   'sigma-agent-panel': { step: 's4', container: '#sigma-agent-model-container', label: 'SIGMA Generator Agent' },
 };
 
@@ -26,6 +26,16 @@ test.describe('Agent Config Restore After Collapse', () => {
     await page.waitForSelector('#workflowConfigForm', { timeout: 10000 });
     // Wait for initialization flag to clear (set false after loadConfig completes)
     await page.waitForFunction(() => (window as any).isInitializing === false, { timeout: 10000 });
+  });
+
+  test('shows the read-only platform capability matrix', async ({ page }) => {
+    const matrix = page.locator('#platform-capability-matrix');
+
+    await expect(matrix).toBeVisible();
+    await expect(matrix).toContainText('Platform Capability Matrix');
+    await expect(matrix).toContainText('RegistryExtract');
+    await expect(matrix).toContainText('Windows registry artifacts');
+    await expect(matrix).toContainText('Network observables with platform/logsource confidence');
   });
 
   test('should render Rank Agent config content after restore when panel was collapsed', async ({ page }) => {

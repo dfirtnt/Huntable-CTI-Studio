@@ -9,14 +9,16 @@ that schedules and distributes the work. Each agent writes results to
 
 ## Core Agents (Execution Order)
 
-0. **OS Detection**: Classifies target OS using `ibm-research/CTI-BERT`
-   embeddings and keyword matching. Non-Windows articles exit early.
+0. **Platform Detection**: Classifies platform context using
+   `ibm-research/CTI-BERT` embeddings and keyword matching. The workflow uses
+   the detected platforms to route capable extractors and record structured
+   skips for unsupported extractor/platform combinations.
 1. **Junk filter**: Removes non-huntable content before spending tokens on
    ranking and extraction.
 2. **LLM ranking**: Scores article quality (1-10) and gates the rest of the
    workflow.
-3. **Extract Agent**: Runs sub-agents sequentially and merges their observables
-   into `extraction_result`.
+3. **Extract Agent**: Runs capable sub-agents sequentially and merges their
+   platform/telemetry-tagged observables into `extraction_result`.
 4. **Sigma generator**: Builds Sigma rules from extracted observables and
    validates with pySigma.
 5. **Similarity matcher**: Compares generated rules against SigmaHQ using
@@ -26,12 +28,14 @@ that schedules and distributes the work. Each agent writes results to
 
 ## Extract Agent Sub-Agents
 
-- **CmdlineExtract**: Command-line observables with arguments. The optional **Attention Preprocessor** surfaces LOLBAS-aligned
+- **CmdlineExtract**: Platform-aware command-line observables with arguments. The optional **Attention Preprocessor** surfaces LOLBAS-aligned
   snippets earlier in the LLM prompt; toggle in Workflow Config under
   Cmdline Extract. See [Cmdline Attention Preprocessor](../features/cmdline-preprocessor.md).
 - **HuntQueriesExtract**: Detection queries (EDR queries and Sigma rules)
   extracted from content.
-- **ProcTreeExtract**: Parent/child process lineage.
+- **ProcTreeExtract**: Platform-aware parent/child process lineage.
+- **NetworkIndicatorExtract**: Network indicators when enabled, with platform
+  or logsource hints where evidence supports them.
 - **RegistryExtract**: Windows registry artifacts (persistence keys, config
   changes, defense evasion). Single `key` field (full hive-rooted path) plus
   optional `value_name`, `value_data`, `value_type`, `operation`.

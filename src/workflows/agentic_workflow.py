@@ -2,7 +2,7 @@
 Agentic Workflow using LangGraph for processing high-hunt-score articles.
 
 This workflow processes articles through 7 steps:
-0. OS Detection (Windows only continues; non-Windows terminates)
+0. Platform Detection (classifies OS/platforms for capability routing)
 1. Junk Filter
 2. LLM Rank Article
 3. Extract Agent
@@ -51,12 +51,40 @@ from src.utils.subagent_utils import build_subagent_lookup_values, normalize_sub
 from src.workflows.status_utils import (
     TERMINATION_REASON_JUNK_FILTER,
     TERMINATION_REASON_NO_SIGMA_RULES,
-    TERMINATION_REASON_NON_WINDOWS_OS,
     TERMINATION_REASON_RANK_THRESHOLD,
     mark_execution_completed,
 )
 
 logger = logging.getLogger(__name__)
+
+PLATFORM_WINDOWS = "windows"
+PLATFORM_LINUX = "linux"
+PLATFORM_MACOS = "macos"
+PLATFORM_CROSS = "cross_platform"
+PLATFORM_UNKNOWN = "unknown"
+SUPPORTED_PLATFORM_VALUES = {PLATFORM_WINDOWS, PLATFORM_LINUX, PLATFORM_MACOS, PLATFORM_CROSS, PLATFORM_UNKNOWN}
+
+AGENT_PLATFORM_CAPABILITIES: dict[str, set[str]] = {
+    "CmdlineExtract": {PLATFORM_WINDOWS, PLATFORM_LINUX, PLATFORM_MACOS, PLATFORM_CROSS, PLATFORM_UNKNOWN},
+    "ProcTreeExtract": {PLATFORM_WINDOWS, PLATFORM_LINUX, PLATFORM_MACOS, PLATFORM_CROSS, PLATFORM_UNKNOWN},
+    "HuntQueriesExtract": {PLATFORM_WINDOWS, PLATFORM_LINUX, PLATFORM_MACOS, PLATFORM_CROSS, PLATFORM_UNKNOWN},
+    "RegistryExtract": {PLATFORM_WINDOWS},
+    "ServicesExtract": {PLATFORM_WINDOWS},
+    "ScheduledTasksExtract": {PLATFORM_WINDOWS},
+    "NetworkIndicatorExtract": {PLATFORM_WINDOWS, PLATFORM_LINUX, PLATFORM_MACOS, PLATFORM_CROSS, PLATFORM_UNKNOWN},
+}
+
+OBSERVABLE_TELEMETRY_CATEGORY: dict[str, str] = {
+    "cmdline": "process_creation",
+    "process_lineage": "process_creation",
+    "hunt_queries": "hunt_query",
+    "registry_artifacts": "registry",
+    "windows_services": "service_creation",
+    "scheduled_tasks": "scheduled_task",
+    "network_indicators": "network_connection",
+}
+
+WINDOWS_ONLY_OBSERVABLE_TYPES = {"registry_artifacts", "windows_services", "scheduled_tasks"}
 
 
 def _bool_from_value(val: Any) -> bool:
@@ -66,6 +94,356 @@ def _bool_from_value(val: Any) -> bool:
     if isinstance(val, str):
         return val.lower() == "true"
     return bool(val)
+
+
+def _normalize_platform_value(value: Any) -> str:
+    """Normalize OS/platform labels into the observable platform vocabulary."""
+    if value is None:
+        return PLATFORM_UNKNOWN
+    text = str(value).strip().lower().replace("-", "_").replace(" ", "_")
+    if text in {"windows", "win"}:
+        return PLATFORM_WINDOWS
+    if text in {"linux"}:
+        return PLATFORM_LINUX
+    if text in {"macos", "mac", "mac_os", "darwin", "osx", "mac_os_x"}:
+        return PLATFORM_MACOS
+    if text in {"multiple", "multi", "cross_platform", "crossplatform", "platform_agnostic"}:
+        return PLATFORM_CROSS
+    if text in SUPPORTED_PLATFORM_VALUES:
+        return text
+    return PLATFORM_UNKNOWN
+
+
+def _platforms_from_os_detection(detected_os: Any, os_result: dict[str, Any] | None) -> list[str]:
+    """Build article-level platform context from OS detection output."""
+    platforms: list[str] = []
+    os_data = os_result if isinstance(os_result, dict) else {}
+    explicit = os_data.get("platforms_detected")
+    if isinstance(explicit, list):
+        platforms.extend(_normalize_platform_value(item) for item in explicit)
+
+    detected_platform = _normalize_platform_value(detected_os or os_data.get("operating_system"))
+    if detected_platform == PLATFORM_CROSS:
+        similarities = os_data.get("similarities", {})
+        if isinstance(similarities, dict):
+            for label in ("Windows", "Linux", "MacOS"):
+                score = similarities.get(label)
+                if isinstance(score, (int, float)) and score > 0:
+                    platforms.append(_normalize_platform_value(label))
+    elif detected_platform != PLATFORM_UNKNOWN:
+        platforms.append(detected_platform)
+
+    if not platforms:
+        similarities = os_data.get("similarities", {})
+        if isinstance(similarities, dict):
+            scored = [
+                (_normalize_platform_value(label), score)
+                for label, score in similarities.items()
+                if isinstance(score, (int, float)) and score > 0
+            ]
+            scored = [(platform, score) for platform, score in scored if platform in SUPPORTED_PLATFORM_VALUES]
+            if scored:
+                best_score = max(score for _, score in scored)
+                platforms.extend(platform for platform, score in scored if score == best_score)
+
+    deduped = []
+    for platform in platforms:
+        if platform in SUPPORTED_PLATFORM_VALUES and platform not in deduped:
+            deduped.append(platform)
+    return deduped or [PLATFORM_UNKNOWN]
+
+
+def _make_skip_record(
+    *,
+    agent_name: str,
+    reason_code: str,
+    reason: str,
+    detected_platforms: list[str],
+    telemetry_categories: list[str] | None = None,
+) -> dict[str, Any]:
+    """Return a structured extractor skip/capability record."""
+    return {
+        "extractor": agent_name,
+        "status": "skipped",
+        "reason_code": reason_code,
+        "reason": reason,
+        "supported_platforms": sorted(AGENT_PLATFORM_CAPABILITIES.get(agent_name, set())),
+        "detected_platforms": detected_platforms,
+        "telemetry_categories": telemetry_categories or [],
+    }
+
+
+def _agent_supported_for_platforms(agent_name: str, detected_platforms: list[str]) -> bool:
+    """Return True when an extractor can run for at least one detected platform."""
+    capabilities = AGENT_PLATFORM_CAPABILITIES.get(agent_name)
+    if not capabilities:
+        return True
+    return bool(capabilities.intersection(detected_platforms))
+
+
+def _infer_observable_platform(
+    observable_type: str,
+    item: Any,
+    article_platforms: list[str],
+) -> tuple[str, str, str]:
+    """Infer observable-scoped platform metadata without over-claiming mixed evidence."""
+    if isinstance(item, dict):
+        for key in ("platform", "os", "operating_system"):
+            if item.get(key):
+                platform = _normalize_platform_value(item.get(key))
+                if platform != PLATFORM_UNKNOWN:
+                    return platform, "high", f"Extractor emitted {key}={item.get(key)!r}."
+
+    if observable_type in WINDOWS_ONLY_OBSERVABLE_TYPES:
+        return PLATFORM_WINDOWS, "high", f"{observable_type} is Windows-only telemetry in phase one."
+
+    concrete_platforms = [p for p in article_platforms if p in {PLATFORM_WINDOWS, PLATFORM_LINUX, PLATFORM_MACOS}]
+    if len(concrete_platforms) == 1:
+        return concrete_platforms[0], "medium", "Single article-level platform detected."
+
+    if PLATFORM_CROSS in article_platforms and len(article_platforms) == 1:
+        return PLATFORM_CROSS, "medium", "Article-level platform detection is cross-platform."
+
+    return PLATFORM_UNKNOWN, "low", "Observable evidence did not uniquely identify a platform."
+
+
+def _logsource_hint_for_observable(platform: str, telemetry_category: str) -> dict[str, Any] | None:
+    """Return a Sigma logsource hint when phase-one support is explicit."""
+    if telemetry_category == "process_creation" and platform in {PLATFORM_WINDOWS, PLATFORM_LINUX}:
+        return {"product": platform, "category": "process_creation"}
+    if telemetry_category == "network_connection":
+        if platform in {PLATFORM_WINDOWS, PLATFORM_LINUX}:
+            return {"product": platform, "category": "network_connection"}
+        return {"category": "network_connection"}
+    if telemetry_category == "registry":
+        return {"product": "windows", "category": "registry_event"}
+    if telemetry_category == "service_creation":
+        return {"product": "windows", "category": "service_creation"}
+    if telemetry_category == "scheduled_task":
+        return {"product": "windows", "category": "scheduled_task"}
+    return None
+
+
+def _enrich_observable_metadata(
+    obs_entry: dict[str, Any],
+    *,
+    item: Any,
+    observable_type: str,
+    article_platforms: list[str],
+) -> None:
+    """Add platform/telemetry routing metadata to a merged observable entry."""
+    platform, platform_confidence, platform_rationale = _infer_observable_platform(
+        observable_type, item, article_platforms
+    )
+    telemetry_category = None
+    telemetry_confidence = "medium"
+    logsource_hint = None
+    if isinstance(item, dict):
+        telemetry_category = item.get("telemetry_category") or item.get("telemetry_type")
+        telemetry_confidence = str(item.get("telemetry_confidence") or telemetry_confidence)
+        logsource_hint = item.get("logsource_hint") or item.get("logsource")
+
+    telemetry_category = str(telemetry_category or OBSERVABLE_TELEMETRY_CATEGORY.get(observable_type, observable_type))
+    if logsource_hint is None:
+        logsource_hint = _logsource_hint_for_observable(platform, telemetry_category)
+
+    obs_entry["platform"] = platform
+    obs_entry["platform_confidence"] = platform_confidence
+    obs_entry["platform_rationale"] = platform_rationale
+    obs_entry["telemetry_category"] = telemetry_category
+    obs_entry["telemetry_confidence"] = telemetry_confidence
+    if logsource_hint is not None:
+        obs_entry["logsource_hint"] = logsource_hint
+
+
+def _observable_sigma_eligible(obs: dict[str, Any]) -> bool:
+    """Return True when an observable has enough routing metadata for Sigma generation."""
+    if not isinstance(obs, dict):
+        return False
+    platform = _normalize_platform_value(obs.get("platform"))
+    telemetry_category = obs.get("telemetry_category")
+    logsource_hint = obs.get("logsource_hint")
+    if platform in {PLATFORM_WINDOWS, PLATFORM_LINUX} and telemetry_category and logsource_hint:
+        return True
+    if platform in {PLATFORM_UNKNOWN, PLATFORM_CROSS} and telemetry_category and logsource_hint:
+        return True
+    return False
+
+
+def _has_sigma_generation_eligible_observables(extraction_result: dict[str, Any] | None) -> bool:
+    """Return True when at least one observable can safely drive Sigma generation."""
+    if not isinstance(extraction_result, dict):
+        return False
+    observables = extraction_result.get("observables") or []
+    if not isinstance(observables, list):
+        return False
+    return any(_observable_sigma_eligible(obs) for obs in observables)
+
+
+def _stable_logsource_key(logsource_hint: Any) -> str:
+    """Return a stable grouping key for an explicit Sigma logsource hint."""
+    if isinstance(logsource_hint, dict):
+        return json.dumps(logsource_hint, sort_keys=True, separators=(",", ":"))
+    return str(logsource_hint or "")
+
+
+def _sigma_generation_group_key(obs: dict[str, Any]) -> tuple[str, str, str] | None:
+    """Return the platform/telemetry/logsource group key for one observable."""
+    if not _observable_sigma_eligible(obs):
+        return None
+    platform = _normalize_platform_value(obs.get("platform"))
+    if platform == PLATFORM_MACOS:
+        return None
+    telemetry_category = str(obs.get("telemetry_category") or "")
+    logsource_hint = obs.get("logsource_hint")
+    return (platform, telemetry_category, _stable_logsource_key(logsource_hint))
+
+
+def _make_grouped_extraction_result(
+    extraction_result: dict[str, Any],
+    *,
+    group_key: tuple[str, str, str],
+    observables: list[dict[str, Any]],
+    original_indices: list[int],
+) -> dict[str, Any]:
+    """Build a Sigma input extraction_result for a single platform/logsource group."""
+    platform, telemetry_category, _ = group_key
+    grouped_observables = []
+    for local_index, (obs, original_index) in enumerate(zip(observables, original_indices, strict=False)):
+        grouped = dict(obs)
+        grouped["original_observable_index"] = original_index
+        grouped["group_observable_index"] = local_index
+        grouped_observables.append(grouped)
+
+    group_summary = dict(extraction_result.get("summary") or {})
+    group_summary.update(
+        {
+            "count": len(grouped_observables),
+            "platforms_detected": [platform],
+            "telemetry_category": telemetry_category,
+            "sigma_generation_group": {
+                "platform": platform,
+                "telemetry_category": telemetry_category,
+                "logsource_hint": observables[0].get("logsource_hint") if observables else None,
+                "observable_indices": original_indices,
+            },
+        }
+    )
+
+    grouped_content_lines = []
+    for obs in grouped_observables:
+        value = obs.get("value")
+        if isinstance(value, dict):
+            value_text = ", ".join(f"{k}={v}" for k, v in value.items() if v is not None and v != "")
+        else:
+            value_text = str(value or "")
+        if value_text:
+            grouped_content_lines.append(value_text)
+
+    return {
+        **extraction_result,
+        "observables": grouped_observables,
+        "summary": group_summary,
+        "discrete_huntables_count": len(grouped_observables),
+        "content": "\n".join(grouped_content_lines) or extraction_result.get("content", ""),
+        "sigma_generation_group": group_summary["sigma_generation_group"],
+    }
+
+
+def _build_sigma_generation_groups(extraction_result: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """Group Sigma-eligible observables by platform, telemetry category, and logsource."""
+    if not isinstance(extraction_result, dict):
+        return []
+    observables = extraction_result.get("observables") or []
+    if not isinstance(observables, list):
+        return []
+
+    grouped: dict[tuple[str, str, str], dict[str, Any]] = {}
+    for original_index, obs in enumerate(observables):
+        if not isinstance(obs, dict):
+            continue
+        group_key = _sigma_generation_group_key(obs)
+        if group_key is None:
+            continue
+        bucket = grouped.setdefault(
+            group_key,
+            {
+                "group_key": group_key,
+                "platform": group_key[0],
+                "telemetry_category": group_key[1],
+                "logsource_hint": obs.get("logsource_hint"),
+                "observables": [],
+                "original_indices": [],
+            },
+        )
+        bucket["observables"].append(obs)
+        bucket["original_indices"].append(original_index)
+
+    result = []
+    for group in grouped.values():
+        result.append(
+            {
+                **group,
+                "extraction_result": _make_grouped_extraction_result(
+                    extraction_result,
+                    group_key=group["group_key"],
+                    observables=group["observables"],
+                    original_indices=group["original_indices"],
+                ),
+            }
+        )
+    return result
+
+
+def _build_sigma_full_content_fallback_group(
+    extraction_result: dict[str, Any] | None,
+    *,
+    content: str,
+    platforms_detected: list[str] | None = None,
+) -> dict[str, Any]:
+    """Build one legacy full-content Sigma generation group when no observables qualify."""
+    platforms = platforms_detected or []
+    platform = platforms[0] if len(platforms) == 1 else PLATFORM_UNKNOWN
+    group = {
+        "platform": platform,
+        "telemetry_category": "full_content",
+        "logsource_hint": None,
+        "observable_indices": [],
+        "generation_basis": "full_content_fallback",
+    }
+    grouped_result = dict(extraction_result or {})
+    grouped_result["observables"] = []
+    grouped_result["content"] = content
+    grouped_result["discrete_huntables_count"] = 0
+    grouped_result["summary"] = {
+        **(grouped_result.get("summary") or {}),
+        "count": 0,
+        "platforms_detected": platforms,
+        "telemetry_category": "full_content",
+        "sigma_generation_group": group,
+    }
+    grouped_result["sigma_generation_group"] = group
+    return {
+        "group_key": (platform, "full_content", ""),
+        "platform": platform,
+        "telemetry_category": "full_content",
+        "logsource_hint": None,
+        "observables": [],
+        "original_indices": [],
+        "extraction_result": grouped_result,
+    }
+
+
+def _rebase_group_observable_indices(rule: dict[str, Any], original_indices: list[int]) -> None:
+    """Translate group-local observables_used indices back to execution-wide indices."""
+    raw_indices = rule.get("observables_used")
+    if not isinstance(raw_indices, list):
+        return
+    rebased = []
+    for idx in raw_indices:
+        if isinstance(idx, int) and 0 <= idx < len(original_indices):
+            rebased.append(original_indices[idx])
+    rule["observables_used"] = rebased
 
 
 _INFRA_FAILURE_RE = re.compile(
@@ -201,9 +579,12 @@ class WorkflowState(TypedDict):
     eval_run: bool
     skip_rank_agent: bool
 
-    # Step 0: OS Detection
+    # Step 0: Platform Detection
     os_detection_result: dict[str, Any] | None
     detected_os: str | None
+    # Article-level platform context (controlled vocabulary) for capability routing.
+    # Declared as a channel so it propagates between nodes instead of being dropped.
+    platforms_detected: list[str] | None
 
     # Step 1: Junk Filter
     filtered_content: str | None
@@ -661,7 +1042,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
     Create LangGraph workflow for agentic processing.
 
     Workflow steps:
-    0. OS Detection - Detect operating system (Windows/Linux/MacOS/multiple)
+    0. Platform Detection - Detect operating system/platform context
     1. Junk Filter - Filter content using conservative junk filter
     2. LLM Ranking - Rank article using LLM
     3. Extract Agent - Extract behaviors using ExtractAgent
@@ -685,7 +1066,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
     async def os_detection_node(state: WorkflowState) -> WorkflowState:
         """Step 0: Detect operating system from article content."""
         try:
-            logger.info(f"[Workflow {state['execution_id']}] Step 0: OS Detection")
+            logger.info(f"[Workflow {state['execution_id']}] Step 0: Platform Detection")
 
             article = db_session.query(ArticleTable).filter(ArticleTable.id == state["article_id"]).first()
             if not article:
@@ -717,7 +1098,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             skip_os_detection = skip_os_detection_flag or eval_run_flag
 
             if skip_os_detection:
-                logger.info(f"[Workflow {state['execution_id']}] Skipping OS Detection (eval run)")
+                logger.info(f"[Workflow {state['execution_id']}] Skipping Platform Detection (eval run)")
                 detected_os = "Windows"
                 os_result = {
                     "operating_system": "Windows",
@@ -750,15 +1131,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         f"[Workflow {state['execution_id']}] Overriding detected_os to 'Windows' (highest similarity: {windows_similarity:.1%})"
                     )
 
-            is_windows = (
-                detected_os == "Windows"
-                or (detected_os == "multiple" and windows_similarity > 0.0)
-                or (
-                    windows_similarity > 0.0 and windows_similarity == max(similarities.values())
-                    if similarities
-                    else False
-                )
-            )
+            platforms_detected = _platforms_from_os_detection(detected_os, os_result)
 
             termination_reason = state.get("termination_reason")
             termination_details = state.get("termination_details")
@@ -769,6 +1142,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     execution.error_log = {}
                 execution.error_log["os_detection_result"] = {
                     "detected_os": detected_os,
+                    "platforms_detected": platforms_detected,
                     "detection_method": os_result.get("method"),
                     "confidence": os_result.get("confidence"),
                     "similarities": os_result.get("similarities"),
@@ -777,37 +1151,22 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 }
                 flag_modified(execution, "error_log")
 
-                if is_windows:
-                    execution.status = "running"
-                    db_session.commit()
-                else:
-                    termination_details = {
-                        "detected_os": detected_os,
-                        "detection_method": os_result.get("method"),
-                        "confidence": os_result.get("confidence"),
-                        "similarities": os_result.get("similarities"),
-                        "max_similarity": os_result.get("max_similarity"),
-                    }
-                    mark_execution_completed(
-                        execution,
-                        "os_detection",
-                        db_session=db_session,
-                        reason=TERMINATION_REASON_NON_WINDOWS_OS,
-                        details=termination_details,
-                        commit=False,
-                    )
-                    db_session.commit()
-                    termination_reason = TERMINATION_REASON_NON_WINDOWS_OS
+                execution.status = "running"
+                db_session.commit()
 
-            logger.info(f"[Workflow {state['execution_id']}] OS Detection: {detected_os}, continue: {is_windows}")
+            logger.info(
+                f"[Workflow {state['execution_id']}] Platform Detection: {detected_os}, "
+                f"platforms={platforms_detected}, continue=True"
+            )
 
             return {
                 **state,
                 "os_detection_result": os_result,
                 "detected_os": detected_os,
-                "should_continue": is_windows,
+                "platforms_detected": platforms_detected,
+                "should_continue": True,
                 "current_step": "os_detection",
-                "status": "completed" if not is_windows else "running",
+                "status": "running",
                 "termination_reason": termination_reason,
                 "termination_details": termination_details,
             }
@@ -1265,6 +1624,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
             # Extract behaviors using sequential sub-agents and Supervisor
             logger.info(f"[Workflow {state['execution_id']}] Step 3: Extract Agent (Supervisor Mode with Sub-Agents)")
+            article_platforms = state.get("platforms_detected")
+            if not isinstance(article_platforms, list) or not article_platforms:
+                article_platforms = _platforms_from_os_detection(state.get("detected_os"), state.get("os_detection_result"))
+            article_platforms = [_normalize_platform_value(platform) for platform in article_platforms]
 
             config_obj = trigger_service.get_active_config()
             if not config_obj:
@@ -1375,6 +1738,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             conversation_log = []
             sub_agents_run = []
             disabled_sub_agents = []
+            capability_skip_records = []
 
             # Determine disabled sub-agents (supports list or map in config)
             disabled_agents_cfg = set()
@@ -1579,6 +1943,25 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             )
 
             for agent_name, result_key in sub_agents:
+                if not _agent_supported_for_platforms(agent_name, article_platforms):
+                    telemetry_category = OBSERVABLE_TELEMETRY_CATEGORY.get(result_key, result_key)
+                    reason = (
+                        f"{agent_name} supports {', '.join(sorted(AGENT_PLATFORM_CAPABILITIES.get(agent_name, set())))} "
+                        f"only; detected platforms: {', '.join(article_platforms)}."
+                    )
+                    skip_record = _make_skip_record(
+                        agent_name=agent_name,
+                        reason_code="unsupported_platform",
+                        reason=reason,
+                        detected_platforms=article_platforms,
+                        telemetry_categories=[telemetry_category],
+                    )
+                    subresults[result_key] = {"items": [], "count": 0, "raw": skip_record}
+                    capability_skip_records.append(skip_record)
+                    conversation_log.append({"agent": agent_name, "items_count": 0, "result": skip_record})
+                    logger.info(f"[Workflow {state['execution_id']}] {reason}")
+                    continue
+
                 # Consolidated eval-blocking check (replaces three formerly-separate inline checks)
                 if not _is_agent_allowed(
                     agent_name, execution, subagent_eval, eval_lookup_values, state["execution_id"]
@@ -1850,6 +2233,12 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             "original_data": item if isinstance(item, dict) else None,
                             "source": "supervisor_aggregation",
                         }
+                        _enrich_observable_metadata(
+                            obs_entry,
+                            item=item,
+                            observable_type=cat,
+                            article_platforms=article_platforms,
+                        )
                         # Observable traceability: surface traceability fields at top level for API
                         if isinstance(item, dict):
                             if item.get("source_evidence") is not None:
@@ -1881,10 +2270,14 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 "summary": {
                     "count": total_count,
                     "source_url": article.canonical_url,
-                    "platforms_detected": ["Windows"],  # Default assumption or derived
+                    "platforms_detected": article_platforms,
                 },
                 "discrete_huntables_count": total_count,
                 "subresults": subresults,  # Persist detailed breakdown
+                "capability_skips": capability_skip_records,
+                "extractor_capabilities": {
+                    agent_name: sorted(platforms) for agent_name, platforms in AGENT_PLATFORM_CAPABILITIES.items()
+                },
                 "content": "\n".join(content_summary) if content_summary else "",  # Synthesized content for Sigma Agent
                 "raw_response": json.dumps(subresults, indent=2),  # Store subresults as raw_response for compatibility
             }
@@ -1899,6 +2292,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     "conversation_log": conversation_log,
                     "sub_agents_run": sub_agents_run,
                     "sub_agents_disabled": disabled_sub_agents,
+                    "capability_skips": capability_skip_records,
                 }
                 flag_modified(execution, "error_log")
                 db_session.commit()
@@ -2057,6 +2451,29 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         f"[Workflow {state['execution_id']}] Extraction result has {extraction_result.get('discrete_huntables_count', 0)} huntables but no usable content"
                     )
 
+            if (
+                content_to_use is not None
+                and extraction_result
+                and not sigma_fallback_enabled
+                and not _has_sigma_generation_eligible_observables(extraction_result)
+            ):
+                logger.info(
+                    f"[Workflow {state['execution_id']}] Extraction produced huntables, but none have "
+                    "Sigma-eligible platform/telemetry/logsource metadata. Skipping SIGMA generation."
+                )
+                return {
+                    **state,
+                    "sigma_rules": [],
+                    "current_step": "generate_sigma",
+                    "status": state.get("status", "running"),
+                    "termination_reason": TERMINATION_REASON_NO_SIGMA_RULES,
+                    "termination_details": {
+                        "reason": "No Sigma-eligible platform/telemetry observables",
+                        "platforms_detected": extraction_result.get("summary", {}).get("platforms_detected", []),
+                        "discrete_huntables_count": extraction_result.get("discrete_huntables_count", 0),
+                    },
+                }
+
             # If no content available, skip SIGMA generation
             if content_to_use is None:
                 logger.warning(
@@ -2077,27 +2494,131 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     },
                 }
 
-            # Generate SIGMA rules using service (single attempt on chosen content)
+            # Generate SIGMA rules per platform/logsource group. Mixed-platform articles
+            # must not produce a single combined Windows/Linux rule in phase one.
             sigma_service = SigmaGenerationService(config_models=agent_models)
-            generation_result = await sigma_service.generate_sigma_rules(
-                article_title=article.title,
-                article_content=content_to_use,
-                source_name=source_name,
-                url=article.canonical_url or "",
-                ai_model="lmstudio",  # Provider resolved via config_models
-                max_attempts=3,
-                min_confidence=sigma_min_confidence,
-                execution_id=state["execution_id"],
-                article_id=state["article_id"],
-                sigma_prompt_template=sigma_prompt_template,  # Pass database prompt if available
-                sigma_system_prompt=sigma_system_prompt,  # Pass database system prompt if available
-                sigma_repair_template=sigma_repair_template,  # Pass database repair prompt if available
-                extraction_result=extraction_result,  # Pass extraction result for artifact-driven expansion
-            )
+            sigma_generation_groups = _build_sigma_generation_groups(extraction_result)
+            if not sigma_generation_groups and sigma_fallback_enabled:
+                fallback_group = _build_sigma_full_content_fallback_group(
+                    extraction_result,
+                    content=content_to_use,
+                    platforms_detected=extraction_result.get("summary", {}).get("platforms_detected", [])
+                    if extraction_result
+                    else [],
+                )
+                # Phase one: macOS generates no Sigma, even via the legacy full-content
+                # fallback (spec §6). A macOS-only article therefore produces no rule here,
+                # consistent with macOS exclusion in _build_sigma_generation_groups.
+                if fallback_group["platform"] != PLATFORM_MACOS:
+                    sigma_generation_groups = [fallback_group]
+            if not sigma_generation_groups:
+                logger.info(
+                    f"[Workflow {state['execution_id']}] No Sigma generation groups were eligible after "
+                    "platform/logsource routing. Skipping SIGMA generation."
+                )
+                return {
+                    **state,
+                    "sigma_rules": [],
+                    "current_step": "generate_sigma",
+                    "status": state.get("status", "running"),
+                    "termination_reason": TERMINATION_REASON_NO_SIGMA_RULES,
+                    "termination_details": {
+                        "reason": "No eligible Sigma platform/logsource groups",
+                        "platforms_detected": extraction_result.get("summary", {}).get("platforms_detected", []),
+                        "discrete_huntables_count": extraction_result.get("discrete_huntables_count", 0),
+                    },
+                }
 
-            sigma_rules = generation_result.get("rules", []) if generation_result else []
-            sigma_errors = generation_result.get("errors")
-            sigma_metadata = generation_result.get("metadata", {}) if generation_result else {}
+            sigma_rules = []
+            group_errors = []
+            combined_conversation_log = []
+            combined_validation_results = []
+            total_attempts = 0
+            valid_rules = 0
+            sigma_group_summaries = []
+
+            for group in sigma_generation_groups:
+                group_label = (
+                    f"{group['platform']}:{group['telemetry_category']}:{_stable_logsource_key(group['logsource_hint'])}"
+                )
+                logger.info(
+                    f"[Workflow {state['execution_id']}] Generating SIGMA for group {group_label} "
+                    f"using observables {group['original_indices']}"
+                )
+                generation_result = await sigma_service.generate_sigma_rules(
+                    article_title=article.title,
+                    article_content=content_to_use,
+                    source_name=source_name,
+                    url=article.canonical_url or "",
+                    ai_model="lmstudio",  # Provider resolved via config_models
+                    max_attempts=3,
+                    min_confidence=sigma_min_confidence,
+                    execution_id=state["execution_id"],
+                    article_id=state["article_id"],
+                    sigma_prompt_template=sigma_prompt_template,  # Pass database prompt if available
+                    sigma_system_prompt=sigma_system_prompt,  # Pass database system prompt if available
+                    sigma_repair_template=sigma_repair_template,  # Pass database repair prompt if available
+                    extraction_result=group["extraction_result"],
+                )
+
+                group_metadata = generation_result.get("metadata", {}) if generation_result else {}
+                group_rules = generation_result.get("rules", []) if generation_result else []
+                group_error = generation_result.get("errors") if generation_result else "No generation result"
+
+                for rule in group_rules:
+                    if not isinstance(rule, dict):
+                        continue
+                    _rebase_group_observable_indices(rule, group["original_indices"])
+                    rule.setdefault("platform", group["platform"])
+                    rule.setdefault("telemetry_category", group["telemetry_category"])
+                    rule.setdefault("logsource_hint", group["logsource_hint"])
+                    rule.setdefault("generation_basis", f"{group['telemetry_category']}_generic")
+                    rule.setdefault("detection_readiness", "generic")
+                    rule["sigma_generation_group"] = {
+                        "platform": group["platform"],
+                        "telemetry_category": group["telemetry_category"],
+                        "logsource_hint": group["logsource_hint"],
+                        "observable_indices": group["original_indices"],
+                    }
+                    sigma_rules.append(rule)
+
+                if group_error and not group_rules:
+                    group_errors.append(f"{group_label}: {group_error}")
+
+                for entry in group_metadata.get("conversation_log", []) or []:
+                    if isinstance(entry, dict):
+                        entry = {
+                            **entry,
+                            "sigma_generation_group": {
+                                "platform": group["platform"],
+                                "telemetry_category": group["telemetry_category"],
+                                "logsource_hint": group["logsource_hint"],
+                                "observable_indices": group["original_indices"],
+                            },
+                        }
+                    combined_conversation_log.append(entry)
+                combined_validation_results.extend(group_metadata.get("validation_results", []) or [])
+                total_attempts += int(group_metadata.get("total_attempts") or 0)
+                valid_rules += int(group_metadata.get("valid_rules") or len(group_rules))
+                sigma_group_summaries.append(
+                    {
+                        "platform": group["platform"],
+                        "telemetry_category": group["telemetry_category"],
+                        "logsource_hint": group["logsource_hint"],
+                        "observable_indices": group["original_indices"],
+                        "generated_rules": len(group_rules),
+                        "error": group_error if group_error and not group_rules else None,
+                    }
+                )
+
+            sigma_errors = "; ".join(group_errors) if group_errors and not sigma_rules else None
+            sigma_metadata = {
+                "total_attempts": total_attempts,
+                "valid_rules": valid_rules,
+                "validation_results": combined_validation_results,
+                "conversation_log": combined_conversation_log,
+                "sigma_generation_groups": sigma_group_summaries,
+            }
 
             # Log repair-attempt count as a Langfuse score so it's queryable over time
             total_attempts = sigma_metadata.get("total_attempts")
@@ -2145,6 +2666,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         ),
                         "validation_results": validation_results,
                         "conversation_log": conversation_log if conversation_log else [],  # Ensure it's always a list
+                        "sigma_generation_groups": sigma_metadata.get("sigma_generation_groups", []),
                     }
                     execution.error_log = {**(execution.error_log or {}), "generate_sigma": error_log_entry}
                     logger.debug(f"Stored conversation_log with {len(conversation_log)} entries")
@@ -2503,8 +3025,18 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         # sub-threshold score. A scored >= threshold rule is suppressed
                         # as a near-duplicate (novelty suppression now actually works).
                         if inconclusive or (rule_max_sim is not None and rule_max_sim < similarity_threshold):
-                            # Strip observables_used from rule before YAML (not valid SIGMA)
-                            rule_for_yaml = {k: v for k, v in rule.items() if k != "observables_used"}
+                            # Strip non-Sigma grounding metadata from rule YAML; keep it in rule_metadata.
+                            non_sigma_metadata_fields = {
+                                "observables_used",
+                                "observables_used_inferred",
+                                "platform",
+                                "telemetry_category",
+                                "generation_basis",
+                                "detection_readiness",
+                                "logsource_hint",
+                                "sigma_generation_group",
+                            }
+                            rule_for_yaml = {k: v for k, v in rule.items() if k not in non_sigma_metadata_fields}
                             rule_yaml = yaml.dump(rule_for_yaml, default_flow_style=False, sort_keys=False)
 
                             # Guard: confirm the generated YAML round-trips to a dict with required keys.
@@ -2531,6 +3063,17 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             }
                             if rule.get("observables_used") is not None:
                                 rule_meta["observables_used"] = rule["observables_used"]
+                            for metadata_key in (
+                                "observables_used_inferred",
+                                "platform",
+                                "telemetry_category",
+                                "generation_basis",
+                                "detection_readiness",
+                                "logsource_hint",
+                                "sigma_generation_group",
+                            ):
+                                if rule.get(metadata_key) is not None:
+                                    rule_meta[metadata_key] = rule[metadata_key]
 
                             # SigmaSim Finding B: stamp the logsource-resolution result so a rule
                             # whose logsource does not map to a canonical class (degraded dedup) is
@@ -2625,21 +3168,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             }
 
     def check_should_continue_after_os_detection(state: WorkflowState) -> str:
-        """Check if workflow should continue after OS detection (only if Windows)."""
+        """Route after Platform Detection."""
         should_continue = state.get("should_continue", False)
-        detected_os = state.get("detected_os")
-        os_result = state.get("os_detection_result", {})
-
         if should_continue:
             return "junk_filter"
-        if detected_os == "Windows":
-            return "junk_filter"
-        similarities = os_result.get("similarities", {}) if isinstance(os_result, dict) else {}
-        if isinstance(similarities, dict) and similarities:
-            windows_sim = similarities.get("Windows", 0.0)
-            if windows_sim > 0.0 and windows_sim == max(similarities.values()):
-                return "junk_filter"
-
         return "end"
 
     def check_should_continue_after_junk_filter(state: WorkflowState) -> str:

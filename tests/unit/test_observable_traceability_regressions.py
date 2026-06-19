@@ -252,6 +252,32 @@ class TestObservableTypeCoverage:
         assert len(result.observables["registry_artifacts"]) == 1
         assert len(result.observables["cmdline"]) == 0
 
+    def test_platform_and_telemetry_metadata_are_exposed(self):
+        """Observable platform/telemetry routing fields must survive the API response."""
+        cmd = {
+            "type": "cmdline",
+            "value": "bash -c id",
+            "platform": "linux",
+            "platform_confidence": "medium",
+            "platform_rationale": "Single article-level platform detected.",
+            "telemetry_category": "process_creation",
+            "telemetry_confidence": "medium",
+            "logsource_hint": {"product": "linux", "category": "process_creation"},
+        }
+
+        result = _build_observables_response(
+            execution_id=1,
+            extraction_result=_make_extraction_result(cmd),
+        )
+
+        item = result.observables["cmdline"][0]
+        assert item.platform == "linux"
+        assert item.platform_confidence == "medium"
+        assert item.platform_rationale == "Single article-level platform detected."
+        assert item.telemetry_category == "process_creation"
+        assert item.telemetry_confidence == "medium"
+        assert item.logsource_hint == {"product": "linux", "category": "process_creation"}
+
 
 # ---------------------------------------------------------------------------
 # Cross-layer canonical-order contract

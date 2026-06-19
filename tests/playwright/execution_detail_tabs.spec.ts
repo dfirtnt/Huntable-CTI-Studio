@@ -17,11 +17,25 @@ const MOCK_EXEC = {
   error_message: null,
   error_log: {
     os_detection_result: {
-      detected_os: 'Windows',
+      detected_os: 'Linux',
+      platforms_detected: ['Linux'],
       detection_method: 'embedding',
       confidence: 'high',
       max_similarity: 0.95,
-      similarities: { Windows: 0.95, Linux: 0.2 }
+      similarities: { Linux: 0.95, Windows: 0.2 }
+    },
+    extract_agent: {
+      capability_skips: [
+        {
+          extractor: 'RegistryExtract',
+          status: 'skipped',
+          reason_code: 'unsupported_platform',
+          reason: 'RegistryExtract supports Windows telemetry only.',
+          supported_platforms: ['Windows'],
+          detected_platforms: ['Linux'],
+          telemetry_categories: ['registry']
+        }
+      ]
     }
   },
   junk_filter_result: {
@@ -35,14 +49,41 @@ const MOCK_EXEC = {
   ranking_score: 7.5,
   ranking_reasoning: 'High relevance.',
   extraction_result: {
-    observables: [{ type: 'cmdline', value: 'cmd.exe', platform: 'Windows', source_context: '' }],
-    summary: { count: 1, platforms_detected: ['Windows'] },
+    observables: [{
+      type: 'cmdline',
+      value: '/bin/bash -c id',
+      platform: 'Linux',
+      telemetry_category: 'process_execution',
+      logsource_hint: 'process_creation',
+      source_context: ''
+    }],
+    summary: { count: 1, platforms_detected: ['Linux'] },
+    capability_skips: [
+      {
+        extractor: 'RegistryExtract',
+        status: 'skipped',
+        reason_code: 'unsupported_platform',
+        reason: 'RegistryExtract supports Windows telemetry only.',
+        supported_platforms: ['Windows'],
+        detected_platforms: ['Linux'],
+        telemetry_categories: ['registry']
+      }
+    ],
     discrete_huntables_count: 1,
-    content: 'cmd.exe',
+    content: '/bin/bash -c id',
     subresults: {
-      cmdline: { count: 1, items: ['cmd.exe'], raw: {} },
+      cmdline: { count: 1, items: ['/bin/bash -c id'], raw: {} },
       process_lineage: { count: 0, items: [], raw: {} },
-      hunt_queries: { count: 0, items: [], raw: {} }
+      hunt_queries: { count: 0, items: [], raw: {} },
+      registry_artifacts: {
+        count: 0,
+        items: [],
+        raw: {
+          status: 'skipped',
+          reason_code: 'unsupported_platform',
+          reason: 'RegistryExtract supports Windows telemetry only.'
+        }
+      }
     }
   },
   sigma_rules: [{ title: 'Test Rule', status: 'experimental', detection: {} }],
@@ -101,9 +142,38 @@ test.describe('Execution Detail - Tabbed UI', () => {
   test('tab strip is visible with one tab per step', async ({ page }) => {
     const tabStrip = page.locator('#exec-tab-strip');
     await expect(tabStrip).toBeVisible();
-    // Expect at least 3 tabs (OS Detection, Junk Filter, Ranking)
+    // Expect at least 3 tabs (Platform Detection, Junk Filter, Ranking)
     const tabs = tabStrip.locator('button.exec-tab');
     expect(await tabs.count()).toBeGreaterThanOrEqual(3);
+  });
+
+  test('platform detection tab does not treat Linux as a workflow stop', async ({ page }) => {
+    const platformTab = page.locator('#exec-tab-strip button.exec-tab').filter({ hasText: 'Platform Detection' });
+    await expect(platformTab).toHaveAttribute('data-status', 'pass');
+    await platformTab.click();
+
+    const firstPanel = page.locator('.exec-panel').first();
+    await expect(firstPanel).toContainText('Platforms Detected: Linux');
+    await expect(firstPanel).toContainText('Continue to capability routing');
+    await expect(firstPanel).not.toContainText('Stop (Non-Windows');
+  });
+
+  test('extraction tab surfaces telemetry metadata and capability skips', async ({ page }) => {
+    const extractionTab = page.locator('#exec-tab-strip button.exec-tab').filter({ hasText: 'Extraction' });
+    await extractionTab.click();
+
+    const activePanel = page.locator('.exec-panel:not(.hidden)').first();
+    await expect(activePanel).toContainText('Capability Skips: 1');
+
+    const skipDetails = page.locator('details').filter({ hasText: 'View Capability Skips' });
+    await skipDetails.first().evaluate((el: HTMLDetailsElement) => { el.open = true; });
+    await expect(activePanel).toContainText('RegistryExtract');
+    await expect(activePanel).toContainText('Detected platforms: Linux');
+
+    const observablesDetails = page.locator('details').filter({ hasText: 'View Observables' });
+    await observablesDetails.first().evaluate((el: HTMLDetailsElement) => { el.open = true; });
+    await expect(activePanel).toContainText('Telemetry: process_execution');
+    await expect(activePanel).toContainText('Logsource: process_creation');
   });
 
   test('clicking a tab shows only that panel', async ({ page }) => {

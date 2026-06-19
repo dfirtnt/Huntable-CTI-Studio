@@ -1,8 +1,111 @@
 # Platform Telemetry Expansion -- Design Spec
 
-- Date: 2026-06-17
-- Status: Proposed (operator decisions captured; pending implementation plan)
+- Date: 2026-06-17 (reworked 2026-06-19 for goal-mode execution)
+- Status: Approved for build — executing via `/goal`. Operator decisions captured. A
+  build agent is already mid-flight on phase one, so this goal is **convergent**: it
+  describes the verified end-state and drives existing progress to green, not a restart.
 - Branch: europa-dev
+
+---
+
+## 0. Goal-mode execution contract (run via `/goal`)
+
+Phase one is executed with Claude Code's `/goal` — an autonomous turn-loop that keeps
+working until a completion condition is met.
+
+### 0.1 The one constraint that shapes everything
+
+`/goal` loops turns until a **separate fast evaluator model** judges the condition met.
+The evaluator **reads only this conversation transcript** — it runs no tools, opens no
+files, and cannot see a browser. Two consequences govern the entire spec:
+
+- **Evidence must be printed, not asserted.** "I added platform routing" proves
+  nothing to the evaluator. A pasted `run_tests.py` summary showing the platform tests
+  PASSED is proof. The build agent must run the acceptance suite and print its output
+  every turn.
+- **UI acceptance must be a test, not a look.** The platform badge and capability
+  matrix are invisible to the evaluator. They count as done only when a Playwright spec
+  asserts them and prints green. Browser-level verification is still required for the
+  human reviewer (repo policy), but it is **not** how the goal confirms done.
+
+### 0.2 The goal condition (paste verbatim into `/goal`)
+
+```text
+/goal Phase-one Platform Telemetry Expansion is DONE when the agent has, in THIS
+conversation, printed passing output for ALL of the following with no failures:
+
+(1) `.venv/bin/python run_tests.py --paths tests/workflows/test_platform_telemetry_phase_one.py --output-format quiet`
+exits 0 with every test PASSED. That module asserts the phase-one product contract:
+Linux-only executions skip the Windows-only extractors (RegistryExtract, ServicesExtract,
+ScheduledTasksExtract) with a structured record carrying reason_code, supported_platforms,
+detected_platforms; every observable carries a non-null platform in
+{windows,linux,macos,cross_platform,unknown}; Linux process/cmdline evidence generates
+backend-neutral Sigma with an explicit logsource plus platform and generation_basis
+metadata; mixed Windows/Linux articles produce separate per-platform/logsource rule
+groups; macOS-only articles generate NO macOS Sigma; every generated rule passes pySigma
+validation (valid YAML, non-empty detection selection, >=1 observable) and Linux
+process_creation rules use no Windows-only fields.
+
+(2) `.venv/bin/python run_tests.py ui --area workflow` prints all Playwright specs green,
+including a spec asserting the Linux/platform badge renders in the shared review queue,
+a spec asserting the read-only platform capability matrix renders in Workflow Config, and
+the renamed Platform Detection spec (formerly agent_config_os_detection.spec.ts).
+
+(3) `.venv/bin/python run_tests.py regression --output-format quiet` shows no new failures
+versus baseline — no drop in huntability/ranking scores, no break to legacy execution API
+serializers.
+
+GUARDRAILS — the goal is NOT met if any were violated: do not mutate eval-article DB rows
+or config/eval_articles_data fixtures; do not rename or generalize the Windows artifact
+taxonomy; if any src/prompts/*.txt changed, the 9 config/presets/AgentConfigs/quickstart/*.json
+files were updated to match; schema/model changes (src/config/workflow_config_schema.py,
+src/database/models.py) ship with a migration and backward-compatible serializers; no
+historical executions were backfilled; test output was never piped through `| tail`.
+
+Read docs/superpowers/specs/2026-06-17-platform-telemetry-expansion-design.md for full
+detail. Print the actual test summaries each turn so this condition can be confirmed. If
+blocked on an operator decision (e.g. whether a conditionally-in-scope extractor is ready)
+or any destructive step, STOP and surface it instead of guessing. Otherwise stop after 25
+turns.
+```
+
+### 0.3 Definition of Done — the acceptance suite the agent runs each turn
+
+All proof points collapse into one Python acceptance module plus the `workflow`
+Playwright project, so a single command sequence demonstrates the whole contract:
+
+```bash
+# 1. Product-contract assertions (create/extend this module)
+.venv/bin/python run_tests.py --paths tests/workflows/test_platform_telemetry_phase_one.py --output-format quiet
+# 2. UI acceptance (badge + capability matrix + renamed Platform Detection spec)
+.venv/bin/python run_tests.py ui --area workflow
+# 3. No regressions (scores, legacy serializers)
+.venv/bin/python run_tests.py regression --output-format quiet
+```
+
+Print the final summary lines from each command. Never pipe through `| tail` — it hides
+progress and starves the evaluator of the very output it judges.
+
+### 0.4 Guardrails — the goal is unmet if any are violated
+
+| Guardrail | Why |
+|---|---|
+| Never mutate eval-article DB rows or `config/eval_articles_data` fixtures. | Ground truth is forward-only; pipeline fixes never chase GT. |
+| Do not rename/generalize the Windows artifact taxonomy. | Phase-one boundary is capability metadata + skip reasons (§4). |
+| If any `src/prompts/*.txt` changed, update the 9 `config/presets/AgentConfigs/quickstart/*.json` (3 distinct variants). | Editing prompts alone silently desyncs the presets. |
+| `src/config/workflow_config_schema.py` and `src/database/models.py` are contracts — change deliberately, ship a migration, keep serializers backward-compatible. | New executions only; legacy rows must still deserialize (§8). |
+| No backfill/migration of historical executions. | Explicit out-of-scope (§2). |
+| Huntability/ranking scores must not drop. | Platform support is additive (§2); the regression suite guards this. |
+
+### 0.5 Bound and stop conditions
+
+- **Turn bound:** `stop after 25 turns` caps runaway loops.
+- **Hard stop on judgment calls:** if blocked on an operator decision — e.g. whether
+  NetworkIndicatorExtract / HuntQueries confidence is good enough to pull a
+  conditionally-in-scope item (§2) into this run — or on any destructive/irreversible
+  step, the agent stops and surfaces it rather than guessing.
+- **Resume:** if the session ends with the goal active, `--resume`/`--continue` carries
+  the condition over (the turn counter resets).
 
 ---
 
@@ -261,6 +364,12 @@ belongs in metadata and UI badges unless a title would otherwise be ambiguous.
 Workflow Config should show a read-only platform capability matrix. Do not add
 operator toggles per platform/extractor in phase one.
 
+In goal-mode (§0), both the platform badge and the capability matrix count as delivered
+only when a Playwright spec asserts them and prints green — the evaluator cannot see a
+browser. As part of the OS Detection → Platform Detection rename, the existing
+`tests/playwright/agent_config_os_detection.spec.ts` is renamed/retargeted to the
+Platform Detection spec and must keep passing.
+
 ---
 
 ## 8. API behavior
@@ -306,9 +415,32 @@ The fixture set should cover at least:
 - HuntQuery article with clear backend and target telemetry.
 - Linux persistence article where persistence artifacts are deferred/skipped.
 
+### 9.1 How the bar is proven in goal-mode
+
+Because the `/goal` evaluator confirms "done" only from printed transcript output (§0.1),
+every assertion above lives in the acceptance suite of §0.3 and is proven by a pasted
+test summary — not by description:
+
+- The product-contract bullets (Linux skips Windows-only extractors with structured
+  reasons; Linux rules carry platform metadata; mixed articles split per
+  platform/logsource; macOS generates no Sigma; rules have logsource + observable +
+  non-empty selection + no Windows-only fields on Linux process_creation) →
+  `tests/workflows/test_platform_telemetry_phase_one.py`, one test per bullet.
+- "No crashes / valid generated Sigma YAML" → the same module drives each fixture
+  end-to-end and runs every emitted rule through pySigma validation.
+- Badge + capability matrix render → the `workflow` Playwright project (§7).
+- No score regression / legacy serializers intact → `run_tests.py regression`.
+
+The fixture set below seeds that module. Conditional fixtures (network, HuntQuery) are
+included only if their extractor is confirmed ready this run; if not, the agent stops and
+surfaces the decision per §0.5 rather than silently dropping the fixture.
+
 ---
 
 ## 10. Deferred work and explicit follow-ups
+
+Phase-one follow-ups are tracked in
+`docs/superpowers/specs/2026-06-19-platform-telemetry-followups.md`.
 
 Create tracked backlog/TODO items during phase-one implementation for:
 

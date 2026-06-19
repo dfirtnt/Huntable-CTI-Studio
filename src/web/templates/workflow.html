@@ -1114,6 +1114,13 @@
   max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: normal;
+}
+
+.q-table .q-title-primary {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -1185,6 +1192,8 @@
 .q-badge.submitted::before { background: var(--purple-primary); box-shadow: 0 0 6px var(--purple-primary); }
 .q-badge.needs_review { color: var(--badge-yellow-text); }
 .q-badge.needs_review::before { background: #eab308; box-shadow: 0 0 6px #eab308; }
+.q-badge.platform { color: var(--text-muted-slate); margin-top: 4px; text-transform: none; }
+.q-badge.platform::before { background: var(--action-info); box-shadow: 0 0 6px var(--action-info); }
 
 /* Action links */
 .q-actions-cell {
@@ -1841,9 +1850,9 @@ tr.q-row-selected td {
             <button type="button" class="btn-toggle btn-toggle--circle oc-rail-toggle" onclick="togglePipelineRail()" title="Toggle pipeline rail"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg></button>
             <div class="pipeline-label" style="padding: 0 12px 8px; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.3);">PIPELINE</div>
 
-            <div class="rail-item c0 active" onclick="scrollToStep(0)" role="button" tabindex="0" title="Step 0: OS Detection (os-detect)">
+            <div class="rail-item c0 active" onclick="scrollToStep(0)" role="button" tabindex="0" title="Step 0: Platform Detection (os-detect)">
               <div class="rail-node">0</div>
-              <div class="rail-label">OS Detection</div>
+              <div class="rail-label">Platform Detection</div>
               <div class="rail-sublabel">os-detect</div>
             </div>
             <div class="rail-connector"></div>
@@ -1886,13 +1895,16 @@ tr.q-row-selected td {
           <!-- ── Right: Content + Footer ──────────────── -->
           <div class="oc-right">
             <div id="config-content">
+              <div class="mb-4">
+                {% include 'components/platform_capability_matrix.html' %}
+              </div>
 
-              <!-- ══ STEP 0: OS DETECTION ══════════════════ -->
+              <!-- ══ STEP 0: PLATFORM DETECTION ═════════════ -->
               <section id="s0" class="step-section open">
                 <div class="section-tint"></div>
                 <div class="section-header" onclick="scrollToStep(0)">
                   <span class="step-badge">STEP 0</span>
-                  <span class="section-title">OS Detection</span>
+                  <span class="section-title">Platform Detection</span>
                   <span class="section-chevron">▼</span>
                 </div>
                 <div class="section-body">
@@ -3727,7 +3739,7 @@ const AGENT_DISPLAY_NAMES = {
     'RankAgent':          'Rank Agent',
     'ExtractAgent':       'Extract Agent',
     'SigmaAgent':         'SIGMA Agent',
-    'OSDetectionAgent':   'OS Detection',
+    'OSDetectionAgent':   'Platform Detection',
     'CmdlineExtract':     'Command Line Extraction',
     'ProcTreeExtract':    'Process Lineage Extraction',
     'HuntQueriesExtract': 'Hunt Queries Extraction',
@@ -4731,7 +4743,7 @@ function normalizeWorkflowConfigControlBindings() {
         'sigma-fallback-enabled': { key: 'sigma_fallback_enabled', label: 'Use Full Article Content (Minus Junk)' },
         'cmdline-attention-preprocessor-enabled': { key: 'cmdline_attention_preprocessor_enabled', label: 'Attention Preprocessor' },
         'proctree-attention-preprocessor-enabled': { key: 'proc_tree_attention_preprocessor_enabled', label: 'Attention Preprocessor' },
-        'osdetectionagent-embedding-model-2': { key: 'OSDetectionAgent_embedding', label: 'OS Detection Embedding Model' },
+        'osdetectionagent-embedding-model-2': { key: 'OSDetectionAgent_embedding', label: 'Platform Detection Embedding Model' },
         'osdetectionagent-os-windows': { key: 'OSDetectionAgent_selected_os', label: 'Target OS: Windows' },
         'osdetectionagent-os-linux': { key: 'OSDetectionAgent_selected_os', label: 'Target OS: Linux' },
         'osdetectionagent-os-macos': { key: 'OSDetectionAgent_selected_os', label: 'Target OS: MacOS' },
@@ -7196,7 +7208,7 @@ function renderAgentModels(lmstudioModels) {
         'os-detection': {
             container: 'os-detection-model-container',
             agentName: 'OSDetectionAgent',
-            labels: { main: 'OS Detection' }
+            labels: { main: 'Platform Detection' }
         },
         'extract-agent': {
             container: 'extract-agent-model-container',
@@ -7358,7 +7370,7 @@ function renderAgentModels(lmstudioModels) {
         osContainer.innerHTML = `
             <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                 <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                    OS Detection Model
+                    Platform Detection Model
                     <button type="button" 
                             onclick="showHelp('osDetectionAgent')"
                             class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
@@ -11247,19 +11259,25 @@ async function viewExecution(executionId) {
             // Build step-by-step inputs/outputs
             const steps = [];
             
-            // Step 0: OS Detection (runs first in workflow)
-            // Check for OS detection data in error_log.os_detection_result, termination_details, or error_log.os_detection
+            // Step 0: Platform Detection (runs first in workflow)
+            // Check for platform detection data in error_log.os_detection_result, termination_details, or error_log.os_detection
             const osDetectionResult = exec.error_log?.os_detection_result;
             // Prioritize os_detection_result over termination_details to ensure correct data source
             const osDetectionData = osDetectionResult || exec.termination_details || {};
             const osDetectionError = exec.error_log?.os_detection;
             const detectedOS = osDetectionData.detected_os || (osDetectionError ? null : undefined);
+            const platformsDetected = Array.isArray(osDetectionData.platforms_detected) && osDetectionData.platforms_detected.length > 0
+                ? osDetectionData.platforms_detected
+                : (Array.isArray(exec.extraction_result?.summary?.platforms_detected) && exec.extraction_result.summary.platforms_detected.length > 0
+                    ? exec.extraction_result.summary.platforms_detected
+                    : (detectedOS ? [detectedOS] : []));
+            const platformsDetectedLabel = platformsDetected.length > 0 ? platformsDetected.join(', ') : 'Unknown';
             
-            // Show OS Detection step if:
-            // 1. OS detection result exists in error_log
+            // Show Platform Detection step if:
+            // 1. Platform detection result exists in error_log
             // 2. OS was detected (in termination_details when workflow stopped)
-            // 3. There was an OS detection error
-            // 4. Workflow has any steps (OS detection runs first, so it should always be present)
+            // 3. There was a platform detection error
+            // 4. Workflow has any steps (platform detection runs first, so it should always be present)
             if (osDetectionResult || detectedOS !== undefined || osDetectionError || exec.status !== 'pending') {
                 // Read method from detection_method field, ensuring we don't accidentally use fallback model name
                 const osMethod = (osDetectionData.detection_method && typeof osDetectionData.detection_method === 'string') 
@@ -11275,11 +11293,7 @@ async function viewExecution(executionId) {
                 const osMaxSimilarity = (typeof osDetectionData.max_similarity === 'number' && !isNaN(osDetectionData.max_similarity))
                     ? osDetectionData.max_similarity
                     : undefined;
-                // Determine if Windows was detected:
-                // 1. detectedOS is 'Windows', OR
-                // 2. Workflow continued past OS detection (junk_filter or extraction result exists)
                 const workflowContinued = (exec.extraction_result != null) || (exec.junk_filter_result != null);
-                const isWindows = detectedOS === 'Windows' || (workflowContinued && detectedOS !== 'Linux' && detectedOS !== 'MacOS');
                 
                 // Build similarities display
                 let similaritiesHtml = '';
@@ -11288,7 +11302,7 @@ async function viewExecution(executionId) {
                         .map(([os, sim]) => `<div>• ${os}: ${(sim * 100).toFixed(1)}%</div>`)
                         .join('');
                     similaritiesHtml = `<details class="mt-2 w-full">
-                        <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: var(--text-emphasis) !important;">View OS Similarity Scores</summary>
+                        <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: var(--text-emphasis) !important;">View Platform Similarity Scores</summary>
                         <div class="mt-2 w-full bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs text-gray-900 dark:text-white">
                             ${similaritiesList}
                         </div>
@@ -11299,10 +11313,10 @@ async function viewExecution(executionId) {
                 const embeddingModel = exec.config_snapshot?.agent_models?.['OSDetectionAgent_embedding'] || 
                                       activeConfig?.agent_models?.['OSDetectionAgent_embedding'] || 
                                       'ibm-research/CTI-BERT';
-                // OS detection runs first and receives original article content (not junk-filtered)
+                // Platform detection runs first and receives original article content (not junk-filtered)
                 const osInputContentLength = exec.article_content?.length || exec.junk_filter_result?.original_length || 0;
                 const osInputDetails = exec.article_content ? `<details class="mt-2 w-full">
-                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: var(--text-emphasis) !important;">View Content Sent to OS Detection (${osInputContentLength} chars)</summary>
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: var(--text-emphasis) !important;">View Content Sent to Platform Detection (${osInputContentLength} chars)</summary>
                     <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
                         ${exec.article_content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
                     </div>
@@ -11316,28 +11330,28 @@ async function viewExecution(executionId) {
                 } else if (detectedOS !== undefined) {
                     osOutput = `<div class="space-y-1 text-gray-700 dark:text-gray-300">
                         <div><strong>Detected OS:</strong> ${detectedOS}</div>
+                        <div><strong>Platforms Detected:</strong> ${platformsDetectedLabel}</div>
                         <div><strong>Method:</strong> ${osMethod}</div>
                         <div><strong>Confidence:</strong> ${osConfidence}</div>
                         ${osMaxSimilarity !== undefined ? `<div><strong>Max Similarity:</strong> ${(osMaxSimilarity * 100).toFixed(1)}%</div>` : ''}
-                        <div><strong>Decision:</strong> ${isWindows ? '✅ Continue (Windows detected)' : '❌ Stop (Non-Windows OS)'}</div>
-                        ${!isWindows ? '<div class="mt-2 text-amber-400 dark:text-yellow-400">⚠️ Workflow ended because non-Windows OS was detected.</div>' : ''}
+                        <div><strong>Decision:</strong> Continue to capability routing</div>
                     </div>`;
                 } else if (!osDetectionResult) {
-                    // No OS detection data stored - could be legacy execution
+                    // No platform detection data stored - could be legacy execution
                     const workflowContinued = exec.junk_filter_result !== null && exec.junk_filter_result !== undefined;
                     osOutput = `<div class="space-y-1 text-gray-700 dark:text-gray-300">
-                        <div><strong>Detected OS:</strong> ${workflowContinued ? 'Windows (inferred - workflow continued)' : 'Unknown (no data stored)'}</div>
-                        <div><strong>Decision:</strong> ${workflowContinued ? '✅ Continue' : '❓ Unknown'}</div>
-                        ${!workflowContinued ? `<div class="mt-2 text-xs text-gray-500 dark:text-gray-400">Note: OS detection data not stored for this execution. Check logs for OS detection errors.</div>` : ''}
+                        <div><strong>Platforms Detected:</strong> ${workflowContinued ? 'Unknown (legacy execution continued)' : 'Unknown (no data stored)'}</div>
+                        <div><strong>Decision:</strong> ${workflowContinued ? 'Continue to capability routing' : 'Unknown'}</div>
+                        ${!workflowContinued ? `<div class="mt-2 text-xs text-gray-500 dark:text-gray-400">Note: platform detection data not stored for this execution. Check logs for detection errors.</div>` : ''}
                     </div>`;
                 }
                 
                 steps.push({
                     id: 'os_detection',
-                    shortName: 'OS Detection',
-                    status: osDetectionError ? 'error' : isWindows ? 'pass' : 'stopped',
-                    metric: detectedOS || (osDetectionError ? 'Error' : 'Unknown'),
-                    name: 'Step 0: OS Detection',
+                    shortName: 'Platform Detection',
+                    status: osDetectionError ? 'error' : 'pass',
+                    metric: platformsDetectedLabel,
+                    name: 'Step 0: Platform Detection',
                     input: `<div class="space-y-1">
                         <div>• Original article content (${osInputContentLength} chars)</div>
                         <div>• Embedding Model: <span class="font-mono text-xs">${embeddingModel}</span></div>
@@ -11433,6 +11447,11 @@ async function viewExecution(executionId) {
                 const summary = exec.extraction_result.summary || {};
                 const discreteHuntablesCount = exec.extraction_result.discrete_huntables_count || summary.count || 0;
                 const obsCount = observables.length;
+                const capabilitySkips = Array.isArray(exec.extraction_result.capability_skips)
+                    ? exec.extraction_result.capability_skips
+                    : (Array.isArray(exec.error_log?.extract_agent?.capability_skips)
+                        ? exec.error_log.extract_agent.capability_skips
+                        : []);
                 
                 // Build expandable sections for all findings
                 const detailsSections = [];
@@ -11447,11 +11466,15 @@ async function viewExecution(executionId) {
                                         const type = obs.type || 'Unknown';
                                         const value = obs.value || '';
                                         const platform = obs.platform || 'Unknown';
+                                        const telemetryCategory = obs.telemetry_category || '';
+                                        const logsourceHint = obs.logsource_hint || '';
                                         const sourceContext = obs.source_context || '';
                                         return `<div class="border-b border-gray-300 dark:border-gray-600 pb-2">
                                             <div class="font-semibold text-gray-900 dark:text-white">${idx + 1}. ${type}</div>
                                             <div class="text-gray-700 dark:text-gray-300 mt-1 break-all">${value}</div>
                                             ${platform !== 'Unknown' ? `<div class="text-gray-600 dark:text-gray-400 mt-1">Platform: ${platform}</div>` : ''}
+                                            ${telemetryCategory ? `<div class="text-gray-600 dark:text-gray-400 mt-1">Telemetry: ${telemetryCategory}</div>` : ''}
+                                            ${logsourceHint ? `<div class="text-gray-600 dark:text-gray-400 mt-1">Logsource: ${logsourceHint}</div>` : ''}
                                             ${sourceContext ? `<div class="text-gray-600 dark:text-gray-400 mt-1 italic">Context: ${sourceContext}</div>` : ''}
                                         </div>`;
                                     }).join('')}
@@ -11460,6 +11483,29 @@ async function viewExecution(executionId) {
                         </details>`);
                 }
                 
+                // Capability skips
+                if (capabilitySkips.length > 0) {
+                    detailsSections.push(`<details class="mt-2 w-full">
+                            <summary class="cursor-pointer text-xs !text-white dark:!text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: white !important;">View Capability Skips (${capabilitySkips.length})</summary>
+                            <div class="mt-2 w-full bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs">
+                                <div class="space-y-2 text-gray-900 dark:text-white">
+                                    ${capabilitySkips.map(skip => {
+                                        const extractor = skip.extractor || 'Unknown extractor';
+                                        const reason = skip.reason || skip.reason_code || 'Skipped by capability routing';
+                                        const supported = Array.isArray(skip.supported_platforms) ? skip.supported_platforms.join(', ') : 'Unknown';
+                                        const detected = Array.isArray(skip.detected_platforms) ? skip.detected_platforms.join(', ') : 'Unknown';
+                                        return `<div class="border-b border-gray-300 dark:border-gray-600 pb-2">
+                                            <div><strong>${extractor}</strong></div>
+                                            <div>Reason: ${reason}</div>
+                                            <div>Supported platforms: ${supported}</div>
+                                            <div>Detected platforms: ${detected}</div>
+                                        </div>`;
+                                    }).join('')}
+                                </div>
+                            </div>
+                        </details>`);
+                }
+
                 // Summary
                 if (summary && (summary.count !== undefined || summary.platforms_detected || summary.source_url)) {
                     detailsSections.push(`<details class="mt-2 w-full">
@@ -11530,6 +11576,7 @@ async function viewExecution(executionId) {
                         <div><strong>Discrete Huntables:</strong> ${discreteHuntablesCount}</div>
                         <div><strong>Observables:</strong> ${obsCount} items</div>
                         ${summary.platforms_detected && summary.platforms_detected.length > 0 ? `<div><strong>Platforms:</strong> ${summary.platforms_detected.join(', ')}</div>` : ''}
+                        ${capabilitySkips.length > 0 ? `<div><strong>Capability Skips:</strong> ${capabilitySkips.length}</div>` : ''}
                     </div>`,
                     details: detailsSections.join('')
                 });
@@ -11552,6 +11599,7 @@ async function viewExecution(executionId) {
                     const conversationLog = exec.error_log?.extract_agent?.conversation_log || [];
                     const subAgentDetails = subAgents.map(subAgent => {
                         const result = subresults[subAgent.key];
+                        const skipRecord = capabilitySkips.find(skip => skip.extractor === subAgent.name);
                         const logEntry = conversationLog.find(e => e.agent === subAgent.name);
                         const attentionPreprocessor = logEntry?.attention_preprocessor;
                         // Ensure items is always an array - handle case where items is a string (e.g., process_lineage)
@@ -11589,6 +11637,11 @@ async function viewExecution(executionId) {
                                 ${JSON.stringify(raw, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;')}
                             </div>
                         </details>` : '';
+                        const skipHtml = skipRecord ? `<div class="mt-1 text-xs text-amber-300 dark:text-amber-300">
+                                            <div>• Skipped: ${skipRecord.reason || skipRecord.reason_code || 'capability routing'}</div>
+                                            ${Array.isArray(skipRecord.supported_platforms) ? `<div>• Supported platforms: ${skipRecord.supported_platforms.join(', ')}</div>` : ''}
+                                            ${Array.isArray(skipRecord.detected_platforms) ? `<div>• Detected platforms: ${skipRecord.detected_platforms.join(', ')}</div>` : ''}
+                                        </div>` : '';
 
                         const isProcessLineage = subAgent.key === 'process_lineage';
                         const subAgentStyle = 'style="color: var(--text-emphasis) !important;"';
@@ -11610,7 +11663,7 @@ async function viewExecution(executionId) {
                                 </div>
                                 <div>
                                     <strong class="text-gray-600 dark:text-gray-300 text-sm">Outputs:</strong>
-                                    ${count > 0 ? `
+                                    ${skipRecord ? skipHtml : count > 0 ? `
                                         <div class="mt-1 text-xs text-gray-600 dark:text-gray-300">
                                             <div>• Items Extracted: <strong class="text-gray-600 dark:text-gray-300">${count}</strong></div>
                                         </div>
@@ -12999,6 +13052,27 @@ function getQueueStatusBadge(status) {
     return `<span class="q-badge ${cls}">${label}</span>`;
 }
 
+function formatQueuePlatformLabel(platform) {
+    const value = Array.isArray(platform) ? platform.find(Boolean) : platform;
+    if (!value) return '';
+    const normalized = String(value).trim().toLowerCase();
+    const labels = {
+        windows: 'Windows',
+        linux: 'Linux',
+        macos: 'macOS',
+        unknown: 'Unknown',
+        cross: 'Cross-platform',
+        'cross-platform': 'Cross-platform',
+    };
+    return labels[normalized] || String(value).trim();
+}
+
+function getQueuePlatformBadge(metadata) {
+    const label = formatQueuePlatformLabel(metadata?.platform);
+    if (!label) return '';
+    return `<span class="q-badge platform">${escapeHtml(label)}</span>`;
+}
+
 function getObservablesUsedCount(rule) {
     const list = rule?.rule_metadata?.observables_used;
     if (!Array.isArray(list) || list.length === 0) return 0;
@@ -13123,6 +13197,7 @@ function renderQueue() {
         const title = metadata.title || 'Untitled Rule';
         const observablesUsedCount = getObservablesUsedCount(rule);
         const isSelected = queueSelectedIds.has(rule.id);
+        const platformBadge = getQueuePlatformBadge(metadata);
         const rowClass = isSelected ? ' class="q-row-selected"' : '';
         const checked = isSelected ? ' checked' : '';
         const canActOn = (rule.status === 'pending' || rule.status === 'needs_review');
@@ -13141,7 +13216,10 @@ function renderQueue() {
                         ? `<a href="/articles/${rule.article_id}" title="${((rule.article_title || 'Article ' + rule.article_id) + '').replace(/"/g, '&quot;')}">${rule.article_title || 'Article ' + rule.article_id}</a>`
                         : `<span class="italic" style="color: var(--text-muted-slate)">Manual draft</span>`}
                 </td>
-                <td class="q-cell-title" title="${(title || '').replace(/"/g, '&quot;')}">${title}</td>
+                <td class="q-cell-title" title="${escapeHtml(title)}">
+                    <span class="q-title-primary">${escapeHtml(title)}</span>
+                    ${platformBadge}
+                </td>
                 <td class="q-cell-obs">${observablesUsedCount}</td>
                 <td class="q-cell-job">
                     ${Number.isInteger(rule.workflow_execution_id) ? `<a href="#executions" onclick="switchTab('executions'); setTimeout(() => viewExecution(${rule.workflow_execution_id}), 100); return false;" title="Open workflow job ${rule.workflow_execution_id}">${rule.workflow_execution_id}</a>` : '-'}
@@ -13397,6 +13475,7 @@ function renderRulePreview(rule, observablesData) {
     observablesData = observablesData ?? cachedObservablesForRulePreview;
     const metadata = rule.rule_metadata || {};
     const similarityScores = rule.similarity_scores || [];
+    const platformBadge = getQueuePlatformBadge(metadata);
     
     // Populate the Sigma agent label from workflow config (Validate always uses the workflow Sigma agent LLM)
     setTimeout(() => seedValidateAgentLabel(), 100);
@@ -13442,6 +13521,7 @@ function renderRulePreview(rule, observablesData) {
     const content = `
         <div class="space-y-4 text-gray-600 dark:text-gray-300">
             <div><strong>Rule ID:</strong> ${rule.id}</div>
+            ${platformBadge ? `<div><strong>Platform:</strong> ${platformBadge}</div>` : ''}
             <div><strong>Article:</strong> ${rule.article_id ? `<a href="/articles/${rule.article_id}" class="text-purple-600">${escapeHtml(rule.article_title || 'Article ' + rule.article_id)}</a>` : '<span class="italic" style="color: var(--text-muted-slate)">None (hand-authored draft)</span>'}</div>
             ${Number.isInteger(rule.workflow_execution_id) ? `<div><strong>Job:</strong> <a href="#executions" class="text-purple-600" onclick="closeModal(); switchTab('executions'); setTimeout(() => viewExecution(${rule.workflow_execution_id}), 100); return false;" title="Open workflow execution ${rule.workflow_execution_id}">Execution #${rule.workflow_execution_id}</a></div>` : ''}
             <div><strong>Max Similarity:</strong> ${typeof rule.max_similarity === 'number' ? (rule.max_similarity * 100).toFixed(1) + '%' : 'N/A'}</div>
@@ -16826,9 +16906,9 @@ function showHelp(fieldName) {
                       <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> 0.4-0.6 (0.5 is balanced). Lower = stricter (fewer duplicates), Higher = more lenient (more rules queued)</p>`
         },
         'osDetectionAgent': {
-            title: 'OS Detection',
+            title: 'Platform Detection',
             content: `<p class="mb-2"><strong>Description:</strong></p>
-                      <p class="mb-2">Determines the target operating system of each threat intelligence article. Articles that do not match the selected OS are filtered out before extraction begins.</p>
+                      <p class="mb-2">Determines the target platform of each threat intelligence article. The result is used to route extractors by their platform capabilities before extraction begins.</p>
                       <p class="mb-2"><strong>Embedding Model:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li><strong>CTI-BERT:</strong> Specialized for cybersecurity threat intelligence (recommended)</li>
@@ -16838,8 +16918,8 @@ function showHelp(fieldName) {
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li><strong>Step 1:</strong> Keyword scan — if 3 or more Windows indicators are found (executables, registry paths, Event IDs, etc.), Windows is returned immediately</li>
                           <li><strong>Step 2:</strong> Embedding classification — CTI-BERT or SEC-BERT compares the article against OS indicator profiles</li>
-                          <li>Detects: Windows, Linux, MacOS, multiple, or Unknown</li>
-                          <li>Workflow continues only for articles matching the selected Target OS</li>
+                          <li>Detects: Windows, Linux, MacOS, Cross-platform, or Unknown</li>
+                          <li>Workflow continues to extractor capability routing; unsupported extractors are skipped with an explicit reason</li>
                       </ul>
                       <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> CTI-BERT with default settings. No LLM is used — detection is fast and runs entirely on local embeddings.</p>`
         },
