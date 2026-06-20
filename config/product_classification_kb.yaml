@@ -1,0 +1,27 @@
+# Product Classification Knowledge Base (Phase D)
+#
+# Entity -> named PRODUCT for the entity-dimension classifier. Presence-based:
+# a product is reported if any of its match tokens appears (deduped by product name).
+# Curated seed; extend freely.
+# See docs/superpowers/specs/2026-06-19-entity-driven-platform-classification-design.md (Phase D).
+
+entities:
+  - {match: "active directory", product: "Active Directory"}
+  - {match: "entra id", product: "Entra ID"}
+  - {match: "azure ad", product: "Entra ID"}
+  - {match: "okta", product: "Okta"}
+  - {match: "exchange", product: "Microsoft Exchange"}
+  - {match: "sharepoint", product: "Microsoft SharePoint"}
+  - {match: "cisco asa", product: "Cisco ASA"}
+  - {match: "pan-os", product: "Palo Alto PAN-OS"}
+  - {match: "palo alto", product: "Palo Alto PAN-OS"}
+  - {match: "fortios", product: "Fortinet FortiOS"}
+  - {match: "fortinet", product: "Fortinet FortiOS"}
+  - {match: "f5 big-ip", product: "F5 BIG-IP"}
+  - {match: "netscaler", product: "Citrix NetScaler"}
+  - {match: "kubernetes", product: "Kubernetes"}
+  - {match: "vmware esxi", product: "VMware ESXi"}
+  - {match: "esxi", product: "VMware ESXi"}
+  - {match: "confluence", product: "Atlassian Confluence"}
+  - {match: "gitlab", product: "GitLab"}
+  - {match: "splunk", product: "Splunk"}

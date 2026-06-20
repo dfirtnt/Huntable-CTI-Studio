@@ -11272,7 +11272,12 @@ async function viewExecution(executionId) {
                     ? exec.extraction_result.summary.platforms_detected
                     : (detectedOS ? [detectedOS] : []));
             const platformsDetectedLabel = platformsDetected.length > 0 ? platformsDetected.join(', ') : 'Unknown';
-            
+            // Phase D: Domains + Products dimensions (entity-driven, stored in os_detection_result).
+            const detectedDomains = Array.isArray(osDetectionData.domains) ? osDetectionData.domains : [];
+            const detectedProducts = Array.isArray(osDetectionData.products) ? osDetectionData.products : [];
+            const domainsLabel = detectedDomains.length > 0 ? detectedDomains.join(', ') : '—';
+            const productsLabel = detectedProducts.length > 0 ? detectedProducts.join(', ') : '—';
+
             // Show Platform Detection step if:
             // 1. Platform detection result exists in error_log
             // 2. OS was detected (in termination_details when workflow stopped)
@@ -11331,6 +11336,8 @@ async function viewExecution(executionId) {
                     osOutput = `<div class="space-y-1 text-gray-700 dark:text-gray-300">
                         <div><strong>Detected OS:</strong> ${detectedOS}</div>
                         <div><strong>Platforms Detected:</strong> ${platformsDetectedLabel}</div>
+                        <div><strong>Domains:</strong> ${domainsLabel}</div>
+                        <div><strong>Products:</strong> ${productsLabel}</div>
                         <div><strong>Method:</strong> ${osMethod}</div>
                         <div><strong>Confidence:</strong> ${osConfidence}</div>
                         ${osMaxSimilarity !== undefined ? `<div><strong>Max Similarity:</strong> ${(osMaxSimilarity * 100).toFixed(1)}%</div>` : ''}

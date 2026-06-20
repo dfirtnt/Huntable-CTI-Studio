@@ -1198,6 +1198,20 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             termination_reason = state.get("termination_reason")
             termination_details = state.get("termination_details")
 
+            # Phase D: Domains + Products dimensions (deterministic entity KBs; free).
+            # Stored alongside platform detection for API/trace surfacing.
+            try:
+                from src.services.entity_dimension_classifier import (
+                    classify_domains,
+                    classify_named_products,
+                )
+
+                detected_domains = classify_domains(content).labels
+                detected_products = [p["product"] for p in classify_named_products(content)]
+            except Exception as e:  # pragma: no cover - defensive
+                logger.warning(f"[Workflow {state['execution_id']}] Domain/product classification skipped: {e}")
+                detected_domains, detected_products = [], []
+
             if execution:
                 execution.current_step = "os_detection"
                 if execution.error_log is None:
@@ -1205,6 +1219,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 execution.error_log["os_detection_result"] = {
                     "detected_os": detected_os,
                     "platforms_detected": platforms_detected,
+                    "domains": detected_domains,
+                    "products": detected_products,
                     "detection_method": os_result.get("method"),
                     "confidence": os_result.get("confidence"),
                     "similarities": os_result.get("similarities"),

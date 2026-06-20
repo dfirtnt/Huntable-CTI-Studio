@@ -1,9 +1,10 @@
 # Entity-Driven Platform Classification — Design Spec
 
 - Date: 2026-06-19
-- Status: **Phases A, B & C implemented** (entity-KB gate is the primary decider; ATT&CK
-  technique citations reinforce it; LLM adjudicates only the low-confidence/Unknown tail).
-  Phase D proposed.
+- Status: **Phases A–D implemented** (entity-KB platform gate + ATT&CK reinforcement + LLM
+  adjudication; Domains/Products dimensions classified and surfaced in the per-execution
+  trace + API). The "delete embeddings entirely" half of Phase D remains deferred (blocked
+  on migrating `huntable_windows_service` off `_get_embedding`).
 - Architecture: **hybrid confirmed by operator 2026-06-19** — deterministic KB gate
   runs first; the LLM is invoked *only* for the low-confidence / Unknown tail (never
   LLM-always). The KB doubles as the cost gate that decides when to spend an LLM call.
@@ -237,8 +238,19 @@ uses no LLM; this is an additive, bounded cost.
   *suppresses* Linux Sigma — so KB-blank articles defer to the LLM for precise narrowing.
   Tests: `tests/services/test_attack_platform_signal.py` (8) + ATT&CK integration cases
   in `test_platform_classifier.py`.
-- **Phase D — Domains + Products dimensions**; delete the embedding path entirely. This
-  is the taxonomy generalization phase-one §4 deliberately deferred.
+- **Phase D — Domains + Products dimensions. ✅ CORE + SURFACING DONE 2026-06-19.** Shipped
+  `src/services/entity_dimension_classifier.py` (generic keyword-KB scoring: Domains as
+  independent multi-label above a floor; Products presence-based, deduped), with
+  `config/domain_classification_kb.yaml` + `config/product_classification_kb.yaml` seeds.
+  Wired into `os_detection_node` (deterministic, free) and stored in
+  `error_log.os_detection_result.{domains,products}` (no schema change); flows through the
+  existing execution API and renders in the per-execution Platform Detection trace. Tests:
+  `tests/services/test_entity_dimension_classifier.py` (6) + Playwright
+  `tests/playwright/workflow_platform_dimensions.spec.ts`. Live seed sanity: 4441 →
+  domains[Network,Identity,Endpoint], products[Active Directory, PAN-OS, F5 BIG-IP, Confluence].
+  **Deferred:** delete the embedding path entirely (this is the taxonomy generalization
+  phase-one §4 deliberately deferred) — blocked on `huntable_windows_service`'s
+  `_get_embedding` dependency + the OS-classifier trainer.
   - **Embedding OS *detection* removed 2026-06-19** (`_detect_with_classifier`,
     `_detect_with_similarity`, `_load_classifier`, `_precompute_os_embeddings`,
     `OS_INDICATORS`; ~143 lines). The embedding *infra* (`_get_embedding`, `_load_model`,
