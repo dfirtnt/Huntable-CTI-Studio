@@ -227,6 +227,17 @@ uses no LLM; this is an additive, bounded cost.
   maintained taxonomy; also benefits Sigma `tags`).
 - **Phase D — Domains + Products dimensions**; delete the embedding path entirely. This
   is the taxonomy generalization phase-one §4 deliberately deferred.
+  - **Embedding OS *detection* removed 2026-06-19** (`_detect_with_classifier`,
+    `_detect_with_similarity`, `_load_classifier`, `_precompute_os_embeddings`,
+    `OS_INDICATORS`; ~143 lines). The embedding *infra* (`_get_embedding`, `_load_model`,
+    `train_classifier`, CTI-BERT) is **retained** — still shared by
+    `huntable_windows_service` and the OS-classifier training script
+    (`scripts/train_os_detection_*`). Model loading is lazy and `detect_os` no longer
+    triggers it (the earlier "loads in __init__" concern was moot).
+  - Follow-up: the OS-classifier training pipeline now trains a classifier nothing reads
+    (KB superseded it); retire it (and then the shared embedding infra) once
+    `huntable_windows_service`'s embedding dependency is resolved.
+  - Domains + Products dimensions: still proposed.
 
 ---
 
