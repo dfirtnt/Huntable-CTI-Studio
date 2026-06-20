@@ -51,28 +51,42 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 ## Version History
 
 ### v7.4.1 "Europa" (2026-06-14)
-<!-- TODO: fill Significance and Features before merging to main; pull content from docs/CHANGELOG.md [7.4.1] section. -->
-- **Named After**: <fill>
-- **Significance**: <fill>
-- **Features**: <fill>
+- **Named After**: Europa, one of Jupiter's four Galilean moons; patch release continues the Europa codename
+- **Significance**: Extractor de-laning completed across all six extractors (Complete-Artifact Rule ratified), keyword highlight preservation fixed, fallback surfaces retired
+- **Features**:
+    - CmdlineExtract, ServicesExtract, ScheduledTasksExtract, RegistryExtract, ProcTreeExtract, and HuntQueriesExtract all de-laned from detection-logic source prohibition via fleet-wide Complete-Artifact Rule; each extractor contract updated with era-boundary notes
+    - Article keyword highlights survive saved annotation restore; compound LOLBAS executables (e.g. `cmd.exe`) no longer fragment at overlap boundaries
+    - Client-side localStorage secret fallbacks retired for OpenAI/Anthropic/Langfuse/GitHub; SigmaSim UI labels updated to "precomputed atom path" / "on-the-fly atom path"; Extract sub-agent model blanks reworded as inheritance from ExtractAgent; OS Detection LLM fallback display/docstrings removed
 
 ### v7.4.0 "Europa" (2026-06-11)
-<!-- TODO: fill Significance and Features before merging to main; pull content from docs/CHANGELOG.md [7.4.0] section. -->
-- **Named After**: <fill>
-- **Significance**: <fill>
-- **Features**: <fill>
+- **Named After**: Europa, one of Jupiter's four Galilean moons; minor release continues the Europa codename
+- **Significance**: Sigma dedup engine renamed from "semantic" to "atom" throughout (exact atom set-math, not embeddings); Langfuse trace tags for workflow filtering; Sigma enrich modal active-config indicator; cloud model catalog self-healing
+- **Features**:
+    - `sigma recompute-semantics` CLI command renamed to `sigma recompute-atoms`; engine labels updated from "deterministic"/"legacy" to "precomputed"/"on-the-fly"; all seven rename slices are behavior-preserving
+    - Langfuse workflow traces now propagate `execution_id`, `article_id`, and `model` tags; `sigma_repair_attempts` score emitted per trace
+    - Sigma enrich modal shows `Unsaved config` / `Preset: <name> - clean` / `Preset: <name> - modified` state; save defaults to in-place update for loaded presets
+    - Daily provider-model-catalog refresh fixed (was reading wrong env var for API key); localStorage catalog TTL added (6h); Sigma enrichment modal unified onto shared `commercialModelCatalog`
+    - Sigma dedup Phase 0-5: canonical match schema locked, single ingress serializer, shared `normalizeSimilarityData`, unified Similar Rule modal, legacy in-app scorer retired
 
 ### v7.3.1 "Europa" (2026-06-08)
-<!-- TODO: fill Significance and Features before merging to main; pull content from docs/CHANGELOG.md [7.3.1] section. -->
-- **Named After**: <fill>
-- **Significance**: <fill>
-- **Features**: <fill>
+- **Named After**: Europa, one of Jupiter's four Galilean moons; patch release continues the Europa codename
+- **Significance**: Intel Mac (x86_64) compatibility restored; MCP semantic search fixed on all platforms; sigma embed OOM fix
+- **Features**:
+    - `torch`, `accelerate`, `sentence-transformers` excluded via PEP 508 platform markers on `macosx_x86_64`; `embedding_service` and `os_detection_service` torch imports wrapped in try/except guards
+    - MCP server now runs inside the Docker `cli` container so semantic search works on every platform (including Intel Mac where ML deps are absent from the host venv)
+    - `sigma index-embeddings` OOM fix: fetch-encode-commit in chunks (default 64 rules/chunk, `SIGMA_EMBED_RULES_PER_CHUNK` override); `setup.sh` detects low Docker memory and passes a conservative chunk size; operation is now resumable after interrupt
+    - `run_cli.sh` / `manage_allure.sh` detect Docker Compose v2 plugin vs. legacy `docker-compose` binary; no longer fails on modern Docker Desktop
 
 ### v7.3.0 "Europa" (2026-06-03)
-<!-- TODO: fill Significance and Features before merging to main; pull content from docs/CHANGELOG.md [7.3.0] section. -->
-- **Named After**: <fill>
-- **Significance**: <fill>
-- **Features**: <fill>
+- **Named After**: Europa, one of Jupiter's four Galilean moons; minor release continues the Europa codename
+- **Significance**: Security patch (pyjwt CVE), Sigma canonical class coverage expansion (+web/DNS/PowerShell/Sysmon/macOS classes), daily customer-repo index Celery task, claude-opus-4-8 added
+- **Features**:
+    - pyjwt pinned to 2.13.0 (PYSEC-2026-175/177/178/179)
+    - `claude-opus-4-8` registered in catalog and `MODEL_CONTEXT_TOKENS` (1M context, no beta header required)
+    - Speculative GPT-5.2-5.5 entries removed from catalog; re-added in v7.4.0 after live-API confirmation
+    - Sigma canonical classes expanded: `web.proxy`, `web.webserver`, `network.dns`, `windows.dns_query`, `windows.ps_script`, `windows.ps_module`, `windows.ps_classic_start`, `windows.process_access`, `windows.pipe_created`, `windows.create_remote_thread`, `windows.driver_load`, `windows.create_stream_hash`, `macos.process_creation`; brings ~600 previously-classless rules into deterministic candidate pool
+    - Daily `index_customer_repo` Celery beat task (04:30 schedule, Redis-locked); `cli` service mount added so manual runs work
+    - MAE chart flags degraded eval runs in amber (subset runs, throttled/quota-exceeded, failed records)
 
 ### v7.2.0 "Europa" (2026-05-29)
 - **Named After**: Europa, one of Jupiter's four Galilean moons; minor release continues the Europa codename established in v7.0.0
@@ -147,4 +161,4 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 ### v4.0.0 "Kepler" (2025-11-04)
 - **Named After**: Johannes Kepler, known for planetary motion laws
 
-_Last updated: 2026-05-29_
+_Last updated: 2026-06-20_

@@ -326,4 +326,4 @@ If injection, hollowing, or DLL loading is described, SKIP -- that is not proces
 If the source is a bare command listing that names no parent, SKIP.
 When in doubt, OMIT.
 
-_Last updated: 2026-06-12_
+_Last updated: 2026-06-20_

@@ -50,8 +50,6 @@ On the Workflow Config page, OS Detection exposes:
 ```bash
 OS_DETECTION_MODEL=ibm-research/CTI-BERT    # or nlpaueb/sec-bert-base
 OS_DETECTION_CLASSIFIER=random_forest        # or logistic_regression
-LMSTUDIO_API_URL=http://host.docker.internal:1234/v1
-LMSTUDIO_MODEL=mistralai/mistral-7b-instruct-v0.3
 ```
 
 ## Storage
@@ -184,7 +182,7 @@ overfitting, handles imbalanced classes via `class_weight='balanced'`.
 - `scripts/eval_os_detection_manual.py` — manual OS detection evaluation
 - `scripts/train_huntable_windows_workflow.sh` — automated Windows binary classifier training
 
-_Last updated: 2026-05-23_
+_Last updated: 2026-06-20_
 <!--stackedit_data:
 eyJoaXN0b3J5IjpbOTg5ODcwOTY1XX0=
 -->

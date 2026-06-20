@@ -57,4 +57,4 @@ Until those checks pass, these paths are compatibility boundaries, not removable
 
 ExtractAgent is the parent config; sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract) inherit provider/model from ExtractAgent when not configured. The schema types `Agents.ExtractAgent` explicitly; fallback behavior is implemented in the workflow and LLMService.
 
-_Last updated: 2026-06-12_
+_Last updated: 2026-06-20_
