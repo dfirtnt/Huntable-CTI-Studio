@@ -41,6 +41,36 @@ SIGMA_GROUNDING_METADATA_FIELDS = {
     "sigma_generation_group",
 }
 
+# Platform-specific Sigma-generation guidance, injected per platform/logsource group
+# (the group platform is carried on extraction_result["sigma_generation_group"]). The
+# base prompt is Windows-tuned; reviewed Linux pilot rules showed intent/detection
+# mismatch and over-broad single-token selections, so Linux groups get explicit
+# Linux field/technique guidance. Additive — does not edit the base prompt file.
+LINUX_SIGMA_GUIDANCE = (
+    "\n\nLINUX TARGET GUIDANCE (these observables are Linux process/command telemetry):\n"
+    "- Use Linux process_creation fields: CommandLine, Image (FULL path, e.g. /usr/bin/curl),\n"
+    "  ParentImage, ParentCommandLine, User, CurrentDirectory. Do NOT use Windows-only fields\n"
+    "  (OriginalFileName, IntegrityLevel, Hashes/Imphash, Company, Product, ProcessGuid).\n"
+    "- The detection MUST match the described behavior precisely. If the behavior is\n"
+    "  'chmod 777 on a dropped payload', key on the binary AND the mode/target\n"
+    "  (Image|endswith: '/chmod' AND CommandLine|contains: '777') — never a lone generic\n"
+    "  token such as CommandLine|contains: '/tmp' (that matches almost every command).\n"
+    "- Prefer specific multi-condition selections. A bare '/tmp', '/dev/shm', or '/var/tmp'\n"
+    "  substring is far too noisy to be the only condition.\n"
+    "- Use Linux-appropriate ATT&CK tags: T1059.004 (Unix Shell), T1222.002 (Linux/Mac file\n"
+    "  permissions), T1053.003 (cron), T1105 (ingress tool transfer), T1543.002 (systemd) —\n"
+    "  not generic Windows-leaning techniques.\n"
+    "- logsource: product: linux, category: process_creation.\n"
+)
+
+
+def _platform_sigma_guidance(extraction_result: dict[str, Any] | None) -> str:
+    """Return platform-specific Sigma-generation guidance for the group, or empty string."""
+    group = (extraction_result or {}).get("sigma_generation_group") or {}
+    if group.get("platform") == "linux":
+        return LINUX_SIGMA_GUIDANCE
+    return ""
+
 
 def _truncate_trace_text(value: str, max_chars: int) -> str:
     """Bound live-trace payload size without mutating the source value."""
@@ -427,6 +457,11 @@ class SigmaGenerationService:
             if observables_section and observables_section.strip():
                 if not sigma_prompt_template or "{observables_section}" not in sigma_prompt_template:
                     sigma_prompt = sigma_prompt.rstrip() + "\n\n" + observables_section.strip()
+
+            # Platform-aware guidance for the per-platform/logsource group (e.g. Linux).
+            platform_guidance = _platform_sigma_guidance(extraction_result)
+            if platform_guidance:
+                sigma_prompt = sigma_prompt.rstrip() + platform_guidance
 
             # Handle context window limits for LMStudio
             if ai_model == "lmstudio":

@@ -1709,3 +1709,29 @@ class TestInferObservablesUsedTokenQuality:
         rule_yaml = self._make_rule("CommandLine|contains: null")
         result = _infer_observables_used(rule_yaml, extraction_result)
         assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Platform-aware Sigma guidance (Linux pilot follow-up)
+# ---------------------------------------------------------------------------
+
+
+def test_platform_sigma_guidance_injected_for_linux_group():
+    from src.services.sigma_generation_service import _platform_sigma_guidance
+
+    er = {"sigma_generation_group": {"platform": "linux", "telemetry_category": "process_creation"}}
+    guidance = _platform_sigma_guidance(er)
+    assert guidance
+    # Steers away from the over-broad pattern seen in the pilot and toward Linux fields.
+    assert "/chmod" in guidance and "777" in guidance
+    assert "Windows-only fields" in guidance
+    assert "T1222.002" in guidance
+
+
+def test_platform_sigma_guidance_empty_for_non_linux():
+    from src.services.sigma_generation_service import _platform_sigma_guidance
+
+    assert _platform_sigma_guidance({"sigma_generation_group": {"platform": "windows"}}) == ""
+    assert _platform_sigma_guidance({"sigma_generation_group": {"platform": "macos"}}) == ""
+    assert _platform_sigma_guidance({}) == ""
+    assert _platform_sigma_guidance(None) == ""
