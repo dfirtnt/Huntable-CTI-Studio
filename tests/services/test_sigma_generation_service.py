@@ -197,6 +197,67 @@ level: medium
                         assert generation_call["messages"][1]["role"] == "user"
 
     @pytest.mark.asyncio
+    async def test_generate_sigma_rules_injects_linux_guidance(self, service, sample_article_data, sample_sigma_rule):
+        """A linux platform/logsource group gets the additive Linux guidance in the
+        generation prompt; a windows group does not. Locks the §10 pilot fix wiring."""
+
+        def _group(platform):
+            ls = {"product": platform, "category": "process_creation"}
+            return {
+                "observables": [
+                    {
+                        "type": "cmdline",
+                        "value": "chmod 777 /dev/shm/x",
+                        "platform": platform,
+                        "telemetry_category": "process_creation",
+                        "logsource_hint": ls,
+                    }
+                ],
+                "sigma_generation_group": {
+                    "platform": platform,
+                    "telemetry_category": "process_creation",
+                    "logsource_hint": ls,
+                },
+            }
+
+        def _prompts(mock):
+            return [c.kwargs.get("sigma_prompt", "") for c in mock.await_args_list]
+
+        with (
+            patch("src.services.sigma_generation_service.optimize_article_content") as mock_optimize,
+            patch("src.utils.prompt_loader.format_prompt_async", return_value="Generate SIGMA rules."),
+            patch.object(
+                service, "_generate_multi_rules", new_callable=AsyncMock, return_value=sample_sigma_rule
+            ) as mock_gen,
+        ):
+            mock_optimize.return_value = {
+                "success": True,
+                "filtered_content": sample_article_data["content"],
+                "tokens_saved": 0,
+            }
+
+            await service.generate_sigma_rules(
+                article_title=sample_article_data["title"],
+                article_content=sample_article_data["content"],
+                source_name=sample_article_data["source_name"],
+                url=sample_article_data["url"],
+                extraction_result=_group("linux"),
+            )
+            linux_prompts = _prompts(mock_gen)
+            assert any("LINUX TARGET GUIDANCE" in p for p in linux_prompts)
+            assert any("T1222.002" in p for p in linux_prompts)
+
+            mock_gen.reset_mock()
+            await service.generate_sigma_rules(
+                article_title=sample_article_data["title"],
+                article_content=sample_article_data["content"],
+                source_name=sample_article_data["source_name"],
+                url=sample_article_data["url"],
+                extraction_result=_group("windows"),
+            )
+            assert all("LINUX TARGET GUIDANCE" not in p for p in _prompts(mock_gen))
+
+    @pytest.mark.asyncio
     async def test_generate_sigma_rules_with_retry(self, service, sample_article_data):
         """Test SIGMA rule generation with retry logic."""
         # Invalid but parseable rule (missing detection field)
