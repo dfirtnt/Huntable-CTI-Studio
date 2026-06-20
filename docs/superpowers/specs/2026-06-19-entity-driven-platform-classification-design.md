@@ -1,8 +1,9 @@
 # Entity-Driven Platform Classification — Design Spec
 
 - Date: 2026-06-19
-- Status: **Phases A & B implemented** (entity-KB gate is the primary decider; LLM
-  adjudicates only the low-confidence/Unknown tail). Phases C–D proposed.
+- Status: **Phases A, B & C implemented** (entity-KB gate is the primary decider; ATT&CK
+  technique citations reinforce it; LLM adjudicates only the low-confidence/Unknown tail).
+  Phase D proposed.
 - Architecture: **hybrid confirmed by operator 2026-06-19** — deterministic KB gate
   runs first; the LLM is invoked *only* for the low-confidence / Unknown tail (never
   LLM-always). The KB doubles as the cost gate that decides when to spend an LLM call.
@@ -223,8 +224,19 @@ uses no LLM; this is an additive, bounded cost.
   `tests/services/test_platform_adjudicator.py` (11). Live result: 1542 (KB→Unknown) →
   LLM → Linux(high) with evidence; 4441 stays KB-confident with **no LLM call**. The KB
   is the cost gate — the LLM fires only on the tail it can't resolve.
-- **Phase C — ATT&CK technique extraction** → technique→platform signal (imports
-  maintained taxonomy; also benefits Sigma `tags`).
+- **Phase C — ATT&CK technique→platform signal. ✅ DONE 2026-06-19.** Shipped
+  `src/services/attack_platform_signal.py` (extract `T1234[.001]` IDs → platform votes),
+  `config/attack_technique_platforms.json` (curated discriminative-sub-technique seed),
+  and `scripts/build_attack_platform_map.py` (regenerates the full map from MITRE's
+  `x_mitre_platforms` — the "import maintained taxonomy" mechanism; needs network).
+  Integrated into the KB gate as a **reinforce-only** signal: ATT&CK votes are added only
+  to platforms the entity KB already evidences (`score>0`), at supplement weights
+  (single=2, multi=1, below the floor). Rationale (live-validated on article 1542): a
+  KB-blank article citing only Unix techniques would otherwise be forced to
+  `multiple(linux,macos)`, which degrades observable platform inference to `unknown` and
+  *suppresses* Linux Sigma — so KB-blank articles defer to the LLM for precise narrowing.
+  Tests: `tests/services/test_attack_platform_signal.py` (8) + ATT&CK integration cases
+  in `test_platform_classifier.py`.
 - **Phase D — Domains + Products dimensions**; delete the embedding path entirely. This
   is the taxonomy generalization phase-one §4 deliberately deferred.
   - **Embedding OS *detection* removed 2026-06-19** (`_detect_with_classifier`,

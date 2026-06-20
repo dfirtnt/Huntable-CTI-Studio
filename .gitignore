@@ -177,6 +177,7 @@ datasets/
 !config/eval_articles_data/**/articles.json
 !config/eval_articles_data/**/ground_truth.json
 !config/labeled_chunks/**
+!config/attack_technique_platforms.json
 !package.json
 !package-lock.json
 !.mcp.json

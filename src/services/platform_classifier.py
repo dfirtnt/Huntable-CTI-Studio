@@ -82,12 +82,26 @@ class PlatformClassification:
 class PlatformClassifier:
     """Scores article content against an entity->platform knowledge base."""
 
-    def __init__(self, entries: list[dict[str, Any]] | None = None, kb_path: Path | str | None = None):
+    def __init__(
+        self,
+        entries: list[dict[str, Any]] | None = None,
+        kb_path: Path | str | None = None,
+        attack_map: dict[str, list[str]] | None = None,
+        attack_map_path: Path | str | None = None,
+    ):
         if entries is not None:
             self._entries = entries
         else:
             path = Path(kb_path) if kb_path else DEFAULT_KB_PATH
             self._entries = self._load_kb(path)
+        # ATT&CK technique -> platform signal (Phase C). Loaded from the shipped map
+        # unless an explicit map is injected (tests). Empty map => KB-only behavior.
+        if attack_map is not None:
+            self._attack_map = attack_map
+        else:
+            from src.services.attack_platform_signal import load_attack_map
+
+            self._attack_map = load_attack_map(attack_map_path)
 
     @staticmethod
     def _load_kb(path: Path) -> list[dict[str, Any]]:
@@ -113,6 +127,20 @@ class PlatformClassifier:
                 if platform in scores:
                     scores[platform] += weight
                     evidence[platform].append(str(entry.get("match")))
+
+        # ATT&CK technique citations REINFORCE platforms the entity KB already has
+        # evidence for; they do not originate a classification on their own. Technique
+        # citations enumerate threat capabilities and often span platforms, so a KB-blank
+        # article defers to LLM adjudication for precise narrowing rather than being
+        # committed to a (possibly multi-platform) verdict from citations alone.
+        if self._attack_map:
+            from src.services.attack_platform_signal import technique_platform_votes
+
+            att_scores, att_evidence = technique_platform_votes(content, self._attack_map)
+            for platform in scores:
+                if scores[platform] > 0:
+                    scores[platform] += att_scores.get(platform, 0.0)
+                    evidence[platform].extend(att_evidence.get(platform, []))
 
         return self._score(scores, evidence)
 

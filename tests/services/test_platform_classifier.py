@@ -117,3 +117,47 @@ def test_default_kb_file_classifies_obvious_windows():
     r = classify_platforms(content)
     assert "windows" in r.platforms
     assert r.primary == "windows"
+
+
+# --- Phase C: ATT&CK technique signal integration (supplements the KB, never dominates) ---
+
+_ATTACK = {"T1543.002": ["linux"], "T1547.006": ["linux"], "T1543.001": ["macos"], "T1059.001": ["windows"]}
+
+
+def test_attack_reinforces_weak_kb_across_the_floor():
+    # A weak KB hint (/tmp/, weight 1, below floor) + corroborating Linux technique
+    # citations push it over the floor -> classified Linux.
+    clf = PlatformClassifier(
+        entries=[{"match": "/tmp/", "platforms": ["linux"], "weight": 1}],
+        attack_map=_ATTACK,
+    )
+    r = clf.classify("payload staged in /tmp/ then persisted via T1543.002 and T1547.006")
+    assert r.platforms == ["linux"]
+    assert any("T1543.002" in e for e in r.evidence["linux"])
+
+
+def test_attack_reinforces_only_kb_evidenced_platforms():
+    # KB says Windows; a cited Linux technique is IGNORED (no KB Linux evidence to reinforce).
+    clf = PlatformClassifier(
+        entries=[{"match": "powershell", "platforms": ["windows"], "weight": 3}],
+        attack_map=_ATTACK,
+    )
+    r = clf.classify("powershell loader; appendix lists T1543.002 (systemd service)")
+    assert r.platforms == ["windows"]
+    assert r.evidence["linux"] == []  # ATT&CK linux vote not applied without KB Linux signal
+
+
+def test_attack_alone_does_not_originate_defers_to_llm():
+    # Only technique citations, no host artifacts -> KB stays blank -> Unknown.
+    # The LLM adjudicator narrows this tail precisely (ATT&CK must not force a verdict).
+    clf = PlatformClassifier(entries=[], attack_map=_ATTACK)
+    r = clf.classify("uses T1543.002 and T1547.006 but cites no host artifacts in text")
+    assert r.platforms == []
+    assert r.primary == "unknown"
+
+
+def test_attack_empty_map_is_kb_only():
+    clf = PlatformClassifier(entries=[], attack_map={})
+    r = clf.classify("Cited T1543.002 but ATT&CK signal disabled.")
+    assert r.platforms == []
+    assert r.primary == "unknown"
