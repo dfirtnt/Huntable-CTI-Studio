@@ -8,6 +8,7 @@ from typing import Any
 
 from src.models.article import ArticleCreate
 from src.utils.content import ContentCleaner, ThreatHuntingScorer, validate_content
+from src.utils.keyword_registry import build_os_classification
 
 logger = logging.getLogger(__name__)
 
@@ -320,6 +321,11 @@ class ContentProcessor:
             # Calculate threat hunting score with keyword matches
             threat_hunting_result = ThreatHuntingScorer.score_threat_hunting_content(article.title, article.content)
             enhanced.update(threat_hunting_result)
+
+            # OS classification at scoring time (Phase 2): the deterministic platform verdict is
+            # stored alongside the hunt score so os_detection_node can consume it without a second
+            # content scan. Go-forward only — existing rows pick it up on the next rescore.
+            enhanced["os_classification"] = build_os_classification(article.content)
 
             # Processing timestamp
             enhanced["processed_at"] = datetime.now().isoformat()

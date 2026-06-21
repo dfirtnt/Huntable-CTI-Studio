@@ -78,6 +78,7 @@ async def api_rescore_all():
                             "good_keyword_matches", []
                         )
                         article.article_metadata["lolbas_matches"] = enhanced_metadata.get("lolbas_matches", [])
+                        article.article_metadata["os_classification"] = enhanced_metadata.get("os_classification")
 
                         await async_db_manager.update_article(article.id, article)
                         success_count += 1

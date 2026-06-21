@@ -178,6 +178,7 @@ datasets/
 !config/eval_articles_data/**/ground_truth.json
 !config/labeled_chunks/**
 !config/attack_technique_platforms.json
+!tests/fixtures/hunt_scoring_keywords_legacy.json
 !package.json
 !package-lock.json
 !.mcp.json

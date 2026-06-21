@@ -81,6 +81,7 @@ def rescore(ctx: CLIContext, article_id: int, force: bool, dry_run: bool):
                             "intelligence_matches", []
                         )
                         article.article_metadata["negative_matches"] = enhanced_metadata.get("negative_matches", [])
+                        article.article_metadata["os_classification"] = enhanced_metadata.get("os_classification")
 
                         # Save the updated article (including archived)
                         db_manager.update_article_including_archived(article.id, article)
@@ -171,6 +172,9 @@ def rescore(ctx: CLIContext, article_id: int, force: bool, dry_run: bool):
                                     )
                                     article.article_metadata["negative_matches"] = enhanced_metadata.get(
                                         "negative_matches", []
+                                    )
+                                    article.article_metadata["os_classification"] = enhanced_metadata.get(
+                                        "os_classification"
                                     )
 
                                     # Save the updated article (including archived)

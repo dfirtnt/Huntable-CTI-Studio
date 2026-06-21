@@ -13,6 +13,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from src.database.async_manager import async_db_manager
 from src.utils.content import ContentCleaner, ThreatHuntingScorer
+from src.utils.keyword_registry import build_os_classification
 from src.web.dependencies import logger
 
 router = APIRouter(tags=["PDF"])
@@ -186,6 +187,8 @@ async def api_pdf_upload(file: UploadFile = File(...)):
                     article_data.title, text_content
                 )
                 current_metadata.update(threat_hunting_result)
+                # OS classification at scoring time (Phase 2)
+                current_metadata["os_classification"] = build_os_classification(text_content)
 
                 from src.models.article import ArticleUpdate
 

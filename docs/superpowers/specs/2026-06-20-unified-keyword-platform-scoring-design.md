@@ -1,7 +1,14 @@
 # Unified Keyword Registry with Platform-Tagged Scoring — Design Spec
 
 - Date: 2026-06-20
-- Status: **Reviewed — design decisions locked (2026-06-20). Ready for implementation (Phase 1).** No code written yet.
+- Status: **Phases 1–2 SHIPPED + §9 vocabulary SHIPPED (2026-06-21).** The faceted registry
+  (`config/keyword_registry.yaml`) is the single source of truth; `HUNT_SCORING_KEYWORDS` is a
+  byte-equal-parity-tested derived projection; `project_platform` reuses `PlatformClassifier`
+  over the registry's platform entries (subsuming `platform_classification_kb.yaml`). Phase 2:
+  `os_classification` is computed at scoring time and stored in `article_metadata` at every
+  hunt-score persistence site (ingest/scrape/pdf/reprocess/rescore), go-forward. Phase 3 (retire
+  the in-workflow platform scan; `os_detection_node` consumes the precomputed verdict), Phase 4
+  (single-pass scan-engine unification), and the carrier-platform-tag drift-fix remain.
 - Branch: europa-dev
 - Operator directives shaping scope (2026-06-20):
   1. *"Every keyword (existing and future) gets a metadata value indicating what platform
@@ -233,13 +240,27 @@ If P1–P3 don't all hold, the migration is wrong — fix the registry, don't ac
   content filter (the ~86% reduction happens later, pre-LLM). So `project_platform` at ingest
   scoring time sees the full text — carriers are visible, not stripped. One assertion test
   (a known macOS carrier survives into the ingest scan) replaces the spike.
-- **Phase 1 — Registry + shared scan, parity-locked.** Introduce `keyword_registry.yaml`
-  (migrated from `HUNT_SCORING_KEYWORDS` + `platform_classification_kb.yaml`), the
-  `WeightedKeywordScan`, and `project_huntability`/`project_platform`. Wire `HUNT_SCORING_KEYWORDS`
-  as a derived projection. **Ship only when P1–P3 pass.** No consumer behavior changes yet.
-- **Phase 2 — OS at scoring time.** Compute + store `article_metadata["os_classification"]`
-  wherever the hunt score is computed. Go-forward only (N2). Existing rows unaffected unless a
-  normal `rescore` runs.
+- **Phase 1 — Registry + shared scan, parity-locked. ✅ SHIPPED 2026-06-21.** `config/keyword_registry.yaml`
+  (591 entries: 528 tier'd + 63 platform, generated from `HUNT_SCORING_KEYWORDS` + `platform_classification_kb.yaml`);
+  `src/utils/keyword_registry.py` with `load_registry`/`build_hunt_scoring_keywords`/`platform_entries`/
+  `project_huntability`/`project_platform`; `src/utils/content.py` now derives `HUNT_SCORING_KEYWORDS`
+  from the registry (576-line literal removed). Parity proven (`tests/test_keyword_registry.py`):
+  P1 derived dict byte-equal to a committed legacy snapshot; P3 `project_platform` verdict ==
+  `classify_platforms`; G3 platform entries subsume the platform KB. 184 consumer tests green; no
+  behavior change. **Deviation:** the single-pass `WeightedKeywordScan` (one matcher for both
+  axes) is deferred to Phase 4 — the hunt scorer uses word-boundary regex and the platform
+  classifier uses substring match, so unifying the *matching* is a behavior change; Phase 1 ships
+  the shared registry + parity-preserving projections instead.
+- **Phase 2 — OS at scoring time. ✅ SHIPPED 2026-06-21.** `build_os_classification(content)`
+  (`keyword_registry.py`) returns the compact `detect_os`-shaped record (operating_system,
+  platforms_detected, confidence, method, similarities, capped evidence). Stored in
+  `article_metadata["os_classification"]` at every hunt-score persistence site:
+  `ContentProcessor._enhance_metadata` (the canonical ingest seam, which `actions.py` reprocess +
+  `rescore.py` both consume), plus the direct `scrape.py` and `pdf.py` ingest paths. Go-forward
+  only (N2): existing rows pick it up on the next `rescore`. Tests: `build_os_classification`
+  unit (3) + ingest-seam integration (1). Real-article verdicts validated (2729/1800/3330
+  MacOS·high, 19 Windows·high, 1225 Linux·high, 4441/5487 multiple). No consumer reads it yet —
+  Phase 3 wires `os_detection_node` to consume it.
 - **Phase 3 — Simplify `os_detection_node`.** Read the precomputed verdict; keep LLM
   adjudication + ATT&CK reinforcement; retire the in-node platform scan. Remove the now-unused
   `platform_classification_kb.yaml` standalone path.

@@ -513,6 +513,7 @@ async def _scrape_single_url(
         from src.database.async_manager import AsyncDatabaseManager
         from src.models.article import ArticleUpdate
         from src.utils.content import ThreatHuntingScorer
+        from src.utils.keyword_registry import build_os_classification
 
         threat_hunting_result = ThreatHuntingScorer.score_threat_hunting_content(extracted_title, sanitized_content)
 
@@ -521,6 +522,8 @@ async def _scrape_single_url(
             created_article.article_metadata = {}
 
         created_article.article_metadata.update(threat_hunting_result)
+        # OS classification at scoring time (Phase 2)
+        created_article.article_metadata["os_classification"] = build_os_classification(sanitized_content)
 
         # Save updated metadata
         async_db_manager = AsyncDatabaseManager()
