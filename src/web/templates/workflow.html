@@ -17334,15 +17334,22 @@ function startLiveExecutionStream(executionId) {
                         data.messages.forEach((msg, idx) => {
                             const role = msg.role || 'user';
                             const content = msg.content || '';
-                            // COMMENTED OUT: Truncation control
-                            // const preview = content.length > 500 ? content.substring(0, 500) + '...' : content;
-                            appendOutput(`  ${role.toUpperCase()}: ${content}`, 'text-gray-400');
+                            const preview = content.length > 500 ? content.substring(0, 500) + '...' : content;
+                            appendOutput(`  ${role.toUpperCase()}: ${preview}`, 'text-gray-400');
                         });
                     }
                     if (data.response) {
-                        // COMMENTED OUT: Truncation control
-                        // const responsePreview = data.response.length > 1000 ? data.response.substring(0, 1000) + '...' : data.response;
-                        appendOutput(`  RESPONSE: ${data.response}`, 'text-green-300');
+                        const responsePreview = data.response.length > 1000 ? data.response.substring(0, 1000) + '...' : data.response;
+                        appendOutput(`  RESPONSE: ${responsePreview}`, 'text-green-300');
+                    }
+                    if (data.generated_rule_count !== undefined) {
+                        appendOutput(`  Generated Rules: ${data.generated_rule_count}`, 'text-yellow-300');
+                    }
+                    if (data.valid_rule_count !== undefined) {
+                        appendOutput(`  Valid Rules: ${data.valid_rule_count}`, 'text-green-300');
+                    }
+                    if (data.invalid_rule_count !== undefined) {
+                        appendOutput(`  Invalid Rules: ${data.invalid_rule_count}`, 'text-red-300');
                     }
                     if (data.score !== undefined) {
                         appendOutput(`  Score: ${data.score}/10`, 'text-yellow-300');

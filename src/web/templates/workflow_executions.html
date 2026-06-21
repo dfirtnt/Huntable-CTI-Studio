@@ -1656,6 +1656,15 @@ function startLiveExecutionStream(executionId) {
                         const responsePreview = data.response.length > 1000 ? data.response.substring(0, 1000) + '...' : data.response;
                         appendOutput(`  RESPONSE: ${responsePreview}`, 'text-green-300');
                     }
+                    if (data.generated_rule_count !== undefined) {
+                        appendOutput(`  Generated Rules: ${data.generated_rule_count}`, 'text-yellow-300');
+                    }
+                    if (data.valid_rule_count !== undefined) {
+                        appendOutput(`  Valid Rules: ${data.valid_rule_count}`, 'text-green-300');
+                    }
+                    if (data.invalid_rule_count !== undefined) {
+                        appendOutput(`  Invalid Rules: ${data.invalid_rule_count}`, 'text-red-300');
+                    }
                     if (data.score !== undefined) {
                         appendOutput(`  Score: ${data.score}/10`, 'text-yellow-300');
                     }
