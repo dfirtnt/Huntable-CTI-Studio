@@ -762,6 +762,38 @@ HUNT_SCORING_KEYWORDS = {
         "logs-endpoint.events.registry",
         "logs-endpoint.events.library",
         "logs-endpoint.events.api",
+        # --- Non-Windows high-fidelity carriers (calibrated 2026-06-21; spec §9.1) ---
+        # macOS command/persistence artifacts that only appear in genuine macOS attack content.
+        # Perfect-tier because the 85 auto-trigger gate is only movable by perfect discriminators,
+        # and these are validated low-FP — a single mention stays sub-gate via geometric scoring.
+        "osascript",
+        "do shell script",
+        "launchctl",
+        "LaunchAgents",
+        "LaunchDaemons",
+        "com.apple.quarantine",
+        "xattr",
+        "TCC.db",
+        "dscl",
+        "plutil",
+        "kextload",
+        ".plist",
+        # Linux: malware-specific tooling, fileless execution, and persistence/anti-removal that
+        # rarely appear in benign sysadmin content (validated 2026-06-21, spec §9.2). Generic admin
+        # tokens (systemctl/crontab/chmod/insmod/modprobe) stay good-tier to avoid benign FP.
+        "ld.so.preload",
+        "cron.d",
+        "xmrig",
+        "memfd_create",
+        "chattr +i",
+        "proc/self/exe",
+        "history -c",
+        "rc.local",
+        # Promoted from good after context review (2026-06-21, spec §9.4): decode-and-execute and
+        # world-writable payload staging — in the CTI corpus these appear only in malware command
+        # chains, and the 75-cap geometry means a lone benign mention never auto-triggers.
+        "base64 -d",
+        "chmod 777",
     ],
     "good_discriminators": [
         "temp",
@@ -799,9 +831,7 @@ HUNT_SCORING_KEYWORDS = {
         # macOS-specific good discriminators (high chosen rate)
         "mach-o",
         "plist",
-        # macOS attack vectors and telemetry (60%+ chosen rate)
-        "osascript",
-        "TCC.db",
+        # (osascript / TCC.db promoted to perfect_discriminators — calibrated 2026-06-21, spec §9.1)
         # Added from non-English word analysis
         "payload",
         "sftp",
@@ -820,6 +850,14 @@ HUNT_SCORING_KEYWORDS = {
         "/tmp/",
         "/etc/",
         # Additional non-Windows keywords for comprehensive coverage
+        # (good-tier supporting signal; perfect-tier non-Windows carriers live above, spec §9.1/§9.2)
+        "systemctl",
+        "crontab",
+        "chmod +x",
+        "nohup",
+        "insmod",
+        "bashrc",
+        "dev/shm",
         "syslog",
         "sudo",
         "cron",

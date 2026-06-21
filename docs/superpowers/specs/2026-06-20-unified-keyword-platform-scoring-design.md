@@ -15,6 +15,11 @@
      reducer** (drops non-huntable chunks pre-LLM; terminates only when none survive), **not** a
      keyword-driven or per-platform article gate. Its only keyword tie is the 92 shared perfect
      discriminators. Out of scope to change; trivially parity-safe under platform tagging.
+  4. **Operator decision 2026-06-21: non-Windows detections matter a lot** (answers the §12
+     product question). Promotes the platform-complete-huntability work from §9-future to the
+     priority payoff and reorders the roadmap (Phase 1 registry = substrate; §9 vocabulary =
+     the high-leverage step). The gate *threshold* still does not move (N1 stands) — only the
+     vocabulary is made platform-fair.
 - Related: [`2026-06-19-entity-driven-platform-classification-design.md`](2026-06-19-entity-driven-platform-classification-design.md)
   (the platform classifier this spec subsumes the *scan* of),
   [`2026-06-17-platform-telemetry-expansion-design.md`](2026-06-17-platform-telemetry-expansion-design.md)
@@ -243,14 +248,147 @@ If P1–P3 don't all hold, the migration is wrong — fix the registry, don't ac
 
 ---
 
-## 9. Future / explicitly out of scope (per directive 2)
+## 9. Platform-complete huntability — PROMOTED to priority (operator decision 2026-06-21)
 
-The platform tags make it *possible* to give huntability scoring a non-Windows vocabulary
-(macOS/Linux LOLBins as discriminators) so those articles score on their own merits and the
-junk filter recognizes them — which would address the macOS/Linux processing gap. This
-**deliberately stays out of scope** because it changes what clears the gate, and the operator
-directed that the minimum score keeps blocking. Captured here as the natural next step, to be
-decided separately with its own FP/calibration review.
+Operator answered the §12 product question: **non-Windows detections matter a lot.** This moves
+from "future" to the **highest-leverage work** and reorders the roadmap — Phase 1's registry is
+the *substrate*; the payoff is giving huntability scoring a **platform-complete vocabulary** so
+genuinely-huntable macOS/Linux articles score on their own merits and clear the *existing* gates.
+
+**Reconciled with directive 2 ("minimum score still blocks"):** the gate *threshold* is NOT
+lowered (N1 stands). The *vocabulary* is made platform-fair — validated low-FP non-Windows
+carriers (see memory `reference_macos_lowfp_detection_tokens`; e.g. `do shell script`,
+`osascript -e`, `launchctl load`, `/Library/Launch{Agents,Daemons}`, `xattr -d`, `dscl`,
+`/etc/cron`, `systemctl`, `chmod +x`) are added to the huntability registry **with platform
+tags**, so non-Windows articles *earn* a passing score rather than being let through on a
+lowered bar.
+
+**Two gates must clear — calibration review required before any vocabulary change:**
+1. **Hunt-score auto-trigger.** Geometric caps mean only **perfect discriminators (75 pt)**
+   meaningfully move a high threshold; lolbas (10 pt) barely does — so the strongest carriers
+   likely need *perfect*-tier placement. Behavior-changing → **intentionally breaks §7 P1 parity
+   for non-Windows articles** (Windows scores unchanged); validated instead by "rescues the right
+   articles without FP," measured on the corpus + the eval set (**do not mutate eval rows**).
+2. **Content/junk filter.** Its RandomForest is Windows-trained, but the 92 perfect
+   discriminators are a **protective override** — adding non-Windows perfect discriminators
+   auto-preserves their chunks **without** retraining (N3 holds for now). If measurement shows the
+   RF still drops non-Windows huntable chunks, RF retraining with non-Windows annotations is a
+   follow-on.
+
+**Reordered roadmap:** Phase 0 (confirm) → Phase 1 (registry substrate, parity-locked) →
+**§9 platform-complete vocabulary (priority, behavior-changing, calibration-gated)** → Phase 2
+(OS at scoring) → Phase 3 (simplify `os_detection_node`) → Phase 4 (optional engine dedup).
+
+**Recommended first action: a read-only calibration spike** — for the previously-dropped
+non-Windows huntable articles, measure (a) the current hunt score + auto-trigger threshold,
+(b) what tier each carrier needs to clear both gates, and (c) the FP cost — *before* changing
+any vocabulary.
+
+### 9.1 Calibration spike results (2026-06-21)
+
+- **Gate = 85.0** (`auto_trigger_hunt_score_threshold`; `min_hunt_score` 97 is a separate higher
+  filter). Geometric caps mean an `n_perfect=0` article is **mathematically capped at ~25**
+  (good 5 + lolbas 10 + intel 10). Root cause confirmed: every clearly-huntable non-Windows
+  article sits at `n_perfect=0` (BlueNoroff macOS 23.7, Bad Apples 12.3, Lazarus xattr 8.7,
+  Quasar Linux 12.4, Shai-Hulud 8.7, SHub macOS 12.5). The non-Windows articles that *did* clear
+  85 did so only via incidental **Windows** discriminators (the cross-platform Axios/ClickFix set).
+- **Fix must be perfect-tier (75 pt);** lolbas (10 pt) cannot lift ~20→85. Clearing 85 needs ~3
+  distinct perfect hits.
+- **FP tiering** (from current-low-score population per carrier):
+  - **PERFECT-safe (macOS, command/path, clean):** `do shell script`, `com.apple.quarantine`,
+    `xattr -d`/`xattr -c`, `TCC.db`, `launchctl`, `/Library/LaunchAgents`, `/Library/LaunchDaemons`,
+    `dscl`, `osascript`, `.plist`, `plutil`, `kextload`.
+  - **NOT perfect (Linux generic, benign-sysadmin overlap → good/lolbas only):** `crontab`
+    (16 low-scorers), `/dev/shm` (10), `/etc/shadow` (10), `ld_preload` (11/11), `systemctl` (6),
+    `chmod +x` (5). Linux high-fidelity *persistence paths* (`/etc/cron.d`, `/etc/systemd/system`,
+    `ld.so.preload`) may go perfect.
+- **Impact (limited by geometry):** of currently-blocked non-Windows carrier articles, **5 carry
+  3+ distinct carriers** (likely clear 85), **7 carry 2** (borderline), **22 carry 1** (stay
+  blocked). Vocabulary is **necessary but not sufficient** — granular perfect entries raise
+  per-article hit counts (real rescue likely > the coarse 5), and the single-carrier long tail
+  only clears if the user lowers the (configurable) threshold. **Operator decision 2026-06-21:**
+  proceed with the vocabulary additions (option A); threshold lever left to the user.
+- **Bonus — fixes gate 2 for free:** `ContentFilter` auto-preserves any chunk containing a
+  perfect discriminator, so adding non-Windows perfect discriminators makes macOS/Linux command
+  chunks survive the junk filter **without** RF retraining (N3 holds).
+
+### 9.2 Implemented + validated (2026-06-21)
+
+Added to `HUNT_SCORING_KEYWORDS` (`src/utils/content.py`): macOS carriers added/promoted to
+**perfect** (`osascript`, `do shell script`, `launchctl`, `LaunchAgents`, `LaunchDaemons`,
+`com.apple.quarantine`, `xattr`, `TCC.db`, `dscl`, `plutil`, `kextload`, `.plist`) — `osascript`/
+`TCC.db` *moved* up from good (no perfect+good double-count); Linux high-fidelity persistence
+(`ld.so.preload`, `cron.d`) perfect; Linux generic (`systemctl`, `crontab`, `chmod +x`, `nohup`)
+good. Tests: `tests/test_threat_hunting_scorer.py::TestNonWindowsHuntScoring` (5, TDD red→green) +
+125 content-filter/keyword-resolution consumers green — no regression.
+
+**Real-article re-score (in-container, live DB) — the rescue is *partial*:** scores lift
+dramatically, but the **perfect bucket asymptotes at 75 while the gate is 85**, so an article also
+needs supporting-bucket (intel/good) accumulation to cross:
+
+| Article | old → new | perfect | result |
+|---|---|---|---|
+| 1800 BlueNoroff macOS | 23.7 → **89.4** | 3 | clears 85 |
+| 2915 Bad Apples macOS | 12.3 → **85.0** | 5 | clears 85 |
+| 4236 SHub macOS | 12.5 → 78.1 | 3 | under |
+| 3330 Lazarus xattr | 8.7 → 74.4 | 3 | under |
+| 4047 Shai-Hulud | 8.7 → 74.4 | 3 | under |
+| 1826 Mac Malware | 14.7 → 70.9 | 2 | under |
+| 3723 Quasar Linux | 12.4 → 12.4 | 0 | no carriers matched |
+
+**Conclusions:** (1) the macOS vocabulary works — it lifts the stuck cluster from ~10–24 to
+**70–89**; (2) the **85 gate + 75 perfect-asymptote** is now the binding constraint — a cluster
+sits at 70–80, *just* under, so the **configurable auto-trigger threshold** (operator's dial;
+~70–75 rescues the cluster) is the decisive next lever, not more vocabulary; (3) Linux needed its
+own pass (below). Scores apply go-forward at ingest; the existing backlog needs an
+operator-controlled `rescore` run.
+
+### 9.3 Linux carrier pass (2026-06-21)
+
+Validated Linux carriers by context (not assumption). **Perfect-tier (malware-specific, low FP):**
+`xmrig` (cryptominer tool name — 36 corpus articles), `memfd_create` (fileless execution),
+`chattr +i` (immutable anti-removal persistence), `proc/self/exe` (container-escape/fileless),
+`history -c` (anti-forensics), `rc.local`, plus `ld.so.preload`/`cron.d` from §9.2. **Good-tier
+(benign-sysadmin/driver overlap):** `insmod` (mixed: rootkit *and* firmware binary lists),
+`modprobe`, `chmod 777`, `bashrc`, `base64 -d`, `dev/shm`. Tests: 2 new (red→green) + 37
+content-filter/keyword consumers green.
+
+**Real-article re-score (live DB) — same geometry wall as macOS:**
+
+| Article | old → new | clears 85? |
+|---|---|---|
+| 1225 PeerBlight Linux backdoor | 73.1 → **90.7** | ✅ |
+| 3205 Linux incident | 20.0 → **90.3** | ✅ |
+| 24 WebLogic→XMRig | 52.5 → 71.2 | ✗ |
+| 910 Linux detection-eng | 12.5 → 68.7 | ✗ |
+| 2288 chattr+i miner | 8.7 → 65.0 | ✗ |
+| 218 / 582 XMRig miners | ~12 → ~50 | ✗ (1 carrier) |
+| 142 / 1181 LKM rootkits | ~8 → ~46 | ✗ (1 carrier: memfd_create) |
+| 3723 Quasar RAT / 5021 C0XMO | unchanged | ✗ (no carriers — RAT/botnet, not miner/fileless) |
+
+**Conclusion (both platforms):** vocabulary lifts the stuck clusters to ~45–90 and outright
+rescues the dense articles, but the **85-vs-75 geometry** leaves single/double-carrier articles
+just under. The decisive remaining lever is the **configurable auto-trigger threshold** (~65–70
+rescues the bulk across macOS *and* Linux) — operator's call, since lowering it also increases
+overall (incl. Windows) processing volume. RAT/botnet articles with no command/persistence
+carriers remain out of scope for vocabulary and would need the content-filter RF retraining path.
+
+### 9.4 Good→perfect promotions after review (2026-06-21)
+
+Operator asked whether any good-tier additions qualify for perfect. Context review promoted two:
+- **`base64 -d`** (decode-and-execute) and **`chmod 777`** (world-writable payload staging) — every
+  CTI-corpus occurrence is a malware command chain (e.g. `base64 -d /tmp/x.b64 > /tmp/x && chmod
+  777 /tmp/x`; `echo | base64 -d > file.php`). The 75-cap geometry means a lone benign mention
+  (n=1 → 37.5) never auto-triggers.
+- **Kept good (declined):** `dev/shm` (legit shared-memory mount → benign FP + content-filter
+  chunk-preservation cost), and `systemctl` / `crontab` / `chmod +x` / `nohup` / `insmod` /
+  `bashrc` (common benign sysadmin / driver usage). `chmod +x` deliberately stays good while
+  `chmod 777` goes perfect.
+
+Effect: e.g. article 910 (Linux detection-eng) 68.7 → 78.1. Conclusion unchanged — promotions
+nudge the cluster up but the **85-vs-75 geometry** still leaves single/double-carrier articles
+under; the configurable threshold remains the decisive lever. Tests: +1 (red→green); 64
+hunt + content-filter green.
 
 ---
 

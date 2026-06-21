@@ -9,7 +9,7 @@ inspection and annotation.
 
 The system uses a hybrid approach combining:
 
-1. **Perfect discriminator protection** — chunks containing any of the 92
+1. **Perfect discriminator protection** — chunks containing any of the 114
    threat-hunting keyword patterns are always preserved, regardless of ML score
 2. **Pattern-based filters** — fast, deterministic matching against huntable
    and not-huntable pattern sets
@@ -73,7 +73,7 @@ counts).
 
 ### Huntable Patterns
 
-**Perfect Discriminators (92 patterns):**
+**Perfect Discriminators (114 patterns):**
 - Process names: `rundll32`, `msiexec`, `svchost`, `lsass.exe`, `powershell.exe`
 - Registry references: `hklm`, `appdata`, `programdata`, `WINDIR`, `wbem`
 - Command execution: `iex`, `wmic`, `comspec`, `findstr`
@@ -81,7 +81,7 @@ counts).
 - Path patterns: `\temp\`, `\pipe\`, `%WINDIR%`, `%wintmp%`
 - Technical patterns: `xor`, `tcp://`, `CN=`, `-ComObject`, `Base64`
 
-**Good Discriminators (89 patterns):**
+**Good Discriminators (94 patterns):**
 - Windows paths, script extensions (`.bat`, `.ps1`), attack techniques
   (`mimikatz`, `kerberoast`, `psexec`), cloud/network terms
 

