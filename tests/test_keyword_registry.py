@@ -122,6 +122,54 @@ def test_build_os_classification_trims_evidence():
     assert all(len(items) <= 3 for items in r["evidence"].values()), r["evidence"]
 
 
+def test_load_registry_raises_on_malformed():
+    """The registry is required: a malformed file raises loudly rather than silently returning an
+    empty set (a silent fallback would yield silently-wrong hunt scores). Decision in
+    keyword_registry.load_registry docstring."""
+    import tempfile
+    from pathlib import Path as _Path
+
+    with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as fh:
+        fh.write("some_other_key: true\n")  # valid YAML, but no 'keywords' list
+        bad_path = fh.name
+    try:
+        with pytest.raises(ValueError, match="no 'keywords' list"):
+            load_registry(_Path(bad_path))
+    finally:
+        _Path(bad_path).unlink()
+
+
+def test_build_os_classification_multiple_platforms():
+    """The 'multiple' branch: content with strong macOS AND Linux evidence yields a multi-label
+    verdict (operating_system == 'multiple'), the path Phase 3 must round-trip."""
+    from src.utils.keyword_registry import build_os_classification
+
+    content = (
+        "Persisted with a LaunchDaemon, used osascript, dscl, and tcc.db on macOS; the Linux "
+        "variant drops via /etc/cron.d, a systemd service, and stages in /dev/shm."
+    )
+    r = build_os_classification(content)
+    assert r["operating_system"] == "multiple", r
+    assert len(r["platforms_detected"]) >= 2, r["platforms_detected"]
+
+
+def test_build_os_classification_has_detect_os_shape():
+    """Contract: the stored record carries the OSDetectionService.detect_os keys so
+    os_detection_node can consume it unchanged in Phase 3."""
+    from src.utils.keyword_registry import build_os_classification
+
+    r = build_os_classification("Persisted with a LaunchDaemon, used osascript and dscl.")
+    assert set(r) >= {
+        "operating_system",
+        "method",
+        "confidence",
+        "similarities",
+        "max_similarity",
+        "platforms_detected",
+        "evidence",
+    }, set(r)
+
+
 @pytest.mark.asyncio
 async def test_enhance_metadata_stores_os_classification_at_scoring_time():
     """Phase 2: the canonical ingest seam (ContentProcessor._enhance_metadata) stores
