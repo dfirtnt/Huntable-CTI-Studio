@@ -1,52 +1,666 @@
 {
-  "_note": "ATT&CK (sub-)technique -> platform signal for the entity-driven classifier (Phase C). CURATED SEED of high-confidence, platform-DISCRIMINATIVE (sub-)techniques only. Broad/all-platform techniques are intentionally omitted (no signal). Regenerate the full, authoritative map from MITRE's x_mitre_platforms via scripts/build_attack_platform_map.py. Platforms restricted to Phase A scope: windows/linux/macos. See docs/superpowers/specs/2026-06-19-entity-driven-platform-classification-design.md (Phase C).",
-  "_source": "curated_seed",
+  "_note": "ATT&CK (sub-)technique -> platform signal (Phase C). AUTO-GENERATED from MITRE x_mitre_platforms; platform-discriminative (windows/linux/macos) entries only. Regenerate via scripts/build_attack_platform_map.py.",
+  "_source": "mitre_attack_stix:19.1",
   "techniques": {
-    "T1059.001": ["windows"],
-    "T1059.003": ["windows"],
-    "T1059.005": ["windows"],
-    "T1059.002": ["macos"],
-    "T1059.004": ["linux", "macos"],
-    "T1003.001": ["windows"],
-    "T1003.002": ["windows"],
-    "T1003.003": ["windows"],
-    "T1003.004": ["windows"],
-    "T1003.005": ["windows"],
-    "T1003.006": ["windows"],
-    "T1003.008": ["linux"],
-    "T1547.001": ["windows"],
-    "T1543.003": ["windows"],
-    "T1543.001": ["macos"],
-    "T1543.004": ["macos"],
-    "T1543.002": ["linux"],
-    "T1053.005": ["windows"],
-    "T1053.003": ["linux", "macos"],
-    "T1053.002": ["windows"],
-    "T1218.011": ["windows"],
-    "T1218.010": ["windows"],
-    "T1218.005": ["windows"],
-    "T1218.007": ["windows"],
-    "T1218.001": ["windows"],
-    "T1546.003": ["windows"],
-    "T1546.008": ["windows"],
-    "T1546.015": ["windows"],
-    "T1546.004": ["linux", "macos"],
-    "T1546.014": ["macos"],
-    "T1574.001": ["windows"],
-    "T1574.002": ["windows"],
-    "T1484.001": ["windows"],
-    "T1134": ["windows"],
-    "T1112": ["windows"],
-    "T1547.006": ["linux"],
-    "T1037.004": ["linux", "macos"],
-    "T1037.002": ["macos"],
-    "T1222.002": ["linux", "macos"],
-    "T1222.001": ["windows"],
-    "T1548.001": ["linux", "macos"],
-    "T1548.002": ["windows"],
-    "T1564.001": ["linux", "macos"],
-    "T1647": ["macos"],
-    "T1547.011": ["macos"],
-    "T1547.015": ["macos"]
+    "T1003.001": [
+      "windows"
+    ],
+    "T1003.002": [
+      "windows"
+    ],
+    "T1003.003": [
+      "windows"
+    ],
+    "T1003.004": [
+      "windows"
+    ],
+    "T1003.005": [
+      "windows",
+      "linux"
+    ],
+    "T1003.006": [
+      "windows"
+    ],
+    "T1003.007": [
+      "linux"
+    ],
+    "T1003.008": [
+      "linux"
+    ],
+    "T1006": [
+      "windows"
+    ],
+    "T1012": [
+      "windows"
+    ],
+    "T1021.001": [
+      "windows"
+    ],
+    "T1021.002": [
+      "windows"
+    ],
+    "T1021.003": [
+      "windows"
+    ],
+    "T1021.004": [
+      "linux",
+      "macos"
+    ],
+    "T1021.006": [
+      "windows"
+    ],
+    "T1027.007": [
+      "windows"
+    ],
+    "T1027.011": [
+      "windows",
+      "linux"
+    ],
+    "T1027.012": [
+      "windows"
+    ],
+    "T1036.001": [
+      "windows",
+      "macos"
+    ],
+    "T1036.006": [
+      "linux",
+      "macos"
+    ],
+    "T1036.007": [
+      "windows"
+    ],
+    "T1036.009": [
+      "linux",
+      "macos"
+    ],
+    "T1036.011": [
+      "linux"
+    ],
+    "T1037.001": [
+      "windows"
+    ],
+    "T1037.002": [
+      "macos"
+    ],
+    "T1037.003": [
+      "windows"
+    ],
+    "T1037.004": [
+      "linux",
+      "macos"
+    ],
+    "T1037.005": [
+      "macos"
+    ],
+    "T1047": [
+      "windows"
+    ],
+    "T1053.003": [
+      "linux",
+      "macos"
+    ],
+    "T1053.005": [
+      "windows"
+    ],
+    "T1053.006": [
+      "linux"
+    ],
+    "T1055.001": [
+      "windows"
+    ],
+    "T1055.002": [
+      "windows"
+    ],
+    "T1055.003": [
+      "windows"
+    ],
+    "T1055.004": [
+      "windows"
+    ],
+    "T1055.005": [
+      "windows"
+    ],
+    "T1055.008": [
+      "linux"
+    ],
+    "T1055.009": [
+      "linux"
+    ],
+    "T1055.011": [
+      "windows"
+    ],
+    "T1055.012": [
+      "windows"
+    ],
+    "T1055.013": [
+      "windows"
+    ],
+    "T1055.014": [
+      "linux"
+    ],
+    "T1055.015": [
+      "windows"
+    ],
+    "T1059.001": [
+      "windows"
+    ],
+    "T1059.002": [
+      "macos"
+    ],
+    "T1059.003": [
+      "windows"
+    ],
+    "T1059.004": [
+      "linux",
+      "macos"
+    ],
+    "T1059.010": [
+      "windows"
+    ],
+    "T1070.005": [
+      "windows"
+    ],
+    "T1087.003": [
+      "windows"
+    ],
+    "T1091": [
+      "windows"
+    ],
+    "T1098.002": [
+      "windows"
+    ],
+    "T1098.004": [
+      "linux",
+      "macos"
+    ],
+    "T1098.005": [
+      "windows"
+    ],
+    "T1112": [
+      "windows"
+    ],
+    "T1114.001": [
+      "windows"
+    ],
+    "T1114.002": [
+      "windows"
+    ],
+    "T1127": [
+      "windows"
+    ],
+    "T1127.001": [
+      "windows"
+    ],
+    "T1127.002": [
+      "windows"
+    ],
+    "T1127.003": [
+      "windows"
+    ],
+    "T1134": [
+      "windows"
+    ],
+    "T1134.001": [
+      "windows"
+    ],
+    "T1134.002": [
+      "windows"
+    ],
+    "T1134.003": [
+      "windows"
+    ],
+    "T1134.004": [
+      "windows"
+    ],
+    "T1134.005": [
+      "windows"
+    ],
+    "T1137": [
+      "windows"
+    ],
+    "T1137.001": [
+      "windows"
+    ],
+    "T1137.002": [
+      "windows"
+    ],
+    "T1137.003": [
+      "windows"
+    ],
+    "T1137.004": [
+      "windows"
+    ],
+    "T1137.005": [
+      "windows"
+    ],
+    "T1137.006": [
+      "windows"
+    ],
+    "T1185": [
+      "windows"
+    ],
+    "T1187": [
+      "windows"
+    ],
+    "T1197": [
+      "windows"
+    ],
+    "T1202": [
+      "windows"
+    ],
+    "T1207": [
+      "windows"
+    ],
+    "T1213.002": [
+      "windows"
+    ],
+    "T1216": [
+      "windows"
+    ],
+    "T1216.001": [
+      "windows"
+    ],
+    "T1216.002": [
+      "windows"
+    ],
+    "T1218.001": [
+      "windows"
+    ],
+    "T1218.002": [
+      "windows"
+    ],
+    "T1218.003": [
+      "windows"
+    ],
+    "T1218.004": [
+      "windows"
+    ],
+    "T1218.005": [
+      "windows"
+    ],
+    "T1218.007": [
+      "windows"
+    ],
+    "T1218.008": [
+      "windows"
+    ],
+    "T1218.009": [
+      "windows"
+    ],
+    "T1218.010": [
+      "windows"
+    ],
+    "T1218.011": [
+      "windows"
+    ],
+    "T1218.012": [
+      "windows"
+    ],
+    "T1218.013": [
+      "windows"
+    ],
+    "T1218.014": [
+      "windows"
+    ],
+    "T1220": [
+      "windows"
+    ],
+    "T1221": [
+      "windows"
+    ],
+    "T1222.001": [
+      "windows"
+    ],
+    "T1222.002": [
+      "linux",
+      "macos"
+    ],
+    "T1482": [
+      "windows"
+    ],
+    "T1484": [
+      "windows"
+    ],
+    "T1484.001": [
+      "windows"
+    ],
+    "T1484.002": [
+      "windows"
+    ],
+    "T1505.001": [
+      "windows",
+      "linux"
+    ],
+    "T1505.002": [
+      "windows",
+      "linux"
+    ],
+    "T1505.004": [
+      "windows"
+    ],
+    "T1505.005": [
+      "windows"
+    ],
+    "T1542.001": [
+      "windows"
+    ],
+    "T1542.003": [
+      "windows",
+      "linux"
+    ],
+    "T1543.001": [
+      "macos"
+    ],
+    "T1543.002": [
+      "linux"
+    ],
+    "T1543.003": [
+      "windows"
+    ],
+    "T1543.004": [
+      "macos"
+    ],
+    "T1546.001": [
+      "windows"
+    ],
+    "T1546.002": [
+      "windows"
+    ],
+    "T1546.003": [
+      "windows"
+    ],
+    "T1546.004": [
+      "linux",
+      "macos"
+    ],
+    "T1546.005": [
+      "linux",
+      "macos"
+    ],
+    "T1546.006": [
+      "macos"
+    ],
+    "T1546.007": [
+      "windows"
+    ],
+    "T1546.008": [
+      "windows"
+    ],
+    "T1546.009": [
+      "windows"
+    ],
+    "T1546.010": [
+      "windows"
+    ],
+    "T1546.011": [
+      "windows"
+    ],
+    "T1546.012": [
+      "windows"
+    ],
+    "T1546.013": [
+      "windows"
+    ],
+    "T1546.014": [
+      "macos"
+    ],
+    "T1546.015": [
+      "windows"
+    ],
+    "T1546.017": [
+      "linux"
+    ],
+    "T1547.001": [
+      "windows"
+    ],
+    "T1547.002": [
+      "windows"
+    ],
+    "T1547.003": [
+      "windows"
+    ],
+    "T1547.004": [
+      "windows"
+    ],
+    "T1547.005": [
+      "windows"
+    ],
+    "T1547.006": [
+      "linux",
+      "macos"
+    ],
+    "T1547.007": [
+      "macos"
+    ],
+    "T1547.008": [
+      "windows"
+    ],
+    "T1547.009": [
+      "windows"
+    ],
+    "T1547.010": [
+      "windows"
+    ],
+    "T1547.012": [
+      "windows"
+    ],
+    "T1547.013": [
+      "linux"
+    ],
+    "T1547.014": [
+      "windows"
+    ],
+    "T1547.015": [
+      "macos"
+    ],
+    "T1548.001": [
+      "linux",
+      "macos"
+    ],
+    "T1548.002": [
+      "windows"
+    ],
+    "T1548.003": [
+      "linux",
+      "macos"
+    ],
+    "T1548.004": [
+      "macos"
+    ],
+    "T1548.006": [
+      "macos"
+    ],
+    "T1550": [
+      "windows",
+      "linux"
+    ],
+    "T1550.002": [
+      "windows"
+    ],
+    "T1550.003": [
+      "windows"
+    ],
+    "T1552.002": [
+      "windows"
+    ],
+    "T1552.006": [
+      "windows"
+    ],
+    "T1553.001": [
+      "macos"
+    ],
+    "T1553.002": [
+      "windows",
+      "macos"
+    ],
+    "T1553.003": [
+      "windows"
+    ],
+    "T1553.005": [
+      "windows"
+    ],
+    "T1553.006": [
+      "windows",
+      "macos"
+    ],
+    "T1555.001": [
+      "macos"
+    ],
+    "T1555.002": [
+      "linux",
+      "macos"
+    ],
+    "T1555.004": [
+      "windows"
+    ],
+    "T1556.001": [
+      "windows"
+    ],
+    "T1556.002": [
+      "windows"
+    ],
+    "T1556.003": [
+      "linux",
+      "macos"
+    ],
+    "T1556.005": [
+      "windows"
+    ],
+    "T1556.007": [
+      "windows"
+    ],
+    "T1556.008": [
+      "windows"
+    ],
+    "T1557.001": [
+      "windows"
+    ],
+    "T1558.001": [
+      "windows"
+    ],
+    "T1558.002": [
+      "windows"
+    ],
+    "T1558.003": [
+      "windows"
+    ],
+    "T1558.004": [
+      "windows"
+    ],
+    "T1558.005": [
+      "linux",
+      "macos"
+    ],
+    "T1559.001": [
+      "windows"
+    ],
+    "T1559.002": [
+      "windows"
+    ],
+    "T1559.003": [
+      "macos"
+    ],
+    "T1563.001": [
+      "linux",
+      "macos"
+    ],
+    "T1563.002": [
+      "windows"
+    ],
+    "T1564.004": [
+      "windows"
+    ],
+    "T1564.009": [
+      "macos"
+    ],
+    "T1564.010": [
+      "windows"
+    ],
+    "T1564.013": [
+      "linux"
+    ],
+    "T1564.014": [
+      "linux",
+      "macos"
+    ],
+    "T1569.001": [
+      "macos"
+    ],
+    "T1569.002": [
+      "windows"
+    ],
+    "T1569.003": [
+      "linux"
+    ],
+    "T1574.001": [
+      "windows"
+    ],
+    "T1574.004": [
+      "macos"
+    ],
+    "T1574.005": [
+      "windows"
+    ],
+    "T1574.006": [
+      "linux",
+      "macos"
+    ],
+    "T1574.008": [
+      "windows"
+    ],
+    "T1574.009": [
+      "windows"
+    ],
+    "T1574.010": [
+      "windows"
+    ],
+    "T1574.011": [
+      "windows"
+    ],
+    "T1574.012": [
+      "windows"
+    ],
+    "T1574.013": [
+      "windows"
+    ],
+    "T1574.014": [
+      "windows"
+    ],
+    "T1606.002": [
+      "windows"
+    ],
+    "T1611": [
+      "windows",
+      "linux"
+    ],
+    "T1615": [
+      "windows"
+    ],
+    "T1647": [
+      "macos"
+    ],
+    "T1679": [
+      "windows"
+    ],
+    "T1685.001": [
+      "windows"
+    ],
+    "T1685.004": [
+      "linux"
+    ],
+    "T1685.005": [
+      "windows"
+    ],
+    "T1685.006": [
+      "linux",
+      "macos"
+    ],
+    "T1686.003": [
+      "windows"
+    ],
+    "T1688": [
+      "windows"
+    ]
   }
 }

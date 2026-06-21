@@ -5,8 +5,12 @@ This is the "import the maintained taxonomy" mechanism: instead of hand-maintain
 technique -> platform mappings, pull MITRE's authoritative ``x_mitre_platforms`` tags
 and write the platform-DISCRIMINATIVE subset (Phase A scope: windows/linux/macos).
 
-Requires network access (downloads the ATT&CK Enterprise STIX bundle, ~35 MB). Run it
-when you want full coverage; the committed file is otherwise a curated seed.
+Requires network access (downloads the ATT&CK Enterprise STIX bundle, ~50 MB). The committed
+file is the generated full map; re-run to refresh coverage when MITRE ships a new ATT&CK release.
+
+Source is MITRE's maintained ``attack-stix-data`` repo (the older ``mitre/cti`` repo is
+deprecated and its bundle no longer embeds the collection-version object, which is why
+the version stamp must come from a bundle that still carries ``x-mitre-collection``).
 
 Usage:
     python scripts/build_attack_platform_map.py            # download + write
@@ -24,9 +28,10 @@ import sys
 import urllib.request
 from pathlib import Path
 
-# Official ATT&CK STIX (versioned bundle tracks the current release).
+# Official ATT&CK STIX, maintained repo. The "latest" bundle tracks the current release
+# and embeds an x-mitre-collection object carrying x_mitre_version.
 ATTACK_STIX_URL = (
-    "https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json"
+    "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/master/enterprise-attack/enterprise-attack.json"
 )
 
 OUT_PATH = Path(__file__).resolve().parents[1] / "config" / "attack_technique_platforms.json"
@@ -39,6 +44,20 @@ def _fetch_stix(url: str) -> dict:
     print(f"Downloading ATT&CK STIX from {url} ...", file=sys.stderr)
     with urllib.request.urlopen(url, timeout=120) as resp:  # noqa: S310 (trusted MITRE URL)
         return json.loads(resp.read().decode("utf-8"))
+
+
+def _collection_version(bundle: dict) -> str:
+    """Return the embedded ATT&CK collection version (e.g. ``19.1``), or ``unknown``.
+
+    Degrades to ``unknown`` -- never the literal string ``None`` -- when the
+    x-mitre-collection object or its x_mitre_version field is absent.
+    """
+    for obj in bundle.get("objects", []):
+        if obj.get("type") == "x-mitre-collection":
+            version = obj.get("x_mitre_version")
+            if version:
+                return str(version)
+    return "unknown"
 
 
 def build_map(bundle: dict) -> dict[str, list[str]]:
@@ -69,10 +88,7 @@ def main() -> int:
 
     bundle = _fetch_stix(args.url)
     mapping = build_map(bundle)
-    version = next(
-        (o.get("x_mitre_version") for o in bundle.get("objects", []) if o.get("type") == "x-mitre-collection"),
-        "unknown",
-    )
+    version = _collection_version(bundle)
     print(f"Discriminative techniques: {len(mapping)} (ATT&CK collection version {version})", file=sys.stderr)
 
     if args.dry_run:

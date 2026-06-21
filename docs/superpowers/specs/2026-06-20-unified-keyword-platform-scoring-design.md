@@ -1,0 +1,322 @@
+# Unified Keyword Registry with Platform-Tagged Scoring — Design Spec
+
+- Date: 2026-06-20
+- Status: **Reviewed — design decisions locked (2026-06-20). Ready for implementation (Phase 1).** No code written yet.
+- Branch: europa-dev
+- Operator directives shaping scope (2026-06-20):
+  1. *"Every keyword (existing and future) gets a metadata value indicating what platform
+     they are evidence for."* → the core of this spec: one keyword registry, each entry
+     platform-tagged; OS classification is a projection of keyword matches already collected
+     during scoring.
+  2. *"The minimum score is still blocking."* → this spec does **not** weaken, bypass, or
+     lower any eligibility gate (`min_hunt_score`, `junk_filter_threshold`, `ranking_threshold`).
+     OS classification is additive metadata; gate semantics are unchanged.
+  3. Junk filter (corrected per docs review): it is a **chunk-level RandomForest content
+     reducer** (drops non-huntable chunks pre-LLM; terminates only when none survive), **not** a
+     keyword-driven or per-platform article gate. Its only keyword tie is the 92 shared perfect
+     discriminators. Out of scope to change; trivially parity-safe under platform tagging.
+- Related: [`2026-06-19-entity-driven-platform-classification-design.md`](2026-06-19-entity-driven-platform-classification-design.md)
+  (the platform classifier this spec subsumes the *scan* of),
+  [`2026-06-17-platform-telemetry-expansion-design.md`](2026-06-17-platform-telemetry-expansion-design.md)
+
+---
+
+## 1. Problem
+
+The codebase scans article content for weighted keyword/regex hits in **two independent
+places that share no source of truth**:
+
+1. **Huntability axis** — `ThreatHuntingScorer.score_threat_hunting_content`
+   (`src/utils/content.py`) scans against `HUNT_SCORING_KEYWORDS` (perfect / good / lolbas /
+   intelligence / negative) and emits the article-level `threat_hunting_score` + matched-keyword
+   lists, **at ingest, on full article content** (`processor.py:321`, `scrape.py:517`).
+
+2. **Platform axis** — `PlatformClassifier` (`src/services/platform_classifier.py`) runs a
+   **separate** content scan against `config/platform_classification_kb.yaml` inside the
+   workflow (`os_detection_node`), post-trigger, to decide the OS.
+
+So the same expensive operation (compile keyword → scan content → weight → aggregate) is
+implemented twice over two disjoint vocabularies, and the two vocabularies can drift even
+though a single token (`osascript`) is legitimately *both* a huntable LOLBin and a macOS
+indicator. The platform scan is also redundant: by the time `os_detection_node` runs, the
+content has already been scanned once for scoring.
+
+**The junk filter is a different thing (not in this overlap).** `ContentFilter`
+(`src/utils/content_filter.py`) is a **chunk-level RandomForest content *reducer*** (20
+structural v3 features: `cmdline_artifact_count`, `process_lineage_count`, `has_code_blocks`,
+densities, negative detectors) that drops non-huntable *chunks* before the LLM and terminates
+the run only when *zero* chunks survive. Its **only** keyword coupling is the **92 perfect
+discriminators**, *shared* with the hunt scorer as a protective override (a chunk hitting one is
+auto-kept). It is **not** keyword-driven article gating, and platform tags never touch its
+RandomForest — so it is out of scope here and trivially parity-safe (§7). See
+`docs/features/content-filtering.md`, `docs/architecture/scoring.md`.
+
+### 1.1 What this spec is NOT
+
+Per operator directive (2), this is **not** a gate change. The fact that Windows-biased
+huntability scoring keeps non-Windows articles below `min_hunt_score` is a *separate*
+concern (see §9 Future). Here we only make OS classification fall out of the scan that
+already happens, from a single platform-tagged keyword source of truth.
+
+---
+
+## 2. Goals / Non-Goals
+
+### Goals
+- **G1.** One keyword registry is the source of truth; every entry carries a platform-evidence
+  tag (`windows` / `linux` / `macos`, multi-valued, or platform-agnostic).
+- **G2.** OS classification is computed from the platform tags of keywords matched during the
+  existing scoring scan — no second content scan for the deterministic platform verdict.
+- **G3.** Subsume `platform_classification_kb.yaml`'s vocabulary into the registry so platform
+  knowledge has exactly one home.
+- **G4.** `os_detection_node` consumes the precomputed deterministic OS verdict; LLM
+  adjudication for the low-confidence/Unknown tail and ATT&CK reinforcement stay where they are.
+- **G5.** **Zero behavior change** to `threat_hunting_score`, the junk filter, and content
+  filtering (parity gate — §7).
+
+### Non-Goals
+- **N1.** No change to any eligibility gate (`min_hunt_score`, `junk_filter_threshold`,
+  `ranking_threshold`, `auto_trigger_hunt_score_threshold`).
+- **N2.** No backlog rescue / mass re-processing / auto-trigger of newly-classified articles.
+- **N3.** No retraining of the junk-filter ML model.
+- **N4.** No change to the Domains/Products dimensions (separate axes; natural future extension).
+- **N5.** No removal of the embedding stack (already deferred in the prior spec).
+
+---
+
+## 3. Current state (verified 2026-06-20)
+
+| Component | File | Role | Keyword source |
+|---|---|---|---|
+| `ThreatHuntingScorer` | `src/utils/content.py:1202` | hunt score (geometric, capped per tier) | `HUNT_SCORING_KEYWORDS` (dict, ~661–1188) |
+| `ContentFilter` (junk filter) | `src/utils/content_filter.py` | **chunk-level** RandomForest reducer (20 structural v3 features); drops non-huntable chunks, terminates only when none survive (`no_huntable_content`) | ML model `content_filter.pkl` + **92 shared perfect discriminators** (protective override) + pattern sets — *not* the full keyword set |
+| `keyword_resolution` | `src/utils/keyword_resolution.py` | display/highlight layer | per-article matched-keyword metadata |
+| `PlatformClassifier` | `src/services/platform_classifier.py` | OS verdict (argmax + margin + evidence floor) | `config/platform_classification_kb.yaml` |
+| `attack_platform_signal` | `src/services/attack_platform_signal.py` | ATT&CK technique → platform reinforcement | `config/attack_technique_platforms.json` |
+| `entity_dimension_classifier` | `src/services/entity_dimension_classifier.py` | Domains/Products (separate axes) | domain/product KBs |
+
+Gates (defaults): `min_hunt_score` 97.0, `junk_filter_threshold` 0.8, `ranking_threshold` 6.0.
+Hunt score is computed **at ingest**; OS detection runs **inside the workflow**, post-gate.
+
+---
+
+## 4. Design
+
+### 4.1 The registry: one entry, multiple facets
+
+A single keyword registry replaces the disjoint vocabularies. Each entry carries an optional
+**huntability** facet and an optional **platform** facet — a keyword may have one or both:
+
+```yaml
+# config/keyword_registry.yaml  (illustrative)
+keywords:
+  - match: "osascript"
+    huntability: lolbas          # contributes to hunt score / junk filter as today
+    platforms: [macos]           # contributes to OS classification
+  - match: "comsvcs.dll"
+    huntability: perfect
+    platforms: [windows]
+  - match: "/etc/cron"
+    platforms: [linux]           # platform-only marker; huntability omitted (0 hunt points)
+  - match: "lsass"
+    huntability: perfect
+    platforms: [windows]
+  - match: "scheduled task"
+    huntability: good
+    # no platforms → platform-agnostic; contributes nothing to OS
+```
+
+- **huntability** ∈ {perfect, good, lolbas, intelligence, negative} — unchanged semantics
+  and weights. Omitted ⇒ the keyword is a *platform marker only* and contributes **zero** to
+  the hunt score and junk filter (preserves G5/parity).
+- **platforms** ⊆ {windows, linux, macos}, multi-valued. Omitted ⇒ platform-agnostic.
+- Per-platform weight (the platform KB's strong/medium/weak = 3/2/1) is derived from a
+  default-by-huntability-tier mapping, overridable per entry with an explicit `platform_weight`.
+  This preserves the existing platform KB's evidence-floor calibration.
+
+**Source-of-truth decision (locked 2026-06-20 — D-A):** keep `HUNT_SCORING_KEYWORDS` values
+*byte-identical* by **generating** them from the registry at load time (or asserting equality
+in a test), rather than hand-rewriting the load-bearing dict. The registry is authoritative;
+`HUNT_SCORING_KEYWORDS` becomes a derived projection. This is the lowest-risk migration path
+and is what the parity gate (§7) enforces.
+
+### 4.2 Scan once, decide N
+
+A shared `WeightedKeywordScan` does the expensive part once:
+
+```
+matches = scan(content, registry)        # [(keyword, span, huntability?, platforms?, weight)]
+hunt    = project_huntability(matches)   # existing geometric scorer — identical output
+os      = project_platform(matches)      # existing argmax + margin + evidence floor
+```
+
+- `project_huntability` reproduces `ThreatHuntingScorer`'s current math exactly (geometric,
+  per-tier caps, negative penalty). Output dict identical to today.
+- `project_platform` reproduces `PlatformClassifier`'s current decision (weighted sum per
+  platform, `HIGH_MARGIN`, `MIN_EVIDENCE_WEIGHT`) over the platform-tagged matches.
+- The two deciders stay **separate functions** — we share the *scan*, not the *math*
+  (consistent with the earlier "don't merge ThreatHuntingScorer" position).
+
+### 4.3 Where OS is computed and stored
+
+- At **ingest scoring time** (`processor.py`, `scrape.py`, `rescore` CLI — wherever
+  `score_threat_hunting_content` already runs), also run `project_platform` and write
+  `article_metadata["os_classification"] = {os, confidence, evidence, method: "kb_scoring"}`
+  alongside `threat_hunting_score`. One pass, two outputs.
+- `os_detection_node` is simplified: **read** `article_metadata["os_classification"]` instead
+  of re-scanning. The existing low-confidence/Unknown → **LLM adjudication** and the
+  **ATT&CK reinforcement** paths are unchanged (they run on the precomputed deterministic
+  verdict). `skip_os_detection` (eval path) is unchanged.
+
+### 4.4 What stays separate
+- ATT&CK→platform reinforcement (`attack_platform_signal`) — different input (technique IDs,
+  not content keywords); remains a post-scan reinforcement of the platform projection.
+- Domains/Products — separate axes, separate KBs (N4). The registry pattern *could* later grow
+  `domains`/`products` facets, but not in this spec.
+- `keyword_resolution` display layer — unaffected (still reads per-article matched metadata).
+
+---
+
+## 5. Data flow (after)
+
+```
+INGEST  ── scan(content, registry) ──┬─ project_huntability → threat_hunting_score  (unchanged)
+                                     └─ project_platform   → os_classification       (NEW, stored)
+                                                              │
+WORKFLOW (post-gate, unchanged gates) │
+  junk_filter_node   (unchanged; 92 shared perfect discriminators come from the registry; RF model untouched)
+  rank_article_node  (unchanged)
+  os_detection_node  ── reads os_classification ── LLM-adjudicate tail ── ATT&CK reinforce
+  extract / sigma    (unchanged)
+```
+
+---
+
+## 6. Schema / contract impact
+- **No DB migration.** `os_classification` lives in the existing `article_metadata` JSON
+  column (same as `threat_hunting_score`).
+- `workflow_config_schema.py` / `models.py` — unchanged (no new config fields required; the
+  platform decision constants stay in the classifier).
+- `config/platform_classification_kb.yaml` — **migrated into** the registry, then removed (or
+  kept as a generated artifact during transition).
+- No `src/prompts/*.txt` changes ⇒ no quickstart-preset updates required.
+
+---
+
+## 7. Backward compatibility & parity gate
+
+The change is **safe only if** the derived outputs are identical. Acceptance requires:
+
+- **P1 — hunt-score parity:** for a corpus sample (≥ the 251 processed articles, ideally a
+  larger random sample), `score_threat_hunting_content` output is **byte-identical** before
+  vs. after the registry migration (same score, same matched-keyword lists).
+- **P2 — junk-filter parity:** `ContentFilter` `is_huntable` + confidence identical on the
+  same sample. (Trivially preserved — platform tags are additive metadata and the RandomForest
+  uses structural features, not the keyword tags; the only shared surface is the 92 perfect
+  discriminators, whose *values* are held byte-identical by P1.)
+- **P3 — OS parity:** `project_platform` agrees with the current `PlatformClassifier` on the
+  processed set (the platform KB is migrated 1:1; any diff is a migration bug, not a feature).
+
+If P1–P3 don't all hold, the migration is wrong — fix the registry, don't accept drift.
+
+---
+
+## 8. Migration plan (phased, each independently shippable)
+
+- **Phase 0 — Confirm (docs already answer this).** Per `docs/architecture/scoring.md` the hunt
+  scorer runs **at ingest on full article content**, *upstream* of the in-workflow chunk-level
+  content filter (the ~86% reduction happens later, pre-LLM). So `project_platform` at ingest
+  scoring time sees the full text — carriers are visible, not stripped. One assertion test
+  (a known macOS carrier survives into the ingest scan) replaces the spike.
+- **Phase 1 — Registry + shared scan, parity-locked.** Introduce `keyword_registry.yaml`
+  (migrated from `HUNT_SCORING_KEYWORDS` + `platform_classification_kb.yaml`), the
+  `WeightedKeywordScan`, and `project_huntability`/`project_platform`. Wire `HUNT_SCORING_KEYWORDS`
+  as a derived projection. **Ship only when P1–P3 pass.** No consumer behavior changes yet.
+- **Phase 2 — OS at scoring time.** Compute + store `article_metadata["os_classification"]`
+  wherever the hunt score is computed. Go-forward only (N2). Existing rows unaffected unless a
+  normal `rescore` runs.
+- **Phase 3 — Simplify `os_detection_node`.** Read the precomputed verdict; keep LLM
+  adjudication + ATT&CK reinforcement; retire the in-node platform scan. Remove the now-unused
+  `platform_classification_kb.yaml` standalone path.
+- **Phase 4 (optional) — fold `attack_platform_signal` + entity-dimension scans onto the shared
+  `WeightedKeywordScan`** (the earlier "rule of three" engine dedup), if desired.
+
+---
+
+## 9. Future / explicitly out of scope (per directive 2)
+
+The platform tags make it *possible* to give huntability scoring a non-Windows vocabulary
+(macOS/Linux LOLBins as discriminators) so those articles score on their own merits and the
+junk filter recognizes them — which would address the macOS/Linux processing gap. This
+**deliberately stays out of scope** because it changes what clears the gate, and the operator
+directed that the minimum score keeps blocking. Captured here as the natural next step, to be
+decided separately with its own FP/calibration review.
+
+---
+
+## 10. Acceptance / verification (DoD)
+
+1. **Parity (P1–P3)** proven by a printable test run — hunt score + junk filter byte-identical;
+   OS verdict matches the current classifier on the processed set. Transcript output is the
+   evidence.
+2. `run_tests.py` targeted suites green: `tests/services/test_platform_classifier.py`,
+   `test_os_detection_service.py`, hunt-scoring tests, `tests/workflows/test_platform_telemetry_phase_one.py`,
+   plus a new `tests/**/test_keyword_registry.py` (registry loads; every entry validates;
+   `HUNT_SCORING_KEYWORDS` projection equals the legacy dict).
+3. A processed macOS article (e.g. 2729 Sapphire Sleet, 3330 Lazarus xattr) shows a stored
+   `os_classification` of macOS produced at scoring time, and `os_detection_node` consumes it
+   with **no** second scan (assert via log/trace).
+4. Regression suite green; ruff clean.
+
+---
+
+## 11. Decisions (locked 2026-06-20)
+- **D-A — registry format:** the registry is the **authoritative source of truth**;
+  `HUNT_SCORING_KEYWORDS` becomes a **generated projection asserted byte-equal to the legacy
+  dict in a test** (not a hand-rewrite, not a side-car map). Lowest-risk migration; enforced by
+  the §7 parity gate.
+- **D-B — per-platform weight:** platform weight is **derived from the huntability tier via a
+  default mapping, with an explicit per-entry `platform_weight` override**. Keeps the migration
+  mechanical and preserves the platform KB's evidence-floor calibration.
+- **D-C — projection input:** `project_platform` runs at **ingest on full article content**
+  (upstream of the content filter), per `docs/architecture/scoring.md`. No degraded-input
+  branch; Phase 0 is a one-line confirmation test.
+
+---
+
+## 12. Risk: is the platform apparatus over-engineered? (assessment recorded 2026-06-21)
+
+Operator raised the question directly. Honest verdict: **partially — and the problem is
+*sequencing and unused outputs*, not baroqueness of any single piece.** Recorded here (not
+acted on) so the unification work proceeds with eyes open.
+
+**Evidence (this session):**
+- Throughput vs. capability mismatch: of 251 processed articles, **2 produced Sigma on a
+  non-Windows path and zero macOS rules exist**; macOS content is rare corpus-wide
+  (`launchctl` in 6 articles, `keychain` 38, mostly prose). A 3-platform capability matrix,
+  per-(platform, telemetry, logsource) grouping, macOS-exclusion, Linux guidance, a 210-entry
+  ATT&CK map, and an LLM adjudication tail all serve that trickle.
+- **Outputs with no consumer** (grep-confirmed 2026-06-21):
+  - **Domains + Products (Phase D)** — classified in `os_detection_node` and stored, but
+    nothing routes/gates/generates on them. Display-only.
+  - **Per-observable `platform_confidence` / `platform_rationale`** — only the producer and the
+    trace API serializer touch them; Sigma grouping keys off `platform` alone. Display-only.
+
+**Lean / correct — keep:** capability routing + skip records (prevents wasted Windows-only
+extractor calls; a dict + intersection check), explicit Sigma `logsource`, the macOS no-Sigma
+guard. These are correctness, not gold-plating.
+
+**Root cause — mis-sequencing:** the rich platform *downstream* sits behind a ~99% Windows-tuned
+*upstream* gate (hunt score / content filter), which drops non-Windows content before this
+machinery runs. By construction it cannot pay off until the upstream huntability signal is
+platform-complete — which D/§9 deliberately defers ("minimum score still blocks"). The
+unification in this spec is the *anti*-over-engineering move (fewer scans, one source of truth),
+but it still polishes the same low-traffic axis.
+
+**Resolving product question (open, operator's to answer):** how much do non-Windows detections
+matter? *A lot* → fix upstream first (platform-complete huntability) so the downstream earns its
+keep. *A little* (Windows ≥95% of real use) → trim to "Windows vs. non-Windows→classify-and-skip"
+and drop Domains/Products + confidence/rationale until something consumes them.
+
+**Safe trims available regardless (not taken):** park Domains/Products; drop per-observable
+confidence/rationale. Both are pure carrying cost today. Left in place per operator (option b).
