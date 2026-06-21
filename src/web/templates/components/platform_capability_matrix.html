@@ -1,9 +1,16 @@
 <div id="platform-capability-matrix" class="card-elevated p-4">
-    <div class="flex items-center justify-between gap-3 mb-3">
+    <div data-collapsible-panel="platform-capability-matrix" class="flex items-center justify-between gap-3 mb-3 cursor-pointer">
         <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Platform Capability Matrix</h4>
-        <span class="text-xs text-gray-500 dark:text-gray-400">Read-only</span>
+        <div class="flex items-center gap-3">
+            <span class="text-xs text-gray-500 dark:text-gray-400">Read-only</span>
+            <span id="platform-capability-matrix-toggle" class="text-gray-500 dark:text-gray-400 transform transition-transform duration-200" aria-hidden="true">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </span>
+        </div>
     </div>
-    <div class="overflow-x-auto">
+    <div id="platform-capability-matrix-content" class="overflow-x-auto hidden">
         <table class="min-w-full text-xs text-left">
             <thead class="text-gray-500 dark:text-gray-400 uppercase">
                 <tr>
