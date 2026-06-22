@@ -191,9 +191,8 @@ app.add_middleware(
     # local-dev behavior otherwise. The wildcard is unreachable in production
     # (the `_prod` branch uses the explicit allowlist), so the SAST wildcard-cors
     # rule is suppressed for the dev-only fallback.
-    allow_origins=list(SECURITY_CONFIG.cors_allowed_origins)
-    if _prod
-    else ["*"],  # nosemgrep: python.fastapi.security.wildcard-cors.wildcard-cors
+    # nosemgrep: python.fastapi.security.wildcard-cors.wildcard-cors
+    allow_origins=list(SECURITY_CONFIG.cors_allowed_origins) if _prod else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
