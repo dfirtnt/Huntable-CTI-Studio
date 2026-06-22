@@ -115,4 +115,4 @@ See `src/utils/search_parser.py` for implementation details.
 
 ---
 
-_Last updated: 2026-05-23_
+_Last updated: 2026-06-22_

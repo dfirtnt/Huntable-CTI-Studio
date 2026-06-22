@@ -250,4 +250,4 @@ If the reference is hypothetical or speculative, SKIP.
 If detection logic matches only a hive-less suffix, SKIP -- do NOT reconstruct the hive.
 When in doubt, OMIT.
 
-_Last updated: 2026-06-12_
+_Last updated: 2026-06-22_

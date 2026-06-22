@@ -235,4 +235,4 @@ If the reference is hypothetical, speculative, or defensive guidance, SKIP.
 If a TaskName value inside detection logic is a fragment (`|contains:`, `|endswith:`, `|re:`), SKIP -- it is a predicate, not the task identity.
 When in doubt, OMIT.
 
-_Last updated: 2026-06-12_
+_Last updated: 2026-06-22_

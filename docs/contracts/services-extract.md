@@ -268,4 +268,4 @@ If the source is malware source code or a YARA rule body, SKIP.
 Only the FIRST valid occurrence of each unique service is extracted.
 When in doubt, OMIT.
 
-_Last updated: 2026-06-13_
+_Last updated: 2026-06-22_

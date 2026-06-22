@@ -76,4 +76,4 @@ Configure in **Settings → GitHub**:
 - No rules are generated when extraction produces zero huntables and the filtered content toggle is disabled.
 - Similarity search requires embeddings; run `sigma index-embeddings` (uses local sentence-transformers). Use `capabilities check` to verify status.
 
-_Last updated: 2026-05-23_
+_Last updated: 2026-06-22_

@@ -67,4 +67,4 @@ SIGMA_EMBED_RULES_PER_CHUNK=32 ./run_cli.sh sigma index-embeddings
 
 `GET /api/embeddings/stats` returns a `sigma_corpus` block (SigmaHQ row counts vs. rows with embeddings). Consumed by CLI `embed stats` and MCP `get_stats`.
 
-_Last updated: 2026-06-08_
+_Last updated: 2026-06-22_

@@ -1011,7 +1011,7 @@ Re-index command (to be confirmed and run by the operator):
 
 **⚠ IMAGE REBUILD PRECONDITION (discovered 2026-06-01 mid-execution):**
 
-`sigma_semantic_similarity/` is copied into the Docker image at build time (see [Dockerfile:71](../../Dockerfile)). It is NOT bind-mounted into `cti_web`, `cti_worker`, `cti_workflow_worker`, or `cti_scheduler` — only `./src` and `./config` are. This means **`docker restart` does NOT pick up host edits to `sigma_semantic_similarity/`**, and **the one-shot CLI container spawned by `./run_cli.sh` runs the same baked image too**.
+`sigma_semantic_similarity/` is copied into the Docker image at build time (see `Dockerfile:71`). It is NOT bind-mounted into `cti_web`, `cti_worker`, `cti_workflow_worker`, or `cti_scheduler` — only `./src` and `./config` are. This means **`docker restart` does NOT pick up host edits to `sigma_semantic_similarity/`**, and **the one-shot CLI container spawned by `./run_cli.sh` runs the same baked image too**.
 
 Concretely: if the operator runs `docker restart ... && ./run_cli.sh sigma recompute-semantics` after the Item 9 code lands but **before rebuilding**, the re-index touches every row using the OLD `atom_identity`. The corpus is rewritten with the SAME identity strings it already had — silent no-op.
 

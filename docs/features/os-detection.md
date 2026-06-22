@@ -184,7 +184,7 @@ overfitting, handles imbalanced classes via `class_weight='balanced'`.
 - `scripts/eval_os_detection_manual.py` — manual OS detection evaluation
 - `scripts/train_huntable_windows_workflow.sh` — automated Windows binary classifier training
 
-_Last updated: 2026-05-23_
+_Last updated: 2026-06-22_
 <!--stackedit_data:
 eyJoaXN0b3J5IjpbOTg5ODcwOTY1XX0=
 -->
