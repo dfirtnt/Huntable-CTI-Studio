@@ -795,6 +795,14 @@
   background: var(--action-execute-dark);
   box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
 }
+.q-cmd-btn.create {
+  background: var(--purple-primary);
+  border-color: rgba(139, 92, 246, 0.3);
+}
+.q-cmd-btn.create:hover {
+  background: var(--purple-hover);
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.25);
+}
 .q-cmd-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -1106,6 +1114,13 @@
   max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: normal;
+}
+
+.q-table .q-title-primary {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -1177,6 +1192,8 @@
 .q-badge.submitted::before { background: var(--purple-primary); box-shadow: 0 0 6px var(--purple-primary); }
 .q-badge.needs_review { color: var(--badge-yellow-text); }
 .q-badge.needs_review::before { background: #eab308; box-shadow: 0 0 6px #eab308; }
+.q-badge.platform { color: var(--text-muted-slate); margin-top: 4px; text-transform: none; }
+.q-badge.platform::before { background: var(--action-info); box-shadow: 0 0 6px var(--action-info); }
 
 /* Action links */
 .q-actions-cell {
@@ -1833,9 +1850,9 @@ tr.q-row-selected td {
             <button type="button" class="btn-toggle btn-toggle--circle oc-rail-toggle" onclick="togglePipelineRail()" title="Toggle pipeline rail"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg></button>
             <div class="pipeline-label" style="padding: 0 12px 8px; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.3);">PIPELINE</div>
 
-            <div class="rail-item c0 active" onclick="scrollToStep(0)" role="button" tabindex="0" title="Step 0: OS Detection (os-detect)">
+            <div class="rail-item c0 active" onclick="scrollToStep(0)" role="button" tabindex="0" title="Step 0: Platform Detection (os-detect)">
               <div class="rail-node">0</div>
-              <div class="rail-label">OS Detection</div>
+              <div class="rail-label">Platform Detection</div>
               <div class="rail-sublabel">os-detect</div>
             </div>
             <div class="rail-connector"></div>
@@ -1878,13 +1895,16 @@ tr.q-row-selected td {
           <!-- ── Right: Content + Footer ──────────────── -->
           <div class="oc-right">
             <div id="config-content">
+              <div class="mb-4">
+                {% include 'components/platform_capability_matrix.html' %}
+              </div>
 
-              <!-- ══ STEP 0: OS DETECTION ══════════════════ -->
+              <!-- ══ STEP 0: PLATFORM DETECTION ═════════════ -->
               <section id="s0" class="step-section open">
                 <div class="section-tint"></div>
                 <div class="section-header" onclick="scrollToStep(0)">
                   <span class="step-badge">STEP 0</span>
-                  <span class="section-title">OS Detection</span>
+                  <span class="section-title">Platform Detection</span>
                   <span class="section-chevron">▼</span>
                 </div>
                 <div class="section-body">
@@ -2232,6 +2252,39 @@ tr.q-row-selected td {
                             <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('ScheduledTasksExtract', id);" class="flex-1 px-3 py-2 btn-workflow text-white text-xs font-medium rounded-md transition-colors">&#x26A1; Test ScheduledTasksExtract</button>
                             <button type="button" onclick="saveSubAgentPreset('scheduledtasks')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Save Preset</button>
                             <button type="button" onclick="showConfigPresetListForScope('scheduledtasks')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Load Preset</button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- NetworkIndicatorExtract -->
+                      <div id="sa-networkindicator" class="sa-item">
+                        <div class="sa-header" role="button" tabindex="0" aria-expanded="false" aria-controls="sa-networkindicator-body" onclick="toggleSA('sa-networkindicator')">
+                          <span class="sa-title">NetworkIndicatorExtract</span>
+                          <button type="button" onclick="event.stopPropagation(); showHelp('networkIndicatorExtract')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Agent info"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button>
+                          <span class="text-xs text-gray-500 dark:text-gray-400">Network Indicators Extraction</span>
+                          <span id="networkindicatorextract-agent-enabled-pill" class="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 ml-auto">Enabled</span>
+                          <span class="sa-chevron ml-2">&#x25BC;</span>
+                        </div>
+                        <div id="sa-networkindicator-body" class="sa-body space-y-3">
+                          <div class="flex items-center justify-between">
+                            <div><label class="block text-xs font-medium text-gray-700 dark:text-gray-300">Enable NetworkIndicatorExtract</label><p class="text-[10px] text-gray-500 dark:text-gray-400">Toggle off to skip</p></div>
+                            <div class="flex items-center gap-2">
+                              <span id="networkindicatorextract-agent-enabled-badge" class="px-2 py-1 text-[11px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
+                              <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggle-networkindicatorextract-enabled" name="extract_subagent_enabled[NetworkIndicatorExtract]" aria-label="Enable NetworkIndicatorExtract" class="sr-only peer" onchange="handleExtractAgentToggle('NetworkIndicatorExtract')"><div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div></label>
+                            </div>
+                          </div>
+                          <div class="space-y-2">
+                            <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">
+                              Model Provider
+                            </label>
+                            {{ provider_model_grid('networkindicatorextract', 'NetworkIndicatorExtract_provider', 'NetworkIndicatorExtract_model', has_fallback=true, validate=true) }}
+                          </div>
+                          {{ temperature_sliders('networkindicatorextract', 'NetworkIndicatorExtract') }}
+                          <div id="networkindicatorextract-agent-prompt-container"></div>
+                          <div class="flex gap-2 pt-1">
+                            <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('NetworkIndicatorExtract', id);" class="flex-1 px-3 py-2 btn-workflow text-white text-xs font-medium rounded-md transition-colors">&#x26A1; Test NetworkIndicatorExtract</button>
+                            <button type="button" onclick="saveSubAgentPreset('networkindicator')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Save Preset</button>
+                            <button type="button" onclick="showConfigPresetListForScope('networkindicator')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Load Preset</button>
                           </div>
                         </div>
                       </div>
@@ -3119,6 +3172,10 @@ tr.q-row-selected td {
 
         <!-- Command Strip -->
         <div class="q-command-strip">
+            <button onclick="createNewRule()" class="q-cmd-btn create">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Create New Rule
+            </button>
             <button onclick="loadQueue()" class="q-cmd-btn refresh">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
                 Refresh
@@ -3223,7 +3280,7 @@ tr.q-row-selected td {
         <div id="ruleModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
             <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-4/5 lg:w-3/4 shadow-lg rounded-md bg-gray-800 border border-gray-700 max-h-[90vh]">
                 <div class="flex justify-between items-center mb-4 sticky top-0 bg-gray-800 border border-gray-700 pb-2 border-b">
-                    <h3 class="text-xl font-bold text-gray-900 dark:text-white">SIGMA Rule Preview</h3>
+                    <h3 id="ruleModalTitle" class="text-xl font-bold text-gray-900 dark:text-white">SIGMA Rule Preview</h3>
                     <button onclick="closeRuleModal()" class="text-gray-400 hover:text-gray-600">✕</button>
                 </div>
                 <div class="space-y-4 max-h-[70vh] overflow-y-auto">
@@ -3682,18 +3739,19 @@ const AGENT_DISPLAY_NAMES = {
     'RankAgent':          'Rank Agent',
     'ExtractAgent':       'Extract Agent',
     'SigmaAgent':         'SIGMA Agent',
-    'OSDetectionAgent':   'OS Detection',
+    'OSDetectionAgent':   'Platform Detection',
     'CmdlineExtract':     'Command Line Extraction',
     'ProcTreeExtract':    'Process Lineage Extraction',
     'HuntQueriesExtract': 'Hunt Queries Extraction',
     'RegistryExtract':    'Registry Artifacts Extraction',
     'ServicesExtract':    'Windows Services Extraction',
     'ScheduledTasksExtract': 'Scheduled Tasks Extraction',
+    'NetworkIndicatorExtract': 'Network Indicators Extraction',
 };
 function agentDisplayName(id) { return AGENT_DISPLAY_NAMES[id] || id; }
 
 // ── Canonical agent lists (single source of truth for JS) ──
-const EXTRACT_SUB_AGENTS = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'RegistryExtract', 'ServicesExtract', 'ScheduledTasksExtract'];
+const EXTRACT_SUB_AGENTS = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'RegistryExtract', 'ServicesExtract', 'ScheduledTasksExtract', 'NetworkIndicatorExtract'];
 const MAIN_AGENTS = ['RankAgent', 'ExtractAgent', 'SigmaAgent'];
 const ALL_CONFIG_AGENTS = ['RankAgent', 'OSDetectionAgent', 'ExtractAgent', ...EXTRACT_SUB_AGENTS, 'SigmaAgent'];
 // Pipeline display order (agents shown in the execution pipeline rail — excludes Registry/Services)
@@ -4483,6 +4541,18 @@ const AGENT_CONFIG = {
         hasFallback: true,
         fallbackAgent: 'extractagent'
     },
+    networkindicatorextract: {
+        prefix: 'networkindicatorextract',
+        providerKey: 'NetworkIndicatorExtract_provider',
+        modelKey: 'NetworkIndicatorExtract_model',
+        temperatureKey: 'NetworkIndicatorExtract_temperature',
+        topPKey: 'NetworkIndicatorExtract_top_p',
+        name: 'NetworkIndicatorExtract',
+        isSubAgent: true,
+        isQA: false,
+        hasFallback: true,
+        fallbackAgent: 'extractagent'
+    },
 };
 
 /**
@@ -4514,6 +4584,7 @@ const AGENT_UI_DISPLAY_LABELS = {
     registryextract: 'RegistryExtract',
     servicesextract: 'ServicesExtract',
     scheduledtasksextract: 'ScheduledTasksExtract',
+    networkindicatorextract: 'NetworkIndicatorExtract',
 };
 
 function getAgentUIDisplayLabel(agentPrefix) {
@@ -4672,7 +4743,6 @@ function normalizeWorkflowConfigControlBindings() {
         'sigma-fallback-enabled': { key: 'sigma_fallback_enabled', label: 'Use Full Article Content (Minus Junk)' },
         'cmdline-attention-preprocessor-enabled': { key: 'cmdline_attention_preprocessor_enabled', label: 'Attention Preprocessor' },
         'proctree-attention-preprocessor-enabled': { key: 'proc_tree_attention_preprocessor_enabled', label: 'Attention Preprocessor' },
-        'osdetectionagent-embedding-model-2': { key: 'OSDetectionAgent_embedding', label: 'OS Detection Embedding Model' },
         'osdetectionagent-os-windows': { key: 'OSDetectionAgent_selected_os', label: 'Target OS: Windows' },
         'osdetectionagent-os-linux': { key: 'OSDetectionAgent_selected_os', label: 'Target OS: Linux' },
         'osdetectionagent-os-macos': { key: 'OSDetectionAgent_selected_os', label: 'Target OS: MacOS' },
@@ -4694,7 +4764,8 @@ function normalizeWorkflowConfigControlBindings() {
         { id: 'toggle-huntqueriesextract-enabled', agent: 'HuntQueriesExtract' },
         { id: 'toggle-registryextract-enabled', agent: 'RegistryExtract' },
         { id: 'toggle-servicesextract-enabled', agent: 'ServicesExtract' },
-        { id: 'toggle-scheduledtasksextract-enabled', agent: 'ScheduledTasksExtract' }
+        { id: 'toggle-scheduledtasksextract-enabled', agent: 'ScheduledTasksExtract' },
+        { id: 'toggle-networkindicatorextract-enabled', agent: 'NetworkIndicatorExtract' }
     ].forEach(item => {
         const el = document.getElementById(item.id);
         if (!el) return;
@@ -4720,6 +4791,7 @@ function normalizeWorkflowConfigControlBindings() {
             registryextract: 'RegistryExtract',
             servicesextract: 'ServicesExtract',
             scheduledtasksextract: 'ScheduledTasksExtract',
+            networkindicatorextract: 'NetworkIndicatorExtract',
         };
         const agentName = promptAgentNameMap[agentId] || agentId;
         setAttr(textarea, 'data-derived-persist-key', `agent_prompts.${agentName}.prompt`);
@@ -5202,7 +5274,6 @@ function renderAgentModels() {
         
         // Special handling for OSDetectionAgent
         if (agentName === 'OSDetectionAgent') {
-            const currentEmbeddingModel = (agentModels && agentModels['OSDetectionAgent_embedding']) || 'ibm-research/CTI-BERT';
             const currentSelectedOS = (agentModels && agentModels['OSDetectionAgent_selected_os']) || ['Windows'];
             const selectedOSArray = Array.isArray(currentSelectedOS) ? currentSelectedOS : (currentSelectedOS ? [currentSelectedOS] : ['Windows']);
             
@@ -5222,22 +5293,11 @@ function renderAgentModels() {
                         </label>
                     </div>
                     
-                    <!-- Embedding Model Selection -->
-                    <div class="mb-3">
-                        <label for="${agentId}-embedding-model" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                            Embedding Model
-                        </label>
-                        <select id="${agentId}-embedding-model" 
-                                name="agent_models[OSDetectionAgent_embedding]"
-                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
-                            <option value="ibm-research/CTI-BERT" ${currentEmbeddingModel === 'ibm-research/CTI-BERT' ? 'selected' : ''}>CTI-BERT</option>
-                            <option value="nlpaueb/sec-bert-base" ${currentEmbeddingModel === 'nlpaueb/sec-bert-base' ? 'selected' : ''}>SEC-BERT</option>
-                        </select>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Pre-trained embedding model for OS detection
-                        </p>
-                    </div>
-                    
+                    <!-- Platform detection is deterministic (entity/keyword registry); no model to configure. -->
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                        Deterministic detection (entity/keyword registry) — no model to configure.
+                    </p>
+
                     <!-- Target OS selection is hidden until multi-OS support is implemented. -->
                     <div class="mb-3 hidden">
                     
@@ -5819,6 +5879,7 @@ const LOCKED_EXTRACTOR_AGENTS = [
     'RegistryExtract',
     'ServicesExtract',
     'ScheduledTasksExtract',
+    'NetworkIndicatorExtract',
 ];
 
 // SigmaAgent and RankAgent: user scaffold is code-owned (locked) but the save path is
@@ -6933,6 +6994,7 @@ async function loadConfig(skipPromptReload = false) {
             { name: 'RegistryExtract', id: 'registryextract-temperature', prefix: 'registryextract' },
             { name: 'ServicesExtract', id: 'servicesextract-temperature', prefix: 'servicesextract' },
             { name: 'ScheduledTasksExtract', id: 'scheduledtasksextract-temperature', prefix: 'scheduledtasksextract' },
+            { name: 'NetworkIndicatorExtract', id: 'networkindicatorextract-temperature', prefix: 'networkindicatorextract' },
         ];
         subAgents.forEach(subAgent => {
             const tempInput = document.getElementById(subAgent.id);
@@ -7133,7 +7195,7 @@ function renderAgentModels(lmstudioModels) {
         'os-detection': {
             container: 'os-detection-model-container',
             agentName: 'OSDetectionAgent',
-            labels: { main: 'OS Detection' }
+            labels: { main: 'Platform Detection' }
         },
         'extract-agent': {
             container: 'extract-agent-model-container',
@@ -7280,7 +7342,6 @@ function renderAgentModels(lmstudioModels) {
     // Render OS Detection Model
     const osContainer = getContainer('os-detection-model-container');
     if (osContainer) {
-        const currentEmbeddingModel = agentModels['OSDetectionAgent_embedding'] || 'ibm-research/CTI-BERT';
         const currentSelectedOS = agentModels['OSDetectionAgent_selected_os'] || ['Windows'];
         const selectedOSArray = Array.isArray(currentSelectedOS) ? currentSelectedOS : (currentSelectedOS ? [currentSelectedOS] : ['Windows']);
         
@@ -7295,7 +7356,7 @@ function renderAgentModels(lmstudioModels) {
         osContainer.innerHTML = `
             <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                 <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                    OS Detection Model
+                    Platform Detection Model
                     <button type="button" 
                             onclick="showHelp('osDetectionAgent')"
                             class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
@@ -7305,16 +7366,9 @@ function renderAgentModels(lmstudioModels) {
                         </svg>
                     </button>
                 </label>
-                <div class="mb-3">
-                    <label for="osdetectionagent-embedding-model-2" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Embedding Model</label>
-                    <select id="osdetectionagent-embedding-model-2"
-                            name="agent_models[OSDetectionAgent_embedding]"
-                            onchange="autoSaveModelChange()"
-                            class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
-                        <option value="ibm-research/CTI-BERT" ${currentEmbeddingModel === 'ibm-research/CTI-BERT' ? 'selected' : ''}>CTI-BERT</option>
-                        <option value="nlpaueb/sec-bert-base" ${currentEmbeddingModel === 'nlpaueb/sec-bert-base' ? 'selected' : ''}>SEC-BERT</option>
-                    </select>
-                </div>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                    Deterministic detection (entity/keyword registry) — no model to configure.
+                </p>
                 <div>
                     <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Target Operating Systems</label>
                     <div class="flex flex-wrap gap-2">
@@ -8148,12 +8202,8 @@ async function performAutoSave() {
             .map(cb => cb.value);
         const osSelection = selectedOS.length > 0 ? selectedOS : ['Windows'];
         
-        // Special handling for OS Detection embedding (not in AGENT_CONFIG)
-        const osEmbedding = document.getElementById('osdetectionagent-embedding-model-2')?.value.trim() || 'ibm-research/CTI-BERT';
-        
         const agentModelsData = {
             ...collectedAgentConfigs,
-            OSDetectionAgent_embedding: osEmbedding,
             OSDetectionAgent_selected_os: osSelection
         };
         
@@ -8360,7 +8410,7 @@ function validateAllTemperatureInputs() {
     });
     
     // Check sub-agents
-    const subAgents = ['cmdlineextract', 'proctreeextract', 'huntqueriesextract', 'registryextract', 'servicesextract', 'scheduledtasksextract'];
+    const subAgents = ['cmdlineextract', 'proctreeextract', 'huntqueriesextract', 'registryextract', 'servicesextract', 'scheduledtasksextract', 'networkindicatorextract'];
 
     subAgents.forEach(prefix => {
         const provider = getAgentProvider(prefix) || getDefaultProvider();
@@ -8548,9 +8598,10 @@ function renderAgentPrompts() {
         { name: 'HuntQueriesExtract', container: 'huntqueriesextract-agent-prompt-container', prefix: 'huntqueriesextract-agent' },
         { name: 'RegistryExtract', container: 'registryextract-agent-prompt-container', prefix: 'registryextract-agent' },
         { name: 'ServicesExtract', container: 'servicesextract-agent-prompt-container', prefix: 'servicesextract-agent' },
-        { name: 'ScheduledTasksExtract', container: 'scheduledtasksextract-agent-prompt-container', prefix: 'scheduledtasksextract-agent' }
+        { name: 'ScheduledTasksExtract', container: 'scheduledtasksextract-agent-prompt-container', prefix: 'scheduledtasksextract-agent' },
+        { name: 'NetworkIndicatorExtract', container: 'networkindicatorextract-agent-prompt-container', prefix: 'networkindicatorextract-agent' }
     ];
-    
+
     subAgents.forEach(subAgent => {
         const container = document.getElementById(subAgent.container);
         // Always re-render if container exists (even if prompt data is missing)
@@ -8630,6 +8681,7 @@ function getCurrentModelForAgent(agentName) {
         'RegistryExtract': 'registryextract',
         'ServicesExtract': 'servicesextract',
         'ScheduledTasksExtract': 'scheduledtasksextract',
+        'NetworkIndicatorExtract': 'networkindicatorextract',
         'OSDetectionAgent': 'osdetectionagent'
     };
 
@@ -8642,7 +8694,8 @@ function getCurrentModelForAgent(agentName) {
         'HuntQueriesExtract': 'huntqueriesextract-provider',
         'RegistryExtract': 'registryextract-provider',
         'ServicesExtract': 'servicesextract-provider',
-        'ScheduledTasksExtract': 'scheduledtasksextract-provider'
+        'ScheduledTasksExtract': 'scheduledtasksextract-provider',
+        'NetworkIndicatorExtract': 'networkindicatorextract-provider'
     };
     
     const agentPrefix = agentPrefixMap[agentName];
@@ -8663,11 +8716,9 @@ function getCurrentModelForAgent(agentName) {
         if (extractModel) return extractModel;
     }
     
-    // OS Detection uses embedding selector, no provider toggle
+    // OS Detection is deterministic (entity/keyword registry) — no model to report.
     if (agentName === 'OSDetectionAgent') {
-        return document.getElementById('osdetectionagent-embedding-model-2')?.value?.trim() ||
-               document.getElementById('osdetectionagent-embedding-model')?.value?.trim() ||
-               null;
+        return null;
     }
     
     return null;
@@ -9001,9 +9052,13 @@ function toggleModelSelectionVisibility(agentName, enabled) {
         'ScheduledTasksExtract': {
             panelContent: 'scheduledtasksextract-agent-panel-content',
             providerSelect: 'scheduledtasksextract-provider'
+        },
+        'NetworkIndicatorExtract': {
+            panelContent: 'networkindicatorextract-agent-panel-content',
+            providerSelect: 'networkindicatorextract-provider'
         }
     };
-    
+
     const config = agentConfig[agentName];
     if (!config) return;
     
@@ -9088,10 +9143,11 @@ const SUBAGENT_SCOPE_MAP = {
     huntqueries: { extract: 'HuntQueriesExtract', extractPrefix: 'huntqueriesextract' },
     registry: { extract: 'RegistryExtract', extractPrefix: 'registryextract' },
     services: { extract: 'ServicesExtract', extractPrefix: 'servicesextract' },
-    scheduledtasks: { extract: 'ScheduledTasksExtract', extractPrefix: 'scheduledtasksextract' }
+    scheduledtasks: { extract: 'ScheduledTasksExtract', extractPrefix: 'scheduledtasksextract' },
+    networkindicator: { extract: 'NetworkIndicatorExtract', extractPrefix: 'networkindicatorextract' }
 };
 
-const SUBAGENT_SCOPES = ['cmdline', 'proctree', 'huntqueries', 'registry', 'services', 'scheduledtasks'];
+const SUBAGENT_SCOPES = ['cmdline', 'proctree', 'huntqueries', 'registry', 'services', 'scheduledtasks', 'networkindicator'];
 
 function getSubAgentPresetState(pairScope) {
     if (!SUBAGENT_SCOPES.includes(pairScope)) {
@@ -9726,13 +9782,6 @@ async function applyPreset(preset) {
             // Use the unified applyAgentConfigs function which handles providers correctly
             // This ensures providers are set first, then models on the correct provider-specific selects
             applyAgentConfigs(preset.agent_models);
-            
-            // Special handling for OS Detection embedding (not in AGENT_CONFIG)
-            const osEmbeddingSelect = document.getElementById('osdetectionagent-embedding-model-2');
-            if (osEmbeddingSelect && preset.agent_models.OSDetectionAgent_embedding) {
-                osEmbeddingSelect.value = preset.agent_models.OSDetectionAgent_embedding;
-            }
-            
         }
         
         // Sync currentConfig.agent_models so any async rebuild (renderAgentModels, loadAgentModels)
@@ -10135,7 +10184,8 @@ function getAllSelectedModelsWithProviders() {
         { name: 'HuntQueriesExtract', prefix: 'huntqueriesextract', providerId: 'huntqueriesextract-provider' },
         { name: 'RegistryExtract', prefix: 'registryextract', providerId: 'registryextract-provider' },
         { name: 'ServicesExtract', prefix: 'servicesextract', providerId: 'servicesextract-provider' },
-        { name: 'ScheduledTasksExtract', prefix: 'scheduledtasksextract', providerId: 'scheduledtasksextract-provider' }
+        { name: 'ScheduledTasksExtract', prefix: 'scheduledtasksextract', providerId: 'scheduledtasksextract-provider' },
+        { name: 'NetworkIndicatorExtract', prefix: 'networkindicatorextract', providerId: 'networkindicatorextract-provider' }
     ];
 
     subAgents.forEach(subAgent => {
@@ -10358,10 +10408,6 @@ function getCurrentFormState() {
     // Get agent models from form using unified system (includes providers)
     const agent_models = collectAllAgentConfigs();
 
-    // Special handling for OS Detection embedding (not in AGENT_CONFIG)
-    const osEmbedding = document.getElementById('osdetectionagent-embedding-model-2')?.value.trim();
-    if (osEmbedding) agent_models.OSDetectionAgent_embedding = osEmbedding;
-
     // Target Operating Systems (not in AGENT_CONFIG) — include in preset for export/import
     const osCheckboxes = document.querySelectorAll('input[name="os_selection[]"]:not([disabled])');
     const selectedOS = Array.from(osCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
@@ -10517,8 +10563,7 @@ function initializeChangeTracking() {
         'rankagent-model-2',
         'rankagent-temperature',
         'extractagent-model-2',
-        'sigmaagent-model-2',
-        'osdetectionagent-embedding-model-2'
+        'sigmaagent-model-2'
     ];
     
     modelSelects.forEach(selectId => {
@@ -10646,10 +10691,7 @@ if (workflowConfigForm) {
     
     // Collect all agent provider/model values using unified system
     const collectedAgentConfigs = collectAllAgentConfigs();
-    
-    // Special handling for OS Detection embedding (not in AGENT_CONFIG)
-    const osEmbedding = document.getElementById('osdetectionagent-embedding-model-2')?.value.trim() || 'ibm-research/CTI-BERT';
-    
+
     const formData = {
         min_hunt_score: currentConfig?.min_hunt_score || 97.0,
         junk_filter_threshold: parseFloat(document.getElementById('junkFilterThreshold').value),
@@ -10657,8 +10699,7 @@ if (workflowConfigForm) {
         similarity_threshold: parseFloat(document.getElementById('similarityThreshold').value),
         description: null,
         agent_models: {
-            ...collectedAgentConfigs,
-            OSDetectionAgent_embedding: osEmbedding
+            ...collectedAgentConfigs
         },
         sigma_fallback_enabled: document.getElementById('sigma-fallback-enabled')?.checked || false,
         rank_agent_enabled: document.getElementById('rank-agent-enabled')?.checked ?? true
@@ -11175,19 +11216,30 @@ async function viewExecution(executionId) {
             // Build step-by-step inputs/outputs
             const steps = [];
             
-            // Step 0: OS Detection (runs first in workflow)
-            // Check for OS detection data in error_log.os_detection_result, termination_details, or error_log.os_detection
+            // Step 0: Platform Detection (runs first in workflow)
+            // Check for platform detection data in error_log.os_detection_result, termination_details, or error_log.os_detection
             const osDetectionResult = exec.error_log?.os_detection_result;
             // Prioritize os_detection_result over termination_details to ensure correct data source
             const osDetectionData = osDetectionResult || exec.termination_details || {};
             const osDetectionError = exec.error_log?.os_detection;
             const detectedOS = osDetectionData.detected_os || (osDetectionError ? null : undefined);
-            
-            // Show OS Detection step if:
-            // 1. OS detection result exists in error_log
+            const platformsDetected = Array.isArray(osDetectionData.platforms_detected) && osDetectionData.platforms_detected.length > 0
+                ? osDetectionData.platforms_detected
+                : (Array.isArray(exec.extraction_result?.summary?.platforms_detected) && exec.extraction_result.summary.platforms_detected.length > 0
+                    ? exec.extraction_result.summary.platforms_detected
+                    : (detectedOS ? [detectedOS] : []));
+            const platformsDetectedLabel = platformsDetected.length > 0 ? platformsDetected.join(', ') : 'Unknown';
+            // Phase D: Domains + Products dimensions (entity-driven, stored in os_detection_result).
+            const detectedDomains = Array.isArray(osDetectionData.domains) ? osDetectionData.domains : [];
+            const detectedProducts = Array.isArray(osDetectionData.products) ? osDetectionData.products : [];
+            const domainsLabel = detectedDomains.length > 0 ? detectedDomains.join(', ') : '—';
+            const productsLabel = detectedProducts.length > 0 ? detectedProducts.join(', ') : '—';
+
+            // Show Platform Detection step if:
+            // 1. Platform detection result exists in error_log
             // 2. OS was detected (in termination_details when workflow stopped)
-            // 3. There was an OS detection error
-            // 4. Workflow has any steps (OS detection runs first, so it should always be present)
+            // 3. There was a platform detection error
+            // 4. Workflow has any steps (platform detection runs first, so it should always be present)
             if (osDetectionResult || detectedOS !== undefined || osDetectionError || exec.status !== 'pending') {
                 // Read method from detection_method field, ensuring we don't accidentally use fallback model name
                 const osMethod = (osDetectionData.detection_method && typeof osDetectionData.detection_method === 'string') 
@@ -11203,11 +11255,7 @@ async function viewExecution(executionId) {
                 const osMaxSimilarity = (typeof osDetectionData.max_similarity === 'number' && !isNaN(osDetectionData.max_similarity))
                     ? osDetectionData.max_similarity
                     : undefined;
-                // Determine if Windows was detected:
-                // 1. detectedOS is 'Windows', OR
-                // 2. Workflow continued past OS detection (junk_filter or extraction result exists)
                 const workflowContinued = (exec.extraction_result != null) || (exec.junk_filter_result != null);
-                const isWindows = detectedOS === 'Windows' || (workflowContinued && detectedOS !== 'Linux' && detectedOS !== 'MacOS');
                 
                 // Build similarities display
                 let similaritiesHtml = '';
@@ -11216,21 +11264,17 @@ async function viewExecution(executionId) {
                         .map(([os, sim]) => `<div>• ${os}: ${(sim * 100).toFixed(1)}%</div>`)
                         .join('');
                     similaritiesHtml = `<details class="mt-2 w-full">
-                        <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: var(--text-emphasis) !important;">View OS Similarity Scores</summary>
+                        <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: var(--text-emphasis) !important;">View Platform Similarity Scores</summary>
                         <div class="mt-2 w-full bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs text-gray-900 dark:text-white">
                             ${similaritiesList}
                         </div>
                     </details>`;
                 }
                 
-                // Get embedding model from config
-                const embeddingModel = exec.config_snapshot?.agent_models?.['OSDetectionAgent_embedding'] || 
-                                      activeConfig?.agent_models?.['OSDetectionAgent_embedding'] || 
-                                      'ibm-research/CTI-BERT';
-                // OS detection runs first and receives original article content (not junk-filtered)
+                // Platform detection runs first and receives original article content (not junk-filtered)
                 const osInputContentLength = exec.article_content?.length || exec.junk_filter_result?.original_length || 0;
                 const osInputDetails = exec.article_content ? `<details class="mt-2 w-full">
-                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: var(--text-emphasis) !important;">View Content Sent to OS Detection (${osInputContentLength} chars)</summary>
+                    <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: var(--text-emphasis) !important;">View Content Sent to Platform Detection (${osInputContentLength} chars)</summary>
                     <div class="mt-2 w-full max-h-96 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs font-mono text-gray-900 dark:text-white whitespace-pre-wrap break-words">
                         ${exec.article_content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
                     </div>
@@ -11244,31 +11288,33 @@ async function viewExecution(executionId) {
                 } else if (detectedOS !== undefined) {
                     osOutput = `<div class="space-y-1 text-gray-700 dark:text-gray-300">
                         <div><strong>Detected OS:</strong> ${detectedOS}</div>
+                        <div><strong>Platforms Detected:</strong> ${platformsDetectedLabel}</div>
+                        <div><strong>Domains:</strong> ${domainsLabel}</div>
+                        <div><strong>Products:</strong> ${productsLabel}</div>
                         <div><strong>Method:</strong> ${osMethod}</div>
                         <div><strong>Confidence:</strong> ${osConfidence}</div>
                         ${osMaxSimilarity !== undefined ? `<div><strong>Max Similarity:</strong> ${(osMaxSimilarity * 100).toFixed(1)}%</div>` : ''}
-                        <div><strong>Decision:</strong> ${isWindows ? '✅ Continue (Windows detected)' : '❌ Stop (Non-Windows OS)'}</div>
-                        ${!isWindows ? '<div class="mt-2 text-amber-400 dark:text-yellow-400">⚠️ Workflow ended because non-Windows OS was detected.</div>' : ''}
+                        <div><strong>Decision:</strong> Continue to capability routing</div>
                     </div>`;
                 } else if (!osDetectionResult) {
-                    // No OS detection data stored - could be legacy execution
+                    // No platform detection data stored - could be legacy execution
                     const workflowContinued = exec.junk_filter_result !== null && exec.junk_filter_result !== undefined;
                     osOutput = `<div class="space-y-1 text-gray-700 dark:text-gray-300">
-                        <div><strong>Detected OS:</strong> ${workflowContinued ? 'Windows (inferred - workflow continued)' : 'Unknown (no data stored)'}</div>
-                        <div><strong>Decision:</strong> ${workflowContinued ? '✅ Continue' : '❓ Unknown'}</div>
-                        ${!workflowContinued ? `<div class="mt-2 text-xs text-gray-500 dark:text-gray-400">Note: OS detection data not stored for this execution. Check logs for OS detection errors.</div>` : ''}
+                        <div><strong>Platforms Detected:</strong> ${workflowContinued ? 'Unknown (legacy execution continued)' : 'Unknown (no data stored)'}</div>
+                        <div><strong>Decision:</strong> ${workflowContinued ? 'Continue to capability routing' : 'Unknown'}</div>
+                        ${!workflowContinued ? `<div class="mt-2 text-xs text-gray-500 dark:text-gray-400">Note: platform detection data not stored for this execution. Check logs for detection errors.</div>` : ''}
                     </div>`;
                 }
                 
                 steps.push({
                     id: 'os_detection',
-                    shortName: 'OS Detection',
-                    status: osDetectionError ? 'error' : isWindows ? 'pass' : 'stopped',
-                    metric: detectedOS || (osDetectionError ? 'Error' : 'Unknown'),
-                    name: 'Step 0: OS Detection',
+                    shortName: 'Platform Detection',
+                    status: osDetectionError ? 'error' : 'pass',
+                    metric: platformsDetectedLabel,
+                    name: 'Step 0: Platform Detection',
                     input: `<div class="space-y-1">
                         <div>• Original article content (${osInputContentLength} chars)</div>
-                        <div>• Embedding Model: <span class="font-mono text-xs">${embeddingModel}</span></div>
+                        <div>• Method: <span class="font-mono text-xs">deterministic (entity/keyword registry)</span></div>
                     </div>`,
                     inputDetails: osInputDetails,
                     output: osOutput,
@@ -11361,6 +11407,11 @@ async function viewExecution(executionId) {
                 const summary = exec.extraction_result.summary || {};
                 const discreteHuntablesCount = exec.extraction_result.discrete_huntables_count || summary.count || 0;
                 const obsCount = observables.length;
+                const capabilitySkips = Array.isArray(exec.extraction_result.capability_skips)
+                    ? exec.extraction_result.capability_skips
+                    : (Array.isArray(exec.error_log?.extract_agent?.capability_skips)
+                        ? exec.error_log.extract_agent.capability_skips
+                        : []);
                 
                 // Build expandable sections for all findings
                 const detailsSections = [];
@@ -11375,11 +11426,15 @@ async function viewExecution(executionId) {
                                         const type = obs.type || 'Unknown';
                                         const value = obs.value || '';
                                         const platform = obs.platform || 'Unknown';
+                                        const telemetryCategory = obs.telemetry_category || '';
+                                        const logsourceHint = obs.logsource_hint || '';
                                         const sourceContext = obs.source_context || '';
                                         return `<div class="border-b border-gray-300 dark:border-gray-600 pb-2">
                                             <div class="font-semibold text-gray-900 dark:text-white">${idx + 1}. ${type}</div>
                                             <div class="text-gray-700 dark:text-gray-300 mt-1 break-all">${value}</div>
                                             ${platform !== 'Unknown' ? `<div class="text-gray-600 dark:text-gray-400 mt-1">Platform: ${platform}</div>` : ''}
+                                            ${telemetryCategory ? `<div class="text-gray-600 dark:text-gray-400 mt-1">Telemetry: ${telemetryCategory}</div>` : ''}
+                                            ${logsourceHint ? `<div class="text-gray-600 dark:text-gray-400 mt-1">Logsource: ${logsourceHint}</div>` : ''}
                                             ${sourceContext ? `<div class="text-gray-600 dark:text-gray-400 mt-1 italic">Context: ${sourceContext}</div>` : ''}
                                         </div>`;
                                     }).join('')}
@@ -11388,6 +11443,29 @@ async function viewExecution(executionId) {
                         </details>`);
                 }
                 
+                // Capability skips
+                if (capabilitySkips.length > 0) {
+                    detailsSections.push(`<details class="mt-2 w-full">
+                            <summary class="cursor-pointer text-xs !text-white dark:!text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: white !important;">View Capability Skips (${capabilitySkips.length})</summary>
+                            <div class="mt-2 w-full bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs">
+                                <div class="space-y-2 text-gray-900 dark:text-white">
+                                    ${capabilitySkips.map(skip => {
+                                        const extractor = skip.extractor || 'Unknown extractor';
+                                        const reason = skip.reason || skip.reason_code || 'Skipped by capability routing';
+                                        const supported = Array.isArray(skip.supported_platforms) ? skip.supported_platforms.join(', ') : 'Unknown';
+                                        const detected = Array.isArray(skip.detected_platforms) ? skip.detected_platforms.join(', ') : 'Unknown';
+                                        return `<div class="border-b border-gray-300 dark:border-gray-600 pb-2">
+                                            <div><strong>${extractor}</strong></div>
+                                            <div>Reason: ${reason}</div>
+                                            <div>Supported platforms: ${supported}</div>
+                                            <div>Detected platforms: ${detected}</div>
+                                        </div>`;
+                                    }).join('')}
+                                </div>
+                            </div>
+                        </details>`);
+                }
+
                 // Summary
                 if (summary && (summary.count !== undefined || summary.platforms_detected || summary.source_url)) {
                     detailsSections.push(`<details class="mt-2 w-full">
@@ -11458,6 +11536,7 @@ async function viewExecution(executionId) {
                         <div><strong>Discrete Huntables:</strong> ${discreteHuntablesCount}</div>
                         <div><strong>Observables:</strong> ${obsCount} items</div>
                         ${summary.platforms_detected && summary.platforms_detected.length > 0 ? `<div><strong>Platforms:</strong> ${summary.platforms_detected.join(', ')}</div>` : ''}
+                        ${capabilitySkips.length > 0 ? `<div><strong>Capability Skips:</strong> ${capabilitySkips.length}</div>` : ''}
                     </div>`,
                     details: detailsSections.join('')
                 });
@@ -11473,12 +11552,14 @@ async function viewExecution(executionId) {
                         { key: 'hunt_queries', name: 'HuntQueriesExtract', display: 'Hunt Queries Extraction', icon: '🔍', order: 3 },
                         { key: 'registry_artifacts', name: 'RegistryExtract', display: 'Registry Artifacts Extraction', icon: '🗝️', order: 4 },
                         { key: 'windows_services', name: 'ServicesExtract', display: 'Windows Services Extraction', icon: '⚙️', order: 5 },
-                        { key: 'scheduled_tasks', name: 'ScheduledTasksExtract', display: 'Scheduled Tasks Extraction', icon: '\u{1F4C5}', order: 6 }
+                        { key: 'scheduled_tasks', name: 'ScheduledTasksExtract', display: 'Scheduled Tasks Extraction', icon: '\u{1F4C5}', order: 6 },
+                        { key: 'network_indicators', name: 'NetworkIndicatorExtract', display: 'Network Indicators Extraction', icon: '\u{1F310}', order: 7 }
                     ];
 
                     const conversationLog = exec.error_log?.extract_agent?.conversation_log || [];
                     const subAgentDetails = subAgents.map(subAgent => {
                         const result = subresults[subAgent.key];
+                        const skipRecord = capabilitySkips.find(skip => skip.extractor === subAgent.name);
                         const logEntry = conversationLog.find(e => e.agent === subAgent.name);
                         const attentionPreprocessor = logEntry?.attention_preprocessor;
                         // Ensure items is always an array - handle case where items is a string (e.g., process_lineage)
@@ -11516,6 +11597,11 @@ async function viewExecution(executionId) {
                                 ${JSON.stringify(raw, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;')}
                             </div>
                         </details>` : '';
+                        const skipHtml = skipRecord ? `<div class="mt-1 text-xs text-amber-300 dark:text-amber-300">
+                                            <div>• Skipped: ${skipRecord.reason || skipRecord.reason_code || 'capability routing'}</div>
+                                            ${Array.isArray(skipRecord.supported_platforms) ? `<div>• Supported platforms: ${skipRecord.supported_platforms.join(', ')}</div>` : ''}
+                                            ${Array.isArray(skipRecord.detected_platforms) ? `<div>• Detected platforms: ${skipRecord.detected_platforms.join(', ')}</div>` : ''}
+                                        </div>` : '';
 
                         const isProcessLineage = subAgent.key === 'process_lineage';
                         const subAgentStyle = 'style="color: var(--text-emphasis) !important;"';
@@ -11537,7 +11623,7 @@ async function viewExecution(executionId) {
                                 </div>
                                 <div>
                                     <strong class="text-gray-600 dark:text-gray-300 text-sm">Outputs:</strong>
-                                    ${count > 0 ? `
+                                    ${skipRecord ? skipHtml : count > 0 ? `
                                         <div class="mt-1 text-xs text-gray-600 dark:text-gray-300">
                                             <div>• Items Extracted: <strong class="text-gray-600 dark:text-gray-300">${count}</strong></div>
                                         </div>
@@ -12806,6 +12892,7 @@ function refreshExecutions() {
 // Queue Functions
 let currentRuleId = null;
 let isEditMode = false;
+let isCreateMode = false; // true while authoring a brand-new "from scratch" draft in the rule modal
 let currentEnrichedYaml = null; // Track current enriched state for iterative enrichment
 let enrichIteration = 0; // Track number of enrichment iterations
 let originalYaml = '';
@@ -12923,6 +13010,27 @@ function getQueueStatusBadge(status) {
     const cls = known.includes(status) ? status : '';
     const label = status ? status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Unknown';
     return `<span class="q-badge ${cls}">${label}</span>`;
+}
+
+function formatQueuePlatformLabel(platform) {
+    const value = Array.isArray(platform) ? platform.find(Boolean) : platform;
+    if (!value) return '';
+    const normalized = String(value).trim().toLowerCase();
+    const labels = {
+        windows: 'Windows',
+        linux: 'Linux',
+        macos: 'macOS',
+        unknown: 'Unknown',
+        cross: 'Cross-platform',
+        'cross-platform': 'Cross-platform',
+    };
+    return labels[normalized] || String(value).trim();
+}
+
+function getQueuePlatformBadge(metadata) {
+    const label = formatQueuePlatformLabel(metadata?.platform);
+    if (!label) return '';
+    return `<span class="q-badge platform">${escapeHtml(label)}</span>`;
 }
 
 function getObservablesUsedCount(rule) {
@@ -13049,6 +13157,7 @@ function renderQueue() {
         const title = metadata.title || 'Untitled Rule';
         const observablesUsedCount = getObservablesUsedCount(rule);
         const isSelected = queueSelectedIds.has(rule.id);
+        const platformBadge = getQueuePlatformBadge(metadata);
         const rowClass = isSelected ? ' class="q-row-selected"' : '';
         const checked = isSelected ? ' checked' : '';
         const canActOn = (rule.status === 'pending' || rule.status === 'needs_review');
@@ -13063,11 +13172,14 @@ function renderQueue() {
                 <td class="q-status-indicator-cell" aria-hidden="true"></td>
                 <td class="q-cell-id" style="padding-left:24px">${rule.id}</td>
                 <td class="q-cell-article">
-                    <a href="/articles/${rule.article_id}" title="${((rule.article_title || 'Article ' + rule.article_id) + '').replace(/"/g, '&quot;')}">
-                        ${rule.article_title || 'Article ' + rule.article_id}
-                    </a>
+                    ${rule.article_id
+                        ? `<a href="/articles/${rule.article_id}" title="${((rule.article_title || 'Article ' + rule.article_id) + '').replace(/"/g, '&quot;')}">${rule.article_title || 'Article ' + rule.article_id}</a>`
+                        : `<span class="italic" style="color: var(--text-muted-slate)">Manual draft</span>`}
                 </td>
-                <td class="q-cell-title" title="${(title || '').replace(/"/g, '&quot;')}">${title}</td>
+                <td class="q-cell-title" title="${escapeHtml(title)}">
+                    <span class="q-title-primary">${escapeHtml(title)}</span>
+                    ${platformBadge}
+                </td>
                 <td class="q-cell-obs">${observablesUsedCount}</td>
                 <td class="q-cell-job">
                     ${Number.isInteger(rule.workflow_execution_id) ? `<a href="#executions" onclick="switchTab('executions'); setTimeout(() => viewExecution(${rule.workflow_execution_id}), 100); return false;" title="Open workflow job ${rule.workflow_execution_id}">${rule.workflow_execution_id}</a>` : '-'}
@@ -13136,14 +13248,151 @@ function goToQueuePage(pageNum) {
 
 var cachedObservablesForRulePreview = null;
 
+// --- Author a brand-new "from scratch" SIGMA rule ---------------------------
+
+function ruleSkeletonYaml(author) {
+    // Skeleton draft: title, description, author, status, logsource, detection.
+    // Indented with 4 spaces to match standard Sigma YAML indentation conventions; the user edits this in place.
+    return [
+        'title: Place draft rule title here',
+        'description: Place a short description of what this rule detects here',
+        'status: experimental',
+        'author: ' + author,
+        'logsource:',
+        '    product: windows',
+        '    category: process_creation',
+        'detection:',
+        '    selection:',
+        "        # Place your detection fields here, for example:",
+        "        # Image|endswith: '\\\\example.exe'",
+        "        # CommandLine|contains: 'suspicious-string'",
+        '    condition: selection',
+        ''
+    ].join('\n');
+}
+
+async function createNewRule() {
+    isCreateMode = true;
+    isEditMode = false;
+    currentRuleId = null;
+    originalYaml = '';
+    editedYaml = '';
+    resetQualityReviewCard();
+
+    // Default the author from Settings (sigmaAuthor) when available.
+    let author = 'Huntable CTI Studio User';
+    try {
+        const r = await fetch('/api/settings');
+        if (r.ok) {
+            const d = await r.json();
+            const s = d.settings || {};
+            if (s.sigmaAuthor && String(s.sigmaAuthor).trim()) author = String(s.sigmaAuthor).trim();
+        }
+    } catch (e) { /* fall back to default author */ }
+
+    pushModal('ruleModal', false);
+    renderCreateRuleForm(author);
+}
+
+function renderCreateRuleForm(author) {
+    const titleEl = document.getElementById('ruleModalTitle');
+    if (titleEl) titleEl.textContent = 'Create New SIGMA Rule';
+
+    const skeleton = ruleSkeletonYaml(author);
+    document.getElementById('rulePreviewContent').innerHTML = `
+        <div class="space-y-4 text-gray-600 dark:text-gray-300">
+            <p class="text-sm italic text-gray-400">Place your draft rule here. Edit the skeleton below &mdash; fill in the title, description, author, status, log source, and detection &mdash; then save it to the queue.</p>
+            <div>
+                <h4 class="font-semibold mb-2">Rule YAML:</h4>
+                <textarea id="createYamlEditor" class="w-full bg-gray-100 dark:bg-gray-900 p-4 rounded border border-gray-300 dark:border-gray-600 font-mono text-xs text-gray-600 dark:text-gray-300" rows="22" style="font-family: 'JetBrains Mono', monospace;">${escapeHtml(skeleton)}</textarea>
+            </div>
+            <div id="createRuleError" class="hidden p-3 bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 rounded text-sm text-red-700 dark:text-red-300"></div>
+        </div>
+    `;
+    updateActionButtons();
+    setTimeout(() => {
+        const editor = document.getElementById('createYamlEditor');
+        if (editor) editor.focus();
+    }, 100);
+}
+
+async function saveNewRule() {
+    const editor = document.getElementById('createYamlEditor');
+    const errEl = document.getElementById('createRuleError');
+    const showError = (msg) => {
+        if (errEl) { errEl.textContent = msg; errEl.classList.remove('hidden'); }
+    };
+    if (!editor) return;
+
+    const yamlText = editor.value.trim();
+    if (!yamlText) {
+        showError('Rule YAML cannot be empty.');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/sigma-queue/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rule_yaml: yamlText })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (response.ok && data.success) {
+            isCreateMode = false;
+            showNotification('Draft rule added to queue', 'success');
+            // Refresh the queue so the saved row is available, then transition this
+            // same modal into the standard Preview of the new rule. Validate / Enrich /
+            // Similarity Search / Approve all act on a saved queue ID, so they only
+            // become available once the draft has been persisted.
+            queuePage = 1;
+            const statusFilterEl = document.getElementById('queueStatusFilter');
+            if (statusFilterEl && statusFilterEl.value) statusFilterEl.value = ''; // ensure the new pending row is visible
+            await loadQueue();
+            const saved = queue.find(r => r.id === data.queue_id);
+            if (saved) {
+                // In-place transition (modal already open): mirror previewRule() without re-pushing.
+                currentRuleId = data.queue_id;
+                isEditMode = false;
+                originalYaml = saved.rule_yaml;
+                editedYaml = saved.rule_yaml;
+                const titleEl = document.getElementById('ruleModalTitle');
+                if (titleEl) titleEl.textContent = 'SIGMA Rule Preview';
+                updateURLParameter('previewId', data.queue_id);
+                renderRulePreview(saved);
+            } else {
+                closeRuleModal();
+            }
+        } else {
+            const msg = data.detail || 'Failed to add rule to queue';
+            showError(typeof msg === 'string' ? msg : JSON.stringify(msg));
+        }
+    } catch (e) {
+        showError('Network error: ' + e.message);
+    }
+}
+
+// Validate / Enrich / Similarity Search all act on a saved queue ID. From the
+// create modal, persist the draft first (which transitions the modal into the
+// standard Preview), then run the requested action against the saved rule.
+async function createThenRun(action) {
+    await saveNewRule();
+    if (isCreateMode || !currentRuleId) return; // save failed; error already shown in-modal
+    if (action === 'validate') validateRule();
+    else if (action === 'enrich') openEnrichModal();
+    else if (action === 'similar') checkSimilarRulesForQueue();
+}
+
 async function previewRule(ruleId) {
     const rule = queue.find(r => r.id === ruleId);
     if (!rule) return;
     
     currentRuleId = ruleId;
     isEditMode = false;
+    isCreateMode = false;
     originalYaml = rule.rule_yaml;
     editedYaml = rule.rule_yaml;
+    const titleEl = document.getElementById('ruleModalTitle');
+    if (titleEl) titleEl.textContent = 'SIGMA Rule Preview';
     resetQualityReviewCard();
     
     // Update URL with previewId parameter
@@ -13186,6 +13435,7 @@ function renderRulePreview(rule, observablesData) {
     observablesData = observablesData ?? cachedObservablesForRulePreview;
     const metadata = rule.rule_metadata || {};
     const similarityScores = rule.similarity_scores || [];
+    const platformBadge = getQueuePlatformBadge(metadata);
     
     // Populate the Sigma agent label from workflow config (Validate always uses the workflow Sigma agent LLM)
     setTimeout(() => seedValidateAgentLabel(), 100);
@@ -13231,7 +13481,8 @@ function renderRulePreview(rule, observablesData) {
     const content = `
         <div class="space-y-4 text-gray-600 dark:text-gray-300">
             <div><strong>Rule ID:</strong> ${rule.id}</div>
-            <div><strong>Article:</strong> <a href="/articles/${rule.article_id}" class="text-purple-600">${rule.article_title || 'Article ' + rule.article_id}</a></div>
+            ${platformBadge ? `<div><strong>Platform:</strong> ${platformBadge}</div>` : ''}
+            <div><strong>Article:</strong> ${rule.article_id ? `<a href="/articles/${rule.article_id}" class="text-purple-600">${escapeHtml(rule.article_title || 'Article ' + rule.article_id)}</a>` : '<span class="italic" style="color: var(--text-muted-slate)">None (hand-authored draft)</span>'}</div>
             ${Number.isInteger(rule.workflow_execution_id) ? `<div><strong>Job:</strong> <a href="#executions" class="text-purple-600" onclick="closeModal(); switchTab('executions'); setTimeout(() => viewExecution(${rule.workflow_execution_id}), 100); return false;" title="Open workflow execution ${rule.workflow_execution_id}">Execution #${rule.workflow_execution_id}</a></div>` : ''}
             <div><strong>Max Similarity:</strong> ${typeof rule.max_similarity === 'number' ? (rule.max_similarity * 100).toFixed(1) + '%' : 'N/A'}</div>
             ${similarRulesHtml}
@@ -13299,7 +13550,28 @@ function getCurrentRuleYamlFromModal() {
 function updateActionButtons() {
     const buttonContainer = document.getElementById('actionButtons');
     if (!buttonContainer) return;
-    
+
+    if (isCreateMode) {
+        buttonContainer.innerHTML = `
+            <button id="createSaveBtn" onclick="saveNewRule()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md">
+                <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Save to Queue
+            </button>
+            <button onclick="createThenRun('validate')" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md" title="Saves the draft to the queue, then validates it with the Sigma agent.">
+                <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg> Validate Rule
+            </button>
+            <button onclick="createThenRun('enrich')" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md" title="Saves the draft to the queue, then opens AI enrichment.">
+                <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"/></svg> Enrich
+            </button>
+            <button onclick="createThenRun('similar')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md" title="Saves the draft to the queue, then searches for similar rules.">
+                <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg> Similarity Search
+            </button>
+            <button onclick="closeRuleModal()" class="px-4 py-2 border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg">
+                Cancel
+            </button>
+        `;
+        return;
+    }
+
     if (isEditMode) {
         buttonContainer.innerHTML = `
             <button onclick="saveYamlEdit()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
@@ -13467,8 +13739,12 @@ function closeRuleModal() {
     
     currentRuleId = null;
     isEditMode = false;
+    isCreateMode = false;
     originalYaml = '';
     editedYaml = '';
+    // Restore the default modal title (create mode swaps it out)
+    const titleEl = document.getElementById('ruleModalTitle');
+    if (titleEl) titleEl.textContent = 'SIGMA Rule Preview';
     resetQualityReviewCard();
     // Remove previewId from URL
     removeURLParameter('previewId');
@@ -16590,9 +16866,9 @@ function showHelp(fieldName) {
                       <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> 0.4-0.6 (0.5 is balanced). Lower = stricter (fewer duplicates), Higher = more lenient (more rules queued)</p>`
         },
         'osDetectionAgent': {
-            title: 'OS Detection',
+            title: 'Platform Detection',
             content: `<p class="mb-2"><strong>Description:</strong></p>
-                      <p class="mb-2">Determines the target operating system of each threat intelligence article. Articles that do not match the selected OS are filtered out before extraction begins.</p>
+                      <p class="mb-2">Determines the target platform of each threat intelligence article. The result is used to route extractors by their platform capabilities before extraction begins.</p>
                       <p class="mb-2"><strong>Embedding Model:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li><strong>CTI-BERT:</strong> Specialized for cybersecurity threat intelligence (recommended)</li>
@@ -16602,8 +16878,8 @@ function showHelp(fieldName) {
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li><strong>Step 1:</strong> Keyword scan — if 3 or more Windows indicators are found (executables, registry paths, Event IDs, etc.), Windows is returned immediately</li>
                           <li><strong>Step 2:</strong> Embedding classification — CTI-BERT or SEC-BERT compares the article against OS indicator profiles</li>
-                          <li>Detects: Windows, Linux, MacOS, multiple, or Unknown</li>
-                          <li>Workflow continues only for articles matching the selected Target OS</li>
+                          <li>Detects: Windows, Linux, MacOS, Cross-platform, or Unknown</li>
+                          <li>Workflow continues to extractor capability routing; unsupported extractors are skipped with an explicit reason</li>
                       </ul>
                       <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> CTI-BERT with default settings. No LLM is used — detection is fast and runs entirely on local embeddings.</p>`
         },
@@ -16639,6 +16915,7 @@ function showHelp(fieldName) {
                           <li><strong>RegistryExtract:</strong> Windows registry artifacts</li>
                           <li><strong>ServicesExtract:</strong> Malicious Windows service definitions</li>
                           <li><strong>ScheduledTasksExtract:</strong> Scheduled task identity, triggers, and principal metadata</li>
+                          <li><strong>NetworkIndicatorExtract:</strong> Network indicators of compromise (domains, IPs, URLs, user-agents)</li>
                       </ul>
                       <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Rationale:</strong> Verbatim literal extraction only. Qwen Instruct models are strongest at constraint obedience. Coder variant helps preserve exact token sequences in JSON.</p>`
         },
@@ -16780,6 +17057,25 @@ function showHelp(fieldName) {
                           <li>Operation: created, modified, deleted, queried, executed</li>
                       </ul>
                       <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Rationale:</strong> Scheduled task telemetry is observable via Security EID 4698/4699/4700/4701/4702 and Microsoft-Windows-TaskScheduler/Operational. Identity and trigger metadata are the detection-relevant fields at that source.</p>`
+        },
+        'networkIndicatorExtract': {
+            title: 'Network Indicator Extraction Agent',
+            content: `<p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">Specialized sub-agent for extracting network indicators of compromise (domains, IP addresses, URLs, and user-agent strings) from threat intelligence articles.</p>
+                      <p class="mb-2"><strong>Hard rules (contract):</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Extract network indicators (domains, IPv4/IPv6 addresses, URLs, user-agent strings) exactly as written, only when explicitly stated as attacker infrastructure or observed network activity.</li>
+                          <li>Preserve indicator values verbatim (including defanging such as hxxp:// or 1.2.3[.]4 as written); do not normalize or re-fang.</li>
+                          <li>Do NOT extract command lines (CmdlineExtract owns them), registry paths (RegistryExtract), process lineage (ProcTreeExtract), or detection logic (HuntQueriesExtract).</li>
+                      </ul>
+                      <p class="mb-2"><strong>What it extracts:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Domains and fully-qualified hostnames (e.g., c2.example.com)</li>
+                          <li>IPv4 / IPv6 addresses</li>
+                          <li>URLs and URI paths (including defanged forms)</li>
+                          <li>User-agent strings tied to malicious traffic</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Rationale:</strong> Network indicators are observable via proxy, DNS, firewall, and EDR network telemetry. Verbatim, defang-preserving extraction keeps the indicators pivot-ready for detection and threat hunting.</p>`
         },
         'sigmaEnrich': {
             title: 'How AI Rule Enrichment Works',
@@ -16991,15 +17287,22 @@ function startLiveExecutionStream(executionId) {
                         data.messages.forEach((msg, idx) => {
                             const role = msg.role || 'user';
                             const content = msg.content || '';
-                            // COMMENTED OUT: Truncation control
-                            // const preview = content.length > 500 ? content.substring(0, 500) + '...' : content;
-                            appendOutput(`  ${role.toUpperCase()}: ${content}`, 'text-gray-400');
+                            const preview = content.length > 500 ? content.substring(0, 500) + '...' : content;
+                            appendOutput(`  ${role.toUpperCase()}: ${preview}`, 'text-gray-400');
                         });
                     }
                     if (data.response) {
-                        // COMMENTED OUT: Truncation control
-                        // const responsePreview = data.response.length > 1000 ? data.response.substring(0, 1000) + '...' : data.response;
-                        appendOutput(`  RESPONSE: ${data.response}`, 'text-green-300');
+                        const responsePreview = data.response.length > 1000 ? data.response.substring(0, 1000) + '...' : data.response;
+                        appendOutput(`  RESPONSE: ${responsePreview}`, 'text-green-300');
+                    }
+                    if (data.generated_rule_count !== undefined) {
+                        appendOutput(`  Generated Rules: ${data.generated_rule_count}`, 'text-yellow-300');
+                    }
+                    if (data.valid_rule_count !== undefined) {
+                        appendOutput(`  Valid Rules: ${data.valid_rule_count}`, 'text-green-300');
+                    }
+                    if (data.invalid_rule_count !== undefined) {
+                        appendOutput(`  Invalid Rules: ${data.invalid_rule_count}`, 'text-red-300');
                     }
                     if (data.score !== undefined) {
                         appendOutput(`  Score: ${data.score}/10`, 'text-yellow-300');

@@ -552,6 +552,7 @@ sources:
         date_selectors: ["meta[property='article:published_time']::attr(content)"]
         body_selectors: ["article", "main", ".content", ".post-content"]
       min_content_length: 2000
+      image_ocr_enabled: false
     description: "Comprehensive cybersecurity news coverage"
 
   # Bleeping Computer
@@ -576,6 +577,7 @@ sources:
         date_selectors: ["meta[property='article:published_time']::attr(content)"]
         body_selectors: ["article", "main", ".content", ".post-content"]
       min_content_length: 2000
+      image_ocr_enabled: false
     description: "Good security news with malware analysis"
 
   # Dark Reading
@@ -594,6 +596,7 @@ sources:
         date_selectors: ["meta[property='article:published_time']::attr(content)"]
         body_selectors: ["article", "main", ".content", ".post-content"]
       min_content_length: 2000
+      image_ocr_enabled: false
     description: "Professional cybersecurity news and analysis"
 
   # SecurityWeek
@@ -613,6 +616,7 @@ sources:
         date_selectors: ["meta[property='article:published_time']::attr(content)"]
         body_selectors: ["article", "main", ".content", ".post-content"]
       min_content_length: 2000
+      image_ocr_enabled: false
     description: "General cybersecurity news and industry updates"
 
   # Infosecurity Magazine
@@ -631,6 +635,7 @@ sources:
         date_selectors: ["meta[property='article:published_time']::attr(content)"]
         body_selectors: ["article", "main", ".content", ".post-content"]
       min_content_length: 2000
+      image_ocr_enabled: false
     description: "Security news and industry insights"
 
   # SANS Internet Storm Center

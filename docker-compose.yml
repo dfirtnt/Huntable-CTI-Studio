@@ -90,6 +90,7 @@ services:
       - LMSTUDIO_CONTEXT_LENGTH_qwen_qwen3_4b_2507=16384
       # - LANGGRAPH_SERVER_URL=${LANGGRAPH_SERVER_URL:-http://langgraph-server:2024}
       - WORKFLOW_LMSTUDIO_ENABLED=${WORKFLOW_LMSTUDIO_ENABLED:-true}
+      - OCR_INGEST_ENABLED=${OCR_INGEST_ENABLED:-true}
       - PROCEED_WITHOUT_LMSTUDIO=${PROCEED_WITHOUT_LMSTUDIO:-}
       - TZ=America/New_York
     ports:
@@ -159,6 +160,7 @@ services:
       - LMSTUDIO_CONTEXT_LENGTH_deepseek_deepseek_r1_0528_qwen3_8b=4096
       - LMSTUDIO_CONTEXT_LENGTH_qwen_qwen3_4b_2507=16384
       - WORKFLOW_LMSTUDIO_ENABLED=${WORKFLOW_LMSTUDIO_ENABLED:-true}
+      - OCR_INGEST_ENABLED=${OCR_INGEST_ENABLED:-true}
       - PROCEED_WITHOUT_LMSTUDIO=${PROCEED_WITHOUT_LMSTUDIO:-}
     volumes:
       - ./src:/app/src
@@ -315,6 +317,7 @@ services:
       - CHATGPT_API_KEY=${CHATGPT_API_KEY}
       - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
       - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
+      - OCR_INGEST_ENABLED=${OCR_INGEST_ENABLED:-true}
     volumes:
       - ./src:/app/src
       - ./config:/app/config

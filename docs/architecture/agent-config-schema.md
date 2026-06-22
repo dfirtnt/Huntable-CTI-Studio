@@ -11,7 +11,7 @@ Workflow agent configuration uses a **normalized hierarchical schema (v2)** with
 - **Dedicated sections**:
   - **Thresholds**: MinHuntScore, RankingThreshold, SimilarityThreshold, JunkFilterThreshold.
   - **Agents**: All LLM agents (RankAgent, ExtractAgent, SigmaAgent, and sub-agents: CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract).
-  - **Embeddings**: OsDetection and Sigma (moved out of `agent_models`).
+  - **Embeddings**: Sigma only (Sigma similarity). `OsDetection` was removed 2026-06-22 — platform detection is deterministic/entity-driven and loads no embedding model.
   - **Features**: SigmaFallbackEnabled, CmdlineAttentionPreprocessorEnabled, ProcTreeAttentionPreprocessorEnabled. (Rank Agent enablement is controlled via `Agents.RankAgent.Enabled`. The `OSDetectionFallback` agent was removed; any stale `Agents.OSDetectionFallback` entries are stripped automatically by the v1→v2 migration.)
   - **Prompts**: Per-agent prompt/instructions (content unchanged; relocation only).
   - **Execution**: ExtractAgentSettings.DisabledAgents, OsDetectionSelectedOs.

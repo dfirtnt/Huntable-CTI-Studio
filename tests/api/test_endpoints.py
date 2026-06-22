@@ -454,6 +454,23 @@ class TestCriticalAPIs:
     @pytest.mark.api
     @pytest.mark.smoke
     @pytest.mark.asyncio
+    async def test_health_reports_tesseract(self, async_client: httpx.AsyncClient):
+        """Tesseract availability is always reported in /api/health/services."""
+        response = await async_client.get("/api/health/services")
+        assert response.status_code == 200
+        data = response.json()
+        services = data.get("services", {})
+        assert "tesseract" in services, "tesseract key missing from services health"
+        assert services["tesseract"]["status"] in (
+            "ok",
+            "missing",
+            "error",
+            "not_configured",
+        ), f"unexpected tesseract status: {services['tesseract']['status']}"
+
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.asyncio
     async def test_celery_worker_health(self, async_client: httpx.AsyncClient):
         """Test Celery worker health endpoint."""
         response = await async_client.get("/api/health/celery")

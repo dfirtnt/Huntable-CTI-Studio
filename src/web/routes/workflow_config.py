@@ -2274,6 +2274,7 @@ def validate_workflow_config():
             "RegistryExtract",
             "ServicesExtract",
             "ScheduledTasksExtract",
+            "NetworkIndicatorExtract",
         }
         agent_prompts = current_config.agent_prompts or {}
         for agent_name, prompt_data in agent_prompts.items():

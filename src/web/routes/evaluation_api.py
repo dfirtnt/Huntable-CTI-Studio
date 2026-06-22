@@ -22,10 +22,12 @@ from src.database.models import (
     AgenticWorkflowExecutionTable,
     AppSettingsTable,
     ArticleTable,
+    SigmaEvaluationTable,
     SubagentEvaluationTable,
 )
 from src.services.eval_bundle_service import EvalBundleService, compute_sha256_json
 from src.services.llm_service import LLMService
+from src.services.sigma_eval_service import load_sigma_ground_truth
 from src.utils.subagent_utils import build_subagent_lookup_values, normalize_subagent_name
 from src.worker.celery_app import trigger_agentic_workflow
 
@@ -217,6 +219,7 @@ _SUBAGENT_TO_AGENT = {
     "registry_artifacts": "RegistryExtract",
     "windows_services": "ServicesExtract",
     "scheduled_tasks": "ScheduledTasksExtract",
+    "network_indicators": "NetworkIndicatorExtract",
 }
 
 
@@ -242,6 +245,9 @@ def _actual_count_from_agent_result(subagent_name: str, agent_result: dict) -> i
         return len(items) if isinstance(items, list) else agent_result.get("count")
     if subagent_name == "scheduled_tasks":
         items = agent_result.get("scheduled_tasks") or agent_result.get("items", [])
+        return len(items) if isinstance(items, list) else agent_result.get("count")
+    if subagent_name == "network_indicators":
+        items = agent_result.get("network_indicators") or agent_result.get("items", [])
         return len(items) if isinstance(items, list) else agent_result.get("count")
     n = agent_result.get("count")
     if n is not None:
@@ -286,7 +292,7 @@ def _load_static_eval_articles(subagent_key: str) -> dict[str, dict]:
     out: dict[str, dict] = {}
     # Strict allowlist on subagent_key (defense-in-depth above the resolve/startswith
     # containment guard below). Real keys are lowercase identifiers like "cmdline",
-    # "hunt_queries", "process_lineage" — never contain "/" or ".".
+    # "hunt_queries", "process_lineage" - never contain "/" or ".".
     if not isinstance(subagent_key, str) or not _SUBAGENT_KEY_RE.fullmatch(subagent_key):
         return out
     data_dir = (_EVAL_ARTICLES_DATA_DIR / subagent_key).resolve()
@@ -814,6 +820,10 @@ async def get_execution_commandlines(
                         commandlines = [
                             obs.get("value", str(obs)) for obs in observables if obs.get("type") == "scheduled_tasks"
                         ]
+                    elif result_key == "network_indicators":
+                        commandlines = [
+                            obs.get("value", str(obs)) for obs in observables if obs.get("type") == "network_indicators"
+                        ]
 
                 # Also check subresults
                 if not commandlines:
@@ -866,6 +876,14 @@ async def get_execution_commandlines(
                             )
                             if isinstance(sched_result, dict):
                                 items = sched_result.get("items", [])
+                                if items:
+                                    commandlines = items if isinstance(items, list) else [items]
+                        elif result_key == "network_indicators":
+                            network_result = subresults.get("network_indicators", {}) or subresults.get(
+                                "NetworkIndicatorExtract", {}
+                            )
+                            if isinstance(network_result, dict):
+                                items = network_result.get("items", [])
                                 if items:
                                     commandlines = items if isinstance(items, list) else [items]
 
@@ -1348,6 +1366,211 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
         raise
     except Exception as e:
         logger.error(f"Error running subagent eval: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+class SigmaEvalRunRequest(BaseModel):
+    """Request to run the end-to-end Sigma rule evaluation."""
+
+    article_urls: list[str]
+    concurrency_throttle_seconds: float = Field(default=5.0, ge=0.0, le=60.0)
+
+
+def _sigma_eval_config_snapshot(active_config: AgenticWorkflowConfigTable) -> dict:
+    """Config snapshot for a Sigma eval execution.
+
+    Runs the full pipeline through generate_sigma (skip_sigma_generation=False)
+    while bypassing the OS-detection and ranking gates, and flags sigma_eval so
+    the workflow scores the rules and skips queue promotion.
+    """
+    return {
+        "min_hunt_score": active_config.min_hunt_score,
+        "ranking_threshold": active_config.ranking_threshold,
+        "similarity_threshold": active_config.similarity_threshold,
+        "junk_filter_threshold": active_config.junk_filter_threshold,
+        "agent_models": active_config.agent_models or {},
+        "agent_prompts": active_config.agent_prompts or {},
+        "config_id": active_config.id,
+        "config_version": active_config.version,
+        "eval_run": True,
+        "sigma_eval": True,
+        "skip_os_detection": True,
+        "skip_rank_agent": True,
+        "skip_sigma_generation": False,
+        "cmdline_attention_preprocessor_enabled": getattr(
+            active_config, "cmdline_attention_preprocessor_enabled", True
+        ),
+        "proc_tree_attention_preprocessor_enabled": getattr(
+            active_config, "proc_tree_attention_preprocessor_enabled", True
+        ),
+    }
+
+
+@router.get("/sigma-eval-articles")
+async def get_sigma_eval_articles(request: Request):
+    """List the fixture articles available for the Sigma eval (from ground truth)."""
+    try:
+        ground_truth = load_sigma_ground_truth()
+        urls = list(ground_truth.keys())
+        url_to_id = resolve_articles_by_urls(urls) if urls else {}
+        articles = [
+            {
+                "url": url,
+                "expected_rule_count": entry.get("expected_rule_count", 0),
+                "in_database": url_to_id.get(url) is not None,
+            }
+            for url, entry in ground_truth.items()
+        ]
+        return {"success": True, "count": len(articles), "articles": articles}
+    except Exception as e:
+        logger.error(f"Error listing sigma eval articles: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@router.post("/run-sigma-eval")
+async def run_sigma_eval(request: Request, eval_request: SigmaEvalRunRequest):
+    """Run the end-to-end Sigma rule eval against selected articles.
+
+    For each article, runs the full pipeline (extract -> generate_sigma) and
+    scores the generated rules against config/eval_articles_data/sigma/ground_truth.json.
+    """
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        try:
+            active_config = (
+                db_session.query(AgenticWorkflowConfigTable)
+                .filter(AgenticWorkflowConfigTable.is_active.is_(True))
+                .order_by(AgenticWorkflowConfigTable.version.desc())
+                .first()
+            )
+            if not active_config:
+                raise HTTPException(status_code=404, detail="No active workflow config found")
+
+            ground_truth = load_sigma_ground_truth()
+            urls_list = list(eval_request.article_urls)
+            url_to_id = resolve_articles_by_urls(urls_list)
+
+            executions = []
+            for url in urls_list:
+                gt_entry = ground_truth.get(url, {})
+                expected_rules = gt_entry.get("expected_rules", [])
+                expected_rule_count = gt_entry.get("expected_rule_count", len(expected_rules))
+                article_id = url_to_id.get(url)
+
+                if not article_id:
+                    logger.warning("Sigma eval: article not found for URL: %s", url)
+                    db_session.add(
+                        SigmaEvaluationTable(
+                            article_url=url,
+                            article_id=None,
+                            expected_rule_count=expected_rule_count,
+                            expected_rules=expected_rules,
+                            workflow_config_id=active_config.id,
+                            workflow_config_version=active_config.version,
+                            status="failed",
+                        )
+                    )
+                    continue
+
+                execution = AgenticWorkflowExecutionTable(
+                    article_id=article_id,
+                    status="pending",
+                    config_snapshot=_sigma_eval_config_snapshot(active_config),
+                )
+                db_session.add(execution)
+                db_session.flush()  # get execution.id
+
+                eval_record = SigmaEvaluationTable(
+                    article_url=url,
+                    article_id=article_id,
+                    expected_rule_count=expected_rule_count,
+                    expected_rules=expected_rules,
+                    workflow_execution_id=execution.id,
+                    workflow_config_id=active_config.id,
+                    workflow_config_version=active_config.version,
+                    status="pending",
+                )
+                db_session.add(eval_record)
+                executions.append({"execution_id": execution.id, "article_id": article_id, "url": url})
+
+            db_session.commit()
+
+            per_step_countdown = _EVAL_STAGGER_SECONDS + eval_request.concurrency_throttle_seconds
+            for idx, exec_info in enumerate(executions):
+                trigger_agentic_workflow.apply_async(
+                    args=[exec_info["article_id"], exec_info["execution_id"]],
+                    countdown=idx * per_step_countdown,
+                )
+                logger.info(
+                    "Triggered sigma eval execution %s for article %s",
+                    exec_info["execution_id"],
+                    exec_info["article_id"],
+                )
+
+            return {
+                "success": True,
+                "total_articles": len(urls_list),
+                "found_articles": len(executions),
+                "executions": executions,
+                "message": f"Triggered {len(executions)} workflow executions for Sigma evaluation",
+            }
+        finally:
+            db_session.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error running sigma eval: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@router.get("/sigma-eval-results")
+async def get_sigma_eval_results(
+    request: Request,
+    config_version: int | None = Query(default=None, description="Filter by workflow config version"),
+):
+    """Return Sigma eval rows (optionally filtered by config version)."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        try:
+            query = db_session.query(SigmaEvaluationTable)
+            if config_version is not None:
+                query = query.filter(SigmaEvaluationTable.workflow_config_version == config_version)
+            rows = query.order_by(SigmaEvaluationTable.created_at.desc()).all()
+            results = [
+                {
+                    "id": r.id,
+                    "article_url": r.article_url,
+                    "article_id": r.article_id,
+                    "status": r.status,
+                    "expected_rule_count": r.expected_rule_count,
+                    "actual_rule_count": r.actual_rule_count,
+                    "expected_rules": r.expected_rules,
+                    "actual_rules": r.actual_rules,
+                    "logsource_precision": r.logsource_precision,
+                    "logsource_recall": r.logsource_recall,
+                    "atom_precision": r.atom_precision,
+                    "atom_recall": r.atom_recall,
+                    "matched_atoms": r.matched_atoms,
+                    "missed_atoms": r.missed_atoms,
+                    "extra_atoms": r.extra_atoms,
+                    "matched_logsources": r.matched_logsources,
+                    "missed_logsources": r.missed_logsources,
+                    "extra_logsources": r.extra_logsources,
+                    "actual_logsource_unresolved": r.actual_logsource_unresolved,
+                    "workflow_execution_id": r.workflow_execution_id,
+                    "workflow_config_version": r.workflow_config_version,
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                    "completed_at": r.completed_at.isoformat() if r.completed_at else None,
+                }
+                for r in rows
+            ]
+            return {"success": True, "count": len(results), "results": results}
+        finally:
+            db_session.close()
+    except Exception as e:
+        logger.error(f"Error fetching sigma eval results: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -2369,6 +2592,7 @@ async def get_config_versions_models(
                     "RegistryExtract",
                     "ServicesExtract",
                     "ScheduledTasksExtract",
+                    "NetworkIndicatorExtract",
                 ]:
                     model_key = f"{agent}_model"
                     if agent_models.get(model_key) and agent not in disabled_set:
@@ -2686,6 +2910,7 @@ _SUBAGENT_TO_BUNDLE_AGENT = {
     "registry_artifacts": "RegistryExtract",
     "windows_services": "ServicesExtract",
     "scheduled_tasks": "ScheduledTasksExtract",
+    "network_indicators": "NetworkIndicatorExtract",
 }
 
 

@@ -30,6 +30,46 @@ DEFAULT_SIGMA_SYSTEM_PROMPT = (
 )
 _TRACE_MESSAGE_MAX_CHARS = 3000
 _TRACE_RESPONSE_MAX_CHARS = 20000
+SIGMA_GROUNDING_METADATA_FIELDS = {
+    "observables_used",
+    "observables_used_inferred",
+    "platform",
+    "telemetry_category",
+    "generation_basis",
+    "detection_readiness",
+    "logsource_hint",
+    "sigma_generation_group",
+}
+
+# Platform-specific Sigma-generation guidance, injected per platform/logsource group
+# (the group platform is carried on extraction_result["sigma_generation_group"]). The
+# base prompt is Windows-tuned; reviewed Linux pilot rules showed intent/detection
+# mismatch and over-broad single-token selections, so Linux groups get explicit
+# Linux field/technique guidance. Additive — does not edit the base prompt file.
+LINUX_SIGMA_GUIDANCE = (
+    "\n\nLINUX TARGET GUIDANCE (these observables are Linux process/command telemetry):\n"
+    "- Use Linux process_creation fields: CommandLine, Image (FULL path, e.g. /usr/bin/curl),\n"
+    "  ParentImage, ParentCommandLine, User, CurrentDirectory. Do NOT use Windows-only fields\n"
+    "  (OriginalFileName, IntegrityLevel, Hashes/Imphash, Company, Product, ProcessGuid).\n"
+    "- The detection MUST match the described behavior precisely. If the behavior is\n"
+    "  'chmod 777 on a dropped payload', key on the binary AND the mode/target\n"
+    "  (Image|endswith: '/chmod' AND CommandLine|contains: '777') — never a lone generic\n"
+    "  token such as CommandLine|contains: '/tmp' (that matches almost every command).\n"
+    "- Prefer specific multi-condition selections. A bare '/tmp', '/dev/shm', or '/var/tmp'\n"
+    "  substring is far too noisy to be the only condition.\n"
+    "- Use Linux-appropriate ATT&CK tags: T1059.004 (Unix Shell), T1222.002 (Linux/Mac file\n"
+    "  permissions), T1053.003 (cron), T1105 (ingress tool transfer), T1543.002 (systemd) —\n"
+    "  not generic Windows-leaning techniques.\n"
+    "- logsource: product: linux, category: process_creation.\n"
+)
+
+
+def _platform_sigma_guidance(extraction_result: dict[str, Any] | None) -> str:
+    """Return platform-specific Sigma-generation guidance for the group, or empty string."""
+    group = (extraction_result or {}).get("sigma_generation_group") or {}
+    if group.get("platform") == "linux":
+        return LINUX_SIGMA_GUIDANCE
+    return ""
 
 
 def _truncate_trace_text(value: str, max_chars: int) -> str:
@@ -129,7 +169,12 @@ def _build_observables_section(extraction_result: dict[str, Any] | None) -> str:
             val_str = ", ".join(parts) if parts else "(empty)"
         else:
             val_str = str(val)[:120] + ("..." if len(str(val)) > 120 else "")
-        lines.append(f"[{i}] {obs_type}: {val_str}")
+        metadata_bits = []
+        for key in ("platform", "telemetry_category", "logsource_hint"):
+            if obs.get(key) is not None:
+                metadata_bits.append(f"{key}={obs.get(key)}")
+        metadata_suffix = f" ({'; '.join(metadata_bits)})" if metadata_bits else ""
+        lines.append(f"[{i}] {obs_type}: {val_str}{metadata_suffix}")
     if not lines:
         return ""
     obs_list = "\n".join(lines)
@@ -143,6 +188,69 @@ def _build_observables_section(extraction_result: dict[str, Any] | None) -> str:
         "  observables_used: []\n"
         "Do NOT omit this field."
     )
+
+
+def _observable_by_index(extraction_result: dict[str, Any] | None, index: int) -> dict[str, Any] | None:
+    if not isinstance(extraction_result, dict):
+        return None
+    observables = extraction_result.get("observables") or []
+    if not isinstance(observables, list) or index < 0 or index >= len(observables):
+        return None
+    obs = observables[index]
+    return obs if isinstance(obs, dict) else None
+
+
+def _rule_grounding_metadata(
+    *,
+    parsed_yaml: dict[str, Any],
+    observables_used: list[int] | None,
+    extraction_result: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Derive review metadata from generated rule logsource and grounded observables."""
+    metadata: dict[str, Any] = {}
+    grounded = [
+        obs
+        for idx in (observables_used or [])
+        if isinstance(idx, int) and (obs := _observable_by_index(extraction_result, idx)) is not None
+    ]
+
+    platforms = []
+    telemetry_categories = []
+    logsource_hints = []
+    for obs in grounded:
+        platform = obs.get("platform")
+        if platform and platform not in platforms:
+            platforms.append(platform)
+        telemetry_category = obs.get("telemetry_category")
+        if telemetry_category and telemetry_category not in telemetry_categories:
+            telemetry_categories.append(telemetry_category)
+        logsource_hint = obs.get("logsource_hint")
+        if logsource_hint is not None and logsource_hint not in logsource_hints:
+            logsource_hints.append(logsource_hint)
+
+    logsource = parsed_yaml.get("logsource", {})
+    category = logsource.get("category") if isinstance(logsource, dict) else None
+    product = logsource.get("product") if isinstance(logsource, dict) else None
+
+    if platforms:
+        metadata["platform"] = platforms[0] if len(platforms) == 1 else platforms
+    elif product:
+        metadata["platform"] = str(product).lower()
+
+    if telemetry_categories:
+        metadata["telemetry_category"] = (
+            telemetry_categories[0] if len(telemetry_categories) == 1 else telemetry_categories
+        )
+    elif category:
+        metadata["telemetry_category"] = category
+
+    if logsource_hints:
+        metadata["logsource_hint"] = logsource_hints[0] if len(logsource_hints) == 1 else logsource_hints
+
+    basis_category = metadata.get("telemetry_category") or category or "unknown"
+    metadata["generation_basis"] = f"{basis_category}_generic"
+    metadata["detection_readiness"] = "generic"
+    return metadata
 
 
 @dataclass
@@ -352,6 +460,11 @@ class SigmaGenerationService:
                 if not sigma_prompt_template or "{observables_section}" not in sigma_prompt_template:
                     sigma_prompt = sigma_prompt.rstrip() + "\n\n" + observables_section.strip()
 
+            # Platform-aware guidance for the per-platform/logsource group (e.g. Linux).
+            platform_guidance = _platform_sigma_guidance(extraction_result)
+            if platform_guidance:
+                sigma_prompt = sigma_prompt.rstrip() + platform_guidance
+
             # Handle context window limits for LMStudio
             if ai_model == "lmstudio":
                 lmstudio_model_name = self.llm_service.lmstudio_model
@@ -501,6 +614,13 @@ class SigmaGenerationService:
                                     rule_metadata["observables_used"] = rule_result.observables_used
                                     if rule_result.observables_used_inferred:
                                         rule_metadata["observables_used_inferred"] = True
+                                rule_metadata.update(
+                                    _rule_grounding_metadata(
+                                        parsed_yaml=parsed_yaml,
+                                        observables_used=rule_result.observables_used,
+                                        extraction_result=extraction_result,
+                                    )
+                                )
                                 final_rules.append(rule_metadata)
                     except Exception as e:
                         logger.warning(f"Failed to parse rule {rule_result.rule_id}: {e}")
@@ -669,20 +789,23 @@ class SigmaGenerationService:
                 logger.warning(f"Block {i + 1} rejected: doesn't look like YAML")
                 continue
 
-            # Extract observables_used (LLM-provided) and strip before validation
+            # Extract non-Sigma grounding metadata and strip before validation
             observables_used: list[int] | None = None
             block_for_validation = cleaned_block
             try:
                 parsed = yaml.safe_load(cleaned_block)
-                if isinstance(parsed, dict) and "observables_used" in parsed:
-                    raw = parsed.pop("observables_used")
-                    if isinstance(raw, list) and all(isinstance(x, int) for x in raw):
-                        observables_used = raw
-                    elif isinstance(raw, list):
-                        observables_used = [int(x) for x in raw if isinstance(x, (int, float))]
+                if isinstance(parsed, dict):
+                    if "observables_used" in parsed:
+                        raw = parsed.pop("observables_used")
+                        if isinstance(raw, list) and all(isinstance(x, int) for x in raw):
+                            observables_used = raw
+                        elif isinstance(raw, list):
+                            observables_used = [int(x) for x in raw if isinstance(x, (int, float))]
+                    for metadata_field in SIGMA_GROUNDING_METADATA_FIELDS - {"observables_used"}:
+                        parsed.pop(metadata_field, None)
                     block_for_validation = yaml.dump(parsed, default_flow_style=False, sort_keys=False)
             except Exception as e:
-                logger.debug(f"Could not parse observables_used from block {i + 1}: {e}")
+                logger.debug(f"Could not parse Sigma grounding metadata from block {i + 1}: {e}")
 
             # Inference fallback: if LLM omitted observables_used, infer from detection keyword overlap
             observables_used_inferred = False
@@ -827,6 +950,7 @@ class SigmaGenerationService:
             "cmdline": "process_creation",
             "process_lineage": "process_creation",
             "network_connection": "network_connection",
+            "network_indicators": "network_connection",
             "registry_keys": "registry_event",
             "file_event": "file_event",
             "powershell": "powershell",
@@ -887,6 +1011,7 @@ class SigmaGenerationService:
             "cmdline": "process_creation",
             "process_lineage": "process_creation",
             "network_connection": "network_connection",
+            "network_indicators": "network_connection",
             "registry_keys": "registry_event",
             "file_event": "file_event",
             "powershell": "powershell",

@@ -113,12 +113,12 @@ class TestHuntQueriesTraceabilityPreserved:
 
 
 # ---------------------------------------------------------------------------
-# Bug 2 -- All six observable types exposed by the API
+# Bug 2 -- All seven observable types exposed by the API
 # ---------------------------------------------------------------------------
 
 
 class TestObservableTypeCoverage:
-    """_build_observables_response must return all six extractor types, not just
+    """_build_observables_response must return all seven extractor types, not just
     cmdline/process_lineage/hunt_queries."""
 
     @pytest.mark.parametrize(
@@ -130,6 +130,7 @@ class TestObservableTypeCoverage:
             "registry_artifacts",
             "windows_services",
             "scheduled_tasks",
+            "network_indicators",
         ],
     )
     def test_type_present_in_response(self, obs_type):
@@ -212,7 +213,7 @@ class TestObservableTypeCoverage:
         assert "unknown_future_type" not in result.observables
 
     def test_empty_extraction_result_returns_all_empty_buckets(self):
-        """No observables should return all six buckets as empty lists, not missing keys."""
+        """No observables should return all seven buckets as empty lists, not missing keys."""
         result = _build_observables_response(execution_id=1, extraction_result={})
         for t in (
             "cmdline",
@@ -221,11 +222,12 @@ class TestObservableTypeCoverage:
             "registry_artifacts",
             "windows_services",
             "scheduled_tasks",
+            "network_indicators",
         ):
             assert result.observables[t] == []
 
     def test_none_extraction_result_returns_all_empty_buckets(self):
-        """None extraction_result should not crash and should return all six empty buckets."""
+        """None extraction_result should not crash and should return all seven empty buckets."""
         result = _build_observables_response(execution_id=1, extraction_result=None)
         for t in (
             "cmdline",
@@ -234,6 +236,7 @@ class TestObservableTypeCoverage:
             "registry_artifacts",
             "windows_services",
             "scheduled_tasks",
+            "network_indicators",
         ):
             assert result.observables[t] == []
 
@@ -248,6 +251,32 @@ class TestObservableTypeCoverage:
         )
         assert len(result.observables["registry_artifacts"]) == 1
         assert len(result.observables["cmdline"]) == 0
+
+    def test_platform_and_telemetry_metadata_are_exposed(self):
+        """Observable platform/telemetry routing fields must survive the API response."""
+        cmd = {
+            "type": "cmdline",
+            "value": "bash -c id",
+            "platform": "linux",
+            "platform_confidence": "medium",
+            "platform_rationale": "Single article-level platform detected.",
+            "telemetry_category": "process_creation",
+            "telemetry_confidence": "medium",
+            "logsource_hint": {"product": "linux", "category": "process_creation"},
+        }
+
+        result = _build_observables_response(
+            execution_id=1,
+            extraction_result=_make_extraction_result(cmd),
+        )
+
+        item = result.observables["cmdline"][0]
+        assert item.platform == "linux"
+        assert item.platform_confidence == "medium"
+        assert item.platform_rationale == "Single article-level platform detected."
+        assert item.telemetry_category == "process_creation"
+        assert item.telemetry_confidence == "medium"
+        assert item.logsource_hint == {"product": "linux", "category": "process_creation"}
 
 
 # ---------------------------------------------------------------------------
@@ -276,6 +305,7 @@ CANONICAL_AGENT_NAMES_SUB = [
     "RegistryExtract",
     "ServicesExtract",
     "ScheduledTasksExtract",
+    "NetworkIndicatorExtract",
 ]
 
 CANONICAL_CATEGORIES = [
@@ -285,6 +315,7 @@ CANONICAL_CATEGORIES = [
     "registry_artifacts",
     "windows_services",
     "scheduled_tasks",
+    "network_indicators",
 ]
 
 # The shared JS component that owns the canonical OBS_TYPE_ORDER declaration.

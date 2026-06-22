@@ -36,6 +36,7 @@ function orderModelsByWorkflow(models) {
         'RegistryExtract',
         'ServicesExtract',
         'ScheduledTasksExtract',
+        'NetworkIndicatorExtract',
         'SIGMA',
         'OS Fallback'
     ];
@@ -48,6 +49,7 @@ function orderModelsByWorkflow(models) {
         'RegistryExtract',
         'ServicesExtract',
         'ScheduledTasksExtract',
+        'NetworkIndicatorExtract',
     ]);
 
     // No second-level sub-agents remain (extractor QA agents removed)
@@ -198,7 +200,8 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
             { id: 'HuntQueriesExtract', name: 'HuntQueriesExtract' },
             { id: 'RegistryExtract', name: 'RegistryExtract' },
             { id: 'ServicesExtract', name: 'ServicesExtract' },
-            { id: 'ScheduledTasksExtract', name: 'ScheduledTasksExtract' }
+            { id: 'ScheduledTasksExtract', name: 'ScheduledTasksExtract' },
+            { id: 'NetworkIndicatorExtract', name: 'NetworkIndicatorExtract' }
         ];
 
         // Disabled state from config only so Workflow and Agent-evals show the same status

@@ -3,11 +3,20 @@
 import pytest
 
 from src.workflows.agentic_workflow import (
+    _agent_supported_for_platforms,
     _all_extractors_errored,
     _bool_from_value,
+    _build_sigma_full_content_fallback_group,
+    _build_sigma_generation_groups,
+    _enrich_observable_metadata,
     _extract_actual_count,
+    _has_sigma_generation_eligible_observables,
     _is_agent_allowed,
+    _make_skip_record,
+    _normalize_platform_value,
     _parse_agent_result,
+    _platforms_from_os_detection,
+    _rebase_group_observable_indices,
 )
 
 pytestmark = pytest.mark.unit
@@ -31,6 +40,191 @@ pytestmark = pytest.mark.unit
 )
 def test_bool_from_value_characterization(value, expected):
     assert _bool_from_value(value) is expected
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("Windows", "windows"),
+        ("Linux", "linux"),
+        ("MacOS", "macos"),
+        ("multiple", "cross_platform"),
+        ("darwin", "macos"),
+        ("not-real", "unknown"),
+    ],
+)
+def test_normalize_platform_value(value, expected):
+    assert _normalize_platform_value(value) == expected
+
+
+def test_platforms_from_os_detection_expands_multiple_similarity():
+    platforms = _platforms_from_os_detection(
+        "multiple",
+        {"similarities": {"Windows": 0.7, "Linux": 0.6, "MacOS": 0.0}},
+    )
+
+    assert platforms == ["windows", "linux"]
+
+
+def test_agent_capabilities_skip_windows_only_extractors_for_linux():
+    assert _agent_supported_for_platforms("CmdlineExtract", ["linux"]) is True
+    assert _agent_supported_for_platforms("RegistryExtract", ["linux"]) is False
+
+
+def test_make_skip_record_has_stable_shape():
+    record = _make_skip_record(
+        agent_name="RegistryExtract",
+        reason_code="unsupported_platform",
+        reason="RegistryExtract supports windows only.",
+        detected_platforms=["linux"],
+        telemetry_categories=["registry"],
+    )
+
+    assert record["extractor"] == "RegistryExtract"
+    assert record["status"] == "skipped"
+    assert record["reason_code"] == "unsupported_platform"
+    assert record["supported_platforms"] == ["windows"]
+    assert record["detected_platforms"] == ["linux"]
+    assert record["telemetry_categories"] == ["registry"]
+
+
+def test_enrich_observable_metadata_adds_linux_process_logsource():
+    obs = {"type": "cmdline", "value": "bash -c id", "source": "test"}
+
+    _enrich_observable_metadata(obs, item="bash -c id", observable_type="cmdline", article_platforms=["linux"])
+
+    assert obs["platform"] == "linux"
+    assert obs["platform_confidence"] == "medium"
+    assert obs["telemetry_category"] == "process_creation"
+    assert obs["logsource_hint"] == {"product": "linux", "category": "process_creation"}
+
+
+def test_enrich_observable_metadata_keeps_mixed_generic_command_unknown():
+    obs = {"type": "cmdline", "value": "curl http://example", "source": "test"}
+
+    _enrich_observable_metadata(
+        obs,
+        item="curl http://example",
+        observable_type="cmdline",
+        article_platforms=["windows", "linux"],
+    )
+
+    assert obs["platform"] == "unknown"
+    assert obs["platform_confidence"] == "low"
+    assert obs["telemetry_category"] == "process_creation"
+    assert "logsource_hint" not in obs
+
+
+def test_has_sigma_generation_eligible_observables_requires_logsource_hint():
+    eligible = {
+        "observables": [
+            {
+                "type": "cmdline",
+                "platform": "linux",
+                "telemetry_category": "process_creation",
+                "logsource_hint": {"product": "linux", "category": "process_creation"},
+            }
+        ]
+    }
+    ineligible = {
+        "observables": [
+            {
+                "type": "cmdline",
+                "platform": "unknown",
+                "telemetry_category": "process_creation",
+            }
+        ]
+    }
+
+    assert _has_sigma_generation_eligible_observables(eligible) is True
+    assert _has_sigma_generation_eligible_observables(ineligible) is False
+
+
+def test_sigma_generation_groups_split_mixed_windows_linux_by_logsource():
+    extraction_result = {
+        "observables": [
+            {
+                "type": "cmdline",
+                "value": "cmd.exe /c whoami",
+                "platform": "windows",
+                "telemetry_category": "process_creation",
+                "logsource_hint": {"product": "windows", "category": "process_creation"},
+            },
+            {
+                "type": "cmdline",
+                "value": "/bin/bash -c id",
+                "platform": "linux",
+                "telemetry_category": "process_creation",
+                "logsource_hint": {"product": "linux", "category": "process_creation"},
+            },
+        ],
+        "summary": {"platforms_detected": ["windows", "linux"]},
+        "discrete_huntables_count": 2,
+        "content": "cmd.exe /c whoami\n/bin/bash -c id",
+    }
+
+    groups = _build_sigma_generation_groups(extraction_result)
+
+    assert [(g["platform"], g["telemetry_category"], g["original_indices"]) for g in groups] == [
+        ("windows", "process_creation", [0]),
+        ("linux", "process_creation", [1]),
+    ]
+    assert groups[0]["extraction_result"]["observables"][0]["original_observable_index"] == 0
+    assert groups[1]["extraction_result"]["observables"][0]["original_observable_index"] == 1
+
+
+def test_sigma_generation_groups_exclude_macos_for_phase_one():
+    extraction_result = {
+        "observables": [
+            {
+                "type": "cmdline",
+                "value": "osascript -e id",
+                "platform": "macos",
+                "telemetry_category": "process_creation",
+                "logsource_hint": {"product": "macos", "category": "process_creation"},
+            }
+        ]
+    }
+
+    assert _build_sigma_generation_groups(extraction_result) == []
+
+
+def test_sigma_generation_groups_keep_ambiguous_command_display_only_without_logsource():
+    extraction_result = {
+        "observables": [
+            {
+                "type": "cmdline",
+                "value": "python -m http.server",
+                "platform": "unknown",
+                "telemetry_category": "process_creation",
+            }
+        ]
+    }
+
+    assert _build_sigma_generation_groups(extraction_result) == []
+
+
+def test_rebase_group_observable_indices_uses_execution_wide_indices():
+    rule = {"observables_used": [0, 1, 99]}
+
+    _rebase_group_observable_indices(rule, [3, 8])
+
+    assert rule["observables_used"] == [3, 8]
+
+
+def test_sigma_full_content_fallback_group_preserves_legacy_content_path():
+    group = _build_sigma_full_content_fallback_group(
+        {"summary": {"platforms_detected": ["linux"]}, "observables": [{"type": "cmdline"}]},
+        content="full filtered article content",
+        platforms_detected=["linux"],
+    )
+
+    assert group["platform"] == "linux"
+    assert group["telemetry_category"] == "full_content"
+    assert group["original_indices"] == []
+    assert group["extraction_result"]["content"] == "full filtered article content"
+    assert group["extraction_result"]["observables"] == []
+    assert group["extraction_result"]["sigma_generation_group"]["generation_basis"] == "full_content_fallback"
 
 
 def test_extract_actual_count_hunt_queries_variants():

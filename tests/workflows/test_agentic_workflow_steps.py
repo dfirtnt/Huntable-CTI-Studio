@@ -9,6 +9,7 @@ import json
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+import yaml
 
 from src.database.models import (
     AgenticWorkflowConfigTable,
@@ -392,6 +393,170 @@ class TestRankArticleNode:
 
 
 # ---------------------------------------------------------------------------
+# Generate Sigma Node
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateSigmaNode:
+    """Tests for the generate_sigma_node step."""
+
+    @pytest.mark.asyncio
+    async def test_mixed_platform_observables_generate_per_platform_groups(self, article, execution, config_obj):
+        config_obj.agent_prompts = {}
+        config_obj.sigma_fallback_enabled = True
+        db_session = _make_db_session(article, execution)
+        nodes = _capture_nodes(db_session, trigger_service_config=config_obj)
+
+        async def generate_side_effect(*args, **kwargs):
+            extraction_result = kwargs["extraction_result"]
+            group = extraction_result["sigma_generation_group"]
+            platform = group["platform"]
+            command_value = extraction_result["observables"][0]["value"]
+            return {
+                "rules": [
+                    {
+                        "title": f"{platform.title()} Process Rule",
+                        "description": "Generated for grouped platform telemetry",
+                        "logsource": {"product": platform, "category": "process_creation"},
+                        "detection": {"selection": {"CommandLine|contains": command_value}, "condition": "selection"},
+                        "observables_used": [0],
+                        "platform": platform,
+                        "telemetry_category": "process_creation",
+                        "generation_basis": "process_creation_generic",
+                        "detection_readiness": "generic",
+                    }
+                ],
+                "metadata": {
+                    "total_attempts": 1,
+                    "valid_rules": 1,
+                    "validation_results": [{"is_valid": True, "errors": [], "warnings": [], "rule_index": 1}],
+                    "conversation_log": [{"event_type": "generation_call", "generated_rule_count": 1}],
+                },
+                "errors": None,
+            }
+
+        extraction_result = {
+            "observables": [
+                {
+                    "type": "cmdline",
+                    "value": "cmd.exe /c whoami",
+                    "platform": "windows",
+                    "telemetry_category": "process_creation",
+                    "logsource_hint": {"product": "windows", "category": "process_creation"},
+                },
+                {
+                    "type": "cmdline",
+                    "value": "/bin/bash -c id",
+                    "platform": "linux",
+                    "telemetry_category": "process_creation",
+                    "logsource_hint": {"product": "linux", "category": "process_creation"},
+                },
+            ],
+            "summary": {"count": 2, "platforms_detected": ["windows", "linux"]},
+            "discrete_huntables_count": 2,
+            "content": "cmd.exe /c whoami\n/bin/bash -c id",
+        }
+
+        with patch("src.services.sigma_generation_service.SigmaGenerationService") as mock_sigma_cls:
+            mock_sigma = Mock()
+            mock_sigma.generate_sigma_rules = AsyncMock(side_effect=generate_side_effect)
+            mock_sigma_cls.return_value = mock_sigma
+
+            result = await nodes["generate_sigma"](
+                _default_state(
+                    filtered_content=article.content,
+                    extraction_result=extraction_result,
+                    discrete_huntables_count=2,
+                )
+            )
+
+        assert len(result["sigma_rules"]) == 2
+        assert [rule["platform"] for rule in result["sigma_rules"]] == ["windows", "linux"]
+        assert [rule["observables_used"] for rule in result["sigma_rules"]] == [[0], [1]]
+        assert mock_sigma.generate_sigma_rules.await_count == 2
+        called_groups = [
+            call.kwargs["extraction_result"]["sigma_generation_group"]
+            for call in mock_sigma.generate_sigma_rules.await_args_list
+        ]
+        assert called_groups[0]["observable_indices"] == [0]
+        assert called_groups[1]["observable_indices"] == [1]
+        assert execution.error_log["generate_sigma"]["sigma_generation_groups"][0]["platform"] == "windows"
+        assert execution.error_log["generate_sigma"]["sigma_generation_groups"][1]["platform"] == "linux"
+
+    @pytest.mark.asyncio
+    async def test_full_content_sigma_fallback_runs_when_no_observables_are_eligible(
+        self, article, execution, config_obj
+    ):
+        config_obj.agent_prompts = {}
+        config_obj.sigma_fallback_enabled = True
+        db_session = _make_db_session(article, execution)
+        nodes = _capture_nodes(db_session, trigger_service_config=config_obj)
+
+        async def generate_side_effect(*args, **kwargs):
+            extraction_result = kwargs["extraction_result"]
+            group = extraction_result["sigma_generation_group"]
+            return {
+                "rules": [
+                    {
+                        "title": "Full Content Linux Rule",
+                        "description": "Generated from full article fallback",
+                        "logsource": {"product": "linux", "category": "process_creation"},
+                        "detection": {"selection": {"CommandLine|contains": "/bin/bash"}, "condition": "selection"},
+                        "observables_used": [],
+                        "platform": "linux",
+                        "telemetry_category": "process_creation",
+                        "generation_basis": group["generation_basis"],
+                        "detection_readiness": "generic",
+                    }
+                ],
+                "metadata": {
+                    "total_attempts": 1,
+                    "valid_rules": 1,
+                    "validation_results": [{"is_valid": True, "errors": [], "warnings": [], "rule_index": 1}],
+                    "conversation_log": [{"event_type": "generation_call", "generated_rule_count": 1}],
+                },
+                "errors": None,
+            }
+
+        extraction_result = {
+            "observables": [
+                {
+                    "type": "cmdline",
+                    "value": "python -m http.server",
+                    "platform": "unknown",
+                    "telemetry_category": "process_creation",
+                }
+            ],
+            "summary": {"count": 1, "platforms_detected": ["linux"]},
+            "discrete_huntables_count": 1,
+            "content": "python -m http.server",
+        }
+
+        with patch("src.services.sigma_generation_service.SigmaGenerationService") as mock_sigma_cls:
+            mock_sigma = Mock()
+            mock_sigma.generate_sigma_rules = AsyncMock(side_effect=generate_side_effect)
+            mock_sigma_cls.return_value = mock_sigma
+
+            result = await nodes["generate_sigma"](
+                _default_state(
+                    filtered_content=article.content,
+                    extraction_result=extraction_result,
+                    discrete_huntables_count=1,
+                )
+            )
+
+        assert len(result["sigma_rules"]) == 1
+        assert result["sigma_rules"][0]["generation_basis"] == "full_content_fallback"
+        assert mock_sigma.generate_sigma_rules.await_count == 1
+        called_group = mock_sigma.generate_sigma_rules.await_args.kwargs["extraction_result"]["sigma_generation_group"]
+        assert called_group["telemetry_category"] == "full_content"
+        assert called_group["observable_indices"] == []
+        assert (
+            execution.error_log["generate_sigma"]["sigma_generation_groups"][0]["telemetry_category"] == "full_content"
+        )
+
+
+# ---------------------------------------------------------------------------
 # Similarity Search Node
 # ---------------------------------------------------------------------------
 
@@ -511,3 +676,116 @@ class TestQueuePromotionNode:
         )
         result = nodes["promote_to_queue"](state)
         assert result["queued_rules"] == []
+
+    def test_promotion_preserves_platform_group_metadata_outside_yaml(self, article, execution, config_obj):
+        db_session = _make_db_session(article, execution)
+        nodes = _capture_nodes(db_session, trigger_service_config=config_obj)
+
+        state = _default_state(
+            sigma_rules=[
+                {
+                    "title": "Linux Process Rule",
+                    "description": "Detects Linux process behavior",
+                    "logsource": {"product": "linux", "category": "process_creation"},
+                    "detection": {"selection": {"CommandLine|contains": "/bin/bash"}, "condition": "selection"},
+                    "observables_used": [1],
+                    "platform": "linux",
+                    "telemetry_category": "process_creation",
+                    "generation_basis": "process_creation_generic",
+                    "detection_readiness": "generic",
+                    "logsource_hint": {"product": "linux", "category": "process_creation"},
+                    "sigma_generation_group": {
+                        "platform": "linux",
+                        "telemetry_category": "process_creation",
+                        "logsource_hint": {"product": "linux", "category": "process_creation"},
+                        "observable_indices": [1],
+                    },
+                }
+            ],
+            similarity_results=[
+                {
+                    "rule_title": "Linux Process Rule",
+                    "max_similarity": 0.1,
+                    "similar_rules": [],
+                    "canonical_class": "linux:process_creation",
+                    "logsource_unresolved": False,
+                    "logsource_lint_failures": [],
+                }
+            ],
+            max_similarity=0.1,
+            config={"similarity_threshold": 0.5},
+        )
+
+        result = nodes["promote_to_queue"](state)
+
+        assert result["queued_rules"] == [db_session.add.call_args.args[0].id]
+        queue_entry = db_session.add.call_args.args[0]
+        parsed_yaml = yaml.safe_load(queue_entry.rule_yaml)
+        assert "platform" not in parsed_yaml
+        assert "sigma_generation_group" not in parsed_yaml
+        assert queue_entry.rule_metadata["platform"] == "linux"
+        assert queue_entry.rule_metadata["sigma_generation_group"]["observable_indices"] == [1]
+
+
+# ---------------------------------------------------------------------------
+# Platform Detection node — Domains/Products surfacing (Phase D)
+# ---------------------------------------------------------------------------
+
+
+class TestOsDetectionNodeDimensions:
+    """The os_detection node must store domains + products in os_detection_result so the
+    execution API / trace can surface them. The classifiers are unit-tested elsewhere;
+    this locks the node *wiring* (a Playwright spec only renders mocked data)."""
+
+    @pytest.mark.asyncio
+    async def test_os_detection_node_stores_domains_and_products(self, article, execution, config_obj):
+        article.content = (
+            "Linux intrusion: attacker used systemctl and dropped an /etc/cron.d entry for "
+            "persistence; targeted Active Directory and Kerberos, pivoted through an F5 BIG-IP "
+            "edge appliance and exploited Confluence. " + "x" * 600
+        )
+        execution.error_log = None
+        execution.config_snapshot = {}
+        db_session = _make_db_session(article, execution)
+        nodes = _capture_nodes(db_session, trigger_service_config=config_obj)
+
+        with patch("src.workflows.agentic_workflow.flag_modified"):
+            await nodes["os_detection"](_default_state(article_id=1, execution_id=100))
+
+        od = execution.error_log["os_detection_result"]
+        assert od["platforms_detected"] == ["linux"]
+        assert "domains" in od and "products" in od
+        assert "Identity" in od["domains"]
+        assert any("Active Directory" in p for p in od["products"])
+        assert any("F5 BIG-IP" in p for p in od["products"])
+
+    @pytest.mark.asyncio
+    async def test_os_detection_node_reuses_precomputed_verdict(self, article, execution, config_obj):
+        """Phase 3: when article_metadata carries a scoring-time os_classification, the node
+        consumes it instead of re-scanning. The fixture content reads Windows; a macOS
+        precomputed verdict means the node must report macOS (content is not re-classified)."""
+        article.article_metadata = {
+            "threat_hunting_score": 85,
+            "os_classification": {
+                "operating_system": "MacOS",
+                "method": "kb_scoring",
+                "confidence": "high",
+                "similarities": {"Windows": 0.0, "Linux": 0.0, "MacOS": 1.0},
+                "max_similarity": 1.0,
+                "platforms_detected": ["MacOS"],
+                "evidence": {"macos": ["osascript", "launchdaemon"]},
+            },
+        }
+        execution.error_log = None
+        execution.config_snapshot = {}
+        db_session = _make_db_session(article, execution)
+        nodes = _capture_nodes(db_session, trigger_service_config=config_obj)
+
+        with patch("src.workflows.agentic_workflow.flag_modified"):
+            await nodes["os_detection"](_default_state(article_id=1, execution_id=100))
+
+        od = execution.error_log["os_detection_result"]
+        assert od["detected_os"] == "MacOS", od
+        assert "macos" in od["platforms_detected"], od["platforms_detected"]
+        assert "windows" not in od["platforms_detected"], od["platforms_detected"]
+        assert od["detection_method"] == "kb_scoring"

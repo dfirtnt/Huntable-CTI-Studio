@@ -297,3 +297,78 @@ async def test_lmstudio_health_gate_not_called_for_openai_config(
         await run_workflow(article_id=1, db_session=mock_db_session, execution_id=100)
 
     mock_probe.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_linux_platform_detection_continues_and_skips_windows_only_extractors(
+    mock_db_session, mock_article, mock_execution, mock_config
+):
+    """Linux articles should continue past Platform Detection and skip Windows-only extractors."""
+    mock_execution.config_snapshot = {
+        "skip_rank_agent": True,
+        "skip_sigma_generation": True,
+        "agent_prompts": mock_config.agent_prompts,
+        "agent_models": mock_config.agent_models,
+        "cmdline_attention_preprocessor_enabled": True,
+    }
+
+    filter_result = Mock()
+    filter_result.filtered_content = mock_article.content
+    filter_result.removed_chunks = []
+    filter_result.is_huntable = True
+    filter_result.confidence = 0.9
+
+    class FakeOSDetectionService:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def detect_os(self, *args, **kwargs):
+            return {
+                "operating_system": "Linux",
+                "method": "unit_test",
+                "confidence": 0.99,
+                "similarities": {"Linux": 0.99, "Windows": 0.0},
+            }
+
+    async def extraction_result_for_agent(*args, **kwargs):
+        if kwargs.get("agent_name") == "CmdlineExtract":
+            return {"cmdline_items": ["bash -c id"], "count": 1}
+        return {"items": [], "count": 0}
+
+    with (
+        patch("src.workflows.agentic_workflow.ContentFilter") as mock_cf_cls,
+        patch("src.workflows.agentic_workflow.WorkflowTriggerService") as mock_trigger_cls,
+        patch("src.workflows.agentic_workflow.auto_load_workflow_models"),
+        patch("src.workflows.agentic_workflow.trace_workflow_execution"),
+        patch("src.workflows.agentic_workflow.flag_modified"),
+        patch("src.services.os_detection_service.OSDetectionService", FakeOSDetectionService),
+        patch("src.workflows.agentic_workflow.LLMService") as mock_llm_cls,
+    ):
+        mock_cf_cls.return_value.filter_content.return_value = filter_result
+        mock_trigger = Mock()
+        mock_trigger.get_active_config.return_value = mock_config
+        mock_trigger_cls.return_value = mock_trigger
+
+        mock_llm = Mock()
+        mock_llm.run_extraction_agent = AsyncMock(side_effect=extraction_result_for_agent)
+        mock_llm.check_model_context_length = AsyncMock(
+            return_value={"context_length": 8000, "is_sufficient": True, "threshold": 4096}
+        )
+        mock_llm_cls.return_value = mock_llm
+
+        result = await run_workflow(article_id=1, db_session=mock_db_session, execution_id=100)
+
+    assert result is not None
+    extraction_result = mock_execution.extraction_result
+    assert extraction_result is not None
+    assert extraction_result["summary"]["platforms_detected"] == ["linux"]
+
+    cmdline = extraction_result["observables"][0]
+    assert cmdline["platform"] == "linux"
+    assert cmdline["telemetry_category"] == "process_creation"
+    assert cmdline["logsource_hint"] == {"product": "linux", "category": "process_creation"}
+
+    registry = extraction_result["subresults"]["registry_artifacts"]
+    assert registry["raw"]["status"] == "skipped"
+    assert registry["raw"]["reason_code"] == "unsupported_platform"
+    assert registry["raw"]["detected_platforms"] == ["linux"]

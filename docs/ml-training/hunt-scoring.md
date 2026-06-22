@@ -122,7 +122,7 @@ The ML vs Hunt Comparison Dashboard (`POST /api/ml-model-performance/backfill`) 
 
 | Aspect | Keyword score (`threat_hunting_score`) | ML score (`ml_hunt_score`) |
 |--------|----------------------------------------|----------------------------|
-| **Method** | Pattern matching (~92 perfect discriminators; ~476 total keywords) | RandomForest classification |
+| **Method** | Pattern matching (~114 perfect discriminators; ~528 total keywords) | RandomForest classification |
 | **Granularity** | Article-level | Chunk-level aggregation |
 | **Range** | 0-100 | 0-100 |
 | **Speed** | Fast (regex) | Slower (ML inference) |

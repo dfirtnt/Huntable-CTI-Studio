@@ -179,6 +179,34 @@ async def api_update_source_min_content_length(source_id: int, request: dict):
         raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
+@router.put("/{source_id}/image_ocr")
+async def api_update_source_image_ocr(source_id: int, request: dict):
+    """Set the per-source image OCR override: true (on), false (off), or null (inherit)."""
+    try:
+        if "image_ocr_enabled" not in request:
+            raise HTTPException(status_code=400, detail="image_ocr_enabled is required")
+
+        value = request["image_ocr_enabled"]
+        if value is not None and not isinstance(value, bool):
+            raise HTTPException(
+                status_code=400,
+                detail="image_ocr_enabled must be true, false, or null",
+            )
+
+        result = await async_db_manager.update_source_image_ocr_override(source_id, value)
+        if result is None:
+            raise HTTPException(status_code=404, detail="Source not found")
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("message", "Not allowed"))
+
+        return result
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("API update source image_ocr error: %s", exc)
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
+
+
 @router.put("/{source_id}/lookback")
 async def api_update_source_lookback(source_id: int, request: dict):
     """Update source lookback window."""

@@ -254,6 +254,27 @@ function getStatusBadge(status) {
     return badges[status] || '<span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">' + status + '</span>';
 }
 
+function formatPlatformLabel(platform) {
+    const value = Array.isArray(platform) ? platform.find(Boolean) : platform;
+    if (!value) return '';
+    const normalized = String(value).trim().toLowerCase();
+    const labels = {
+        windows: 'Windows',
+        linux: 'Linux',
+        macos: 'macOS',
+        unknown: 'Unknown',
+        cross: 'Cross-platform',
+        'cross-platform': 'Cross-platform',
+    };
+    return labels[normalized] || String(value).trim();
+}
+
+function getPlatformBadge(metadata) {
+    const label = formatPlatformLabel(metadata?.platform);
+    if (!label) return '';
+    return `<span class="inline-flex items-center w-fit px-2 py-0.5 text-xs rounded-full border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300">${escapeHtml(label)}</span>`;
+}
+
 async function loadQueue() {
     try {
         const statusFilter = document.getElementById('statusFilter').value;
@@ -355,6 +376,7 @@ function renderQueue() {
         const metadata = rule.rule_metadata || {};
         const title = metadata.title || 'Untitled Rule';
         const checked = selectedIds.has(rule.id) ? 'checked' : '';
+        const platformBadge = getPlatformBadge(metadata);
 
         return `
             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700${selectedIds.has(rule.id) ? ' bg-blue-900/20' : ''}" data-rule-id="${rule.id}">
@@ -368,7 +390,12 @@ function renderQueue() {
                         ${escapeHtml(rule.article_title || 'Article ' + rule.article_id)}
                     </a>
                 </td>
-                <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${escapeHtml(title)}</td>
+                <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                    <div class="flex flex-col gap-1">
+                        <span>${escapeHtml(title)}</span>
+                        ${platformBadge}
+                    </div>
+                </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                     ${typeof rule.max_similarity === 'number' ? (rule.max_similarity * 100).toFixed(1) + '%' : '-'}
                 </td>
@@ -466,6 +493,7 @@ function renderRulePreview(rule, observablesData) {
     observablesData = observablesData ?? cachedObservablesForRulePreview;
     const metadata = rule.rule_metadata || {};
     const similarityScores = rule.similarity_scores || [];
+    const platformBadge = getPlatformBadge(metadata);
     
     let similarRulesHtml = '';
     if (similarityScores.length > 0) {
@@ -518,6 +546,7 @@ function renderRulePreview(rule, observablesData) {
     const content = `
         <div class="space-y-4">
             <div><strong>Rule ID:</strong> ${rule.id}</div>
+            ${platformBadge ? `<div><strong>Platform:</strong> ${platformBadge}</div>` : ''}
             <div><strong>Article:</strong> <a href="/articles/${rule.article_id}" class="text-purple-600">${rule.article_title || 'Article ' + rule.article_id}</a></div>
             <div><strong>Max Similarity:</strong> ${typeof rule.max_similarity === 'number' ? (rule.max_similarity * 100).toFixed(1) + '%' : 'N/A'}</div>
             ${similarRulesHtml}

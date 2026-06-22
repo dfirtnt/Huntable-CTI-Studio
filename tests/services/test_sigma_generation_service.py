@@ -197,6 +197,67 @@ level: medium
                         assert generation_call["messages"][1]["role"] == "user"
 
     @pytest.mark.asyncio
+    async def test_generate_sigma_rules_injects_linux_guidance(self, service, sample_article_data, sample_sigma_rule):
+        """A linux platform/logsource group gets the additive Linux guidance in the
+        generation prompt; a windows group does not. Locks the §10 pilot fix wiring."""
+
+        def _group(platform):
+            ls = {"product": platform, "category": "process_creation"}
+            return {
+                "observables": [
+                    {
+                        "type": "cmdline",
+                        "value": "chmod 777 /dev/shm/x",
+                        "platform": platform,
+                        "telemetry_category": "process_creation",
+                        "logsource_hint": ls,
+                    }
+                ],
+                "sigma_generation_group": {
+                    "platform": platform,
+                    "telemetry_category": "process_creation",
+                    "logsource_hint": ls,
+                },
+            }
+
+        def _prompts(mock):
+            return [c.kwargs.get("sigma_prompt", "") for c in mock.await_args_list]
+
+        with (
+            patch("src.services.sigma_generation_service.optimize_article_content") as mock_optimize,
+            patch("src.utils.prompt_loader.format_prompt_async", return_value="Generate SIGMA rules."),
+            patch.object(
+                service, "_generate_multi_rules", new_callable=AsyncMock, return_value=sample_sigma_rule
+            ) as mock_gen,
+        ):
+            mock_optimize.return_value = {
+                "success": True,
+                "filtered_content": sample_article_data["content"],
+                "tokens_saved": 0,
+            }
+
+            await service.generate_sigma_rules(
+                article_title=sample_article_data["title"],
+                article_content=sample_article_data["content"],
+                source_name=sample_article_data["source_name"],
+                url=sample_article_data["url"],
+                extraction_result=_group("linux"),
+            )
+            linux_prompts = _prompts(mock_gen)
+            assert any("LINUX TARGET GUIDANCE" in p for p in linux_prompts)
+            assert any("T1222.002" in p for p in linux_prompts)
+
+            mock_gen.reset_mock()
+            await service.generate_sigma_rules(
+                article_title=sample_article_data["title"],
+                article_content=sample_article_data["content"],
+                source_name=sample_article_data["source_name"],
+                url=sample_article_data["url"],
+                extraction_result=_group("windows"),
+            )
+            assert all("LINUX TARGET GUIDANCE" not in p for p in _prompts(mock_gen))
+
+    @pytest.mark.asyncio
     async def test_generate_sigma_rules_with_retry(self, service, sample_article_data):
         """Test SIGMA rule generation with retry logic."""
         # Invalid but parseable rule (missing detection field)
@@ -926,7 +987,13 @@ level: high
         """_build_observables_section formats extraction_result.observables with 0-based indices."""
         extraction_result = {
             "observables": [
-                {"type": "cmdline", "value": "powershell -enc"},
+                {
+                    "type": "cmdline",
+                    "value": "powershell -enc",
+                    "platform": "windows",
+                    "telemetry_category": "process_creation",
+                    "logsource_hint": {"product": "windows", "category": "process_creation"},
+                },
                 {"type": "process_lineage", "value": {"parent": "p1", "child": "c1", "arguments": ""}},
             ]
         }
@@ -937,6 +1004,8 @@ level: high
         assert "[0] cmdline:" in section
         assert "[1] process_lineage:" in section
         assert "powershell -enc" in section
+        assert "platform=windows" in section
+        assert "telemetry_category=process_creation" in section
         assert "parent=p1, child=c1" in section
 
     def test_build_observables_section_returns_empty_for_no_observables(self):
@@ -1007,6 +1076,91 @@ level: low
                         assert len(validated_yaml) == 1
                         parsed_validated = yaml.safe_load(validated_yaml[0])
                         assert "observables_used" not in parsed_validated
+
+    @pytest.mark.asyncio
+    async def test_grounding_metadata_stripped_from_yaml_and_returned_in_rule_metadata(
+        self, service, sample_article_data
+    ):
+        """Platform/telemetry grounding fields stay out of pySigma YAML but remain in returned metadata."""
+        rule_with_grounding = """
+title: Linux Curl Execution
+id: test-linux-curl
+description: Test
+observables_used: [0]
+platform: linux
+telemetry_category: process_creation
+generation_basis: process_creation_generic
+detection_readiness: generic
+logsource:
+    category: process_creation
+    product: linux
+detection:
+    selection:
+        CommandLine|contains: 'curl'
+    condition: selection
+level: low
+"""
+        extraction_result = {
+            "observables": [
+                {
+                    "type": "cmdline",
+                    "value": "curl http://example",
+                    "platform": "linux",
+                    "telemetry_category": "process_creation",
+                    "logsource_hint": {"product": "linux", "category": "process_creation"},
+                }
+            ]
+        }
+
+        with patch("src.services.sigma_generation_service.optimize_article_content") as mock_optimize:
+            mock_optimize.return_value = {
+                "success": True,
+                "filtered_content": sample_article_data["content"],
+                "tokens_saved": 0,
+            }
+
+            with patch("src.utils.prompt_loader.format_prompt_async") as mock_prompt:
+                mock_prompt.return_value = "Generate rule"
+
+                with patch.object(service, "_call_provider_for_sigma") as mock_call:
+                    mock_call.return_value = rule_with_grounding
+
+                    with patch("src.services.sigma_generation_service.validate_sigma_rule") as mock_validate:
+                        validated_yaml = []
+
+                        def capture_validate(rule_str):
+                            validated_yaml.append(rule_str)
+                            parsed = yaml.safe_load(rule_str)
+                            return ValidationResult(
+                                is_valid=True,
+                                errors=[],
+                                warnings=[],
+                                metadata={"rule": parsed},
+                                content_preview=rule_str,
+                            )
+
+                        mock_validate.side_effect = capture_validate
+
+                        result = await service.generate_sigma_rules(
+                            article_title=sample_article_data["title"],
+                            article_content=sample_article_data["content"],
+                            source_name=sample_article_data["source_name"],
+                            url=sample_article_data["url"],
+                            extraction_result=extraction_result,
+                        )
+
+                        assert len(result["rules"]) == 1
+                        rule = result["rules"][0]
+                        assert rule["observables_used"] == [0]
+                        assert rule["platform"] == "linux"
+                        assert rule["telemetry_category"] == "process_creation"
+                        assert rule["generation_basis"] == "process_creation_generic"
+                        assert rule["detection_readiness"] == "generic"
+                        parsed_validated = yaml.safe_load(validated_yaml[0])
+                        assert "platform" not in parsed_validated
+                        assert "telemetry_category" not in parsed_validated
+                        assert "generation_basis" not in parsed_validated
+                        assert "detection_readiness" not in parsed_validated
 
     @pytest.mark.asyncio
     async def test_call_provider_for_sigma_openai_uses_high_max_tokens_and_content_parts(self, service):
@@ -1616,3 +1770,29 @@ class TestInferObservablesUsedTokenQuality:
         rule_yaml = self._make_rule("CommandLine|contains: null")
         result = _infer_observables_used(rule_yaml, extraction_result)
         assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Platform-aware Sigma guidance (Linux pilot follow-up)
+# ---------------------------------------------------------------------------
+
+
+def test_platform_sigma_guidance_injected_for_linux_group():
+    from src.services.sigma_generation_service import _platform_sigma_guidance
+
+    er = {"sigma_generation_group": {"platform": "linux", "telemetry_category": "process_creation"}}
+    guidance = _platform_sigma_guidance(er)
+    assert guidance
+    # Steers away from the over-broad pattern seen in the pilot and toward Linux fields.
+    assert "/chmod" in guidance and "777" in guidance
+    assert "Windows-only fields" in guidance
+    assert "T1222.002" in guidance
+
+
+def test_platform_sigma_guidance_empty_for_non_linux():
+    from src.services.sigma_generation_service import _platform_sigma_guidance
+
+    assert _platform_sigma_guidance({"sigma_generation_group": {"platform": "windows"}}) == ""
+    assert _platform_sigma_guidance({"sigma_generation_group": {"platform": "macos"}}) == ""
+    assert _platform_sigma_guidance({}) == ""
+    assert _platform_sigma_guidance(None) == ""

@@ -177,6 +177,8 @@ datasets/
 !config/eval_articles_data/**/articles.json
 !config/eval_articles_data/**/ground_truth.json
 !config/labeled_chunks/**
+!config/attack_technique_platforms.json
+!tests/fixtures/hunt_scoring_keywords_legacy.json
 !package.json
 !package-lock.json
 !.mcp.json
@@ -288,3 +290,4 @@ Workshop/.worktrees/
 create-agent-wiring-map.html
 create-agent-wiring-map.pdf
 hunt_score_distribution.html
+.worktrees

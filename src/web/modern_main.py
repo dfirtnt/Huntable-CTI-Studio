@@ -21,6 +21,8 @@ from src.database.async_manager import async_db_manager
 from src.services.source_sync import SourceSyncService
 from src.web.dependencies import DEFAULT_SOURCE_USER_AGENT, logger, templates
 from src.web.routes import register_routes
+from src.web.security.config import load_security_config
+from src.web.security.middleware import IdentityMiddleware, RequestIDMiddleware
 
 # Startup DB retry: wait for postgres to be ready (e.g. after compose up).
 STARTUP_DB_RETRIES = int(os.getenv("STARTUP_DB_RETRIES", "5"))
@@ -179,15 +181,31 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Fail-closed security config: raises in production if the posture is unsafe.
+SECURITY_CONFIG = load_security_config()
+_prod = SECURITY_CONFIG.is_production
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # nosemgrep
+    # Lock origins to the configured allowlist in production; keep permissive
+    # local-dev behavior otherwise. The wildcard is unreachable in production
+    # (the `_prod` branch uses the explicit allowlist), so the SAST wildcard-cors
+    # rule is suppressed for the dev-only fallback.
+    # nosemgrep: python.fastapi.security.wildcard-cors.wildcard-cors
+    allow_origins=list(SECURITY_CONFIG.cors_allowed_origins) if _prod else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 app.add_middleware(GZipMiddleware, minimum_size=1000)
-app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=list(SECURITY_CONFIG.trusted_hosts) if _prod else ["*"],
+)
+# IdentityMiddleware added before RequestIDMiddleware so request-ID wraps
+# outermost and is available to identity logging and every response.
+app.add_middleware(IdentityMiddleware, config=SECURITY_CONFIG)
+app.add_middleware(RequestIDMiddleware)
 
 app.mount("/static", StaticFiles(directory="src/web/static"), name="static")
 

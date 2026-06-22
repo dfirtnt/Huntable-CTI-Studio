@@ -35,6 +35,7 @@ _AGENT_FLAT_PREFIXES = [
     ("RegistryExtract", "RegistryExtract", "RegistryExtract_model"),
     ("ServicesExtract", "ServicesExtract", "ServicesExtract_model"),
     ("ScheduledTasksExtract", "ScheduledTasksExtract", "ScheduledTasksExtract_model"),
+    ("NetworkIndicatorExtract", "NetworkIndicatorExtract", "NetworkIndicatorExtract_model"),
 ]
 
 
@@ -104,6 +105,14 @@ def _normalize_v2_strict(raw: dict[str, Any]) -> dict[str, Any]:
 
     # QA field fully deprecated; strip it if present (schema has extra="forbid")
     out.pop("QA", None)
+
+    # OsDetection embedding removed 2026-06-22 (platform detection is entity-driven and never
+    # loaded it); strip the deprecated key from stored configs so they pass extra="forbid".
+    emb = out.get("Embeddings")
+    if isinstance(emb, dict) and "OsDetection" in emb:
+        emb = dict(emb)
+        emb.pop("OsDetection", None)
+        out["Embeddings"] = emb
 
     # Prompts: drop non-canonical keys (all QA prompts are no longer canonical)
     prompts = dict(out.get("Prompts") or {})
@@ -193,7 +202,8 @@ def migrate_v1_to_v2(raw: dict[str, Any]) -> dict[str, Any]:
             "Enabled": True,
         }
 
-    # Embeddings (from agent_models)
+    # Embeddings (from agent_models). OsDetection embedding removed 2026-06-22 (entity-driven
+    # platform detection never loaded it) — consume + log the legacy key, then drop it.
     os_emb = agent_models.get("OSDetectionAgent_embedding")
     sigma_emb = agent_models.get("SigmaEmbeddingModel")
     if os_emb is not None:
@@ -201,7 +211,6 @@ def migrate_v1_to_v2(raw: dict[str, Any]) -> dict[str, Any]:
     if sigma_emb is not None:
         deprecated_used.append("agent_models[SigmaEmbeddingModel]")
     Embeddings = {
-        "OsDetection": _str_val(os_emb, "ibm-research/CTI-BERT"),
         "Sigma": _str_val(sigma_emb, "ibm-research/CTI-BERT"),
     }
 

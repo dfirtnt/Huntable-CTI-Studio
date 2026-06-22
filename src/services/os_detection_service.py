@@ -1,8 +1,11 @@
 """
 OS Detection Service for CTI Scraper
 
-Uses CTI-BERT embeddings + RandomForest/LogisticRegression classifier for OS detection.
-Falls back to Mistral-7B-Instruct-v0.3 via LMStudio for lightweight inference.
+``detect_os`` is **entity-driven** (the keyword registry via ``project_platform``, with a Windows
+keyword safety net), consuming a verdict precomputed at scoring time when available; the LLM
+adjudication tail runs separately (``platform_adjudicator``). The CTI-BERT embedding methods on
+this class (``_load_model``/``_get_embedding``/``train_classifier``) are retained only for the
+Huntable-Windows classifier and the OS-classifier trainer — they are not used by ``detect_os``.
 """
 
 import logging
@@ -23,7 +26,6 @@ except ImportError:
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics.pairwise import cosine_similarity as sklearn_cosine_similarity
 from transformers import AutoModel, AutoTokenizer
 from transformers import logging as transformers_logging
 
@@ -89,52 +91,6 @@ WINDOWS_OS_KEYWORDS = [
     "systeminfo",
 ]
 
-# OS-specific indicator texts for embedding comparison
-OS_INDICATORS = {
-    "Windows": [
-        "powershell.exe cmd.exe wmic.exe reg.exe schtasks.exe",
-        "HKCU HKLM HKEY registry paths",
-        "C:\\ %APPDATA% %TEMP% %SYSTEMROOT% Windows file paths",
-        "Event ID 4688 4697 4698 Sysmon Windows Event Logs",
-        "Windows services scheduled tasks WMI",
-        ".exe .dll .bat .ps1 Windows file extensions",
-    ],
-    "Linux": [
-        "bash sh systemd cron apt yum systemctl",
-        "/etc/ /var/ /tmp/ /home/ /usr/bin/ Linux file paths",
-        "apt yum dpkg rpm Linux package managers",
-        "systemd init.d upstart Linux init systems",
-        ".sh .deb .rpm Linux file extensions",
-    ],
-    "MacOS": [
-        "osascript launchctl plutil defaults macOS commands",
-        "/Library/ ~/Library/ /Applications/ /System/ macOS file paths",
-        ".pkg .dmg .app macOS package formats",
-        "LaunchAgents LaunchDaemons macOS launch agents",
-        "CoreFoundation Cocoa macOS APIs",
-    ],
-    "Other": [
-        "network protocols HTTP HTTPS TCP UDP DNS",
-        "cloud platforms AWS Azure GCP infrastructure",
-        "web applications APIs REST GraphQL",
-        "container technologies Docker Kubernetes",
-        "virtualization VMware Hyper-V VirtualBox",
-        "firmware BIOS UEFI embedded systems",
-        "IoT devices routers switches network equipment",
-        "cross-platform frameworks Electron Node.js Python",
-        "mobile platforms Android iOS",
-        "hardware vulnerabilities CPU GPU firmware",
-    ],
-    "multiple": [
-        "Windows Linux MacOS cross-platform multi-OS",
-        "multiple operating systems different platforms",
-        "Windows and Linux Windows and MacOS Linux and MacOS",
-        "cross-platform attack multi-platform malware",
-        "works on Windows Linux MacOS all platforms",
-        "platform-agnostic OS-independent",
-    ],
-}
-
 
 class OSDetectionService:
     """OS detection service using keyword, classifier, then embedding similarity."""
@@ -163,7 +119,6 @@ class OSDetectionService:
         self.classifier = None
         self._model_loaded = False
         self._classifier_loaded = False
-        self.os_indicator_embeddings = {}
         self.classifier_path = (
             classifier_path or Path(__file__).parent.parent.parent / "models" / "os_detection_classifier.pkl"
         )
@@ -189,9 +144,6 @@ class OSDetectionService:
 
             self._model_loaded = True
             logger.info(f"Successfully loaded CTI-BERT model on device {self.device}")
-
-            # Pre-compute OS indicator embeddings
-            self._precompute_os_embeddings()
 
         except Exception as e:
             logger.error(f"Failed to load CTI-BERT model: {e}")
@@ -256,185 +208,66 @@ class OSDetectionService:
         logger.debug(f"Windows keyword check: {match_count} matches (threshold: {min_matches}), falling back to BERT")
         return None
 
-    def _precompute_os_embeddings(self):
-        """Pre-compute embeddings for OS indicators."""
-        logger.info("Pre-computing OS indicator embeddings...")
-        for os_name, indicators in OS_INDICATORS.items():
-            # Combine all indicators for this OS
-            combined_text = " ".join(indicators)
-            embedding = self._get_embedding(combined_text)
-            self.os_indicator_embeddings[os_name] = embedding
-        logger.info("OS indicator embeddings computed")
-
-    def _load_classifier(self) -> bool:
-        """Load trained classifier if available."""
-        if self._classifier_loaded:
-            return True
-
-        if self.classifier_path.exists():
-            try:
-                logger.info(f"Loading classifier from {self.classifier_path}")
-                with open(self.classifier_path, "rb") as f:
-                    self.classifier = pickle.load(f)
-                self._classifier_loaded = True
-                logger.info("Classifier loaded successfully")
-                return True
-            except Exception as e:
-                logger.warning(f"Failed to load classifier: {e}")
-                return False
-        else:
-            logger.info("No trained classifier found, will use similarity-based detection")
-            return False
-
-    def _detect_with_classifier(self, content: str) -> dict[str, Any] | None:
-        """Detect OS using trained classifier."""
-        if not self._load_classifier() or self.classifier is None:
-            return None
-
-        try:
-            # Generate embedding for content
-            content_sample = content[:2000]  # Use first 2000 chars
-            content_embedding = self._get_embedding(content_sample)
-
-            # Predict using classifier
-            prediction = self.classifier.predict([content_embedding])[0]
-            probabilities = None
-            if hasattr(self.classifier, "predict_proba"):
-                probabilities = self.classifier.predict_proba([content_embedding])[0]
-
-            # Map prediction to OS label
-            if isinstance(prediction, (int, np.integer)):
-                # If classifier returns index
-                if 0 <= prediction < len(OS_LABELS):
-                    os_label = OS_LABELS[prediction]
-                else:
-                    os_label = "Unknown"
-            else:
-                os_label = str(prediction)
-
-            confidence = float(probabilities.max()) if probabilities is not None else None
-
-            return {
-                "operating_system": os_label,
-                "method": "classifier",
-                "confidence": confidence,
-                "probabilities": probabilities.tolist() if probabilities is not None else None,
-            }
-        except Exception as e:
-            logger.error(f"Classifier detection failed: {e}")
-            return None
-
-    def _detect_with_similarity(self, content: str) -> dict[str, Any]:
-        """Detect OS using similarity-based approach (fallback when no classifier)."""
-        if not self._model_loaded:
-            self._load_model()
-
-        # Generate embedding for article content
-        content_sample = content[:2000]
-        content_embedding = self._get_embedding(content_sample)
-
-        # Calculate similarity to each OS
-        similarities = {}
-        for os_name, os_embedding in self.os_indicator_embeddings.items():
-            similarity = sklearn_cosine_similarity(content_embedding.reshape(1, -1), os_embedding.reshape(1, -1))[0][0]
-            similarities[os_name] = float(similarity)
-
-        # Determine OS based on similarities
-        max_similarity = max(similarities.values())
-        max_os = max(similarities, key=similarities.get)
-
-        # Sort similarities to find the gap between top OSes
-        sorted_sims = sorted(similarities.items(), key=lambda x: x[1], reverse=True)
-        top_os, top_sim = sorted_sims[0]
-        second_os, second_sim = sorted_sims[1] if len(sorted_sims) > 1 else (None, 0)
-
-        # Decision logic:
-        # 1. If max similarity is very high (>0.8) and significantly higher than second (>0.05 gap), use that OS
-        # 2. If multiple OSes have high similarity (>0.75) and are close to each other (<0.05 gap), classify as "multiple"
-        # 3. If max similarity > 0.6, use that OS
-        # 4. Otherwise, "Unknown"
-
-        gap_to_second = top_sim - second_sim if second_sim > 0 else top_sim
-
-        # Decision logic:
-        # 1. If max similarity > 0.8, prefer that OS unless second is very close (<0.02 gap)
-        # 2. If max similarity > 0.75 and gap > 0.02, use that OS
-        # 3. If multiple OSes are very close (<0.02 gap) and all > 0.75, classify as "multiple"
-        # 4. If max similarity > 0.6, use that OS
-        # 5. Otherwise, "Unknown"
-
-        if max_similarity > 0.8:
-            # High confidence - prefer the top OS unless second is extremely close (<0.5% gap)
-            if gap_to_second < 0.005:
-                # Top OSes are within 0.5% - likely truly multi-platform
-                close_oses = [os for os, sim in similarities.items() if sim > max_similarity - 0.005]
-                detected_os = "multiple" if len(close_oses) > 1 else max_os
-            else:
-                # Clear winner - use the top OS
-                detected_os = max_os
-        elif max_similarity > 0.75:
-            # Medium-high confidence
-            if gap_to_second < 0.02:
-                # Top OSes are very close - check if multiple qualify
-                high_similarity_oses = [os for os, sim in similarities.items() if sim > 0.75]
-                detected_os = "multiple" if len(high_similarity_oses) > 1 else max_os
-            else:
-                detected_os = max_os
-        elif max_similarity > 0.6:
-            detected_os = max_os
-        elif max_similarity > 0.5:
-            # If max similarity is > 0.5 and there's a clear winner (gap > 0.02), use that OS
-            # This handles cases where confidence is low but one OS is clearly dominant
-            if gap_to_second > 0.02:
-                detected_os = max_os
-            else:
-                detected_os = "Unknown"
-        else:
-            detected_os = "Unknown"
-
-        return {
-            "operating_system": detected_os,
-            "method": "similarity",
-            "max_similarity": float(max_similarity),
-            "similarities": similarities,
-            "confidence": "high" if max_similarity > 0.7 else "medium" if max_similarity > 0.6 else "low",
-        }
-
     async def detect_os(
         self,
         content: str,
         use_classifier: bool = True,
         min_windows_keywords: int = 3,
+        precomputed: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Detect OS from content.
 
-        Detection order:
-        1. Windows keyword check (>= min_windows_keywords matches -> Windows)
-        2. BERT classifier (if available)
-        3. BERT similarity-based detection
+        Detection order (Phase A — entity-driven; embedding paths retired):
+        1. Deterministic verdict — the ingest-time verdict (``precomputed``, Phase 3) when
+           supplied, else a fresh scan against the keyword registry (``project_platform``).
+        2. Windows keyword safety net for low-evidence content (deterministic).
+        3. Otherwise Unknown (Phase B will adjudicate this tail with an LLM).
+
+        ``precomputed`` is ``article_metadata["os_classification"]`` computed at scoring time
+        (Phase 2); consuming it avoids re-scanning the same content. Articles ingested before
+        Phase 2 have no stored verdict and fall back to the fresh scan (go-forward).
+
+        The BERT classifier/similarity methods remain on the class but are no longer
+        called: they were non-discriminative for non-Windows content (every class ~0.5,
+        the `Other`/`multiple` tie-break winning). See
+        docs/superpowers/specs/2026-06-19-entity-driven-platform-classification-design.md.
 
         Args:
             content: Article content
-            use_classifier: Try to use trained classifier first (after keyword check)
-            min_windows_keywords: Minimum Windows keyword matches to return Windows (default: 3)
+            use_classifier: Deprecated/ignored (embedding classifier retired).
+            min_windows_keywords: Windows keyword matches for the deterministic safety net.
+            precomputed: Verdict computed at scoring time; reused as-is instead of re-scanning.
 
         Returns:
             Dict with operating_system, method, and confidence
         """
-        # Step 1: Check Windows keywords first
+        # Step 1: deterministic verdict — reuse the scoring-time verdict, else scan fresh against
+        # the keyword registry (the single platform-vocabulary source of truth).
+        if precomputed is not None:
+            verdict = precomputed
+            confidence = precomputed.get("confidence")
+            source = "precomputed"
+        else:
+            from src.utils.keyword_registry import project_platform
+
+            kb = project_platform(content)
+            verdict = kb.as_os_result()
+            confidence = kb.confidence
+            source = "registry scan"
+
+        if confidence != "low":
+            logger.info(f"Platform verdict ({source}): {verdict.get('platforms_detected')} (confidence={confidence})")
+            return verdict
+
+        # Step 2: deterministic Windows keyword safety net for thin evidence.
         keyword_result = self._check_windows_keywords(content, min_matches=min_windows_keywords)
         if keyword_result:
             return keyword_result
 
-        # Step 2: Try classifier if available
-        if use_classifier:
-            result = self._detect_with_classifier(content)
-            if result:
-                return result
-
-        # Step 3: Similarity-based detection
-        return self._detect_with_similarity(content)
+        # Step 3: genuinely insufficient signal -> Unknown (no embedding guesswork).
+        logger.info(f"Platform classification inconclusive ({source}, confidence=low); returning Unknown")
+        return verdict
 
     def train_classifier(self, training_data: list[dict[str, Any]], save_path: Path | None = None) -> dict[str, Any]:
         """

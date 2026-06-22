@@ -176,7 +176,7 @@ class QueuedRuleResponse(BaseModel):
     """Response model for queued rule."""
 
     id: int
-    article_id: int
+    article_id: int | None
     article_title: str | None
     workflow_execution_id: int | None
     rule_yaml: str
@@ -284,7 +284,7 @@ class SavePresetRequest(BaseModel):
 class AddRuleToQueueRequest(BaseModel):
     """Request model for adding a rule to the queue."""
 
-    article_id: int
+    article_id: int | None = None  # Optional: omit for hand-authored "from scratch" drafts
     rule_yaml: str | None = None  # YAML string
     rule_json: dict[str, Any] | None = None  # JSON object (will be converted to YAML)
     rule_metadata: dict[str, Any] | None = None
@@ -327,10 +327,11 @@ def add_rule_to_queue(request: Request, add_request: AddRuleToQueueRequest):
                     detail=f"rule_yaml is missing required Sigma keys: {_missing}. Preview: {rule_yaml[:120]!r}",
                 )
 
-            # Verify article exists
-            article = db_session.query(ArticleTable).filter(ArticleTable.id == add_request.article_id).first()
-            if not article:
-                raise HTTPException(status_code=404, detail="Article not found")
+            # Verify article exists (only when one is supplied; "from scratch" drafts have none)
+            if add_request.article_id is not None:
+                article = db_session.query(ArticleTable).filter(ArticleTable.id == add_request.article_id).first()
+                if not article:
+                    raise HTTPException(status_code=404, detail="Article not found")
 
             # Parse rule YAML to extract metadata if not provided
             rule_metadata = add_request.rule_metadata
@@ -565,7 +566,7 @@ def approve_queued_rule(request: Request, queue_id: int, update: QueueUpdateRequ
             rule.status = update.status or "approved"
             rule.reviewed_at = datetime.now()
             rule.review_notes = update.review_notes
-            rule.reviewed_by = "system"  # TODO: Get from auth context
+            rule.reviewed_by = _sigma_author_from_db(db_session)
 
             # Update rule YAML if provided
             if update.rule_yaml:
@@ -604,7 +605,7 @@ async def reject_queued_rule(request: Request, queue_id: int):
 
             rule.status = "rejected"
             rule.reviewed_at = datetime.now()
-            rule.reviewed_by = "system"  # TODO: Get from auth context
+            rule.reviewed_by = _sigma_author_from_db(db_session)
 
             # Try to parse JSON body first (new format with rule_yaml support)
             try:
@@ -681,10 +682,11 @@ def bulk_action_queued_rules(bulk: BulkActionRequest):
                     "approved" if bulk.action == "approve" else "rejected" if bulk.action == "reject" else bulk.status
                 )
                 now = datetime.now()
+                reviewer = _sigma_author_from_db(db_session)
                 for rule in rules:
                     rule.status = target_status
                     rule.reviewed_at = now
-                    rule.reviewed_by = "system"
+                    rule.reviewed_by = reviewer
                     if bulk.review_notes is not None:
                         rule.review_notes = bulk.review_notes
 
@@ -877,9 +879,12 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                 if not rule:
                     return {"error": "Queued rule not found", "status_code": 404}
 
-                article = db_session.query(ArticleTable).filter(ArticleTable.id == rule.article_id).first()
-                if not article:
-                    return {"error": "Article not found", "status_code": 404}
+                # Hand-authored "from scratch" drafts have no source article; enrich without it.
+                article = None
+                if rule.article_id is not None:
+                    article = db_session.query(ArticleTable).filter(ArticleTable.id == rule.article_id).first()
+                    if not article:
+                        return {"error": "Article not found", "status_code": 404}
 
                 instruction_text = (
                     enrich_request.instruction
@@ -888,7 +893,7 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                 rule_yaml_to_enrich = enrich_request.current_rule_yaml or rule.rule_yaml
 
                 article_content = None
-                if enrich_request.include_article_content:
+                if enrich_request.include_article_content and article is not None:
                     try:
                         content_filter = ContentFilter()
                         hunt_score = (
@@ -913,8 +918,8 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
 
                 prompt_params = {
                     "rule_yaml": rule_yaml_to_enrich,
-                    "article_title": article.title,
-                    "article_url": article.canonical_url or "N/A",
+                    "article_title": article.title if article else "(hand-authored rule, no source article)",
+                    "article_url": (article.canonical_url or "N/A") if article else "N/A",
                     "user_instruction": instruction_text,
                     "toggles_json": toggles_json,
                     "author_value": author_for_enrich,
@@ -1731,10 +1736,11 @@ async def validate_rule(request: Request, queue_id: int):
             if not rule:
                 raise HTTPException(status_code=404, detail="Queued rule not found")
 
-            # Get article for context
-            article = db_session.query(ArticleTable).filter(ArticleTable.id == rule.article_id).first()
-            if not article:
-                raise HTTPException(status_code=404, detail="Article not found")
+            # Get article for context (hand-authored drafts have no source article)
+            if rule.article_id is not None:
+                article = db_session.query(ArticleTable).filter(ArticleTable.id == rule.article_id).first()
+                if not article:
+                    raise HTTPException(status_code=404, detail="Article not found")
 
             # Parse request body (no body param to avoid double-consumption)
             body = {}

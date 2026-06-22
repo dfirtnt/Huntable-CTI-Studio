@@ -48,6 +48,19 @@ Key markers by cost: `unit` (stateless) < `integration` (containers) < `api` < `
 
 ---
 
+## Feature Constraints
+
+Cross-cutting rules every new feature must satisfy, regardless of change type.
+
+- **No hard LMStudio dependency**: New features must work with cloud models alone
+  (OpenAI / Anthropic). LMStudio (local inference) is an optional provider -- many
+  deployments are cloud-only and never run a local model server. Never make a feature
+  *require* LMStudio or any local provider; gate local-only paths behind capability
+  checks (`capability_service.py`, `model_validation.py`) and degrade gracefully when
+  only cloud providers are configured.
+
+---
+
 ## Commands
 
 ```bash

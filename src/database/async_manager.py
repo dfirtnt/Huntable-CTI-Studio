@@ -519,6 +519,58 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to update min_content_length for source {source_id}: {e}")
             raise
 
+    async def update_source_image_ocr_override(self, source_id: int, value: bool | None) -> dict[str, Any] | None:
+        """Set or clear the per-source image OCR override.
+
+        value True/False writes config['image_ocr_enabled']; value None removes the
+        key (revert to inherit). Returns None if the source does not exist, or a dict
+        with success=False, protected=True for internal/eval/manual sources (which
+        must never be opted in)."""
+        from src.services.vision_ocr_service import PROTECTED_INTERNAL_SOURCE_IDENTIFIERS
+
+        try:
+            async with self.get_session() as session:
+                result = await session.execute(select(SourceTable).where(SourceTable.id == source_id).limit(1))
+                db_source = result.scalar_one_or_none()
+                if not db_source:
+                    return None
+
+                if db_source.identifier in PROTECTED_INTERNAL_SOURCE_IDENTIFIERS:
+                    return {
+                        "success": False,
+                        "protected": True,
+                        "source_name": db_source.name,
+                        "message": f"OCR cannot be enabled for internal source '{db_source.identifier}'",
+                    }
+
+                config = dict(db_source.config or {})
+                if value is None:
+                    config.pop("image_ocr_enabled", None)
+                else:
+                    config["image_ocr_enabled"] = bool(value)
+                db_source.config = config
+                db_source.updated_at = datetime.now()
+
+                session.add(db_source)
+                await session.commit()
+                await session.refresh(db_source)
+
+                state = "inherit" if value is None else ("on" if value else "off")
+                logger.info(
+                    "Updated image_ocr_enabled for source %s -> %s",
+                    db_source.identifier,
+                    state,
+                )
+                return {
+                    "success": True,
+                    "source_name": db_source.name,
+                    "image_ocr_enabled": value,
+                    "state": state,
+                }
+        except Exception as e:
+            logger.error("Failed to update image_ocr_enabled for source %s: %s", source_id, e)
+            raise
+
     async def update_source(self, source_id: int, update_data: SourceUpdate) -> Source | None:
         """Update a source with proper transaction handling."""
         try:

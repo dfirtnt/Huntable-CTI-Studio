@@ -83,7 +83,7 @@ async function mockEnrichmentEndpoints(page: Page) {
             status: 'pending',
             article_id: 1,
             article_title: 'Test Article',
-            rule_metadata: { title: 'Test Rule' },
+            rule_metadata: { title: 'Test Rule', platform: 'linux' },
             created_at: new Date().toISOString(),
           },
         ],
@@ -134,6 +134,19 @@ test.describe('Sigma enrich modal — no duplicate Original Rule', () => {
     await mockEnrichmentEndpoints(page);
     await page.goto('/workflow#queue');
     await page.waitForLoadState('domcontentloaded');
+  });
+
+  test('renders the queue platform badge in the table and preview', async ({ page }) => {
+    await expect(page.locator('#queueTableBody')).toContainText('Linux');
+
+    await page.evaluate(async (ruleId) => {
+      const w = window as any;
+      await w.loadQueue();
+      await w.previewRule(ruleId);
+    }, RULE_ID);
+
+    await expect(page.locator('#rulePreviewContent')).toContainText('Platform:');
+    await expect(page.locator('#rulePreviewContent')).toContainText('Linux');
   });
 
   test('hides the standalone Original Rule once the comparison view is shown, and keeps it hidden in the editor sub-view', async ({ page }) => {

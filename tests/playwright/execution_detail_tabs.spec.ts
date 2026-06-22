@@ -17,11 +17,25 @@ const MOCK_EXEC = {
   error_message: null,
   error_log: {
     os_detection_result: {
-      detected_os: 'Windows',
+      detected_os: 'Linux',
+      platforms_detected: ['Linux'],
       detection_method: 'embedding',
       confidence: 'high',
       max_similarity: 0.95,
-      similarities: { Windows: 0.95, Linux: 0.2 }
+      similarities: { Linux: 0.95, Windows: 0.2 }
+    },
+    extract_agent: {
+      capability_skips: [
+        {
+          extractor: 'RegistryExtract',
+          status: 'skipped',
+          reason_code: 'unsupported_platform',
+          reason: 'RegistryExtract supports Windows telemetry only.',
+          supported_platforms: ['Windows'],
+          detected_platforms: ['Linux'],
+          telemetry_categories: ['registry']
+        }
+      ]
     }
   },
   junk_filter_result: {
@@ -35,14 +49,41 @@ const MOCK_EXEC = {
   ranking_score: 7.5,
   ranking_reasoning: 'High relevance.',
   extraction_result: {
-    observables: [{ type: 'cmdline', value: 'cmd.exe', platform: 'Windows', source_context: '' }],
-    summary: { count: 1, platforms_detected: ['Windows'] },
+    observables: [{
+      type: 'cmdline',
+      value: '/bin/bash -c id',
+      platform: 'Linux',
+      telemetry_category: 'process_execution',
+      logsource_hint: 'process_creation',
+      source_context: ''
+    }],
+    summary: { count: 1, platforms_detected: ['Linux'] },
+    capability_skips: [
+      {
+        extractor: 'RegistryExtract',
+        status: 'skipped',
+        reason_code: 'unsupported_platform',
+        reason: 'RegistryExtract supports Windows telemetry only.',
+        supported_platforms: ['Windows'],
+        detected_platforms: ['Linux'],
+        telemetry_categories: ['registry']
+      }
+    ],
     discrete_huntables_count: 1,
-    content: 'cmd.exe',
+    content: '/bin/bash -c id',
     subresults: {
-      cmdline: { count: 1, items: ['cmd.exe'], raw: {} },
+      cmdline: { count: 1, items: ['/bin/bash -c id'], raw: {} },
       process_lineage: { count: 0, items: [], raw: {} },
-      hunt_queries: { count: 0, items: [], raw: {} }
+      hunt_queries: { count: 0, items: [], raw: {} },
+      registry_artifacts: {
+        count: 0,
+        items: [],
+        raw: {
+          status: 'skipped',
+          reason_code: 'unsupported_platform',
+          reason: 'RegistryExtract supports Windows telemetry only.'
+        }
+      }
     }
   },
   sigma_rules: [{ title: 'Test Rule', status: 'experimental', detection: {} }],
@@ -101,9 +142,38 @@ test.describe('Execution Detail - Tabbed UI', () => {
   test('tab strip is visible with one tab per step', async ({ page }) => {
     const tabStrip = page.locator('#exec-tab-strip');
     await expect(tabStrip).toBeVisible();
-    // Expect at least 3 tabs (OS Detection, Junk Filter, Ranking)
+    // Expect at least 3 tabs (Platform Detection, Junk Filter, Ranking)
     const tabs = tabStrip.locator('button.exec-tab');
     expect(await tabs.count()).toBeGreaterThanOrEqual(3);
+  });
+
+  test('platform detection tab does not treat Linux as a workflow stop', async ({ page }) => {
+    const platformTab = page.locator('#exec-tab-strip button.exec-tab').filter({ hasText: 'Platform Detection' });
+    await expect(platformTab).toHaveAttribute('data-status', 'pass');
+    await platformTab.click();
+
+    const firstPanel = page.locator('.exec-panel').first();
+    await expect(firstPanel).toContainText('Platforms Detected: Linux');
+    await expect(firstPanel).toContainText('Continue to capability routing');
+    await expect(firstPanel).not.toContainText('Stop (Non-Windows');
+  });
+
+  test('extraction tab surfaces telemetry metadata and capability skips', async ({ page }) => {
+    const extractionTab = page.locator('#exec-tab-strip button.exec-tab').filter({ hasText: 'Extraction' });
+    await extractionTab.click();
+
+    const activePanel = page.locator('.exec-panel:not(.hidden)').first();
+    await expect(activePanel).toContainText('Capability Skips: 1');
+
+    const skipDetails = page.locator('details').filter({ hasText: 'View Capability Skips' });
+    await skipDetails.first().evaluate((el: HTMLDetailsElement) => { el.open = true; });
+    await expect(activePanel).toContainText('RegistryExtract');
+    await expect(activePanel).toContainText('Detected platforms: Linux');
+
+    const observablesDetails = page.locator('details').filter({ hasText: 'View Observables' });
+    await observablesDetails.first().evaluate((el: HTMLDetailsElement) => { el.open = true; });
+    await expect(activePanel).toContainText('Telemetry: process_execution');
+    await expect(activePanel).toContainText('Logsource: process_creation');
   });
 
   test('clicking a tab shows only that panel', async ({ page }) => {
@@ -350,7 +420,8 @@ test.describe('Execution Detail - ScheduledTasksExtract card regression', () => 
             count: 1,
             items: [{ task_name: 'My Task', task_path: '\\My Task', operation_type: 'created', confidence_score: 0.9 }],
             raw: {}
-          }
+          },
+          network_indicators: { count: 0, items: [], raw: {} }
         }
       }
     };
@@ -374,7 +445,7 @@ test.describe('Execution Detail - ScheduledTasksExtract card regression', () => 
     await expect(schedCard).toContainText('(1 item)');
   });
 
-  test('all six sub-agent cards render even when only one type has results', async ({ page }) => {
+  test('all seven sub-agent cards render even when only one type has results', async ({ page }) => {
     const exec = {
       ...BASE_EXEC,
       extraction_result: {
@@ -388,7 +459,8 @@ test.describe('Execution Detail - ScheduledTasksExtract card regression', () => 
           hunt_queries: { count: 0, items: [], raw: {} },
           registry_artifacts: { count: 0, items: [], raw: {} },
           windows_services: { count: 0, items: [], raw: {} },
-          scheduled_tasks: { count: 1, items: [{ task_name: 'My Task', task_path: '\\My Task' }], raw: {} }
+          scheduled_tasks: { count: 1, items: [{ task_name: 'My Task', task_path: '\\My Task' }], raw: {} },
+          network_indicators: { count: 0, items: [], raw: {} }
         }
       }
     };
@@ -409,6 +481,7 @@ test.describe('Execution Detail - ScheduledTasksExtract card regression', () => 
       'Registry Artifacts Extraction',
       'Windows Services Extraction',
       'Scheduled Tasks Extraction',
+      'Network Indicators Extraction',
     ];
     for (const cardTitle of expectedCards) {
       const card = page.locator('summary').filter({ hasText: cardTitle });
@@ -418,20 +491,20 @@ test.describe('Execution Detail - ScheduledTasksExtract card regression', () => 
 });
 
 // ---------------------------------------------------------------------------
-// Regression: Observable Traceability panel must count all six observable
+// Regression: Observable Traceability panel must count all seven observable
 // types, not just cmdline/process_lineage/hunt_queries.
 //
 // Root cause (recurred 3x): the be80168c fix expanded the traceability panel
 // to all six types in workflow_executions.html and sigma_queue.html but never
-// touched workflow.html — the template the /workflow#executions modal actually
+// touched workflow.html -- the template the /workflow#executions modal actually
 // uses. Its traceabilitySection() computed totalObs over only the original
 // three types, so an execution whose observables were ENTIRELY
 // registry_artifacts / windows_services / scheduled_tasks summed to
 // totalObs === 0 and rendered "Traceability unavailable (legacy execution or
 // no observables)" even though the /observables API returned them correctly.
 //
-// The 18 backend tests in test_observable_traceability_regressions.py exercise
-// _build_observables_response directly and CANNOT catch this template drift —
+// The 25 backend tests in test_observable_traceability_regressions.py exercise
+// _build_observables_response directly and CANNOT catch this template drift --
 // hence the recurrence. These tests mock /observables and assert the rendered
 // panel, which is the only layer that regresses.
 // ---------------------------------------------------------------------------
@@ -521,6 +594,7 @@ const REGRESSED_TYPES_OBSERVABLES = {
         extraction_timestamp: '2026-05-18T14:54:41Z',
       },
     ],
+    network_indicators: [],
   },
 };
 
@@ -529,6 +603,7 @@ const ALL_EMPTY_OBSERVABLES = {
   observables: {
     cmdline: [], process_lineage: [], hunt_queries: [],
     registry_artifacts: [], windows_services: [], scheduled_tasks: [],
+    network_indicators: [],
   },
 };
 
@@ -554,7 +629,7 @@ test.describe('Execution Detail - Observable Traceability type coverage regressi
     await expect(trace).toContainText('REGRESSION-MARKER-2615');
   });
 
-  test('panel still shows "Traceability unavailable" when all six types are empty (boundary guard)', async ({ page }) => {
+  test('panel still shows "Traceability unavailable" when all seven types are empty (boundary guard)', async ({ page }) => {
     await openExecutionWithObservables(page, BASE_EXEC, ALL_EMPTY_OBSERVABLES);
 
     const extractionTab = page.locator('#exec-tab-strip button.exec-tab').filter({ hasText: 'Extraction' });
@@ -568,18 +643,18 @@ test.describe('Execution Detail - Observable Traceability type coverage regressi
 
 // ---------------------------------------------------------------------------
 // Regression: per-SIGMA-rule "Observables Used" (filterObservablesForRule /
-// observablesUsedSection) must resolve observables_used indices across all six
-// observable types using offset math matching the backend
+// observablesUsedSection) must resolve observables_used indices across all
+// seven observable types using offset math matching the backend
 // _build_observables_section flat order.
 //
 // Twin of the be80168c sigma_queue.html fix that workflow.html missed.
 // workflow.html built `flat` from only cmdline/process_lineage/hunt_queries
 // and used hand-rolled cmdLen/procLen offsets, so a SIGMA rule whose
 // observables_used indices point into registry/services/scheduled (flat idx
-// past the 3-type length) resolved to "No observables for this execution" —
+// past the 3-type length) resolved to "No observables for this execution" --
 // silently MIS-ATTRIBUTING the rule's real provenance (worse than the panel
 // bug: wrong data, not merely hidden). These tests call the shipped global
-// functions directly (no modal) — they fail before the fix, pass after.
+// functions directly (no modal) -- they fail before the fix, pass after.
 // ---------------------------------------------------------------------------
 
 async function gotoWorkflowWithGlobals(page: any) {
@@ -601,11 +676,11 @@ async function gotoWorkflowWithGlobals(page: any) {
   await page.waitForLoadState('networkidle');
 }
 
-// 6-type payload. Flat order per OBS_TYPE_ORDER / _build_observables_section:
+// 7-type payload. Flat order per OBS_TYPE_ORDER / _build_observables_section:
 //   cmdline[0,1]=flat 0,1 | process_lineage()= | hunt_queries[0]=flat 2
 //   registry_artifacts[0,1]=flat 3,4 | windows_services[0]=flat 5
-//   scheduled_tasks[0]=flat 6
-const OBS_6 = {
+//   scheduled_tasks[0]=flat 6 | network_indicators[0]=flat 7
+const OBS_7 = {
   cmdline: [
     { observable_value: 'cmd-A', observable_type: 'cmdline' },
     { observable_value: 'cmd-B', observable_type: 'cmdline' },
@@ -618,15 +693,16 @@ const OBS_6 = {
   ],
   windows_services: [{ observable_value: 'SVC-IDX5', observable_type: 'windows_services', source_evidence: 'ev', confidence_score: 0.95 }],
   scheduled_tasks: [{ observable_value: 'TASK-IDX6', observable_type: 'scheduled_tasks' }],
+  network_indicators: [{ observable_value: 'NET-IDX7', observable_type: 'network_indicators', source_evidence: 'ev', confidence_score: 0.85 }],
 };
 
 test.describe('Observables Used (per-SIGMA-rule) type coverage regression', () => {
-  test('filterObservablesForRule resolves indices across all 6 types via offset math', async ({ page }) => {
+  test('filterObservablesForRule resolves indices across all 7 types via offset math', async ({ page }) => {
     await gotoWorkflowWithGlobals(page);
 
     const res = await page.evaluate((obs: any) => {
-      // Rule grounded in flat idx 3 (registry[0]), 5 (services[0]), 6 (sched[0]).
-      const rule = { id: 1, rule_metadata: { observables_used: [3, 5, 6] } };
+      // Rule grounded in flat idx 3 (registry[0]), 5 (services[0]), 6 (sched[0]), 7 (net[0]).
+      const rule = { id: 1, rule_metadata: { observables_used: [3, 5, 6, 7] } };
       const out = (window as any).filterObservablesForRule(rule, { observables: obs }).observables;
       const counts = Object.fromEntries(Object.keys(obs).map(k => [k, (out[k] || []).length]));
       return {
@@ -634,35 +710,39 @@ test.describe('Observables Used (per-SIGMA-rule) type coverage regression', () =
         regVal: (out.registry_artifacts || [])[0]?.observable_value,
         svcVal: (out.windows_services || [])[0]?.observable_value,
         taskVal: (out.scheduled_tasks || [])[0]?.observable_value,
+        netVal: (out.network_indicators || [])[0]?.observable_value,
       };
-    }, OBS_6);
+    }, OBS_7);
 
     expect(res.counts).toEqual({
       cmdline: 0, process_lineage: 0, hunt_queries: 0,
       registry_artifacts: 1, windows_services: 1, scheduled_tasks: 1,
+      network_indicators: 1,
     });
     // Must select the RIGHT registry item (flat idx 3 == registry_artifacts[0]).
     expect(res.regVal).toBe('REG-IDX3');
     expect(res.svcVal).toBe('SVC-IDX5');
     expect(res.taskVal).toBe('TASK-IDX6');
+    expect(res.netVal).toBe('NET-IDX7');
   });
 
-  test('observablesUsedSection renders registry/services/scheduled (not "No observables")', async ({ page }) => {
+  test('observablesUsedSection renders registry/services/scheduled/network (not "No observables")', async ({ page }) => {
     await gotoWorkflowWithGlobals(page);
 
     const html = await page.evaluate((obs: any) => {
-      const rule = { id: 2, rule_metadata: { observables_used: [3, 5, 6] } };
+      const rule = { id: 2, rule_metadata: { observables_used: [3, 5, 6, 7] } };
       return (window as any).observablesUsedSection(rule, { observables: obs });
-    }, OBS_6);
+    }, OBS_7);
 
     expect(html).not.toContain('No observables for this execution');
-    expect(html).toContain('Observables Used (3)');
+    expect(html).toContain('Observables Used (4)');
     expect(html).toContain('Registry Artifacts (1)');
     expect(html).toContain('Windows Services (1)');
     expect(html).toContain('Scheduled Tasks (1)');
+    expect(html).toContain('Network Indicators (1)');
   });
 
-  test('empty/missing/out-of-range observables_used -> all-6 empty buckets + "No observables" (boundary guard)', async ({ page }) => {
+  test('empty/missing/out-of-range observables_used -> all-7 empty buckets + "No observables" (boundary guard)', async ({ page }) => {
     await gotoWorkflowWithGlobals(page);
 
     const res = await page.evaluate((obs: any) => {
@@ -673,7 +753,7 @@ test.describe('Observables Used (per-SIGMA-rule) type coverage regression', () =
         return Object.values(o).reduce((n: number, a: any) => n + (a?.length || 0), 0);
       };
       const emptyRule = { id: 10, rule_metadata: { observables_used: [] } };
-      const missingRule = { id: 11 };                                       // no rule_metadata
+      const missingRule = { id: 11 };                                        // no rule_metadata
       const oorRule = { id: 12, rule_metadata: { observables_used: [99] } }; // out of range
       return {
         emptyKeys: Object.keys(f(emptyRule, { observables: obs }).observables).sort(),
@@ -682,13 +762,13 @@ test.describe('Observables Used (per-SIGMA-rule) type coverage regression', () =
         oorCount: countsOf(oorRule),
         oorHtml: s(oorRule, { observables: obs }),
       };
-    }, OBS_6);
+    }, OBS_7);
 
-    // The fix changed the no-indices early return from 3 keys to all 6 — this
+    // The fix changed the no-indices early return from 3 keys to all 7 -- this
     // assertion fails pre-fix (so it is regression coverage, not just a guard).
     expect(res.emptyKeys).toEqual([
-      'cmdline', 'hunt_queries', 'process_lineage',
-      'registry_artifacts', 'scheduled_tasks', 'windows_services',
+      'cmdline', 'hunt_queries', 'network_indicators',
+      'process_lineage', 'registry_artifacts', 'scheduled_tasks', 'windows_services',
     ]);
     expect(res.emptyCount).toBe(0);
     expect(res.missingCount).toBe(0);

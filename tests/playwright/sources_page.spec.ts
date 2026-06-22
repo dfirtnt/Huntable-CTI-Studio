@@ -150,7 +150,7 @@ test.describe('Sources Page - Executable Test Plan', () => {
   test('[SOURCES-024] Configure button opens modal', async ({ page, request }) => {
     const source = await requireFirstNonManualSource(request);
     await openSourceOverflow(page, source.id);
-    const button = page.locator(`button[onclick^="openSourceConfig(${source.id},"]`).first();
+    const button = page.locator(`button[onclick^="openSourceConfig(this, ${source.id},"]`).first();
     await button.click();
     await expect(page.locator('#sourceConfigModal')).toBeVisible();
     await expect(page.locator('#configLookbackDays')).toBeVisible();
@@ -184,7 +184,7 @@ test.describe('Sources Page - Executable Test Plan', () => {
   test('[SOURCES-040] Configuration modal form fields exist', async ({ page, request }) => {
     const source = await requireFirstNonManualSource(request);
     await openSourceOverflow(page, source.id);
-    await page.locator(`button[onclick^="openSourceConfig(${source.id},"]`).first().click();
+    await page.locator(`button[onclick^="openSourceConfig(this, ${source.id},"]`).first().click();
     await expect(page.locator('#configLookbackDays')).toBeVisible();
     await expect(page.locator('#configCheckFrequency')).toBeVisible();
     await expect(page.locator('#configMinContentLength')).toBeVisible();
@@ -193,7 +193,7 @@ test.describe('Sources Page - Executable Test Plan', () => {
   test('[SOURCES-041] Configuration input constraints', async ({ page, request }) => {
     const source = await requireFirstNonManualSource(request);
     await openSourceOverflow(page, source.id);
-    await page.locator(`button[onclick^="openSourceConfig(${source.id},"]`).first().click();
+    await page.locator(`button[onclick^="openSourceConfig(this, ${source.id},"]`).first().click();
 
     await expect(page.locator('#configLookbackDays')).toHaveAttribute('min', '1');
     await expect(page.locator('#configLookbackDays')).toHaveAttribute('max', '999');
@@ -205,7 +205,7 @@ test.describe('Sources Page - Executable Test Plan', () => {
   test('[SOURCES-042] Current source values pre-populate configuration form', async ({ page, request }) => {
     const source = await requireFirstNonManualSource(request);
     await openSourceOverflow(page, source.id);
-    await page.locator(`button[onclick^="openSourceConfig(${source.id},"]`).first().click();
+    await page.locator(`button[onclick^="openSourceConfig(this, ${source.id},"]`).first().click();
 
     const lookback = await page.locator('#configLookbackDays').inputValue();
     const checkFrequency = await page.locator('#configCheckFrequency').inputValue();
@@ -234,7 +234,7 @@ test.describe('Sources Page - Executable Test Plan', () => {
     });
 
     await openSourceOverflow(page, source.id);
-    await page.locator(`button[onclick^="openSourceConfig(${source.id},"]`).first().click();
+    await page.locator(`button[onclick^="openSourceConfig(this, ${source.id},"]`).first().click();
     await page.locator('#configLookbackDays').fill('30');
     await page.locator('#configCheckFrequency').fill('60');
     await page.locator('#configMinContentLength').fill('200');
@@ -253,7 +253,7 @@ test.describe('Sources Page - Executable Test Plan', () => {
     });
 
     await openSourceOverflow(page, source.id);
-    await page.locator(`button[onclick^="openSourceConfig(${source.id},"]`).first().click();
+    await page.locator(`button[onclick^="openSourceConfig(this, ${source.id},"]`).first().click();
     await page.locator('#configLookbackDays').fill('1000');
     await page.locator('#saveSourceConfigBtn').click();
     await page.waitForTimeout(500);

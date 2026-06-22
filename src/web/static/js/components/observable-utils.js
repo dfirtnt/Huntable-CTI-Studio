@@ -8,7 +8,7 @@
  * tests/unit/test_observable_traceability_regressions.py.
  */
 
-const OBS_TYPE_ORDER = ['cmdline', 'process_lineage', 'hunt_queries', 'registry_artifacts', 'windows_services', 'scheduled_tasks'];
+const OBS_TYPE_ORDER = ['cmdline', 'process_lineage', 'hunt_queries', 'registry_artifacts', 'windows_services', 'scheduled_tasks', 'network_indicators'];
 
 function filterObservablesForRule(rule, observablesData) {
     if (!observablesData?.observables) return observablesData;
@@ -28,7 +28,7 @@ function filterObservablesForRule(rule, observablesData) {
     return { observables: result };
 }
 
-const typeLabels = { cmdline: 'Command-line', process_lineage: 'Process Tree', hunt_queries: 'Hunt Queries', registry_artifacts: 'Registry Artifacts', windows_services: 'Windows Services', scheduled_tasks: 'Scheduled Tasks' };
+const typeLabels = { cmdline: 'Command-line', process_lineage: 'Process Tree', hunt_queries: 'Hunt Queries', registry_artifacts: 'Registry Artifacts', windows_services: 'Windows Services', scheduled_tasks: 'Scheduled Tasks', network_indicators: 'Network Indicators' };
 
 // All observable values inserted into HTML are escaped with .replace(/</g,'&lt;') before use.
 function observablesUsedSection(rule, observablesData) {

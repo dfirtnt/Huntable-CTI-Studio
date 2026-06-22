@@ -28,7 +28,6 @@ _QUICKSTART_PRESETS = sorted(_QUICKSTART_DIR.glob("*.json"))
 # Unique non-default values so we can assert they survive import and export.
 FIDELITY_JUNK = 0.72
 FIDELITY_MIN_HUNT = 88.0
-FIDELITY_OS_EMBEDDING = "test/embedding-model"
 FIDELITY_OS_SELECTED = ["Linux", "Darwin"]
 FIDELITY_RANK_THRESHOLD = 7.0
 FIDELITY_CMDLINE_ENABLED = True
@@ -38,6 +37,7 @@ FIDELITY_HUNTQUERIES_ENABLED = True
 FIDELITY_REGISTRY_ENABLED = True
 FIDELITY_SERVICES_ENABLED = True
 FIDELITY_SCHEDULEDTASKS_ENABLED = True
+FIDELITY_NETWORK_INDICATOR_ENABLED = True
 FIDELITY_SIGMA_THRESHOLD = 0.42
 FIDELITY_SIGMA_FULL_ARTICLE = True
 FIDELITY_DISABLED_AGENTS: list[str] = []  # all enabled
@@ -54,7 +54,6 @@ def _full_ui_ordered_preset() -> dict[str, Any]:
             "MinHuntScore": FIDELITY_MIN_HUNT,
         },
         "OSDetection": {
-            "Embedding": FIDELITY_OS_EMBEDDING,
             "SelectedOs": list(FIDELITY_OS_SELECTED),
         },
         "RankAgent": {
@@ -121,6 +120,14 @@ def _full_ui_ordered_preset() -> dict[str, Any]:
             "TopP": 0.9,
             "Prompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " ScheduledTasks", "instructions": ""},
         },
+        "NetworkIndicatorExtract": {
+            "Enabled": FIDELITY_NETWORK_INDICATOR_ENABLED,
+            "Provider": "anthropic",
+            "Model": "claude-sonnet-4-5",
+            "Temperature": 0.0,
+            "TopP": 0.9,
+            "Prompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " NetworkIndicator", "instructions": ""},
+        },
         "SigmaAgent": {
             "Provider": "anthropic",
             "Model": "claude-sonnet-4-5",
@@ -174,9 +181,6 @@ def test_import_enforces_all_settings():
     assert config.Execution.OsDetectionSelectedOs == FIDELITY_OS_SELECTED
     assert list(config.Execution.ExtractAgentSettings.DisabledAgents) == FIDELITY_DISABLED_AGENTS
 
-    # Embeddings
-    assert config.Embeddings.OsDetection == FIDELITY_OS_EMBEDDING
-
     # Features
     assert config.Features.SigmaFallbackEnabled is FIDELITY_SIGMA_FULL_ARTICLE
     assert config.Features.CmdlineAttentionPreprocessorEnabled is FIDELITY_CMDLINE_ATTENTION
@@ -213,7 +217,7 @@ def test_import_legacy_dict_has_all_fields_for_apply_preset():
     # agent_models must include OS Detection selected OS for applyPreset
     assert "OSDetectionAgent_selected_os" in legacy["agent_models"]
     assert legacy["agent_models"]["OSDetectionAgent_selected_os"] == FIDELITY_OS_SELECTED
-    assert legacy["agent_models"]["OSDetectionAgent_embedding"] == FIDELITY_OS_EMBEDDING
+    assert "OSDetectionAgent_embedding" not in legacy["agent_models"]  # removed 2026-06-22 (entity-driven)
 
     # Prompts present for each agent we care about
     assert "RankAgent" in legacy["agent_prompts"]
@@ -238,7 +242,7 @@ def test_export_contains_all_settings():
     assert float(exported["Thresholds"]["MinHuntScore"]) == FIDELITY_MIN_HUNT
 
     osd = exported["OSDetection"]
-    assert osd["Embedding"] == FIDELITY_OS_EMBEDDING
+    assert "Embedding" not in osd  # OS-detection embedding removed 2026-06-22 (entity-driven)
     assert osd["SelectedOs"] == FIDELITY_OS_SELECTED
 
     rank = exported["RankAgent"]

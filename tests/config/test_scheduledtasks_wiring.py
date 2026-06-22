@@ -72,7 +72,7 @@ def _make_v2_with_scheduled_tasks(**overrides):
             "JunkFilterThreshold": 0.8,
         },
         "Agents": agents,
-        "Embeddings": {"OsDetection": "ibm-research/CTI-BERT", "Sigma": "ibm-research/CTI-BERT"},
+        "Embeddings": {"Sigma": "ibm-research/CTI-BERT"},
         "Features": {"SigmaFallbackEnabled": False, "CmdlineAttentionPreprocessorEnabled": True},
         "Prompts": prompts,
         "Execution": {"ExtractAgentSettings": {"DisabledAgents": []}, "OsDetectionSelectedOs": ["Windows"]},

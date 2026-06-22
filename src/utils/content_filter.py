@@ -545,9 +545,9 @@ class ContentFilter:
     # v3 feature extractor
     # ------------------------------------------------------------------
     # Designed 2026-05-21 after a calibration session with the human reviewer.
-    # Features are aligned with the 6 ExtractAgent sub-agent contracts
+    # Features are aligned with the 7 ExtractAgent sub-agent contracts
     # (CmdlineExtract, RegistryExtract, ProcTreeExtract, ServicesExtract,
-    # ScheduledTasksExtract, HuntQueriesExtract) and the rank-agent.md
+    # ScheduledTasksExtract, HuntQueriesExtract, NetworkIndicatorExtract) and the rank-agent.md
     # huntability definition. Each feature approximates "would an extractor
     # emit an artifact from this chunk?" or "is this chunk a documented
     # exclusion category?".

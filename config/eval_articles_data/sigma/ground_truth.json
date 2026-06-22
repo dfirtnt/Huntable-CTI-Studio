@@ -1,0 +1,86 @@
+[
+  {
+    "url": "https://thedfirreport.com/2024/04/01/from-onenote-to-ransomnote-an-ice-cold-intrusion/",
+    "expected_rule_count": 3,
+    "_note": "SEED fixture (Phase 1) -- hand-authored from article command lines to validate the scorer. Requires security-analyst vetting before being treated as authoritative ground truth.",
+    "expected_rules": [
+      {
+        "logsource": {"category": "process_creation", "product": "windows"},
+        "level": "high",
+        "detection": {
+          "selection": {"Image|endswith": "\\rundll32.exe", "CommandLine|contains": ".jpg,init"},
+          "condition": "selection"
+        }
+      },
+      {
+        "logsource": {"category": "process_creation", "product": "windows"},
+        "level": "medium",
+        "detection": {
+          "selection": {
+            "Image|endswith": "\\AnyDesk.exe",
+            "CommandLine|contains": ["--install", "--start-with-win", "--silent"]
+          },
+          "condition": "selection"
+        }
+      },
+      {
+        "logsource": {"category": "process_creation", "product": "windows"},
+        "level": "medium",
+        "detection": {
+          "selection": {
+            "Image|endswith": "\\WMIC.exe",
+            "CommandLine|contains|all": ["SecurityCenter2", "AntiVirusProduct"]
+          },
+          "condition": "selection"
+        }
+      }
+    ]
+  },
+  {
+    "url": "https://levelblue.com/blogs/spiderlabs-blog/malicious-screen-connect-campaign-abuses-ai-themed-lures-for-xworm-delivery",
+    "expected_rule_count": 1,
+    "_note": "SEED fixture (Phase 1) -- hand-authored from article command lines to validate the scorer. Requires security-analyst vetting before being treated as authoritative ground truth.",
+    "expected_rules": [
+      {
+        "logsource": {"category": "process_creation", "product": "windows"},
+        "level": "high",
+        "detection": {
+          "selection": {
+            "Image|endswith": "\\ScreenConnect.ClientService.exe",
+            "CommandLine|contains": "e=Access&y=Guest"
+          },
+          "condition": "selection"
+        }
+      }
+    ]
+  },
+  {
+    "url": "https://cloud.google.com/blog/topics/threat-intelligence/analysis-of-unc1549-ttps-targeting-aerospace-defense",
+    "expected_rule_count": 2,
+    "_note": "SEED fixture (Phase 1) -- hand-authored from article command lines to validate the scorer. Requires security-analyst vetting before being treated as authoritative ground truth.",
+    "expected_rules": [
+      {
+        "logsource": {"category": "process_creation", "product": "windows"},
+        "level": "high",
+        "detection": {
+          "selection": {
+            "Image|endswith": "\\ssh.exe",
+            "CommandLine|contains|all": ["StrictHostKeyChecking=no", "-R"]
+          },
+          "condition": "selection"
+        }
+      },
+      {
+        "logsource": {"category": "process_creation", "product": "windows"},
+        "level": "medium",
+        "detection": {
+          "selection": {
+            "Image|endswith": "\\reg.exe",
+            "CommandLine|contains|all": ["delete", "Terminal Server Client"]
+          },
+          "condition": "selection"
+        }
+      }
+    ]
+  }
+]

@@ -45,7 +45,7 @@ These are the main article browsing and maintenance endpoints.
 
 ### Article AI Endpoints
 
-- `POST /api/articles/{article_id}/detect-os` — Detect operating system from article content using CTI-BERT + classifier. Applies the content filter before sending content to the model. Returns **HTTP 422** with `{ "error": "no_huntable_content" }` when the content filter finds no huntable chunks above the confidence threshold; the LLM is not called in that case.
+- `POST /api/articles/{article_id}/detect-os` — Detect operating system from article content using deterministic entity/keyword-registry classification (no embedding model). Applies the content filter first. Returns **HTTP 422** with `{ "error": "no_huntable_content" }` when the content filter finds no huntable chunks above the confidence threshold.
 - `POST /api/articles/{article_id}/rank-with-gpt4o` — Rank article huntability using the active workflow config's RankAgent prompt and model.
 
 Route module: `src/web/routes/ai.py`.

@@ -68,6 +68,7 @@ MIGRATED_EXTRACT_AGENTS: list[str] = [
     "ScheduledTasksExtract",
     "CmdlineExtract",
     "HuntQueriesExtract",
+    "NetworkIndicatorExtract",
 ]
 
 REQUIRED_TRACEABILITY_FIELDS = (

@@ -7,7 +7,7 @@
 This app is a suite of utilities for processing open source intel. It is for research, learning, and automation purposes. Code is NOT SECURE, and is not intended to be used in production!! The app is also not intended to support classified or proprietary threat intelligence at this time.
 ##
 
-**Huntable CTI Studio v7.4.1 "Europa"** - A Cyber Threat Intelligence ML/AI workbench that automates collection, extraction, and detection rule generation from 38 seeded OSINT sources (see `config/sources.yaml`; runtime may add or replace rows after DB sync).
+**Huntable CTI Studio v7.5.0 "Europa"** - A Cyber Threat Intelligence ML/AI workbench that automates collection, extraction, and detection rule generation from 38 seeded OSINT sources (see `config/sources.yaml`; runtime may add or replace rows after DB sync).
 
 ## Purpose
 
@@ -25,10 +25,10 @@ Aggregates cybersecurity threat intelligence from RSS feeds and web scraping; us
 
 The main engine is a LangGraph-based workflow executed by Celery workers:
 
-1. **OS Detection** — Windows-only routing (non-Windows articles terminate)
+1. **Platform Detection** — Platform classification for capability-based extractor routing
 2. **Junk Filter** — Conservative content filtering
 3. **LLM Rank** — Relevance scoring
-4. **Extract Agent** — Extract observables (command-line, process trees, event IDs, hunt queries)
+4. **Extract Agent** — Extract observables (command-line, process trees, network indicators, hunt queries, and Windows-specific artifacts)
 5. **Generate SIGMA** — Create detection rules with iterative validation
 6. **Similarity Search** — Compare against indexed Sigma rules using behavioral similarity
 7. **Promote to Queue** — Queue novel rules for human review and PR submission

@@ -19,6 +19,58 @@ theme:
     - navigation.sections
     - toc.integrate
 
+# Internal working docs (specs/plans) — excluded from the published site;
+# they link to source files and are not part of the guided nav.
+exclude_docs: |
+  superpowers/
+# Reference/internal pages that are built and reachable by URL but intentionally
+# not in the nav menu. Explicit list so --strict still flags NEW un-navved docs.
+# Curating which of these belong in the nav is tracked as a follow-up.
+not_in_nav: |
+  adr/0002-sigma-similarity-engine.md
+  architecture/agent-config-schema.md
+  brand-style-guide.md
+  contracts/cmdline-extract-dropin.md
+  contracts/huntquery-extract-dropin.md
+  contracts/network-indicator-extract.md
+  contracts/proctree-extract-dropin.md
+  contracts/qa-agent.md
+  contracts/qa-output.md
+  contracts/registry-extract-dropin.md
+  contracts/scheduled-tasks-extract-dropin.md
+  contracts/services-extract-dropin.md
+  deployment/docker-architecture.md
+  deployment/technical-readout.md
+  development/cmdline-eval-audit-2026-05-31.md
+  development/eval-contract-audit-prompt.md
+  development/extractor-lane-partial-enablement-2026-06-12.md
+  development/preset-lifecycle-tests.md
+  development/queue-similarity-replay-2026-06-01.md
+  development/queue-similarity-replay-2026-06-02.md
+  development/run-tests-improvements-spec.md
+  development/sigma-eval-system.md
+  development/sigma-novelty-audit-followup-2026-06-01.md
+  development/sigma-similarity-unification-plan-2026-06-05.md
+  development/ui-test-tiers.md
+  internals/architecture.md
+  operations/ml-model-runbook.md
+  operations/verify-ml-versions-backup.md
+  reference/do-not.md
+  reference/prompt-mapping-table.md
+  reference/versioning.md
+  reports/eval-ground-truth-audit-7.0.1.md
+  solutions/database-issues/auto-threshold-reset-race-condition-2026-05-06.md
+  solutions/database-issues/sources-duplicate-rows-missing-unique-constraint-2026-05-16.md
+  solutions/documentation-gaps/sigma-dedup-phase1-misconception-2026-05-20.md
+  solutions/logic-errors/sigma-cross-field-soft-matching-zero-similarity-2026-04-12.md
+  solutions/logic-errors/sigma-similarity-case-sensitive-atom-matching-2026-04-08.md
+  solutions/test-failures/async-fixture-teardown-different-loop-IntegrationTests-20260310.md
+  solutions/test-failures/cmdline-extract-preset-prompt-drift-iex-2026-05-01.md
+  solutions/test-failures/model-rollback-422-guard-bypassed-by-mock-2026-05-21.md
+  solutions/test-failures/smoke-test-workflow-trigger-database-pollution-2026-05-24.md
+  solutions/ui-bugs/agent-prompt-save-display-revert-AgentPrompts-20260202.md
+  solutions/workflow-issues/agent-prompt-state-refactor-stop-recurring-save-display-20260311.md
+
 nav:
   - Home: index.md
   - Quickstart: quickstart.md

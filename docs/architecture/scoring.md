@@ -11,7 +11,7 @@ time; scores are stored in article metadata and exposed via the API.
 
 The scorer also feeds the ML content filter
 (`src/utils/content_filter.py`):
-92 perfect-discriminator patterns are shared between systems, and any chunk
+114 perfect-discriminator patterns are shared between systems, and any chunk
 matching a perfect discriminator is excluded from LLM-based classification,
 reducing API calls.
 
@@ -28,6 +28,10 @@ the 75-point Perfect score bucket (see [Scoring Formula](#scoring-formula) below
 - **File types**: `.lnk`, `.iso`
 - **Technical patterns**: `MZ`, `-accepteula`, `wintmp`
 - **Path patterns**: `\temp\`, `\pipe\`, `%WINDIR%`, `%wintmp%`
+- **Non-Windows (macOS/Linux)**: `osascript`, `do shell script`, `launchctl`, `LaunchAgents`,
+  `.plist`, `xattr`, `TCC.db`, `dscl`, `xmrig`, `memfd_create`, `chattr +i`, `base64 -d`,
+  `chmod 777` (calibrated 2026-06-21 — high-fidelity carriers that let genuinely-huntable
+  non-Windows articles clear the gate; generic admin tokens stay good-tier)
 
 ### Supporting Discriminators
 
@@ -59,10 +63,10 @@ Each category uses a geometric series with 50% diminishing returns
 from saturating any one bucket.
 
 ```
-Perfect discriminators  75.0 pts max  (92 patterns)
+Perfect discriminators  75.0 pts max  (114 patterns)
 LOLBAS executables      10.0 pts max  (239 patterns)
 Intelligence indicators 10.0 pts max  (56 patterns)
-Supporting indicators    5.0 pts max  (89 patterns, key: good_discriminators)
+Supporting indicators    5.0 pts max  (94 patterns, key: good_discriminators)
 Negative indicators     15.0 pts max  (25 patterns, geometric: 15.0 * (1 - 0.5^n))
 
 Final = max(0.0, min(99.9, perfect + good + lolbas + intelligence - negative))

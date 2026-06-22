@@ -1,0 +1,1272 @@
+{% extends "base.html" %}
+
+{% block title %}Sigma Evals - Huntable CTI Studio{% endblock %}
+
+{% block content %}
+<style>
+    .eval-page {
+        min-height: 100vh;
+        background:
+            radial-gradient(ellipse 80% 60% at 50% -10%, rgba(16, 185, 129, 0.04) 0%, transparent 60%),
+            radial-gradient(ellipse 60% 40% at 80% 90%, rgba(59, 130, 246, 0.03) 0%, transparent 50%),
+            var(--panel-bg-0);
+        position: relative;
+    }
+    .eval-page::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-image:
+            linear-gradient(rgba(139, 92, 246, 0.02) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(139, 92, 246, 0.02) 1px, transparent 1px);
+        background-size: 60px 60px;
+        pointer-events: none;
+        z-index: 0;
+    }
+    .eval-page > * { position: relative; z-index: 1; }
+    .eval-panel {
+        background: linear-gradient(135deg, var(--panel-bg-2) 0%, var(--panel-bg-3) 100%);
+        border: 1px solid rgba(139, 92, 246, 0.08);
+        border-radius: 12px;
+        position: relative;
+        overflow: hidden;
+    }
+    .eval-panel::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(90deg, transparent 0%, rgba(16, 185, 129, 0.3) 30%, rgba(59, 130, 246, 0.3) 70%, transparent 100%);
+    }
+    .eval-panel-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid rgba(139, 92, 246, 0.06);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+    .eval-panel-body { padding: 1.5rem; }
+    .eval-section-label {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.625rem;
+        font-weight: 700;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--text-muted-slate);
+        opacity: 0.75;
+    }
+    .eval-section-title {
+        font-family: 'Inter', system-ui, sans-serif;
+        font-weight: 600;
+        font-size: 1rem;
+        color: var(--text-primary);
+    }
+    .eval-mono { font-family: 'JetBrains Mono', monospace; }
+    .eval-breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.75rem;
+        letter-spacing: 0.05em;
+        color: var(--text-muted-slate);
+        opacity: 0.7;
+    }
+    .eval-breadcrumb a { color: var(--text-muted-slate); text-decoration: none; }
+    .eval-breadcrumb a:hover { color: var(--action-execute); }
+    .eval-breadcrumb .sep { opacity: 0.45; }
+    .eval-hero {
+        display: flex;
+        align-items: flex-start;
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    .eval-hero-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05));
+        border: 1px solid rgba(16, 185, 129, 0.2);
+        flex-shrink: 0;
+    }
+    .eval-hero h1 {
+        font-family: 'Inter', system-ui, sans-serif;
+        font-weight: 700;
+        font-size: 1.25rem;
+        color: var(--text-emphasis);
+        line-height: 1.2;
+        margin: 0;
+    }
+    .eval-hero-desc {
+        font-family: 'Inter', system-ui, sans-serif;
+        font-size: 0.875rem;
+        color: var(--text-muted-slate);
+        line-height: 1.6;
+        margin-top: 0.5rem;
+        max-width: 760px;
+    }
+    .eval-hero-desc code {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.75rem;
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--action-execute);
+        padding: 0.15em 0.4em;
+        border-radius: 4px;
+        border: 1px solid rgba(16, 185, 129, 0.15);
+    }
+    .eval-btn {
+        font-family: 'Inter', system-ui, sans-serif;
+        font-weight: 600;
+        font-size: 0.75rem;
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        white-space: nowrap;
+    }
+    .eval-btn:active { transform: scale(0.97); }
+    .eval-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+    .eval-btn--secondary {
+        background: var(--panel-bg-5);
+        color: var(--text-secondary);
+        border: 1px solid rgba(139, 92, 246, 0.12);
+    }
+    .eval-btn--secondary:hover { background: var(--panel-bg-6); color: var(--text-primary); }
+    .eval-btn--accent {
+        background: rgba(59, 130, 246, 0.12);
+        color: var(--action-info);
+        border: 1px solid rgba(59, 130, 246, 0.2);
+    }
+    .eval-btn--accent:hover { background: rgba(59, 130, 246, 0.2); }
+    .eval-btn--sm { font-size: 0.75rem; padding: 0.35rem 0.75rem; border-radius: 6px; }
+    .eval-run-btn {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.875rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        width: 100%;
+        padding: 0.85rem 1.5rem;
+        border-radius: 8px;
+        background: linear-gradient(135deg, var(--action-execute) 0%, var(--action-execute-dark) 100%);
+        color: white;
+        border: none;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.2s ease;
+    }
+    .eval-run-btn:hover:not(:disabled) { transform: translateY(-1px); }
+    .eval-run-btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+    .eval-input,
+    .eval-select {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.875rem;
+        background: var(--panel-bg-4);
+        border: 1px solid rgba(139, 92, 246, 0.15);
+        border-radius: 8px;
+        padding: 0.5rem 0.75rem;
+        color: var(--text-primary);
+    }
+    .eval-select { min-width: 12rem; }
+    .eval-input:focus,
+    .eval-select:focus {
+        outline: none;
+        border-color: var(--action-execute);
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+    }
+    .sigma-article {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.75rem 0.85rem;
+        border: 1px solid rgba(139, 92, 246, 0.08);
+        border-radius: 8px;
+        background: var(--panel-bg-4);
+    }
+    .sigma-article:hover { border-color: rgba(139, 92, 246, 0.18); }
+    .sigma-table { width: 100%; border-collapse: collapse; }
+    .sigma-table th,
+    .sigma-table td {
+        text-align: left;
+        padding: 0.75rem 0.9rem;
+        border-bottom: 1px solid rgba(139, 92, 246, 0.08);
+        vertical-align: top;
+    }
+    .sigma-table th {
+        color: var(--text-muted-slate);
+        font-family: 'JetBrains Mono', monospace;
+        font-weight: 700;
+        font-size: 0.625rem;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+    }
+    .status-badge,
+    .score-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 3.2rem;
+        padding: 0.18rem 0.45rem;
+        border-radius: 6px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.75rem;
+        font-weight: 700;
+        border: 1px solid transparent;
+    }
+    .status-completed,
+    .score-good {
+        background: var(--action-execute-fill);
+        color: var(--action-execute);
+        border-color: rgba(16, 185, 129, 0.18);
+    }
+    .status-pending,
+    .score-mid {
+        background: var(--action-warning-fill);
+        color: var(--action-warning);
+        border-color: rgba(245, 158, 11, 0.2);
+    }
+    .status-failed,
+    .score-low {
+        background: var(--action-danger-fill);
+        color: var(--action-danger);
+        border-color: rgba(220, 38, 38, 0.2);
+    }
+    .score-na {
+        color: var(--text-muted-slate);
+        background: var(--panel-bg-5);
+        border-color: rgba(139, 92, 246, 0.1);
+    }
+    .sigma-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 0.75rem;
+    }
+    .sigma-summary-card {
+        background: var(--panel-bg-4);
+        border: 1px solid rgba(139, 92, 246, 0.08);
+        border-radius: 10px;
+        padding: 0.85rem;
+    }
+    .sigma-code-block {
+        background: var(--panel-bg-4);
+        border: 1px solid rgba(139, 92, 246, 0.08);
+        border-radius: 8px;
+        padding: 0.75rem;
+        color: var(--text-secondary);
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.75rem;
+        overflow-x: auto;
+        white-space: pre-wrap;
+    }
+    .sigma-chart-wrap {
+        height: 16rem;
+        position: relative;
+    }
+    .sigma-delta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 3.4rem;
+        padding: 0.15rem 0.45rem;
+        border-radius: 6px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.75rem;
+        font-weight: 700;
+        border: 1px solid rgba(139, 92, 246, 0.1);
+        background: var(--panel-bg-5);
+        color: var(--text-muted-slate);
+    }
+    .sigma-delta--up {
+        background: var(--action-execute-fill);
+        color: var(--action-execute);
+        border-color: rgba(16, 185, 129, 0.18);
+    }
+    .sigma-delta--down {
+        background: var(--action-danger-fill);
+        color: var(--action-danger);
+        border-color: rgba(220, 38, 38, 0.2);
+    }
+    .eval-modal-backdrop {
+        background: rgba(0, 0, 0, 0.65);
+        backdrop-filter: blur(4px);
+    }
+</style>
+
+<div class="eval-page">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div class="eval-breadcrumb mb-6">
+        <a href="/">DASHBOARD</a>
+        <span class="sep">/</span>
+        <a href="/mlops">MLOPS</a>
+        <span class="sep">/</span>
+        <span style="color: var(--action-execute);">SIGMA EVALS</span>
+    </div>
+
+    <div class="eval-hero">
+        <div class="eval-hero-icon">
+            <svg class="w-7 h-7" style="color: var(--action-execute);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+        </div>
+        <div>
+            <h1>Sigma Rule Evals</h1>
+            <p class="eval-hero-desc">
+                Run fixture articles through the current workflow and score generated Sigma rules against ground truth.
+                Results track rule count, <code>logsource</code> precision/recall, and detection-atom precision/recall.
+            </p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-12 gap-5 mb-5 items-start">
+        <div class="eval-panel xl:col-span-5">
+            <div class="eval-panel-header">
+                <div>
+                    <div class="eval-section-label">SYS.01</div>
+                    <h2 class="eval-section-title">Configuration</h2>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="status-badge status-completed">ACTIVE</span>
+                </div>
+            </div>
+            <div class="eval-panel-body">
+                <div class="space-y-5">
+                    <div>
+                        <div class="eval-section-label mb-2">EVALUATION MODE</div>
+                        <p class="text-sm" style="color: var(--text-muted-slate);">
+                            Uses the active workflow config, skips OS detection and ranking, then runs extraction and Sigma generation for selected fixture articles.
+                        </p>
+                    </div>
+                    <div>
+                        {% set show_eval_config_help = true %}
+                        {% include 'components/workflow_config_snippet.html' %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="eval-panel xl:col-span-7 flex flex-col">
+            <div class="eval-panel-header">
+                <div>
+                    <div class="eval-section-label">SYS.02</div>
+                    <h2 class="eval-section-title">Evaluation Articles</h2>
+                </div>
+                <div class="flex gap-2">
+                    <button id="selectAllBtn" type="button" class="eval-btn eval-btn--secondary eval-btn--sm">Select All</button>
+                    <button id="deselectAllBtn" type="button" class="eval-btn eval-btn--secondary eval-btn--sm">Deselect All</button>
+                </div>
+            </div>
+            <div class="eval-panel-body flex-1">
+                <div id="articleList" class="space-y-2">
+                    <p class="eval-mono text-xs" style="color: var(--text-muted-slate);">Loading fixture articles...</p>
+                </div>
+            </div>
+            <div class="eval-panel-body" style="padding: 1.25rem 1.5rem; border-top: 1px solid rgba(139, 92, 246, 0.06);">
+                <div class="flex items-center gap-3 mb-3 flex-wrap">
+                    <label for="concurrency" class="eval-mono text-xs" style="color: var(--text-muted-slate);">Concurrency Throttle (s)</label>
+                    <input id="concurrency" type="number" min="0" max="60" step="0.5" value="5" class="eval-input w-20" aria-label="Concurrency throttle in seconds" />
+                    <span id="runEstimate" class="eval-mono text-xs" style="color: var(--text-muted-slate);"></span>
+                </div>
+                <button id="runBtn" type="button" class="eval-run-btn" disabled>RUN SIGMA EVALUATION</button>
+                <div id="evalStatus" class="mt-4 hidden">
+                    <div class="flex items-center gap-3" style="padding: 0.5rem 0;">
+                        <div id="evalSpinner" class="animate-spin rounded-full h-4 w-4 border-2 border-transparent" style="border-top-color: var(--action-execute); border-right-color: var(--action-execute);"></div>
+                        <span class="eval-mono text-xs" style="color: var(--text-muted-slate);" id="evalStatusText"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="sigmaDetailModal" class="hidden fixed inset-0 eval-modal-backdrop z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-label="Sigma eval detail">
+        <div class="card-elevated p-0 max-w-5xl w-full mx-4 max-h-[85vh] flex flex-col overflow-hidden">
+            <div class="flex justify-between items-center p-6" style="border-bottom: 1px solid rgba(139, 92, 246, 0.08);">
+                <h3 id="sigmaDetailTitle" class="eval-section-title">Sigma Eval Detail</h3>
+                <button id="closeSigmaDetail" type="button" class="eval-btn eval-btn--secondary eval-btn--sm" style="padding: 0.4rem;" aria-label="Close detail modal">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div id="sigmaDetailBody" class="p-6 overflow-y-auto flex-1"></div>
+        </div>
+    </div>
+
+    <div class="eval-panel">
+        <div class="eval-panel-header flex-wrap">
+            <div>
+                <div class="eval-section-label">SYS.03</div>
+                <h2 class="eval-section-title">Sigma Results</h2>
+            </div>
+            <div class="flex items-center gap-3 flex-wrap">
+                <label id="configVersionLabel" class="eval-section-label hidden" for="configVersionSelect">VERSION</label>
+                <select id="configVersionSelect" class="eval-select hidden" title="View Sigma results for a specific config version"></select>
+                <button id="refreshBtn" type="button" class="eval-btn eval-btn--secondary eval-btn--sm">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    Load Previous
+                </button>
+            </div>
+        </div>
+        <div class="eval-panel-body">
+            <div id="aggregateScores" class="sigma-summary-grid mb-5 hidden"></div>
+            <div id="sigmaTrendPanel" class="mb-5" style="background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.08); border-radius: 10px; padding: 1.25rem;">
+                <div class="flex justify-between items-start mb-4 flex-wrap gap-2">
+                    <div>
+                        <h3 class="eval-section-title">Precision / Recall by Config Version</h3>
+                        <p id="sigmaTrendMeta" class="eval-mono mt-1 text-[10px]" style="color: var(--text-muted-slate);"></p>
+                    </div>
+                </div>
+                <p id="sigmaTrendEmpty" class="eval-mono text-xs" style="color: var(--text-muted-slate);">Loading Sigma trend data...</p>
+                <div id="sigmaTrendChartContainer" class="sigma-chart-wrap hidden">
+                    <canvas id="sigmaTrendChart"></canvas>
+                </div>
+            </div>
+            <div id="versionComparePanel" class="mb-5" style="background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.08); border-radius: 10px; padding: 1.25rem;">
+                <div class="flex justify-between items-start mb-4 flex-wrap gap-3">
+                    <div>
+                        <h3 class="eval-section-title">Version Compare</h3>
+                        <p id="compareHint" class="eval-mono mt-1 text-[10px]" style="color: var(--text-muted-slate);">Compare aggregate and per-article Sigma scores between two config versions.</p>
+                    </div>
+                    <div class="flex items-end gap-3 flex-wrap">
+                        <div>
+                            <label class="block eval-section-label mb-1" for="compareVersionA">Baseline</label>
+                            <select id="compareVersionA" class="eval-select" title="Baseline config version"></select>
+                        </div>
+                        <div>
+                            <label class="block eval-section-label mb-1" for="compareVersionB">Candidate</label>
+                            <select id="compareVersionB" class="eval-select" title="Candidate config version"></select>
+                        </div>
+                        <button id="runCompareBtn" type="button" class="eval-btn eval-btn--accent eval-btn--sm">Compare</button>
+                    </div>
+                </div>
+                <div id="compareResult" class="hidden"></div>
+            </div>
+            <details id="resultsLegend" class="mb-4" style="background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.08); border-radius: 10px;">
+                <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none text-xs" style="list-style: none; color: var(--text-muted-slate); font-family: 'JetBrains Mono', monospace;">
+                    <span style="color: var(--text-emphasis); font-weight: 600;">How to read this table</span>
+                    <span aria-hidden="true">&#x25BC;</span>
+                </summary>
+                <div class="px-4 pb-4 pt-2 text-xs" style="color: var(--text-muted-slate); line-height: 1.6;">
+                    <div class="grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));">
+                        <p><strong style="color: var(--text-emphasis);">Rules</strong> shows generated count over expected count. Higher than expected often means over-broad Sigma generation.</p>
+                        <p><strong style="color: var(--text-emphasis);">Combined F1</strong> is the harmonic mean of logsource F1 and atom F1, so weak telemetry-class matching lowers the headline score. Raw P/R/F1 remains visible for diagnosis.</p>
+                        <p><strong style="color: var(--text-emphasis);">Details</strong> shows matched, missed, and extra atoms/logsources plus expected and generated rule payloads when available.</p>
+                    </div>
+                </div>
+            </details>
+            <div id="resultsContainer" class="overflow-x-auto text-sm" style="color: var(--text-muted-slate);">Loading results...</div>
+        </div>
+    </div>
+</div>
+</div>
+
+<script>
+(function () {
+    "use strict";
+
+    var API = "/api/evaluations";
+    var articles = [];
+    var allResults = [];
+    var displayedResults = [];
+    var pollTimer = null;
+    var activeConfig = null;
+    var configIsRunnable = true;
+    var sigmaTrendChart = null;
+
+    function notify(msg, type) {
+        if (window.showNotification) {
+            window.showNotification(msg, type || "info");
+        }
+    }
+
+    function esc(value) {
+        var div = document.createElement("div");
+        div.textContent = value === null || value === undefined ? "" : String(value);
+        return div.innerHTML;
+    }
+
+    function shortUrl(url) {
+        try {
+            var parsed = new URL(url);
+            var path = parsed.pathname.replace(/\/$/, "");
+            var tail = path.split("/").filter(Boolean).pop() || parsed.hostname;
+            return parsed.hostname + "/" + tail;
+        } catch (e) {
+            return url || "";
+        }
+    }
+
+    function scoreBadge(value) {
+        if (value === null || value === undefined) {
+            return '<span class="score-badge score-na">n/a</span>';
+        }
+        var pct = Math.round(Number(value) * 100);
+        var cls = value >= 0.8 ? "score-good" : value >= 0.5 ? "score-mid" : "score-low";
+        return '<span class="score-badge ' + cls + '">' + pct + "%</span>";
+    }
+
+    function statusBadge(status) {
+        var normalized = status || "pending";
+        var cls = normalized === "completed" ? "status-completed" : normalized === "failed" ? "status-failed" : "status-pending";
+        return '<span class="status-badge ' + cls + '">' + esc(normalized).toUpperCase() + "</span>";
+    }
+
+    function selectedUrls() {
+        return Array.prototype.slice.call(document.querySelectorAll(".article-cb:checked")).map(function (cb) {
+            return cb.getAttribute("data-url");
+        });
+    }
+
+    function updateRunControls() {
+        var selected = selectedUrls().length;
+        var throttle = parseFloat(document.getElementById("concurrency").value || "5");
+        var windowSeconds = selected > 1 ? Math.round((selected - 1) * (0.2 + throttle)) : 0;
+        document.getElementById("runBtn").disabled = selected === 0 || !configIsRunnable;
+        document.getElementById("runEstimate").textContent = !configIsRunnable
+            ? "Active config is not runnable"
+            : selected
+            ? selected + " selected; dispatch window about " + windowSeconds + "s"
+            : "Select at least one article";
+    }
+
+    function setStatus(message, active) {
+        var panel = document.getElementById("evalStatus");
+        var spinner = document.getElementById("evalSpinner");
+        document.getElementById("evalStatusText").textContent = message || "";
+        panel.classList.toggle("hidden", !message);
+        spinner.classList.toggle("hidden", !active);
+    }
+
+    async function loadActiveConfig() {
+        var configDisplay = document.getElementById("configDisplay");
+        try {
+            var response = await fetch("/api/workflow/config");
+            activeConfig = await response.json();
+            configIsRunnable = !!(activeConfig && activeConfig.agent_models && activeConfig.agent_models.ExtractAgent && activeConfig.agent_models.SigmaAgent);
+            if (typeof window.renderWorkflowConfigDisplay === "function") {
+                window.renderWorkflowConfigDisplay(activeConfig);
+            }
+        } catch (e) {
+            configIsRunnable = false;
+            if (configDisplay) {
+                configDisplay.innerHTML = '<p class="text-sm" style="color: var(--action-danger);">Error loading config</p>';
+            }
+        }
+        updateRunControls();
+    }
+
+    async function loadArticles() {
+        var container = document.getElementById("articleList");
+        try {
+            var resp = await fetch(API + "/sigma-eval-articles");
+            var data = await resp.json();
+            articles = data && data.articles ? data.articles : [];
+            if (!articles.length) {
+                container.innerHTML = '<p class="eval-mono text-xs" style="color: var(--text-muted-slate);">No fixture articles found in ground truth.</p>';
+                updateRunControls();
+                return;
+            }
+            container.innerHTML = articles.map(function (article) {
+                var disabled = article.in_database ? "" : " disabled";
+                var checked = article.in_database ? " checked" : "";
+                var dbStatus = article.in_database
+                    ? '<span class="status-badge status-completed">READY</span>'
+                    : '<span class="status-badge status-failed">NOT IN DB</span>';
+                return (
+                    '<label class="sigma-article cursor-pointer">' +
+                    '<span class="flex items-center gap-3 min-w-0">' +
+                    '<input type="checkbox" class="article-cb accent-purple-600" data-url="' + esc(article.url) + '"' + checked + disabled + ' aria-label="Select ' + esc(shortUrl(article.url)) + '" />' +
+                    '<span class="min-w-0">' +
+                    '<span class="block eval-mono text-xs truncate" style="color: var(--text-primary);">' + esc(shortUrl(article.url)) + '</span>' +
+                    '<span class="block text-[10px]" style="color: var(--text-muted-slate);">Expected ' + esc(article.expected_rule_count) + ' rule(s)</span>' +
+                    '</span></span>' +
+                    dbStatus +
+                    '</label>'
+                );
+            }).join("");
+            document.querySelectorAll(".article-cb").forEach(function (cb) {
+                cb.addEventListener("change", updateRunControls);
+            });
+        } catch (e) {
+            container.innerHTML = '<p class="text-sm" style="color: var(--action-danger);">Failed to load articles.</p>';
+        }
+        updateRunControls();
+    }
+
+    async function runEval() {
+        var urls = selectedUrls();
+        if (!urls.length) {
+            notify("Select at least one article", "warning");
+            return;
+        }
+        var throttle = parseFloat(document.getElementById("concurrency").value || "5");
+        var btn = document.getElementById("runBtn");
+        btn.disabled = true;
+        btn.textContent = "RUNNING...";
+        setStatus("Submitting " + urls.length + " Sigma eval execution(s)...", true);
+        try {
+            var resp = await fetch(API + "/run-sigma-eval", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ article_urls: urls, concurrency_throttle_seconds: throttle })
+            });
+            var data = await resp.json();
+            if (!resp.ok || !data || !data.success) {
+                throw new Error((data && data.detail) || "Run failed");
+            }
+            notify("Triggered " + data.found_articles + " execution(s)", "success");
+            setStatus("Triggered " + data.found_articles + " of " + data.total_articles + " selected article(s). Polling results...", true);
+            await loadResults();
+            startPolling();
+        } catch (e) {
+            notify("Run failed: " + e.message, "error");
+            setStatus("Run failed: " + e.message, false);
+        } finally {
+            btn.textContent = "RUN SIGMA EVALUATION";
+            updateRunControls();
+        }
+    }
+
+    async function loadResults() {
+        var container = document.getElementById("resultsContainer");
+        try {
+            var resp = await fetch(API + "/sigma-eval-results");
+            var data = await resp.json();
+            allResults = data && data.results ? data.results : [];
+            populateVersionFilter();
+            populateCompareVersionSelects();
+            applyVersionFilter();
+            renderResults();
+        } catch (e) {
+            container.innerHTML = '<p class="text-sm" style="color: var(--action-danger);">Failed to load results.</p>';
+        }
+    }
+
+    function availableVersions() {
+        var versions = [];
+        allResults.forEach(function (result) {
+            if (result.workflow_config_version !== null && result.workflow_config_version !== undefined && versions.indexOf(result.workflow_config_version) === -1) {
+                versions.push(result.workflow_config_version);
+            }
+        });
+        return versions.sort(function (a, b) { return b - a; });
+    }
+
+    function populateVersionFilter() {
+        var select = document.getElementById("configVersionSelect");
+        var label = document.getElementById("configVersionLabel");
+        var current = select.value || "";
+        var versions = availableVersions();
+        if (!versions.length) {
+            select.classList.add("hidden");
+            label.classList.add("hidden");
+            return;
+        }
+        select.innerHTML = '<option value="">All versions</option>' + versions.map(function (version) {
+            return '<option value="' + esc(version) + '">v' + esc(version) + '</option>';
+        }).join("");
+        if (current && versions.map(String).indexOf(String(current)) !== -1) {
+            select.value = current;
+        }
+        select.classList.remove("hidden");
+        label.classList.remove("hidden");
+    }
+
+    function populateCompareVersionSelects() {
+        var baseline = document.getElementById("compareVersionA");
+        var candidate = document.getElementById("compareVersionB");
+        var button = document.getElementById("runCompareBtn");
+        var hint = document.getElementById("compareHint");
+        if (!baseline || !candidate || !button) {
+            return;
+        }
+        var versions = availableVersions();
+        var previousA = baseline.value;
+        var previousB = candidate.value;
+        var options = versions.map(function (version) {
+            return '<option value="' + esc(version) + '">v' + esc(version) + '</option>';
+        }).join("");
+        baseline.innerHTML = options;
+        candidate.innerHTML = options;
+        if (versions.length < 2) {
+            baseline.disabled = true;
+            candidate.disabled = true;
+            button.disabled = true;
+            document.getElementById("compareResult").classList.add("hidden");
+            if (hint) {
+                hint.textContent = versions.length === 1
+                    ? "Need at least two Sigma config versions to compare."
+                    : "No Sigma config versions are available to compare.";
+            }
+            return;
+        }
+        baseline.disabled = false;
+        candidate.disabled = false;
+        button.disabled = false;
+        baseline.value = versions.map(String).indexOf(String(previousA)) !== -1 ? previousA : String(versions[1]);
+        candidate.value = versions.map(String).indexOf(String(previousB)) !== -1 ? previousB : String(versions[0]);
+        if (baseline.value === candidate.value && versions.length > 1) {
+            baseline.value = String(versions[1]);
+        }
+        if (hint) {
+            hint.textContent = "Compare aggregate and per-article Sigma scores between two config versions.";
+        }
+    }
+
+    function applyVersionFilter() {
+        var version = document.getElementById("configVersionSelect").value;
+        displayedResults = version
+            ? allResults.filter(function (result) { return String(result.workflow_config_version) === String(version); })
+            : allResults.slice();
+    }
+
+    function average(values) {
+        var scored = values.filter(function (value) { return value !== null && value !== undefined; });
+        if (!scored.length) {
+            return null;
+        }
+        return scored.reduce(function (sum, value) { return sum + Number(value); }, 0) / scored.length;
+    }
+
+    function f1Score(precision, recall) {
+        if (precision === null || precision === undefined || recall === null || recall === undefined) {
+            return null;
+        }
+        precision = Number(precision);
+        recall = Number(recall);
+        if (precision + recall === 0) {
+            return 0;
+        }
+        return 2 * precision * recall / (precision + recall);
+    }
+
+    function combinedF1(logsourceF1, atomF1) {
+        return f1Score(logsourceF1, atomF1);
+    }
+
+    function renderSummary() {
+        var container = document.getElementById("aggregateScores");
+        if (!displayedResults.length) {
+            container.classList.add("hidden");
+            container.innerHTML = "";
+            return;
+        }
+        var completed = displayedResults.filter(function (result) { return result.status === "completed"; });
+        var pending = displayedResults.filter(function (result) { return result.status === "pending"; }).length;
+        var failed = displayedResults.filter(function (result) { return result.status === "failed"; }).length;
+        var expected = displayedResults.reduce(function (sum, result) { return sum + (Number(result.expected_rule_count) || 0); }, 0);
+        var actual = completed.reduce(function (sum, result) { return sum + (Number(result.actual_rule_count) || 0); }, 0);
+        var meanLogsourcePrecision = average(completed.map(function (r) { return r.logsource_precision; }));
+        var meanLogsourceRecall = average(completed.map(function (r) { return r.logsource_recall; }));
+        var meanAtomPrecision = average(completed.map(function (r) { return r.atom_precision; }));
+        var meanAtomRecall = average(completed.map(function (r) { return r.atom_recall; }));
+        var logsourceF1 = f1Score(meanLogsourcePrecision, meanLogsourceRecall);
+        var atomF1 = f1Score(meanAtomPrecision, meanAtomRecall);
+        var cards = [
+            ["Runs", completed.length + " / " + displayedResults.length + " completed"],
+            ["Rules", actual + " / " + expected + " actual/expected"],
+            ["Combined F1", formatScore(combinedF1(logsourceF1, atomF1))],
+            ["Logsource P/R", formatScore(meanLogsourcePrecision) + " / " + formatScore(meanLogsourceRecall)],
+            ["Logsource F1", formatScore(logsourceF1)],
+            ["Atom P/R", formatScore(meanAtomPrecision) + " / " + formatScore(meanAtomRecall)],
+            ["Atom F1", formatScore(atomF1)],
+            ["Queue", pending + " pending, " + failed + " failed"]
+        ];
+        container.innerHTML = cards.map(function (card) {
+            return '<div class="sigma-summary-card"><div class="eval-section-label mb-2">' + esc(card[0]) + '</div><div class="eval-mono text-sm" style="color: var(--text-primary);">' + esc(card[1]) + '</div></div>';
+        }).join("");
+        container.classList.remove("hidden");
+    }
+
+    function getThemeColor(name) {
+        return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    }
+
+    function buildVersionAggregates(results) {
+        var byVersion = {};
+        results.forEach(function (result) {
+            if (result.workflow_config_version === null || result.workflow_config_version === undefined || result.status !== "completed") {
+                return;
+            }
+            var version = String(result.workflow_config_version);
+            if (!byVersion[version]) {
+                byVersion[version] = {
+                    config_version: Number(result.workflow_config_version),
+                    scored_articles: 0,
+                    logsource_precision: [],
+                    logsource_recall: [],
+                    atom_precision: [],
+                    atom_recall: []
+                };
+            }
+            var agg = byVersion[version];
+            agg.scored_articles += 1;
+            ["logsource_precision", "logsource_recall", "atom_precision", "atom_recall"].forEach(function (field) {
+                if (result[field] !== null && result[field] !== undefined) {
+                    agg[field].push(Number(result[field]));
+                }
+            });
+        });
+        return Object.keys(byVersion).map(function (version) {
+            var agg = byVersion[version];
+            return {
+                config_version: agg.config_version,
+                scored_articles: agg.scored_articles,
+                logsource_precision: average(agg.logsource_precision),
+                logsource_recall: average(agg.logsource_recall),
+                atom_precision: average(agg.atom_precision),
+                atom_recall: average(agg.atom_recall)
+            };
+        }).map(function (agg) {
+            agg.logsource_f1 = f1Score(agg.logsource_precision, agg.logsource_recall);
+            agg.atom_f1 = f1Score(agg.atom_precision, agg.atom_recall);
+            agg.combined_f1 = combinedF1(agg.logsource_f1, agg.atom_f1);
+            return agg;
+        }).filter(function (agg) {
+            return agg.logsource_precision !== null || agg.logsource_recall !== null || agg.atom_precision !== null || agg.atom_recall !== null;
+        }).sort(function (a, b) {
+            return a.config_version - b.config_version;
+        });
+    }
+
+    function pctOrNull(value) {
+        return value === null || value === undefined ? null : +(value * 100).toFixed(2);
+    }
+
+    function signedNumber(value, suffix) {
+        if (value === null || value === undefined || Number.isNaN(value)) {
+            return "n/a";
+        }
+        var rounded = Math.round(value * 10) / 10;
+        var prefix = rounded > 0 ? "+" : "";
+        return prefix + rounded + (suffix || "");
+    }
+
+    function deltaBadge(value, suffix) {
+        if (value === null || value === undefined || Number.isNaN(value)) {
+            return '<span class="sigma-delta">n/a</span>';
+        }
+        var cls = value > 0 ? "sigma-delta--up" : value < 0 ? "sigma-delta--down" : "";
+        return '<span class="sigma-delta ' + cls + '">' + esc(signedNumber(value, suffix)) + "</span>";
+    }
+
+    function versionAggregate(version) {
+        return buildVersionAggregates(allResults).filter(function (agg) {
+            return String(agg.config_version) === String(version);
+        })[0] || null;
+    }
+
+    function latestRowsByArticle(version) {
+        var rows = {};
+        allResults.forEach(function (result) {
+            if (String(result.workflow_config_version) !== String(version) || result.status !== "completed") {
+                return;
+            }
+            if (!rows[result.article_url]) {
+                rows[result.article_url] = result;
+            }
+        });
+        return rows;
+    }
+
+    function scoreValue(value) {
+        return value === null || value === undefined ? null : Number(value) * 100;
+    }
+
+    function rulesValue(row) {
+        if (!row || row.actual_rule_count === null || row.actual_rule_count === undefined) {
+            return null;
+        }
+        return Number(row.actual_rule_count);
+    }
+
+    function metricSummaryCard(label, baselineValue, candidateValue, valueSuffix, deltaSuffix) {
+        var delta = baselineValue === null || baselineValue === undefined || candidateValue === null || candidateValue === undefined
+            ? null
+            : candidateValue - baselineValue;
+        return (
+            '<div class="sigma-summary-card">' +
+            '<div class="eval-section-label mb-2">' + esc(label) + '</div>' +
+            '<div class="eval-mono text-xs mb-2" style="color: var(--text-muted-slate);">Baseline ' + esc(baselineValue === null || baselineValue === undefined ? "n/a" : signedNumber(baselineValue, valueSuffix).replace("+", "")) +
+            ' / Candidate ' + esc(candidateValue === null || candidateValue === undefined ? "n/a" : signedNumber(candidateValue, valueSuffix).replace("+", "")) + '</div>' +
+            deltaBadge(delta, deltaSuffix) +
+            '</div>'
+        );
+    }
+
+    function runVersionCompare() {
+        var baselineVersion = document.getElementById("compareVersionA").value;
+        var candidateVersion = document.getElementById("compareVersionB").value;
+        var result = document.getElementById("compareResult");
+        if (!baselineVersion || !candidateVersion || baselineVersion === candidateVersion) {
+            result.classList.remove("hidden");
+            result.innerHTML = '<p class="eval-mono text-xs" style="color: var(--text-muted-slate);">Choose two different config versions.</p>';
+            return;
+        }
+
+        var baseline = versionAggregate(baselineVersion);
+        var candidate = versionAggregate(candidateVersion);
+        if (!baseline || !candidate) {
+            result.classList.remove("hidden");
+            result.innerHTML = '<p class="eval-mono text-xs" style="color: var(--text-muted-slate);">Both versions need completed scored Sigma eval rows before they can be compared.</p>';
+            return;
+        }
+
+        var baselineRows = latestRowsByArticle(baselineVersion);
+        var candidateRows = latestRowsByArticle(candidateVersion);
+        var urls = Object.keys(Object.assign({}, baselineRows, candidateRows)).sort(function (a, b) {
+            return shortUrl(a).localeCompare(shortUrl(b));
+        });
+        var articleRows = urls.map(function (url) {
+            var a = baselineRows[url];
+            var b = candidateRows[url];
+            var ruleDelta = rulesValue(a) === null || rulesValue(b) === null ? null : rulesValue(b) - rulesValue(a);
+            var logsourceDelta = scoreValue(a && a.logsource_recall) === null || scoreValue(b && b.logsource_recall) === null
+                ? null
+                : scoreValue(b.logsource_recall) - scoreValue(a.logsource_recall);
+            var atomDelta = scoreValue(a && a.atom_recall) === null || scoreValue(b && b.atom_recall) === null
+                ? null
+                : scoreValue(b.atom_recall) - scoreValue(a.atom_recall);
+            return (
+                "<tr>" +
+                '<td class="eval-mono text-xs" style="color: var(--text-primary);">' + esc(shortUrl(url)) + "</td>" +
+                '<td class="eval-mono text-xs" style="color: var(--text-secondary);">' + esc(a ? rulesValue(a) + " / " + a.expected_rule_count : "n/a") + "</td>" +
+                '<td class="eval-mono text-xs" style="color: var(--text-secondary);">' + esc(b ? rulesValue(b) + " / " + b.expected_rule_count : "n/a") + "</td>" +
+                "<td>" + deltaBadge(ruleDelta, "") + "</td>" +
+                "<td>" + deltaBadge(logsourceDelta, "pp") + "</td>" +
+                "<td>" + deltaBadge(atomDelta, "pp") + "</td>" +
+                "</tr>"
+            );
+        }).join("");
+
+        result.classList.remove("hidden");
+        result.innerHTML =
+            '<div class="sigma-summary-grid mb-4">' +
+            metricSummaryCard("Completed Runs", baseline.scored_articles, candidate.scored_articles, "", "") +
+            metricSummaryCard("Combined F1", scoreValue(baseline.combined_f1), scoreValue(candidate.combined_f1), "%", "pp") +
+            metricSummaryCard("Logsource Precision", scoreValue(baseline.logsource_precision), scoreValue(candidate.logsource_precision), "%", "pp") +
+            metricSummaryCard("Logsource Recall", scoreValue(baseline.logsource_recall), scoreValue(candidate.logsource_recall), "%", "pp") +
+            metricSummaryCard("Logsource F1", scoreValue(baseline.logsource_f1), scoreValue(candidate.logsource_f1), "%", "pp") +
+            metricSummaryCard("Atom Precision", scoreValue(baseline.atom_precision), scoreValue(candidate.atom_precision), "%", "pp") +
+            metricSummaryCard("Atom Recall", scoreValue(baseline.atom_recall), scoreValue(candidate.atom_recall), "%", "pp") +
+            metricSummaryCard("Atom F1", scoreValue(baseline.atom_f1), scoreValue(candidate.atom_f1), "%", "pp") +
+            '</div>' +
+            '<div class="overflow-x-auto">' +
+            '<table class="sigma-table"><thead><tr>' +
+            '<th>Article</th><th>Baseline Rules</th><th>Candidate Rules</th><th>Rule Delta</th><th>Logsource Recall Delta</th><th>Atom Recall Delta</th>' +
+            '</tr></thead><tbody>' + articleRows + '</tbody></table>' +
+            '</div>';
+    }
+
+    function renderTrendChart() {
+        var empty = document.getElementById("sigmaTrendEmpty");
+        var chartContainer = document.getElementById("sigmaTrendChartContainer");
+        var meta = document.getElementById("sigmaTrendMeta");
+        if (!empty || !chartContainer) {
+            return;
+        }
+        var aggregates = buildVersionAggregates(allResults);
+        if (aggregates.length === 0) {
+            chartContainer.classList.add("hidden");
+            empty.classList.remove("hidden");
+            empty.textContent = "No completed Sigma eval versions with scored precision/recall are available yet.";
+            if (meta) {
+                meta.textContent = "";
+            }
+            if (sigmaTrendChart) {
+                sigmaTrendChart.destroy();
+                sigmaTrendChart = null;
+            }
+            return;
+        }
+
+        empty.classList.add("hidden");
+        chartContainer.classList.remove("hidden");
+        var labels = aggregates.map(function (agg) { return "v" + agg.config_version; });
+        var tickColor = getThemeColor("--text-muted") || "#9ca3af";
+        var gridColor = getThemeColor("--chart-grid") || "rgba(113, 113, 122, 0.1)";
+        var logsourcePrecisionColor = getThemeColor("--chart-blue-light") || "#36a2eb";
+        var logsourceRecallColor = getThemeColor("--chart-pink") || "#ff6384";
+        var atomPrecisionColor = getThemeColor("--chart-orange") || "#f97316";
+        var atomRecallColor = getThemeColor("--action-execute") || "#10b981";
+        var logsourceF1Color = getThemeColor("--chart-purple") || "#a855f7";
+        var atomF1Color = getThemeColor("--chart-yellow") || "#eab308";
+        var combinedF1Color = getThemeColor("--text-emphasis") || "#f8fafc";
+        var canvas = document.getElementById("sigmaTrendChart");
+        if (!canvas || typeof Chart === "undefined") {
+            return;
+        }
+        if (sigmaTrendChart) {
+            sigmaTrendChart.destroy();
+        }
+        sigmaTrendChart = new Chart(canvas.getContext("2d"), {
+            type: "line",
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: "Combined F1",
+                        data: aggregates.map(function (agg) { return pctOrNull(agg.combined_f1); }),
+                        borderColor: combinedF1Color,
+                        backgroundColor: combinedF1Color,
+                        borderWidth: 3,
+                        tension: 0.25,
+                        pointRadius: 5,
+                        pointHoverRadius: 7
+                    },
+                    {
+                        label: "Logsource Precision",
+                        data: aggregates.map(function (agg) { return pctOrNull(agg.logsource_precision); }),
+                        borderColor: logsourcePrecisionColor,
+                        backgroundColor: logsourcePrecisionColor,
+                        tension: 0.25,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    },
+                    {
+                        label: "Logsource Recall",
+                        data: aggregates.map(function (agg) { return pctOrNull(agg.logsource_recall); }),
+                        borderColor: logsourceRecallColor,
+                        backgroundColor: logsourceRecallColor,
+                        borderDash: [6, 4],
+                        tension: 0.25,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    },
+                    {
+                        label: "Logsource F1",
+                        data: aggregates.map(function (agg) { return pctOrNull(agg.logsource_f1); }),
+                        borderColor: logsourceF1Color,
+                        backgroundColor: logsourceF1Color,
+                        borderDash: [2, 4],
+                        tension: 0.25,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    },
+                    {
+                        label: "Atom Precision",
+                        data: aggregates.map(function (agg) { return pctOrNull(agg.atom_precision); }),
+                        borderColor: atomPrecisionColor,
+                        backgroundColor: atomPrecisionColor,
+                        tension: 0.25,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    },
+                    {
+                        label: "Atom Recall",
+                        data: aggregates.map(function (agg) { return pctOrNull(agg.atom_recall); }),
+                        borderColor: atomRecallColor,
+                        backgroundColor: atomRecallColor,
+                        borderDash: [3, 4],
+                        tension: 0.25,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    },
+                    {
+                        label: "Atom F1",
+                        data: aggregates.map(function (agg) { return pctOrNull(agg.atom_f1); }),
+                        borderColor: atomF1Color,
+                        backgroundColor: atomF1Color,
+                        borderDash: [8, 3],
+                        tension: 0.25,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: "index", intersect: false },
+                plugins: {
+                    legend: {
+                        position: "top",
+                        labels: { color: tickColor, usePointStyle: true, pointStyle: "circle" }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            afterBody: function (items) {
+                                if (!items || !items.length) {
+                                    return "";
+                                }
+                                var agg = aggregates[items[0].dataIndex];
+                                return agg ? "Completed articles: " + agg.scored_articles : "";
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        grid: { color: gridColor },
+                        ticks: { color: tickColor, callback: function (value) { return value + "%"; } }
+                    },
+                    x: {
+                        grid: { color: gridColor },
+                        ticks: { color: tickColor }
+                    }
+                }
+            }
+        });
+        if (meta) {
+            var total = aggregates.reduce(function (sum, agg) { return sum + agg.scored_articles; }, 0);
+            var versionLabel = aggregates.length === 1 ? "config version" : "config versions";
+            var suffix = aggregates.length === 1 ? "; add another scored version to see movement over time" : "";
+            meta.textContent = aggregates.length + " " + versionLabel + " plotted from " + total + " completed article-run(s)" + suffix;
+        }
+    }
+
+    function formatScore(value) {
+        return value === null || value === undefined ? "n/a" : Math.round(value * 100) + "%";
+    }
+
+    function renderResults() {
+        var container = document.getElementById("resultsContainer");
+        renderSummary();
+        renderTrendChart();
+        if (!displayedResults.length) {
+            container.innerHTML = '<p class="eval-mono text-xs" style="color: var(--text-muted-slate);">No Sigma eval runs found for this filter.</p>';
+            return;
+        }
+        var rows = displayedResults.map(function (result, idx) {
+            var rules = result.actual_rule_count === null || result.actual_rule_count === undefined
+                ? "- / " + result.expected_rule_count
+                : result.actual_rule_count + " / " + result.expected_rule_count;
+            var version = result.workflow_config_version === null || result.workflow_config_version === undefined ? "n/a" : "v" + result.workflow_config_version;
+            return (
+                "<tr>" +
+                '<td><div class="eval-mono text-xs" style="color: var(--text-primary);">' + esc(shortUrl(result.article_url)) + '</div><div class="text-[10px]" style="color: var(--text-muted-slate);">' + esc(version) + '</div></td>' +
+                "<td>" + statusBadge(result.status) + "</td>" +
+                '<td class="eval-mono text-xs" style="color: var(--text-secondary);">' + esc(rules) + "</td>" +
+                "<td>" + scoreBadge(result.logsource_precision) + ' <span class="eval-mono text-xs" style="color: var(--text-muted-slate);">/</span> ' + scoreBadge(result.logsource_recall) + "</td>" +
+                "<td>" + scoreBadge(result.atom_precision) + ' <span class="eval-mono text-xs" style="color: var(--text-muted-slate);">/</span> ' + scoreBadge(result.atom_recall) + "</td>" +
+                '<td><button type="button" class="detail-btn eval-btn eval-btn--secondary eval-btn--sm" data-idx="' + idx + '">Details</button></td>' +
+                "</tr>"
+            );
+        }).join("");
+        container.innerHTML =
+            '<table class="sigma-table"><thead><tr>' +
+            "<th>Article</th><th>Status</th><th>Rules</th><th>Logsource P / R</th><th>Atom P / R</th><th></th>" +
+            "</tr></thead><tbody>" + rows + "</tbody></table>";
+        container.querySelectorAll(".detail-btn").forEach(function (button) {
+            button.addEventListener("click", function () {
+                openDetail(displayedResults[parseInt(button.getAttribute("data-idx"), 10)]);
+            });
+        });
+    }
+
+    function startPolling() {
+        if (pollTimer) {
+            return;
+        }
+        var ticks = 0;
+        pollTimer = setInterval(async function () {
+            ticks += 1;
+            await loadResults();
+            var anyPending = allResults.some(function (result) { return result.status === "pending"; });
+            if (!anyPending || ticks > 40) {
+                clearInterval(pollTimer);
+                pollTimer = null;
+                setStatus(anyPending ? "Polling stopped; refresh to check remaining pending runs." : "Sigma eval results are up to date.", false);
+            }
+        }, 4000);
+    }
+
+    function atomList(items, emptyLabel) {
+        if (!items || !items.length) {
+            return '<p class="eval-mono text-xs" style="color: var(--text-muted-slate);">' + esc(emptyLabel) + "</p>";
+        }
+        return '<ul class="space-y-1 pl-4 list-disc">' + items.map(function (item) {
+            return '<li class="eval-mono text-xs break-all" style="color: var(--text-secondary);">' + esc(item) + "</li>";
+        }).join("") + "</ul>";
+    }
+
+    function renderRuleBlock(title, rules) {
+        var payload = rules && rules.length ? JSON.stringify(rules, null, 2) : "None";
+        return '<div><div class="text-xs font-semibold mb-2" style="color: var(--text-primary);">' + esc(title) + '</div><pre class="sigma-code-block">' + esc(payload) + "</pre></div>";
+    }
+
+    function openDetail(result) {
+        if (!result) {
+            return;
+        }
+        document.getElementById("sigmaDetailTitle").textContent = shortUrl(result.article_url);
+        document.getElementById("sigmaDetailBody").innerHTML =
+            '<div class="sigma-summary-grid mb-5">' +
+            '<div class="sigma-summary-card"><div class="eval-section-label mb-2">Status</div>' + statusBadge(result.status) + '</div>' +
+            '<div class="sigma-summary-card"><div class="eval-section-label mb-2">Rules</div><div class="eval-mono text-sm" style="color: var(--text-primary);">' + esc((result.actual_rule_count === null || result.actual_rule_count === undefined ? "-" : result.actual_rule_count) + " / " + result.expected_rule_count) + '</div></div>' +
+            '<div class="sigma-summary-card"><div class="eval-section-label mb-2">Combined F1</div>' + scoreBadge(combinedF1(f1Score(result.logsource_precision, result.logsource_recall), f1Score(result.atom_precision, result.atom_recall))) + '</div>' +
+            '<div class="sigma-summary-card"><div class="eval-section-label mb-2">Logsource P/R</div>' + scoreBadge(result.logsource_precision) + ' <span class="eval-mono text-xs" style="color: var(--text-muted-slate);">/</span> ' + scoreBadge(result.logsource_recall) + '</div>' +
+            '<div class="sigma-summary-card"><div class="eval-section-label mb-2">Logsource F1</div>' + scoreBadge(f1Score(result.logsource_precision, result.logsource_recall)) + '</div>' +
+            '<div class="sigma-summary-card"><div class="eval-section-label mb-2">Atom P/R</div>' + scoreBadge(result.atom_precision) + ' <span class="eval-mono text-xs" style="color: var(--text-muted-slate);">/</span> ' + scoreBadge(result.atom_recall) + '</div>' +
+            '<div class="sigma-summary-card"><div class="eval-section-label mb-2">Atom F1</div>' + scoreBadge(f1Score(result.atom_precision, result.atom_recall)) + '</div>' +
+            '</div>' +
+            '<div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">' +
+            '<div><div class="text-xs font-semibold mb-2" style="color: var(--text-primary);">Matched atoms</div>' + atomList(result.matched_atoms, "None") + '</div>' +
+            '<div><div class="text-xs font-semibold mb-2" style="color: var(--text-primary);">Missed atoms</div>' + atomList(result.missed_atoms, "None") + '</div>' +
+            '<div><div class="text-xs font-semibold mb-2" style="color: var(--text-primary);">Extra atoms</div>' + atomList(result.extra_atoms, "None") + '</div>' +
+            '<div><div class="text-xs font-semibold mb-2" style="color: var(--text-primary);">Logsources</div>' +
+            '<div class="text-[10px] mb-1" style="color: var(--text-muted-slate);">Missed</div>' + atomList(result.missed_logsources, "No missed logsources") +
+            '<div class="text-[10px] mt-3 mb-1" style="color: var(--text-muted-slate);">Extra</div>' + atomList(result.extra_logsources, "No extra logsources") +
+            '</div></div>' +
+            '<div class="grid grid-cols-1 lg:grid-cols-2 gap-5">' +
+            renderRuleBlock("Expected rules", result.expected_rules) +
+            renderRuleBlock("Generated rules", result.actual_rules) +
+            '</div>';
+        window.ModalManager.open("sigmaDetailModal");
+    }
+
+    function closeDetail() {
+        window.ModalManager.close("sigmaDetailModal");
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        if (window.ModalManager) {
+            window.ModalManager.register("sigmaDetailModal", { isDynamic: false, hasInput: false });
+        }
+        document.getElementById("runBtn").addEventListener("click", runEval);
+        document.getElementById("refreshBtn").addEventListener("click", loadResults);
+        document.getElementById("closeSigmaDetail").addEventListener("click", closeDetail);
+        document.getElementById("sigmaDetailModal").addEventListener("click", function (event) {
+            if (event.target === document.getElementById("sigmaDetailModal")) {
+                closeDetail();
+            }
+        });
+        document.getElementById("selectAllBtn").addEventListener("click", function () {
+            document.querySelectorAll(".article-cb:not(:disabled)").forEach(function (cb) { cb.checked = true; });
+            updateRunControls();
+        });
+        document.getElementById("deselectAllBtn").addEventListener("click", function () {
+            document.querySelectorAll(".article-cb").forEach(function (cb) { cb.checked = false; });
+            updateRunControls();
+        });
+        document.getElementById("concurrency").addEventListener("input", updateRunControls);
+        document.getElementById("configVersionSelect").addEventListener("change", function () {
+            applyVersionFilter();
+            renderResults();
+        });
+        document.getElementById("runCompareBtn").addEventListener("click", runVersionCompare);
+        loadActiveConfig();
+        loadArticles();
+        loadResults();
+    });
+})();
+</script>
+{% endblock %}

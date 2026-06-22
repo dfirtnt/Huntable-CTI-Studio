@@ -491,6 +491,7 @@
                             <option value="registry_artifacts">Registry Artifacts</option>
                             <option value="windows_services">Windows Services</option>
                             <option value="scheduled_tasks">Scheduled Tasks</option>
+                            <option value="network_indicators">Network Indicators</option>
                         </select>
                         <button id="loadEvalArticlesBtn" class="eval-btn eval-btn--accent mt-3">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
@@ -757,7 +758,8 @@ const SUBAGENT_MAP = {
     'hunt_queries': 'HuntQueriesExtract',
     'registry_artifacts': 'RegistryExtract',
     'windows_services': 'ServicesExtract',
-    'scheduled_tasks': 'ScheduledTasksExtract'
+    'scheduled_tasks': 'ScheduledTasksExtract',
+    'network_indicators': 'NetworkIndicatorExtract'
 };
 
 // Load active workflow config
@@ -2918,6 +2920,9 @@ async function showCommandlines(executionId, articleUrl, count) {
         } else if (resultType === 'scheduled_tasks' || subagentEval === 'scheduled_tasks') {
             modalTitle.textContent = 'Extracted Scheduled Tasks';
             agentName = 'ScheduledTasksExtract';
+        } else if (resultType === 'network_indicators' || subagentEval === 'network_indicators') {
+            modalTitle.textContent = 'Extracted Network Indicators';
+            agentName = 'NetworkIndicatorExtract';
         } else {
             modalTitle.textContent = 'Extracted Commandlines';
             agentName = 'CmdlineExtract';
@@ -2971,7 +2976,7 @@ async function showCommandlines(executionId, articleUrl, count) {
         let html = `
             <div class="mb-4">
                 <p class="text-sm text-gray-500 dark:text-gray-400">
-                    Found <strong class="text-gray-700 dark:text-gray-300">${commandlines.length}</strong> ${resultType === 'process_lineage' || subagentEval === 'process_lineage' ? 'process lineage relationship(s)' : resultType === 'hunt_queries' || subagentEval === 'hunt_queries' ? 'hunt query/queries' : 'commandline(s)'}
+                    Found <strong class="text-gray-700 dark:text-gray-300">${commandlines.length}</strong> ${resultType === 'process_lineage' || subagentEval === 'process_lineage' ? 'process lineage relationship(s)' : resultType === 'hunt_queries' || subagentEval === 'hunt_queries' ? 'hunt query/queries' : resultType === 'network_indicators' || subagentEval === 'network_indicators' ? 'network indicator(s)' : 'commandline(s)'}
                     from execution <a href="/workflow?exec=${executionId}#executions" class="text-blue-600 dark:text-blue-400 hover:underline" title="View execution #${executionId}">#${executionId}</a>
                 </p>
                 <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
@@ -3009,6 +3014,17 @@ async function showCommandlines(executionId, articleUrl, count) {
                     } else {
                         displayContent = escapeHtml(String(item));
                     }
+                } else if (resultType === 'network_indicators' || subagentEval === 'network_indicators') {
+                    // Network indicator items are objects with value/indicator_type
+                    if (typeof item === 'object' && item !== null) {
+                        const value = item.value || item.indicator || 'N/A';
+                        const indicatorType = item.indicator_type || item.type || 'unknown';
+                        const context = item.context || item.source_context || item.source_evidence || '';
+                        const contextDisplay = context ? ` - ${escapeHtml(context)}` : '';
+                        displayContent = `<span class="px-2 py-1 text-xs rounded bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">${escapeHtml(indicatorType)}</span> <span class="font-mono">${escapeHtml(String(value))}</span>${contextDisplay}`;
+                    } else {
+                        displayContent = escapeHtml(String(item));
+                    }
                 } else {
                     // Commandlines are strings
                     displayContent = escapeHtml(String(item));
@@ -3018,7 +3034,7 @@ async function showCommandlines(executionId, articleUrl, count) {
                     <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
                         <div class="flex items-start gap-3">
                             <span class="text-xs font-mono text-gray-400 dark:text-gray-500 mt-1">${index + 1}.</span>
-                            <div class="flex-1 text-sm ${(resultType === 'process_lineage' || subagentEval === 'process_lineage' || resultType === 'hunt_queries' || subagentEval === 'hunt_queries') ? 'text-gray-800 dark:text-gray-200' : 'font-mono text-gray-800 dark:text-gray-200 break-all'}">${displayContent}</div>
+                            <div class="flex-1 text-sm ${(resultType === 'process_lineage' || subagentEval === 'process_lineage' || resultType === 'hunt_queries' || subagentEval === 'hunt_queries' || resultType === 'network_indicators' || subagentEval === 'network_indicators') ? 'text-gray-800 dark:text-gray-200' : 'font-mono text-gray-800 dark:text-gray-200 break-all'}">${displayContent}</div>
                         </div>
                     </div>
                 `;

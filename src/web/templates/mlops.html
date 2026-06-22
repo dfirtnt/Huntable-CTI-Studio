@@ -288,6 +288,7 @@
     .d3 { animation-delay: 0.25s; }
     .d4 { animation-delay: 0.38s; }
     .d5 { animation-delay: 0.5s; }
+    .d6 { animation-delay: 0.62s; }
 </style>
 
 <div class="mlops-bg">
@@ -339,7 +340,7 @@
     <div class="mlops-stats mb-7 fade-up d3">
         <div class="stat-cell">
             <div class="stat-label">Modules Active</div>
-            <div class="stat-value" style="color:var(--action-execute);">3 / 3</div>
+            <div class="stat-value" style="color:var(--action-execute);">4 / 4</div>
         </div>
         <div class="stat-cell">
             <div class="stat-label">Evaluation Status</div>
@@ -428,6 +429,32 @@
             </div>
             <h3 class="module-title">Agent<br>Evals v2</h3>
             <p class="module-desc">Next-generation agent evaluation suite with expanded preset coverage, side-by-side diff views, and structured scoring exports.</p>
+            <span class="btn-module btn-mod-green">
+                Run Evaluations
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </span>
+        </a>
+
+        <!-- M-04: Sigma Evals -->
+        <a href="/mlops/sigma-evals" class="module-card mod-green p-6 fade-up d6">
+            <div class="module-header">
+                <div class="flex items-center">
+                    <div class="module-icon icon-green">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <div class="module-meta">
+                        <div class="module-id" style="color:var(--action-execute);">M-04</div>
+                        <div class="module-category">Workflow Testing</div>
+                    </div>
+                </div>
+                <span class="module-badge badge-active">Active</span>
+            </div>
+            <h3 class="module-title">Sigma<br>Evals</h3>
+            <p class="module-desc">Run the full pipeline on fixture articles and score generated Sigma rules against ground truth (logsource and detection-atom precision/recall).</p>
             <span class="btn-module btn-mod-green">
                 Run Evaluations
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -1,6 +1,7 @@
 """Tests for content cleaner functionality."""
 
 import pytest
+from bs4 import BeautifulSoup
 
 from src.utils.content import ContentCleaner, ContentExtractor, TextNormalizer
 
@@ -641,3 +642,80 @@ class TestTextNormalizer:
         assert processing_time < 1.0  # Less than 1 second
         assert processing_time > 0.0
         assert len(normalized) > 0
+
+
+# ---------------------------------------------------------------------------
+# Golden-snapshot test — pins the CURRENT output of enhanced_html_clean so
+# the upcoming refactor (extract prepare_soup_for_selection +
+# find_main_content_node) is provably behaviour-preserving.
+# ---------------------------------------------------------------------------
+
+_FIXTURES = {
+    "article_node": (
+        "<html><body><nav class='nav'>menu</nav>"
+        "<article><h1>Title</h1><p>" + ("word " * 30) + "</p></article>"
+        "<footer>foot</footer></body></html>"
+    ),
+    "no_main_fallback": ("<html><body><div><p>" + ("alpha " * 30) + "</p></div></body></html>"),
+    "post_content_class": ("<html><body><div class='post-content'><p>" + ("beta " * 30) + "</p></div></body></html>"),
+}
+
+
+def test_enhanced_html_clean_golden_snapshot():
+    out = {k: ContentCleaner.enhanced_html_clean(v) for k, v in _FIXTURES.items()}
+    assert "Title" in out["article_node"] and "word" in out["article_node"]
+    assert "foot" not in out["article_node"]
+    assert "menu" not in out["article_node"]
+    assert "alpha" in out["no_main_fallback"]
+    assert "beta" in out["post_content_class"]
+    import json
+
+    golden = json.dumps(out, sort_keys=True)
+    assert golden == test_enhanced_html_clean_golden_snapshot._golden
+
+
+test_enhanced_html_clean_golden_snapshot._golden = '{"article_node": "Title\\nword word word word word word word word word word word word word word word word word word word word word word word word word word word word word word", "no_main_fallback": "alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha", "post_content_class": "beta beta beta beta beta beta beta beta beta beta beta beta beta beta beta beta beta beta beta beta beta beta beta beta beta beta beta beta beta beta"}'
+
+
+# ---------------------------------------------------------------------------
+# Unit tests for the helpers extracted in Task 3
+# ---------------------------------------------------------------------------
+
+
+def test_find_main_content_node_picks_article_first():
+    soup = BeautifulSoup("<body><article><p>" + "w " * 30 + "</p></article></body>", "lxml")
+    ContentCleaner.prepare_soup_for_selection(soup)
+    node = ContentCleaner.find_main_content_node(soup)
+    assert node is not None and node.name == "article"
+
+
+def test_find_main_content_node_returns_none_on_no_match():
+    soup = BeautifulSoup("<body><div><p>short</p></div></body>", "lxml")
+    ContentCleaner.prepare_soup_for_selection(soup)
+    assert ContentCleaner.find_main_content_node(soup) is None
+
+
+def test_prepare_soup_for_selection_is_idempotent():
+    html = "<body><nav class='nav'>x</nav><article><p>" + "w " * 30 + "</p></article></body>"
+    s1 = BeautifulSoup(html, "lxml")
+    ContentCleaner.prepare_soup_for_selection(s1)
+    once = str(s1)
+    ContentCleaner.prepare_soup_for_selection(s1)
+    assert str(s1) == once
+    assert "nav" not in once
+
+
+@pytest.mark.parametrize("length,expected", [(50, None), (51, "article")])
+def test_find_main_content_node_threshold(length, expected):
+    text = "x" * length
+    soup = BeautifulSoup(f"<body><article><p>{text}</p></article></body>", "lxml")
+    node = ContentCleaner.find_main_content_node(soup)
+    assert (node.name if node else None) == expected
+
+
+def test_find_main_content_node_falls_through_to_next_selector():
+    html = "<body><article><p>short</p></article><div class='content'><p>" + ("word " * 30) + "</p></div></body>"
+    soup = BeautifulSoup(html, "lxml")
+    ContentCleaner.prepare_soup_for_selection(soup)
+    node = ContentCleaner.find_main_content_node(soup)
+    assert node is not None and "content" in (node.get("class") or [])

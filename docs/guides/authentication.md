@@ -1,18 +1,36 @@
-# Authentication
+# Authentication (Phase A: Boundary & Identity)
 
-Huntable CTI Studio runs as a local single-user app on `127.0.0.1` and **does not require API key authentication** for any endpoint.
+This phase establishes a secure startup posture and a verified request identity.
+Route authorization (who-can-do-what) and audit logging arrive in later chunks.
 
-The `X-API-Key` / `ADMIN_API_KEY` mechanism that previously gated backup, cron, and source-management endpoints was removed in the 2026-05-03 cleanup -- it added friction to the Settings UI (which never sent the header) without protecting against any in-scope threat. See the `[Unreleased]` section of [`docs/CHANGELOG.md`](../CHANGELOG.md) for the full rationale and the list of affected endpoints.
+## Modes (`AUTH_MODE`)
 
-## If You Need Authentication
+| Mode | Use | Production |
+|---|---|---|
+| `disabled` | Local development. Every request gets a synthetic `local-dev` admin identity. | Rejected at startup unless `ALLOW_INSECURE_PRODUCTION_AUTH_DISABLED=true`. |
+| `trusted_header` | An identity-aware proxy injects verified user headers. | Supported. |
+| `oidc` | Reserved placeholder. Treated as unauthenticated for now. | Not yet. |
 
-The deployment model for this application is single-user, local-only. If you intend to expose the web UI publicly or share access with other users:
+## Fail-closed startup (when `APP_ENV=production`)
 
-- Put the app behind an authenticating reverse proxy (Caddy, nginx + auth_basic, Cloudflare Access, Tailscale, etc.). This is simpler, more secure, and uniform across endpoints.
-- Do **not** re-introduce the in-app `X-API-Key` check -- the regression test `tests/api/test_backup_cron_api.py::test_backup_endpoints_require_no_admin_auth` will fail and the Settings UI will silently break (it sends no header).
+Startup aborts if: `AUTH_MODE=disabled` (without the break-glass override),
+`TRUSTED_HOSTS` is wildcard, or `CORS_ALLOWED_ORIGINS` is wildcard.
 
-## Backup Endpoints
+## Trusted-header contract
 
-All backup, cron, and source-management endpoints accept requests without any authentication header. See [`docs/guides/backup-and-restore.md`](backup-and-restore.md) for usage.
+The app trusts identity headers **only** when the request carries the proxy
+marker (`AUTH_TRUSTED_PROXY_HEADER` == `AUTH_TRUSTED_PROXY_VALUE`) and, if
+`AUTH_TRUSTED_PROXY_IPS` is set, originates from a listed peer.
 
-_Last updated: 2026-05-23_
+> **The proxy must strip then set.** It must remove any client-supplied
+> `X-Huntable-*` headers before injecting verified identity headers, and direct
+> network access to the app must be blocked. Application tests prove header
+> parsing and spoof rejection; they cannot prove network isolation.
+
+Requests presenting identity headers without the marker (or from an untrusted
+peer) are treated as impersonation attempts: ignored and logged.
+
+## Request IDs
+
+Every response carries `X-Request-ID` (echoed from the proxy if provided, else
+generated). It is attached to `request.state.request_id` for correlation.

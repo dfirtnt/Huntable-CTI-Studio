@@ -9,6 +9,7 @@ Observables are the **structured extraction output** of the Extract Agent: typed
 - `cmdline`: command-line strings with arguments (CmdlineExtract)
 - `process_lineage`: parent/child process chains (ProcTreeExtract)
 - `hunt_queries`: EDR and Sigma-style detection query fragments (HuntQueriesExtract)
+- `network_indicators`: network indicators with platform/logsource hints when available (NetworkIndicatorExtract)
 - `registry_artifacts`: Windows registry artifacts — persistence keys, config changes, defense evasion (RegistryExtract)
 - `windows_services`: Windows service artifacts — service name, binary path, command line, start type (ServicesExtract)
 - `scheduled_tasks`: Windows scheduled task artifacts — task name, action, trigger, run-as user (ScheduledTasksExtract)
@@ -23,19 +24,31 @@ Observables are the **structured extraction output** of the Extract Agent: typed
 {
   "discrete_huntables_count": 2,
   "observables": [
-    {"type": "cmdline", "value": "e.exe -d=\"E:\\\"", "source": "supervisor_aggregation"},
-    {"type": "hunt_queries", "value": "DeviceProcessEvents | where ...", "source": "supervisor_aggregation"}
+    {
+      "type": "cmdline",
+      "value": "bash -c id",
+      "source": "supervisor_aggregation",
+      "platform": "linux",
+      "platform_confidence": "medium",
+      "telemetry_category": "process_creation",
+      "telemetry_confidence": "medium",
+      "logsource_hint": {"product": "linux", "category": "process_creation"}
+    },
+    {"type": "hunt_queries", "value": "DeviceProcessEvents | where ...", "source": "supervisor_aggregation", "platform": "windows"}
   ],
   "subresults": {
     "cmdline": {"items": ["e.exe -d=\"E:\\\""], "count": 1, "raw": {"cmdline_items": ["..."], "qa_corrections": {}}},
     "hunt_queries": {"items": ["DeviceProcessEvents | where ..."], "count": 1}
   },
   "content": "- e.exe -d=\"E:\\\"\n- DeviceProcessEvents | where ...",
-  "summary": {"count": 2, "source_url": "https://...", "platforms_detected": ["Windows"]}
+  "summary": {"count": 2, "source_url": "https://...", "platforms_detected": ["linux", "windows"]}
 }
 ```
 
 - Each entry in `observables` has `type` (matching a `subresults` key), `value`, and `source`; dict items may include `original_data`.
+- New executions also include observable-scoped platform and telemetry routing metadata:
+  `platform`, `platform_confidence`, `platform_rationale`, `telemetry_category`,
+  `telemetry_confidence`, and optional `logsource_hint`.
 - `content` is a stitched, newline-delimited view of the observables; Sigma uses it when `discrete_huntables_count > 0` and content length is sufficient.
 
 ## Where to view observables

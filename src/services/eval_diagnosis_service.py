@@ -28,6 +28,7 @@ AGENT_TO_CONTRACT: dict[str, str] = {
     "RegistryExtract": "registry-extract.md",
     "ServicesExtract": "services-extract.md",
     "ScheduledTasksExtract": "scheduled-tasks-extract.md",
+    "NetworkIndicatorExtract": "network-indicator-extract.md",
 }
 
 STANDARD_CONTRACT_FILE = "extractor-standard.md"

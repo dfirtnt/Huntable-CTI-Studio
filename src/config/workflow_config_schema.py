@@ -43,11 +43,14 @@ class ThresholdConfig(BaseModel):
 
 
 class EmbeddingsConfig(BaseModel):
-    """Embedding model names. Moved out of agent_models."""
+    """Embedding model names. Moved out of agent_models.
+
+    OsDetection was removed 2026-06-22: platform detection is fully entity-driven (registry +
+    KB + ATT&CK), so the embedding model was never loaded for it. Sigma similarity still uses one.
+    """
 
     model_config = {"extra": "forbid"}
 
-    OsDetection: str = "ibm-research/CTI-BERT"
     Sigma: str = "ibm-research/CTI-BERT"
 
 
@@ -109,6 +112,7 @@ AGENT_NAMES_SUB = [
     "RegistryExtract",
     "ServicesExtract",
     "ScheduledTasksExtract",
+    "NetworkIndicatorExtract",
 ]
 AGENT_NAMES_QA: list[str] = []
 AGENT_NAMES_SPECIAL: list[str] = []
@@ -129,6 +133,7 @@ AGENT_DISPLAY_NAMES: dict[str, str] = {
     "RegistryExtract": "Registry Artifacts Extraction",
     "ServicesExtract": "Windows Services Extraction",
     "ScheduledTasksExtract": "Scheduled Tasks Extraction",
+    "NetworkIndicatorExtract": "Network Indicators Extraction",
 }
 
 # QA agents fully deprecated (2026-05-22). These dicts are intentionally empty.
@@ -248,14 +253,7 @@ class WorkflowConfigV2(BaseModel):
         """
         out: dict[str, Any] = {}
         main_model_keys = {"RankAgent", "ExtractAgent", "SigmaAgent"}
-        sub_agents = {
-            "CmdlineExtract",
-            "ProcTreeExtract",
-            "HuntQueriesExtract",
-            "RegistryExtract",
-            "ServicesExtract",
-            "ScheduledTasksExtract",
-        }
+        sub_agents = set(AGENT_NAMES_SUB)
         for agent_name, agent in self.Agents.items():
             if not isinstance(agent, AgentConfig):
                 continue
@@ -269,7 +267,6 @@ class WorkflowConfigV2(BaseModel):
             out[model_key] = agent.Model
             out[f"{agent_name}_temperature"] = agent.Temperature
             out[f"{agent_name}_top_p"] = agent.TopP
-        out["OSDetectionAgent_embedding"] = self.Embeddings.OsDetection
         out["SigmaEmbeddingModel"] = self.Embeddings.Sigma
         if self.Execution.OsDetectionSelectedOs:
             out["OSDetectionAgent_selected_os"] = self.Execution.OsDetectionSelectedOs

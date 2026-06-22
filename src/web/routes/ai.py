@@ -1780,8 +1780,6 @@ async def api_detect_os(article_id: int, request: Request):
         try:
             trigger_service = WorkflowTriggerService(db_session)
             config_obj = trigger_service.get_active_config()
-            agent_models = config_obj.agent_models if config_obj and config_obj.agent_models else {}
-            embedding_model = agent_models.get("OSDetectionAgent_embedding", "ibm-research/CTI-BERT")
 
             # Get junk filter threshold from config if not provided in request
             if config_obj and not body.get("junk_filter_threshold"):
@@ -1831,7 +1829,8 @@ async def api_detect_os(article_id: int, request: Request):
             filtering_metadata = {"enabled": False}
 
         # Initialize service with configured embedding model
-        service = OSDetectionService(model_name=embedding_model)
+        # Platform detection is entity-driven (registry); no embedding model is loaded.
+        service = OSDetectionService()
 
         result = await service.detect_os(
             content=content_to_analyze,

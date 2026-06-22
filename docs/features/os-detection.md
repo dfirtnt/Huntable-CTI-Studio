@@ -1,119 +1,111 @@
-# OS Detection
+# Platform Detection (OS Detection)
 
-Automated operating system detection for threat intelligence articles using
-embedding-based classification.
+Automated operating-system / platform detection for threat-intelligence articles using
+**deterministic entity-driven classification** — no embedding model.
 
 ## Overview
 
-The OS Detection system identifies the target operating system(s) in a CTI
-article. It runs as **Step 0** in the agentic workflow: non-Windows articles
-exit early, reducing unnecessary LLM calls in downstream steps.
+Platform Detection identifies the target operating system(s) in a CTI article. It runs as
+**Step 0** in the agentic workflow and provides *platform context* that routes the rest of the
+pipeline (it is no longer a hard non-Windows gate).
 
-**Workflow behavior:**
-- Windows detected: workflow continues to extraction
-- Non-Windows detected: workflow terminates with `non_windows_os_detected`
-- Multiple OS detected: workflow continues (assumed to include Windows)
+**Workflow behavior (platform-aware routing):**
+- The detected platform(s) drive extractor routing — Windows-only extractors
+  (`RegistryExtract`/`ServicesExtract`/`ScheduledTasksExtract`) are skipped on non-Windows evidence.
+- Linux command/process evidence generates backend-neutral Sigma; mixed articles produce
+  separate per-platform/logsource rule groups; macOS-only articles generate no Sigma (by design).
+- Multi-platform articles are supported (multi-label verdict).
 
 ## Detection Method
 
-Three tiers run in order:
+Deterministic, explainable, and free (no LLM, no embedding model) for the common case:
 
-1. **Keyword-based** (Tier 1): Fast pattern matching against OS-specific terms
-   (registry paths, PowerShell, Linux paths). Handles clear-cut cases without
-   invoking ML models.
-2. **Embedding-based** (Tier 2, primary): CTI-BERT or SEC-BERT embeddings fed into a
-   RandomForest or LogisticRegression classifier. High-confidence threshold
-   (> 0.8) for single-OS detection. When confidence is low, results are returned as
-   `Unknown` when confidence is too low to classify.
+1. **Entity/keyword registry scan** (primary): `PlatformClassifier` scores the article against the
+   platform-tagged entries of the faceted keyword registry (`config/keyword_registry.yaml`),
+   using weighted evidence with **margin-based** confidence and an evidence floor (thin signal →
+   `Unknown`, never a guess). Multi-label by design.
+2. **ATT&CK technique reinforcement**: cited ATT&CK techniques (`config/attack_technique_platforms.json`)
+   *reinforce* platforms the registry already evidenced — they never originate a verdict.
+3. **Windows-keyword safety net**: a deterministic Windows-keyword count rescues thin-evidence
+   Windows content before falling through to `Unknown`.
+4. **LLM adjudication** (`src/services/platform_adjudicator.py`): narrows only the
+   low-confidence / `Unknown` tail (the configured small model, e.g. gpt-4o-mini), using the
+   operator-configurable `OSDetectionAgent` prompt as its system message (strict-JSON output
+   contract enforced separately, so prompt edits can't break parsing).
+
+The earlier embedding/BERT classifier was measured non-discriminative for non-Windows content and
+**retired** (2026-06-19); the OS-detection embedding model config was removed (2026-06-22). See
+`docs/superpowers/specs/2026-06-19-entity-driven-platform-classification-design.md`.
+
+### Computed at scoring time, consumed in the workflow
+
+The deterministic verdict is computed **once at ingest scoring time** (`build_os_classification`,
+stored in `article_metadata["os_classification"]`) and the workflow's `os_detection_node`
+**consumes that precomputed verdict** instead of re-scanning; articles ingested before this
+(go-forward) fall back to a fresh registry scan. The LLM-adjudication tail and ATT&CK
+reinforcement run on top of the deterministic verdict either way.
 
 ## OS Labels
 
 | Label | Indicators |
 |---|---|
-| `Windows` | PowerShell, registry paths, Event IDs, Windows file paths, WMI |
-| `Linux` | bash, systemd, package managers (`apt`, `yum`), `/etc/`, `/var/` |
-| `MacOS` | osascript, launchctl, `/Library/`, `.pkg`, `.dmg` |
-| `multiple` | Multiple operating systems detected |
-| `Unknown` | Unable to determine |
+| `Windows` | PowerShell, registry paths (`hklm`), Event IDs, `lsass`, WMI, Windows file paths |
+| `Linux` | `systemd`/`systemctl`, package managers (`apt`, `yum`), `/etc/`, `/dev/shm`, `memfd_create`, `chattr +i` |
+| `MacOS` | `osascript`, `do shell script`, `launchctl`, `LaunchAgents`/`LaunchDaemons`, `dscl`, `.plist` |
+| `multiple` | Multiple operating systems detected (multi-label) |
+| `Unknown` | Insufficient signal to claim a platform |
 
 ## Configuration
 
-### Workflow Config UI
-
-On the Workflow Config page, OS Detection exposes:
-
-- **Embedding model**: CTI-BERT (`ibm-research/CTI-BERT`, default) or
-  SEC-BERT (`nlpaueb/sec-bert-base`)
-
-### Environment Variables
-
-```bash
-OS_DETECTION_MODEL=ibm-research/CTI-BERT    # or nlpaueb/sec-bert-base
-OS_DETECTION_CLASSIFIER=random_forest        # or logistic_regression
-LMSTUDIO_API_URL=http://host.docker.internal:1234/v1
-LMSTUDIO_MODEL=mistralai/mistral-7b-instruct-v0.3
-```
+Platform Detection is **deterministic** — there is no model to configure. The Workflow Config UI
+exposes only the (currently single-OS) target-OS selection; the former embedding-model dropdown was
+removed (2026-06-22).
 
 ## Storage
 
-Results are persisted in `agentic_workflow_executions`:
-
-| Column | Type | Contents |
-|---|---|---|
-| `os_detection_result` | JSONB | Full detection result with confidence and method |
-| `detected_os` | string | Normalized OS label |
+| Location | Contents |
+|---|---|
+| `articles.article_metadata["os_classification"]` | Verdict computed at scoring time (operating_system, platforms_detected, confidence, method, similarities, evidence) |
+| `agentic_workflow_executions.error_log["os_detection_result"]` | Per-execution Platform Detection trace (verdict + Domains/Products dimensions) |
 
 ## API Endpoint
 
-`POST /api/articles/{article_id}/detect-os` runs OS detection on a single article.
-
-**Error responses:**
+`POST /api/articles/{article_id}/detect-os` runs Platform Detection on a single article.
 
 | Code | Condition |
 |---|---|
 | `422 no_huntable_content` | Content filter found no huntable chunks; LLM is not called |
 | `422 article_not_found` | Article ID does not exist |
 
-When all chunks are filtered out by the junk filter, the endpoint returns HTTP 422 with `{ "error": "no_huntable_content" }` rather than passing empty content to the embedding model.
-
----
-
 ## Programmatic Usage
 
 ```python
 from src.services.os_detection_service import OSDetectionService
 
-service = OSDetectionService(
-    model_name="ibm-research/CTI-BERT",
-    classifier_type="random_forest"
-)
+service = OSDetectionService()  # deterministic; no model name needed
+result = await service.detect_os(article_content)
+# {"operating_system": "Windows", "confidence": "high", "method": "kb_scoring",
+#  "platforms_detected": ["Windows"], "similarities": {...}, "evidence": {...}}
+```
 
-result = service.detect_os(article_content)
-# Returns: {"os": "Windows", "confidence": 0.95, "method": "embedding"}
+The registry-sourced classifier is also available directly:
+
+```python
+from src.utils.keyword_registry import project_platform, build_os_classification
+verdict = project_platform(content)            # PlatformClassification
+record = build_os_classification(content)      # compact dict stored in article_metadata
 ```
 
 ## Performance
 
-- Keyword tier: < 5ms
-- Embedding classification: 100-200ms per article
-- GPU acceleration: automatic if CUDA available; model loads lazily on first use
-
-## Troubleshooting
-
-**Low confidence scores:**
-1. Verify the embedding model loaded correctly
-2. Confirm the classifier file exists at `models/os_detection_classifier.pkl`
-3. Retrain with more labeled data (see [ML Training: Hunt Scoring](../ml-training/hunt-scoring.md))
-
-**False positives / wrong OS:**
-1. Review OS indicator texts in `src/services/os_detection_service.py`
-2. Add labeled training examples and retrain the classifier
-3. Adjust confidence thresholds in Workflow Config
+- Registry/keyword scan: < 5 ms (no model load).
+- LLM adjudication: only on the low-confidence/Unknown tail.
 
 ## Huntable Windows Classifier
 
-A separate binary classifier answers: "Does this article contain
-Windows-based huntables?" — independent of general OS detection.
+A separate binary classifier answers: "Does this article contain Windows-based huntables?" —
+independent of Platform Detection, and **does** still use CTI-BERT embeddings
+(`huntable_windows_service`).
 
 ### Approach
 
@@ -126,65 +118,23 @@ Hybrid model combining keyword features and CTI-BERT embeddings:
 | CTI-BERT embeddings | 768 | First 2000 chars of content |
 | **Total** | **779** | |
 
-Labels are derived from LOLBAS keyword matches (ground truth):
-- **Positive (1)**: ≥ 1 LOLBAS match
-- **Negative (0)**: < 1 LOLBAS match
+Labels are derived from LOLBAS keyword matches (ground truth): positive = ≥ 1 LOLBAS match.
 
 ### Training
 
 ```bash
-# Run the automated workflow
 bash scripts/train_huntable_windows_workflow.sh
-
-# Manual steps: prepare_huntable_windows_training_data.py and
-# train_huntable_windows_classifier.py no longer exist — use the workflow above
 ```
 
-Train on **raw content** (no filtering flag): more training samples, model
-learns to ignore noise, LOLBAS keyword features provide a robust anchor
-regardless of content filtering level.
-
-## OS Detection Classifier Training
-
-The OS detection classifier (`models/os_detection_classifier.pkl`) is a
-RandomForest or LogisticRegression trained on CTI-BERT embeddings with
-LLM-labeled articles.
-
-### Quick Start
-
-```bash
-# Automated workflow
-bash scripts/train_os_detection_workflow.sh
-
-# Manual steps: see scripts/ for available training utilities
-# (prepare_os_detection_training_data.py and train_os_detection_classifier_enhanced.py
-#  referenced here no longer exist — use the automated workflow above)
-```
-
-### Classifier types
-
-**RandomForest** (default): better for complex patterns, less prone to
-overfitting, handles imbalanced classes via `class_weight='balanced'`.
-
-**LogisticRegression**: faster, more interpretable, good baseline.
-
-### Troubleshooting training
-
-| Symptom | Fix |
-|---|---|
-| Low accuracy | Check label distribution; add more training data |
-| All predictions "multiple" | Adjust classification thresholds; try a different embedding model |
-| Overfitting | Reduce `max_depth`; use cross-validation to tune |
+Train on **raw content** (no filtering): more samples, LOLBAS keyword features anchor the model
+regardless of content-filtering level.
 
 ## Related Files
 
-- `src/services/os_detection_service.py` — service implementation
-- `src/utils/content.py` — LOLBAS keyword definitions
-- `scripts/train_os_detection_workflow.sh` — automated OS classifier training workflow
-- `scripts/eval_os_detection_manual.py` — manual OS detection evaluation
-- `scripts/train_huntable_windows_workflow.sh` — automated Windows binary classifier training
+- `src/services/os_detection_service.py` — `detect_os` (entity-driven; embedding infra retained only for the Huntable-Windows classifier/trainer)
+- `src/services/platform_classifier.py` — `PlatformClassifier` engine (entries = registry platform vocabulary)
+- `src/utils/keyword_registry.py` — `project_platform` / `build_os_classification`; the faceted registry is the single platform vocabulary
+- `src/services/attack_platform_signal.py` + `config/attack_technique_platforms.json` — ATT&CK reinforcement
+- `src/services/platform_adjudicator.py` — LLM adjudication for the low-confidence tail
 
-_Last updated: 2026-05-23_
-<!--stackedit_data:
-eyJoaXN0b3J5IjpbOTg5ODcwOTY1XX0=
--->
+_Last updated: 2026-06-22_

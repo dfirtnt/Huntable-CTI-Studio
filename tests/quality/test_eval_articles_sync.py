@@ -21,6 +21,13 @@ _ROOT = Path(__file__).resolve().parent.parent.parent
 _YAML_PATH = _ROOT / "config" / "eval_articles.yaml"
 _DATA_DIR = _ROOT / "config" / "eval_articles_data"
 
+# eval_articles.yaml only governs the extractor subagent evals (expected_count
+# per item-list). The Sigma eval keeps its own articles.json snapshot but its
+# expected count lives in sigma/ground_truth.json (expected_rule_count), NOT in
+# the yaml -- so it is exempt from the yaml<->json sync contract below and is
+# validated instead by tests/unit/test_sigma_ground_truth_files.py.
+_NON_SUBAGENT_DIRS = {"sigma"}
+
 
 def _load_yaml_pairs() -> dict[str, set[str]]:
     """Return {subagent: {url, ...}} from eval_articles.yaml."""
@@ -56,7 +63,7 @@ def _load_json_pairs() -> dict[str, set[str]]:
     if not _DATA_DIR.exists():
         return dict(result)
     for subdir in _DATA_DIR.iterdir():
-        if not subdir.is_dir():
+        if not subdir.is_dir() or subdir.name in _NON_SUBAGENT_DIRS:
             continue
         articles_path = subdir / "articles.json"
         if not articles_path.exists():
@@ -77,7 +84,7 @@ def _load_json_counts() -> dict[str, dict[str, int]]:
     if not _DATA_DIR.exists():
         return dict(result)
     for subdir in _DATA_DIR.iterdir():
-        if not subdir.is_dir():
+        if not subdir.is_dir() or subdir.name in _NON_SUBAGENT_DIRS:
             continue
         articles_path = subdir / "articles.json"
         if not articles_path.exists():
@@ -122,7 +129,7 @@ def _load_ground_truth_counts() -> dict[str, dict[str, int]]:
     if not _DATA_DIR.exists():
         return dict(result)
     for subdir in _DATA_DIR.iterdir():
-        if not subdir.is_dir():
+        if not subdir.is_dir() or subdir.name in _NON_SUBAGENT_DIRS:
             continue
         gt_path = subdir / "ground_truth.json"
         if not gt_path.exists():

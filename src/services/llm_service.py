@@ -2457,6 +2457,7 @@ If you include reasoning, place it BEFORE the JSON. The JSON must be parseable a
                     "HuntQueriesExtract",
                     "RegistryExtract",
                     "ServicesExtract",
+                    "NetworkIndicatorExtract",
                 )
                 _STRUCTURED_EXTRACTORS = ("ScheduledTasksExtract",)
                 _traceability_common = """
@@ -2748,6 +2749,7 @@ Every item in the output array MUST be an object (not a plain string)."""
                                             "registry_artifacts",
                                             "windows_services",
                                             "scheduled_tasks",
+                                            "network_indicators",
                                             "count",
                                         ]
                                         if success and parsed and any(k in parsed for k in expected_keys):
@@ -2809,6 +2811,10 @@ Every item in the output array MUST be an object (not a plain string)."""
                                 count = len(last_result.get("scheduled_tasks", []))
                                 logger.info(f"{agent_name} found {count} scheduled_tasks")
                                 last_result["items"] = last_result.pop("scheduled_tasks")
+                            elif "network_indicators" in last_result:
+                                count = len(last_result.get("network_indicators", []))
+                                logger.info(f"{agent_name} found {count} network_indicators")
+                                last_result["items"] = last_result.pop("network_indicators")
                             elif "items" in last_result:
                                 count = len(last_result.get("items", []))
                                 logger.info(f"{agent_name} found {count} items")
@@ -2898,6 +2904,7 @@ Every item in the output array MUST be an object (not a plain string)."""
                             "registry_artifacts",
                             "windows_services",
                             "scheduled_tasks",
+                            "network_indicators",
                         ]:
                             if key in last_result:
                                 output_for_langfuse[key] = last_result[key]

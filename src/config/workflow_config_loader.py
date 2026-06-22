@@ -30,6 +30,7 @@ EXTRACT_AGENTS = [
     "RegistryExtract",
     "ServicesExtract",
     "ScheduledTasksExtract",
+    "NetworkIndicatorExtract",
 ]
 QA_AGENTS: list[str] = []
 UTILITY_AGENTS: list[str] = []
@@ -44,6 +45,7 @@ AGENTS_ORDER_UI = [
     "RegistryExtract",
     "ServicesExtract",
     "ScheduledTasksExtract",
+    "NetworkIndicatorExtract",
     "SigmaAgent",
 ]
 
@@ -82,6 +84,7 @@ UI_ORDERED_TOP_LEVEL_ORDER = [
     "RegistryExtract",
     "ServicesExtract",
     "ScheduledTasksExtract",
+    "NetworkIndicatorExtract",
     "SigmaAgent",
 ]
 
@@ -104,7 +107,7 @@ _LEGACY_REQUIRED_KEYS = [
 _UI_ORDERED_REQUIRED: list[tuple[str, list[str]]] = [
     ("JunkFilter", ["JunkFilterThreshold"]),
     ("Thresholds", ["MinHuntScore"]),
-    ("OSDetection", ["Embedding", "SelectedOs"]),
+    ("OSDetection", ["SelectedOs"]),
     (
         "RankAgent",
         [
@@ -140,6 +143,10 @@ _UI_ORDERED_REQUIRED: list[tuple[str, list[str]]] = [
     ),
     (
         "ScheduledTasksExtract",
+        ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt"],
+    ),
+    (
+        "NetworkIndicatorExtract",
         ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt"],
     ),
     (
@@ -179,7 +186,6 @@ def v2_to_ui_ordered_export(v2: dict[str, Any]) -> dict[str, Any]:
     th = v2.get("Thresholds") or {}
     agents = v2.get("Agents") or {}
     prompts = v2.get("Prompts") or {}
-    emb = v2.get("Embeddings") or {}
     exe = v2.get("Execution") or {}
     exe_extract = exe.get("ExtractAgentSettings") or {}
     disabled = exe_extract.get("DisabledAgents") or []
@@ -197,7 +203,6 @@ def v2_to_ui_ordered_export(v2: dict[str, Any]) -> dict[str, Any]:
     }
 
     out["OSDetection"] = {
-        "Embedding": emb.get("OsDetection", "ibm-research/CTI-BERT"),
         "SelectedOs": exe.get("OsDetectionSelectedOs") or ["Windows"],
     }
 
@@ -227,6 +232,7 @@ def v2_to_ui_ordered_export(v2: dict[str, Any]) -> dict[str, Any]:
         "RegistryExtract",
         "ServicesExtract",
         "ScheduledTasksExtract",
+        "NetworkIndicatorExtract",
     ]:
         cfg = _agent_cfg(agents, base)
         enabled = base not in disabled
@@ -370,6 +376,17 @@ _OPTIONAL_SUB_AGENT_SECTIONS: list[tuple[str, dict[str, Any]]] = [
             "Prompt": {"prompt": "", "instructions": ""},
         },
     ),
+    (
+        "NetworkIndicatorExtract",
+        {
+            "Enabled": False,
+            "Provider": "",
+            "Model": "",
+            "Temperature": 0.0,
+            "TopP": 0.9,
+            "Prompt": {"prompt": "", "instructions": ""},
+        },
+    ),
 ]
 
 
@@ -427,6 +444,7 @@ def ui_ordered_to_v2(ui: dict[str, Any]) -> dict[str, Any]:
         "RegistryExtract",
         "ServicesExtract",
         "ScheduledTasksExtract",
+        "NetworkIndicatorExtract",
     ]:
         block = ui.get(base) or {}
         if not block:
@@ -447,7 +465,6 @@ def ui_ordered_to_v2(ui: dict[str, Any]) -> dict[str, Any]:
         "MinHuntScore": th_extra.get("MinHuntScore", 97.0),
     }
     embeddings = {
-        "OsDetection": osd.get("Embedding", "ibm-research/CTI-BERT"),
         "Sigma": (ui.get("Embeddings") or {}).get("Sigma", "ibm-research/CTI-BERT"),
     }
     if "Embeddings" not in ui and "SigmaAgent" in ui:
