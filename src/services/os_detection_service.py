@@ -145,7 +145,6 @@ class OSDetectionService:
             self._model_loaded = True
             logger.info(f"Successfully loaded CTI-BERT model on device {self.device}")
 
-
         except Exception as e:
             logger.error(f"Failed to load CTI-BERT model: {e}")
             raise RuntimeError(f"Could not load CTI-BERT model: {e}") from e

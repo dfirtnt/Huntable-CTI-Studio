@@ -1,5 +1,6 @@
 """Server-side image OCR pre-pass (local Tesseract). See
 docs/superpowers/specs/2026-06-15-image-ocr-ingest-design.md."""
+
 from __future__ import annotations
 
 import asyncio
@@ -63,10 +64,11 @@ class OcrConfig:
     max_redirects: int = 3
     ext_blocklist: frozenset = frozenset({".svg", ".ico", ".gif", ".webp"})
     alt_url_blocklist_re: re.Pattern = field(
-        default=re.compile(r"(logo|avatar|icon|favicon|banner|ad[-_]?banner|share|social|sprite)", re.I))
-    host_blocklist: frozenset = frozenset({
-        "www.gravatar.com", "secure.gravatar.com",
-        "www.googletagmanager.com", "googleads.g.doubleclick.net"})
+        default=re.compile(r"(logo|avatar|icon|favicon|banner|ad[-_]?banner|share|social|sprite)", re.I)
+    )
+    host_blocklist: frozenset = frozenset(
+        {"www.gravatar.com", "secure.gravatar.com", "www.googletagmanager.com", "googleads.g.doubleclick.net"}
+    )
 
 
 logger = logging.getLogger(__name__)
@@ -94,10 +96,15 @@ def _ip_is_unsafe(ip: str) -> bool:
     mapped = addr.ipv4_mapped if isinstance(addr, ipaddress.IPv6Address) else None
     if mapped is not None:
         addr = mapped
-    return (addr.is_loopback or addr.is_link_local or addr.is_private
-            or addr.is_unspecified or addr.is_multicast or addr.is_reserved
-            or (isinstance(addr, ipaddress.IPv4Address)
-                and addr in ipaddress.ip_network("100.64.0.0/10")))  # RFC6598 CGNAT
+    return (
+        addr.is_loopback
+        or addr.is_link_local
+        or addr.is_private
+        or addr.is_unspecified
+        or addr.is_multicast
+        or addr.is_reserved
+        or (isinstance(addr, ipaddress.IPv4Address) and addr in ipaddress.ip_network("100.64.0.0/10"))
+    )  # RFC6598 CGNAT
 
 
 def _is_safe_image_url(url: str) -> tuple[bool, str]:
@@ -330,8 +337,9 @@ async def ocr_article_images(
             continue
         if time.monotonic() > deadline - config.per_image_ocr_s:
             timed_out = True
-            logger.warning("OCR budget exhausted for %s (%d/%d candidates attempted)",
-                           article_url, attempted, len(candidates))
+            logger.warning(
+                "OCR budget exhausted for %s (%d/%d candidates attempted)", article_url, attempted, len(candidates)
+            )
             break
         attempted += 1
         data = await _stream_image_safely(client, url, config)
@@ -360,8 +368,14 @@ async def ocr_article_images(
         status = OcrStatus.completed
 
     if blocks:
-        logger.info("OCR %s: blocks=%d errors=%s status=%s elapsed=%.1fs",
-                    article_url, len(blocks), errors, status.value, time.monotonic() - start)
+        logger.info(
+            "OCR %s: blocks=%d errors=%s status=%s elapsed=%.1fs",
+            article_url,
+            len(blocks),
+            errors,
+            status.value,
+            time.monotonic() - start,
+        )
     return OcrArticleOutcome(blocks, list(candidates), processed, status, errors)
 
 
@@ -403,8 +417,9 @@ async def ocr_raw_articles(articles, config) -> None:
             ContentCleaner.prepare_soup_for_selection(soup)
             target = ContentCleaner.find_main_content_node(soup) or soup.body or soup
             done = set(meta.get("ocr_processed_img_urls") or []) | _parse_existing_ocr_urls(art.content or "")
-            outcome = await ocr_article_images(client, target, art.canonical_url, config,
-                                               already_processed=done, existing_status=prior)
+            outcome = await ocr_article_images(
+                client, target, art.canonical_url, config, already_processed=done, existing_status=prior
+            )
             if outcome.blocks:
                 div = soup.new_tag("div", attrs={"data-source": "huntable-ocr"})
                 for marker, text in outcome.blocks:

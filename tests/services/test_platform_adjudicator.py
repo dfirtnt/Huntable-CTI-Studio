@@ -88,7 +88,9 @@ def test_build_messages_defaults_to_builtin_when_no_custom_prompt():
     from src.services.platform_adjudicator import ADJUDICATION_SYSTEM
 
     assert build_adjudication_messages("x")[0]["content"] == ADJUDICATION_SYSTEM
-    assert build_adjudication_messages("x", system_prompt="   ")[0]["content"] == ADJUDICATION_SYSTEM  # blank -> default
+    assert (
+        build_adjudication_messages("x", system_prompt="   ")[0]["content"] == ADJUDICATION_SYSTEM
+    )  # blank -> default
 
 
 def test_osdetection_seed_prompt_aligns_with_adjudicator_contract():

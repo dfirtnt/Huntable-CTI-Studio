@@ -9,11 +9,11 @@ from bs4 import BeautifulSoup
 from PIL import Image
 
 from src.services.vision_ocr_service import (
+    PROTECTED_INTERNAL_SOURCE_IDENTIFIERS,
     OcrArticleOutcome,
     OcrConfig,
     OcrResult,
     OcrStatus,
-    PROTECTED_INTERNAL_SOURCE_IDENTIFIERS,
     _build_safe_client,
     _filter_images,
     _is_safe_image_url,
@@ -35,9 +35,11 @@ def test_ocr_status_values():
     assert OcrStatus.failed_timeout.value == "failed_timeout"
     assert OcrStatus.failed_error.value == "failed_error"
 
+
 def test_ocr_result_defaults():
     r = OcrResult()
     assert r.text == "" and r.error == "ok"
+
 
 def test_ocr_config_strict_defaults():
     c = OcrConfig()
@@ -46,9 +48,11 @@ def test_ocr_config_strict_defaults():
     assert c.article_budget_s == 30.0 and c.max_pixels == 40_000_000
     assert ".svg" in c.ext_blocklist and ".webp" in c.ext_blocklist
 
+
 def test_ocr_article_outcome_fields():
-    o = OcrArticleOutcome(blocks=[], original_img_urls=[], processed_img_urls=[],
-                          status=OcrStatus.skipped_no_images, error_counts={})
+    o = OcrArticleOutcome(
+        blocks=[], original_img_urls=[], processed_img_urls=[], status=OcrStatus.skipped_no_images, error_counts={}
+    )
     assert o.processed_img_urls == [] and o.status == OcrStatus.skipped_no_images
 
 
@@ -121,25 +125,39 @@ def test_check_tesseract_available_shape():
     assert out["status"] in ("ok", "missing", "error")
 
 
-@pytest.mark.parametrize("url", [
-    "http://169.254.169.254/latest/meta-data/",
-    "http://127.0.0.1/x.png", "http://localhost/x.png", "http://[::1]/x.png",
-    "http://10.0.0.5/x.png", "http://192.168.1.1/x.png", "http://172.16.0.1/x.png",
-    "file:///etc/passwd", "gopher://h/x", "ftp://h/x",
-    "http://user:pass@example.com/x.png",
-])
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://169.254.169.254/latest/meta-data/",
+        "http://127.0.0.1/x.png",
+        "http://localhost/x.png",
+        "http://[::1]/x.png",
+        "http://10.0.0.5/x.png",
+        "http://192.168.1.1/x.png",
+        "http://172.16.0.1/x.png",
+        "file:///etc/passwd",
+        "gopher://h/x",
+        "ftp://h/x",
+        "http://user:pass@example.com/x.png",
+    ],
+)
 def test_unsafe_urls_rejected(url, monkeypatch):
-    monkeypatch.setattr("src.services.vision_ocr_service._resolve_ips",
-                        lambda host: ["127.0.0.1"] if host == "localhost" else _real_resolve(host))
+    monkeypatch.setattr(
+        "src.services.vision_ocr_service._resolve_ips",
+        lambda host: ["127.0.0.1"] if host == "localhost" else _real_resolve(host),
+    )
     safe, reason = _is_safe_image_url(url)
     assert safe is False, f"{url} should be rejected ({reason})"
 
+
 def _real_resolve(host):
     import socket
+
     try:
         return [ai[4][0] for ai in socket.getaddrinfo(host, None)]
     except Exception:
         return []
+
 
 def test_public_url_allowed(monkeypatch):
     monkeypatch.setattr("src.services.vision_ocr_service._resolve_ips", lambda host: ["93.184.216.34"])
@@ -149,26 +167,24 @@ def test_public_url_allowed(monkeypatch):
 
 # --- IPv4-mapped IPv6 / CGNAT / malformed-URL hardening tests ---
 
+
 def test_ipv4_mapped_ipv6_loopback_blocked(monkeypatch):
     # ::ffff:127.0.0.1 must be rejected via its embedded IPv4 flags.
     # Monkeypatch to return the literal mapped form, pinning _ip_is_unsafe logic.
-    monkeypatch.setattr("src.services.vision_ocr_service._resolve_ips",
-                        lambda host: ["::ffff:127.0.0.1"])
+    monkeypatch.setattr("src.services.vision_ocr_service._resolve_ips", lambda host: ["::ffff:127.0.0.1"])
     safe, reason = _is_safe_image_url("http://[::ffff:127.0.0.1]/x.png")
     assert safe is False
 
 
 def test_ipv4_mapped_ipv6_metadata_blocked(monkeypatch):
-    monkeypatch.setattr("src.services.vision_ocr_service._resolve_ips",
-                        lambda host: ["::ffff:169.254.169.254"])
+    monkeypatch.setattr("src.services.vision_ocr_service._resolve_ips", lambda host: ["::ffff:169.254.169.254"])
     safe, _ = _is_safe_image_url("http://[::ffff:169.254.169.254]/x.png")
     assert safe is False
 
 
 def test_ipv4_mapped_ipv6_public_allowed(monkeypatch):
     # ::ffff:8.8.8.8 maps to a public IPv4 -> allowed.
-    monkeypatch.setattr("src.services.vision_ocr_service._resolve_ips",
-                        lambda host: ["::ffff:8.8.8.8"])
+    monkeypatch.setattr("src.services.vision_ocr_service._resolve_ips", lambda host: ["::ffff:8.8.8.8"])
     safe, _ = _is_safe_image_url("http://[::ffff:8.8.8.8]/x.png")
     assert safe is True
 
@@ -195,19 +211,21 @@ def test_filter_rejects_blocked_ext_and_resolves_relative():
 
 
 def test_filter_rejects_alt_and_host_blocklist():
-    root = _root('<div>'
-                 '<img src="https://site.test/logo.png" alt="company logo">'
-                 '<img src="https://www.gravatar.com/x.png">'
-                 '<img src="https://site.test/diagram.png" alt="attack chain">'
-                 '</div>')
+    root = _root(
+        "<div>"
+        '<img src="https://site.test/logo.png" alt="company logo">'
+        '<img src="https://www.gravatar.com/x.png">'
+        '<img src="https://site.test/diagram.png" alt="attack chain">'
+        "</div>"
+    )
     urls = _filter_images(root, "https://site.test/post", OcrConfig())
     assert urls == ["https://site.test/diagram.png"]
 
 
 def test_filter_scoped_to_search_root_excludes_sibling_images():
     soup = BeautifulSoup(
-        "<html><body><article><img src='/in.png'></article>"
-        "<aside><img src='/out.png'></aside></body></html>", "lxml")
+        "<html><body><article><img src='/in.png'></article><aside><img src='/out.png'></aside></body></html>", "lxml"
+    )
     article = soup.find("article")
     urls = _filter_images(article, "https://example.com", OcrConfig())
     assert urls == ["https://example.com/in.png"]
@@ -238,15 +256,13 @@ async def test_pinned_ip_reaches_os_connector(monkeypatch):
     disable SSRF pinning)."""
     recorded = {}
 
-    async def fake_super_connect_tcp(self, host, port, timeout=None,
-                                     local_address=None, socket_options=None):
+    async def fake_super_connect_tcp(self, host, port, timeout=None, local_address=None, socket_options=None):
         recorded["host"] = host
         recorded["port"] = port
         raise httpcore.ConnectError("stub-stop-here")
 
     monkeypatch.setattr(httpcore.AnyIOBackend, "connect_tcp", fake_super_connect_tcp)
-    monkeypatch.setattr("src.services.vision_ocr_service._resolve_ips",
-                        lambda host: ["93.184.216.34"])
+    monkeypatch.setattr("src.services.vision_ocr_service._resolve_ips", lambda host: ["93.184.216.34"])
     import httpx
 
     client = _build_safe_client(OcrConfig())
@@ -256,13 +272,14 @@ async def test_pinned_ip_reaches_os_connector(monkeypatch):
                 pass
     finally:
         await client.aclose()
-    assert recorded["host"] == "93.184.216.34"   # pinned IP, not "example.com"
+    assert recorded["host"] == "93.184.216.34"  # pinned IP, not "example.com"
     assert recorded["port"] == 443
 
 
 # ---------------------------------------------------------------------------
 # ocr_article_images orchestrator tests
 # ---------------------------------------------------------------------------
+
 
 class _FakeClient:
     pass
@@ -271,25 +288,27 @@ class _FakeClient:
 def _async_ret(value):
     async def _f(*a, **k):
         return value
+
     return _f
 
 
 @pytest.mark.asyncio
 async def test_idempotent_short_circuit_completed():
     root = BeautifulSoup("<div><img src='https://s.test/a.png'></div>", "lxml")
-    out = await ocr_article_images(_FakeClient(), root, "https://s.test/p", OcrConfig(),
-                                   already_processed=set(), existing_status="completed")
+    out = await ocr_article_images(
+        _FakeClient(), root, "https://s.test/p", OcrConfig(), already_processed=set(), existing_status="completed"
+    )
     assert out.status == OcrStatus.completed and out.blocks == []
 
 
 @pytest.mark.asyncio
 async def test_completed_with_text(monkeypatch):
     monkeypatch.setattr("src.services.vision_ocr_service._stream_image_safely", _async_ret(b"img"))
-    monkeypatch.setattr("src.services.vision_ocr_service.ocr_image_bytes",
-                        lambda *a, **k: OcrResult(text="payload", error="ok"))
+    monkeypatch.setattr(
+        "src.services.vision_ocr_service.ocr_image_bytes", lambda *a, **k: OcrResult(text="payload", error="ok")
+    )
     root = BeautifulSoup("<div><img src='https://s.test/a.png'></div>", "lxml")
-    out = await ocr_article_images(_FakeClient(), root, "https://s.test/p", OcrConfig(),
-                                   already_processed=set())
+    out = await ocr_article_images(_FakeClient(), root, "https://s.test/p", OcrConfig(), already_processed=set())
     assert out.status == OcrStatus.completed
     assert out.blocks == [("[Image OCR: https://s.test/a.png]", "payload")]
     assert "https://s.test/a.png" in out.processed_img_urls
@@ -300,8 +319,7 @@ async def test_completed_with_text(monkeypatch):
 async def test_all_errored_is_failed_error(monkeypatch):
     monkeypatch.setattr("src.services.vision_ocr_service._stream_image_safely", _async_ret(None))
     root = BeautifulSoup("<div><img src='https://s.test/a.png'></div>", "lxml")
-    out = await ocr_article_images(_FakeClient(), root, "https://s.test/p", OcrConfig(),
-                                   already_processed=set())
+    out = await ocr_article_images(_FakeClient(), root, "https://s.test/p", OcrConfig(), already_processed=set())
     assert out.status == OcrStatus.failed_error and out.error_counts.get("fetch_failed") == 1
     assert "https://s.test/a.png" not in out.processed_img_urls
 
@@ -309,19 +327,18 @@ async def test_all_errored_is_failed_error(monkeypatch):
 @pytest.mark.asyncio
 async def test_skipped_no_images():
     root = BeautifulSoup("<div><img src='https://s.test/a.svg'></div>", "lxml")
-    out = await ocr_article_images(_FakeClient(), root, "https://s.test/p", OcrConfig(),
-                                   already_processed=set())
+    out = await ocr_article_images(_FakeClient(), root, "https://s.test/p", OcrConfig(), already_processed=set())
     assert out.status == OcrStatus.skipped_no_images
 
 
 @pytest.mark.asyncio
 async def test_ok_but_empty_is_completed(monkeypatch):
     monkeypatch.setattr("src.services.vision_ocr_service._stream_image_safely", _async_ret(b"img"))
-    monkeypatch.setattr("src.services.vision_ocr_service.ocr_image_bytes",
-                        lambda *a, **k: OcrResult(text="   ", error="ok"))
+    monkeypatch.setattr(
+        "src.services.vision_ocr_service.ocr_image_bytes", lambda *a, **k: OcrResult(text="   ", error="ok")
+    )
     root = BeautifulSoup("<div><img src='https://s.test/a.png'></div>", "lxml")
-    out = await ocr_article_images(_FakeClient(), root, "https://s.test/p", OcrConfig(),
-                                   already_processed=set())
+    out = await ocr_article_images(_FakeClient(), root, "https://s.test/p", OcrConfig(), already_processed=set())
     assert out.status == OcrStatus.completed and out.blocks == []
     assert "https://s.test/a.png" in out.processed_img_urls  # terminal: ok-but-empty
 
@@ -335,11 +352,13 @@ async def test_already_processed_skips(monkeypatch):
         return b"img"
 
     monkeypatch.setattr("src.services.vision_ocr_service._stream_image_safely", counting_stream)
-    monkeypatch.setattr("src.services.vision_ocr_service.ocr_image_bytes",
-                        lambda *a, **k: OcrResult(text="x", error="ok"))
+    monkeypatch.setattr(
+        "src.services.vision_ocr_service.ocr_image_bytes", lambda *a, **k: OcrResult(text="x", error="ok")
+    )
     root = BeautifulSoup("<div><img src='https://s.test/a.png'></div>", "lxml")
-    out = await ocr_article_images(_FakeClient(), root, "https://s.test/p", OcrConfig(),
-                                   already_processed={"https://s.test/a.png"})
+    out = await ocr_article_images(
+        _FakeClient(), root, "https://s.test/p", OcrConfig(), already_processed={"https://s.test/a.png"}
+    )
     assert streamed["n"] == 0 and out.blocks == []
 
 
@@ -376,10 +395,7 @@ async def test_timed_out_with_blocks_yields_failed_timeout(monkeypatch):
         "<div><img src='https://s.test/a.png'><img src='https://s.test/b.png'></div>",
         "lxml",
     )
-    out = await ocr_article_images(
-        _FakeClient(), root, "https://s.test/p", OcrConfig(),
-        already_processed=set()
-    )
+    out = await ocr_article_images(_FakeClient(), root, "https://s.test/p", OcrConfig(), already_processed=set())
     # The block from image-1 is present (partial blocks kept per spec)
     assert len(out.blocks) == 1
     # But status must be failed_timeout — NOT completed — proving timed_out branch wins
@@ -390,9 +406,9 @@ async def test_timed_out_with_blocks_yields_failed_timeout(monkeypatch):
 # ocr_raw_articles batch pre-pass tests
 # ---------------------------------------------------------------------------
 
+
 def _article(content, meta=None):
-    return types.SimpleNamespace(content=content, canonical_url="https://s.test/p",
-                                 article_metadata=meta or {})
+    return types.SimpleNamespace(content=content, canonical_url="https://s.test/p", article_metadata=meta or {})
 
 
 def test_parse_existing_ocr_urls():
@@ -411,8 +427,9 @@ async def test_disabled_stamps_skipped_disabled():
 @pytest.mark.asyncio
 async def test_injection_survives_enhanced_html_clean(monkeypatch):
     monkeypatch.setattr("src.services.vision_ocr_service._stream_image_safely", _async_ret(b"img"))
-    monkeypatch.setattr("src.services.vision_ocr_service.ocr_image_bytes",
-                        lambda *a, **k: OcrResult(text="OCRTEXT", error="ok"))
+    monkeypatch.setattr(
+        "src.services.vision_ocr_service.ocr_image_bytes", lambda *a, **k: OcrResult(text="OCRTEXT", error="ok")
+    )
     art = _article("<article><h1>T</h1><p>" + "w " * 30 + "<img src='https://s.test/a.png'></p></article>")
     await ocr_raw_articles([art], OcrConfig())
     assert "[Image OCR: https://s.test/a.png]" in art.content
@@ -424,8 +441,15 @@ async def test_injection_survives_enhanced_html_clean(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_idempotent_skip_preserves_metadata():
-    art = _article("body", meta={"ocr_status": "completed", "ocr_image_count": 3,
-                                 "original_img_urls": ["u"], "ocr_processed_img_urls": ["u"]})
+    art = _article(
+        "body",
+        meta={
+            "ocr_status": "completed",
+            "ocr_image_count": 3,
+            "original_img_urls": ["u"],
+            "ocr_processed_img_urls": ["u"],
+        },
+    )
     await ocr_raw_articles([art], OcrConfig())
     # untouched: still the prior metadata, content unchanged
     assert art.article_metadata["ocr_image_count"] == 3
@@ -436,20 +460,21 @@ async def test_idempotent_skip_preserves_metadata():
 # Observability logging tests
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_failed_timeout_logs_warning(monkeypatch, caplog):
     import logging as _logging
+
     # Force timeout on the first headroom check by making monotonic jump past the deadline.
     seq = iter([0.0, 1_000_000.0, 1_000_000.0, 1_000_000.0])
-    monkeypatch.setattr("src.services.vision_ocr_service.time.monotonic",
-                        lambda: next(seq, 1_000_000.0))
+    monkeypatch.setattr("src.services.vision_ocr_service.time.monotonic", lambda: next(seq, 1_000_000.0))
     root = BeautifulSoup("<div><img src='https://s.test/a.png'></div>", "lxml")
     with caplog.at_level(_logging.WARNING, logger="src.services.vision_ocr_service"):
-        out = await ocr_article_images(_FakeClient(), root, "https://s.test/p", OcrConfig(),
-                                       already_processed=set())
+        out = await ocr_article_images(_FakeClient(), root, "https://s.test/p", OcrConfig(), already_processed=set())
     assert out.status == OcrStatus.failed_timeout
-    assert any("budget exhausted" in r.message.lower() or "budget exhausted" in r.getMessage().lower()
-               for r in caplog.records)
+    assert any(
+        "budget exhausted" in r.message.lower() or "budget exhausted" in r.getMessage().lower() for r in caplog.records
+    )
 
 
 @pytest.mark.asyncio
@@ -459,14 +484,15 @@ async def test_ocr_image_count_counts_total_markers_on_retry(monkeypatch):
     import types
 
     monkeypatch.setattr("src.services.vision_ocr_service._stream_image_safely", _async_ret(b"img"))
-    monkeypatch.setattr("src.services.vision_ocr_service.ocr_image_bytes",
-                        lambda *a, **k: OcrResult(text="NEW", error="ok"))
+    monkeypatch.setattr(
+        "src.services.vision_ocr_service.ocr_image_bytes", lambda *a, **k: OcrResult(text="NEW", error="ok")
+    )
     # Article already carries a marker for a.png (inside the main node) + a fresh image b.png.
-    content = ("<article><h1>T</h1><p>" + "w " * 30
-               + " [Image OCR: https://s.test/a.png]\nold</p>"
-               "<p><img src='https://s.test/b.png'></p></article>")
-    art = types.SimpleNamespace(content=content, canonical_url="https://s.test/p",
-                                article_metadata={})
+    content = (
+        "<article><h1>T</h1><p>" + "w " * 30 + " [Image OCR: https://s.test/a.png]\nold</p>"
+        "<p><img src='https://s.test/b.png'></p></article>"
+    )
+    art = types.SimpleNamespace(content=content, canonical_url="https://s.test/p", article_metadata={})
     await ocr_raw_articles([art], OcrConfig())
     assert "[Image OCR: https://s.test/b.png]" in art.content
     assert "[Image OCR: https://s.test/a.png]" in art.content
@@ -480,8 +506,7 @@ async def test_stream_resolves_relative_redirect(monkeypatch):
     and followed (re-validated), not rejected as no-host."""
     from src.services.vision_ocr_service import _stream_image_safely
 
-    monkeypatch.setattr("src.services.vision_ocr_service._resolve_ips",
-                        lambda host: ["93.184.216.34"])
+    monkeypatch.setattr("src.services.vision_ocr_service._resolve_ips", lambda host: ["93.184.216.34"])
     png = _png_bytes()
 
     class _Resp:
@@ -519,6 +544,7 @@ async def test_stream_resolves_relative_redirect(monkeypatch):
 # Internal-source protection guard tests
 # ---------------------------------------------------------------------------
 
+
 def test_protected_internal_sources_never_ocr(monkeypatch):
     monkeypatch.setenv("OCR_INGEST_ENABLED", "true")
     for ident in ("eval_articles", "manual"):
@@ -527,7 +553,7 @@ def test_protected_internal_sources_never_ocr(monkeypatch):
 
 
 def test_protected_set_contents():
-    assert PROTECTED_INTERNAL_SOURCE_IDENTIFIERS == frozenset({"eval_articles", "manual"})
+    assert frozenset({"eval_articles", "manual"}) == PROTECTED_INTERNAL_SOURCE_IDENTIFIERS
 
 
 def test_non_internal_inherits_env_on(monkeypatch):
@@ -562,8 +588,14 @@ def test_explicit_false_overrides_env_on(monkeypatch):
 
 _OCR_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "ocr" / "known_text_sample.png"
 _EXPECTED_OCR_TOKENS = (
-    "threat", "intelligence", "powershell", "encoded", "command",
-    "detection", "rule", "enabled",
+    "threat",
+    "intelligence",
+    "powershell",
+    "encoded",
+    "command",
+    "detection",
+    "rule",
+    "enabled",
 )
 _tesseract_probe = check_tesseract_available()
 requires_real_tesseract = pytest.mark.skipif(
@@ -599,9 +631,7 @@ async def test_real_ocr_text_flows_through_article_orchestrator(monkeypatch):
     )
     # NB: ocr_image_bytes is intentionally NOT mocked here — real Tesseract runs.
     root = BeautifulSoup("<div><img src='https://s.test/a.png'></div>", "lxml")
-    out = await ocr_article_images(
-        _FakeClient(), root, "https://s.test/p", OcrConfig(), already_processed=set()
-    )
+    out = await ocr_article_images(_FakeClient(), root, "https://s.test/p", OcrConfig(), already_processed=set())
     assert out.status == OcrStatus.completed
     assert len(out.blocks) == 1
     marker, text = out.blocks[0]

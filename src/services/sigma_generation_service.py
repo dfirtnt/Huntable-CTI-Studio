@@ -238,7 +238,9 @@ def _rule_grounding_metadata(
         metadata["platform"] = str(product).lower()
 
     if telemetry_categories:
-        metadata["telemetry_category"] = telemetry_categories[0] if len(telemetry_categories) == 1 else telemetry_categories
+        metadata["telemetry_category"] = (
+            telemetry_categories[0] if len(telemetry_categories) == 1 else telemetry_categories
+        )
     elif category:
         metadata["telemetry_category"] = category
 

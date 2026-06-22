@@ -1082,8 +1082,7 @@ async def _maybe_adjudicate_platform(
         adj = await adjudicate_platforms(content, llm_call=_adj_call, system_prompt=os_detection_prompt)
         if adj.platforms:
             logger.info(
-                f"[Workflow {execution_id}] Platform adjudicated via LLM: "
-                f"{adj.platforms} (confidence={adj.confidence})"
+                f"[Workflow {execution_id}] Platform adjudicated via LLM: {adj.platforms} (confidence={adj.confidence})"
             )
             new_result = adj.as_os_result()
             return new_result, new_result.get("operating_system", detected_os)
@@ -1198,7 +1197,9 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
                         _cfg = WorkflowTriggerService(db_session).get_active_config()
                         _pd = (_cfg.agent_prompts or {}).get("OSDetectionAgent") if _cfg else None
-                        os_det_prompt = _pd.get("prompt") if isinstance(_pd, dict) else (_pd if isinstance(_pd, str) else None)
+                        os_det_prompt = (
+                            _pd.get("prompt") if isinstance(_pd, dict) else (_pd if isinstance(_pd, str) else None)
+                        )
                     except Exception as e:
                         logger.debug(f"[Workflow {state['execution_id']}] OSDetectionAgent prompt resolve skipped: {e}")
                     os_result, detected_os = await _maybe_adjudicate_platform(
@@ -1733,7 +1734,9 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             logger.info(f"[Workflow {state['execution_id']}] Step 3: Extract Agent (Supervisor Mode with Sub-Agents)")
             article_platforms = state.get("platforms_detected")
             if not isinstance(article_platforms, list) or not article_platforms:
-                article_platforms = _platforms_from_os_detection(state.get("detected_os"), state.get("os_detection_result"))
+                article_platforms = _platforms_from_os_detection(
+                    state.get("detected_os"), state.get("os_detection_result")
+                )
             article_platforms = [_normalize_platform_value(platform) for platform in article_platforms]
 
             config_obj = trigger_service.get_active_config()
@@ -2646,9 +2649,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             saw_total_attempts = False
 
             for group in sigma_generation_groups:
-                group_label = (
-                    f"{group['platform']}:{group['telemetry_category']}:{_stable_logsource_key(group['logsource_hint'])}"
-                )
+                group_label = f"{group['platform']}:{group['telemetry_category']}:{_stable_logsource_key(group['logsource_hint'])}"
                 logger.info(
                     f"[Workflow {state['execution_id']}] Generating SIGMA for group {group_label} "
                     f"using observables {group['original_indices']}"

@@ -101,9 +101,7 @@ def parse_trusted_identity(
     lower = {k.lower(): v for k, v in headers.items()}
 
     marker = lower.get(cfg.trusted_proxy_header.lower())
-    has_identity_headers = any(
-        lower.get(h.lower()) for h in (cfg.user_id_header, cfg.email_header, cfg.groups_header)
-    )
+    has_identity_headers = any(lower.get(h.lower()) for h in (cfg.user_id_header, cfg.email_header, cfg.groups_header))
 
     marker_ok = marker is not None and marker == cfg.trusted_proxy_value
     peer_ok = (not cfg.trusted_proxy_ips) or (peer_ip in cfg.trusted_proxy_ips)

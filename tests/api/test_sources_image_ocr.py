@@ -5,8 +5,8 @@ GET /api/sources returns {"sources": [...]} (wrapped), so _first_source_id
 unwraps accordingly.
 """
 
-import pytest
 import httpx
+import pytest
 
 pytestmark = pytest.mark.api
 

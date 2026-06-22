@@ -113,9 +113,7 @@ def test_build_os_classification_unknown_on_no_signal():
 def test_build_os_classification_trims_evidence():
     from src.utils.keyword_registry import build_os_classification
 
-    content = " ".join(
-        ["osascript", "launchctl", "dscl", "kextload", "launchdaemon", "launchagent", "tcc.db"] * 4
-    )
+    content = " ".join(["osascript", "launchctl", "dscl", "kextload", "launchdaemon", "launchagent", "tcc.db"] * 4)
     r = build_os_classification(content, max_evidence=3)
     assert all(len(items) <= 3 for items in r["evidence"].values()), r["evidence"]
 

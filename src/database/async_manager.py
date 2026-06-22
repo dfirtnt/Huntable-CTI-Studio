@@ -519,9 +519,7 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to update min_content_length for source {source_id}: {e}")
             raise
 
-    async def update_source_image_ocr_override(
-        self, source_id: int, value: bool | None
-    ) -> dict[str, Any] | None:
+    async def update_source_image_ocr_override(self, source_id: int, value: bool | None) -> dict[str, Any] | None:
         """Set or clear the per-source image OCR override.
 
         value True/False writes config['image_ocr_enabled']; value None removes the
@@ -532,9 +530,7 @@ class AsyncDatabaseManager:
 
         try:
             async with self.get_session() as session:
-                result = await session.execute(
-                    select(SourceTable).where(SourceTable.id == source_id).limit(1)
-                )
+                result = await session.execute(select(SourceTable).where(SourceTable.id == source_id).limit(1))
                 db_source = result.scalar_one_or_none()
                 if not db_source:
                     return None
@@ -562,7 +558,8 @@ class AsyncDatabaseManager:
                 state = "inherit" if value is None else ("on" if value else "off")
                 logger.info(
                     "Updated image_ocr_enabled for source %s -> %s",
-                    db_source.identifier, state,
+                    db_source.identifier,
+                    state,
                 )
                 return {
                     "success": True,

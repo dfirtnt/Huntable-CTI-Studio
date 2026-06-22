@@ -656,12 +656,8 @@ _FIXTURES = {
         "<article><h1>Title</h1><p>" + ("word " * 30) + "</p></article>"
         "<footer>foot</footer></body></html>"
     ),
-    "no_main_fallback": (
-        "<html><body><div><p>" + ("alpha " * 30) + "</p></div></body></html>"
-    ),
-    "post_content_class": (
-        "<html><body><div class='post-content'><p>" + ("beta " * 30) + "</p></div></body></html>"
-    ),
+    "no_main_fallback": ("<html><body><div><p>" + ("alpha " * 30) + "</p></div></body></html>"),
+    "post_content_class": ("<html><body><div class='post-content'><p>" + ("beta " * 30) + "</p></div></body></html>"),
 }
 
 
@@ -673,6 +669,7 @@ def test_enhanced_html_clean_golden_snapshot():
     assert "alpha" in out["no_main_fallback"]
     assert "beta" in out["post_content_class"]
     import json
+
     golden = json.dumps(out, sort_keys=True)
     assert golden == test_enhanced_html_clean_golden_snapshot._golden
 
@@ -717,10 +714,7 @@ def test_find_main_content_node_threshold(length, expected):
 
 
 def test_find_main_content_node_falls_through_to_next_selector():
-    html = (
-        "<body><article><p>short</p></article>"
-        "<div class='content'><p>" + ("word " * 30) + "</p></div></body>"
-    )
+    html = "<body><article><p>short</p></article><div class='content'><p>" + ("word " * 30) + "</p></div></body>"
     soup = BeautifulSoup(html, "lxml")
     ContentCleaner.prepare_soup_for_selection(soup)
     node = ContentCleaner.find_main_content_node(soup)

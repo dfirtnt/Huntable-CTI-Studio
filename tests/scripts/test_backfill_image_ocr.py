@@ -95,6 +95,7 @@ def test_append_dedupes_against_existing_markers():
 # The spec says "at minimum test the per-article transform function in isolation".
 # ---------------------------------------------------------------------------
 
+
 def _make_async_row(content="article body text", title="A Title"):
     """Return (stored_hash, content, title) where hash is on the async_raw basis."""
     stored_hash = hashlib.sha256(content.encode()).hexdigest()
@@ -268,9 +269,15 @@ def test_compute_article_update_metadata_keys():
         collision_content_hash=None,
     )
     required_keys = {
-        "ocr_status", "ocr_image_count", "ocr_ran_at",
-        "original_img_urls", "ocr_processed_img_urls", "ocr_error_counts",
-        "ocr_content_hash_basis", "word_count", "content_length",
+        "ocr_status",
+        "ocr_image_count",
+        "ocr_ran_at",
+        "original_img_urls",
+        "ocr_processed_img_urls",
+        "ocr_error_counts",
+        "ocr_content_hash_basis",
+        "word_count",
+        "content_length",
     }
     assert required_keys.issubset(intent.new_metadata.keys())
     # Existing metadata merged in, not dropped
@@ -328,10 +335,7 @@ async def test_refetch_keeps_client_open_for_image_fetch(monkeypatch):
     png = buf.getvalue()
 
     class _FakeResp:
-        text = (
-            "<html><body><article><p>" + "w " * 30
-            + "<img src='https://s.test/a.png'></p></article></body></html>"
-        )
+        text = "<html><body><article><p>" + "w " * 30 + "<img src='https://s.test/a.png'></p></article></body></html>"
 
     class _FakeClient:
         def __init__(self):
@@ -354,8 +358,9 @@ async def test_refetch_keeps_client_open_for_image_fetch(monkeypatch):
         return png
 
     monkeypatch.setattr("src.services.vision_ocr_service._stream_image_safely", _stream_check)
-    monkeypatch.setattr("src.services.vision_ocr_service.ocr_image_bytes",
-                        lambda *a, **k: OcrResult(text="REFETCHED", error="ok"))
+    monkeypatch.setattr(
+        "src.services.vision_ocr_service.ocr_image_bytes", lambda *a, **k: OcrResult(text="REFETCHED", error="ok")
+    )
 
     blocks, *_ = await B._ocr_refetch("https://s.test/p", OcrConfig(), set(), None)
     assert blocks and blocks[0][1] == "REFETCHED"

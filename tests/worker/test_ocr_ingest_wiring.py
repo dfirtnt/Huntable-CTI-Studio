@@ -30,6 +30,7 @@ _CELERY_APP_PATH = Path(__file__).parent.parent.parent / "src" / "worker" / "cel
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _import_celery_app():
     """Import src.worker.celery_app with heavy side-effect modules mocked out."""
     for key in list(sys.modules.keys()):
@@ -77,6 +78,7 @@ def _task_source_span(file_text: str, task_name: str) -> str:
 # Test 1 — module-level symbol availability
 # ---------------------------------------------------------------------------
 
+
 class TestCeleryAppImportsOcrPrepass:
     """celery_app must expose the three OCR symbols at module scope."""
 
@@ -100,6 +102,7 @@ class TestCeleryAppImportsOcrPrepass:
 # Test 2 — all three task bodies call ocr_raw_articles
 # ---------------------------------------------------------------------------
 
+
 class TestAllThreeTasksCallPrepass:
     """Each ingest task body must reference ocr_raw_articles.
 
@@ -112,35 +115,40 @@ class TestAllThreeTasksCallPrepass:
     def celery_src(self) -> str:
         return _CELERY_APP_PATH.read_text()
 
-    @pytest.mark.parametrize("task_name", [
-        "check_all_sources",
-        "check_source",
-        "collect_from_source",
-    ])
+    @pytest.mark.parametrize(
+        "task_name",
+        [
+            "check_all_sources",
+            "check_source",
+            "collect_from_source",
+        ],
+    )
     def test_task_calls_ocr_raw_articles(self, celery_src: str, task_name: str):
         span = _task_source_span(celery_src, task_name)
         assert span, f"Could not locate 'def {task_name}(' in {_CELERY_APP_PATH}"
-        assert "ocr_raw_articles" in span, (
-            f"'{task_name}' does not call ocr_raw_articles — wiring is missing"
-        )
+        assert "ocr_raw_articles" in span, f"'{task_name}' does not call ocr_raw_articles — wiring is missing"
 
-    @pytest.mark.parametrize("task_name", [
-        "check_all_sources",
-        "check_source",
-        "collect_from_source",
-    ])
+    @pytest.mark.parametrize(
+        "task_name",
+        [
+            "check_all_sources",
+            "check_source",
+            "collect_from_source",
+        ],
+    )
     def test_task_calls_resolve_ocr_config(self, celery_src: str, task_name: str):
         span = _task_source_span(celery_src, task_name)
         assert span, f"Could not locate 'def {task_name}(' in {_CELERY_APP_PATH}"
-        assert "resolve_ocr_config" in span, (
-            f"'{task_name}' does not call resolve_ocr_config — wiring is missing"
-        )
+        assert "resolve_ocr_config" in span, f"'{task_name}' does not call resolve_ocr_config — wiring is missing"
 
-    @pytest.mark.parametrize("task_name", [
-        "check_all_sources",
-        "check_source",
-        "collect_from_source",
-    ])
+    @pytest.mark.parametrize(
+        "task_name",
+        [
+            "check_all_sources",
+            "check_source",
+            "collect_from_source",
+        ],
+    )
     def test_task_has_ocr_guard(self, celery_src: str, task_name: str):
         """Each site must be wrapped in try/except so OCR never breaks ingest."""
         span = _task_source_span(celery_src, task_name)
@@ -153,6 +161,7 @@ class TestAllThreeTasksCallPrepass:
 # ---------------------------------------------------------------------------
 # Test 3 — worker_process_init probe
 # ---------------------------------------------------------------------------
+
 
 class TestWorkerProcessInitProbe:
     """The worker_process_init handler must call check_tesseract_available."""

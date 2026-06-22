@@ -380,7 +380,8 @@ def check_all_sources(self):
                                 except Exception as _ocr_exc:  # OCR must never break ingest
                                     logger.error(
                                         "OCR pre-pass failed for %s: %s",
-                                        getattr(source, "name", "?"), _ocr_exc,
+                                        getattr(source, "name", "?"),
+                                        _ocr_exc,
                                     )
                                 source_config = source.config if source.config else None
                                 dedup_result = await processor.process_articles(
@@ -641,7 +642,8 @@ def check_source(self, source_identifier: str):
                             except Exception as _ocr_exc:  # OCR must never break ingest
                                 logger.error(
                                     "OCR pre-pass failed for %s: %s",
-                                    getattr(source, "name", "?"), _ocr_exc,
+                                    getattr(source, "name", "?"),
+                                    _ocr_exc,
                                 )
                             # Process articles through deduplication
                             dedup_result = await processor.process_articles(
@@ -1244,7 +1246,8 @@ def collect_from_source(self, source_id: int):
                             except Exception as _ocr_exc:  # OCR must never break ingest
                                 logger.error(
                                     "OCR pre-pass failed for %s: %s",
-                                    getattr(source, "name", "?"), _ocr_exc,
+                                    getattr(source, "name", "?"),
+                                    _ocr_exc,
                                 )
                             # Process articles through deduplication
                             dedup_result = await processor.process_articles(real_articles, existing_hashes)

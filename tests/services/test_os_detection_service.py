@@ -62,9 +62,7 @@ async def test_detect_os_uses_precomputed_verdict(svc):
         "platforms_detected": ["MacOS"],
         "evidence": {"macos": ["osascript", "dscl"]},
     }
-    res = await svc.detect_os(
-        "powershell.exe dumped lsass and wrote an HKLM Run key", precomputed=precomputed
-    )
+    res = await svc.detect_os("powershell.exe dumped lsass and wrote an HKLM Run key", precomputed=precomputed)
     assert res["operating_system"] == "MacOS"
     assert res == precomputed  # non-low verdict returned verbatim, content ignored
 

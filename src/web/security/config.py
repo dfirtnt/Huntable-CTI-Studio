@@ -14,7 +14,7 @@ from enum import Enum
 WILDCARD = "*"
 
 
-class AuthMode(str, Enum):
+class AuthMode(str, Enum):  # noqa: UP042 - keep (str, Enum); StrEnum changes __str__/__format__ used in this auth code
     DISABLED = "disabled"
     TRUSTED_HEADER = "trusted_header"
     OIDC = "oidc"  # reserved no-op placeholder in Chunk A

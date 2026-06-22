@@ -55,6 +55,7 @@ def _make_session_with_source(db_source):
 
 def _patch_get_session(manager, session):
     """Attach a get_session context-manager that yields `session` to `manager`."""
+
     @asynccontextmanager
     async def _get_session():
         yield session
