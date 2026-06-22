@@ -9,12 +9,12 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 
 WILDCARD = "*"
 
 
-class AuthMode(str, Enum):
+class AuthMode(StrEnum):
     DISABLED = "disabled"
     TRUSTED_HEADER = "trusted_header"
     OIDC = "oidc"  # reserved no-op placeholder in Chunk A
@@ -32,6 +32,39 @@ def _split_csv(raw: str | None) -> tuple[str, ...]:
 
 def _as_bool(raw: str | None) -> bool:
     return (raw or "").strip().lower() in ("1", "true", "yes")
+
+
+def _normalize_csrf_mode(raw: str | None) -> str:
+    """Normalize CSRF_ENABLED into one of: auto, true, false."""
+    value = (raw or "auto").strip().lower()
+    if value in ("1", "true", "yes", "on"):
+        return "true"
+    if value in ("0", "false", "no", "off"):
+        return "false"
+    return "auto"
+
+
+# Values that must never be accepted as a real SECRET_KEY in production.
+_INSECURE_SECRET_DEFAULTS = frozenset(
+    {
+        "",
+        "change-me",
+        "changeme",
+        "secret",
+        "dev",
+        "development",
+        "test",
+        "your-secret-key-here",
+        "your-secret-key",
+    }
+)
+
+
+def _secret_is_insecure(secret_key: str) -> bool:
+    value = (secret_key or "").strip()
+    if value.lower() in _INSECURE_SECRET_DEFAULTS:
+        return True
+    return len(value) < 16
 
 
 # role name -> env var holding the comma-separated IdP group list that grants it
@@ -57,6 +90,8 @@ class SecurityConfig:
     email_header: str
     name_header: str
     groups_header: str
+    secret_key: str = ""
+    csrf_mode: str = "auto"  # auto | true | false
     group_role_map: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
 
     @property
@@ -66,6 +101,20 @@ class SecurityConfig:
     @property
     def auth_enabled(self) -> bool:
         return self.auth_mode is not AuthMode.DISABLED
+
+    @property
+    def csrf_active(self) -> bool:
+        """Whether CSRF protection is active for this configuration.
+
+        ``auto`` (the default) activates CSRF whenever auth is enabled, on the
+        assumption that the upstream proxy authenticates the browser with
+        cookies. Bearer/cookieless deployments set ``CSRF_ENABLED=false``.
+        """
+        if self.csrf_mode == "true":
+            return True
+        if self.csrf_mode == "false":
+            return False
+        return self.auth_enabled
 
 
 def load_security_config(env: Mapping[str, str] | None = None) -> SecurityConfig:
@@ -96,6 +145,8 @@ def load_security_config(env: Mapping[str, str] | None = None) -> SecurityConfig
         email_header=e.get("AUTH_EMAIL_HEADER", "X-Huntable-Email"),
         name_header=e.get("AUTH_NAME_HEADER", "X-Huntable-Name"),
         groups_header=e.get("AUTH_GROUPS_HEADER", "X-Huntable-Groups"),
+        secret_key=e.get("SECRET_KEY", ""),
+        csrf_mode=_normalize_csrf_mode(e.get("CSRF_ENABLED")),
         group_role_map=group_role_map,
     )
     _validate(cfg)
@@ -114,3 +165,9 @@ def _validate(cfg: SecurityConfig) -> None:
         raise InsecureConfigError("Wildcard TRUSTED_HOSTS is not allowed in production.")
     if WILDCARD in cfg.cors_allowed_origins:
         raise InsecureConfigError("Wildcard CORS_ALLOWED_ORIGINS is not allowed in production.")
+    if cfg.csrf_active and _secret_is_insecure(cfg.secret_key):
+        raise InsecureConfigError(
+            "SECRET_KEY must be set to a strong, non-default value (>=16 chars) when CSRF is "
+            "active in production. Set a real SECRET_KEY, or set CSRF_ENABLED=false for a "
+            "documented bearer-only/cookieless deployment."
+        )

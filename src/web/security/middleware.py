@@ -19,6 +19,7 @@ from src.services.audit_service import (
 )
 from src.web.dependencies import logger
 from src.web.security.config import AuthMode, SecurityConfig
+from src.web.security.csrf import validate_csrf_token
 from src.web.security.identity import (
     IdentityResult,
     local_dev_identity,
@@ -26,11 +27,14 @@ from src.web.security.identity import (
     unauthenticated,
 )
 from src.web.security.route_manifest import (
+    UNSAFE_METHODS,
+    CsrfRequirement,
     RouteClassification,
     find_manifest_entry,
 )
 
 REQUEST_ID_HEADER = "X-Request-ID"
+CSRF_HEADER = "X-CSRF-Token"
 
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
@@ -133,3 +137,45 @@ class AuthorizationMiddleware(BaseHTTPMiddleware):
                 request.url.path,
                 exc,
             )
+
+
+class CsrfMiddleware(BaseHTTPMiddleware):
+    """Validate signed CSRF tokens for unsafe browser-originated requests.
+
+    Runs after authorization, so it only ever sees authenticated requests when
+    auth is enabled. Active only when ``SecurityConfig.csrf_active`` is true
+    (by default: whenever auth is enabled). Safe methods, routes classified as
+    not requiring CSRF, service-only routes, and service identities are exempt.
+    """
+
+    def __init__(self, app: ASGIApp, config: SecurityConfig) -> None:
+        super().__init__(app)
+        self.config = config
+
+    async def dispatch(self, request: Request, call_next):
+        if not self.config.csrf_active:
+            return await call_next(request)
+        if request.method.upper() not in UNSAFE_METHODS:
+            return await call_next(request)
+
+        manifest = getattr(request.app.state, "route_manifest", [])
+        entry = find_manifest_entry(manifest, request.method, request.url.path)
+        requirement = entry.csrf_requirement if entry else CsrfRequirement.REQUIRED
+        if requirement is not CsrfRequirement.REQUIRED:
+            return await call_next(request)
+
+        identity = getattr(request.state, "identity", None)
+        # Service callers authenticate with an explicit service identity, not a
+        # browser CSRF token. Never let "no browser headers" become a blanket bypass.
+        if identity is not None and identity.actor_type == "service":
+            return await call_next(request)
+
+        subject = identity.user_id if identity and identity.user_id else "anonymous"
+        token = request.headers.get(CSRF_HEADER, "")
+        if not validate_csrf_token(self.config.secret_key, token, subject):
+            detail = "CSRF token missing or invalid"
+            if request.url.path.startswith("/api/"):
+                return JSONResponse({"detail": detail}, status_code=403)
+            return PlainTextResponse(detail, status_code=403)
+
+        return await call_next(request)
