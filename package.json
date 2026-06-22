@@ -10,7 +10,7 @@
   "devDependencies": {
     "@playwright/test": "1.61.0",
     "@types/node": "25.9.2",
-    "allure-playwright": "3.9.0",
+    "allure-playwright": "3.10.0",
     "ts-node": "10.9.2",
     "typescript": "6.0.3"
   }
