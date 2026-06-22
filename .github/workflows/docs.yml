@@ -1,5 +1,13 @@
 name: Docs
 
+# GitHub Pages hosts ONE site, and actions/deploy-pages replaces it wholesale on
+# every deploy. To host main at the site root AND europa-dev at /europa, every
+# deploy must publish the COMPLETE site — both refs built into a single _site/
+# tree — no matter which branch triggered it. Building only the triggering ref
+# would wipe the other (root or /europa) on each push. See also: this workflow
+# must exist on BOTH main and europa-dev to be fully robust, since Actions runs
+# the copy of the YAML on the pushed branch.
+
 on:
   workflow_dispatch:
   push:
@@ -17,17 +25,19 @@ permissions:
   pages: write
   id-token: write
 
+# Serialize Pages deploys; never cancel a deploy already in flight.
 concurrency:
-  group: docs-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: docs-pages
+  cancel-in-progress: false
 
 jobs:
   build:
     name: MkDocs Build
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
-      - name: Checkout
+      # Triggering ref — provides pyproject/uv.lock for the build environment.
+      - name: Checkout (build env)
         uses: actions/checkout@v6
 
       - name: Setup Python
@@ -43,45 +53,46 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --frozen --no-group test --no-group dev
 
-      - name: Build docs
+      # ---- Pull requests: validate the PR ref only (strict), never deploy. ----
+      - name: Build (PR validation, strict)
+        if: github.event_name == 'pull_request'
         run: uv run --frozen --no-group test --no-group dev mkdocs build --strict
 
-      - name: Debug context
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          REF: ${{ github.ref }}
-          REF_NAME: ${{ github.ref_name }}
-          HEAD_REF: ${{ github.head_ref }}
-        run: |
-          echo "=== GitHub Context Debug ==="
-          echo "event_name=$EVENT_NAME"
-          echo "ref=$REF"
-          echo "ref_name=$REF_NAME"
-          echo "head_ref=$HEAD_REF"
-          ls -la | head -20
-          ls -la site/ | head -20
+      # ---- Push / manual dispatch: assemble the COMBINED site. ----
+      # Check out both publishable refs into sibling paths and build each into the
+      # one _site tree: main -> root, europa-dev -> /europa. Deterministic
+      # regardless of which branch triggered the run.
+      - name: Checkout main docs
+        if: github.event_name != 'pull_request'
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          path: docs-src/main
 
-      - name: Prepare site structure (main)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          mkdir -p staging
-          cp -r site/* staging/
+      - name: Checkout europa-dev docs
+        if: github.event_name != 'pull_request'
+        uses: actions/checkout@v6
+        with:
+          ref: europa-dev
+          path: docs-src/europa
 
-      - name: Prepare site structure (europa-dev)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/europa-dev'
-        run: |
-          mkdir -p staging/europa
-          cp -r site/* staging/europa/
+      - name: Build main -> site root (strict)
+        if: github.event_name != 'pull_request'
+        run: uv run --frozen --no-group test --no-group dev mkdocs build --strict -f docs-src/main/mkdocs.yml --site-dir "$GITHUB_WORKSPACE/_site"
+
+      - name: Build europa-dev -> /europa (strict)
+        if: github.event_name != 'pull_request'
+        run: uv run --frozen --no-group test --no-group dev mkdocs build --strict -f docs-src/europa/mkdocs.yml --site-dir "$GITHUB_WORKSPACE/_site/europa"
 
       - name: Upload pages artifact
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/europa-dev')
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/europa-dev'))
         uses: actions/upload-pages-artifact@v5
         with:
-          path: staging/
+          path: _site
 
   deploy:
     name: Deploy to GitHub Pages
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/europa-dev')
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/europa-dev'))
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 5
