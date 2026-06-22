@@ -2614,6 +2614,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             total_attempts = 0
             valid_rules = 0
             sigma_group_summaries = []
+            saw_total_attempts = False
 
             for group in sigma_generation_groups:
                 group_label = (
@@ -2676,6 +2677,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         }
                     combined_conversation_log.append(entry)
                 combined_validation_results.extend(group_metadata.get("validation_results", []) or [])
+                if "total_attempts" in group_metadata:
+                    saw_total_attempts = True
                 total_attempts += int(group_metadata.get("total_attempts") or 0)
                 valid_rules += int(group_metadata.get("valid_rules") or len(group_rules))
                 sigma_group_summaries.append(
@@ -2698,9 +2701,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 "sigma_generation_groups": sigma_group_summaries,
             }
 
-            # Log repair-attempt count as a Langfuse score so it's queryable over time
-            total_attempts = sigma_metadata.get("total_attempts")
-            if total_attempts is not None:
+            # Log repair-attempt count as a Langfuse score so it's queryable over time.
+            # Only emit when at least one generation group actually reported a
+            # total_attempts value; a synthesized 0 (no signal) must not be scored.
+            if saw_total_attempts:
                 active_tid = get_active_trace_id()
                 if active_tid:
                     score_langfuse_trace(
