@@ -26,7 +26,7 @@ That is real, testable, valuable software: a secure boundary and an identity con
 ### In scope
 - New config module `src/web/security/config.py` that parses and validates security env vars at startup.
 - `AUTH_MODE` (`disabled` | `trusted_header` | `oidc` no-op) and `APP_ENV`.
-- Replace hardcoded wildcards in [`src/web/modern_main.py:184`](../../../src/web/modern_main.py) (`allow_origins=["*"]`) and [`:190`](../../../src/web/modern_main.py) (`allowed_hosts=["*"]`) with env-driven values; keep current local defaults for development.
+- Replace hardcoded wildcards in [`src/web/modern_main.py:184`](https://github.com/dfirtnt/Huntable-CTI-Studio/blob/main/src/web/modern_main.py#L184) (`allow_origins=["*"]`) and [`:190`](https://github.com/dfirtnt/Huntable-CTI-Studio/blob/main/src/web/modern_main.py#L190) (`allowed_hosts=["*"]`) with env-driven values; keep current local defaults for development.
 - Fail-closed startup checks:
   - `APP_ENV=production` + `AUTH_MODE=disabled` → startup fails unless `ALLOW_INSECURE_PRODUCTION_AUTH_DISABLED=true`.
   - `APP_ENV=production` + wildcard `TRUSTED_HOSTS` → startup fails.
