@@ -4743,7 +4743,6 @@ function normalizeWorkflowConfigControlBindings() {
         'sigma-fallback-enabled': { key: 'sigma_fallback_enabled', label: 'Use Full Article Content (Minus Junk)' },
         'cmdline-attention-preprocessor-enabled': { key: 'cmdline_attention_preprocessor_enabled', label: 'Attention Preprocessor' },
         'proctree-attention-preprocessor-enabled': { key: 'proc_tree_attention_preprocessor_enabled', label: 'Attention Preprocessor' },
-        'osdetectionagent-embedding-model-2': { key: 'OSDetectionAgent_embedding', label: 'Platform Detection Embedding Model' },
         'osdetectionagent-os-windows': { key: 'OSDetectionAgent_selected_os', label: 'Target OS: Windows' },
         'osdetectionagent-os-linux': { key: 'OSDetectionAgent_selected_os', label: 'Target OS: Linux' },
         'osdetectionagent-os-macos': { key: 'OSDetectionAgent_selected_os', label: 'Target OS: MacOS' },
@@ -5275,7 +5274,6 @@ function renderAgentModels() {
         
         // Special handling for OSDetectionAgent
         if (agentName === 'OSDetectionAgent') {
-            const currentEmbeddingModel = (agentModels && agentModels['OSDetectionAgent_embedding']) || 'ibm-research/CTI-BERT';
             const currentSelectedOS = (agentModels && agentModels['OSDetectionAgent_selected_os']) || ['Windows'];
             const selectedOSArray = Array.isArray(currentSelectedOS) ? currentSelectedOS : (currentSelectedOS ? [currentSelectedOS] : ['Windows']);
             
@@ -5295,22 +5293,11 @@ function renderAgentModels() {
                         </label>
                     </div>
                     
-                    <!-- Embedding Model Selection -->
-                    <div class="mb-3">
-                        <label for="${agentId}-embedding-model" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                            Embedding Model
-                        </label>
-                        <select id="${agentId}-embedding-model" 
-                                name="agent_models[OSDetectionAgent_embedding]"
-                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
-                            <option value="ibm-research/CTI-BERT" ${currentEmbeddingModel === 'ibm-research/CTI-BERT' ? 'selected' : ''}>CTI-BERT</option>
-                            <option value="nlpaueb/sec-bert-base" ${currentEmbeddingModel === 'nlpaueb/sec-bert-base' ? 'selected' : ''}>SEC-BERT</option>
-                        </select>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Pre-trained embedding model for OS detection
-                        </p>
-                    </div>
-                    
+                    <!-- Platform detection is deterministic (entity/keyword registry); no model to configure. -->
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                        Deterministic detection (entity/keyword registry) — no model to configure.
+                    </p>
+
                     <!-- Target OS selection is hidden until multi-OS support is implemented. -->
                     <div class="mb-3 hidden">
                     
@@ -7355,7 +7342,6 @@ function renderAgentModels(lmstudioModels) {
     // Render OS Detection Model
     const osContainer = getContainer('os-detection-model-container');
     if (osContainer) {
-        const currentEmbeddingModel = agentModels['OSDetectionAgent_embedding'] || 'ibm-research/CTI-BERT';
         const currentSelectedOS = agentModels['OSDetectionAgent_selected_os'] || ['Windows'];
         const selectedOSArray = Array.isArray(currentSelectedOS) ? currentSelectedOS : (currentSelectedOS ? [currentSelectedOS] : ['Windows']);
         
@@ -7380,16 +7366,9 @@ function renderAgentModels(lmstudioModels) {
                         </svg>
                     </button>
                 </label>
-                <div class="mb-3">
-                    <label for="osdetectionagent-embedding-model-2" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Embedding Model</label>
-                    <select id="osdetectionagent-embedding-model-2"
-                            name="agent_models[OSDetectionAgent_embedding]"
-                            onchange="autoSaveModelChange()"
-                            class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
-                        <option value="ibm-research/CTI-BERT" ${currentEmbeddingModel === 'ibm-research/CTI-BERT' ? 'selected' : ''}>CTI-BERT</option>
-                        <option value="nlpaueb/sec-bert-base" ${currentEmbeddingModel === 'nlpaueb/sec-bert-base' ? 'selected' : ''}>SEC-BERT</option>
-                    </select>
-                </div>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                    Deterministic detection (entity/keyword registry) — no model to configure.
+                </p>
                 <div>
                     <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Target Operating Systems</label>
                     <div class="flex flex-wrap gap-2">
@@ -8223,12 +8202,8 @@ async function performAutoSave() {
             .map(cb => cb.value);
         const osSelection = selectedOS.length > 0 ? selectedOS : ['Windows'];
         
-        // Special handling for OS Detection embedding (not in AGENT_CONFIG)
-        const osEmbedding = document.getElementById('osdetectionagent-embedding-model-2')?.value.trim() || 'ibm-research/CTI-BERT';
-        
         const agentModelsData = {
             ...collectedAgentConfigs,
-            OSDetectionAgent_embedding: osEmbedding,
             OSDetectionAgent_selected_os: osSelection
         };
         
@@ -8741,11 +8716,9 @@ function getCurrentModelForAgent(agentName) {
         if (extractModel) return extractModel;
     }
     
-    // OS Detection uses embedding selector, no provider toggle
+    // OS Detection is deterministic (entity/keyword registry) — no model to report.
     if (agentName === 'OSDetectionAgent') {
-        return document.getElementById('osdetectionagent-embedding-model-2')?.value?.trim() ||
-               document.getElementById('osdetectionagent-embedding-model')?.value?.trim() ||
-               null;
+        return null;
     }
     
     return null;
@@ -9809,13 +9782,6 @@ async function applyPreset(preset) {
             // Use the unified applyAgentConfigs function which handles providers correctly
             // This ensures providers are set first, then models on the correct provider-specific selects
             applyAgentConfigs(preset.agent_models);
-            
-            // Special handling for OS Detection embedding (not in AGENT_CONFIG)
-            const osEmbeddingSelect = document.getElementById('osdetectionagent-embedding-model-2');
-            if (osEmbeddingSelect && preset.agent_models.OSDetectionAgent_embedding) {
-                osEmbeddingSelect.value = preset.agent_models.OSDetectionAgent_embedding;
-            }
-            
         }
         
         // Sync currentConfig.agent_models so any async rebuild (renderAgentModels, loadAgentModels)
@@ -10442,10 +10408,6 @@ function getCurrentFormState() {
     // Get agent models from form using unified system (includes providers)
     const agent_models = collectAllAgentConfigs();
 
-    // Special handling for OS Detection embedding (not in AGENT_CONFIG)
-    const osEmbedding = document.getElementById('osdetectionagent-embedding-model-2')?.value.trim();
-    if (osEmbedding) agent_models.OSDetectionAgent_embedding = osEmbedding;
-
     // Target Operating Systems (not in AGENT_CONFIG) — include in preset for export/import
     const osCheckboxes = document.querySelectorAll('input[name="os_selection[]"]:not([disabled])');
     const selectedOS = Array.from(osCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
@@ -10601,8 +10563,7 @@ function initializeChangeTracking() {
         'rankagent-model-2',
         'rankagent-temperature',
         'extractagent-model-2',
-        'sigmaagent-model-2',
-        'osdetectionagent-embedding-model-2'
+        'sigmaagent-model-2'
     ];
     
     modelSelects.forEach(selectId => {
@@ -10730,10 +10691,7 @@ if (workflowConfigForm) {
     
     // Collect all agent provider/model values using unified system
     const collectedAgentConfigs = collectAllAgentConfigs();
-    
-    // Special handling for OS Detection embedding (not in AGENT_CONFIG)
-    const osEmbedding = document.getElementById('osdetectionagent-embedding-model-2')?.value.trim() || 'ibm-research/CTI-BERT';
-    
+
     const formData = {
         min_hunt_score: currentConfig?.min_hunt_score || 97.0,
         junk_filter_threshold: parseFloat(document.getElementById('junkFilterThreshold').value),
@@ -10741,8 +10699,7 @@ if (workflowConfigForm) {
         similarity_threshold: parseFloat(document.getElementById('similarityThreshold').value),
         description: null,
         agent_models: {
-            ...collectedAgentConfigs,
-            OSDetectionAgent_embedding: osEmbedding
+            ...collectedAgentConfigs
         },
         sigma_fallback_enabled: document.getElementById('sigma-fallback-enabled')?.checked || false,
         rank_agent_enabled: document.getElementById('rank-agent-enabled')?.checked ?? true
@@ -11314,10 +11271,6 @@ async function viewExecution(executionId) {
                     </details>`;
                 }
                 
-                // Get embedding model from config
-                const embeddingModel = exec.config_snapshot?.agent_models?.['OSDetectionAgent_embedding'] || 
-                                      activeConfig?.agent_models?.['OSDetectionAgent_embedding'] || 
-                                      'ibm-research/CTI-BERT';
                 // Platform detection runs first and receives original article content (not junk-filtered)
                 const osInputContentLength = exec.article_content?.length || exec.junk_filter_result?.original_length || 0;
                 const osInputDetails = exec.article_content ? `<details class="mt-2 w-full">
@@ -11361,7 +11314,7 @@ async function viewExecution(executionId) {
                     name: 'Step 0: Platform Detection',
                     input: `<div class="space-y-1">
                         <div>• Original article content (${osInputContentLength} chars)</div>
-                        <div>• Embedding Model: <span class="font-mono text-xs">${embeddingModel}</span></div>
+                        <div>• Method: <span class="font-mono text-xs">deterministic (entity/keyword registry)</span></div>
                     </div>`,
                     inputDetails: osInputDetails,
                     output: osOutput,

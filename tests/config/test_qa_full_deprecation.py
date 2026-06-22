@@ -86,7 +86,7 @@ class TestSchemaQAContract:
             "Agents": {
                 "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
             },
-            "Embeddings": {"OsDetection": "ibm-research/CTI-BERT", "Sigma": "ibm-research/CTI-BERT"},
+            "Embeddings": {"Sigma": "ibm-research/CTI-BERT"},
             "Features": {"SigmaFallbackEnabled": False, "CmdlineAttentionPreprocessorEnabled": True},
             "Prompts": {
                 "RankAgent": {"prompt": "", "instructions": ""},
@@ -137,7 +137,7 @@ class TestMigrateStripsAllQAAgents:
                 "Enabled": True,
             },
         },
-        "Embeddings": {"OsDetection": "ibm-research/CTI-BERT", "Sigma": "ibm-research/CTI-BERT"},
+        "Embeddings": {"Sigma": "ibm-research/CTI-BERT"},
         "QA": {
             "Enabled": {
                 "RankAgent": True,

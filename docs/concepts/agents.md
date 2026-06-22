@@ -9,10 +9,10 @@ that schedules and distributes the work. Each agent writes results to
 
 ## Core Agents (Execution Order)
 
-0. **Platform Detection**: Classifies platform context using
-   `ibm-research/CTI-BERT` embeddings and keyword matching. The workflow uses
-   the detected platforms to route capable extractors and record structured
-   skips for unsupported extractor/platform combinations.
+0. **Platform Detection**: Classifies platform context deterministically via the entity/keyword
+   registry (with ATT&CK reinforcement and an LLM-adjudication tail for the low-confidence
+   cases) — no embedding model. The workflow uses the detected platforms to route capable
+   extractors and record structured skips for unsupported extractor/platform combinations.
 1. **Junk filter**: Removes non-huntable content before spending tokens on
    ranking and extraction.
 2. **LLM ranking**: Scores article quality (1-10) and gates the rest of the

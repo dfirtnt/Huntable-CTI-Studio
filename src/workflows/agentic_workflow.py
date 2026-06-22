@@ -1043,6 +1043,7 @@ async def _maybe_adjudicate_platform(
     os_result: dict[str, Any],
     detected_os: Any,
     execution_id: int,
+    os_detection_prompt: str | None = None,
 ) -> tuple[dict[str, Any], Any]:
     """Phase B: LLM platform adjudication for the inconclusive (KB Unknown/low) tail.
 
@@ -1078,7 +1079,7 @@ async def _maybe_adjudicate_platform(
             choices = resp.get("choices", []) if isinstance(resp, dict) else []
             return choices[0].get("message", {}).get("content", "") if choices else ""
 
-        adj = await adjudicate_platforms(content, llm_call=_adj_call)
+        adj = await adjudicate_platforms(content, llm_call=_adj_call, system_prompt=os_detection_prompt)
         if adj.platforms:
             logger.info(
                 f"[Workflow {execution_id}] Platform adjudicated via LLM: "
@@ -1164,7 +1165,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 from src.services.os_detection_service import OSDetectionService
 
                 agent_models = (config.get("agent_models") or {}) if config and isinstance(config, dict) else {}
-                embedding_model = agent_models.get("OSDetectionAgent_embedding", "ibm-research/CTI-BERT")
 
                 # Phase 3: reuse the OS verdict computed at scoring time (article_metadata,
                 # Phase 2) instead of re-scanning the same content; articles ingested before
@@ -1177,7 +1177,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 if precomputed_os:
                     logger.info(f"[Workflow {state['execution_id']}] Reusing scoring-time OS verdict (no re-scan)")
 
-                service = OSDetectionService(model_name=embedding_model)
+                # Platform detection is entity-driven (registry); no embedding model is loaded.
+                service = OSDetectionService()
                 os_result = await service.detect_os(
                     content=content,
                     use_classifier=True,
@@ -1189,8 +1190,24 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 # low-confidence / Unknown tail only (never on the eval-skip path above).
                 # "low" is the canonical inconclusive signal from the KB gate (Unknown).
                 if content and (os_result or {}).get("confidence") == "low":
+                    # Operator-configurable adjudication prompt (the OSDetectionAgent prompt);
+                    # the adjudicator falls back to its built-in default when this is unset.
+                    os_det_prompt = None
+                    try:
+                        from src.services.workflow_trigger_service import WorkflowTriggerService
+
+                        _cfg = WorkflowTriggerService(db_session).get_active_config()
+                        _pd = (_cfg.agent_prompts or {}).get("OSDetectionAgent") if _cfg else None
+                        os_det_prompt = _pd.get("prompt") if isinstance(_pd, dict) else (_pd if isinstance(_pd, str) else None)
+                    except Exception as e:
+                        logger.debug(f"[Workflow {state['execution_id']}] OSDetectionAgent prompt resolve skipped: {e}")
                     os_result, detected_os = await _maybe_adjudicate_platform(
-                        content, agent_models, os_result, detected_os, state["execution_id"]
+                        content,
+                        agent_models,
+                        os_result,
+                        detected_os,
+                        state["execution_id"],
+                        os_detection_prompt=os_det_prompt,
                     )
 
             similarities = os_result.get("similarities", {}) if os_result else {}

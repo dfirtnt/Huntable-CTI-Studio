@@ -43,11 +43,14 @@ class ThresholdConfig(BaseModel):
 
 
 class EmbeddingsConfig(BaseModel):
-    """Embedding model names. Moved out of agent_models."""
+    """Embedding model names. Moved out of agent_models.
+
+    OsDetection was removed 2026-06-22: platform detection is fully entity-driven (registry +
+    KB + ATT&CK), so the embedding model was never loaded for it. Sigma similarity still uses one.
+    """
 
     model_config = {"extra": "forbid"}
 
-    OsDetection: str = "ibm-research/CTI-BERT"
     Sigma: str = "ibm-research/CTI-BERT"
 
 
@@ -264,7 +267,6 @@ class WorkflowConfigV2(BaseModel):
             out[model_key] = agent.Model
             out[f"{agent_name}_temperature"] = agent.Temperature
             out[f"{agent_name}_top_p"] = agent.TopP
-        out["OSDetectionAgent_embedding"] = self.Embeddings.OsDetection
         out["SigmaEmbeddingModel"] = self.Embeddings.Sigma
         if self.Execution.OsDetectionSelectedOs:
             out["OSDetectionAgent_selected_os"] = self.Execution.OsDetectionSelectedOs

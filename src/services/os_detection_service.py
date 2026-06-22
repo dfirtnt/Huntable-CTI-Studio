@@ -1,8 +1,11 @@
 """
 OS Detection Service for CTI Scraper
 
-Uses CTI-BERT embeddings + RandomForest/LogisticRegression classifier for OS detection.
-Falls back to Mistral-7B-Instruct-v0.3 via LMStudio for lightweight inference.
+``detect_os`` is **entity-driven** (the keyword registry via ``project_platform``, with a Windows
+keyword safety net), consuming a verdict precomputed at scoring time when available; the LLM
+adjudication tail runs separately (``platform_adjudicator``). The CTI-BERT embedding methods on
+this class (``_load_model``/``_get_embedding``/``train_classifier``) are retained only for the
+Huntable-Windows classifier and the OS-classifier trainer — they are not used by ``detect_os``.
 """
 
 import logging

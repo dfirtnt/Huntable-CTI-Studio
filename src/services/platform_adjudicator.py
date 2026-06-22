@@ -49,12 +49,19 @@ _JSON_INSTRUCTIONS = (
 )
 
 
-def build_adjudication_messages(content: str, max_chars: int = 8000) -> list[dict]:
-    """Build the chat messages for platform adjudication (content excerpt bounded)."""
+def build_adjudication_messages(content: str, max_chars: int = 8000, system_prompt: str | None = None) -> list[dict]:
+    """Build the chat messages for platform adjudication (content excerpt bounded).
+
+    ``system_prompt`` is the operator-configurable task framing (the ``OSDetectionAgent`` prompt);
+    a blank/None value falls back to the built-in ``ADJUDICATION_SYSTEM``. The strict-JSON output
+    contract (``_JSON_INSTRUCTIONS``) always stays in the user message so the parser is safe
+    regardless of how the operator edits the system prompt.
+    """
+    system = (system_prompt or "").strip() or ADJUDICATION_SYSTEM
     excerpt = (content or "")[:max_chars]
     user = f"{_JSON_INSTRUCTIONS}\n\nArticle:\n{excerpt}"
     return [
-        {"role": "system", "content": ADJUDICATION_SYSTEM},
+        {"role": "system", "content": system},
         {"role": "user", "content": user},
     ]
 
@@ -124,10 +131,14 @@ async def adjudicate_platforms(
     *,
     llm_call: Callable[[list[dict]], Awaitable[str]],
     max_chars: int = 8000,
+    system_prompt: str | None = None,
 ) -> PlatformClassification:
-    """Classify platforms via an injected async LLM call. Never raises -> Unknown on error."""
+    """Classify platforms via an injected async LLM call. Never raises -> Unknown on error.
+
+    ``system_prompt`` (the configurable OSDetectionAgent prompt) overrides the built-in default.
+    """
     try:
-        messages = build_adjudication_messages(content, max_chars=max_chars)
+        messages = build_adjudication_messages(content, max_chars=max_chars, system_prompt=system_prompt)
         text = await llm_call(messages)
         return parse_adjudication_response(text)
     except Exception as e:

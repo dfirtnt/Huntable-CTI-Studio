@@ -75,6 +75,47 @@ def test_build_messages_includes_vocab_and_truncates():
     assert len(messages[1]["content"]) < 9000
 
 
+def test_build_messages_uses_custom_system_prompt():
+    """The system prompt is operator-configurable (the OSDetectionAgent prompt); the strict JSON
+    output instructions stay in the user message so the parser contract is preserved regardless."""
+    custom = "CUSTOM platform classifier instructions for Windows, Linux, macOS."
+    messages = build_adjudication_messages("article text", system_prompt=custom)
+    assert messages[0]["content"] == custom
+    assert "JSON" in messages[1]["content"]  # output contract preserved in user message
+
+
+def test_build_messages_defaults_to_builtin_when_no_custom_prompt():
+    from src.services.platform_adjudicator import ADJUDICATION_SYSTEM
+
+    assert build_adjudication_messages("x")[0]["content"] == ADJUDICATION_SYSTEM
+    assert build_adjudication_messages("x", system_prompt="   ")[0]["content"] == ADJUDICATION_SYSTEM  # blank -> default
+
+
+def test_osdetection_seed_prompt_aligns_with_adjudicator_contract():
+    """The OSDetectionAgent seed (the adjudicator's default configurable prompt) frames the
+    multi-platform task — not the retired single-label format — and works as a system prompt."""
+    from src.utils.default_agent_prompts import get_default_agent_prompts
+
+    prompt = get_default_agent_prompts().get("OSDetectionAgent", {}).get("prompt", "")
+    assert prompt, "OSDetectionAgent seed prompt missing"
+    low = prompt.lower()
+    assert "one label only" not in low  # retired single-label format must be gone
+    assert all(p in low for p in ("windows", "linux", "macos"))
+    assert build_adjudication_messages("article", system_prompt=prompt)[0]["content"] == prompt
+
+
+@pytest.mark.asyncio
+async def test_adjudicate_passes_custom_system_prompt_to_llm():
+    seen = {}
+
+    async def fake_llm(messages):
+        seen["system"] = messages[0]["content"]
+        return '{"platforms": ["Linux"], "confidence": "high"}'
+
+    await adjudicate_platforms("c", llm_call=fake_llm, system_prompt="MY CONFIGURED PROMPT")
+    assert seen["system"] == "MY CONFIGURED PROMPT"
+
+
 @pytest.mark.asyncio
 async def test_adjudicate_success_returns_classification():
     async def fake_llm(messages):

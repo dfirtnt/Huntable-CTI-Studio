@@ -79,7 +79,7 @@ def test_migration_accuracy_roundtrip():
     assert flat["RankAgent_temperature"] == 0.2
     assert flat["RankAgent_top_p"] == 0.95
     assert flat["CmdlineExtract_model"] == "claude-sonnet-4-5"
-    assert flat["OSDetectionAgent_embedding"] == "nlpaueb/sec-bert-base"
+    assert "OSDetectionAgent_embedding" not in flat  # removed 2026-06-22 (entity-driven)
 
 
 def test_cmdline_qa_stripped():
@@ -118,7 +118,7 @@ def test_v2_passthrough():
         "Agents": {
             "RankAgent": {"Provider": "lmstudio", "Model": "x", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
         },
-        "Embeddings": {"OsDetection": "bert", "Sigma": "bert"},
+        "Embeddings": {"Sigma": "bert"},
         "Features": {"SigmaFallbackEnabled": False, "CmdlineAttentionPreprocessorEnabled": True},
         "Prompts": {"RankAgent": {"prompt": "", "instructions": ""}},
         "Execution": {"ExtractAgentSettings": {"DisabledAgents": []}, "OsDetectionSelectedOs": ["Windows"]},

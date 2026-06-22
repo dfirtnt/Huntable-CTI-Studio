@@ -71,7 +71,7 @@ def test_no_legacy_keys_present():
             "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
             "RankAgentQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
         },
-        "Embeddings": {"OsDetection": "bert", "Sigma": "bert"},
+        "Embeddings": {"Sigma": "bert"},
         "QA": {"Enabled": {}, "MaxRetries": 5},
         "Features": {"SigmaFallbackEnabled": False, "CmdlineAttentionPreprocessorEnabled": True},
         "Prompts": {"RankAgent": {"prompt": "", "instructions": ""}, "RankAgentQA": {"prompt": "", "instructions": ""}},
@@ -83,7 +83,7 @@ def test_no_legacy_keys_present():
     assert "RankAgent" in out
     assert "Enabled" in out["RankAgent"]
     assert "OSDetection" in out
-    assert "Embedding" in out["OSDetection"]
+    assert "Embedding" not in out["OSDetection"]  # removed 2026-06-22 (entity-driven, no model)
     assert "SelectedOs" in out["OSDetection"]
     assert "FallbackEnabled" not in out["OSDetection"]
 
@@ -103,7 +103,7 @@ def test_no_stray_prompt_keys():
             "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
             "RankAgentQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
         },
-        "Embeddings": {"OsDetection": "bert", "Sigma": "bert"},
+        "Embeddings": {"Sigma": "bert"},
         "QA": {"Enabled": {}, "MaxRetries": 5},
         "Features": {"SigmaFallbackEnabled": False, "CmdlineAttentionPreprocessorEnabled": True},
         "Prompts": {
@@ -134,7 +134,7 @@ def test_metadata_not_empty():
             "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
             "RankAgentQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
         },
-        "Embeddings": {"OsDetection": "bert", "Sigma": "bert"},
+        "Embeddings": {"Sigma": "bert"},
         "QA": {"Enabled": {}, "MaxRetries": 5},
         "Features": {"SigmaFallbackEnabled": False, "CmdlineAttentionPreprocessorEnabled": True},
         "Prompts": {"RankAgent": {"prompt": "", "instructions": ""}, "RankAgentQA": {"prompt": "", "instructions": ""}},

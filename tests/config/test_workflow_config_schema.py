@@ -26,7 +26,7 @@ def test_valid_v2_load():
         "Agents": {
             "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
         },
-        "Embeddings": {"OsDetection": "ibm-research/CTI-BERT", "Sigma": "ibm-research/CTI-BERT"},
+        "Embeddings": {"Sigma": "ibm-research/CTI-BERT"},
         "Features": {"SigmaFallbackEnabled": False, "CmdlineAttentionPreprocessorEnabled": True},
         "Prompts": {
             "RankAgent": {"prompt": "", "instructions": ""},
@@ -121,7 +121,7 @@ def test_to_legacy_response_dict_includes_extract_agent_settings():
                 "Enabled": True,
             },
         },
-        "Embeddings": {"OsDetection": "bert", "Sigma": "bert"},
+        "Embeddings": {"Sigma": "bert"},
         "Features": {"SigmaFallbackEnabled": False, "CmdlineAttentionPreprocessorEnabled": True},
         "Prompts": {
             "RankAgent": {"prompt": "", "instructions": ""},
@@ -159,7 +159,7 @@ def test_flatten_for_llm_service_keys():
                 "Enabled": True,
             },
         },
-        "Embeddings": {"OsDetection": "bert", "Sigma": "bert"},
+        "Embeddings": {"Sigma": "bert"},
         "Features": {"SigmaFallbackEnabled": False, "CmdlineAttentionPreprocessorEnabled": True},
         "Prompts": {
             "RankAgent": {"prompt": "", "instructions": ""},
@@ -173,7 +173,7 @@ def test_flatten_for_llm_service_keys():
     assert flat["RankAgent"] == "gpt-4"
     assert flat["RankAgent_temperature"] == 0.0
     assert flat["CmdlineExtract_model"] == "gpt-4"
-    assert flat["OSDetectionAgent_embedding"] == "bert"
+    assert "OSDetectionAgent_embedding" not in flat  # removed 2026-06-22 (entity-driven)
     assert flat["SigmaEmbeddingModel"] == "bert"
 
 
@@ -252,7 +252,7 @@ def test_stray_prompt_key_fails():
         "Agents": {
             "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True}
         },
-        "Embeddings": {"OsDetection": "bert", "Sigma": "bert"},
+        "Embeddings": {"Sigma": "bert"},
         "Features": {"SigmaFallbackEnabled": False, "CmdlineAttentionPreprocessorEnabled": True},
         "Prompts": {"ExtractAgentSettings": {"prompt": "", "instructions": ""}},
         "Execution": {"ExtractAgentSettings": {"DisabledAgents": []}, "OsDetectionSelectedOs": ["Windows"]},
@@ -273,7 +273,7 @@ def _minimal_v2(agents: dict, prompts: dict | None = None) -> dict:
             "JunkFilterThreshold": 0.8,
         },
         "Agents": agents,
-        "Embeddings": {"OsDetection": "bert", "Sigma": "bert"},
+        "Embeddings": {"Sigma": "bert"},
         "Features": {"SigmaFallbackEnabled": False, "CmdlineAttentionPreprocessorEnabled": True},
         "Prompts": prompts if prompts is not None else {},
         "Execution": {"ExtractAgentSettings": {"DisabledAgents": []}, "OsDetectionSelectedOs": ["Windows"]},
