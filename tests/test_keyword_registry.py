@@ -1,24 +1,23 @@
-"""Phase 1 parity gate for the faceted keyword registry (spec 2026-06-20 §7/§8/§10, decision D-A).
+"""Parity + behavior gate for the faceted keyword registry (spec 2026-06-20, decision D-A).
 
-The registry (`config/keyword_registry.yaml`) is the single source of truth; HUNT_SCORING_KEYWORDS
-is derived from it. These lock:
-- **P1** — the derived dict is byte-equal to the pre-migration snapshot (hunt score unchanged).
-- **G3** — the registry's platform entries reproduce `platform_classification_kb.yaml`.
-- **P3** — `project_platform` agrees with the in-production `classify_platforms`.
+The registry (`config/keyword_registry.yaml`) is the single source of truth for hunt-scoring
+tiers AND platform classification (the legacy `platform_classification_kb.yaml` was removed in
+the G4 cleanup). These lock:
+- **P1** — the derived HUNT_SCORING_KEYWORDS is byte-equal to the pre-migration snapshot.
 - registry hygiene — every entry is well-formed.
+- platform projection — project_platform classifies obvious content, detects the §9.5 drift-fix
+  carriers, and build_os_classification (Phase 2) has the right shape.
 """
 
 import json
 from pathlib import Path
 
 import pytest
-import yaml
 
 from src.utils.content import HUNT_SCORING_KEYWORDS
 from src.utils.keyword_registry import (
     build_hunt_scoring_keywords,
     load_registry,
-    platform_entries,
     project_huntability,
     project_platform,
 )
@@ -52,37 +51,36 @@ def test_registry_entries_well_formed():
             assert e["platforms"] and all(p in VALID_PLATFORMS for p in e["platforms"]), e
 
 
-def test_platform_entries_subsume_platform_kb():
-    """G3: the registry's platform entries reproduce config/platform_classification_kb.yaml."""
-    kb = yaml.safe_load((ROOT / "config/platform_classification_kb.yaml").read_text(encoding="utf-8"))
-    kb_set = {
-        (e["match"], tuple(e["platforms"]), e.get("weight", 1))
-        for e in kb.get("entities", [])
-        if e.get("match") and e.get("platforms")
-    }
-    reg_set = {(e["match"], tuple(e["platforms"]), e["weight"]) for e in platform_entries()}
-    assert kb_set <= reg_set, f"missing from registry: {kb_set - reg_set}"
+@pytest.mark.parametrize(
+    "content,expected",
+    [
+        ("Persistence via /etc/cron.d and systemctl; staged payload in /dev/shm.", "linux"),
+        ("powershell.exe dumped lsass and wrote an HKLM Run key.", "windows"),
+        ("Persisted with a LaunchDaemon, used osascript and dscl.", "macos"),
+    ],
+)
+def test_project_platform_classifies_obvious_content(content, expected):
+    """The registry-sourced classifier gives the obvious verdict for unambiguous content."""
+    assert expected in project_platform(content).platforms, (content, project_platform(content).platforms)
+
+
+def test_project_platform_unknown_on_no_signal():
+    assert project_platform("The threat actor moved laterally and exfiltrated data.").primary == "unknown"
 
 
 @pytest.mark.parametrize(
-    "content",
+    "content,platform",
     [
-        "Persistence via /etc/cron.d and systemctl; staged payload in /dev/shm.",
-        "powershell.exe dumped lsass and wrote an HKLM Run key.",
-        "Persisted with a LaunchDaemon, used osascript and dscl.",
-        "The threat actor moved laterally and exfiltrated sensitive data.",
-        "Linux backdoor uses ld.so.preload and a systemd service; Windows variant uses rundll32.",
+        ("The loader uses memfd_create for fileless execution.", "linux"),
+        ("Persistence locks the binary with chattr +i and writes /etc/rc.local.", "linux"),
+        ("The AppleScript stage runs do shell script and persists with launchctl load.", "macos"),
     ],
 )
-def test_project_platform_matches_live_classifier(content):
-    """P3: project_platform's verdict matches the in-production classify_platforms (parity)."""
-    from src.services.platform_classifier import classify_platforms
-
-    got = project_platform(content)
-    want = classify_platforms(content)
-    assert got.platforms == want.platforms, (content, got.platforms, want.platforms)
-    assert got.primary == want.primary
-    assert got.confidence == want.confidence
+def test_project_platform_detects_drift_fix_carriers(content, platform):
+    """Drift-fix (§9.5): the §9 huntability carriers feed OS classification — content whose only
+    platform tell is a carrier (memfd_create, chattr +i, do shell script, launchctl, …) now
+    classifies correctly. The payoff of the faceted 'one entry, both facets' registry."""
+    assert platform in project_platform(content).platforms, (content, project_platform(content).platforms)
 
 
 def test_project_huntability_delegates_to_scorer():

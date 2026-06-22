@@ -7,8 +7,9 @@ Each entry in ``config/keyword_registry.yaml`` carries an optional **huntability
 - ``build_hunt_scoring_keywords`` reconstructs ``HUNT_SCORING_KEYWORDS`` (grouped by tier, in
   the historic order) — ``src.utils.content`` derives the dict from this, and a byte-equal
   parity test (``tests/test_keyword_registry.py``) guards against drift (decision D-A).
-- ``project_platform`` reuses the existing ``PlatformClassifier`` over the registry's
-  platform-tagged entries, which subsume ``config/platform_classification_kb.yaml`` (G3).
+- ``project_platform`` reuses ``PlatformClassifier`` over the registry's platform-tagged
+  entries — the sole platform-classification vocabulary (the legacy
+  ``config/platform_classification_kb.yaml`` was removed in the G4 cleanup).
 
 Parity-locked (spec 2026-06-20 §8 Phase 1): both projections reproduce current behavior exactly.
 The single-pass ``WeightedKeywordScan`` that *unifies* the two matchers (the hunt scorer uses
@@ -79,10 +80,9 @@ _platform_classifier = None
 
 
 def project_platform(content: str):
-    """Platform projection — PlatformClassifier sourced from the registry's platform entries.
-
-    Parity-equivalent to ``platform_classifier.classify_platforms`` because the registry's
-    platform entries are the migrated ``platform_classification_kb.yaml`` vocabulary.
+    """Platform projection — the single deterministic OS classifier, PlatformClassifier sourced
+    from the registry's platform entries (the sole platform vocabulary after the G4 cleanup that
+    removed the legacy ``classify_platforms``/``platform_classification_kb.yaml`` path).
     """
     global _platform_classifier
     if _platform_classifier is None:

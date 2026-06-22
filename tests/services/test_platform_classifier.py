@@ -3,12 +3,12 @@
 See docs/superpowers/specs/2026-06-19-entity-driven-platform-classification-design.md.
 The classifier is deterministic keyword/entity KB scoring with margin-based
 confidence (no LLM, no embedding model). Tests use an inline KB so thresholds are
-predictable, plus one integration test against the shipped KB file.
+predictable, plus integration tests against the shipped registry (project_platform).
 """
 
 import pytest
 
-from src.services.platform_classifier import PlatformClassifier, classify_platforms
+from src.services.platform_classifier import PlatformClassifier
 
 pytestmark = [pytest.mark.unit]
 
@@ -98,23 +98,27 @@ def test_as_os_result_unknown_when_no_signal():
     assert res["platforms_detected"] == []
 
 
-def test_default_kb_file_classifies_obvious_linux():
-    # Integration against the shipped KB: an unambiguous Linux article -> linux.
+def test_shipped_registry_classifies_obvious_linux():
+    # Integration against the shipped registry (project_platform): unambiguous Linux -> linux.
+    from src.utils.keyword_registry import project_platform
+
     content = (
         "The malware wrote /etc/systemd/system/evil.service, ran systemctl daemon-reload, "
         "then chmod +x /tmp/payload and added an /etc/cron.d entry for persistence."
     )
-    r = classify_platforms(content)
+    r = project_platform(content)
     assert "linux" in r.platforms
     assert r.primary == "linux"
 
 
-def test_default_kb_file_classifies_obvious_windows():
+def test_shipped_registry_classifies_obvious_windows():
+    from src.utils.keyword_registry import project_platform
+
     content = (
         "powershell.exe -enc ... dumped lsass.exe, created HKLM\\Software\\Microsoft\\Windows\\"
         "CurrentVersion\\Run key and used rundll32.exe."
     )
-    r = classify_platforms(content)
+    r = project_platform(content)
     assert "windows" in r.platforms
     assert r.primary == "windows"
 

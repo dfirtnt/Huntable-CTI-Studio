@@ -211,14 +211,20 @@ class OSDetectionService:
         content: str,
         use_classifier: bool = True,
         min_windows_keywords: int = 3,
+        precomputed: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Detect OS from content.
 
         Detection order (Phase A — entity-driven; embedding paths retired):
-        1. Entity KB classification (primary decider).
-        2. Windows keyword safety net for low-KB-evidence content (deterministic).
+        1. Deterministic verdict — the ingest-time verdict (``precomputed``, Phase 3) when
+           supplied, else a fresh scan against the keyword registry (``project_platform``).
+        2. Windows keyword safety net for low-evidence content (deterministic).
         3. Otherwise Unknown (Phase B will adjudicate this tail with an LLM).
+
+        ``precomputed`` is ``article_metadata["os_classification"]`` computed at scoring time
+        (Phase 2); consuming it avoids re-scanning the same content. Articles ingested before
+        Phase 2 have no stored verdict and fall back to the fresh scan (go-forward).
 
         The BERT classifier/similarity methods remain on the class but are no longer
         called: they were non-discriminative for non-Windows content (every class ~0.5,
@@ -229,29 +235,37 @@ class OSDetectionService:
             content: Article content
             use_classifier: Deprecated/ignored (embedding classifier retired).
             min_windows_keywords: Windows keyword matches for the deterministic safety net.
+            precomputed: Verdict computed at scoring time; reused as-is instead of re-scanning.
 
         Returns:
             Dict with operating_system, method, and confidence
         """
-        from src.services.platform_classifier import classify_platforms
+        # Step 1: deterministic verdict — reuse the scoring-time verdict, else scan fresh against
+        # the keyword registry (the single platform-vocabulary source of truth).
+        if precomputed is not None:
+            verdict = precomputed
+            confidence = precomputed.get("confidence")
+            source = "precomputed"
+        else:
+            from src.utils.keyword_registry import project_platform
 
-        # Step 1: Entity-driven KB classification — explainable, no model, multi-label.
-        kb = classify_platforms(content)
-        if kb.confidence != "low":
-            logger.info(
-                f"Platform detected via entity KB: {kb.platforms} "
-                f"(confidence={kb.confidence}, scores={kb.scores})"
-            )
-            return kb.as_os_result()
+            kb = project_platform(content)
+            verdict = kb.as_os_result()
+            confidence = kb.confidence
+            source = "registry scan"
 
-        # Step 2: deterministic Windows keyword safety net for thin KB evidence.
+        if confidence != "low":
+            logger.info(f"Platform verdict ({source}): {verdict.get('platforms_detected')} (confidence={confidence})")
+            return verdict
+
+        # Step 2: deterministic Windows keyword safety net for thin evidence.
         keyword_result = self._check_windows_keywords(content, min_matches=min_windows_keywords)
         if keyword_result:
             return keyword_result
 
         # Step 3: genuinely insufficient signal -> Unknown (no embedding guesswork).
-        logger.info(f"Platform classification inconclusive (scores={kb.scores}); returning Unknown")
-        return kb.as_os_result()
+        logger.info(f"Platform classification inconclusive ({source}, confidence=low); returning Unknown")
+        return verdict
 
     def train_classifier(self, training_data: list[dict[str, Any]], save_path: Path | None = None) -> dict[str, Any]:
         """

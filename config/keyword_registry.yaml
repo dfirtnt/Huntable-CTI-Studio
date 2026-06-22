@@ -1,5 +1,5 @@
-_note: Faceted keyword registry (Phase 1, spec 2026-06-20 §1). Authoritative source for BOTH hunt-scoring tiers and platform classification. HUNT_SCORING_KEYWORDS is derived from the tier'd entries (parity-tested byte-equal in tests/test_keyword_registry.py).
-  Platform-tagged entries subsume config/platform_classification_kb.yaml.
+_note: Faceted keyword registry (spec 2026-06-20). Authoritative source for BOTH hunt-scoring tiers and platform classification. HUNT_SCORING_KEYWORDS is derived from the tier'd entries (parity-tested byte-equal in tests/test_keyword_registry.py).
+  Platform-tagged entries are the sole platform-classification vocabulary — the legacy config/platform_classification_kb.yaml was removed in the G4 cleanup (2026-06-22).
 keywords:
 - match: rundll32.exe
   tier: perfect
@@ -189,8 +189,14 @@ keywords:
   tier: perfect
 - match: do shell script
   tier: perfect
+  platforms:
+  - macos
+  weight: 3
 - match: launchctl
   tier: perfect
+  platforms:
+  - macos
+  weight: 3
 - match: LaunchAgents
   tier: perfect
 - match: LaunchDaemons
@@ -211,20 +217,35 @@ keywords:
   tier: perfect
 - match: ld.so.preload
   tier: perfect
+  platforms:
+  - linux
+  weight: 3
 - match: cron.d
   tier: perfect
 - match: xmrig
   tier: perfect
 - match: memfd_create
   tier: perfect
+  platforms:
+  - linux
+  weight: 3
 - match: chattr +i
   tier: perfect
+  platforms:
+  - linux
+  weight: 3
 - match: proc/self/exe
   tier: perfect
+  platforms:
+  - linux
+  weight: 3
 - match: history -c
   tier: perfect
 - match: rc.local
   tier: perfect
+  platforms:
+  - linux
+  weight: 3
 - match: base64 -d
   tier: perfect
 - match: chmod 777

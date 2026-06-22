@@ -758,3 +758,34 @@ class TestOsDetectionNodeDimensions:
         assert "Identity" in od["domains"]
         assert any("Active Directory" in p for p in od["products"])
         assert any("F5 BIG-IP" in p for p in od["products"])
+
+    @pytest.mark.asyncio
+    async def test_os_detection_node_reuses_precomputed_verdict(self, article, execution, config_obj):
+        """Phase 3: when article_metadata carries a scoring-time os_classification, the node
+        consumes it instead of re-scanning. The fixture content reads Windows; a macOS
+        precomputed verdict means the node must report macOS (content is not re-classified)."""
+        article.article_metadata = {
+            "threat_hunting_score": 85,
+            "os_classification": {
+                "operating_system": "MacOS",
+                "method": "kb_scoring",
+                "confidence": "high",
+                "similarities": {"Windows": 0.0, "Linux": 0.0, "MacOS": 1.0},
+                "max_similarity": 1.0,
+                "platforms_detected": ["MacOS"],
+                "evidence": {"macos": ["osascript", "launchdaemon"]},
+            },
+        }
+        execution.error_log = None
+        execution.config_snapshot = {}
+        db_session = _make_db_session(article, execution)
+        nodes = _capture_nodes(db_session, trigger_service_config=config_obj)
+
+        with patch("src.workflows.agentic_workflow.flag_modified"):
+            await nodes["os_detection"](_default_state(article_id=1, execution_id=100))
+
+        od = execution.error_log["os_detection_result"]
+        assert od["detected_os"] == "MacOS", od
+        assert "macos" in od["platforms_detected"], od["platforms_detected"]
+        assert "windows" not in od["platforms_detected"], od["platforms_detected"]
+        assert od["detection_method"] == "kb_scoring"

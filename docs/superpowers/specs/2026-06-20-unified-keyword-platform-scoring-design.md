@@ -1,14 +1,21 @@
 # Unified Keyword Registry with Platform-Tagged Scoring — Design Spec
 
 - Date: 2026-06-20
-- Status: **Phases 1–2 SHIPPED + §9 vocabulary SHIPPED (2026-06-21).** The faceted registry
+- Status: **Phases 1–3 SHIPPED + §9 vocabulary SHIPPED (2026-06-21).** The faceted registry
   (`config/keyword_registry.yaml`) is the single source of truth; `HUNT_SCORING_KEYWORDS` is a
   byte-equal-parity-tested derived projection; `project_platform` reuses `PlatformClassifier`
   over the registry's platform entries (subsuming `platform_classification_kb.yaml`). Phase 2:
   `os_classification` is computed at scoring time and stored in `article_metadata` at every
-  hunt-score persistence site (ingest/scrape/pdf/reprocess/rescore), go-forward. Phase 3 (retire
-  the in-workflow platform scan; `os_detection_node` consumes the precomputed verdict), Phase 4
-  (single-pass scan-engine unification), and the carrier-platform-tag drift-fix remain.
+  hunt-score persistence site (ingest/scrape/pdf/reprocess/rescore), go-forward. Phase 3:
+  `os_detection_node` consumes that precomputed verdict (via `detect_os(precomputed=...)`) instead
+  of re-scanning; the LLM-adjudication tail + Windows safety net + ATT&CK reinforcement are
+  unchanged; legacy articles (0/5321 currently carry the verdict — go-forward) fall back to a fresh
+  scan. **Carrier drift-fix SHIPPED (§9.5):** 7 platform-discriminative §9 carriers now feed
+  `project_platform`. **G4 cleanup SHIPPED (§14):** `platform_classification_kb.yaml` deleted,
+  `classify_platforms`/`DEFAULT_KB_PATH` retired, and the `detect_os` fallback repointed to
+  `project_platform` — the registry is now the **sole** platform vocabulary. **Phase 4 (engine
+  dedup) = WON'T-DO** (the scans don't share a matcher; parity-breaking for marginal gain on a
+  low-traffic axis — see §13). **The spec is complete** (Phase 4 deliberately not built).
 - Branch: europa-dev
 - Operator directives shaping scope (2026-06-20):
   1. *"Every keyword (existing and future) gets a metadata value indicating what platform
@@ -261,11 +268,20 @@ If P1–P3 don't all hold, the migration is wrong — fix the registry, don't ac
   unit (3) + ingest-seam integration (1). Real-article verdicts validated (2729/1800/3330
   MacOS·high, 19 Windows·high, 1225 Linux·high, 4441/5487 multiple). No consumer reads it yet —
   Phase 3 wires `os_detection_node` to consume it.
-- **Phase 3 — Simplify `os_detection_node`.** Read the precomputed verdict; keep LLM
-  adjudication + ATT&CK reinforcement; retire the in-node platform scan. Remove the now-unused
-  `platform_classification_kb.yaml` standalone path.
+- **Phase 3 — Simplify `os_detection_node`. ✅ SHIPPED 2026-06-21.** `detect_os` gained a
+  `precomputed` param: when the node passes `article_metadata["os_classification"]` (Phase 2), it
+  reuses that verdict and skips the `classify_platforms` re-scan; the Windows-keyword safety net,
+  the low-confidence LLM-adjudication tail, the Windows-similarity override, and ATT&CK
+  reinforcement are all unchanged. Legacy articles (no stored verdict — 0/5321 today, go-forward)
+  fall back to the fresh scan, so the backlog behaves exactly as before. Tests: 3 `detect_os` unit
+  (precomputed-high reuse, precomputed-low → safety net, precomputed=None → fallback) + 1
+  node-level (`test_os_detection_node_reuses_precomputed_verdict`: Windows content + macOS
+  precomputed → node reports macOS, proving no re-scan). 58 regression tests green.
+  Follow-up: the G4 KB-file removal (done — see §14).
+- **G4 cleanup — ✅ SHIPPED 2026-06-22 (§14).** The fallback was migrated to the registry and the
+  legacy KB path deleted.
 - **Phase 4 (optional) — fold `attack_platform_signal` + entity-dimension scans onto the shared
-  `WeightedKeywordScan`** (the earlier "rule of three" engine dedup), if desired.
+  `WeightedKeywordScan`** (the earlier "rule of three" engine dedup). **WON'T-DO — see §13.**
 
 ---
 
@@ -411,6 +427,30 @@ nudge the cluster up but the **85-vs-75 geometry** still leaves single/double-ca
 under; the configurable threshold remains the decisive lever. Tests: +1 (red→green); 64
 hunt + content-filter green.
 
+### 9.5 Carrier drift-fix — §9 carriers feed OS classification (SHIPPED 2026-06-21)
+
+The §9 carriers boosted *huntability* but carried no platform tag, so a carrier-rescued article
+got no OS signal from the same token (the drift surfaced in the Phase 1–2 audit). Fix: merge
+platform tags into the registry carrier entries so `project_platform`/`build_os_classification`
+see them. **Calibrated by the carrier-vs-platform distinction** — only carriers that are *both*
+platform-discriminative *and* not already covered by an overlapping KB entry are tagged:
+
+- **Tagged (7, weight 3):** macOS `do shell script`, `launchctl`; Linux `memfd_create`,
+  `chattr +i`, `proc/self/exe`, `rc.local`, `ld.so.preload`.
+- **Deliberately NOT tagged:** `xmrig`/`base64 -d`/`chmod 777` (cross-platform — run on Windows
+  too), `xattr`/`history -c` (cross-Unix), and `osascript`/`LaunchAgents`/`com.apple.quarantine`/
+  `cron.d`/`TCC.db`/`dscl`/… (already covered by overlapping KB entries — tagging would
+  double-count on the same text).
+
+Hunt-score parity preserved (tiers untouched → P1 byte-equal holds). `project_platform` is now a
+**superset** of the legacy `classify_platforms` (P3 test re-scoped: exact-parity on legacy vocab +
+a new test locking the carrier-driven detections). **Real-corpus impact:** of 27 carrier-bearing
+articles, **6 change verdict** — 3 genuine rescues from Unknown (4619→macOS, 2984/5444→Linux) + 3
+refinements (spurious co-label dropped, a cross-platform campaign gains its Linux label). Modest
+because dense malware reports already trip the legacy KB; the win is the sparse long tail where OS
+detection was weakest. Go-forward (existing stored verdicts update on rescore). 134 regression
+tests green.
+
 ---
 
 ## 10. Acceptance / verification (DoD)
@@ -479,3 +519,50 @@ and drop Domains/Products + confidence/rationale until something consumes them.
 
 **Safe trims available regardless (not taken):** park Domains/Products; drop per-observable
 confidence/rationale. Both are pure carrying cost today. Left in place per operator (option b).
+
+---
+
+## 13. Phase 4 (single-pass engine dedup) — WON'T-DO (decided 2026-06-21)
+
+Phase 4 proposed folding `attack_platform_signal` + the entity-dimension scans onto a shared
+`WeightedKeywordScan`. Investigation of the actual matchers killed it:
+
+| Scan | Matcher | Domain |
+|---|---|---|
+| Hunt scorer | **word-boundary regex** (`\bwin32_\b`) | keyword tokens |
+| Platform classifier | **plain substring** (`token in text`) | keyword tokens |
+| entity_dimension | **plain substring** | entity tokens |
+| attack_platform_signal | **ATT&CK technique-ID scan** | `Txxxx` codes, not keywords |
+
+A true single pass can't unify these: word-boundary vs substring give different results (folding
+them breaks parity for one consumer — the discipline that governed Phases 1–3), and
+`attack_platform_signal` scans technique IDs, not keyword tokens (category mismatch). The only
+matcher-compatible pair (platform + dimension) is two cheap scans at different layers/times, so
+deduping saves ~nothing. Combined with §12 (low-traffic axis), building it would be the
+over-engineering this project repeatedly rejected. **Decision: not built.** The faceted registry
+(Phase 1) already delivers the real win — one source of truth — without forcing one matcher.
+
+---
+
+## 14. G4 cleanup — registry is the sole platform vocabulary (SHIPPED 2026-06-22)
+
+The drift-fix (§9.5) tagged carriers in the registry but the `detect_os` *fallback* still used
+`classify_platforms` → the legacy 63-entry KB, so a sparse article could classify differently on
+the precomputed vs fallback path. G4 closes that:
+
+- **`detect_os` fallback** (`os_detection_service.py`) now scans via `project_platform` (registry)
+  instead of `classify_platforms` (KB) — precomputed and fallback share one vocabulary.
+- **`platform_classifier.py`** retired `classify_platforms`, the `_default_classifier`,
+  `DEFAULT_KB_PATH`, and `_load_kb`; `PlatformClassifier(entries=...)` is now the engine and
+  `entries` is required (every caller passes the registry's `platform_entries()`).
+- **`config/platform_classification_kb.yaml` deleted** — the registry is the single source for
+  both hunt-scoring tiers and platform classification.
+- Tests updated: the G3-subsume + P3-vs-`classify_platforms` parity tests (Phase-1 invariants now
+  historical) were replaced with registry-native classification tests; the two engine integration
+  tests repointed to `project_platform`. 133 regression tests green.
+
+End-to-end proof: the `detect_os` fallback now classifies `memfd_create`/`chattr +i` content as
+Linux (was Unknown pre-G4 — the KB lacked those carriers), confirming fallback ≡ precomputed.
+
+**Spec status: COMPLETE.** Phases 1–3 + §9 vocabulary + §9.5 drift-fix + §14 G4 shipped; Phase 4
+(engine dedup) deliberately not built (§13).

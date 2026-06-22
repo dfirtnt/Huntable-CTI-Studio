@@ -1166,10 +1166,22 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 agent_models = (config.get("agent_models") or {}) if config and isinstance(config, dict) else {}
                 embedding_model = agent_models.get("OSDetectionAgent_embedding", "ibm-research/CTI-BERT")
 
+                # Phase 3: reuse the OS verdict computed at scoring time (article_metadata,
+                # Phase 2) instead of re-scanning the same content; articles ingested before
+                # Phase 2 have no stored verdict and fall back to a fresh scan (go-forward).
+                precomputed_os = (
+                    article.article_metadata.get("os_classification")
+                    if isinstance(article.article_metadata, dict)
+                    else None
+                )
+                if precomputed_os:
+                    logger.info(f"[Workflow {state['execution_id']}] Reusing scoring-time OS verdict (no re-scan)")
+
                 service = OSDetectionService(model_name=embedding_model)
                 os_result = await service.detect_os(
                     content=content,
                     use_classifier=True,
+                    precomputed=precomputed_os,
                 )
                 detected_os = os_result.get("operating_system", "Unknown") if os_result else "Unknown"
 

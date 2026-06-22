@@ -23,8 +23,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 logger = logging.getLogger(__name__)
 
 PLATFORM_WINDOWS = "windows"
@@ -33,8 +31,6 @@ PLATFORM_MACOS = "macos"
 SUPPORTED_PLATFORMS = (PLATFORM_WINDOWS, PLATFORM_LINUX, PLATFORM_MACOS)
 
 _CANONICAL_OS_LABEL = {PLATFORM_WINDOWS: "Windows", PLATFORM_LINUX: "Linux", PLATFORM_MACOS: "MacOS"}
-
-DEFAULT_KB_PATH = Path(__file__).resolve().parents[2] / "config" / "platform_classification_kb.yaml"
 
 # Tuning constants (see spec §5.3).
 MIN_EVIDENCE_WEIGHT = 3.0  # top platform must reach this weight to claim a platform at all
@@ -84,34 +80,20 @@ class PlatformClassifier:
 
     def __init__(
         self,
-        entries: list[dict[str, Any]] | None = None,
-        kb_path: Path | str | None = None,
+        entries: list[dict[str, Any]],
         attack_map: dict[str, list[str]] | None = None,
         attack_map_path: Path | str | None = None,
     ):
-        if entries is not None:
-            self._entries = entries
-        else:
-            path = Path(kb_path) if kb_path else DEFAULT_KB_PATH
-            self._entries = self._load_kb(path)
+        # entries are the platform-tagged keyword registry (src.utils.keyword_registry.platform_entries).
+        self._entries = entries
         # ATT&CK technique -> platform signal (Phase C). Loaded from the shipped map
-        # unless an explicit map is injected (tests). Empty map => KB-only behavior.
+        # unless an explicit map is injected (tests). Empty map => entity-only behavior.
         if attack_map is not None:
             self._attack_map = attack_map
         else:
             from src.services.attack_platform_signal import load_attack_map
 
             self._attack_map = load_attack_map(attack_map_path)
-
-    @staticmethod
-    def _load_kb(path: Path) -> list[dict[str, Any]]:
-        try:
-            data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-            entries = data.get("entities", []) if isinstance(data, dict) else []
-            return [e for e in entries if isinstance(e, dict) and e.get("match") and e.get("platforms")]
-        except Exception as e:  # pragma: no cover - defensive
-            logger.warning(f"PlatformClassifier: failed to load KB {path}: {e}")
-            return []
 
     def classify(self, content: str) -> PlatformClassification:
         text = (content or "").lower()
@@ -169,14 +151,3 @@ class PlatformClassifier:
         return PlatformClassification(
             platforms=labels, primary=top, confidence=confidence, scores=scores, evidence=evidence
         )
-
-
-_default_classifier: PlatformClassifier | None = None
-
-
-def classify_platforms(content: str) -> PlatformClassification:
-    """Classify using a process-wide default classifier (loads the shipped KB once)."""
-    global _default_classifier
-    if _default_classifier is None:
-        _default_classifier = PlatformClassifier()
-    return _default_classifier.classify(content)
