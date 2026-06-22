@@ -6676,25 +6676,6 @@ Please provide a detailed analysis based on the article content and the user's s
             return;
         }
         
-        // Fetch workflow config to get actual embedding model name
-        let embeddingModel = 'ibm-research/CTI-BERT';
-        try {
-            const configResponse = await fetch('/api/workflow/config');
-            if (configResponse.ok) {
-                const config = await configResponse.json();
-                if (config.agent_models) {
-                    embeddingModel = config.agent_models['OSDetectionAgent_embedding'] || embeddingModel;
-                }
-            }
-        } catch (e) {
-            console.warn('Could not fetch workflow config for model names:', e);
-        }
-        
-        // Format model names for display
-        const embeddingModelDisplay = embeddingModel.includes('CTI-BERT') ? 'CTI-BERT' : 
-                                     embeddingModel.includes('SEC-BERT') ? 'SEC-BERT' : 
-                                     embeddingModel.split('/').pop();
-        
         // Show loading indicator
         const loadingModal = document.createElement('div');
         loadingModal.id = 'osDetectionLoadingModal';
@@ -6753,7 +6734,7 @@ Please provide a detailed analysis based on the article content and the user's s
                         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-400"></div>
                         <span class="ml-3 text-gray-300">Analyzing article content...</span>
                     </div>
-                    <p class="text-xs text-gray-400 mt-4">Trying keyword matching, then ${embeddingModelDisplay} embeddings + classifier</p>
+                    <p class="text-xs text-gray-400 mt-4">Classifying platform via the entity/keyword registry</p>
                     <div class="mt-6 flex flex-col items-center space-y-3">
                         <button id="cancelBtnOs" class="px-6 py-2.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 focus:ring-offset-gray-900 shadow-sm transition-colors">
                             Cancel Operation
@@ -6865,11 +6846,11 @@ Please provide a detailed analysis based on the article content and the user's s
                         </div>
                         
                         <div>
-                            <div class="text-sm font-medium text-gray-700">Models Used:</div>
+                            <div class="text-sm font-medium text-gray-700">Detection Method:</div>
                             <div class="text-xs text-gray-600 mt-1">
-                                ${method === 'keyword_match' ? 
+                                ${method === 'keyword_match' ?
                                     '<div>Method: <span class="font-mono">Keyword Matching</span></div>' :
-                                    `<div>Embedding: <span class="font-mono">${embeddingModelDisplay}</span></div>`
+                                    '<div>Method: <span class="font-mono">Entity/Keyword Registry</span></div>'
                                 }
                             </div>
                         </div>
