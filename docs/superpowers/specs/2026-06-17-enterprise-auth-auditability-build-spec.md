@@ -793,6 +793,62 @@ Regression tests to add:
 - CSRF posture is explicit and tested.
 - `/docs` and `/openapi.json` are not public in production unless intentionally enabled.
 
+## Security Review Findings
+
+### SRF-1: production trusted_header with empty proxy allowlist is not fail-closed
+
+- **Surfaced:** v7.5.0 release security review, 2026-06-22.
+- **Status:** OPEN. Remediation deliberately deferred by operator decision in
+  this review session; this note records the finding so it is actioned before
+  v7.5.0 ships. No code or tests changed yet.
+- **Severity:** High (privilege escalation to `admin`). LIVE, not latent, on
+  the `enterprise-auth-audit` branch.
+
+**Gap.** The "Trusted Header Contract" section above requires that in production
+trusted-header mode, either `AUTH_TRUSTED_PROXY_IPS` is set or deployment docs
+show an equivalent network-level direct-access block. The implementation does
+not enforce the config half of that requirement:
+
+- `src/web/security/config.py` `_validate()` rejects production +
+  `AUTH_MODE=disabled`, wildcard `TRUSTED_HOSTS`, and wildcard
+  `CORS_ALLOWED_ORIGINS`, but does NOT require `AUTH_TRUSTED_PROXY_IPS` when
+  `auth_mode` is `TRUSTED_HEADER`. A production deploy with an empty allowlist
+  starts cleanly.
+- `src/web/security/identity.py` `parse_trusted_identity()` computes
+  `peer_ok = (not cfg.trusted_proxy_ips) or (peer_ip in cfg.trusted_proxy_ips)`,
+  so an empty allowlist makes every peer trusted. (This matches the "app must
+  optionally validate the immediate peer" wording in the contract, which is why
+  the gate belongs at the config layer.)
+
+**Impact.** With `AUTH_MODE=trusted_header` and an empty `AUTH_TRUSTED_PROXY_IPS`,
+any direct client can forge `X-Huntable-Verified: true` + `X-Huntable-User-Id`
++ `X-Huntable-Groups` and obtain mapped roles (including `admin` via
+`map_groups_to_roles`). This is not gated to a future chunk: `AuthorizationMiddleware`
+is already registered in `src/web/modern_main.py` and enforces roles from
+`request.state.identity`, so the escalation path is exploitable on this branch
+today (modulo a deployment that blocks direct FastAPI access by network policy).
+
+**Recommended remediation.**
+
+- Required: make `_validate()` fail closed when `is_production` and
+  `auth_mode is TRUSTED_HEADER` and `trusted_proxy_ips` is empty, unless an
+  explicit, documented break-glass override env is set (mirror the existing
+  `ALLOW_INSECURE_PRODUCTION_AUTH_DISABLED` convention, e.g.
+  `ALLOW_INSECURE_PRODUCTION_TRUSTED_PROXY_OPEN`). Update
+  `tests/unit/test_security_config.py::test_production_trusted_header_ok` to set
+  a proxy IP, and add a test asserting production + trusted_header + empty proxy
+  IPs fails startup.
+- Optional (defense-in-depth, NOT decided here): tighten `identity.py` so an
+  empty allowlist denies the peer gate rather than allowing it. Note this
+  contradicts the "optionally validate the immediate peer" wording in the
+  Trusted Header Contract and changes behavior in three existing Chunk A tests
+  (`test_request_identity.py::test_parse_with_marker_authenticates_and_maps_roles`,
+  `test_request_identity.py::test_parse_with_marker_but_no_user_id_is_not_authenticated`,
+  `test_security_middleware.py::test_trusted_header_mode_authenticates_via_marker_and_groups`),
+  and makes dev/test trusted-header usage require `AUTH_TRUSTED_PROXY_IPS` or it
+  rejects all requests. Decide config-only vs. config + identity before
+  implementing.
+
 ## Open Questions
 
 - Which enterprise proxy should be the first documented reference deployment?
