@@ -26,7 +26,10 @@ dependencies = [
     "alembic==1.18.4",
     # Web framework and server
     "fastapi==0.136.3",
-    "starlette==1.0.1",
+    # starlette 1.3.1: CVE-2026-48817/48818 (fixed 1.1.0), CVE-2026-54282 (1.3.0),
+    # CVE-2026-54283 (1.3.1) — request/response + multipart fixes. FastAPI 0.136.3
+    # requires starlette>=0.46.0 (no upper cap), so the bump is resolver-safe.
+    "starlette==1.3.1",
     "uvicorn[standard]==0.48.0",
     "jinja2==3.1.6",
     # Background task processing
@@ -41,7 +44,7 @@ dependencies = [
     "click==8.4.1",
     "rich==14.3.3",
     "pydantic==2.13.4",
-    "pydantic-settings==2.14.1",
+    "pydantic-settings==2.14.2", # GHSA-4xgf-cpjx-pc3j fix
     "reportlab==4.5.1",
     "python-dateutil==2.9.0.post0",
     # Security
@@ -51,7 +54,7 @@ dependencies = [
     "python-multipart==0.0.32",
     "cryptography==48.0.1",
     # PDF processing
-    "pypdf==6.13.0",
+    "pypdf==6.13.3", # CVE-2026-54530/54531 + GHSA-jm82-fx9c-mx94 fixes
     # SIGMA rule validation
     "pysigma==1.3.3",
     "GitPython==3.1.50",
@@ -78,7 +81,7 @@ dependencies = [
     "Pillow==12.2.0", # CVE-2026-40192: FITS GZIP decompression bomb
     "pytesseract==0.3.13",
     "langchain-core>=1.3.3", # CVE-2026-40087 + CVE-2026-44843 fixes; >= intentional: shared by langgraph/langfuse/langchain — == would block their upgrades
-    "langsmith==0.8.9", # CVE-2026-45134 fix; exact pin mirrors requirements.txt
+    "langsmith==0.8.18", # CVE-2026-45134 + GHSA-f4xh-w4cj-qxq8 fixes; exact pin mirrors requirements.txt
     "Mako==1.3.12", # path traversal + CVE-2026-44307 fixes
     "idna==3.16", # CVE-2026-45409 fix; exact pin closes supply-chain window on uv lock re-runs
     "pymdown-extensions==10.21.3", # CVE-2026-46338 fix; exact pin closes supply-chain window on uv lock re-runs
@@ -113,12 +116,17 @@ test = [
     "psutil==7.2.2",
     "memory-profiler==0.61.0",
     "bandit==1.9.4",
-    # pip-audit pulls pip-api -> pip. CVE-2026-3219 (GHSA-58qw-9mgm-455v) flags
-    # pip<=26.0.1 (medium); no patched pip released yet. Test-only scope, used
-    # to read uv.lock metadata in CI - never installs untrusted archives.
-    # Dependabot alert #152 dismissed (tolerable_risk). Bump when upstream
-    # ships a fix that lets us pin to a non-vulnerable pip.
+    # pip-audit pulls pip-api -> pip and cachecontrol[filecache] -> msgpack
+    # (all test-only; pip-audit reads uv.lock metadata in CI, never installs
+    # untrusted archives). The two transitive pins below close their CVEs:
+    #   pip==26.1.2     -> PYSEC-2026-196 (affects pip 26.1). Also clears the prior
+    #                      GHSA-58qw-9mgm-455v concern (pip<=26.0.1, Dependabot alert
+    #                      #152 dismissed tolerable_risk), now moot since pip>26.0.1.
+    #   msgpack==1.2.1  -> GHSA-6v7p-g79w-8964.
+    # Exact pins per single-parent convention (pip<-pip-api, msgpack<-cachecontrol).
     "pip-audit==2.10.0",
+    "pip==26.1.2",
+    "msgpack==1.2.1",
     "safety==3.8.1",
     "black==26.3.1",
     "isort==5.12.0",
@@ -288,7 +296,11 @@ markers = [
     "lmstudio: Tests requiring a running LMStudio instance (skipped automatically when LMStudio is unreachable)",
     "docs: Documentation build and sanity tests",
 ]
-addopts = "-p no:langsmith_plugin --strict-markers --strict-config --verbose --tb=short --alluredir=allure-results -ra --showlocals -W ignore::pydantic.warnings.PydanticDeprecatedSince20 --timeout=60"
+# NOTE: --alluredir is intentionally NOT set here. Forcing it globally made every
+# ad-hoc `pytest <path>` run accumulate files into allure-results/ unbounded (it is
+# never pruned), which filled the disk. run_tests.py re-adds --alluredir itself only
+# when a report is wanted (and clears allure-results/ at the start of each run).
+addopts = "-p no:langsmith_plugin --strict-markers --strict-config --verbose --tb=short -ra --showlocals -W ignore::pydantic.warnings.PydanticDeprecatedSince20 --timeout=60"
 console_output_style = "progress"
 junit_family = "xunit2"
 filterwarnings = [

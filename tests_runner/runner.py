@@ -42,6 +42,29 @@ def _strip_cloud_llm_keys() -> None:
     _strip_cloud_llm_keys_raw()
 
 
+def _clear_directory_contents(directory: Path) -> int:
+    """Remove everything inside ``directory`` while keeping the directory itself.
+
+    Allure writes result/attachment files into ``allure-results/`` on every pytest
+    run and nothing pruned them, so the directory grew without bound (millions of
+    files, eventually filling the disk). Clearing its contents at the start of each
+    runner invocation keeps reports per-run instead of accumulating across runs.
+
+    No-op (returns 0) when ``directory`` is absent. Returns the count of top-level
+    entries removed.
+    """
+    if not directory.exists():
+        return 0
+    removed = 0
+    for entry in directory.iterdir():
+        if entry.is_dir() and not entry.is_symlink():
+            shutil.rmtree(entry, ignore_errors=True)
+        else:
+            entry.unlink(missing_ok=True)
+        removed += 1
+    return removed
+
+
 # Enhanced debugging (best-effort; optional test utilities)
 try:
     from tests.utils.test_failure_analyzer import TestFailureReporter  # noqa: F401
@@ -1132,8 +1155,12 @@ class RunTestRunner:
             test_results_dir = project_root / "test-results"
             test_results_dir.mkdir(parents=True, exist_ok=True)
 
-            # Also ensure allure-results exists
+            # Clear stale Allure results so they regenerate per run (see helper), then
+            # ensure the now-empty directory exists for this run.
             allure_results_dir = project_root / "allure-results"
+            removed = _clear_directory_contents(allure_results_dir)
+            if removed:
+                logger.info(f"Cleared {removed} stale allure-results entries before this run")
             allure_results_dir.mkdir(parents=True, exist_ok=True)
 
             # Verify directories were created

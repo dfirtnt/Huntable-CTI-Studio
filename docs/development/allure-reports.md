@@ -1,6 +1,6 @@
 # Allure Reports
 
-Allure Reports provides interactive, step-by-step test execution reports. It is configured by default in `pyproject.toml` and runs automatically with the test suite.
+Allure Reports provides interactive, step-by-step test execution reports. `run_tests.py` enables Allure automatically for every category it runs (it passes `--alluredir` itself) and clears `allure-results/` at the start of each run, so reports regenerate per run rather than accumulating.
 
 ## Setup
 
@@ -11,11 +11,14 @@ allure-pytest>=2.13.0
 ```
 
 ### Configuration
-<!-- AUDIT: Accuracy -- Original said "pytest.ini" but there is no pytest.ini; allure config is in pyproject.toml. -->
-Allure is enabled by default in `pyproject.toml`:
-```toml
-[tool.pytest.ini_options]
-addopts = "... --alluredir=allure-results ..."
+<!-- AUDIT: Accuracy -- 2026-06-22: --alluredir was removed from the global pyproject addopts (forcing it globally made every ad-hoc pytest run accumulate allure-results/ unbounded, filling the disk). run_tests.py now adds it per run and clears the dir at start. -->
+Allure is **not** wired into the global pytest `addopts`. Instead, `run_tests.py`
+adds `--alluredir=allure-results` itself for each category it runs, and clears the
+directory at the start of every run (`tests_runner.runner._clear_directory_contents`).
+A bare `pytest <path>` therefore writes **no** Allure results unless you pass
+`--alluredir` explicitly:
+```bash
+python3 -m pytest tests/ --alluredir=allure-results
 ```
 
 ## Running Tests
@@ -155,5 +158,5 @@ python3 run_tests.py all
 allure generate allure-results --clean -o allure-report
 ```
 
-_Last updated: 2026-05-23_
-_Last reviewed: 2026-05-23_
+_Last updated: 2026-06-22_
+_Last reviewed: 2026-06-22_
