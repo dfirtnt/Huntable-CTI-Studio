@@ -124,7 +124,7 @@ test = [
     #                      #152 dismissed tolerable_risk), now moot since pip>26.0.1.
     #   msgpack==1.2.1  -> GHSA-6v7p-g79w-8964.
     # Exact pins per single-parent convention (pip<-pip-api, msgpack<-cachecontrol).
-    "pip-audit==2.10.0",
+    "pip-audit==2.10.1",
     "pip==26.1.2",
     "msgpack==1.2.1",
     "safety==3.8.1",
