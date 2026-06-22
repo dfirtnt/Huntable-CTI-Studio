@@ -1,5 +1,6 @@
 import io
 import types
+from pathlib import Path
 from types import SimpleNamespace
 
 import httpcore
@@ -545,3 +546,76 @@ def test_explicit_false_overrides_env_on(monkeypatch):
     monkeypatch.setenv("OCR_INGEST_ENABLED", "true")
     src = SimpleNamespace(identifier="dark_reading", config={"image_ocr_enabled": False})
     assert resolve_ocr_config(src) is None
+
+
+# ---------------------------------------------------------------------------
+# Real-Tesseract OCR regression tests
+#
+# Everything above mocks pytesseract; nothing proves the binary actually reads
+# text from a real image. These run the REAL OCR engine against a checked-in
+# golden PNG (tests/fixtures/ocr/known_text_sample.png) whose text is known,
+# guarding against (a) a Tesseract/pytesseract upgrade that silently degrades
+# extraction and (b) the health probe disagreeing with a real install. They
+# auto-skip where the binary is absent, and run in CI's Docker image (which
+# installs tesseract-ocr) and on dev hosts that have it.
+# ---------------------------------------------------------------------------
+
+_OCR_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "ocr" / "known_text_sample.png"
+_EXPECTED_OCR_TOKENS = (
+    "threat", "intelligence", "powershell", "encoded", "command",
+    "detection", "rule", "enabled",
+)
+_tesseract_probe = check_tesseract_available()
+requires_real_tesseract = pytest.mark.skipif(
+    _tesseract_probe.get("status") != "ok",
+    reason=f"real Tesseract binary unavailable (probe status={_tesseract_probe.get('status')!r})",
+)
+
+
+@requires_real_tesseract
+def test_real_tesseract_extracts_known_text_from_golden_image():
+    """The unmocked OCR path recovers the known words from a real PNG. This is
+    the only test that proves pytesseract.image_to_string actually reads
+    meaningful text — not just that the surrounding plumbing runs."""
+    assert _OCR_FIXTURE.is_file(), f"missing golden fixture: {_OCR_FIXTURE}"
+    result = ocr_image_bytes(_OCR_FIXTURE.read_bytes(), timeout_s=15)
+    assert result.error == "ok", f"real OCR errored: {result.error}"
+    assert result.text.strip(), "real OCR returned empty text for a text-bearing image"
+    recovered = result.text.lower()
+    missing = [t for t in _EXPECTED_OCR_TOKENS if t not in recovered]
+    assert not missing, f"OCR dropped tokens {missing}; full output: {result.text!r}"
+
+
+@requires_real_tesseract
+@pytest.mark.asyncio
+async def test_real_ocr_text_flows_through_article_orchestrator(monkeypatch):
+    """End-to-end through the per-article orchestrator with REAL OCR (only the
+    network fetch is stubbed). Proves extracted text survives into the content
+    blocks under the real engine — every orchestrator test above mocks
+    ocr_image_bytes, so none of them exercise this path."""
+    monkeypatch.setattr(
+        "src.services.vision_ocr_service._stream_image_safely",
+        _async_ret(_OCR_FIXTURE.read_bytes()),
+    )
+    # NB: ocr_image_bytes is intentionally NOT mocked here — real Tesseract runs.
+    root = BeautifulSoup("<div><img src='https://s.test/a.png'></div>", "lxml")
+    out = await ocr_article_images(
+        _FakeClient(), root, "https://s.test/p", OcrConfig(), already_processed=set()
+    )
+    assert out.status == OcrStatus.completed
+    assert len(out.blocks) == 1
+    marker, text = out.blocks[0]
+    assert marker == "[Image OCR: https://s.test/a.png]"
+    recovered = text.lower()
+    assert "threat" in recovered and "powershell" in recovered and "detection" in recovered
+
+
+@requires_real_tesseract
+def test_check_tesseract_available_happy_path_has_version():
+    """The shape test above allows an empty version; when the binary is truly
+    present the probe must report status 'ok' AND a non-empty version string
+    (so /api/health surfaces a real version, not a blank)."""
+    out = check_tesseract_available()
+    assert out["status"] == "ok"
+    assert out["version"], "tesseract probe reported ok but no version string"
+    assert any(ch.isdigit() for ch in str(out["version"]))

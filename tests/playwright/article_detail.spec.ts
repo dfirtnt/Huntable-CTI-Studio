@@ -60,6 +60,60 @@ test.describe('Article Detail Page', () => {
     const hasBack = await backLink.first().isVisible().catch(() => false);
     expect(hasBack).toBe(true);
   });
+
+  test('[ARTICLE-006] PDF export resolves theme colors before capture', async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const notifications: Array<{ message: string; type: string }> = [];
+      let captured:
+        | {
+            backgroundColor?: string;
+            containerStyle?: string;
+            contentStyle?: string;
+            titleStyle?: string;
+          }
+        | null = null;
+
+      (window as any).showNotification = (message: string, type: string) => {
+        notifications.push({ message, type });
+      };
+      (window as any).open = () => null;
+      (window as any).html2pdf = () => ({
+        set(opt: any) {
+          captured = {
+            backgroundColor: opt.html2canvas?.backgroundColor
+          };
+          return {
+            from(element: HTMLElement) {
+              const content = element.querySelector('div');
+              const title = element.querySelector('h1');
+              captured = {
+                ...captured,
+                containerStyle: element.getAttribute('style') || '',
+                contentStyle: content?.getAttribute('style') || '',
+                titleStyle: title?.getAttribute('style') || ''
+              };
+              return {
+                output() {
+                  return Promise.resolve('data:application/pdf;base64,JVBERi0xLjQKJQ==');
+                }
+              };
+            }
+          };
+        }
+      });
+
+      await (window as any).exportArticleToPDF();
+      return { captured, notifications };
+    });
+
+    expect(result.captured).toBeTruthy();
+    expect(result.captured?.backgroundColor).toBeTruthy();
+    expect(result.captured?.backgroundColor).not.toContain('var(');
+    expect(result.captured?.containerStyle).not.toContain('var(');
+    expect(result.captured?.contentStyle).not.toContain('var(');
+    expect(result.captured?.titleStyle).not.toContain('var(');
+    expect(result.notifications.some((item) => item.type === 'error')).toBe(false);
+  });
 });
 
 test.describe('Article List Page', () => {

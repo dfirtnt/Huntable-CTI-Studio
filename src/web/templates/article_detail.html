@@ -4426,6 +4426,35 @@ Please provide a detailed analysis based on the article content and the user's s
             }
             
             showNotification('Generating PDF...', 'info');
+
+            const resolveThemeColor = (tokenName, fallback) => {
+                const value = getComputedStyle(document.documentElement)
+                    .getPropertyValue(tokenName)
+                    .trim();
+                return value || fallback;
+            };
+
+            const pdfColors = {
+                text: resolveThemeColor('--text-print', '#000000'),
+                surface: resolveThemeColor('--surface-print', '#ffffff'),
+                border: resolveThemeColor('--border-print', '#cccccc'),
+                shadow: resolveThemeColor('--shadow-overlay', 'rgba(0, 0, 0, 0.3)'),
+                successBg: resolveThemeColor('--action-success-bg', '#dcfce7'),
+                successText: resolveThemeColor('--action-success-dark', '#15803d'),
+                successBorder: resolveThemeColor('--action-success', '#16a34a'),
+                goodBg: resolveThemeColor('--keyword-good-bg', '#f3e8ff'),
+                goodText: resolveThemeColor('--keyword-good-text', '#6b21a8'),
+                goodBorder: resolveThemeColor('--keyword-good-border', '#9333ea'),
+                infoBg: resolveThemeColor('--action-info-bg', '#dbeafe'),
+                infoText: resolveThemeColor('--action-info-dark', '#1e40af'),
+                infoBorder: resolveThemeColor('--action-info', '#3b82f6'),
+                intelligenceBg: resolveThemeColor('--keyword-intelligence-bg', '#fed7aa'),
+                intelligenceText: resolveThemeColor('--keyword-intelligence-text', '#9a3412'),
+                intelligenceBorder: resolveThemeColor('--keyword-intelligence-border', '#ea580c'),
+                negativeBg: resolveThemeColor('--keyword-negative-bg', '#f3f4f6'),
+                negativeText: resolveThemeColor('--keyword-negative-text', '#374151'),
+                negativeBorder: resolveThemeColor('--keyword-negative-border', '#9ca3af')
+            };
             
             // Create a print-friendly container that will be visible during capture
             const printContainer = document.createElement('div');
@@ -4440,18 +4469,18 @@ Please provide a detailed analysis based on the article content and the user's s
                 padding: 40px;
                 margin: 0;
                 font-family: 'Inter', system-ui, sans-serif;
-                background: var(--surface-print);
-                color: var(--text-print);
+                background: ${pdfColors.surface};
+                color: ${pdfColors.text};
                 z-index: 99999;
                 overflow: visible;
-                box-shadow: 0 0 20px var(--shadow-overlay);
+                box-shadow: 0 0 20px ${pdfColors.shadow};
                 box-sizing: border-box;
             `;
             
             // Add title
             const titleElement = document.createElement('h1');
             titleElement.textContent = articleTitle;
-            titleElement.style.cssText = 'font-size: 20px; font-weight: bold; margin-bottom: 20px; color: var(--text-print); line-height: 1.4;';
+            titleElement.style.cssText = `font-size: 20px; font-weight: bold; margin-bottom: 20px; color: ${pdfColors.text}; line-height: 1.4;`;
             printContainer.appendChild(titleElement);
             
             // Get HTML content to preserve highlights
@@ -4469,9 +4498,9 @@ Please provide a detailed analysis based on the article content and the user's s
             // Create a wrapper for the content with print-friendly styles
             const contentWrapper = document.createElement('div');
             contentWrapper.style.cssText = `
-                color: var(--text-print);
-                background: var(--surface-print);
-                border: 1px solid var(--border-print);
+                color: ${pdfColors.text};
+                background: ${pdfColors.surface};
+                border: 1px solid ${pdfColors.border};
                 padding: 20px;
                 font-family: 'JetBrains Mono', monospace;
                 font-size: 11pt;
@@ -4588,11 +4617,11 @@ Please provide a detailed analysis based on the article content and the user's s
                 el.style.setProperty('opacity', '1', 'important');
                 
                 const printHighlightStyles = {
-                    perfect: ['var(--action-success-bg)', 'var(--action-success-dark)', 'var(--action-success)'],
-                    good: ['var(--keyword-good-bg)', 'var(--keyword-good-text)', 'var(--keyword-good-border)'],
-                    lolbas: ['var(--action-info-bg)', 'var(--action-info-dark)', 'var(--action-info)'],
-                    intelligence: ['var(--keyword-intelligence-bg)', 'var(--keyword-intelligence-text)', 'var(--keyword-intelligence-border)'],
-                    negative: ['var(--keyword-negative-bg)', 'var(--keyword-negative-text)', 'var(--keyword-negative-border)']
+                    perfect: [pdfColors.successBg, pdfColors.successText, pdfColors.successBorder],
+                    good: [pdfColors.goodBg, pdfColors.goodText, pdfColors.goodBorder],
+                    lolbas: [pdfColors.infoBg, pdfColors.infoText, pdfColors.infoBorder],
+                    intelligence: [pdfColors.intelligenceBg, pdfColors.intelligenceText, pdfColors.intelligenceBorder],
+                    negative: [pdfColors.negativeBg, pdfColors.negativeText, pdfColors.negativeBorder]
                 };
                 const highlightCategory = Object.keys(printHighlightStyles).find(category =>
                     el.classList.contains(`keyword-highlight--${category}`)
@@ -4619,7 +4648,7 @@ Please provide a detailed analysis based on the article content and the user's s
                             !color.includes('rgb(1,') && !color.includes('rgb(2,')) {
                             // Only change if it's not already a colored highlight
                             if (!highlightCategory) {
-                                el.style.setProperty('color', 'var(--text-print)', 'important');
+                                el.style.setProperty('color', pdfColors.text, 'important');
                             }
                         }
                         
@@ -4642,7 +4671,7 @@ Please provide a detailed analysis based on the article content and the user's s
                     // If parent has no color set, ensure it's black
                     const parentColor = window.getComputedStyle(parent).color;
                     if (!parentColor || parentColor === 'rgba(0, 0, 0, 0)' || parentColor === 'transparent') {
-                        parent.style.setProperty('color', 'var(--text-print)', 'important');
+                        parent.style.setProperty('color', pdfColors.text, 'important');
                     }
                 }
             });
@@ -4667,7 +4696,7 @@ Please provide a detailed analysis based on the article content and the user's s
                     scale: 2,
                     useCORS: true,
                     logging: false,
-                    backgroundColor: 'var(--surface-print)',
+                    backgroundColor: pdfColors.surface,
                     width: printContainer.offsetWidth,
                     height: printContainer.offsetHeight,
                     windowWidth: printContainer.scrollWidth || 800,
