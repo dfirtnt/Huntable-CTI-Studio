@@ -1,11 +1,14 @@
 """CSRF enforcement contract tests (Chunk B Task 4)."""
 
+import re
+from types import SimpleNamespace
+
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from httpx import ASGITransport, AsyncClient
 
 from src.web.security.config import load_security_config
-from src.web.security.csrf import issue_csrf_token
+from src.web.security.csrf import issue_csrf_token, validate_csrf_token
 from src.web.security.middleware import (
     AuthorizationMiddleware,
     CsrfMiddleware,
@@ -157,3 +160,59 @@ async def test_csrf_inactive_in_disabled_mode():
     async with await _client(_app(_disabled_config())) as client:
         response = await client.post("/api/admin")
     assert response.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Token delivery: context processor + base.html render (in-process)
+# ---------------------------------------------------------------------------
+
+
+def test_csrf_context_processor_issues_bound_token_when_active():
+    from src.web.dependencies import _csrf_context
+
+    request = SimpleNamespace(
+        app=SimpleNamespace(state=SimpleNamespace(security_config=_csrf_config())),
+        state=SimpleNamespace(identity=SimpleNamespace(user_id="u1")),
+    )
+    ctx = _csrf_context(request)
+    assert ctx["csrf_token"]
+    assert validate_csrf_token(SECRET, ctx["csrf_token"], "u1")
+
+
+def test_csrf_context_processor_empty_when_inactive():
+    from src.web.dependencies import _csrf_context
+
+    request = SimpleNamespace(
+        app=SimpleNamespace(state=SimpleNamespace(security_config=_disabled_config())),
+        state=SimpleNamespace(identity=None),
+    )
+    assert _csrf_context(request)["csrf_token"] == ""
+
+
+@pytest.mark.asyncio
+async def test_base_template_renders_csrf_meta_and_fetch_shim():
+    """In-process render of base.html: meta tag carries a user-bound token and the shim is present."""
+    from src.web.dependencies import templates
+
+    config = _csrf_config()
+    app = FastAPI()
+    app.state.security_config = config
+
+    @app.get("/page")
+    async def page(request: Request):
+        return templates.TemplateResponse(request, "base.html", {})
+
+    app.add_middleware(IdentityMiddleware, config=config)
+    app.add_middleware(RequestIDMiddleware)
+
+    async with await _client(app) as client:
+        response = await client.get("/page", headers=_headers())
+
+    assert response.status_code == 200
+    html = response.text
+    assert "X-CSRF-Token" in html  # the fetch shim
+    match = re.search(r'<meta name="csrf-token" content="([^"]*)"', html)
+    assert match is not None, "csrf-token meta tag missing"
+    token = match.group(1)
+    assert token, "csrf-token meta tag is empty when CSRF is active"
+    assert validate_csrf_token(SECRET, token, "u1")
