@@ -1,41 +1,16 @@
-"""
-OS Detection Service for CTI Scraper
+"""OS Detection Service for CTI Scraper
 
-``detect_os`` is **entity-driven** (the keyword registry via ``project_platform``, with a Windows
-keyword safety net), consuming a verdict precomputed at scoring time when available; the LLM
-adjudication tail runs separately (``platform_adjudicator``). The CTI-BERT embedding methods on
-this class (``_load_model``/``_get_embedding``/``train_classifier``) are retained only for the
-Huntable-Windows classifier and the OS-classifier trainer — they are not used by ``detect_os``.
+``detect_os`` is entity-driven: the keyword registry (``project_platform``) decides,
+with a Windows keyword safety net for low-signal content and LLM adjudication for the
+Unknown tail (``platform_adjudicator``). Scoring-time verdicts (``precomputed``,
+Phase 3) are consumed as-is, skipping redundant re-scans for articles that have
+already been classified at ingest time.
 """
 
 import logging
-import pickle
-import warnings
-from pathlib import Path
 from typing import Any
 
-import numpy as np
-
-try:
-    import torch
-
-    _TORCH_AVAILABLE = True
-except ImportError:
-    torch = None  # type: ignore[assignment]
-    _TORCH_AVAILABLE = False
-
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
-from transformers import AutoModel, AutoTokenizer
-from transformers import logging as transformers_logging
-
 logger = logging.getLogger(__name__)
-
-# Suppress transformers warnings about uninitialized pooler weights (harmless for embedding extraction)
-transformers_logging.set_verbosity_error()
-
-# OS labels
-OS_LABELS = ["Windows", "Linux", "MacOS", "multiple", "Unknown"]
 
 # Windows OS keyword indicators (for fast keyword-based detection)
 WINDOWS_OS_KEYWORDS = [
@@ -93,92 +68,21 @@ WINDOWS_OS_KEYWORDS = [
 
 
 class OSDetectionService:
-    """OS detection service using keyword, classifier, then embedding similarity."""
+    """OS detection: entity-driven keyword registry with Windows safety net.
 
-    def __init__(
-        self,
-        model_name: str = "ibm-research/CTI-BERT",
-        classifier_type: str = "random_forest",  # "random_forest" or "logistic_regression"
-        use_gpu: bool = True,
-        classifier_path: Path | None = None,
-    ):
-        """
-        Initialize OS detection service.
+    Detection order:
+    1. Precomputed verdict from article_metadata["os_classification"] (Phase 3).
+    2. Fresh registry scan via project_platform() when no precomputed verdict.
+    3. Windows keyword safety net for thin-evidence (low-confidence) content.
+    4. Unknown — LLM adjudication (platform_adjudicator) handles this tail externally.
 
-        Args:
-            model_name: CTI-BERT model name from HuggingFace
-            classifier_type: Type of classifier to use
-            use_gpu: Whether to use GPU if available
-            classifier_path: Path to saved classifier model (if trained)
-        """
-        self.model_name = model_name
-        self.classifier_type = classifier_type
-        self.device = 0 if use_gpu and _TORCH_AVAILABLE and torch.cuda.is_available() else -1
-        self.tokenizer = None
-        self.model = None
-        self.classifier = None
-        self._model_loaded = False
-        self._classifier_loaded = False
-        self.classifier_path = (
-            classifier_path or Path(__file__).parent.parent.parent / "models" / "os_detection_classifier.pkl"
-        )
-
-        logger.info(f"Initialized OSDetectionService with model '{model_name}' on device {self.device}")
-
-    def _load_model(self) -> None:
-        """Load CTI-BERT model and tokenizer."""
-        if self._model_loaded:
-            return
-
-        try:
-            logger.info(f"Loading CTI-BERT model: {self.model_name}")
-            # Suppress warnings about uninitialized pooler weights (not used for embeddings)
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-                self.model = AutoModel.from_pretrained(self.model_name)
-            self.model.eval()
-
-            if self.device >= 0:
-                self.model = self.model.to(f"cuda:{self.device}")
-
-            self._model_loaded = True
-            logger.info(f"Successfully loaded CTI-BERT model on device {self.device}")
-
-        except Exception as e:
-            logger.error(f"Failed to load CTI-BERT model: {e}")
-            raise RuntimeError(f"Could not load CTI-BERT model: {e}") from e
-
-    def _get_embedding(self, text: str) -> np.ndarray:
-        """Generate embedding for text using CTI-BERT."""
-        if not self._model_loaded:
-            self._load_model()
-
-        # Tokenize and encode (truncate to 512 tokens)
-        inputs = self.tokenizer(text, return_tensors="pt", truncation=True, max_length=512, padding=True)
-
-        if self.device >= 0:
-            inputs = {k: v.to(f"cuda:{self.device}") for k, v in inputs.items()}
-
-        with torch.no_grad():
-            outputs = self.model(**inputs)
-            # Use [CLS] token embedding (first token)
-            embedding = outputs.last_hidden_state[:, 0, :].cpu().numpy()[0]
-
-        # Normalize
-        embedding = embedding / np.linalg.norm(embedding)
-        return embedding
+    All detection is stateless; no model loading occurs on construction.
+    """
 
     def _check_windows_keywords(self, content: str, min_matches: int = 3) -> dict[str, Any] | None:
-        """
-        Check for Windows OS keywords in content.
+        """Check for Windows OS keywords in content.
 
-        Args:
-            content: Article content
-            min_matches: Minimum number of keyword matches required to return Windows
-
-        Returns:
-            Dict with operating_system='Windows' if >= min_matches, None otherwise
+        Returns a Windows verdict dict if >= min_matches, None otherwise.
         """
         if not content:
             return None
@@ -186,10 +90,8 @@ class OSDetectionService:
         content_lower = content.lower()
         matches = []
 
-        # Check string keywords
         for keyword in WINDOWS_OS_KEYWORDS:
             keyword_lower = keyword.lower()
-            # Use word boundaries for better matching
             if keyword_lower in content_lower:
                 matches.append(keyword)
 
@@ -202,45 +104,37 @@ class OSDetectionService:
                 "method": "keyword_match",
                 "confidence": "high",
                 "keyword_matches": match_count,
-                "matched_keywords": matches[:10],  # Return first 10 matches
+                "matched_keywords": matches[:10],
             }
 
-        logger.debug(f"Windows keyword check: {match_count} matches (threshold: {min_matches}), falling back to BERT")
+        logger.debug(f"Windows keyword check: {match_count} matches (threshold: {min_matches}), returning Unknown")
         return None
 
     async def detect_os(
         self,
         content: str,
-        use_classifier: bool = True,
         min_windows_keywords: int = 3,
         precomputed: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """
-        Detect OS from content.
+        """Detect OS from content.
 
-        Detection order (Phase A — entity-driven; embedding paths retired):
+        Detection order (entity-driven; embedding paths retired):
         1. Deterministic verdict — the ingest-time verdict (``precomputed``, Phase 3) when
            supplied, else a fresh scan against the keyword registry (``project_platform``).
         2. Windows keyword safety net for low-evidence content (deterministic).
-        3. Otherwise Unknown (Phase B will adjudicate this tail with an LLM).
+        3. Otherwise Unknown (Phase B adjudicates this tail with an LLM externally).
 
         ``precomputed`` is ``article_metadata["os_classification"]`` computed at scoring time
         (Phase 2); consuming it avoids re-scanning the same content. Articles ingested before
         Phase 2 have no stored verdict and fall back to the fresh scan (go-forward).
 
-        The BERT classifier/similarity methods remain on the class but are no longer
-        called: they were non-discriminative for non-Windows content (every class ~0.5,
-        the `Other`/`multiple` tie-break winning). See
-        docs/superpowers/specs/2026-06-19-entity-driven-platform-classification-design.md.
-
         Args:
-            content: Article content
-            use_classifier: Deprecated/ignored (embedding classifier retired).
-            min_windows_keywords: Windows keyword matches for the deterministic safety net.
-            precomputed: Verdict computed at scoring time; reused as-is instead of re-scanning.
+            content: Article content.
+            min_windows_keywords: Keyword match count for the deterministic Windows safety net.
+            precomputed: Verdict computed at scoring time; returned as-is when not low-confidence.
 
         Returns:
-            Dict with operating_system, method, and confidence
+            Dict with operating_system, method, and confidence.
         """
         # Step 1: deterministic verdict — reuse the scoring-time verdict, else scan fresh against
         # the keyword registry (the single platform-vocabulary source of truth).
@@ -268,71 +162,3 @@ class OSDetectionService:
         # Step 3: genuinely insufficient signal -> Unknown (no embedding guesswork).
         logger.info(f"Platform classification inconclusive ({source}, confidence=low); returning Unknown")
         return verdict
-
-    def train_classifier(self, training_data: list[dict[str, Any]], save_path: Path | None = None) -> dict[str, Any]:
-        """
-        Train classifier on labeled data.
-
-        Args:
-            training_data: List of dicts with 'content' and 'os_label' keys
-            save_path: Path to save trained classifier
-
-        Returns:
-            Training metrics
-        """
-        if not self._model_loaded:
-            self._load_model()
-
-        # Prepare training data
-        X = []
-        y = []
-
-        for item in training_data:
-            content = item.get("content", "")
-            os_label = item.get("os_label", "Unknown")
-
-            if not content:
-                continue
-
-            # Generate embedding
-            embedding = self._get_embedding(content[:2000])
-            X.append(embedding)
-
-            # Map label to index
-            if os_label in OS_LABELS:
-                y.append(OS_LABELS.index(os_label))
-            else:
-                y.append(OS_LABELS.index("Unknown"))
-
-        if len(X) == 0:
-            raise ValueError("No valid training data provided")
-
-        X = np.array(X)
-        y = np.array(y)
-
-        # Train classifier
-        if self.classifier_type == "random_forest":
-            self.classifier = RandomForestClassifier(n_estimators=100, random_state=42)
-        else:
-            self.classifier = LogisticRegression(max_iter=1000, random_state=42)
-
-        self.classifier.fit(X, y)
-        self._classifier_loaded = True
-
-        # Save classifier
-        save_path = save_path or self.classifier_path
-        save_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(save_path, "wb") as f:
-            pickle.dump(self.classifier, f)
-
-        logger.info(f"Classifier trained and saved to {save_path}")
-
-        # Calculate training metrics
-        train_score = self.classifier.score(X, y)
-
-        return {
-            "training_samples": len(X),
-            "train_accuracy": float(train_score),
-            "classifier_type": self.classifier_type,
-            "saved_path": str(save_path),
-        }

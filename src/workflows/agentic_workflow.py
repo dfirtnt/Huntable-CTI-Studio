@@ -1180,7 +1180,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 service = OSDetectionService()
                 os_result = await service.detect_os(
                     content=content,
-                    use_classifier=True,
                     precomputed=precomputed_os,
                 )
                 detected_os = os_result.get("operating_system", "Unknown") if os_result else "Unknown"

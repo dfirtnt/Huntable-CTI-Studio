@@ -1764,7 +1764,6 @@ async def api_detect_os(article_id: int, request: Request):
 
         # Get request body
         body = await request.json()
-        use_classifier = body.get("use_classifier", True)
         use_junk_filter = body.get("use_junk_filter", True)  # Enable junk filter by default
         junk_filter_threshold = body.get("junk_filter_threshold", 0.8)  # Default threshold
 
@@ -1832,10 +1831,7 @@ async def api_detect_os(article_id: int, request: Request):
         # Platform detection is entity-driven (registry); no embedding model is loaded.
         service = OSDetectionService()
 
-        result = await service.detect_os(
-            content=content_to_analyze,
-            use_classifier=use_classifier,
-        )
+        result = await service.detect_os(content=content_to_analyze)
 
         # Update article metadata with OS detection result
         if article.article_metadata:
