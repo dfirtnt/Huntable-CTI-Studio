@@ -288,3 +288,8 @@ Workshop/.worktrees/
 create-agent-wiring-map.html
 create-agent-wiring-map.pdf
 hunt_score_distribution.html
+
+# Enterprise SSO: generated active configs + credentials + TLS (templates are committed)
+deploy/sso/nginx.conf
+deploy/sso/oauth2-proxy.env
+deploy/sso/tls/

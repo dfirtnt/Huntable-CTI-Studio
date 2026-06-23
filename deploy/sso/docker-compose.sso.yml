@@ -1,0 +1,47 @@
+# Enterprise SSO overlay: an nginx edge + oauth2-proxy in front of the app.
+#
+#   Browser --TLS--> sso-nginx --auth_request--> oauth2-proxy --> OAuth provider
+#                        \--> web:8001 with verified, stripped-then-set identity headers
+#
+# Run it as an overlay on the base compose project (same network, so `web` resolves):
+#   docker compose -f docker-compose.yml -f deploy/sso/docker-compose.sso.yml up -d
+#
+# setup.sh generates the active, gitignored configs this overlay mounts:
+#   deploy/sso/nginx.conf          (from nginx.conf.template, your hostname substituted)
+#   deploy/sso/oauth2-proxy.env    (from oauth2-proxy.env.example, fill in OAuth creds)
+#   deploy/sso/tls/                (your TLS cert: fullchain.pem + privkey.pem)
+#
+# IMPORTANT: block direct access to the app so the proxy cannot be bypassed. Remove the
+# `ports: ["8001:8001"]` mapping from the `web` service in docker-compose.yml (or bind it
+# to 127.0.0.1) so only sso-nginx can reach it over the internal network.
+
+services:
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.7.1
+    container_name: cti_oauth2_proxy
+    env_file:
+      - ./deploy/sso/oauth2-proxy.env
+    environment:
+      OAUTH2_PROXY_HTTP_ADDRESS: 0.0.0.0:4180
+      OAUTH2_PROXY_REVERSE_PROXY: "true"
+      OAUTH2_PROXY_SET_XAUTHREQUEST: "true"
+      OAUTH2_PROXY_UPSTREAMS: static://202
+    networks:
+      - cti_network
+    restart: unless-stopped
+
+  sso-nginx:
+    image: nginx:1.27-alpine
+    container_name: cti_sso_nginx
+    depends_on:
+      - oauth2-proxy
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/sso/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./deploy/sso/tls:/etc/nginx/tls:ro
+    networks:
+      - cti_network
+    restart: unless-stopped
