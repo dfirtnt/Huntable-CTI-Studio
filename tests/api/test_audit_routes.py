@@ -135,3 +135,15 @@ async def test_admin_retention_deletes_old_events_and_emits_audit_event():
         audit_response = await client.get("/api/audit/events?action=audit.retention_applied", headers=_headers())
     assert audit_response.status_code == 200
     assert audit_response.json()["events"][0]["action"] == "audit.retention_applied"
+
+
+@pytest.mark.asyncio
+async def test_retention_uses_env_default_when_no_param(monkeypatch):
+    # No retention_days query param -> the endpoint resolves AUDIT_RETENTION_DAYS.
+    monkeypatch.setenv("AUDIT_RETENTION_DAYS", "777")
+
+    async with await _client() as client:
+        response = await client.delete("/api/audit/retention", headers=_headers())
+
+    assert response.status_code == 200
+    assert response.json()["retention_days"] == 777
