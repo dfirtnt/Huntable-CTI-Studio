@@ -76,6 +76,26 @@ Then copy `deploy/sso/nginx.conf.template` to `deploy/sso/nginx.conf` (replace
 `__SSO_HOSTNAME__` with your hostname) and `deploy/sso/oauth2-proxy.env.example` to
 `deploy/sso/oauth2-proxy.env`. The full env-var reference is in `.env.example`.
 
+## Changing configuration later (config.sh)
+
+Use `config.sh` to change auth config on an existing install without re-running
+`setup.sh` (which regenerates passwords, resets volumes, and restarts everything).
+It edits `.env` idempotently and never touches passwords, DB volumes, or `docker compose`.
+
+```bash
+./config.sh sso            # (re)configure SSO + regenerate the deploy/sso scaffold
+./config.sh sso --disable  # turn SSO off (AUTH_MODE=disabled)
+./config.sh rotate-secret  # generate a new SECRET_KEY (invalidates issued CSRF tokens)
+./config.sh set KEY VALUE  # set any .env key
+./config.sh show           # print current auth config (SECRET_KEY redacted)
+```
+
+Config is read at process start, so apply changes with a restart:
+
+```bash
+docker restart cti_web cti_worker cti_workflow_worker cti_scheduler
+```
+
 ## Step 1: register the OAuth application
 
 Set the callback URL to `https://<your-host>/oauth2/callback` and put the resulting

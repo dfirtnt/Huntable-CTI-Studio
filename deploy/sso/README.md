@@ -25,7 +25,9 @@ full identity / role / audit contract.
 | `tls/fullchain.pem`, `tls/privkey.pem` | Your TLS certificate | gitignored |
 
 `setup.sh` generates `nginx.conf` and `oauth2-proxy.env` for you when you enable SSO.
-You can also create them by hand from the templates.
+You can also create them by hand from the templates, or regenerate them later with
+`./config.sh sso` (which also writes the app-side `.env` keys without re-running the
+full installer).
 
 ## Quick start
 
