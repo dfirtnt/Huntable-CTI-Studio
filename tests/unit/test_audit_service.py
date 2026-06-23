@@ -14,10 +14,12 @@ from src.services.audit_service import (
     AuditEvent,
     AuditService,
     build_actor_context,
+    initiating_actor_metadata,
     redact_audit_metadata,
     redacted_secret_change,
+    service_actor_context,
 )
-from src.web.security.identity import RequestIdentity, service_identity
+from src.web.security.identity import SERVICE_CELERY_WORKER, RequestIdentity, service_identity
 
 pytestmark = pytest.mark.unit
 
@@ -131,3 +133,36 @@ async def test_async_record_mandatory_adds_row_without_committing():
     assert isinstance(row, AuditEventTable)
     session.add.assert_called_once_with(row)
     session.commit.assert_not_called()
+
+
+def test_service_actor_context_produces_service_attribution():
+    actor = service_actor_context(SERVICE_CELERY_WORKER, request_id="req-1")
+    assert actor.actor_type == "service"
+    assert actor.actor_id == SERVICE_CELERY_WORKER
+    assert actor.actor_email is None
+    assert actor.actor_roles == ()
+    assert actor.request_id == "req-1"
+
+
+def test_initiating_actor_metadata_snapshots_human_without_impersonation():
+    human = RequestIdentity(
+        is_authenticated=True,
+        user_id="u-42",
+        email="analyst@example.com",
+        display_name="Analyst",
+        groups=("g",),
+        roles=("operator",),
+        auth_mode="trusted_header",
+        actor_type="human",
+    )
+    meta = initiating_actor_metadata(human)
+    assert meta == {
+        "user_id": "u-42",
+        "email": "analyst@example.com",
+        "roles": ["operator"],
+        "auth_mode": "trusted_header",
+    }
+
+
+def test_initiating_actor_metadata_empty_for_unauthenticated():
+    assert initiating_actor_metadata(None) == {}

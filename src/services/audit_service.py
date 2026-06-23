@@ -173,6 +173,47 @@ def build_actor_context(identity: RequestIdentity | None, request: Any | None) -
     )
 
 
+def service_actor_context(
+    service_name: str,
+    *,
+    request_id: str | None = None,
+    source_ip: str | None = None,
+    user_agent: str | None = None,
+) -> ActorContext:
+    """Build an actor context for a background/service caller (worker, scheduler, CLI).
+
+    Use the Chunk A ``SERVICE_*`` identity constants for ``service_name`` (e.g.
+    ``service:celery-worker``). Service callers must never reuse human trusted
+    headers; this produces an explicit ``actor_type="service"`` attribution.
+    """
+    return ActorContext(
+        actor_type="service",
+        actor_id=service_name,
+        actor_email=None,
+        actor_roles=(),
+        request_id=request_id,
+        source_ip=source_ip,
+        user_agent=user_agent,
+    )
+
+
+def initiating_actor_metadata(identity: RequestIdentity | None) -> dict[str, Any]:
+    """Redacted-safe snapshot of the human who initiated async work.
+
+    Embed this in a worker-side audit event's metadata (under e.g.
+    ``initiated_by``) so a service-attributed event still records the originating
+    human, without pretending the worker *is* the human.
+    """
+    if identity is None or not identity.user_id:
+        return {}
+    return {
+        "user_id": identity.user_id,
+        "email": identity.email,
+        "roles": list(identity.roles),
+        "auth_mode": identity.auth_mode,
+    }
+
+
 def _row_from_event(event: AuditEvent) -> AuditEventTable:
     actor = event.actor or ActorContext(actor_type="unknown", actor_id=None, actor_email=None, actor_roles=())
     return AuditEventTable(
