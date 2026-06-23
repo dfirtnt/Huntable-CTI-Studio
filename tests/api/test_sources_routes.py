@@ -459,39 +459,41 @@ class TestApiSourceStats:
 # ---------------------------------------------------------------------------
 
 
-def test_sources_endpoints_require_no_explicit_auth_depends():
-    """Regression: sources endpoints must not use explicit FastAPI Depends() auth guards.
+def test_sources_mutations_are_operator_classified_in_manifest():
+    """Enterprise contract (replaces the legacy 'no Depends() allowed' rule).
 
-    The Settings page sends no X-API-Key header. If any handler grows a
-    Depends(SomeAuthCallable) default the endpoint will silently return 401.
-
-    Note: Depends() with no argument (dependency=None) is the FastAPI idiom for
-    class-based query-parameter injection (e.g. SourceFilter) and is allowed.
-    Only Depends instances with a non-None dependency are flagged.
+    Source mutation endpoints are operator/admin-only and mandatorily audited.
+    Authorization is enforced centrally by the route manifest +
+    AuthorizationMiddleware (see tests/api/test_route_family_authorization.py for
+    the live 401/403 behavior), not per-handler Depends(). The Settings page keeps
+    working: in production the operator is authenticated by the upstream proxy; in
+    local AUTH_MODE=disabled the synthetic local-dev admin identity satisfies the
+    role.
     """
-    import inspect
+    from fastapi import FastAPI
 
-    from fastapi.params import Depends
+    from src.web.routes import register_routes
+    from src.web.security.route_manifest import (
+        AuditRequirement,
+        RouteClassification,
+        build_route_manifest,
+        find_manifest_entry,
+    )
 
-    from src.web.routes import sources as sources_routes
+    app = FastAPI()
+    register_routes(app)
+    manifest = build_route_manifest(app)
 
-    handlers = [
-        sources_routes.api_sources_list,
-        sources_routes.api_sources_failing,
-        sources_routes.api_get_source,
-        sources_routes.api_toggle_source_status,
-        sources_routes.api_collect_from_source,
-        sources_routes.api_update_source_min_content_length,
-        sources_routes.api_update_source_lookback,
-        sources_routes.api_update_source_check_frequency,
-        sources_routes.api_source_stats,
-    ]
-    for handler in handlers:
-        sig = inspect.signature(handler)
-        for param in sig.parameters.values():
-            if isinstance(param.default, Depends) and param.default.dependency is not None:
-                raise AssertionError(
-                    f"{handler.__name__} uses Depends({param.default.dependency!r}) -- "
-                    "sources endpoints must not use explicit auth guards; "
-                    "the Settings page sends no X-API-Key header"
-                )
+    for method, path in (
+        ("POST", "/api/sources/1/toggle"),
+        ("POST", "/api/sources/1/collect"),
+        ("PUT", "/api/sources/1/min_content_length"),
+        ("PUT", "/api/sources/1/lookback"),
+        ("PUT", "/api/sources/1/check_frequency"),
+        ("PUT", "/api/sources/1/image_ocr"),
+    ):
+        entry = find_manifest_entry(manifest, method, path)
+        assert entry is not None, f"{method} {path} missing from route manifest"
+        assert entry.classification is RouteClassification.ROLES, f"{method} {path} not role-gated"
+        assert entry.roles == ("operator", "admin"), f"{method} {path} not operator/admin"
+        assert entry.audit_requirement is AuditRequirement.MANDATORY, f"{method} {path} not mandatory-audit"

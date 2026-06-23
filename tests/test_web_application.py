@@ -206,8 +206,14 @@ class TestSourceManagement:
             assert "articles_by_date" in data
 
     @pytest.mark.asyncio
-    async def test_source_toggle_functionality(self, async_client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch):
-        """Test the source toggle functionality (admin-authenticated)."""
+    async def test_source_toggle_functionality(self, async_client: httpx.AsyncClient):
+        """Source toggle works under the enterprise auth model.
+
+        No X-API-Key is sent: in local AUTH_MODE=disabled the synthetic local-dev
+        admin identity authorizes the operator/admin-gated toggle endpoint. In
+        production the upstream proxy supplies the identity. The legacy
+        ADMIN_API_KEY/X-API-Key mechanism is no longer the auth model.
+        """
         sources_response = await async_client.get("/api/sources")
         assert sources_response.status_code == 200
 
@@ -216,11 +222,7 @@ class TestSourceManagement:
             return
 
         source_id = sources_data["sources"][0]["id"]
-        monkeypatch.setenv("ADMIN_API_KEY", "test-admin-key")
-        response = await async_client.post(
-            f"/api/sources/{source_id}/toggle",
-            headers={"X-API-Key": "test-admin-key"},
-        )
+        response = await async_client.post(f"/api/sources/{source_id}/toggle")
         assert response.status_code == 200
 
         data = response.json()
