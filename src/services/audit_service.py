@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -70,6 +71,27 @@ _CONNECTION_PREFIXES = (
     "rediss://",
 )
 
+# Value-level secret scrubbing: catches credentials embedded inside free-text
+# strings (e.g. git/provider error messages, URLs) where the *key* name looks
+# innocuous so key-based redaction would miss it. Defense-in-depth backstop.
+_URL_CREDENTIALS_RE = re.compile(r"(?P<scheme>://[^/\s:@]+:)[^/\s@]+(?P<at>@)")
+_XACCESS_TOKEN_RE = re.compile(r"(x-access-token:)[^@/\s]+")
+_BEARER_RE = re.compile(r"(?i)(bearer\s+)[A-Za-z0-9._\-]{8,}")
+_KNOWN_TOKEN_RE = re.compile(
+    r"\b(?:ghp_[A-Za-z0-9]{16,}|github_pat_[A-Za-z0-9_]{16,}|gho_[A-Za-z0-9]{16,}"
+    r"|sk-[A-Za-z0-9_\-]{16,}|pk-lf-[A-Za-z0-9\-]{8,}|sk-lf-[A-Za-z0-9\-]{8,}"
+    r"|xox[baprs]-[A-Za-z0-9\-]{8,})\b"
+)
+
+
+def _scrub_secret_values(value: str) -> str:
+    """Redact credential substrings embedded in a free-text string value."""
+    value = _URL_CREDENTIALS_RE.sub(rf"\g<scheme>{REDACTED}\g<at>", value)
+    value = _XACCESS_TOKEN_RE.sub(rf"\1{REDACTED}", value)
+    value = _BEARER_RE.sub(rf"\1{REDACTED}", value)
+    value = _KNOWN_TOKEN_RE.sub(REDACTED, value)
+    return value
+
 
 @dataclass(frozen=True)
 class ActorContext:
@@ -116,8 +138,10 @@ def redact_audit_metadata(value: Any, *, _key: str | None = None) -> Any:
         return [redact_audit_metadata(item) for item in value]
     if isinstance(value, tuple):
         return [redact_audit_metadata(item) for item in value]
-    if isinstance(value, str) and _looks_like_connection_string(value):
-        return REDACTED
+    if isinstance(value, str):
+        if _looks_like_connection_string(value):
+            return REDACTED
+        return _scrub_secret_values(value)
     return value
 
 

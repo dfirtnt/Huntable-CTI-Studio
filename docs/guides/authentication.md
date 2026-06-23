@@ -48,9 +48,12 @@ Public routes are intentionally minimal:
 - `/static/*`
 
 Detailed health, capabilities, settings, source mutation, scheduled jobs,
-workflow actions, Sigma queue actions, backup/restore, model management,
-debugging, and audit APIs require an authenticated identity with the configured
-role. Unsafe routes that are not classified fail closed in auth-enabled modes.
+workflow actions, Sigma queue actions, article mutations (delete, bulk-action,
+mark-reviewed), backup/restore, model management, debugging, and audit APIs
+require an authenticated identity with the configured role. Unsafe routes that
+are not classified fail closed in auth-enabled modes, and any unsafe route that
+is only authenticated (no role) must be listed in an explicit allowlist
+(`AUTHENTICATED_UNSAFE_ALLOWLIST`) or it fails startup and tests.
 
 Initial roles:
 
@@ -109,8 +112,12 @@ Authorization denials are recorded best-effort through the central auth
 middleware. Non-transactional side effects (Celery dispatch, subprocess restarts,
 external PRs) are audited with an explicit status rather than claimed atomic.
 
-Sensitive values are redacted recursively by key name and connection-string
-shape. Secret updates record presence/change booleans and hashes, not raw tokens.
+Sensitive values are redacted recursively by key name, by connection-string
+shape, and by value-level scrubbing of embedded credentials (URL `user:pass@`,
+`x-access-token:`, `Bearer` headers, and known token prefixes such as `ghp_`,
+`github_pat_`, `sk-`, `pk-lf-`) so a secret carried inside a free-text string
+(e.g. a git error message) is caught even under an innocuous key name. Secret
+updates record presence/change booleans and hashes, not raw tokens.
 
 > **Not yet mandatory-audited:** backup create/restore, model
 > retrain/rollback/version management, observable training, embedding rebuilds,

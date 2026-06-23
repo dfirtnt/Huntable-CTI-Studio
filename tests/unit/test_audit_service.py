@@ -166,3 +166,29 @@ def test_initiating_actor_metadata_snapshots_human_without_impersonation():
 
 def test_initiating_actor_metadata_empty_for_unauthenticated():
     assert initiating_actor_metadata(None) == {}
+
+
+def test_redaction_scrubs_github_token_embedded_in_git_error_string():
+    # Mirrors the sigma submit-pr failure path: a git error echoing a token-bearing remote URL.
+    err = (
+        "Git command failed: git push\n"
+        "fatal: unable to access "
+        "https://x-access-token:ghp_AbCdEf0123456789AbCdEf0123456789@github.com/org/repo.git/: 403"
+    )
+    out = redact_audit_metadata({"error": err, "rule_ids": [1, 2]})
+    assert "ghp_AbCdEf0123456789AbCdEf0123456789" not in out["error"]
+    assert "[REDACTED]" in out["error"]
+    assert out["rule_ids"] == [1, 2]  # non-secret scalars preserved
+
+
+def test_redaction_scrubs_url_embedded_credentials():
+    out = redact_audit_metadata({"url": "https://user:s3cr3tP@ss@example.com/path"})
+    assert "s3cr3tP@ss" not in out["url"]
+    assert "[REDACTED]" in out["url"]
+
+
+def test_redaction_scrubs_known_token_prefixes_under_benign_keys():
+    # e.g. LANGFUSE_PUBLIC_KEY stored under a non-sensitive 'new_value' key.
+    out = redact_audit_metadata({"key": "LANGFUSE_PUBLIC_KEY", "new_value": "pk-lf-0123456789abcdef"})
+    assert out["new_value"] == "[REDACTED]"
+    assert out["key"] == "LANGFUSE_PUBLIC_KEY"  # the key name itself is not a secret

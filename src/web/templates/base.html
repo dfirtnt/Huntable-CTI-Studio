@@ -19,11 +19,12 @@
             init = init || {};
             var method = (init.method || (input && typeof input === 'object' && input.method) || 'GET').toUpperCase();
             var url = (typeof input === 'string') ? input : (input && input.url) || '';
-            var sameOrigin = true;
+            // Resolve every candidate URL against the page origin. This correctly treats
+            // protocol-relative ("//evil.com/x") and absolute cross-origin URLs as cross-origin
+            // so the token is never attached to them; relative URLs resolve to the page origin.
+            var sameOrigin;
             try {
-                if (/^[a-z][a-z0-9+.-]*:\/\//i.test(url)) {
-                    sameOrigin = new URL(url, window.location.href).origin === window.location.origin;
-                }
+                sameOrigin = new URL(url, window.location.href).origin === window.location.origin;
             } catch (e) { sameOrigin = false; }
             if (unsafe[method] && sameOrigin) {
                 var headers = new Headers((init.headers) || (input && typeof input === 'object' && input.headers) || {});

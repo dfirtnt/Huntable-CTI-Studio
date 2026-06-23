@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from src.web.routes import register_routes
 from src.web.security.config import load_security_config
 from src.web.security.route_manifest import (
+    AUTHENTICATED_UNSAFE_ALLOWLIST,
     AuditRequirement,
     CsrfRequirement,
     RouteClassification,
@@ -75,6 +76,37 @@ def test_module_specific_ai_article_routes_are_operator_gated():
     assert entry.route_module == "ai"
     assert entry.classification is RouteClassification.ROLES
     assert entry.roles == ("operator", "admin")
+
+
+def test_destructive_article_routes_require_a_role():
+    """Regression: zero-role authenticated users must not be able to delete articles."""
+    entries = _by_key(_registered_app())
+
+    for key in (
+        "DELETE /api/articles/{article_id}",
+        "POST /api/articles/bulk-action",
+        "POST /api/articles/{article_id}/mark-reviewed",
+    ):
+        entry = entries[key]
+        assert entry.route_module == "articles"
+        assert entry.classification is RouteClassification.ROLES, f"{key} is not role-gated"
+        assert entry.roles == ("analyst", "operator", "admin"), f"{key} role floor wrong"
+
+
+def test_no_unsafe_route_is_authenticated_outside_the_allowlist():
+    """Every authenticated-only unsafe route must be an explicit, reviewed allowlist entry.
+
+    Guards against a destructive route being silently downgraded to AUTHENTICATED
+    (the catch-all blind spot the adversarial review surfaced).
+    """
+    manifest = build_route_manifest(_registered_app())
+    authenticated_unsafe = {
+        entry.key for entry in manifest if entry.is_unsafe and entry.classification is RouteClassification.AUTHENTICATED
+    }
+    assert authenticated_unsafe <= AUTHENTICATED_UNSAFE_ALLOWLIST, (
+        f"Unsafe routes downgraded to AUTHENTICATED without allowlisting: "
+        f"{sorted(authenticated_unsafe - AUTHENTICATED_UNSAFE_ALLOWLIST)}"
+    )
 
 
 def test_synthetic_unclassified_unsafe_route_fails_validation_in_auth_enabled_mode():

@@ -90,7 +90,9 @@ UNSAFE_ROUTE_RULES: tuple[RouteRule, ...] = (
     # Admin-only controls and dangerous maintenance.
     RouteRule("/api/backup/*", RouteClassification.ROLES, _ADMIN, AuditRequirement.MANDATORY, CsrfRequirement.REQUIRED),
     RouteRule("/api/audit/*", RouteClassification.ROLES, _ADMIN, AuditRequirement.MANDATORY, CsrfRequirement.REQUIRED),
-    RouteRule("/api/settings*", RouteClassification.ROLES, _ADMIN, AuditRequirement.MANDATORY, CsrfRequirement.REQUIRED),
+    RouteRule(
+        "/api/settings*", RouteClassification.ROLES, _ADMIN, AuditRequirement.MANDATORY, CsrfRequirement.REQUIRED
+    ),
     RouteRule(
         "/api/model/*",
         RouteClassification.ROLES,
@@ -106,7 +108,9 @@ UNSAFE_ROUTE_RULES: tuple[RouteRule, ...] = (
         CsrfRequirement.REQUIRED,
     ),
     # Operator surfaces.
-    RouteRule("/api/cron", RouteClassification.ROLES, _OPERATOR_ADMIN, AuditRequirement.MANDATORY, CsrfRequirement.REQUIRED),
+    RouteRule(
+        "/api/cron", RouteClassification.ROLES, _OPERATOR_ADMIN, AuditRequirement.MANDATORY, CsrfRequirement.REQUIRED
+    ),
     RouteRule(
         "/api/scheduled-jobs",
         RouteClassification.ROLES,
@@ -264,6 +268,18 @@ UNSAFE_ROUTE_RULES: tuple[RouteRule, ...] = (
         AuditRequirement.BEST_EFFORT,
         CsrfRequirement.REQUIRED,
     ),
+    # Destructive article-data mutations (delete, bulk delete/update, mark-reviewed)
+    # live in the `articles` module and must require a role, not just authentication.
+    # This rule precedes the authenticated catch-all so zero-role users cannot delete
+    # articles. (The `ai`/`llm_optimized_endpoint` article actions are role-gated above.)
+    RouteRule(
+        "/api/articles/*",
+        RouteClassification.ROLES,
+        _ANALYST_OPERATOR_ADMIN,
+        AuditRequirement.BEST_EFFORT,
+        CsrfRequirement.REQUIRED,
+        modules=("articles",),
+    ),
     # Article-local actions and semantic search stay authenticated in this pass.
     RouteRule(
         "/api/articles/*",
@@ -389,15 +405,35 @@ def find_manifest_entry(
     return None
 
 
+# Unsafe routes that are *intentionally* authenticated-only (no role gate). Every
+# entry here is a deliberate, reviewed decision. Any unsafe route that resolves to
+# AUTHENTICATED but is not on this list -- whether it fell through to the default
+# fallback or was downgraded by a catch-all rule -- is surfaced by
+# unclassified_unsafe_routes() so it cannot silently ship under-protected.
+AUTHENTICATED_UNSAFE_ALLOWLIST = frozenset(
+    {
+        "POST /api/analytics/events",
+        "POST /api/feedback/chunk-classification",
+        "POST /api/search/semantic",
+    }
+)
+
+
 def unclassified_unsafe_routes(app: Any) -> list[RouteManifestEntry]:
+    """Unsafe routes that lack a role gate and are not explicitly allowlisted.
+
+    Flags any unsafe (POST/PUT/PATCH/DELETE) route whose classification is merely
+    AUTHENTICATED unless it is on AUTHENTICATED_UNSAFE_ALLOWLIST. This catches both
+    truly-unclassified routes (default fallback) and routes silently downgraded to
+    AUTHENTICATED by a broad rule -- the latter is invisible to a metadata-only check.
+    """
     manifest = build_route_manifest(app)
     return [
         entry
         for entry in manifest
         if entry.is_unsafe
         and entry.classification is RouteClassification.AUTHENTICATED
-        and entry.audit_requirement is AuditRequirement.NONE
-        and entry.csrf_requirement is CsrfRequirement.NOT_REQUIRED
+        and entry.key not in AUTHENTICATED_UNSAFE_ALLOWLIST
     ]
 
 
@@ -409,4 +445,4 @@ def validate_route_manifest(app: Any, config: SecurityConfig) -> None:
     if not fail_closed:
         return
     details = ", ".join(f"{entry.key} ({entry.route_module}.{entry.endpoint_name})" for entry in missing)
-    raise RuntimeError(f"Unclassified unsafe routes: {details}")
+    raise RuntimeError(f"Unsafe routes without a role gate and not in AUTHENTICATED_UNSAFE_ALLOWLIST: {details}")
