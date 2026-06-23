@@ -21,7 +21,9 @@ ACTION_WORKFLOW_TRIGGERED = "workflow.triggered"
 ACTION_WORKFLOW_RETRIED = "workflow.retried"
 ACTION_WORKFLOW_CANCELLED = "workflow.cancelled"
 ACTION_WORKFLOW_STALE_CLEANUP_REQUESTED = "workflow.stale_cleanup_requested"
+ACTION_SIGMA_QUEUE_RULE_CREATED = "sigma_queue.rule_created"
 ACTION_SIGMA_QUEUE_RULE_EDITED = "sigma_queue.rule_edited"
+ACTION_SIGMA_QUEUE_RULE_DELETED = "sigma_queue.rule_deleted"
 ACTION_SIGMA_QUEUE_RULE_APPROVED = "sigma_queue.rule_approved"
 ACTION_SIGMA_QUEUE_RULE_REJECTED = "sigma_queue.rule_rejected"
 ACTION_SIGMA_QUEUE_BULK_ACTION = "sigma_queue.bulk_action"
@@ -29,8 +31,11 @@ ACTION_SIGMA_QUEUE_RULE_ENRICHED = "sigma_queue.rule_enriched"
 ACTION_SIGMA_QUEUE_RULE_VALIDATED = "sigma_queue.rule_validated"
 ACTION_SIGMA_QUEUE_PR_SUBMITTED = "sigma_queue.pr_submitted"
 ACTION_ANNOTATION_CREATED = "annotation.created"
+ACTION_ANNOTATION_UPDATED = "annotation.updated"
 ACTION_ANNOTATION_DELETED = "annotation.deleted"
 ACTION_EXPORT_CREATED = "export.created"
+ACTION_BACKUP_CREATED = "backup.created"
+ACTION_BACKUP_RESTORED = "backup.restored"
 ACTION_DEBUG_ACTION_INVOKED = "debug.action_invoked"
 ACTION_AUDIT_EXPORTED = "audit.exported"
 ACTION_AUDIT_RETENTION_APPLIED = "audit.retention_applied"
@@ -200,6 +205,16 @@ class AuditService:
             raise ValueError("record_mandatory requires a caller-owned session")
         row = _row_from_event(event)
         session.add(row)
+        return row
+
+    @staticmethod
+    def record_best_effort(session: Any, event: AuditEvent) -> AuditEventTable:
+        """Add and commit an audit event for non-mutation accountability paths."""
+        if session is None:
+            raise ValueError("record_best_effort requires a session")
+        row = _row_from_event(event)
+        session.add(row)
+        session.commit()
         return row
 
 
