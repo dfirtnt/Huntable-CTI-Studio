@@ -3,6 +3,9 @@
 This page documents the enterprise boundary now implemented in chunks A-C:
 verified request identity, route authorization, and database-backed audit events.
 
+For step-by-step deployment behind an OAuth proxy (Google / GitHub / Microsoft),
+see [Enterprise SSO Setup](enterprise-sso.md).
+
 ## Modes (`AUTH_MODE`)
 
 | Mode | Use | Production |

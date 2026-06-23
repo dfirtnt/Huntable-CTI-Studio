@@ -1,5 +1,12 @@
 site_name: Huntable CTI Studio
 site_description: Modern threat intelligence collection and analysis platform
+
+# Internal planning artifacts (build specs, implementation plans) are not part of the
+# published site. They intentionally link to source files, which fail mkdocs --strict
+# link validation. Keep them in the repo, out of the docs build.
+exclude_docs: |
+  superpowers/
+
 theme:
   name: material
   palette:
@@ -41,6 +48,7 @@ nav:
       - Evaluate Models: guides/evaluate-models.md
       - Backup & Restore: guides/backup-and-restore.md
       - Authentication: guides/authentication.md
+      - Enterprise SSO Setup: guides/enterprise-sso.md
       - Source Configuration: guides/source-config.md
       - Memory Tuning: guides/memory-tuning.md
   - Architecture:
