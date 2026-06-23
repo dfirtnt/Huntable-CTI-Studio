@@ -4,7 +4,7 @@ Article annotation API endpoints.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Body, HTTPException
+from fastapi import APIRouter, Body, HTTPException, Request
 
 from src.database.async_manager import async_db_manager
 from src.models.annotation import (
@@ -15,13 +15,41 @@ from src.models.annotation import (
     ArticleAnnotationUpdate,
 )
 from src.models.article import ArticleUpdate
+from src.services.audit_service import (
+    ACTION_ANNOTATION_CREATED,
+    ACTION_ANNOTATION_DELETED,
+    STATUS_SUCCESS,
+    AsyncAuditService,
+    AuditEvent,
+    build_actor_context,
+)
 from src.web.dependencies import logger
 
 router = APIRouter(tags=["Annotations"])
 
 
+def _annotation_audit_event(
+    request: Request,
+    action: str,
+    annotation_id: int | None,
+    article_id: int,
+    summary: str,
+    metadata: dict | None = None,
+) -> AuditEvent:
+    """Build an annotation audit event with actor context from the request identity."""
+    return AuditEvent(
+        action=action,
+        target_type="annotation",
+        target_id=str(annotation_id) if annotation_id is not None else None,
+        status=STATUS_SUCCESS,
+        summary=summary,
+        actor=build_actor_context(getattr(request.state, "identity", None), request),
+        metadata={**(metadata or {}), "article_id": article_id},
+    )
+
+
 @router.post("/api/articles/{article_id}/annotations")
-async def create_annotation(article_id: int, annotation_data: dict):
+async def create_annotation(request: Request, article_id: int, annotation_data: dict):
     """Create a new text annotation for an article."""
     try:
         annotation_type = annotation_data.get("annotation_type")
@@ -82,9 +110,24 @@ async def create_annotation(article_id: int, annotation_data: dict):
         )
 
         try:
-            annotation = await async_db_manager.create_annotation(annotation_create)
-            if not annotation:
-                raise HTTPException(status_code=500, detail="Failed to create annotation")
+            async with async_db_manager.get_session() as session:
+                annotation = await async_db_manager.create_annotation(annotation_create, session=session)
+                if not annotation:
+                    raise HTTPException(status_code=500, detail="Failed to create annotation")
+                await AsyncAuditService.record_mandatory(
+                    session,
+                    _annotation_audit_event(
+                        request,
+                        ACTION_ANNOTATION_CREATED,
+                        annotation.id,
+                        article_id,
+                        f"Created {annotation_type} annotation {annotation.id} on article {article_id}",
+                        {"annotation_type": annotation_type, "usage": usage},
+                    ),
+                )
+                await session.commit()
+        except HTTPException:
+            raise
         except Exception as db_exc:
             logger.error(f"Database error creating annotation: {db_exc}", exc_info=True)
             raise HTTPException(status_code=500, detail="Internal server error") from db_exc
@@ -139,31 +182,44 @@ async def get_article_annotations(article_id: int):
 
 
 @router.delete("/api/articles/{article_id}/annotations/{annotation_id}")
-async def delete_article_annotation(article_id: int, annotation_id: int):
+async def delete_article_annotation(request: Request, article_id: int, annotation_id: int):
     """Delete a specific annotation tied to an article."""
     try:
         article = await async_db_manager.get_article(article_id)
         if not article:
             raise HTTPException(status_code=404, detail="Article not found")
 
-        success = await async_db_manager.delete_annotation(annotation_id)
-        if success:
-            try:
-                annotations = await async_db_manager.get_article_annotations(article_id)
-                annotation_count = len(annotations)
-                current_metadata = article.article_metadata.copy() if article.article_metadata else {}
-                current_metadata["annotation_count"] = annotation_count
+        async with async_db_manager.get_session() as session:
+            success = await async_db_manager.delete_annotation(annotation_id, session=session)
+            if not success:
+                raise HTTPException(status_code=404, detail="Annotation not found")
+            await AsyncAuditService.record_mandatory(
+                session,
+                _annotation_audit_event(
+                    request,
+                    ACTION_ANNOTATION_DELETED,
+                    annotation_id,
+                    article_id,
+                    f"Deleted annotation {annotation_id} from article {article_id}",
+                ),
+            )
+            await session.commit()
 
-                update_data = ArticleUpdate(article_metadata=current_metadata)
-                await async_db_manager.update_article(article_id, update_data)
+        # Best-effort annotation_count metadata refresh (outside the audited transaction).
+        try:
+            annotations = await async_db_manager.get_article_annotations(article_id)
+            annotation_count = len(annotations)
+            current_metadata = article.article_metadata.copy() if article.article_metadata else {}
+            current_metadata["annotation_count"] = annotation_count
 
-                logger.info("Updated annotation count to %s for article %s", annotation_count, article_id)
-            except Exception as exc:  # noqa: BLE001
-                logger.error("Failed to update annotation count for article %s: %s", article_id, exc)
+            update_data = ArticleUpdate(article_metadata=current_metadata)
+            await async_db_manager.update_article(article_id, update_data)
 
-            return {"success": True, "message": "Annotation deleted successfully"}
+            logger.info("Updated annotation count to %s for article %s", annotation_count, article_id)
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Failed to update annotation count for article %s: %s", article_id, exc)
 
-        raise HTTPException(status_code=404, detail="Annotation not found")
+        return {"success": True, "message": "Annotation deleted successfully"}
 
     except HTTPException:
         raise
@@ -303,7 +359,7 @@ async def update_annotation(
 
 
 @router.delete("/api/annotations/{annotation_id}")
-async def delete_annotation(annotation_id: int):
+async def delete_annotation(request: Request, annotation_id: int):
     """Delete an annotation."""
     try:
         annotation = await async_db_manager.get_annotation(annotation_id)
@@ -311,9 +367,21 @@ async def delete_annotation(annotation_id: int):
             raise HTTPException(status_code=404, detail="Annotation not found")
 
         article_id = annotation.article_id
-        success = await async_db_manager.delete_annotation(annotation_id)
-        if not success:
-            raise HTTPException(status_code=404, detail="Annotation not found")
+        async with async_db_manager.get_session() as session:
+            success = await async_db_manager.delete_annotation(annotation_id, session=session)
+            if not success:
+                raise HTTPException(status_code=404, detail="Annotation not found")
+            await AsyncAuditService.record_mandatory(
+                session,
+                _annotation_audit_event(
+                    request,
+                    ACTION_ANNOTATION_DELETED,
+                    annotation_id,
+                    article_id,
+                    f"Deleted annotation {annotation_id}",
+                ),
+            )
+            await session.commit()
 
         try:
             article = await async_db_manager.get_article(article_id)

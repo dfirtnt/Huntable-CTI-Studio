@@ -418,3 +418,136 @@ class TestSourcesAudit:
         assert result["task_id"] == "task-123"
         assert recorded["event"].action == audit_service.ACTION_SOURCE_COLLECTION_REQUESTED
         assert recorded["event"].target_id == "4"
+
+
+# ---------------------------------------------------------------------------
+# annotations family
+# ---------------------------------------------------------------------------
+
+
+class TestAnnotationsAudit:
+    def test_create_records_audit_and_commits(self):
+        import asyncio
+
+        from src.web.routes.annotations import create_annotation
+
+        session = _async_session()
+        article = MagicMock()
+        article.article_metadata = {}
+        annotation = MagicMock()
+        annotation.id = 50
+
+        with patch("src.web.routes.annotations.async_db_manager") as mgr:
+            mgr.get_article = AsyncMock(return_value=article)
+            mgr.get_session.return_value = _AsyncCtx(session)
+            mgr.create_annotation = AsyncMock(return_value=annotation)
+            mgr.get_article_annotations = AsyncMock(return_value=[annotation])
+            mgr.update_article = AsyncMock()
+            result = asyncio.run(
+                create_annotation(
+                    _fake_request(),
+                    20,
+                    {
+                        "annotation_type": "network",
+                        "selected_text": "1.2.3.4",
+                        "start_position": 0,
+                        "end_position": 7,
+                        "usage": "train",
+                    },
+                )
+            )
+
+        assert result["success"] is True
+        rows = _audit_rows(session)
+        assert len(rows) == 1
+        assert rows[0].action == audit_service.ACTION_ANNOTATION_CREATED
+        assert rows[0].target_id == "50"
+        assert rows[0].event_metadata["article_id"] == 20
+        session.commit.assert_awaited_once()
+
+    def test_create_rolls_back_when_audit_fails(self):
+        import asyncio
+
+        from src.web.routes.annotations import create_annotation
+
+        session = _async_session()
+        article = MagicMock()
+        article.article_metadata = {}
+        annotation = MagicMock()
+        annotation.id = 50
+
+        with patch("src.web.routes.annotations.async_db_manager") as mgr:
+            mgr.get_article = AsyncMock(return_value=article)
+            mgr.get_session.return_value = _AsyncCtx(session)
+            mgr.create_annotation = AsyncMock(return_value=annotation)
+            with patch(
+                "src.web.routes.annotations.AsyncAuditService.record_mandatory",
+                AsyncMock(side_effect=RuntimeError("audit write failed")),
+            ):
+                with pytest.raises(HTTPException) as exc_info:
+                    asyncio.run(
+                        create_annotation(
+                            _fake_request(),
+                            20,
+                            {
+                                "annotation_type": "network",
+                                "selected_text": "1.2.3.4",
+                                "start_position": 0,
+                                "end_position": 7,
+                                "usage": "train",
+                            },
+                        )
+                    )
+
+        assert exc_info.value.status_code == 500
+        session.commit.assert_not_awaited()
+
+    def test_delete_by_id_records_audit_and_commits(self):
+        import asyncio
+
+        from src.web.routes.annotations import delete_annotation
+
+        session = _async_session()
+        ann = MagicMock()
+        ann.article_id = 7
+        article = MagicMock()
+        article.article_metadata = {}
+
+        with patch("src.web.routes.annotations.async_db_manager") as mgr:
+            mgr.get_annotation = AsyncMock(return_value=ann)
+            mgr.get_session.return_value = _AsyncCtx(session)
+            mgr.delete_annotation = AsyncMock(return_value=True)
+            mgr.get_article = AsyncMock(return_value=article)
+            mgr.get_article_annotations = AsyncMock(return_value=[])
+            mgr.update_article = AsyncMock()
+            result = asyncio.run(delete_annotation(_fake_request(), 50))
+
+        assert result["success"] is True
+        rows = _audit_rows(session)
+        assert len(rows) == 1
+        assert rows[0].action == audit_service.ACTION_ANNOTATION_DELETED
+        assert rows[0].event_metadata["article_id"] == 7
+        session.commit.assert_awaited_once()
+
+    def test_delete_by_article_records_audit_and_commits(self):
+        import asyncio
+
+        from src.web.routes.annotations import delete_article_annotation
+
+        session = _async_session()
+        article = MagicMock()
+        article.article_metadata = {}
+
+        with patch("src.web.routes.annotations.async_db_manager") as mgr:
+            mgr.get_article = AsyncMock(return_value=article)
+            mgr.get_session.return_value = _AsyncCtx(session)
+            mgr.delete_annotation = AsyncMock(return_value=True)
+            mgr.get_article_annotations = AsyncMock(return_value=[])
+            mgr.update_article = AsyncMock()
+            result = asyncio.run(delete_article_annotation(_fake_request(), 7, 50))
+
+        assert result["success"] is True
+        rows = _audit_rows(session)
+        assert len(rows) == 1
+        assert rows[0].action == audit_service.ACTION_ANNOTATION_DELETED
+        session.commit.assert_awaited_once()

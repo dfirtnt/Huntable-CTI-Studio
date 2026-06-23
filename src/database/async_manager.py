@@ -1763,37 +1763,46 @@ class AsyncDatabaseManager:
 
     # Annotation management methods
 
-    async def create_annotation(self, annotation_data: ArticleAnnotationCreate) -> ArticleAnnotation | None:
-        """Create a new annotation."""
+    async def create_annotation(
+        self, annotation_data: ArticleAnnotationCreate, *, session: Any = None
+    ) -> ArticleAnnotation | None:
+        """Create a new annotation.
+
+        Accepts an optional caller-owned ``session`` for atomic mutation+audit;
+        see :meth:`toggle_source_status` for the transaction contract.
+        """
+        if session is None:
+            async with self.get_session() as owned:
+                out = await self.create_annotation(annotation_data, session=owned)
+                if out is not None:
+                    await owned.commit()
+                return out
+
         try:
-            async with self.get_session() as session:
-                # Get used_for_training from annotation_data if it exists, otherwise default to False
-                used_for_training = getattr(annotation_data, "used_for_training", False)
+            # Get used_for_training from annotation_data if it exists, otherwise default to False
+            used_for_training = getattr(annotation_data, "used_for_training", False)
 
-                db_annotation = ArticleAnnotationTable(
-                    article_id=annotation_data.article_id,
-                    user_id=None,  # Set to None for now
-                    annotation_type=annotation_data.annotation_type,
-                    selected_text=annotation_data.selected_text,
-                    start_position=annotation_data.start_position,
-                    end_position=annotation_data.end_position,
-                    context_before=annotation_data.context_before,
-                    context_after=annotation_data.context_after,
-                    confidence_score=annotation_data.confidence_score,
-                    usage=annotation_data.usage,
-                    used_for_training=used_for_training,
-                    created_at=datetime.now(),
-                    updated_at=datetime.now(),
-                )
+            db_annotation = ArticleAnnotationTable(
+                article_id=annotation_data.article_id,
+                user_id=None,  # Set to None for now
+                annotation_type=annotation_data.annotation_type,
+                selected_text=annotation_data.selected_text,
+                start_position=annotation_data.start_position,
+                end_position=annotation_data.end_position,
+                context_before=annotation_data.context_before,
+                context_after=annotation_data.context_after,
+                confidence_score=annotation_data.confidence_score,
+                usage=annotation_data.usage,
+                used_for_training=used_for_training,
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
+            )
 
-                session.add(db_annotation)
-                await session.commit()
-                await session.refresh(db_annotation)
+            session.add(db_annotation)
+            await session.flush()  # assign PK without committing so callers can audit atomically
 
-                logger.info(
-                    f"Created annotation: {annotation_data.annotation_type} for article {annotation_data.article_id}"
-                )
-                return self._db_annotation_to_model(db_annotation)
+            logger.info(f"Created annotation: {annotation_data.annotation_type} for article {annotation_data.article_id}")
+            return self._db_annotation_to_model(db_annotation)
 
         except Exception as e:
             logger.error(f"Failed to create annotation: {e}", exc_info=True)
@@ -1887,19 +1896,27 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to update annotation {annotation_id}: {e}")
             return None
 
-    async def delete_annotation(self, annotation_id: int) -> bool:
-        """Delete an annotation."""
-        try:
-            async with self.get_session() as session:
-                result = await session.execute(
-                    delete(ArticleAnnotationTable).where(ArticleAnnotationTable.id == annotation_id)
-                )
+    async def delete_annotation(self, annotation_id: int, *, session: Any = None) -> bool:
+        """Delete an annotation.
 
-                if result.rowcount > 0:
-                    await session.commit()
-                    logger.info(f"Deleted annotation {annotation_id}")
-                    return True
-                return False
+        Accepts an optional caller-owned ``session`` for atomic mutation+audit;
+        see :meth:`toggle_source_status` for the transaction contract.
+        """
+        if session is None:
+            async with self.get_session() as owned:
+                deleted = await self.delete_annotation(annotation_id, session=owned)
+                if deleted:
+                    await owned.commit()
+                return deleted
+
+        try:
+            result = await session.execute(
+                delete(ArticleAnnotationTable).where(ArticleAnnotationTable.id == annotation_id)
+            )
+            if result.rowcount > 0:
+                logger.info(f"Deleting annotation {annotation_id}")
+                return True
+            return False
 
         except Exception as e:
             logger.error(f"Failed to delete annotation {annotation_id}: {e}")
