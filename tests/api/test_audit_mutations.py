@@ -48,6 +48,17 @@ def _session_with_rule(rule) -> MagicMock:
     return session
 
 
+def _chaining_session(all_rows=None, first_row=None) -> MagicMock:
+    """Session whose query().filter()...filter().all()/.first() resolve regardless of filter depth."""
+    session = MagicMock()
+    query = MagicMock()
+    query.filter.return_value = query
+    query.all.return_value = all_rows or []
+    query.first.return_value = first_row
+    session.query.return_value = query
+    return session
+
+
 # ---------------------------------------------------------------------------
 # sigma_queue family
 # ---------------------------------------------------------------------------
@@ -172,4 +183,94 @@ class TestSigmaQueueAudit:
         assert len(rows) == 1
         assert rows[0].action == audit_service.ACTION_SIGMA_QUEUE_BULK_ACTION
         assert rows[0].event_metadata["count"] == 2
+        session.commit.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# workflow family
+# ---------------------------------------------------------------------------
+
+
+class TestWorkflowAudit:
+    def test_cancel_records_audit_and_commits(self):
+        import asyncio
+
+        from src.web.routes.workflow_executions import cancel_workflow_execution
+
+        execution = MagicMock()
+        execution.id = 11
+        execution.status = "running"
+        session = _chaining_session(first_row=execution)
+
+        with patch("src.web.routes.workflow_executions.get_db_manager") as mock_get:
+            mock_get.return_value.get_session.return_value = session
+            result = asyncio.run(cancel_workflow_execution(_fake_request(), 11))
+
+        assert result["success"] is True
+        rows = _audit_rows(session)
+        assert len(rows) == 1
+        assert rows[0].action == audit_service.ACTION_WORKFLOW_CANCELLED
+        assert rows[0].target_id == "11"
+        session.commit.assert_called_once()
+
+    def test_cancel_rolls_back_when_audit_fails(self):
+        import asyncio
+
+        from src.web.routes.workflow_executions import cancel_workflow_execution
+
+        execution = MagicMock()
+        execution.id = 11
+        execution.status = "running"
+        session = _chaining_session(first_row=execution)
+
+        with patch("src.web.routes.workflow_executions.get_db_manager") as mock_get:
+            mock_get.return_value.get_session.return_value = session
+            with patch(
+                "src.web.routes.workflow_executions.AuditService.record_mandatory",
+                side_effect=RuntimeError("audit write failed"),
+            ):
+                with pytest.raises(HTTPException) as exc_info:
+                    asyncio.run(cancel_workflow_execution(_fake_request(), 11))
+
+        assert exc_info.value.status_code == 500
+        session.commit.assert_not_called()
+
+    def test_cancel_all_records_single_bulk_audit(self):
+        import asyncio
+
+        from src.web.routes.workflow_executions import cancel_all_running_executions
+
+        e1, e2 = MagicMock(), MagicMock()
+        e1.id, e2.id = 1, 2
+        e1.status, e2.status = "running", "pending"
+        session = _chaining_session(all_rows=[e1, e2])
+
+        with patch("src.web.routes.workflow_executions.get_db_manager") as mock_get:
+            mock_get.return_value.get_session.return_value = session
+            result = asyncio.run(cancel_all_running_executions(_fake_request()))
+
+        assert result["count"] == 2
+        rows = _audit_rows(session)
+        assert len(rows) == 1
+        assert rows[0].action == audit_service.ACTION_WORKFLOW_CANCELLED
+        assert rows[0].event_metadata["bulk"] is True
+        session.commit.assert_called_once()
+
+    def test_cleanup_stale_records_audit_and_commits(self):
+        from src.web.routes.workflow_executions import cleanup_stale_executions
+
+        e1 = MagicMock()
+        e1.id = 5
+        e1.status = "running"
+        e1.error_message = None
+        session = _chaining_session(all_rows=[e1])
+
+        with patch("src.web.routes.workflow_executions.get_db_manager") as mock_get:
+            mock_get.return_value.get_session.return_value = session
+            result = cleanup_stale_executions(_fake_request(), max_age_hours=1.0)
+
+        assert result["count"] == 1
+        rows = _audit_rows(session)
+        assert len(rows) == 1
+        assert rows[0].action == audit_service.ACTION_WORKFLOW_STALE_CLEANUP_REQUESTED
         session.commit.assert_called_once()

@@ -17,6 +17,14 @@ from sqlalchemy.orm import Session, defer, joinedload
 
 from src.database.manager import DatabaseManager
 from src.database.models import AgenticWorkflowExecutionTable, AppSettingsTable, ArticleTable
+from src.services.audit_service import (
+    ACTION_WORKFLOW_CANCELLED,
+    ACTION_WORKFLOW_STALE_CLEANUP_REQUESTED,
+    STATUS_SUCCESS,
+    AuditEvent,
+    AuditService,
+    build_actor_context,
+)
 from src.services.eval_bundle_service import EvalBundleService
 from src.utils.langfuse_client import get_langfuse_trace_id_for_session
 from src.workflows.status_utils import extract_termination_info
@@ -24,6 +32,28 @@ from src.workflows.status_utils import extract_termination_info
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/workflow", tags=["workflow"])
+
+
+def _workflow_audit_event(
+    request: Request,
+    action: str,
+    target_id: int | None,
+    summary: str,
+    metadata: dict[str, Any] | None = None,
+    *,
+    status: str = STATUS_SUCCESS,
+) -> AuditEvent:
+    """Build a workflow audit event with actor context from the request identity."""
+    return AuditEvent(
+        action=action,
+        target_type="workflow_execution",
+        target_id=str(target_id) if target_id is not None else None,
+        status=status,
+        summary=summary,
+        actor=build_actor_context(getattr(request.state, "identity", None), request),
+        metadata=metadata or {},
+    )
+
 
 # Singleton DatabaseManager instance to prevent connection pool exhaustion
 _db_manager: DatabaseManager | None = None
@@ -612,6 +642,16 @@ def cleanup_stale_executions(
                 count += 1
 
             if count > 0:
+                AuditService.record_mandatory(
+                    db_session,
+                    _workflow_audit_event(
+                        request,
+                        ACTION_WORKFLOW_STALE_CLEANUP_REQUESTED,
+                        None,
+                        f"Marked {count} stale workflow execution(s) as failed",
+                        {"count": count, "max_age_hours": float(max_age_hours)},
+                    ),
+                )
                 db_session.commit()
                 logger.info(f"Marked {count} stale execution(s) as failed")
                 return {"success": True, "message": f"Marked {count} stale execution(s) as failed", "count": count}
@@ -943,9 +983,20 @@ async def cancel_workflow_execution(request: Request, execution_id: int):
                 )
 
             # Mark as failed with cancellation message
+            previous_status = execution.status
             execution.status = "failed"
-            execution.error_message = f"Execution cancelled by user (was {execution.status})"
+            execution.error_message = f"Execution cancelled by user (was {previous_status})"
             execution.completed_at = datetime.now()
+            AuditService.record_mandatory(
+                db_session,
+                _workflow_audit_event(
+                    request,
+                    ACTION_WORKFLOW_CANCELLED,
+                    execution_id,
+                    f"Cancelled workflow execution {execution_id}",
+                    {"previous_status": previous_status},
+                ),
+            )
             db_session.commit()
 
             logger.info(f"Execution {execution_id} cancelled by user")
@@ -990,13 +1041,25 @@ async def cancel_all_running_executions(request: Request):
                 return {"success": True, "message": "No running or pending executions found", "count": 0}
 
             count = 0
+            cancelled_ids = []
             for execution in running_executions:
                 original_status = execution.status
                 execution.status = "failed"
                 execution.error_message = f"Execution cancelled by user (was {original_status})"
                 execution.completed_at = datetime.now()
+                cancelled_ids.append(execution.id)
                 count += 1
 
+            AuditService.record_mandatory(
+                db_session,
+                _workflow_audit_event(
+                    request,
+                    ACTION_WORKFLOW_CANCELLED,
+                    None,
+                    f"Cancelled {count} running/pending workflow execution(s)",
+                    {"bulk": True, "count": count, "execution_ids": cancelled_ids},
+                ),
+            )
             db_session.commit()
             logger.info(f"Cancelled {count} running/pending execution(s) by user")
 
