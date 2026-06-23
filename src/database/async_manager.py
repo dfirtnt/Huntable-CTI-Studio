@@ -1801,7 +1801,9 @@ class AsyncDatabaseManager:
             session.add(db_annotation)
             await session.flush()  # assign PK without committing so callers can audit atomically
 
-            logger.info(f"Created annotation: {annotation_data.annotation_type} for article {annotation_data.article_id}")
+            logger.info(
+                f"Created annotation: {annotation_data.annotation_type} for article {annotation_data.article_id}"
+            )
             return self._db_annotation_to_model(db_annotation)
 
         except Exception as e:
