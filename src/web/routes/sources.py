@@ -8,13 +8,44 @@ from datetime import datetime
 from typing import Any
 
 from celery import Celery
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from src.database.async_manager import async_db_manager
 from src.models.source import SourceFilter, SourceUpdate
+from src.services.audit_service import (
+    ACTION_SOURCE_COLLECTION_REQUESTED,
+    ACTION_SOURCE_TOGGLED,
+    ACTION_SOURCE_UPDATED,
+    STATUS_SUCCESS,
+    AsyncAuditService,
+    AuditEvent,
+    build_actor_context,
+)
 from src.web.dependencies import logger
 
 router = APIRouter(prefix="/api/sources", tags=["Sources"])
+
+
+def _source_audit_event(
+    request: Request,
+    action: str,
+    source_id: int,
+    summary: str,
+    metadata: dict[str, Any] | None = None,
+    *,
+    status: str = STATUS_SUCCESS,
+) -> AuditEvent:
+    """Build a source audit event with actor context from the request identity."""
+    return AuditEvent(
+        action=action,
+        target_type="source",
+        target_id=str(source_id),
+        status=status,
+        summary=summary,
+        actor=build_actor_context(getattr(request.state, "identity", None), request),
+        metadata=metadata or {},
+    )
+
 
 LOOKBACK_MIN_DAYS = 1
 LOOKBACK_MAX_DAYS = 999
@@ -101,12 +132,24 @@ async def api_get_source(source_id: int):
 
 
 @router.post("/{source_id}/toggle")
-async def api_toggle_source_status(source_id: int):
+async def api_toggle_source_status(request: Request, source_id: int):
     """Toggle source active status."""
     try:
-        result = await async_db_manager.toggle_source_status(source_id)
-        if not result:
-            raise HTTPException(status_code=404, detail="Source not found")
+        async with async_db_manager.get_session() as session:
+            result = await async_db_manager.toggle_source_status(source_id, session=session)
+            if not result:
+                raise HTTPException(status_code=404, detail="Source not found")
+            await AsyncAuditService.record_mandatory(
+                session,
+                _source_audit_event(
+                    request,
+                    ACTION_SOURCE_TOGGLED,
+                    source_id,
+                    f"Toggled source {source_id} active status to {result['new_status']}",
+                    {"old_status": result["old_status"], "new_status": result["new_status"]},
+                ),
+            )
+            await session.commit()
 
         return {
             "success": True,
@@ -129,7 +172,7 @@ async def api_toggle_source_status(source_id: int):
 
 
 @router.post("/{source_id}/collect")
-async def api_collect_from_source(source_id: int):
+async def api_collect_from_source(request: Request, source_id: int):
     """Manually trigger collection from a specific source."""
     try:
         celery_app = Celery("cti_scraper")
@@ -140,6 +183,23 @@ async def api_collect_from_source(source_id: int):
             args=[source_id],
             queue="collection_immediate",
         )
+
+        # No DB mutation here -- the worker performs collection asynchronously and
+        # cannot be rolled back, so the dispatch is recorded best-effort with status.
+        try:
+            async with async_db_manager.get_session() as session:
+                await AsyncAuditService.record_best_effort(
+                    session,
+                    _source_audit_event(
+                        request,
+                        ACTION_SOURCE_COLLECTION_REQUESTED,
+                        source_id,
+                        f"Requested collection for source {source_id}",
+                        {"task_id": task.id},
+                    ),
+                )
+        except Exception as audit_exc:  # noqa: BLE001
+            logger.warning("Failed to audit source collection request for %s: %s", source_id, audit_exc)
 
         return {
             "success": True,
@@ -153,10 +213,10 @@ async def api_collect_from_source(source_id: int):
 
 
 @router.put("/{source_id}/min_content_length")
-async def api_update_source_min_content_length(source_id: int, request: dict):
+async def api_update_source_min_content_length(request: Request, source_id: int, payload: dict):
     """Update source minimum content length."""
     try:
-        min_content_length = request.get("min_content_length")
+        min_content_length = payload.get("min_content_length")
 
         if min_content_length is None:
             raise HTTPException(status_code=400, detail="min_content_length is required")
@@ -167,9 +227,23 @@ async def api_update_source_min_content_length(source_id: int, request: dict):
                 detail="min_content_length must be a non-negative integer",
             )
 
-        result = await async_db_manager.update_source_min_content_length(source_id, min_content_length)
-        if not result:
-            raise HTTPException(status_code=404, detail="Source not found")
+        async with async_db_manager.get_session() as session:
+            result = await async_db_manager.update_source_min_content_length(
+                source_id, min_content_length, session=session
+            )
+            if not result:
+                raise HTTPException(status_code=404, detail="Source not found")
+            await AsyncAuditService.record_mandatory(
+                session,
+                _source_audit_event(
+                    request,
+                    ACTION_SOURCE_UPDATED,
+                    source_id,
+                    f"Updated min_content_length for source {source_id}",
+                    {"min_content_length": min_content_length},
+                ),
+            )
+            await session.commit()
 
         return result
     except HTTPException:
@@ -180,24 +254,37 @@ async def api_update_source_min_content_length(source_id: int, request: dict):
 
 
 @router.put("/{source_id}/image_ocr")
-async def api_update_source_image_ocr(source_id: int, request: dict):
+async def api_update_source_image_ocr(request: Request, source_id: int, payload: dict):
     """Set the per-source image OCR override: true (on), false (off), or null (inherit)."""
     try:
-        if "image_ocr_enabled" not in request:
+        if "image_ocr_enabled" not in payload:
             raise HTTPException(status_code=400, detail="image_ocr_enabled is required")
 
-        value = request["image_ocr_enabled"]
+        value = payload["image_ocr_enabled"]
         if value is not None and not isinstance(value, bool):
             raise HTTPException(
                 status_code=400,
                 detail="image_ocr_enabled must be true, false, or null",
             )
 
-        result = await async_db_manager.update_source_image_ocr_override(source_id, value)
-        if result is None:
-            raise HTTPException(status_code=404, detail="Source not found")
-        if not result.get("success"):
-            raise HTTPException(status_code=400, detail=result.get("message", "Not allowed"))
+        async with async_db_manager.get_session() as session:
+            result = await async_db_manager.update_source_image_ocr_override(source_id, value, session=session)
+            if result is None:
+                raise HTTPException(status_code=404, detail="Source not found")
+            if not result.get("success"):
+                # Protected internal source: no mutation staged, so do not audit a success.
+                raise HTTPException(status_code=400, detail=result.get("message", "Not allowed"))
+            await AsyncAuditService.record_mandatory(
+                session,
+                _source_audit_event(
+                    request,
+                    ACTION_SOURCE_UPDATED,
+                    source_id,
+                    f"Updated image_ocr override for source {source_id} -> {result.get('state')}",
+                    {"image_ocr_enabled": value, "state": result.get("state")},
+                ),
+            )
+            await session.commit()
 
         return result
     except HTTPException:
@@ -208,10 +295,10 @@ async def api_update_source_image_ocr(source_id: int, request: dict):
 
 
 @router.put("/{source_id}/lookback")
-async def api_update_source_lookback(source_id: int, request: dict):
+async def api_update_source_lookback(request: Request, source_id: int, payload: dict):
     """Update source lookback window."""
     try:
-        lookback_days = request.get("lookback_days")
+        lookback_days = payload.get("lookback_days")
 
         if not lookback_days:
             raise HTTPException(status_code=400, detail="lookback_days is required")
@@ -228,14 +315,22 @@ async def api_update_source_lookback(source_id: int, request: dict):
                 detail=(f"lookback_days must be between {LOOKBACK_MIN_DAYS} and {LOOKBACK_MAX_DAYS}"),
             )
 
-        source = await async_db_manager.get_source(source_id)
-        if not source:
-            raise HTTPException(status_code=404, detail="Source not found")
-
         update_data = SourceUpdate(lookback_days=lookback_days)
-        updated_source = await async_db_manager.update_source(source_id, update_data)
-        if not updated_source:
-            raise HTTPException(status_code=500, detail="Failed to update source")
+        async with async_db_manager.get_session() as session:
+            updated_source = await async_db_manager.update_source(source_id, update_data, session=session)
+            if not updated_source:
+                raise HTTPException(status_code=404, detail="Source not found")
+            await AsyncAuditService.record_mandatory(
+                session,
+                _source_audit_event(
+                    request,
+                    ACTION_SOURCE_UPDATED,
+                    source_id,
+                    f"Updated lookback window for source {source_id} to {lookback_days} days",
+                    {"lookback_days": lookback_days},
+                ),
+            )
+            await session.commit()
 
         logger.info("Updated lookback window for source %s to %s days", source_id, lookback_days)
 
@@ -253,20 +348,16 @@ async def api_update_source_lookback(source_id: int, request: dict):
 
 
 @router.put("/{source_id}/check_frequency")
-async def api_update_source_check_frequency(source_id: int, request: dict):
+async def api_update_source_check_frequency(request: Request, source_id: int, payload: dict):
     """Update source check frequency."""
     try:
-        check_frequency = request.get("check_frequency")
+        check_frequency = payload.get("check_frequency")
 
         if not check_frequency or not isinstance(check_frequency, int):
             raise HTTPException(status_code=400, detail="check_frequency must be a valid integer")
 
         if check_frequency < 60:
             raise HTTPException(status_code=400, detail="check_frequency must be at least 60 seconds")
-
-        source = await async_db_manager.get_source(source_id)
-        if not source:
-            raise HTTPException(status_code=404, detail="Source not found")
 
         from sqlalchemy import update
 
@@ -278,10 +369,19 @@ async def api_update_source_check_frequency(source_id: int, request: dict):
                 .where(SourceTable.id == source_id)
                 .values(check_frequency=check_frequency, updated_at=datetime.now())
             )
-            await session.commit()
-
             if result.rowcount == 0:
                 raise HTTPException(status_code=404, detail="Source not found")
+            await AsyncAuditService.record_mandatory(
+                session,
+                _source_audit_event(
+                    request,
+                    ACTION_SOURCE_UPDATED,
+                    source_id,
+                    f"Updated check frequency for source {source_id} to {check_frequency}s",
+                    {"check_frequency": check_frequency},
+                ),
+            )
+            await session.commit()
 
         logger.info(
             "Updated check frequency for source %s to %s seconds",

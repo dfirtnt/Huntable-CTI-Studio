@@ -11,7 +11,7 @@ so they assert the transaction contract without seeding the database.
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
@@ -56,6 +56,26 @@ def _chaining_session(all_rows=None, first_row=None) -> MagicMock:
     query.all.return_value = all_rows or []
     query.first.return_value = first_row
     session.query.return_value = query
+    return session
+
+
+class _AsyncCtx:
+    """Minimal async context manager yielding a fixed session (for async route handlers)."""
+
+    def __init__(self, session):
+        self.session = session
+
+    async def __aenter__(self):
+        return self.session
+
+    async def __aexit__(self, *exc):
+        return False
+
+
+def _async_session() -> MagicMock:
+    session = MagicMock()
+    session.add = MagicMock()
+    session.commit = AsyncMock()
     return session
 
 
@@ -274,3 +294,127 @@ class TestWorkflowAudit:
         assert len(rows) == 1
         assert rows[0].action == audit_service.ACTION_WORKFLOW_STALE_CLEANUP_REQUESTED
         session.commit.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# sources family
+# ---------------------------------------------------------------------------
+
+
+class TestSourcesAudit:
+    def test_toggle_records_audit_and_commits(self):
+        import asyncio
+
+        from src.web.routes.sources import api_toggle_source_status
+
+        session = _async_session()
+        with patch("src.web.routes.sources.async_db_manager") as mgr:
+            mgr.get_session.return_value = _AsyncCtx(session)
+            mgr.toggle_source_status = AsyncMock(
+                return_value={
+                    "source_id": 1,
+                    "source_name": "X",
+                    "old_status": False,
+                    "new_status": True,
+                    "success": True,
+                }
+            )
+            result = asyncio.run(api_toggle_source_status(_fake_request(), 1))
+
+        assert result["success"] is True
+        rows = _audit_rows(session)
+        assert len(rows) == 1
+        assert rows[0].action == audit_service.ACTION_SOURCE_TOGGLED
+        assert rows[0].target_id == "1"
+        session.commit.assert_awaited_once()
+
+    def test_toggle_rolls_back_when_audit_fails(self):
+        import asyncio
+
+        from src.web.routes.sources import api_toggle_source_status
+
+        session = _async_session()
+        with patch("src.web.routes.sources.async_db_manager") as mgr:
+            mgr.get_session.return_value = _AsyncCtx(session)
+            mgr.toggle_source_status = AsyncMock(
+                return_value={
+                    "source_id": 1,
+                    "source_name": "X",
+                    "old_status": False,
+                    "new_status": True,
+                    "success": True,
+                }
+            )
+            with patch(
+                "src.web.routes.sources.AsyncAuditService.record_mandatory",
+                AsyncMock(side_effect=RuntimeError("audit write failed")),
+            ):
+                with pytest.raises(HTTPException) as exc_info:
+                    asyncio.run(api_toggle_source_status(_fake_request(), 1))
+
+        assert exc_info.value.status_code == 500
+        session.commit.assert_not_awaited()
+
+    def test_check_frequency_records_audit_and_commits(self):
+        import asyncio
+
+        from src.web.routes.sources import api_update_source_check_frequency
+
+        session = _async_session()
+        exec_result = MagicMock()
+        exec_result.rowcount = 1
+        session.execute = AsyncMock(return_value=exec_result)
+        with patch("src.web.routes.sources.async_db_manager") as mgr:
+            mgr.get_session.return_value = _AsyncCtx(session)
+            result = asyncio.run(api_update_source_check_frequency(_fake_request(), 2, {"check_frequency": 300}))
+
+        assert result["success"] is True
+        rows = _audit_rows(session)
+        assert len(rows) == 1
+        assert rows[0].action == audit_service.ACTION_SOURCE_UPDATED
+        session.commit.assert_awaited_once()
+
+    def test_image_ocr_protected_source_is_not_audited(self):
+        import asyncio
+
+        from src.web.routes.sources import api_update_source_image_ocr
+
+        session = _async_session()
+        with patch("src.web.routes.sources.async_db_manager") as mgr:
+            mgr.get_session.return_value = _AsyncCtx(session)
+            mgr.update_source_image_ocr_override = AsyncMock(
+                return_value={"success": False, "protected": True, "message": "nope"}
+            )
+            with pytest.raises(HTTPException) as exc_info:
+                asyncio.run(api_update_source_image_ocr(_fake_request(), 3, {"image_ocr_enabled": True}))
+
+        assert exc_info.value.status_code == 400
+        assert _audit_rows(session) == []
+        session.commit.assert_not_awaited()
+
+    def test_collect_records_best_effort_audit(self):
+        import asyncio
+
+        from src.web.routes import sources as sources_routes
+
+        session = _async_session()
+        fake_task = SimpleNamespace(id="task-123")
+        fake_celery = MagicMock()
+        fake_celery.send_task.return_value = fake_task
+
+        with patch("src.web.routes.sources.async_db_manager") as mgr:
+            mgr.get_session.return_value = _AsyncCtx(session)
+            with patch.object(sources_routes, "Celery", return_value=fake_celery):
+                recorded = {}
+
+                async def _capture(sess, event):
+                    recorded["event"] = event
+
+                with patch.object(
+                    sources_routes.AsyncAuditService, "record_best_effort", AsyncMock(side_effect=_capture)
+                ):
+                    result = asyncio.run(sources_routes.api_collect_from_source(_fake_request(), 4))
+
+        assert result["task_id"] == "task-123"
+        assert recorded["event"].action == audit_service.ACTION_SOURCE_COLLECTION_REQUESTED
+        assert recorded["event"].target_id == "4"

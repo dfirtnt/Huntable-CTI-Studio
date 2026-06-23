@@ -15,6 +15,7 @@ Also covers the _get_collection_method helper.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
@@ -38,6 +39,37 @@ pytestmark = pytest.mark.api
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _req():
+    """Fake Request carrying a local-dev-style admin identity for audit actor context."""
+    return SimpleNamespace(
+        state=SimpleNamespace(
+            request_id="test",
+            identity=SimpleNamespace(actor_type="local-dev", user_id="local-dev", email=None, roles=("admin",)),
+        ),
+        client=SimpleNamespace(host="127.0.0.1"),
+        headers={"user-agent": "pytest"},
+    )
+
+
+class _AsyncSessionCtx:
+    """Async context manager yielding a session whose .add is sync and .commit is async."""
+
+    def __init__(self, *, rowcount: int | None = None):
+        self.session = MagicMock()
+        self.session.add = MagicMock()
+        self.session.commit = AsyncMock()
+        if rowcount is not None:
+            exec_result = MagicMock()
+            exec_result.rowcount = rowcount
+            self.session.execute = AsyncMock(return_value=exec_result)
+
+    async def __aenter__(self):
+        return self.session
+
+    async def __aexit__(self, *exc):
+        return False
 
 
 def _mock_source(**overrides):
@@ -243,7 +275,8 @@ class TestApiToggleSourceStatus:
 
         with patch("src.web.routes.sources.async_db_manager") as mock_db:
             mock_db.toggle_source_status = AsyncMock(return_value=toggle_result)
-            result = await api_toggle_source_status(1)
+            mock_db.get_session.return_value = _AsyncSessionCtx()
+            result = await api_toggle_source_status(_req(), 1)
 
         assert result["success"] is True
         assert result["old_status"] is True
@@ -254,8 +287,9 @@ class TestApiToggleSourceStatus:
     async def test_toggle_404_when_not_found(self):
         with patch("src.web.routes.sources.async_db_manager") as mock_db:
             mock_db.toggle_source_status = AsyncMock(return_value=None)
+            mock_db.get_session.return_value = _AsyncSessionCtx()
             with pytest.raises(HTTPException) as exc_info:
-                await api_toggle_source_status(999)
+                await api_toggle_source_status(_req(), 999)
             assert exc_info.value.status_code == 404
 
 
@@ -276,7 +310,9 @@ class TestApiCollectFromSource:
             mock_app.send_task.return_value = mock_task
             mock_celery_cls.return_value = mock_app
 
-            result = await api_collect_from_source(42)
+            with patch("src.web.routes.sources.async_db_manager") as mock_db:
+                mock_db.get_session.return_value = _AsyncSessionCtx()
+                result = await api_collect_from_source(_req(), 42)
 
         assert result["success"] is True
         assert result["task_id"] == "task-abc-123"
@@ -301,34 +337,36 @@ class TestApiUpdateMinContentLength:
             mock_db.update_source_min_content_length = AsyncMock(
                 return_value={"success": True, "min_content_length": 500}
             )
-            result = await api_update_source_min_content_length(1, {"min_content_length": 500})
+            mock_db.get_session.return_value = _AsyncSessionCtx()
+            result = await api_update_source_min_content_length(_req(), 1, {"min_content_length": 500})
 
         assert result["success"] is True
 
     @pytest.mark.asyncio
     async def test_missing_field_returns_400(self):
         with pytest.raises(HTTPException) as exc_info:
-            await api_update_source_min_content_length(1, {})
+            await api_update_source_min_content_length(_req(), 1, {})
         assert exc_info.value.status_code == 400
 
     @pytest.mark.asyncio
     async def test_negative_value_returns_400(self):
         with pytest.raises(HTTPException) as exc_info:
-            await api_update_source_min_content_length(1, {"min_content_length": -1})
+            await api_update_source_min_content_length(_req(), 1, {"min_content_length": -1})
         assert exc_info.value.status_code == 400
 
     @pytest.mark.asyncio
     async def test_string_value_returns_400(self):
         with pytest.raises(HTTPException) as exc_info:
-            await api_update_source_min_content_length(1, {"min_content_length": "abc"})
+            await api_update_source_min_content_length(_req(), 1, {"min_content_length": "abc"})
         assert exc_info.value.status_code == 400
 
     @pytest.mark.asyncio
     async def test_source_not_found_returns_404(self):
         with patch("src.web.routes.sources.async_db_manager") as mock_db:
             mock_db.update_source_min_content_length = AsyncMock(return_value=None)
+            mock_db.get_session.return_value = _AsyncSessionCtx()
             with pytest.raises(HTTPException) as exc_info:
-                await api_update_source_min_content_length(1, {"min_content_length": 500})
+                await api_update_source_min_content_length(_req(), 1, {"min_content_length": 500})
             assert exc_info.value.status_code == 404
 
 
@@ -342,24 +380,9 @@ class TestApiUpdateCheckFrequency:
 
     @pytest.mark.asyncio
     async def test_valid_update(self):
-        source = _mock_source(id=1)
-
         with patch("src.web.routes.sources.async_db_manager") as mock_db:
-            mock_db.get_source = AsyncMock(return_value=source)
-            mock_db.get_session = MagicMock()
-            # Mock the async context manager for get_session
-            mock_session = AsyncMock()
-            mock_result = MagicMock()
-            mock_result.rowcount = 1
-            mock_session.execute = AsyncMock(return_value=mock_result)
-            mock_session.commit = AsyncMock()
-
-            mock_ctx = AsyncMock()
-            mock_ctx.__aenter__ = AsyncMock(return_value=mock_session)
-            mock_ctx.__aexit__ = AsyncMock(return_value=None)
-            mock_db.get_session.return_value = mock_ctx
-
-            result = await api_update_source_check_frequency(1, {"check_frequency": 3600})
+            mock_db.get_session.return_value = _AsyncSessionCtx(rowcount=1)
+            result = await api_update_source_check_frequency(_req(), 1, {"check_frequency": 3600})
 
         assert result["success"] is True
         assert result["check_frequency"] == 3600
@@ -367,22 +390,23 @@ class TestApiUpdateCheckFrequency:
     @pytest.mark.asyncio
     async def test_missing_field_returns_400(self):
         with pytest.raises(HTTPException) as exc_info:
-            await api_update_source_check_frequency(1, {})
+            await api_update_source_check_frequency(_req(), 1, {})
         assert exc_info.value.status_code == 400
 
     @pytest.mark.asyncio
     async def test_below_minimum_returns_400(self):
         with pytest.raises(HTTPException) as exc_info:
-            await api_update_source_check_frequency(1, {"check_frequency": 30})
+            await api_update_source_check_frequency(_req(), 1, {"check_frequency": 30})
         assert exc_info.value.status_code == 400
         assert "at least 60" in exc_info.value.detail
 
     @pytest.mark.asyncio
     async def test_source_not_found_returns_404(self):
+        # rowcount==0 -> the inline UPDATE matched no source -> 404 before audit/commit.
         with patch("src.web.routes.sources.async_db_manager") as mock_db:
-            mock_db.get_source = AsyncMock(return_value=None)
+            mock_db.get_session.return_value = _AsyncSessionCtx(rowcount=0)
             with pytest.raises(HTTPException) as exc_info:
-                await api_update_source_check_frequency(1, {"check_frequency": 3600})
+                await api_update_source_check_frequency(_req(), 1, {"check_frequency": 3600})
             assert exc_info.value.status_code == 404
 
 
