@@ -69,6 +69,12 @@ class OcrConfig:
     host_blocklist: frozenset = frozenset(
         {"www.gravatar.com", "secure.gravatar.com", "www.googletagmanager.com", "googleads.g.doubleclick.net"}
     )
+    # Quality gate: suppress low-signal OCR output from decorative/noisy images.
+    # Text must have >= min_alpha_chars alphabetic characters AND an alphabetic ratio
+    # >= min_alpha_ratio (alpha / non-whitespace chars).  Sub-threshold results are
+    # treated as ok-but-empty — URL stays processed, no block injected.
+    min_alpha_chars: int = 5
+    min_alpha_ratio: float = 0.4
 
 
 logger = logging.getLogger(__name__)
@@ -274,6 +280,26 @@ def check_tesseract_available() -> dict:
         return {"status": status, "version": None, "message": f"{name}: {exc}"}
 
 
+def _is_low_signal_text(text: str, config: OcrConfig) -> bool:
+    """Return True when OCR output is noise-level and should be suppressed.
+
+    Checks: (1) fewer than min_alpha_chars alphabetic chars, OR (2) alphabetic
+    share of non-whitespace chars is below min_alpha_ratio.  Handles the common
+    decorative-image noise patterns (e.g. ``4@@Q-e / @@z``, lone ``\\``) while
+    passing genuine extraction (English prose, Windows paths, behavioral strings).
+    """
+    stripped = text.strip()
+    if not stripped:
+        return False  # already handled by the caller's .strip() guard
+    alpha_count = sum(c.isalpha() for c in stripped)
+    non_ws = sum(not c.isspace() for c in stripped)
+    if alpha_count < config.min_alpha_chars:
+        return True
+    if non_ws > 0 and alpha_count / non_ws < config.min_alpha_ratio:
+        return True
+    return False
+
+
 def ocr_image_bytes(image_bytes: bytes, *, timeout_s: float) -> OcrResult:
     """Sync Tesseract call. Never raises. Pillow decode failure (incl. bomb) -> decode_failed."""
     import pytesseract
@@ -352,10 +378,12 @@ async def ocr_article_images(
             errors[result.error] += 1
             logger.debug("OCR image failed (%s): %s", result.error, url)
             continue
-        # Terminal decision: ok result (text present or ok-but-empty)
+        # Terminal decision: ok result (text present, low-signal suppressed, or ok-but-empty)
         processed.append(url)
-        if result.text.strip():
+        if result.text.strip() and not _is_low_signal_text(result.text, config):
             blocks.append((f"[Image OCR: {url}]", result.text))
+        elif result.text.strip():
+            logger.debug("OCR noise gate suppressed low-signal text for %s", url)
 
     if timed_out:
         status = OcrStatus.failed_timeout

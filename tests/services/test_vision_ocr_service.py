@@ -16,6 +16,7 @@ from src.services.vision_ocr_service import (
     OcrStatus,
     _build_safe_client,
     _filter_images,
+    _is_low_signal_text,
     _is_safe_image_url,
     _parse_existing_ocr_urls,
     _PinningBackend,
@@ -47,6 +48,65 @@ def test_ocr_config_strict_defaults():
     assert c.min_width == 300 and c.min_height == 200
     assert c.article_budget_s == 30.0 and c.max_pixels == 40_000_000
     assert ".svg" in c.ext_blocklist and ".webp" in c.ext_blocklist
+
+
+# ---------------------------------------------------------------------------
+# _is_low_signal_text: quality gate unit tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "4@@Q-e / @@z / @noe:",  # decorative noise — few alpha, low ratio
+        "\\",  # lone backslash — 0 alpha chars
+        "@@@@@@",  # all non-alpha, non-whitespace
+        "1234567890",  # digits only, no alpha
+        "ab",  # too few alpha chars (< default min_alpha_chars=5)
+    ],
+)
+def test_is_low_signal_text_suppresses_noise(text):
+    assert _is_low_signal_text(text, OcrConfig()) is True
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "threat intelligence powershell encoded command detection rule enabled",  # golden-image tokens
+        "C:\\work>Kasps.exe",  # Windows behavioral path
+        "Backdoor",  # single genuine word (8 alpha)
+        "de aanvallers gebruikten phishing om toegang te krijgen",  # Dutch CTI prose
+        "ExPloit loaded from memory",
+    ],
+)
+def test_is_low_signal_text_passes_genuine_content(text):
+    assert _is_low_signal_text(text, OcrConfig()) is False
+
+
+def test_is_low_signal_text_empty_returns_false():
+    assert _is_low_signal_text("", OcrConfig()) is False
+    assert _is_low_signal_text("   ", OcrConfig()) is False
+
+
+def test_is_low_signal_text_threshold_override():
+    """Custom thresholds are honoured — alpha_chars=0 passes everything non-empty."""
+    cfg = OcrConfig(min_alpha_chars=0, min_alpha_ratio=0.0)
+    assert _is_low_signal_text("@@@@", cfg) is False
+
+
+@pytest.mark.asyncio
+async def test_noise_gate_suppresses_block_but_keeps_url_processed(monkeypatch):
+    """Noise-gate path: URL in processed, no block appended, status completed."""
+    monkeypatch.setattr("src.services.vision_ocr_service._stream_image_safely", _async_ret(b"img"))
+    monkeypatch.setattr(
+        "src.services.vision_ocr_service.ocr_image_bytes",
+        lambda *a, **k: OcrResult(text="@@Q-e", error="ok"),  # < 5 alpha chars
+    )
+    root = BeautifulSoup("<div><img src='https://s.test/a.png'></div>", "lxml")
+    out = await ocr_article_images(_FakeClient(), root, "https://s.test/p", OcrConfig(), already_processed=set())
+    assert out.status == OcrStatus.completed
+    assert out.blocks == []
+    assert "https://s.test/a.png" in out.processed_img_urls
 
 
 def test_ocr_article_outcome_fields():
@@ -485,7 +545,8 @@ async def test_ocr_image_count_counts_total_markers_on_retry(monkeypatch):
 
     monkeypatch.setattr("src.services.vision_ocr_service._stream_image_safely", _async_ret(b"img"))
     monkeypatch.setattr(
-        "src.services.vision_ocr_service.ocr_image_bytes", lambda *a, **k: OcrResult(text="NEW", error="ok")
+        "src.services.vision_ocr_service.ocr_image_bytes",
+        lambda *a, **k: OcrResult(text="NEW extracted content", error="ok"),
     )
     # Article already carries a marker for a.png (inside the main node) + a fresh image b.png.
     content = (
