@@ -1,10 +1,10 @@
 name: Docs Smoke
 
-# Runs after every successful Docs deploy to verify the live GitHub Pages site
-# serves expected content (not a 404). Polls for CDN propagation before asserting.
+# Fires after every successful Docs deploy. Polls until the CDN propagates,
+# then verifies both the root and /europa/ paths serve expected content.
 #
-# NOTE: workflow_run events only fire from the *default branch* (main). This workflow
-# is dormant until it lands on main — commit to europa-dev is fine; activate on merge.
+# NOTE: workflow_run only fires from the default branch (main).
+# This workflow is dormant until it lands on main.
 
 on:
   workflow_run:
@@ -19,38 +19,26 @@ jobs:
     if: github.event.workflow_run.conclusion == 'success'
 
     steps:
-      - name: Wait for GitHub Pages CDN propagation
-        # Poll up to ~3 minutes (12 × 15 s). Exits as soon as the site responds 200.
+      - name: Verify root site
         run: |
           URL="https://dfirtnt.github.io/Huntable-CTI-Studio/"
-          echo "Polling ${URL} for up to 3 minutes …"
           for i in $(seq 1 12); do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${URL}")
-            echo "Attempt ${i}/12: HTTP ${STATUS}"
-            if [ "${STATUS}" = "200" ]; then
-              echo "Site is up."
+            if curl -sf "${URL}" | grep -q "Reports to Rules"; then
+              echo "OK: ${URL}"
               exit 0
             fi
+            echo "Attempt ${i}/12 — retrying in 15s"
             sleep 15
           done
-          echo "ERROR: ${URL} never returned 200 within the timeout."
+          echo "ERROR: ${URL} did not serve expected content"
           exit 1
 
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install test dependencies
-        run: pip install httpx pytest
-
-      - name: Run docs pages smoke tests
-        env:
-          # pytest_configure guard requires these; the docs tests make no DB
-          # connections — the env vars satisfy string-only validation only.
-          APP_ENV: test
-          TEST_DATABASE_URL: postgresql://test:test@localhost:5433/cti_scraper_test
-        run: pytest tests/smoke/test_docs_pages_smoke.py -m docs -v
+      - name: Verify /europa/ preview
+        run: |
+          URL="https://dfirtnt.github.io/Huntable-CTI-Studio/europa/"
+          if curl -sf "${URL}" | grep -q "Huntable CTI Studio"; then
+            echo "OK: ${URL}"
+          else
+            echo "ERROR: ${URL} did not serve expected content"
+            exit 1
+          fi
