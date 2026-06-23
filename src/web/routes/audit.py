@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -20,6 +21,20 @@ from src.services.audit_service import (
 )
 
 router = APIRouter(prefix="/api/audit", tags=["Audit"])
+
+DEFAULT_AUDIT_RETENTION_DAYS = 365
+
+
+def _default_retention_days() -> int:
+    """Resolve the retention window from AUDIT_RETENTION_DAYS (default 365)."""
+    raw = os.getenv("AUDIT_RETENTION_DAYS")
+    if not raw:
+        return DEFAULT_AUDIT_RETENTION_DAYS
+    try:
+        value = int(raw)
+    except ValueError:
+        return DEFAULT_AUDIT_RETENTION_DAYS
+    return value if value >= 1 else DEFAULT_AUDIT_RETENTION_DAYS
 
 
 def _utc_now_naive() -> datetime:
@@ -79,9 +94,7 @@ async def list_audit_events(
 async def export_audit_events(request: Request, limit: int = Query(1000, ge=1, le=10000)):
     """Export recent audit events and audit the export action."""
     async with async_db_manager.get_session() as session:
-        result = await session.execute(
-            select(AuditEventTable).order_by(AuditEventTable.created_at.desc()).limit(limit)
-        )
+        result = await session.execute(select(AuditEventTable).order_by(AuditEventTable.created_at.desc()).limit(limit))
         rows = result.scalars().all()
         events = [_serialize_event(row) for row in rows]
 
@@ -108,8 +121,13 @@ async def export_audit_events(request: Request, limit: int = Query(1000, ge=1, l
 
 
 @router.delete("/retention")
-async def apply_audit_retention(request: Request, retention_days: int = Query(365, ge=1, le=3650)):
-    """Delete audit events older than the requested retention window."""
+async def apply_audit_retention(request: Request, retention_days: int | None = Query(None, ge=1, le=3650)):
+    """Delete audit events older than the retention window.
+
+    Defaults to AUDIT_RETENTION_DAYS (or 365) when no explicit window is given.
+    """
+    if retention_days is None:
+        retention_days = _default_retention_days()
     cutoff = _utc_now_naive() - timedelta(days=retention_days)
 
     async with async_db_manager.get_session() as session:
