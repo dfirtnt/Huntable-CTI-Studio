@@ -17,7 +17,7 @@ Chunks A and B make the app *secure*. Chunk C makes it *accountable*: durable, r
 ## Scope
 
 ### In scope
-- **`AuditEventTable`** in [`src/database/models.py`](../../../src/database/models.py) with the parent spec's field set (`id`, `created_at`, `request_id`, `actor_type`, `actor_id`, `actor_email`, `actor_roles`, `source_ip`, `user_agent`, `action`, `target_type`, `target_id`, `status`, `summary`, `metadata` JSONB, `before_hash`, `after_hash`, `error_code`) and indexes on `created_at`, `actor_id`, `action`, (`target_type`,`target_id`), `request_id`.
+- **`AuditEventTable`** in [`src/database/models.py`](https://github.com/dfirtnt/Huntable-CTI-Studio/blob/main/src/database/models.py) with the parent spec's field set (`id`, `created_at`, `request_id`, `actor_type`, `actor_id`, `actor_email`, `actor_roles`, `source_ip`, `user_agent`, `action`, `target_type`, `target_id`, `status`, `summary`, `metadata` JSONB, `before_hash`, `after_hash`, `error_code`) and indexes on `created_at`, `actor_id`, `action`, (`target_type`,`target_id`), `request_id`.
 - **Schema creation via the existing `create_tables()` idempotent path** (`src/database/async_manager.py:137–186`) — **not Alembic** (none exists). Table + indexes are part of the required schema-creation path; add `ALTER TABLE ... ADD ... IF NOT EXISTS`-style idempotent ensures consistent with the current pattern.
 - **Required-schema startup validation:** production startup fails if the `audit_events` table or any required index is missing. Best-effort DDL skips are not acceptable for mandatory-audit infrastructure.
 - **`AuditService` / `AsyncAuditService`** in `src/services/audit_service.py`:

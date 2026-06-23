@@ -1,0 +1,44 @@
+name: Docs Smoke
+
+# Fires after every successful Docs deploy. Polls until the CDN propagates,
+# then verifies both the root and /europa/ paths serve expected content.
+#
+# NOTE: workflow_run only fires from the default branch (main).
+# This workflow is dormant until it lands on main.
+
+on:
+  workflow_run:
+    workflows: ["Docs"]
+    types: [completed]
+
+jobs:
+  smoke:
+    name: Pages smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - name: Verify root site
+        run: |
+          URL="https://dfirtnt.github.io/Huntable-CTI-Studio/"
+          for i in $(seq 1 12); do
+            if curl -sf "${URL}" | grep -q "Reports to Rules"; then
+              echo "OK: ${URL}"
+              exit 0
+            fi
+            echo "Attempt ${i}/12 — retrying in 15s"
+            sleep 15
+          done
+          echo "ERROR: ${URL} did not serve expected content"
+          exit 1
+
+      - name: Verify /europa/ preview
+        run: |
+          URL="https://dfirtnt.github.io/Huntable-CTI-Studio/europa/"
+          if curl -sf "${URL}" | grep -q "Huntable CTI Studio"; then
+            echo "OK: ${URL}"
+          else
+            echo "ERROR: ${URL} did not serve expected content"
+            exit 1
+          fi

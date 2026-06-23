@@ -4743,12 +4743,6 @@ function normalizeWorkflowConfigControlBindings() {
         'sigma-fallback-enabled': { key: 'sigma_fallback_enabled', label: 'Use Full Article Content (Minus Junk)' },
         'cmdline-attention-preprocessor-enabled': { key: 'cmdline_attention_preprocessor_enabled', label: 'Attention Preprocessor' },
         'proctree-attention-preprocessor-enabled': { key: 'proc_tree_attention_preprocessor_enabled', label: 'Attention Preprocessor' },
-        'osdetectionagent-os-windows': { key: 'OSDetectionAgent_selected_os', label: 'Target OS: Windows' },
-        'osdetectionagent-os-linux': { key: 'OSDetectionAgent_selected_os', label: 'Target OS: Linux' },
-        'osdetectionagent-os-macos': { key: 'OSDetectionAgent_selected_os', label: 'Target OS: MacOS' },
-        'osdetectionagent-os-network': { key: 'OSDetectionAgent_selected_os', label: 'Target OS: Network' },
-        'osdetectionagent-os-other': { key: 'OSDetectionAgent_selected_os', label: 'Target OS: Other' },
-        'osdetectionagent-os-all': { key: 'OSDetectionAgent_selected_os', label: 'Target OS: All' }
     };
     Object.entries(directBindings).forEach(([id, meta]) => {
         const el = document.getElementById(id);
@@ -5272,106 +5266,16 @@ function renderAgentModels() {
     container.innerHTML = agents.map(agentName => {
         const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
         
-        // Special handling for OSDetectionAgent
+        // Platform detection is deterministic — no model or OS selection to configure.
         if (agentName === 'OSDetectionAgent') {
-            const currentSelectedOS = (agentModels && agentModels['OSDetectionAgent_selected_os']) || ['Windows'];
-            const selectedOSArray = Array.isArray(currentSelectedOS) ? currentSelectedOS : (currentSelectedOS ? [currentSelectedOS] : ['Windows']);
-            
-            const osOptions = ['Windows', 'Linux', 'MacOS', 'Network', 'Other', 'All'];
-            const isWindowsChecked = selectedOSArray.includes('Windows') || selectedOSArray.includes('All');
-            const isLinuxChecked = selectedOSArray.includes('Linux') || selectedOSArray.includes('All');
-            const isMacOSChecked = selectedOSArray.includes('MacOS') || selectedOSArray.includes('All');
-            const isNetworkChecked = selectedOSArray.includes('Network') || selectedOSArray.includes('All');
-            const isOtherChecked = selectedOSArray.includes('Other') || selectedOSArray.includes('All');
-            const isAllChecked = selectedOSArray.includes('All');
-            
             return `
                 <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
-                    <div class="flex items-center justify-between mb-3">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            ${agentLabels[agentName] || agentName}
-                        </label>
-                    </div>
-                    
-                    <!-- Platform detection is deterministic (entity/keyword registry); no model to configure. -->
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        ${agentLabels[agentName] || agentName}
+                    </label>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">
                         Deterministic detection (entity/keyword registry) — no model to configure.
                     </p>
-
-                    <!-- Target OS selection is hidden until multi-OS support is implemented. -->
-                    <div class="mb-3 hidden">
-                    
-                    <!-- OS Selection -->
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                            Target Operating Systems
-                        </label>
-                        <div class="space-y-2">
-                            <label class="flex items-center">
-                                <input type="checkbox" 
-                                       id="${agentId}-os-windows" 
-                                       name="os_selection[]" 
-                                       value="Windows"
-                                       ${isWindowsChecked ? 'checked' : ''}
-                                       onchange="updateOSSelection()"
-                                       class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
-                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Windows</span>
-                            </label>
-                            <label class="flex items-center opacity-50 cursor-not-allowed">
-                                <input type="checkbox" 
-                                       id="${agentId}-os-linux" 
-                                       name="os_selection[]" 
-                                       value="Linux"
-                                       ${isLinuxChecked ? 'checked' : ''}
-                                       disabled
-                                       class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
-                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Linux</span>
-                            </label>
-                            <label class="flex items-center opacity-50 cursor-not-allowed">
-                                <input type="checkbox" 
-                                       id="${agentId}-os-macos" 
-                                       name="os_selection[]" 
-                                       value="MacOS"
-                                       ${isMacOSChecked ? 'checked' : ''}
-                                       disabled
-                                       class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
-                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">MacOS</span>
-                            </label>
-                            <label class="flex items-center opacity-50 cursor-not-allowed">
-                                <input type="checkbox" 
-                                       id="${agentId}-os-network" 
-                                       name="os_selection[]" 
-                                       value="Network"
-                                       ${isNetworkChecked ? 'checked' : ''}
-                                       disabled
-                                       class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
-                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Network</span>
-                            </label>
-                            <label class="flex items-center opacity-50 cursor-not-allowed">
-                                <input type="checkbox" 
-                                       id="${agentId}-os-other" 
-                                       name="os_selection[]" 
-                                       value="Other"
-                                       ${isOtherChecked ? 'checked' : ''}
-                                       disabled
-                                       class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
-                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Other</span>
-                            </label>
-                            <label class="flex items-center opacity-50 cursor-not-allowed">
-                                <input type="checkbox" 
-                                       id="${agentId}-os-all" 
-                                       name="os_selection[]" 
-                                       value="All"
-                                       ${isAllChecked ? 'checked' : ''}
-                                       disabled
-                                       class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
-                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">All</span>
-                            </label>
-                        </div>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                            Select target operating systems for detection (stub - only Windows enabled)
-                        </p>
-                    </div>
                 </div>
             `;
         }
@@ -7342,17 +7246,6 @@ function renderAgentModels(lmstudioModels) {
     // Render OS Detection Model
     const osContainer = getContainer('os-detection-model-container');
     if (osContainer) {
-        const currentSelectedOS = agentModels['OSDetectionAgent_selected_os'] || ['Windows'];
-        const selectedOSArray = Array.isArray(currentSelectedOS) ? currentSelectedOS : (currentSelectedOS ? [currentSelectedOS] : ['Windows']);
-        
-        const isWindowsChecked = selectedOSArray.includes('Windows') || selectedOSArray.includes('All');
-        const isLinuxChecked = selectedOSArray.includes('Linux') || selectedOSArray.includes('All');
-        const isMacOSChecked = selectedOSArray.includes('MacOS') || selectedOSArray.includes('All');
-        const isNetworkChecked = selectedOSArray.includes('Network') || selectedOSArray.includes('All');
-        const isOtherChecked = selectedOSArray.includes('Other') || selectedOSArray.includes('All');
-        const isAllChecked = selectedOSArray.includes('All');
-        
-        
         osContainer.innerHTML = `
             <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                 <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
@@ -7369,36 +7262,6 @@ function renderAgentModels(lmstudioModels) {
                 <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
                     Deterministic detection (entity/keyword registry) — no model to configure.
                 </p>
-                <div>
-                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Target Operating Systems</label>
-                    <div class="flex flex-wrap gap-2">
-                        <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-purple-500/50 bg-purple-500/10 text-xs text-gray-200 cursor-pointer">
-                            <input type="checkbox" id="osdetectionagent-os-windows" name="os_selection[]" value="Windows" ${isWindowsChecked ? 'checked' : ''} onchange="updateOSSelection()" class="w-3 h-3 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500">
-                            Windows
-                        </label>
-                        <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-600 text-xs text-gray-500 cursor-not-allowed">
-                            <input type="checkbox" id="osdetectionagent-os-linux" name="os_selection[]" value="Linux" ${isLinuxChecked ? 'checked' : ''} disabled class="w-3 h-3 bg-gray-700 border-gray-600 rounded">
-                            Linux
-                        </label>
-                        <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-600 text-xs text-gray-500 cursor-not-allowed">
-                            <input type="checkbox" id="osdetectionagent-os-macos" name="os_selection[]" value="MacOS" ${isMacOSChecked ? 'checked' : ''} disabled class="w-3 h-3 bg-gray-700 border-gray-600 rounded">
-                            MacOS
-                        </label>
-                        <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-600 text-xs text-gray-500 cursor-not-allowed">
-                            <input type="checkbox" id="osdetectionagent-os-network" name="os_selection[]" value="Network" ${isNetworkChecked ? 'checked' : ''} disabled class="w-3 h-3 bg-gray-700 border-gray-600 rounded">
-                            Network
-                        </label>
-                        <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-600 text-xs text-gray-500 cursor-not-allowed">
-                            <input type="checkbox" id="osdetectionagent-os-other" name="os_selection[]" value="Other" ${isOtherChecked ? 'checked' : ''} disabled class="w-3 h-3 bg-gray-700 border-gray-600 rounded">
-                            Other
-                        </label>
-                        <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-600 text-xs text-gray-500 cursor-not-allowed">
-                            <input type="checkbox" id="osdetectionagent-os-all" name="os_selection[]" value="All" ${isAllChecked ? 'checked' : ''} disabled class="w-3 h-3 bg-gray-700 border-gray-600 rounded">
-                            All
-                        </label>
-                    </div>
-                    <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Only Windows enabled currently</p>
-                </div>
             </div>
         `;
     }
@@ -8107,11 +7970,6 @@ async function testSigmaAgent(articleId) {
 }
 
 // Auto-save model changes immediately
-window.updateOSSelection = async function updateOSSelection() {
-    // Trigger auto-save when OS selection changes
-    await autoSaveModelChange();
-}
-
 // Unified autosave function for all config changes (except prompts which require manual save)
 window.autoSaveConfig = async function autoSaveConfig() {
     // Skip autosave during page initialization to prevent version jumps
@@ -8195,16 +8053,9 @@ async function performAutoSave() {
         // Collect all agent configs using unified system
         const collectedAgentConfigs = collectAllAgentConfigs();
         
-        // Collect OS selections (special case, not in AGENT_CONFIG)
-        const osCheckboxes = document.querySelectorAll('input[name="os_selection[]"]:not([disabled])');
-        const selectedOS = Array.from(osCheckboxes)
-            .filter(cb => cb.checked)
-            .map(cb => cb.value);
-        const osSelection = selectedOS.length > 0 ? selectedOS : ['Windows'];
-        
         const agentModelsData = {
             ...collectedAgentConfigs,
-            OSDetectionAgent_selected_os: osSelection
+            OSDetectionAgent_selected_os: ['Windows']
         };
         
         // Remove null/empty string values (but keep 0.0 for temperature)
@@ -10408,16 +10259,7 @@ function getCurrentFormState() {
     // Get agent models from form using unified system (includes providers)
     const agent_models = collectAllAgentConfigs();
 
-    // Target Operating Systems (not in AGENT_CONFIG) — include in preset for export/import
-    const osCheckboxes = document.querySelectorAll('input[name="os_selection[]"]:not([disabled])');
-    const selectedOS = Array.from(osCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
-    if (selectedOS.length > 0) {
-        agent_models.OSDetectionAgent_selected_os = selectedOS;
-    } else {
-        agent_models.OSDetectionAgent_selected_os = ['Windows'];
-    }
-
-    // OS Detection fallback is already handled by collectAllAgentConfigs via AGENT_CONFIG
+    agent_models.OSDetectionAgent_selected_os = ['Windows'];
 
     const disabled_agents = Array.from(disabledExtractAgents || []);
 
@@ -16868,20 +16710,15 @@ function showHelp(fieldName) {
         'osDetectionAgent': {
             title: 'Platform Detection',
             content: `<p class="mb-2"><strong>Description:</strong></p>
-                      <p class="mb-2">Determines the target platform of each threat intelligence article. The result is used to route extractors by their platform capabilities before extraction begins.</p>
-                      <p class="mb-2"><strong>Embedding Model:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li><strong>CTI-BERT:</strong> Specialized for cybersecurity threat intelligence (recommended)</li>
-                          <li><strong>SEC-BERT:</strong> Security-focused embeddings, alternative option</li>
-                      </ul>
+                      <p class="mb-2">Determines the target platform of each threat intelligence article. The result routes extractors by their platform capabilities before extraction begins.</p>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li><strong>Step 1:</strong> Keyword scan — if 3 or more Windows indicators are found (executables, registry paths, Event IDs, etc.), Windows is returned immediately</li>
-                          <li><strong>Step 2:</strong> Embedding classification — CTI-BERT or SEC-BERT compares the article against OS indicator profiles</li>
-                          <li>Detects: Windows, Linux, MacOS, Cross-platform, or Unknown</li>
+                          <li><strong>Phase 1 — Entity/keyword registry:</strong> Scans article content against a platform-tagged keyword registry. Weighted scores are accumulated for Windows, Linux, and macOS simultaneously. ATT&amp;CK technique citations reinforce platforms already evidenced by keywords.</li>
+                          <li><strong>Phase 2 — LLM adjudication (fallback):</strong> Fires only when Phase 1 returns low confidence or Unknown. An LLM classifies the article excerpt and returns a structured verdict with evidence.</li>
+                          <li>Detects: Windows, Linux, macOS, multiple platforms, or Unknown</li>
                           <li>Workflow continues to extractor capability routing; unsupported extractors are skipped with an explicit reason</li>
                       </ul>
-                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> CTI-BERT with default settings. No LLM is used — detection is fast and runs entirely on local embeddings.</p>`
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>No configuration needed.</strong> Detection is fully deterministic in the common case. The LLM fallback uses the configured Extract Agent provider and is only invoked for genuinely ambiguous articles.</p>`
         },
 	        'rankAgent': {
 	            title: 'Rank / Triage Agent Model',

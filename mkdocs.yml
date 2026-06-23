@@ -19,28 +19,18 @@ theme:
     - navigation.sections
     - toc.integrate
 
-# Internal working docs (specs/plans) — excluded from the published site;
-# they link to source files and are not part of the guided nav.
-exclude_docs: |
-  superpowers/
-# Reference/internal pages that are built and reachable by URL but intentionally
-# not in the nav menu. Explicit list so --strict still flags NEW un-navved docs.
-# Curating which of these belong in the nav is tracked as a follow-up.
+# Internal design specs/plans (image-ocr, enterprise-auth, platform-telemetry,
+# etc.). Built and reachable by URL but intentionally not in the guided nav —
+# dated, point-in-time working docs. The `superpowers/` glob lets new specs land
+# here without breaking --strict; their source-file links use absolute GitHub URLs.
+# The explicit entries below are reference/internal pages kept out of the nav menu
+# (deprecated contracts, dated audits/plans, solution write-ups, reports). Listing
+# them explicitly means --strict still flags any NEW un-navved doc.
 not_in_nav: |
+  superpowers/
   adr/0002-sigma-similarity-engine.md
-  architecture/agent-config-schema.md
-  brand-style-guide.md
-  contracts/cmdline-extract-dropin.md
-  contracts/huntquery-extract-dropin.md
-  contracts/network-indicator-extract.md
-  contracts/proctree-extract-dropin.md
   contracts/qa-agent.md
   contracts/qa-output.md
-  contracts/registry-extract-dropin.md
-  contracts/scheduled-tasks-extract-dropin.md
-  contracts/services-extract-dropin.md
-  deployment/docker-architecture.md
-  deployment/technical-readout.md
   development/cmdline-eval-audit-2026-05-31.md
   development/eval-contract-audit-prompt.md
   development/extractor-lane-partial-enablement-2026-06-12.md
@@ -48,16 +38,8 @@ not_in_nav: |
   development/queue-similarity-replay-2026-06-01.md
   development/queue-similarity-replay-2026-06-02.md
   development/run-tests-improvements-spec.md
-  development/sigma-eval-system.md
   development/sigma-novelty-audit-followup-2026-06-01.md
   development/sigma-similarity-unification-plan-2026-06-05.md
-  development/ui-test-tiers.md
-  internals/architecture.md
-  operations/ml-model-runbook.md
-  operations/verify-ml-versions-backup.md
-  reference/do-not.md
-  reference/prompt-mapping-table.md
-  reference/versioning.md
   reports/eval-ground-truth-audit-7.0.1.md
   solutions/database-issues/auto-threshold-reset-race-condition-2026-05-06.md
   solutions/database-issues/sources-duplicate-rows-missing-unique-constraint-2026-05-16.md
@@ -97,6 +79,8 @@ nav:
       - Memory Tuning: guides/memory-tuning.md
   - Architecture:
       - Overview: architecture/overview.md
+      - Architecture Diagrams: internals/architecture.md
+      - Agent Config Schema: architecture/agent-config-schema.md
       - Workflow Data Flow: architecture/workflow-data-flow.md
       - Scoring: architecture/scoring.md
       - Chunking: architecture/chunking.md
@@ -126,6 +110,9 @@ nav:
       - Schemas: reference/schemas.md
       - Scheduled Jobs: reports/scheduled-jobs-report.md
       - ML Feature Definitions: reference/ml-features.md
+      - Prompt Mapping Table: reference/prompt-mapping-table.md
+      - Versioning: reference/versioning.md
+      - Anti-Patterns (DO NOT): reference/do-not.md
   - Development:
       - Agent Orientation: development/agent-orientation.md
       - Add an Extractor Agent: development/add-extractor-agent.md
@@ -133,12 +120,20 @@ nav:
       - Testing Strategy: development/testing.md
       - Manual Testing: development/manual-testing.md
       - Web App Testing: development/web-app-testing.md
+      - UI Test Tiers: development/ui-test-tiers.md
       - Debugging: development/debugging.md
       - Database Queries: development/database-queries.md
       - Allure Reports: development/allure-reports.md
       - Multi-Instance: development/multi-instance.md
       - Workflow Queue: development/workflow-queue.md
       - Search Queries: development/search-queries.md
+      - Sigma Eval System: development/sigma-eval-system.md
+  - Deployment:
+      - Docker Architecture: deployment/docker-architecture.md
+      - Technical Readout: deployment/technical-readout.md
+  - Operations:
+      - ML Model Runbook: operations/ml-model-runbook.md
+      - ML Versions Backup Verification: operations/verify-ml-versions-backup.md
   - Contracts:
       - Extractor Standard: contracts/extractor-standard.md
       - CmdLineExtract: contracts/cmdline-extract.md
@@ -147,8 +142,17 @@ nav:
       - ServicesExtract: contracts/services-extract.md
       - ScheduledTasksExtract: contracts/scheduled-tasks-extract.md
       - HuntQueriesExtract: contracts/huntquery-extract.md
+      - NetworkIndicatorExtract: contracts/network-indicator-extract.md
       - Rank Agent: contracts/rank-agent.md
       - Sigma Generate: contracts/sigma-generate.md
+      - Drop-in Prompts:
+          - CmdLineExtract: contracts/cmdline-extract-dropin.md
+          - ProcTreeExtract: contracts/proctree-extract-dropin.md
+          - RegistryExtract: contracts/registry-extract-dropin.md
+          - ServicesExtract: contracts/services-extract-dropin.md
+          - ScheduledTasksExtract: contracts/scheduled-tasks-extract-dropin.md
+          - HuntQueriesExtract: contracts/huntquery-extract-dropin.md
+  - Brand & Style Guide: brand-style-guide.md
   - Contributing: CONTRIBUTING.md
   - Changelog: CHANGELOG.md
 
