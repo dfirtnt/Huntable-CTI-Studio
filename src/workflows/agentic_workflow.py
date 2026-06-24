@@ -446,6 +446,80 @@ def _rebase_group_observable_indices(rule: dict[str, Any], original_indices: lis
     rule["observables_used"] = rebased
 
 
+def _logsource_key(rule: dict[str, Any]) -> tuple[str, str]:
+    """Return (category, product) logsource key for a rule dict."""
+    ls = rule.get("logsource") or {}
+    if not isinstance(ls, dict):
+        return ("", "")
+    return (str(ls.get("category") or ""), str(ls.get("product") or ""))
+
+
+def _detection_leaf_values(detection: Any) -> frozenset[str]:
+    """Collect all scalar string values from a detection block for overlap comparison."""
+    values: set[str] = set()
+    if isinstance(detection, dict):
+        for v in detection.values():
+            values |= _detection_leaf_values(v)
+    elif isinstance(detection, list):
+        for item in detection:
+            values |= _detection_leaf_values(item)
+    elif isinstance(detection, str) and detection not in ("selection", "condition", "all of them", "any of them"):
+        values.add(detection.lower())
+    return frozenset(values)
+
+
+def _deduplicate_batch_rules(rules: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Drop intra-batch duplicate rules before similarity search.
+
+    Two rules are considered duplicates when they share the same logsource
+    (category + product) AND their detection leaf-value sets overlap by ≥ 80%.
+    The rule retained is the one with MORE detection conditions (more specific);
+    ties keep the first occurrence. Dropped rules are logged at WARNING level.
+    """
+    if len(rules) <= 1:
+        return rules
+
+    kept: list[dict[str, Any]] = []
+    for candidate in rules:
+        ls_key = _logsource_key(candidate)
+        cand_values = _detection_leaf_values(candidate.get("detection"))
+        is_dup = False
+        for existing in kept:
+            if _logsource_key(existing) != ls_key:
+                continue
+            existing_values = _detection_leaf_values(existing.get("detection"))
+            union = cand_values | existing_values
+            if not union:
+                continue
+            overlap = len(cand_values & existing_values) / len(union)
+            if overlap >= 0.8:
+                # Keep the rule with more detection conditions (higher specificity)
+                cand_cond_count = len(cand_values)
+                existing_cond_count = len(existing_values)
+                if cand_cond_count > existing_cond_count:
+                    # Swap: candidate is more specific, replace existing in kept
+                    kept[kept.index(existing)] = candidate
+                    logger.warning(
+                        "intra-batch dedup: dropped '%s' (%.0f%% overlap with '%s', less specific)",
+                        existing.get("title"),
+                        overlap * 100,
+                        candidate.get("title"),
+                    )
+                else:
+                    logger.warning(
+                        "intra-batch dedup: dropped '%s' (%.0f%% overlap with '%s', less specific)",
+                        candidate.get("title"),
+                        overlap * 100,
+                        existing.get("title"),
+                    )
+                is_dup = True
+                break
+        if not is_dup:
+            kept.append(candidate)
+
+    return kept
+
+
 _INFRA_FAILURE_RE = re.compile(
     r"lmstudio is not ready|no model.{0,20}loaded|ensure lmstudio is running"
     r"|context.{0,15}(size|length|window).{0,15}exceeded"
@@ -2722,6 +2796,18 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 )
 
             sigma_errors = "; ".join(group_errors) if group_errors and not sigma_rules else None
+
+            # Drop intra-batch duplicates before similarity search. The similarity
+            # search only compares against the existing rule library — it never sees
+            # sibling rules generated in the same batch, so near-identical rules
+            # produced by multiple generation groups would all score as "novel".
+            pre_dedup_count = len(sigma_rules)
+            sigma_rules = _deduplicate_batch_rules(sigma_rules)
+            if len(sigma_rules) < pre_dedup_count:
+                logger.info(
+                    f"[Workflow {state['execution_id']}] intra-batch dedup: {pre_dedup_count} → {len(sigma_rules)} rules"
+                )
+
             sigma_metadata = {
                 "total_attempts": total_attempts,
                 "valid_rules": valid_rules,

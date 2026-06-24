@@ -62,6 +62,13 @@ pySIGMA parsing but fail downstream enrichment or ranking.
 
 6. **PRECISE SEVERITY**: Level reflects actual behavior risk. Do not default everything to high.
 
+7. **DEDUPLICATE BEFORE OUTPUT**: Before emitting any rules, the model must review its full
+   draft output and collapse semantic duplicates. Two rules are duplicates when they share the
+   same `logsource.category` + `logsource.product` and their `detection.selection` conditions
+   overlap on the same observable (same Image, CommandLine value, DestinationIp, or RegistryKey).
+   Keep the most specific rule; discard any rule whose detection fires on a strict superset of
+   another rule's events. This is a pre-emit gate, not a post-hoc cleanup.
+
 ---
 
 ## Mandatory prompt structure
@@ -168,6 +175,16 @@ Required elements:
 - Definition of "inseparable": the behaviors only occur together and detecting either alone
   would be meaningless (rare; document explicitly when applied)
 
+**Anti-splitting (equally mandatory):**
+- Do NOT generate one rule for the child-process perspective and a separate rule for the
+  parent→child perspective of the same execution event. Fold parent context into the same
+  rule as an additional condition, or omit it if it adds no fidelity.
+- Do NOT generate multiple network rules whose `detection.selection` covers the same IP list.
+  Use one rule with the full list.
+- Do NOT generate rules that differ only in title wording, description, or MITRE tag while
+  the `detection.selection` is functionally identical. These are description variants, not
+  distinct behaviors.
+
 ### 8. LOGSOURCE RULES
 
 Purpose: Enforce generic, cross-vendor logsources.
@@ -257,6 +274,7 @@ Required checks:
 - [ ] Is `level` calibrated to actual behavior risk (not defaulted to high)?
 - [ ] Does the rule description start with "Detects"?
 - [ ] Are YAML special characters in title/description wrapped in double quotes?
+- [ ] Have you reviewed ALL rules in this response for semantic duplicates? (Same logsource + overlapping detection.selection = duplicate; keep the most specific, discard the rest.)
 
 ---
 
@@ -562,6 +580,7 @@ Use when reviewing any generator prompt (new or revised):
 - [ ] Detection construction rules mandate behavioral operators?
 - [ ] Resilience requirements explicitly listed?
 - [ ] Rule splitting logic defined by behavior type?
+- [ ] Anti-splitting (dedup) contract present? (parent-vs-child perspective, same-IP network rules, title-only variants all prohibited)
 
 ### Output contract
 - [ ] YAML-only output instruction present?
@@ -575,4 +594,4 @@ Use when reviewing any generator prompt (new or revised):
 
 ---
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-06-24_
