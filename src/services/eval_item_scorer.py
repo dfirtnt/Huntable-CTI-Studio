@@ -11,6 +11,16 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+AGENT_EVAL_FBETA_BETA = 0.5
+
+
+def calculate_f_beta(precision: float, recall: float, beta: float = AGENT_EVAL_FBETA_BETA) -> float:
+    beta_squared = beta * beta
+    denominator = (beta_squared * precision) + recall
+    if denominator <= 0:
+        return 0.0
+    return ((1 + beta_squared) * precision * recall) / denominator
+
 
 def _normalize(s: str) -> str:
     """Normalize a command-line string for comparison.

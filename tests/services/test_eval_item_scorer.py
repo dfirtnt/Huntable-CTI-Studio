@@ -7,7 +7,7 @@ model returned no items but expected_items still has ground truth).
 
 import pytest
 
-from src.services.eval_item_scorer import ItemScorerResult, score_items
+from src.services.eval_item_scorer import ItemScorerResult, calculate_f_beta, score_items
 
 
 @pytest.mark.unit
@@ -92,6 +92,11 @@ def test_partial_match_precision_recall():
     # Precision = 2 / 3 = 0.6667; Recall = 2 / 4 = 0.5
     assert result.precision == 0.6667
     assert result.recall == 0.5
+
+
+@pytest.mark.unit
+def test_calculate_f_beta_defaults_to_precision_weighted_f05():
+    assert calculate_f_beta(2 / 3, 0.5) == pytest.approx(0.625)
 
 
 @pytest.mark.unit
