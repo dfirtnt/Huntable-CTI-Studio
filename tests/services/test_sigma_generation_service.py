@@ -936,6 +936,93 @@ level: high
                         assert result is not None
 
     @pytest.mark.asyncio
+    async def test_expansion_empty_response_keeps_initial_rules(self, service, sample_article_data):
+        """Phase 4 expansion is best-effort: an empty/failed expansion response must not
+        discard the valid Phase 1 rules or fail the whole generation.
+
+        Regression for execution 3517 — gpt-5.1-chat-latest returned an empty response on
+        the expansion call (FAIL-SAFE: nothing safe to add for network_connection). The
+        unguarded call let that ValueError propagate and threw away 2 already-valid rules,
+        failing the workflow.
+        """
+        extraction_result = {
+            "subresults": {
+                "cmdline": {"count": 5, "items": ["cmd1"]},
+                # Uncovered network_indicators forces an expansion attempt for network_connection.
+                "network_indicators": {"count": 6, "items": ["1.2.3.4"]},
+            }
+        }
+
+        initial_rule = """title: Process Creation Rule
+id: rule-1
+description: Process rule
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        CommandLine|contains: 'test'
+    condition: selection
+level: medium
+"""
+
+        with patch("src.services.sigma_generation_service.optimize_article_content") as mock_optimize:
+            mock_optimize.return_value = {
+                "success": True,
+                "filtered_content": sample_article_data["content"],
+                "tokens_saved": 0,
+            }
+
+            with patch("src.utils.prompt_loader.format_prompt_async") as mock_prompt:
+                mock_prompt.return_value = "Generate rules"
+
+                with patch.object(service, "_call_provider_for_sigma") as mock_call:
+                    # Phase 1 returns a valid rule; the Phase 4 expansion call comes back empty,
+                    # which surfaces as the empty-response ValueError from _call_provider_for_sigma.
+                    mock_call.side_effect = [
+                        initial_rule,
+                        ValueError(
+                            "LLM returned empty response for SIGMA generation. "
+                            "Check the configured provider is responding correctly."
+                        ),
+                    ]
+
+                    with patch("src.services.sigma_generation_service.validate_sigma_rule") as mock_validate:
+
+                        def validate_side_effect(rule_str):
+                            parsed = yaml.safe_load(rule_str)
+                            if parsed and "title" in parsed:
+                                return ValidationResult(
+                                    is_valid=True,
+                                    errors=[],
+                                    warnings=[],
+                                    metadata={"rule": parsed},
+                                    content_preview=rule_str,
+                                )
+                            return ValidationResult(
+                                is_valid=False, errors=["Invalid"], warnings=[], metadata=None, content_preview=rule_str
+                            )
+
+                        mock_validate.side_effect = validate_side_effect
+
+                        # Must NOT raise even though the expansion call errored.
+                        result = await service.generate_sigma_rules(
+                            article_title=sample_article_data["title"],
+                            article_content=sample_article_data["content"],
+                            source_name=sample_article_data["source_name"],
+                            url=sample_article_data["url"],
+                            extraction_result=extraction_result,
+                            enable_multi_rule_expansion=True,
+                        )
+
+                    # The expansion was actually attempted (second provider call) but failed gracefully.
+                    assert mock_call.call_count == 2
+                    # The Phase 1 rule survived and no fatal error was surfaced.
+                    assert result.get("errors") is None
+                    assert len(result["rules"]) == 1
+                    assert result["rules"][0]["title"] == "Process Creation Rule"
+
+    @pytest.mark.asyncio
     async def test_generate_sigma_rules_rule_scoped_logging(self, service, sample_article_data, sample_sigma_rule):
         """Test rule-scoped logging structure."""
         with patch("src.services.sigma_generation_service.optimize_article_content") as mock_optimize:
