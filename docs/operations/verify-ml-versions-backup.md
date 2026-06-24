@@ -218,5 +218,5 @@ docker exec cti_postgres psql -U cti_user -d cti_scraper -c "SELECT 1;"
 
 > **Note:** The verification scripts referenced above (`utils/temp/verify_backup_restore_*.sh`) have been removed. The verification steps documented here remain valid for manual execution.
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-06-24_
 
