@@ -60,9 +60,9 @@ Automatically generate Sigma detection rules from CTI content. See [Sigma Detect
 
 ML-based classification to filter low-quality content. See [Content Filtering](features/content-filtering.md).
 
-### OS Detection
+### Platform Detection
 
-Multi-tier detection to identify Windows/Linux/macOS content. See [OS Detection](features/os-detection.md).
+Deterministic entity-driven classification to identify Windows/Linux/macOS content. See [Platform Detection](features/os-detection.md).
 
 ### ProcTree Attention Preprocessor
 
@@ -92,7 +92,7 @@ See [Local Model Selection Guide](llm/model-selection.md) for recommendations.
 - **Contributing**: See [Contributing Guide](CONTRIBUTING.md)
 - **Issues**: [GitHub Issues](https://github.com/dfirtnt/Huntable-CTI-Studio/issues)
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-06-25_
 <!--stackedit_data:
 eyJoaXN0b3J5IjpbLTEwNzM5MDg3MjEsLTYxMzk0MzI2NF19
 -->
