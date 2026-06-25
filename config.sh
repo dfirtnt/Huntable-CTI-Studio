@@ -3,13 +3,20 @@
 # config.sh -- change Huntable CTI Studio app/auth configuration WITHOUT
 # re-running the full installer (setup.sh).
 #
-# Edits .env idempotently. NEVER regenerates passwords, resets DB volumes, or
-# runs docker compose. Apply changes with a container restart (printed after
-# each command). For the initial install, use ./setup.sh.
+# The .env commands edit .env idempotently and NEVER regenerate passwords, reset
+# DB volumes, or run docker compose. Apply those with a container restart (printed
+# after each command). For the initial install, use ./setup.sh.
+#
+# The one exception is `entra`, which delegates to deploy/sso/local/gate.sh to
+# start/stop the local Entra login gate and open/close direct :8001 (it does run
+# docker compose; that is its whole purpose).
 #
 # Usage:
 #   ./config.sh sso              Configure enterprise SSO + scaffold deploy/sso
 #   ./config.sh sso --disable    Turn SSO off (AUTH_MODE=disabled)
+#   ./config.sh entra on         Force Entra login for all access (close direct :8001)
+#   ./config.sh entra off        Stop requiring login (restore direct :8001)
+#   ./config.sh entra status     Show the live login-gate posture
 #   ./config.sh rotate-secret    Generate a new SECRET_KEY
 #   ./config.sh set KEY VALUE    Set any .env key (idempotent)
 #   ./config.sh show             Print current auth config (SECRET_KEY redacted)
@@ -106,6 +113,25 @@ cmd_sso() {
     restart_reminder
 }
 
+cmd_entra() {
+    # Thin pass-through to the gate helper. config.sh stays .env-only; all docker
+    # orchestration (gate lifecycle + the :8001 port toggle) lives in gate.sh.
+    local gate_script="$SCRIPT_DIR/deploy/sso/local/gate.sh"
+    if [[ ! -x "$gate_script" ]]; then
+        print_error "Gate helper not found or not executable: $gate_script"
+        exit 1
+    fi
+    case "${1:-}" in
+        on) exec "$gate_script" up ;;
+        off) exec "$gate_script" down ;;
+        status) exec "$gate_script" status ;;
+        *)
+            print_error "usage: ./config.sh entra on|off|status"
+            exit 1
+            ;;
+    esac
+}
+
 cmd_rotate_secret() {
     require_env
     startup_set_env_key "$ENV_FILE" "SECRET_KEY" "$(generate_password 48)"
@@ -156,12 +182,17 @@ Usage: ./config.sh <command> [args]
 Commands:
   sso                 Configure enterprise SSO (trusted-header proxy) + scaffold deploy/sso
   sso --disable       Turn SSO off (AUTH_MODE=disabled)
+  entra on            Force Entra login for all access (close direct :8001)
+  entra off           Stop requiring login (restore direct :8001)
+  entra status        Show the live login-gate posture (read-only)
   rotate-secret       Generate a new SECRET_KEY
   set KEY VALUE       Set any .env key (idempotent)
   show                Print current auth config (SECRET_KEY redacted)
 
-Changes never touch passwords, DB volumes, or run docker compose. Apply with a
-restart: docker restart cti_web cti_worker cti_workflow_worker cti_scheduler
+The .env commands never touch passwords, DB volumes, or run docker compose; apply
+them with a restart: docker restart cti_web cti_worker cti_workflow_worker cti_scheduler
+The 'entra' command delegates to deploy/sso/local/gate.sh and DOES run docker compose
+(it starts/stops the login gate and toggles the :8001 host port).
 For the initial install, use ./setup.sh.
 EOF
 }
@@ -171,6 +202,7 @@ main() {
     shift || true
     case "$cmd" in
         sso) cmd_sso "$@" ;;
+        entra) cmd_entra "$@" ;;
         rotate-secret) cmd_rotate_secret ;;
         set) cmd_set "$@" ;;
         show) cmd_show ;;

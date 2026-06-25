@@ -220,6 +220,14 @@ Google both allow `http://localhost` redirect URIs for this. See
 `deploy/sso/local/README.md` for the steps. Use this to confirm the provider/OIDC
 flow works, then move to the full RBAC setup above for roles.
 
+By default the app is still reachable directly at `http://localhost:8001`, bypassing
+the gate. To force every visitor through the Entra login, run `./config.sh entra on`
+(or `deploy/sso/local/gate.sh up`): it confirms a working login, then un-publishes the
+app's host port so the proxy is the only way in, and `./config.sh entra off` restores
+direct access. This is the localhost equivalent of *Step 4* above. Remember it is a
+login gate (authentication only) -- every Entra user who logs in still gets the app's
+default admin access until you move to the trusted-header RBAC setup.
+
 ## Production checklist
 
 - [ ] `APP_ENV=production` and the app starts (fail-closed checks pass).

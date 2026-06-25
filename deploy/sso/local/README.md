@@ -45,14 +45,42 @@ docker compose -f docker-compose.entra-gate.yml up -d
 ```
 
 Open `http://localhost:4180`. You are redirected to Microsoft, sign in, and land
-on the app. The app is still directly reachable at `http://localhost:8001` (the
-gate does not block that) -- that is fine for a test; close the port when you
-move to a real deployment.
+on the app. At this point the app is **still directly reachable** at
+`http://localhost:8001`, bypassing the gate -- fine for a first test, but see the
+next section to force everyone through the login.
 
-## 4. Tear down
+## 4. Force everyone through the gate (block direct :8001)
+
+By default the app stays reachable at `http://localhost:8001` even with the gate
+running. To make the Entra login the *only* way in, un-publish the app's host port
+so it is reachable only over the Docker network (which is how the proxy reaches it):
 
 ```bash
-docker compose -f docker-compose.entra-gate.yml down
+./gate.sh up       # start the gate, confirm a real login, then close direct :8001
+./gate.sh down     # reopen direct :8001 and stop the gate
+./gate.sh status   # show the live posture (read-only)
+```
+
+From the repo root, `./config.sh entra on|off|status` does the same thing.
+
+`gate.sh up` starts the gate, makes you confirm a working Entra login **before** it
+closes the port (so a bad credential cannot lock you out), then recreates `cti_web`
+with no host port and verifies `:8001` is actually closed -- reverting if it is not.
+It self-locates the running app from the container's compose labels, so it targets
+the real stack regardless of which checkout you run it from.
+
+This is a **login gate**: it requires authentication but grants every Entra user the
+app's default admin access (no per-user roles). For roles, see *Next: roles* below.
+
+> Note: removing a published port requires recreating `cti_web`, so `up`/`down`
+> cause a brief blip. Application tests cannot prove network isolation; `gate.sh`
+> probes the port for you instead.
+
+## 5. Tear down
+
+```bash
+./gate.sh down                                      # if the gate is engaged
+docker compose -f docker-compose.entra-gate.yml down  # or stop the gate directly
 ```
 
 ## Troubleshooting
