@@ -1,0 +1,44 @@
+# Local Entra ID LOGIN GATE (no domain, no TLS).
+#
+# oauth2-proxy sits in front of the already-running app and requires an Entra
+# (Microsoft) login before any request reaches it. The app is NOT modified and
+# stays open behind the proxy -- this proves the Entra OIDC flow works; it does
+# NOT do per-user roles (that is the full-RBAC path with the nginx scaffold).
+#
+# It attaches to the running app's Docker network and proxies to the cti_web
+# container, so the enterprise-auth-audit branch does NOT need to be deployed.
+#
+# Usage (run from this directory so the relative env_file resolves):
+#   cd deploy/sso/local
+#   cp oauth2-proxy.env.example oauth2-proxy.env   # then fill in the 4 values
+#   docker compose -f docker-compose.entra-gate.yml up -d
+#   open http://localhost:4180
+#
+# Tear down:  docker compose -f docker-compose.entra-gate.yml down
+
+services:
+  oauth2-proxy-local:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.7.1
+    container_name: cti_oauth2_local
+    env_file:
+      - oauth2-proxy.env
+    environment:
+      OAUTH2_PROXY_HTTP_ADDRESS: 0.0.0.0:4180
+      OAUTH2_PROXY_REVERSE_PROXY: "true"
+      # Proxy authenticated traffic to the running app container on the shared network.
+      OAUTH2_PROXY_UPSTREAMS: http://cti_web:8001
+      OAUTH2_PROXY_EMAIL_DOMAINS: "*"
+      # Plain http on localhost: the session cookie cannot require TLS.
+      OAUTH2_PROXY_COOKIE_SECURE: "false"
+      # Skip the interstitial and go straight to Microsoft.
+      OAUTH2_PROXY_SKIP_PROVIDER_BUTTON: "true"
+    ports:
+      - "4180:4180"
+    networks:
+      - cti
+    restart: unless-stopped
+
+networks:
+  cti:
+    external: true
+    name: huntable-cti-studio_cti_network

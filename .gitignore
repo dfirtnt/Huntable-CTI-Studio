@@ -293,3 +293,4 @@ hunt_score_distribution.html
 deploy/sso/nginx.conf
 deploy/sso/oauth2-proxy.env
 deploy/sso/tls/
+deploy/sso/local/oauth2-proxy.env

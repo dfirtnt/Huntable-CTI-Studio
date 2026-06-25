@@ -210,6 +210,16 @@ to the app.
   forged `X-Huntable-*` header is treated as unauthenticated. If this succeeds, direct
   access is not blocked (revisit Step 4).
 
+## Local testing without a domain (login gate)
+
+To try SSO on `localhost` with no domain and no TLS, use the login-gate variant in
+`deploy/sso/local/`: oauth2-proxy sits in front of the running app and requires a
+login, but the app keeps its default access (no per-user roles). It attaches to the
+app's Docker network, so the auth code does not need to be deployed. Microsoft and
+Google both allow `http://localhost` redirect URIs for this. See
+`deploy/sso/local/README.md` for the steps. Use this to confirm the provider/OIDC
+flow works, then move to the full RBAC setup above for roles.
+
 ## Production checklist
 
 - [ ] `APP_ENV=production` and the app starts (fail-closed checks pass).
