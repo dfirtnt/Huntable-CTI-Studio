@@ -11071,11 +11071,6 @@ async function viewExecution(executionId) {
                     ? exec.extraction_result.summary.platforms_detected
                     : (detectedOS ? [detectedOS] : []));
             const platformsDetectedLabel = platformsDetected.length > 0 ? platformsDetected.join(', ') : 'Unknown';
-            // Phase D: Domains + Products dimensions (entity-driven, stored in os_detection_result).
-            const detectedDomains = Array.isArray(osDetectionData.domains) ? osDetectionData.domains : [];
-            const detectedProducts = Array.isArray(osDetectionData.products) ? osDetectionData.products : [];
-            const domainsLabel = detectedDomains.length > 0 ? detectedDomains.join(', ') : '—';
-            const productsLabel = detectedProducts.length > 0 ? detectedProducts.join(', ') : '—';
 
             // Show Platform Detection step if:
             // 1. Platform detection result exists in error_log
@@ -11106,7 +11101,7 @@ async function viewExecution(executionId) {
                         .map(([os, sim]) => `<div>• ${os}: ${(sim * 100).toFixed(1)}%</div>`)
                         .join('');
                     similaritiesHtml = `<details class="mt-2 w-full">
-                        <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: var(--text-emphasis) !important;">View Platform Similarity Scores</summary>
+                        <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: var(--text-emphasis) !important;">View Platform Score Distribution</summary>
                         <div class="mt-2 w-full bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs text-gray-900 dark:text-white">
                             ${similaritiesList}
                         </div>
@@ -11131,11 +11126,9 @@ async function viewExecution(executionId) {
                     osOutput = `<div class="space-y-1 text-gray-700 dark:text-gray-300">
                         <div><strong>Detected OS:</strong> ${detectedOS}</div>
                         <div><strong>Platforms Detected:</strong> ${platformsDetectedLabel}</div>
-                        <div><strong>Domains:</strong> ${domainsLabel}</div>
-                        <div><strong>Products:</strong> ${productsLabel}</div>
                         <div><strong>Method:</strong> ${osMethod}</div>
                         <div><strong>Confidence:</strong> ${osConfidence}</div>
-                        ${osMaxSimilarity !== undefined ? `<div><strong>Max Similarity:</strong> ${(osMaxSimilarity * 100).toFixed(1)}%</div>` : ''}
+                        ${osMaxSimilarity !== undefined ? `<div><strong>Top Platform Score:</strong> ${(osMaxSimilarity * 100).toFixed(1)}%</div>` : ''}
                         <div><strong>Decision:</strong> Continue to capability routing</div>
                     </div>`;
                 } else if (!osDetectionResult) {

@@ -238,17 +238,19 @@ uses no LLM; this is an additive, bounded cost.
   *suppresses* Linux Sigma — so KB-blank articles defer to the LLM for precise narrowing.
   Tests: `tests/services/test_attack_platform_signal.py` (8) + ATT&CK integration cases
   in `test_platform_classifier.py`.
-- **Phase D — Domains + Products dimensions. ✅ CORE + SURFACING DONE 2026-06-19.** Shipped
-  `src/services/entity_dimension_classifier.py` (generic keyword-KB scoring: Domains as
+- **Phase D — Domains + Products dimensions. ⛔ REVERTED 2026-06-25 (shipped 2026-06-19, removed as YAGNI cruft).**
+  Originally shipped `src/services/entity_dimension_classifier.py` (generic keyword-KB scoring: Domains as
   independent multi-label above a floor; Products presence-based, deduped), with
-  `config/domain_classification_kb.yaml` + `config/product_classification_kb.yaml` seeds.
-  Wired into `os_detection_node` (deterministic, free) and stored in
-  `error_log.os_detection_result.{domains,products}` (no schema change); flows through the
-  existing execution API and renders in the per-execution Platform Detection trace. Tests:
-  `tests/services/test_entity_dimension_classifier.py` (6) + Playwright
-  `tests/playwright/workflow_platform_dimensions.spec.ts`. Live seed sanity: 4441 →
-  domains[Network,Identity,Endpoint], products[Active Directory, PAN-OS, F5 BIG-IP, Confluence].
-  **Deferred:** delete the embedding path entirely (this is the taxonomy generalization
+  `config/domain_classification_kb.yaml` + `config/product_classification_kb.yaml` seeds,
+  wired into `os_detection_node` and stored in `error_log.os_detection_result.{domains,products}`.
+  **Removed 2026-06-25:** the dimensions had **zero functional consumer** from day one — written once in
+  `os_detection_node`, rendered as static labels in the Platform Detection trace, and read by *nothing*
+  (no routing, filter, grouping, Sigma generation, API decision, or downstream node). Domain/product routing
+  was never built (open question #4 unresolved) and not scheduled, so the producer was inert decoration that
+  implied a capability the system did not have. Excised as a clean unit (classifier + both KBs + workflow
+  wiring + trace UI + tests). The curated KBs (42 domain + 19 product entries) remain in git history (commit
+  `8c03d744`) for a clean cherry-pick **if and when** a real consumer (a domain/product routing gate) is designed.
+  **Deferred (separate item, still pending):** delete the embedding path entirely (this is the taxonomy generalization
   phase-one §4 deliberately deferred) — blocked on `huntable_windows_service`'s
   `_get_embedding` dependency + the OS-classifier trainer.
   - **Embedding OS *detection* removed 2026-06-19** (`_detect_with_classifier`,
@@ -261,7 +263,7 @@ uses no LLM; this is an additive, bounded cost.
   - Follow-up: the OS-classifier training pipeline now trains a classifier nothing reads
     (KB superseded it); retire it (and then the shared embedding infra) once
     `huntable_windows_service`'s embedding dependency is resolved.
-  - Domains + Products dimensions: still proposed.
+  - Domains + Products dimensions: reverted 2026-06-25 (see above) — re-propose only with a committed consumer.
 
 ---
 

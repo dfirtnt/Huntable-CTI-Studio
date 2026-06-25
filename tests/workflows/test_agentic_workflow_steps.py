@@ -728,36 +728,12 @@ class TestQueuePromotionNode:
 
 
 # ---------------------------------------------------------------------------
-# Platform Detection node — Domains/Products surfacing (Phase D)
+# Platform Detection node — verdict wiring
 # ---------------------------------------------------------------------------
 
 
-class TestOsDetectionNodeDimensions:
-    """The os_detection node must store domains + products in os_detection_result so the
-    execution API / trace can surface them. The classifiers are unit-tested elsewhere;
-    this locks the node *wiring* (a Playwright spec only renders mocked data)."""
-
-    @pytest.mark.asyncio
-    async def test_os_detection_node_stores_domains_and_products(self, article, execution, config_obj):
-        article.content = (
-            "Linux intrusion: attacker used systemctl and dropped an /etc/cron.d entry for "
-            "persistence; targeted Active Directory and Kerberos, pivoted through an F5 BIG-IP "
-            "edge appliance and exploited Confluence. " + "x" * 600
-        )
-        execution.error_log = None
-        execution.config_snapshot = {}
-        db_session = _make_db_session(article, execution)
-        nodes = _capture_nodes(db_session, trigger_service_config=config_obj)
-
-        with patch("src.workflows.agentic_workflow.flag_modified"):
-            await nodes["os_detection"](_default_state(article_id=1, execution_id=100))
-
-        od = execution.error_log["os_detection_result"]
-        assert od["platforms_detected"] == ["linux"]
-        assert "domains" in od and "products" in od
-        assert "Identity" in od["domains"]
-        assert any("Active Directory" in p for p in od["products"])
-        assert any("F5 BIG-IP" in p for p in od["products"])
+class TestOsDetectionNode:
+    """Locks the os_detection node's verdict wiring into os_detection_result."""
 
     @pytest.mark.asyncio
     async def test_os_detection_node_reuses_precomputed_verdict(self, article, execution, config_obj):
