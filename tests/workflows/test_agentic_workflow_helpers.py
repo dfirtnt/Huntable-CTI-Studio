@@ -17,6 +17,7 @@ from src.workflows.agentic_workflow import (
     _parse_agent_result,
     _platforms_from_os_detection,
     _rebase_group_observable_indices,
+    _repair_empty_observable_attribution,
 )
 
 pytestmark = pytest.mark.unit
@@ -210,6 +211,65 @@ def test_rebase_group_observable_indices_uses_execution_wide_indices():
     _rebase_group_observable_indices(rule, [3, 8])
 
     assert rule["observables_used"] == [3, 8]
+
+
+def test_repair_empty_observable_attribution_infers_execution_wide_indices():
+    rule = {
+        "title": "Suspicious WScript from WhatsApp",
+        "logsource": {"product": "windows", "category": "process_creation"},
+        "detection": {
+            "selection": {"CommandLine|contains|all": ["WhatsAppDesktop", "Transfers", ".vbs"]},
+            "condition": "selection",
+        },
+        "observables_used": [],
+    }
+    extraction_result = {
+        "observables": [
+            {
+                "type": "cmdline",
+                "value": (
+                    '"C:\\Windows\\System32\\WScript.exe" '
+                    '"C:\\Users\\user\\AppData\\Local\\Packages\\5319275A.WhatsAppDesktop_cv1g1gvanyjgm'
+                    '\\LocalState\\Sessions\\abc\\Transfers\\financial reports(s).vbs"'
+                ),
+            },
+            {
+                "type": "registry_artifacts",
+                "value": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\System",
+            },
+        ]
+    }
+
+    _repair_empty_observable_attribution(
+        rule,
+        extraction_result=extraction_result,
+        group_original_indices=[1],
+        group_logsource_hint={"product": "windows", "category": "registry_event"},
+    )
+
+    assert rule["observables_used"] == [0]
+    assert rule["observables_used_inferred"] is True
+    assert "logsource_mismatch" in rule["observable_attribution_warnings"]
+
+
+def test_repair_empty_observable_attribution_warns_when_no_match():
+    rule = {
+        "title": "Generic Rule",
+        "logsource": {"product": "windows", "category": "process_creation"},
+        "detection": {"selection": {"CommandLine|contains": "not-present"}, "condition": "selection"},
+        "observables_used": [],
+    }
+    extraction_result = {"observables": [{"type": "cmdline", "value": "powershell.exe -enc abc"}]}
+
+    _repair_empty_observable_attribution(
+        rule,
+        extraction_result=extraction_result,
+        group_original_indices=[0],
+        group_logsource_hint={"product": "windows", "category": "process_creation"},
+    )
+
+    assert rule["observables_used"] == []
+    assert rule["observable_attribution_warnings"] == ["empty_for_observable_group"]
 
 
 def test_sigma_full_content_fallback_group_preserves_legacy_content_path():

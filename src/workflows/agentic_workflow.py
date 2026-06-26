@@ -37,6 +37,7 @@ from src.services.sigma_eval_service import (
     mark_pending_sigma_evals_as_failed,
     score_and_persist_execution,
 )
+from src.services.sigma_generation_service import _infer_observables_used
 from src.services.sigma_matching_service import SigmaMatchingService
 from src.services.workflow_provider_options import _probe_lmstudio
 from src.services.workflow_trigger_service import WorkflowTriggerService
@@ -479,6 +480,53 @@ def _rule_logsource_matches_group(rule: dict[str, Any], group: dict[str, Any]) -
     if expected_product and actual_product != expected_product:
         return False
     return True
+
+
+def _metadata_without_grounding_fields(rule: dict[str, Any]) -> dict[str, Any]:
+    grounding_fields = {
+        "observables_used",
+        "observables_used_inferred",
+        "platform",
+        "telemetry_category",
+        "generation_basis",
+        "detection_readiness",
+        "logsource_hint",
+        "sigma_generation_group",
+        "observable_attribution_warnings",
+    }
+    return {k: v for k, v in rule.items() if k not in grounding_fields}
+
+
+def _append_observable_attribution_warning(rule: dict[str, Any], warning: str) -> None:
+    warnings = rule.setdefault("observable_attribution_warnings", [])
+    if isinstance(warnings, list) and warning not in warnings:
+        warnings.append(warning)
+
+
+def _repair_empty_observable_attribution(
+    rule: dict[str, Any],
+    *,
+    extraction_result: dict[str, Any] | None,
+    group_original_indices: list[int],
+    group_logsource_hint: dict[str, Any] | None,
+) -> None:
+    """Recover traceability when a grouped Sigma rule explicitly returned observables_used: []."""
+    rule_logsource = rule.get("logsource") if isinstance(rule.get("logsource"), dict) else {}
+    rule_category = rule_logsource.get("category")
+    group_category = group_logsource_hint.get("category") if isinstance(group_logsource_hint, dict) else None
+    if rule_category and group_category and rule_category != group_category:
+        _append_observable_attribution_warning(rule, "logsource_mismatch")
+
+    if rule.get("observables_used") != [] or not group_original_indices:
+        return
+
+    inferred = _infer_observables_used(yaml.dump(_metadata_without_grounding_fields(rule)), extraction_result or {})
+    if inferred:
+        rule["observables_used"] = inferred
+        rule["observables_used_inferred"] = True
+        return
+
+    _append_observable_attribution_warning(rule, "empty_for_observable_group")
 
 
 def _detection_leaf_values(detection: Any) -> frozenset[str]:
@@ -2769,6 +2817,12 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         )
                         continue
                     _rebase_group_observable_indices(rule, group["original_indices"])
+                    _repair_empty_observable_attribution(
+                        rule,
+                        extraction_result=extraction_result,
+                        group_original_indices=group["original_indices"],
+                        group_logsource_hint=group["logsource_hint"],
+                    )
                     rule.setdefault("platform", group["platform"])
                     rule.setdefault("telemetry_category", group["telemetry_category"])
                     rule.setdefault("logsource_hint", group["logsource_hint"])
@@ -3250,6 +3304,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                                 "detection_readiness",
                                 "logsource_hint",
                                 "sigma_generation_group",
+                                "observable_attribution_warnings",
                             }
                             rule_for_yaml = {k: v for k, v in rule.items() if k not in non_sigma_metadata_fields}
                             rule_yaml = yaml.dump(rule_for_yaml, default_flow_style=False, sort_keys=False)
@@ -3286,6 +3341,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                                 "detection_readiness",
                                 "logsource_hint",
                                 "sigma_generation_group",
+                                "observable_attribution_warnings",
                             ):
                                 if rule.get(metadata_key) is not None:
                                     rule_meta[metadata_key] = rule[metadata_key]
