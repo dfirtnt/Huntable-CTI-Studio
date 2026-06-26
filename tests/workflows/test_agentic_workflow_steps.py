@@ -555,6 +555,69 @@ class TestGenerateSigmaNode:
             execution.error_log["generate_sigma"]["sigma_generation_groups"][0]["telemetry_category"] == "full_content"
         )
 
+    @pytest.mark.asyncio
+    async def test_drops_rule_when_generated_logsource_does_not_match_group(
+        self, article, execution, config_obj
+    ):
+        config_obj.agent_prompts = {}
+        config_obj.sigma_fallback_enabled = False
+        db_session = _make_db_session(article, execution)
+        nodes = _capture_nodes(db_session, trigger_service_config=config_obj)
+
+        async def generate_side_effect(*args, **kwargs):
+            return {
+                "rules": [
+                    {
+                        "title": "Defender Disablement From Network Group",
+                        "description": "Wrong telemetry escaped the network group",
+                        "logsource": {"product": "windows", "category": "process_creation"},
+                        "detection": {
+                            "selection": {"CommandLine|contains|all": ["Stop-Service", "WinDefend"]},
+                            "condition": "selection",
+                        },
+                        "observables_used": [0],
+                    }
+                ],
+                "metadata": {
+                    "total_attempts": 1,
+                    "valid_rules": 1,
+                    "validation_results": [{"is_valid": True, "errors": [], "warnings": [], "rule_index": 1}],
+                    "conversation_log": [{"event_type": "generation_call", "generated_rule_count": 1}],
+                },
+                "errors": None,
+            }
+
+        extraction_result = {
+            "observables": [
+                {
+                    "type": "network_indicators",
+                    "value": "hxxp://77.110.122[.]58:24954",
+                    "platform": "windows",
+                    "telemetry_category": "network_connection",
+                    "logsource_hint": {"product": "windows", "category": "network_connection"},
+                }
+            ],
+            "summary": {"count": 1, "platforms_detected": ["windows"]},
+            "discrete_huntables_count": 1,
+            "content": "hxxp://77.110.122[.]58:24954 " + "network indicator context " * 5,
+        }
+
+        with patch("src.services.sigma_generation_service.SigmaGenerationService") as mock_sigma_cls:
+            mock_sigma = Mock()
+            mock_sigma.generate_sigma_rules = AsyncMock(side_effect=generate_side_effect)
+            mock_sigma_cls.return_value = mock_sigma
+
+            result = await nodes["generate_sigma"](
+                _default_state(
+                    filtered_content=article.content,
+                    extraction_result=extraction_result,
+                    discrete_huntables_count=1,
+                )
+            )
+
+        assert result["sigma_rules"] == []
+        assert mock_sigma.generate_sigma_rules.await_count == 1
+
 
 # ---------------------------------------------------------------------------
 # Similarity Search Node

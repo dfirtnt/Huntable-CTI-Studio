@@ -454,6 +454,33 @@ def _logsource_key(rule: dict[str, Any]) -> tuple[str, str]:
     return (str(ls.get("category") or ""), str(ls.get("product") or ""))
 
 
+def _rule_logsource_matches_group(rule: dict[str, Any], group: dict[str, Any]) -> bool:
+    """Return False when a generated rule crossed out of its Sigma generation group."""
+    if group.get("telemetry_category") == "full_content":
+        return True
+
+    hint = group.get("logsource_hint") or {}
+    if not isinstance(hint, dict):
+        return True
+
+    expected_category = str(hint.get("category") or "").strip().lower()
+    expected_product = str(hint.get("product") or "").strip().lower()
+    if not expected_category and not expected_product:
+        return True
+
+    logsource = rule.get("logsource") or {}
+    if not isinstance(logsource, dict):
+        return False
+
+    actual_category = str(logsource.get("category") or "").strip().lower()
+    actual_product = str(logsource.get("product") or "").strip().lower()
+    if expected_category and actual_category != expected_category:
+        return False
+    if expected_product and actual_product != expected_product:
+        return False
+    return True
+
+
 def _detection_leaf_values(detection: Any) -> frozenset[str]:
     """Collect all scalar string values from a detection block for overlap comparison."""
     values: set[str] = set()
@@ -2733,6 +2760,13 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
                 for rule in group_rules:
                     if not isinstance(rule, dict):
+                        continue
+                    if not _rule_logsource_matches_group(rule, group):
+                        logger.warning(
+                            f"[Workflow {state['execution_id']}] Dropping SIGMA rule {rule.get('title')!r}: "
+                            f"logsource {rule.get('logsource')} does not match generation group "
+                            f"{group.get('logsource_hint')}"
+                        )
                         continue
                     _rebase_group_observable_indices(rule, group["original_indices"])
                     rule.setdefault("platform", group["platform"])
