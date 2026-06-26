@@ -575,4 +575,4 @@ Use when reviewing any generator prompt (new or revised):
 
 ---
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-06-26_

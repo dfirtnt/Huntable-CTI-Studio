@@ -445,4 +445,4 @@ This can produce false-NOVEL classifications for behaviorally equivalent rules.
 This structural limitation is tracked separately and requires cross-class comparison
 support to resolve (Option B).
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-06-26_
