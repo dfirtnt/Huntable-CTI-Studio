@@ -28,7 +28,7 @@ cd Huntable-CTI-Studio
 ```
 Check that services are healthy:
 ```bash
-docker-compose ps
+docker compose ps
 curl http://localhost:8001/health
 ```
 UI entry points:
@@ -102,7 +102,7 @@ In the UI, open `http://localhost:8001/workflow#executions` and click **View** o
 ## 7) Verify with pytest
 Run a lightweight API health test from the running web container:
 ```bash
-docker-compose exec web python3 -m pytest tests/api/test_endpoints.py::TestHealthEndpoints::test_health_endpoints -q
+docker compose exec web python3 -m pytest tests/api/test_endpoints.py::TestHealthEndpoints::test_health_endpoints -q
 ```
 A zero exit code confirms the stack and core health endpoints are working.
 
@@ -123,7 +123,7 @@ bash scripts/run_mcp_server.sh     # runs the server in the Docker cli container
 
 Stack shutdown (optional):
 ```bash
-docker-compose down
+docker compose down
 ```
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-06-27_
