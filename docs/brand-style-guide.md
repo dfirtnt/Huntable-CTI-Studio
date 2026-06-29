@@ -1,7 +1,7 @@
 # Huntable CTI Studio — Brand & Style Guide
 ### Handoff Document for Presentation / Pitch Deck Agents
 
-**Product:** Huntable CTI Studio v7.1.0 "Europa"  
+**Product:** Huntable CTI Studio v7.5.0 "Europa"  
 **Category:** Cyber Threat Intelligence (CTI) ML/AI Workbench  
 **Audience:** Security Operations, Threat Hunters, Detection Engineers  
 **Tone:** Precision-tool. Operational. No hype. Quietly confident.
@@ -34,7 +34,7 @@ An end-to-end OSINT-to-SIGMA pipeline. Ingests threat intel from 38+ sources, us
 - "Hunt-ready intelligence, continuously."
 
 ### Core Differentiators (slide content hooks)
-1. **7-step agentic workflow** (OS Detection → Junk Filter → LLM Rank → Extract → Generate SIGMA → Similarity Search → Queue)
+1. **7-step agentic workflow** (Platform Detection → Junk Filter → LLM Rank → Extract → Generate SIGMA → Similarity Search → Queue)
 2. **Multi-model AI**: OpenAI, Anthropic, LM Studio — no vendor lock
 3. **Deduplication at scale**: Jaccard + behavioral similarity vs. 3,000+ Sigma community rules
 4. **Source auto-healing**: LLM-powered diagnostics repair broken feeds automatically
@@ -131,7 +131,7 @@ The 7-step agentic pipeline has an explicit color sequence used for step indicat
 
 | Step | Name | Hex |
 |------|------|-----|
-| 0 | OS Detection | `#22d3ee` (cyan) |
+| 0 | Platform Detection | `#22d3ee` (cyan) |
 | 1 | Junk Filter | `#60a5fa` (blue) |
 | 2 | LLM Rank | `#4ade80` (green) |
 | 3 | Extract Agent | `#facc15` (yellow) |
@@ -347,4 +347,4 @@ TEXT                 FONTS
 
 ---
 
-*Source: extracted from `src/web/static/css/theme-variables.css` and `src/web/templates/base.html`, `dashboard.html`. Last updated 2026-06-20.*
+*Source: extracted from `src/web/static/css/theme-variables.css` and `src/web/templates/base.html`, `dashboard.html`. Last updated 2026-06-29.*

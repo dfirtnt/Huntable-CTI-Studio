@@ -43,6 +43,8 @@ This project and everyone participating in it is governed by our Code of Conduct
 
 ## Development Setup
 
+> **Package manager:** This project uses [`uv`](https://github.com/astral-sh/uv) (not pip). CI runs `uv sync --frozen` and `uv run` for all Python commands. Install uv before the steps below.
+
 ### 1. Environment Setup
 
 ```bash
@@ -79,8 +81,8 @@ We follow PEP 8 with some modifications:
 
 ### Python Code Style
 
-- **Line length**: 88 characters (Black default)
-- **Import order**: Use `isort` for consistent import ordering
+- **Line length**: 88 characters
+- **Import order**: Managed by `ruff` (not isort separately)
 - **Type hints**: Required for all public functions and methods
 - **Docstrings**: Use Google-style docstrings
 
@@ -89,15 +91,14 @@ We follow PEP 8 with some modifications:
 The project uses `ruff` for linting and formatting (configured in `pyproject.toml`). Pre-commit hooks run automatically on `git commit`:
 
 ```bash
-pip3 install pre-commit
-pre-commit install
+uv run pre-commit install
 ```
 
 To run manually:
 
 ```bash
-ruff check src/
-ruff format src/
+uv run ruff check src/
+uv run ruff format src/
 ```
 
 ## File Organization
@@ -367,4 +368,4 @@ Thank you to all contributors who have helped make Huntable CTI Studio better! Y
 
 ---
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-06-29_
