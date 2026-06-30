@@ -39,4 +39,4 @@ In the workflow, these are emitted by the Extract Agent sub-agents as typed **ob
 3. Extract Agent sub-agents emit typed observables; the supervisor aggregates them into `observables` and sets `discrete_huntables_count`.
 4. Sigma generation uses the aggregated `content` when `discrete_huntables_count > 0` and content length is sufficient.
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-06-30_

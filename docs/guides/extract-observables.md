@@ -44,4 +44,4 @@ Re-trigger the workflow to apply new prompts or models. The latest execution ret
 ## Cmdline Attention Preprocessor
 For command-line extraction, the **CmdlineExtract** sub-agent can use an optional attention preprocessor that surfaces LOLBAS-aligned snippets earlier in the LLM prompt. Enable or disable it in Workflow Config -> Cmdline Extract agent. See [Cmdline Attention Preprocessor](../features/cmdline-preprocessor.md).
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-06-30_

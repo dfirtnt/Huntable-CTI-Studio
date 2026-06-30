@@ -32,4 +32,4 @@ The evaluation pipeline is implemented in `src/services/observable_evaluation/`:
 - [Observable Training Dashboard](http://localhost:8001/observables-training) — in-app page (when the app is running)
 - [Extract Observables How-To](../guides/extract-observables.md) — Usage guide
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-06-30_

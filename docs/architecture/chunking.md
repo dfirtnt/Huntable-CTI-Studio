@@ -42,5 +42,5 @@ Note: `total_chunks` reflects the actual chunks emitted by the chunker. Article 
 - Training examples from `prepare_eval_set.py` use filtered content by default (same filter as extraction). The original full content is stored as a reference field but is not the training input.
 
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-06-30_
 _Last reviewed: 2026-05-26_

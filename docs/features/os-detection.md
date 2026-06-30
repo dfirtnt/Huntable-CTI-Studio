@@ -137,4 +137,4 @@ regardless of content-filtering level.
 - `src/services/attack_platform_signal.py` + `config/attack_technique_platforms.json` — ATT&CK reinforcement
 - `src/services/platform_adjudicator.py` — LLM adjudication for the low-confidence tail
 
-_Last updated: 2026-06-22_
+_Last updated: 2026-06-30_

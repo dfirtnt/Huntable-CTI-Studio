@@ -171,4 +171,4 @@ workflow_worker:
 - `docker-compose.yml` - Worker service definitions
 - `src/worker/celery_app.py` - `trigger_agentic_workflow` task
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-06-30_
