@@ -54,7 +54,7 @@ echo "Article ID: ${ARTICLE_ID}"
 *Capture the returned `article_id` -- subsequent workflow calls reference it.*
 
 ## 4) Run the agentic workflow
-Trigger the full pipeline (OS detection → junk filter → ranking → Extract Agent → Sigma generation → similarity search):
+Trigger the full pipeline (Platform Detection → junk filter → ranking → Extract Agent → Sigma generation → similarity search). Platform Detection routes Windows-only extractors based on detected platform — Linux/macOS articles skip RegistryExtract, ServicesExtract, and ScheduledTasksExtract automatically:
 ```bash
 TRIGGER=$(curl -s -X POST "http://localhost:8001/api/workflow/articles/${ARTICLE_ID}/trigger")
 EXECUTION_ID=$(echo "$TRIGGER" | jq -r '.execution_id')
@@ -62,7 +62,7 @@ EXECUTION_ID=$(echo "$TRIGGER" | jq -r '.execution_id')
 If an execution is already running for the article, the API returns an error; wait for it to finish or clear the stuck run before retrying.
 
 ![Trigger response with execution_id and queued status](assets/screenshots/04-workflow-triggered.png)
-*The trigger endpoint returns an `execution_id` and queues the agent pipeline (OS detection -> ranking -> extract -> Sigma).*
+*The trigger endpoint returns an `execution_id` and queues the agent pipeline (Platform Detection -> ranking -> extract -> Sigma). Platform badge on the execution record indicates which platform was detected.*
 
 ## 5) Monitor and view huntables
 Watch execution status and counts:
@@ -126,4 +126,4 @@ Stack shutdown (optional):
 docker-compose down
 ```
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-07-01_
