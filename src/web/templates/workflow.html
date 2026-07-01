@@ -3655,7 +3655,7 @@ END SYSTEM PROMPT</textarea>
                                 <span id="rawResponseCaret" class="transform transition-transform">▼</span>
                             </button>
                             <div id="rawResponseContent" class="hidden mt-2">
-                                <pre id="rawResponseText" class="text-xs bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-96 overflow-y-auto text-gray-900 dark:text-gray-100"></pre>
+                                <div id="rawResponseText" class="text-xs bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700 max-h-96 overflow-y-auto text-gray-900 dark:text-gray-100"></div>
                             </div>
                         </div>
                     </div>
@@ -14499,7 +14499,7 @@ END SYSTEM PROMPT`;
     if (rawResponseToggle) rawResponseToggle.setAttribute('aria-expanded', 'false');
     if (rawResponseCaret) rawResponseCaret.textContent = '▼';
     const rawResponseText = document.getElementById('rawResponseText');
-    if (rawResponseText) rawResponseText.textContent = '';
+    if (rawResponseText) rawResponseText.innerHTML = '';
     
     // Load provider/model catalog and populate dropdowns, then restore last preset if any
     await loadEnrichProviderModelCatalog();
@@ -15424,10 +15424,7 @@ async function enrichRule() {
             // Set enriched rule in textarea
             textarea.value = enrichedYaml;
             
-            // Set raw response
-            if (rawResponseText) {
-                rawResponseText.textContent = rawResponse;
-            }
+            setRawLLMResponse(rawResponse);
             
             // Update labels and info based on iteration
             if (isIterative) {
@@ -15674,10 +15671,7 @@ async function enrichRuleFurther() {
             // Set enriched rule in textarea
             textarea.value = enrichedYaml;
             
-            // Set raw response
-            if (rawResponseText) {
-                rawResponseText.textContent = rawResponse;
-            }
+            setRawLLMResponse(rawResponse);
             
             // Update labels for iterative enrichment
             leftLabel.textContent = `Previous (Iteration ${enrichIteration - 1})`;
@@ -15758,6 +15752,90 @@ function toggleRawResponse() {
         content.classList.add('hidden');
         toggle.setAttribute('aria-expanded', 'false');
         if (caret) caret.textContent = '▼';
+    }
+}
+
+function normalizeRawLLMList(value) {
+    if (Array.isArray(value)) return value;
+    if (value === null || value === undefined || value === '') return [];
+    return [value];
+}
+
+function formatRawLLMValue(value) {
+    if (typeof value === 'string') return value;
+    return JSON.stringify(value, null, 2);
+}
+
+function rawLLMListHtml(items) {
+    const normalized = normalizeRawLLMList(items);
+    if (!normalized.length) {
+        return '<p class="text-xs text-gray-500 dark:text-gray-400 italic">None reported.</p>';
+    }
+    return `<ul class="list-disc list-inside space-y-1 text-sm text-gray-800 dark:text-gray-200">${normalized.map(item => `<li>${escapeHtml(formatRawLLMValue(item))}</li>`).join('')}</ul>`;
+}
+
+function rawLLMFieldHtml(label, value) {
+    if (value === null || value === undefined || value === '') return '';
+    return `
+        <div>
+            <h5 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">${escapeHtml(label)}</h5>
+            <div class="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">${escapeHtml(formatRawLLMValue(value))}</div>
+        </div>
+    `;
+}
+
+function formatRawLLMResponse(rawResponse) {
+    const rawText = String(rawResponse || '').trim();
+    if (!rawText) {
+        return '<p class="text-sm text-gray-500 dark:text-gray-400 italic">No raw response returned.</p>';
+    }
+
+    let parsed;
+    try {
+        parsed = JSON.parse(rawText);
+    } catch (_) {
+        return `<pre class="font-mono whitespace-pre-wrap overflow-x-auto text-xs text-gray-900 dark:text-gray-100">${escapeHtml(rawText)}</pre>`;
+    }
+
+    if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
+        return `<pre class="font-mono whitespace-pre-wrap overflow-x-auto text-xs text-gray-900 dark:text-gray-100">${escapeHtml(JSON.stringify(parsed, null, 2))}</pre>`;
+    }
+
+    const knownFields = new Set(['status', 'summary', 'actions_taken', 'issues', 'updated_sigma_yaml']);
+    const extraFields = Object.keys(parsed).filter(key => !knownFields.has(key));
+    const status = parsed.status ? String(parsed.status) : 'unknown';
+    const yaml = parsed.updated_sigma_yaml ? String(parsed.updated_sigma_yaml) : '';
+
+    return `
+        <div class="space-y-4">
+            <div class="flex items-center gap-2">
+                <h4 class="text-sm font-semibold text-gray-900 dark:text-gray-100">LLM Response</h4>
+                <span class="inline-flex items-center rounded border border-gray-300 dark:border-gray-600 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-gray-700 dark:text-gray-300">${escapeHtml(status)}</span>
+            </div>
+            ${rawLLMFieldHtml('Summary', parsed.summary)}
+            <div>
+                <h5 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Actions Taken</h5>
+                ${rawLLMListHtml(parsed.actions_taken)}
+            </div>
+            <div>
+                <h5 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Issues</h5>
+                ${rawLLMListHtml(parsed.issues)}
+            </div>
+            ${yaml ? `
+                <div>
+                    <h5 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Updated Sigma YAML</h5>
+                    <pre class="font-mono whitespace-pre-wrap overflow-x-auto text-xs bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded p-3 text-gray-900 dark:text-gray-100">${escapeHtml(yaml)}</pre>
+                </div>
+            ` : ''}
+            ${extraFields.map(key => rawLLMFieldHtml(key.replace(/_/g, ' '), parsed[key])).join('')}
+        </div>
+    `;
+}
+
+function setRawLLMResponse(rawResponse) {
+    const rawResponseText = document.getElementById('rawResponseText');
+    if (rawResponseText) {
+        rawResponseText.innerHTML = formatRawLLMResponse(rawResponse);
     }
 }
 
