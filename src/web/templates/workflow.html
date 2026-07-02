@@ -2372,6 +2372,10 @@ tr.q-row-selected td {
                 <div class="mt-1">{% include 'components/workflow_config_snippet.html' %}</div>
               </details>
 
+              <!-- Sized by scrollToStep so any step section can align to the container top,
+                   even when the collapsed accordion leaves too little content below it. -->
+              <div id="config-scroll-spacer" aria-hidden="true" style="pointer-events: none;"></div>
+
             </div><!-- end #config-content -->
 
             <!-- ── Sticky Footer ─────────────────────────── -->
@@ -2841,7 +2845,22 @@ tr.q-row-selected td {
             document.querySelectorAll('.step-section').forEach(function(s) { s.classList.remove('open'); });
             section.classList.add('open');
           }
-          content.scrollTo({ top: section.offsetTop - 16, behavior: 'smooth' });
+          // Align the section header to the container's visible top. offsetTop is
+          // unusable here: #config-content is not positioned, so offsetParent is <body>
+          // and offsetTop would include the page header above the panel, overshooting
+          // every scroll. 'instant' rather than smooth: the accordion re-layout is
+          // already instant, and a smooth animation's target goes stale if layout
+          // shifts (async config load) or the tab is backgrounded mid-flight.
+          var top = content.scrollTop + section.getBoundingClientRect().top - content.getBoundingClientRect().top - 16;
+          // Top up the scroll range with the trailing spacer when the collapsed accordion
+          // leaves too little content below the target for it to reach the container top.
+          var spacer = document.getElementById('config-scroll-spacer');
+          if (spacer) {
+            var baseScrollHeight = content.scrollHeight - spacer.offsetHeight;
+            var deficit = Math.ceil(top + content.clientHeight - baseScrollHeight);
+            spacer.style.height = Math.max(0, deficit) + 'px';
+          }
+          content.scrollTo({ top: top, behavior: 'instant' });
           document.querySelectorAll('.rail-item').forEach(function(el, i) {
             el.classList.toggle('active', i === n);
           });
