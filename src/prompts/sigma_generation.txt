@@ -91,5 +91,12 @@ Behavioral Extraction Rules:
 - For system modification: include registry, services, scheduled tasks.
 - For defense evasion: include AV disablement, AMSI bypass, obfuscation flags.
 
+Deduplication Contract (review your full output before emitting):
+- Two rules are DUPLICATES if they share the same logsource.category + logsource.product and their detection.selection conditions overlap on the same observable (same Image, CommandLine value, DestinationIp, or RegistryKey).
+- Do NOT generate a separate rule for the parent→child perspective AND the child-only perspective of the same execution — fold parent context into the SAME rule as an additional condition or omit it if it adds no fidelity.
+- Do NOT generate multiple network rules with the same IP list — one rule covering all IPs.
+- Do NOT generate two rules that differ only in title wording, description, or MITRE tag while the detection.selection is functionally identical. Keep the most specific one.
+- Do NOT create a rule whose detection condition is strictly a subset of another rule you already generated in this response.
+
 Final Instruction:
 Generate all applicable SIGMA rules from the threat intelligence above.

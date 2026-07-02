@@ -26,6 +26,7 @@ from src.database.models import (
     SubagentEvaluationTable,
 )
 from src.services.eval_bundle_service import EvalBundleService, compute_sha256_json
+from src.services.eval_item_scorer import calculate_f_beta
 from src.services.llm_service import LLMService
 from src.services.sigma_eval_service import load_sigma_ground_truth
 from src.utils.subagent_utils import build_subagent_lookup_values, normalize_subagent_name
@@ -2109,10 +2110,10 @@ async def get_subagent_eval_aggregate(
                                 "over_2": 0,
                             },
                             # Item-level metrics: macro-averaged precision/recall and
-                            # derived F1 across articles annotated with expected_items.
+                            # derived F0.5 across articles annotated with expected_items.
                             "mean_precision": None,
                             "mean_recall": None,
-                            "mean_f1": None,
+                            "mean_f05": None,
                             "scored_articles": 0,
                         }
                     )
@@ -2158,12 +2159,11 @@ async def get_subagent_eval_aggregate(
                         per_article_recall.append(m / recall_denom if recall_denom > 0 else 0.0)
                     mean_precision = sum(per_article_precision) / len(per_article_precision)
                     mean_recall = sum(per_article_recall) / len(per_article_recall)
-                    pr_sum = mean_precision + mean_recall
-                    mean_f1 = (2 * mean_precision * mean_recall / pr_sum) if pr_sum > 0 else 0.0
+                    mean_f05 = calculate_f_beta(mean_precision, mean_recall)
                 else:
                     mean_precision = None
                     mean_recall = None
-                    mean_f1 = None
+                    mean_f05 = None
 
                 aggregates.append(
                     {
@@ -2188,7 +2188,7 @@ async def get_subagent_eval_aggregate(
                         # Item-level metrics (null when no annotated articles in this version).
                         "mean_precision": round(mean_precision, 4) if mean_precision is not None else None,
                         "mean_recall": round(mean_recall, 4) if mean_recall is not None else None,
-                        "mean_f1": round(mean_f1, 4) if mean_f1 is not None else None,
+                        "mean_f05": round(mean_f05, 4) if mean_f05 is not None else None,
                         "scored_articles": len(scored_records),
                     }
                 )
