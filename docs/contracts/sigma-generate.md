@@ -1,7 +1,7 @@
 # SigmaGenerate -- Prompt Contract v1.0
 
 Version: 1.0
-Last Updated: 2026-06-24
+Last Updated: 2026-07-02
 Applies To: Sigma rule generation agent (sigma_generate_multi, sigma_generation, and all future variants)
 
 ---
@@ -594,4 +594,4 @@ Use when reviewing any generator prompt (new or revised):
 
 ---
 
-_Last updated: 2026-06-30_
+_Last updated: 2026-07-02_
