@@ -1291,7 +1291,7 @@ level: low
 
         assert output.startswith("title: Test Rule")
         request_kwargs = service.llm_service.request_chat.call_args.kwargs
-        assert request_kwargs["max_tokens"] == 4000
+        assert request_kwargs["max_tokens"] == 10000
 
 
 # ---------------------------------------------------------------------------
