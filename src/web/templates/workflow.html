@@ -3265,7 +3265,7 @@ tr.q-row-selected td {
                     <col id="scol-similarity">
                     <col id="scol-status">
                     <col id="scol-created">
-                    <col id="scol-actions" style="width:232px">
+                    <col id="scol-actions" style="width:210px">
                 </colgroup>
                 <thead>
                     <tr>
@@ -15829,7 +15829,7 @@ function formatRawLLMResponse(rawResponse) {
         <div class="space-y-4">
             <div class="flex items-center gap-2">
                 <h4 class="text-sm font-semibold text-gray-900 dark:text-gray-100">LLM Response</h4>
-                <span class="inline-flex items-center rounded border border-gray-300 dark:border-gray-600 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-gray-700 dark:text-gray-300">${escapeHtml(status)}</span>
+                <span class="inline-flex items-center rounded border border-gray-300 dark:border-gray-600 px-2 py-0.5 text-xs font-medium tracking-wide text-gray-700 dark:text-gray-300">${escapeHtml(status.toUpperCase())}</span>
             </div>
             ${rawLLMFieldHtml('Summary', parsed.summary)}
             <div>
@@ -17654,7 +17654,7 @@ if (document.readyState === 'loading') {
 (function() {
     const STORAGE_KEY = 'sigma-queue-col-widths-v1';
     const COL_IDS = ['scol-id','scol-article','scol-rule-title','scol-obs-used','scol-job-id','scol-similarity','scol-status','scol-created'];
-    const DEFAULT_W = { 'scol-id':60, 'scol-article':220, 'scol-rule-title':220, 'scol-obs-used':90, 'scol-job-id':90, 'scol-similarity':100, 'scol-status':110, 'scol-created':150 };
+    const DEFAULT_W = { 'scol-id':60, 'scol-article':198, 'scol-rule-title':198, 'scol-obs-used':90, 'scol-job-id':90, 'scol-similarity':100, 'scol-status':110, 'scol-created':150 };
     const MIN_W = 48;
 
     function lockWidths() {
