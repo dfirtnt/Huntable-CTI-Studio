@@ -3,7 +3,7 @@
 **By the end of this guide you will have:**
 
 1. Ingested a real CTI article (CISA advisory)
-2. Run the full agentic workflow (OS detection → extraction → Sigma generation)
+2. Run the full agentic workflow (Platform detection → extraction → Sigma generation)
 3. Viewed extracted huntables and validated Sigma rules
 4. Confirmed the stack is healthy with pytest
 
@@ -126,4 +126,4 @@ Stack shutdown (optional):
 docker compose down
 ```
 
-_Last updated: 2026-06-27_
+_Last updated: 2026-06-28_

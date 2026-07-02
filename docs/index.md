@@ -2,7 +2,7 @@
 
 **Reports to Rules... in Record time.**
 
-Huntable CTI Studio is an AI-assisted workbench for detection engineers and threat hunters. It ingests open-source threat intelligence from RSS feeds and web scraping, extracts Windows observables, command lines, process trees, event IDs, registry keys, services, scheduled tasks, and hunt queries, and turns them into Sigma rules you can validate, review, and ship.
+Huntable CTI Studio is an AI-assisted workbench for detection engineers and threat hunters. It ingests open-source threat intelligence from RSS feeds and web scraping, detects the target platform (Windows, Linux, macOS), extracts observables — command lines, process trees, hunt queries, and platform-specific artifacts such as registry keys, services, and scheduled tasks — and turns them into Sigma rules you can validate, review, and ship.
 
 With full transparency, each article moves through an explicit LangGraph pipeline, execution state is checkpointed in PostgreSQL, configuration is versioned through presets, and novelty is enforced by similarity search against 3,000+ community Sigma rules. Bring your own model using OpenAI, Anthropic, or local LM Studio.
 
@@ -62,7 +62,7 @@ ML-based classification to filter low-quality content. See [Content Filtering](f
 
 ### Platform Detection
 
-Entity-driven platform classification that identifies Windows, Linux, and macOS content using a deterministic keyword knowledge base plus an LLM adjudicator for low-confidence cases. Replaces the retired CTI-BERT/SEC-BERT embedding detector. See [Platform Detection](features/os-detection.md).
+Entity-driven platform classification that identifies Windows, Linux, and macOS content using a deterministic keyword knowledge base plus an LLM adjudicator for low-confidence cases. Replaces the retired CTI-BERT/SEC-BERT embedding detector. Windows-only extractors (Registry, Services, ScheduledTasks) are skipped automatically on non-Windows evidence. See [Platform Detection](features/os-detection.md).
 
 ### ProcTree Attention Preprocessor
 
@@ -92,7 +92,7 @@ See [Local Model Selection Guide](llm/model-selection.md) for recommendations.
 - **Contributing**: See [Contributing Guide](CONTRIBUTING.md)
 - **Issues**: [GitHub Issues](https://github.com/dfirtnt/Huntable-CTI-Studio/issues)
 
-_Last updated: 2026-06-27_
+_Last updated: 2026-06-28_
 <!--stackedit_data:
 eyJoaXN0b3J5IjpbLTEwNzM5MDg3MjEsLTYxMzk0MzI2NF19
 -->
