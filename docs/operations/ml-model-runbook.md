@@ -269,4 +269,4 @@ docker logs cti_web 2>&1 | grep "\[retrain"
 | `src/utils/model_versioning.py` | Version DB records, artifact resolution, rollback |
 | `src/web/routes/models.py` | API routes: `/retrain`, `/rollback/{id}`, `/performance` |
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-06-26_

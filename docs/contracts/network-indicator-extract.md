@@ -135,4 +135,4 @@ If no valid network indicators exist, return exactly:
 Precision over recall. Network-telemetry observability overrides completeness.
 Reproduce indicator values EXACTLY, including defanging. When in doubt, OMIT.
 
-_Last updated: 2026-06-17_
+_Last updated: 2026-06-26_

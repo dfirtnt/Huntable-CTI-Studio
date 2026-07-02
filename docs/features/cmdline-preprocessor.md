@@ -82,4 +82,4 @@ Keep anchors aligned with LOLBAS tradecraft. Do not add scoring, weighting, or c
 
 **Caret-escape normalization:** `_normalize_for_matching()` strips `^` from a copy of each line before anchor matching, defeating the `p^ow^er^sh^ell` / `c^er^tu^til` obfuscation-evasion class. The original text is always preserved verbatim in emitted snippets and `full_article`.
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-06-26_

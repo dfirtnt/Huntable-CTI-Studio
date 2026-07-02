@@ -594,4 +594,5 @@ Use when reviewing any generator prompt (new or revised):
 
 ---
 
+_Last updated: 2026-06-26_
 _Last updated: 2026-06-24_

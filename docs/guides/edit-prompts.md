@@ -118,7 +118,7 @@ See [Workflow Presets](../getting-started/configuration.md#workflow-presets) for
 - [Workflow Presets](../getting-started/configuration.md#workflow-presets) -- quickstart preset files and how to import/export configs
 - Contract test: `tests/config/test_subagent_traceability_contract.py` -- authoritative schema enforcement
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-06-26_
 <!--stackedit_data:
 eyJoaXN0b3J5IjpbLTcxNTMzNjM4XX0=
 -->
