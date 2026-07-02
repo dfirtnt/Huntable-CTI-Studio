@@ -1,7 +1,7 @@
 # NetworkIndicatorExtract -- Design Spec
 
 - Date: 2026-06-17
-- Status: Proposed (awaiting operator review)
+- Status: Implemented (verified 2026-06-22; all 15 plan tasks complete, 70/70 wiring tests + 1729 unit/config + 410 API passing)
 - Branch: europa-dev
 - Todoist: "Create a new extractor sub-agent for Network Observables" (task 6gH44H5VVCvHvwrV)
 - Supersedes: an earlier "NetworkPatternExtract" synthesis design, rejected by adversarial
