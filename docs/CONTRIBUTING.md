@@ -81,8 +81,8 @@ We follow PEP 8 with some modifications:
 
 ### Python Code Style
 
-- **Line length**: 88 characters
-- **Import order**: Managed by `ruff` (not isort separately)
+- **Line length**: 88 characters (Ruff default)
+- **Import order**: Managed by `ruff` (replaces isort)
 - **Type hints**: Required for all public functions and methods
 - **Docstrings**: Use Google-style docstrings
 
@@ -368,4 +368,4 @@ Thank you to all contributors who have helped make Huntable CTI Studio better! Y
 
 ---
 
-_Last updated: 2026-06-30_
+_Last updated: 2026-07-01_

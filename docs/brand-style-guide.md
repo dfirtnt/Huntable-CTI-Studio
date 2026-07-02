@@ -34,7 +34,7 @@ An end-to-end OSINT-to-SIGMA pipeline. Ingests threat intel from 38+ sources, us
 - "Hunt-ready intelligence, continuously."
 
 ### Core Differentiators (slide content hooks)
-1. **7-step agentic workflow** (Platform Detection → Junk Filter → LLM Rank → Extract → Generate SIGMA → Similarity Search → Queue)
+1. **7-step agentic workflow** (Platform Detection → Junk Filter → LLM Rank → Extract → Generate SIGMA → Similarity Search → Queue); platform-aware routing supports Windows, Linux, and macOS articles
 2. **Multi-model AI**: OpenAI, Anthropic, LM Studio — no vendor lock
 3. **Deduplication at scale**: Jaccard + behavioral similarity vs. 3,000+ Sigma community rules
 4. **Source auto-healing**: LLM-powered diagnostics repair broken feeds automatically
@@ -347,4 +347,4 @@ TEXT                 FONTS
 
 ---
 
-*Source: extracted from `src/web/static/css/theme-variables.css` and `src/web/templates/base.html`, `dashboard.html`. Last updated 2026-06-29.*
+*Source: extracted from `src/web/static/css/theme-variables.css` and `src/web/templates/base.html`, `dashboard.html`. Last updated 2026-07-01.*

@@ -18,7 +18,7 @@ With full transparency, each article moves through an explicit LangGraph pipelin
 ## Highlights
 
 - **Multi-source aggregation** — RSS feeds, direct scrape endpoints, and browser extension
-- **Agentic workflows** — Platform detection → junk filter → ranking → extraction → Sigma generation → similarity → queue promotion
+- **Agentic workflows** — Platform Detection → junk filter → ranking → extraction → Sigma generation → similarity → queue promotion; platform-aware routing skips Windows-only extractors for Linux/macOS articles
 - **Detection support** — validation, similarity matching, and coverage classification
 - **Storage & services** — FastAPI web app, PostgreSQL + pgvector, Redis, Celery worker/scheduler
 - **Search & MCP retrieval** — Semantic search across collected intelligence; conversational retrieval via the Huntable MCP server
@@ -62,11 +62,15 @@ ML-based classification to filter low-quality content. See [Content Filtering](f
 
 ### Platform Detection
 
-Entity-driven platform classification that identifies Windows, Linux, and macOS content using a deterministic keyword knowledge base plus an LLM adjudicator for low-confidence cases. Replaces the retired CTI-BERT/SEC-BERT embedding detector. Windows-only extractors (Registry, Services, ScheduledTasks) are skipped automatically on non-Windows evidence. See [Platform Detection](features/os-detection.md).
+Entity-driven platform classification that identifies Windows, Linux, and macOS content using a deterministic keyword knowledge base plus an LLM adjudicator for low-confidence cases. Replaces the retired CTI-BERT/SEC-BERT embedding detector. Platform-aware extractor routing skips Windows-only sub-agents (RegistryExtract, ServicesExtract, ScheduledTasksExtract) when non-Windows evidence is detected. See [Platform Detection](features/os-detection.md).
 
 ### ProcTree Attention Preprocessor
 
 Surfaces high-likelihood parent-child process spawn regions (Sysmon fields, tree glyphs, lineage verbs, PID/PPID pairs) as focused snippets before the full article is passed to ProcTreeExtract. Parallel to the existing CmdlineExtract preprocessor. Toggle via `proc_tree_attention_preprocessor_enabled` in workflow config.
+
+### Image OCR Ingest
+
+Inline article images are OCR'd locally with Tesseract during ingest and folded into article content as `[Image OCR: <url>]` blocks, making image-embedded observables visible to all downstream extractors and Sigma generation with no consumer-side changes. Disabled by default; enable via `OCR_INGEST_ENABLED` env var and per-source `image_ocr_enabled` config.
 
 ### MCP Semantic Search
 
@@ -92,7 +96,7 @@ See [Local Model Selection Guide](llm/model-selection.md) for recommendations.
 - **Contributing**: See [Contributing Guide](CONTRIBUTING.md)
 - **Issues**: [GitHub Issues](https://github.com/dfirtnt/Huntable-CTI-Studio/issues)
 
-_Last updated: 2026-06-30_
+_Last updated: 2026-07-01_
 <!--stackedit_data:
 eyJoaXN0b3J5IjpbLTEwNzM5MDg3MjEsLTYxMzk0MzI2NF19
 -->
