@@ -148,4 +148,4 @@ Contains `rundll32`, `iex`, `lsass.exe`; code blocks and host-based indicators.
 **Score 0/100**
 No recognized keywords; no technical depth indicators.
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-06-24_
