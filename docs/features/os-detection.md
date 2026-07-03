@@ -58,8 +58,10 @@ reinforcement run on top of the deterministic verdict either way.
 ## Configuration
 
 Platform Detection is **deterministic** — there is no model to configure. The Workflow Config UI
-exposes only the (currently single-OS) target-OS selection; the former embedding-model dropdown was
-removed (2026-06-22).
+shows only an informational label for Platform Detection; the OS selection checkboxes and the
+former embedding-model dropdown were both removed (2026-06-22). Detection is always multi-platform
+and the checkboxes were never wired to the detector. The underlying config key
+`OSDetectionAgent_selected_os` is retained in the schema but is no longer user-settable via the UI.
 
 ## Storage
 
