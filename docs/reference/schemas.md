@@ -131,6 +131,17 @@ Important fields:
 
 These records are used by similarity and coverage logic in the Sigma services.
 
+## Sources
+
+Backed by the `sources` table.
+
+Operationally important fields:
+
+- `id`, `name`, `url`, `rss_url`, `active`
+- `config` — JSONB column with per-source overrides. Key: `image_ocr_enabled` (bool or null) — tri-state OCR override; null means inherit the global `OCR_INGEST_ENABLED` env. Protected sources (eval/manual identifiers in `PROTECTED_INTERNAL_SOURCE_IDENTIFIERS`) reject OCR override writes.
+
+Use `src/database/models.py` for the full field list.
+
 ## Queue And Settings
 
 Operationally important tables include:
@@ -141,4 +152,4 @@ Operationally important tables include:
 
 Use `src/database/models.py` when you need exact field names, nullability, or relationships.
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-07-03_

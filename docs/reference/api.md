@@ -29,6 +29,7 @@ Use these first when verifying the stack.
 - `GET /api/sources`
 - `GET /api/sources/{source_id}`
 - `POST /api/sources/{source_id}/collect`
+- `PUT /api/sources/{source_id}/image_ocr` — Set the per-source OCR override. Body: `{ "image_ocr_enabled": true | false | null }`. `true` forces OCR on regardless of the global `OCR_INGEST_ENABLED` env; `false` forces it off; `null` clears the override and inherits the global default. Protected sources (eval/manual) reject this call with HTTP 400.
 - `POST /api/scrape-url`
 
 These endpoints control source state and manual collection.
@@ -178,4 +179,4 @@ Start in `src/web/routes/__init__.py`, then open the matching module:
 - Workflow API changes: run `python3 run_tests.py integration`
 - UI flows that call the API: run `python3 run_tests.py ui` or `python3 run_tests.py e2e`
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-07-03_
