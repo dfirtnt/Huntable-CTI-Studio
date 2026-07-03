@@ -11,6 +11,7 @@ import pytest
 from mcp.server.fastmcp import FastMCP
 
 from src.database.models import (
+    AgenticWorkflowConfigTable,
     AgenticWorkflowExecutionTable,
     ArticleAnnotationTable,
     ArticleTable,
@@ -21,9 +22,17 @@ from src.database.models import (
 from src.huntable_mcp.tools import articles, sigma, sources, workflow
 from src.services.audit_service import (
     ACTION_ANNOTATION_CREATED,
+    ACTION_ANNOTATION_DELETED,
+    ACTION_ARTICLE_REVIEWED,
     ACTION_MCP_CONFIRMATION_REQUESTED,
     ACTION_SOURCE_TOGGLED,
     ACTION_WORKFLOW_CANCELLED,
+    ACTION_WORKFLOW_RETRIED,
+    REDACTED,
+    STATUS_SUCCESS,
+    AuditEvent,
+    AuditService,
+    service_actor_context,
 )
 
 pytestmark = pytest.mark.unit
@@ -67,6 +76,9 @@ class FakeAsyncSession:
             if isinstance(obj, ArticleAnnotationTable) and obj.id is None:
                 obj.id = self._next_int_id
                 self._next_int_id += 1
+            if isinstance(obj, AgenticWorkflowExecutionTable) and obj.id is None:
+                obj.id = self._next_int_id
+                self._next_int_id += 1
 
     async def commit(self):
         self.committed = True
@@ -97,6 +109,14 @@ def _audit_rows(session: FakeAsyncSession):
 
 def _confirmation_rows(session: FakeAsyncSession):
     return [obj for obj in session.added if isinstance(obj, MCPWriteConfirmationTable)]
+
+
+class FakeSyncSession:
+    def __init__(self):
+        self.added = []
+
+    def add(self, obj):
+        self.added.append(obj)
 
 
 @pytest.mark.asyncio
@@ -134,6 +154,52 @@ async def test_cancel_workflow_execution_marks_failed_and_audits():
     assert len(audits) == 1
     assert audits[0].action == ACTION_WORKFLOW_CANCELLED
     assert audits[0].event_metadata["previous_status"] == "running"
+
+
+@pytest.mark.asyncio
+async def test_retry_workflow_execution_creates_pending_execution_and_enqueues(monkeypatch):
+    execution = AgenticWorkflowExecutionTable(
+        id=12,
+        article_id=99,
+        status="failed",
+        retry_count=2,
+        config_snapshot={"agent_models": {"old": "model"}, "rank_agent_enabled": False},
+    )
+    current_config = AgenticWorkflowConfigTable(
+        id=1,
+        version=3,
+        is_active=True,
+        agent_models={"rankagent": {"provider": "openai", "model": "gpt-4.1-mini"}},
+        rank_agent_enabled=True,
+    )
+    session = FakeAsyncSession([FakeResult(execution), FakeResult(current_config)])
+    enqueued = []
+
+    def fake_enqueue(article_id, execution_id):
+        assert session.committed is True
+        enqueued.append((article_id, execution_id))
+
+    monkeypatch.setattr(workflow, "_enqueue_workflow_retry", fake_enqueue)
+    tools = _tools_from_register(workflow.register, _db_with_session(session))
+
+    result = await tools["retry_workflow_execution"].fn(execution_id=12)
+
+    assert "Retry initiated" in result
+    new_executions = [
+        obj for obj in session.added if isinstance(obj, AgenticWorkflowExecutionTable) and obj is not execution
+    ]
+    assert len(new_executions) == 1
+    assert new_executions[0].id == 1000
+    assert new_executions[0].article_id == 99
+    assert new_executions[0].status == "pending"
+    assert new_executions[0].retry_count == 3
+    assert new_executions[0].config_snapshot["agent_models"] == current_config.agent_models
+    assert new_executions[0].config_snapshot["rank_agent_enabled"] is True
+    assert enqueued == [(99, 1000)]
+    audits = _audit_rows(session)
+    assert len(audits) == 1
+    assert audits[0].action == ACTION_WORKFLOW_RETRIED
+    assert audits[0].event_metadata["new_execution_id"] == 1000
 
 
 @pytest.mark.asyncio
@@ -196,6 +262,35 @@ async def test_delete_article_creates_confirmation_without_deleting_article():
 
 
 @pytest.mark.asyncio
+async def test_mark_article_reviewed_updates_metadata_and_audits():
+    article = ArticleTable(
+        id=42,
+        source_id=1,
+        canonical_url="https://example.com/a",
+        title="Example Article",
+        published_at=datetime.now(),
+        content="body",
+        content_hash="hash",
+        article_metadata={"existing": "value"},
+    )
+    session = FakeAsyncSession([FakeResult(article)])
+    tools = _tools_from_register(articles.register, AsyncMock(), _db_with_session(session))
+
+    result = await tools["mark_article_reviewed"].fn(article_id=42, reviewed=True)
+
+    assert "reviewed=True" in result
+    assert article.article_metadata["existing"] == "value"
+    assert article.article_metadata["reviewed"] is True
+    assert article.article_metadata["reviewed_by"] == "service:mcp"
+    assert article.article_metadata["reviewed_at"]
+    assert session.committed is True
+    audits = _audit_rows(session)
+    assert len(audits) == 1
+    assert audits[0].action == ACTION_ARTICLE_REVIEWED
+    assert audits[0].event_metadata["reviewed"] is True
+
+
+@pytest.mark.asyncio
 async def test_create_annotation_inserts_row_updates_count_and_audits():
     article = ArticleTable(
         id=77,
@@ -230,3 +325,92 @@ async def test_create_annotation_inserts_row_updates_count_and_audits():
     assert audits[0].action == ACTION_ANNOTATION_CREATED
     assert audits[0].target_type == "annotation"
     assert audits[0].event_metadata["article_id"] == 77
+
+
+@pytest.mark.asyncio
+async def test_update_annotation_rejects_invalid_positions_without_commit():
+    annotation = ArticleAnnotationTable(
+        id=501,
+        article_id=77,
+        annotation_type="cmd",
+        selected_text="cmd.exe",
+        start_position=0,
+        end_position=7,
+        confidence_score=1.0,
+        usage="train",
+        used_for_training=False,
+    )
+    session = FakeAsyncSession([FakeResult(annotation)])
+    tools = _tools_from_register(articles.register, AsyncMock(), _db_with_session(session))
+
+    result = await tools["update_annotation"].fn(annotation_id=501, start_position=8, end_position=7)
+
+    assert "Annotation update rejected" in result
+    assert annotation.start_position == 0
+    assert annotation.end_position == 7
+    assert session.committed is False
+    assert _audit_rows(session) == []
+
+
+@pytest.mark.asyncio
+async def test_delete_annotation_removes_row_updates_count_and_audits():
+    article = ArticleTable(
+        id=77,
+        source_id=1,
+        canonical_url="https://example.com/a",
+        title="Example Article",
+        published_at=datetime.now(),
+        content="cmd.exe /c whoami",
+        content_hash="hash",
+        article_metadata={"annotation_count": 1},
+    )
+    annotation = ArticleAnnotationTable(
+        id=501,
+        article_id=77,
+        annotation_type="cmd",
+        selected_text="cmd.exe",
+        start_position=0,
+        end_position=7,
+        confidence_score=1.0,
+        usage="train",
+        used_for_training=False,
+    )
+    session = FakeAsyncSession([FakeResult(annotation), FakeResult(0), FakeResult(article)])
+    tools = _tools_from_register(articles.register, AsyncMock(), _db_with_session(session))
+
+    result = await tools["delete_annotation"].fn(annotation_id=501)
+
+    assert "Deleted annotation 501" in result
+    assert session.deleted == [annotation]
+    assert article.article_metadata["annotation_count"] == 0
+    assert session.committed is True
+    audits = _audit_rows(session)
+    assert len(audits) == 1
+    assert audits[0].action == ACTION_ANNOTATION_DELETED
+    assert audits[0].event_metadata["article_id"] == 77
+
+
+def test_audit_service_redacts_secret_metadata_before_persisting():
+    session = FakeSyncSession()
+    event = AuditEvent(
+        action="test.secret_redaction",
+        target_type="test",
+        target_id="1",
+        status=STATUS_SUCCESS,
+        summary="Verify secret redaction",
+        actor=service_actor_context("service:test"),
+        metadata={
+            "api_key": "sk-test-secret",
+            "nested": {"authorization": "Bearer abcdefghijklmnop"},
+            "database_url": "postgresql://user:password@example.com/db",
+            "safe": "kept",
+        },
+    )
+
+    row = AuditService.record_mandatory(session, event)
+
+    assert session.added == [row]
+    assert row.event_metadata["api_key"] == REDACTED
+    assert row.event_metadata["nested"]["authorization"] == REDACTED
+    assert row.event_metadata["database_url"] == REDACTED
+    assert row.event_metadata["safe"] == "kept"
