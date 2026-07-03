@@ -33,6 +33,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import defer, selectinload
 
+from src.database.audit_schema import AUDIT_INDEX_DDLS
 from src.database.models import (
     ArticleAnnotationTable,
     ArticleTable,
@@ -170,6 +171,7 @@ class AsyncDatabaseManager:
                 "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS tags_embedding",
                 "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS detection_structure_embedding",
                 "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS detection_fields_embedding",
+                *AUDIT_INDEX_DDLS,
             ]
             for col_ddl in col_ddls:
                 try:

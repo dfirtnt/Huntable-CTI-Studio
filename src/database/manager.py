@@ -9,6 +9,7 @@ from sqlalchemy import create_engine, desc, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
+from src.database.audit_schema import AUDIT_INDEX_DDLS
 from src.database.models import ArticleTable, Base, ContentHashTable, SourceCheckTable, SourceTable, URLTrackingTable
 from src.models.article import Article, ArticleCreate, ArticleFilter
 from src.models.source import Source, SourceCreate, SourceFilter, SourceHealth, SourceUpdate
@@ -130,6 +131,7 @@ class DatabaseManager:
                 "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS tags_embedding",
                 "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS detection_structure_embedding",
                 "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS detection_fields_embedding",
+                *AUDIT_INDEX_DDLS,
             ]
             # Add primary keys to tables that pre-date PK enforcement. Each is a no-op if
             # the constraint already exists; will raise if duplicate IDs remain (needs a

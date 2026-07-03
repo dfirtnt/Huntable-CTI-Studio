@@ -54,7 +54,7 @@ cd Huntable-CTI-Studio
 
 ### MCP (optional)
 
-Read-only MCP server for agents (articles, sources, SIGMA, workflow tools). Requires app env/DB as for the web app.
+MCP server for agents (articles, sources, SIGMA, workflow tools), with read tools plus scoped, audited write tools. Requires app env/DB as for the web app.
 
 **Tool reference:** [docs/reference/mcp-tools.md](docs/reference/mcp-tools.md) (`get_article` uses **Article ID** from search output, not list position).
 

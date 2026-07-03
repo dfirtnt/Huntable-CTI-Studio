@@ -1,18 +1,29 @@
 """MCP tools for workflow execution and SIGMA queue status."""
 
 import logging
+from datetime import datetime
 
 from mcp.server.fastmcp import FastMCP
 from sqlalchemy import desc, select
 
 from src.database.async_manager import AsyncDatabaseManager
 from src.database.models import (
+    AgenticWorkflowConfigTable,
     AgenticWorkflowExecutionTable,
     ArticleTable,
     SigmaRuleQueueTable,
 )
+from src.huntable_mcp.tools.write_support import record_mcp_audit
+from src.services.audit_service import ACTION_WORKFLOW_CANCELLED, ACTION_WORKFLOW_RETRIED
 
 logger = logging.getLogger(__name__)
+
+
+def _enqueue_workflow_retry(article_id: int, execution_id: int) -> None:
+    """Enqueue a workflow retry in Celery."""
+    from src.worker.celery_app import trigger_agentic_workflow
+
+    trigger_agentic_workflow.delay(article_id, execution_id)
 
 
 def register(mcp: FastMCP, db: AsyncDatabaseManager) -> None:
@@ -77,6 +88,118 @@ def register(mcp: FastMCP, db: AsyncDatabaseManager) -> None:
         except Exception as e:
             logger.error(f"Failed to list workflow executions: {e}")
             return f"Error listing workflow executions: {e}"
+
+    @mcp.tool()
+    async def retry_workflow_execution(execution_id: int) -> str:
+        """Retry a failed or completed workflow execution.
+
+        Risk tier: auto-executable. This creates a new pending execution for the
+        same article and enqueues the worker task.
+
+        Args:
+            execution_id: Workflow execution ID from list_workflow_executions.
+        """
+        try:
+            async with db.get_session() as session:
+                result = await session.execute(
+                    select(AgenticWorkflowExecutionTable).where(AgenticWorkflowExecutionTable.id == execution_id)
+                )
+                execution = result.scalar_one_or_none()
+                if execution is None:
+                    return f"Workflow execution {execution_id} not found."
+                if execution.status not in ["failed", "completed"]:
+                    return (
+                        f"Cannot retry execution {execution_id} with status '{execution.status}'. "
+                        "Only failed or completed executions can be retried."
+                    )
+
+                new_config_snapshot = dict(execution.config_snapshot or {})
+                config_result = await session.execute(
+                    select(AgenticWorkflowConfigTable)
+                    .where(AgenticWorkflowConfigTable.is_active)
+                    .order_by(AgenticWorkflowConfigTable.version.desc())
+                    .limit(1)
+                )
+                current_config = config_result.scalar_one_or_none()
+                if current_config and current_config.agent_models:
+                    new_config_snapshot["agent_models"] = dict(current_config.agent_models)
+                if current_config and hasattr(current_config, "rank_agent_enabled"):
+                    new_config_snapshot["rank_agent_enabled"] = bool(current_config.rank_agent_enabled)
+                elif "rank_agent_enabled" not in new_config_snapshot:
+                    new_config_snapshot["rank_agent_enabled"] = True
+                else:
+                    new_config_snapshot["rank_agent_enabled"] = bool(
+                        new_config_snapshot.get("rank_agent_enabled", True)
+                    )
+
+                article_id = execution.article_id
+                new_execution = AgenticWorkflowExecutionTable(
+                    article_id=article_id,
+                    status="pending",
+                    config_snapshot=new_config_snapshot,
+                    retry_count=(execution.retry_count or 0) + 1,
+                )
+                session.add(new_execution)
+                await session.flush()
+                new_execution_id = new_execution.id
+                await record_mcp_audit(
+                    session,
+                    ACTION_WORKFLOW_RETRIED,
+                    "workflow_execution",
+                    execution_id,
+                    f"Retried workflow execution {execution_id}",
+                    {"new_execution_id": new_execution_id, "article_id": article_id},
+                )
+                await session.commit()
+
+            _enqueue_workflow_retry(article_id, new_execution_id)
+            return f"Retry initiated for workflow execution {execution_id}. New execution ID: {new_execution_id}."
+        except Exception as e:
+            logger.error(f"retry_workflow_execution failed: {e}")
+            return f"Error retrying workflow execution {execution_id}: {e}"
+
+    @mcp.tool()
+    async def cancel_workflow_execution(execution_id: int) -> str:
+        """Cancel a running or pending workflow execution.
+
+        Risk tier: auto-executable. This marks the execution failed with a
+        cancellation message; the worker task may continue until it notices.
+
+        Args:
+            execution_id: Workflow execution ID from list_workflow_executions.
+        """
+        try:
+            async with db.get_session() as session:
+                result = await session.execute(
+                    select(AgenticWorkflowExecutionTable).where(AgenticWorkflowExecutionTable.id == execution_id)
+                )
+                execution = result.scalar_one_or_none()
+                if execution is None:
+                    return f"Workflow execution {execution_id} not found."
+                if execution.status not in ["running", "pending"]:
+                    return (
+                        f"Cannot cancel execution {execution_id} with status '{execution.status}'. "
+                        "Only running or pending executions can be cancelled."
+                    )
+
+                previous_status = execution.status
+                execution.status = "failed"
+                execution.error_message = f"Execution cancelled by MCP (was {previous_status})"
+                execution.completed_at = datetime.now()
+                await record_mcp_audit(
+                    session,
+                    ACTION_WORKFLOW_CANCELLED,
+                    "workflow_execution",
+                    execution_id,
+                    f"Cancelled workflow execution {execution_id}",
+                    {"previous_status": previous_status},
+                )
+                await session.commit()
+
+            return f"Workflow execution {execution_id} cancelled successfully."
+        except Exception as e:
+            logger.error(f"cancel_workflow_execution failed: {e}")
+            return f"Error cancelling workflow execution {execution_id}: {e}"
 
     @mcp.tool()
     async def list_sigma_queue(

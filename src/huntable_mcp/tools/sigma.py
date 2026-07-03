@@ -2,11 +2,26 @@
 
 import logging
 import re
+from typing import Any
 
+import yaml
 from mcp.server.fastmcp import FastMCP
+from sqlalchemy import select
 
 from src.database.async_manager import AsyncDatabaseManager
+from src.database.models import ArticleTable, SigmaRuleQueueTable
 from src.huntable_mcp.tools.articles import _article_db_id
+from src.huntable_mcp.tools.write_support import (
+    confirmation_required_response,
+    create_confirmation_request,
+)
+from src.services.audit_service import (
+    ACTION_SIGMA_QUEUE_RULE_APPROVED,
+    ACTION_SIGMA_QUEUE_RULE_CREATED,
+    ACTION_SIGMA_QUEUE_RULE_DELETED,
+    ACTION_SIGMA_QUEUE_RULE_EDITED,
+    ACTION_SIGMA_QUEUE_RULE_REJECTED,
+)
 from src.services.rag_service import RAGService
 
 logger = logging.getLogger(__name__)
@@ -15,6 +30,34 @@ _UUID_RE = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
     re.IGNORECASE,
 )
+
+
+def _validate_sigma_queue_yaml(rule_yaml: str) -> tuple[dict[str, Any] | None, str | None]:
+    """Validate that a YAML string has the minimum Sigma queue shape."""
+    if not rule_yaml or not rule_yaml.strip():
+        return None, "rule_yaml is required"
+    try:
+        parsed = yaml.safe_load(rule_yaml)
+    except Exception as exc:
+        return None, f"rule_yaml is not valid YAML: {exc}"
+    if not isinstance(parsed, dict):
+        return None, f"rule_yaml must parse to a YAML mapping, got {type(parsed).__name__}"
+    missing = [key for key in ("title", "logsource", "detection") if key not in parsed]
+    if missing:
+        return None, f"rule_yaml is missing required Sigma keys: {missing}"
+    return parsed, None
+
+
+async def _queue_item_exists(session: Any, queue_number: int) -> bool:
+    result = await session.execute(
+        select(SigmaRuleQueueTable.id).where(SigmaRuleQueueTable.id == queue_number).limit(1)
+    )
+    return result.scalar_one_or_none() is not None
+
+
+async def _article_exists(session: Any, article_id: int) -> bool:
+    result = await session.execute(select(ArticleTable.id).where(ArticleTable.id == article_id).limit(1))
+    return result.scalar_one_or_none() is not None
 
 
 def register(mcp: FastMCP, rag: RAGService, db: AsyncDatabaseManager | None = None) -> None:
@@ -128,6 +171,236 @@ def register(mcp: FastMCP, rag: RAGService, db: AsyncDatabaseManager | None = No
         except Exception as e:
             logger.error(f"get_sigma_rule failed: {e}")
             return f"Error retrieving sigma rule {rule_id}: {e}"
+
+    @mcp.tool()
+    async def approve_sigma_queue_rule(
+        queue_number: int,
+        review_notes: str | None = None,
+        rule_yaml: str | None = None,
+        pr_url: str | None = None,
+        pr_repository: str | None = None,
+    ) -> str:
+        """Request human confirmation to approve a queued Sigma rule.
+
+        Risk tier: confirmation-required. MCP does not approve the rule directly.
+
+        Args:
+            queue_number: Queue ID from list_sigma_queue output.
+            review_notes: Optional reviewer notes to apply if the human confirms.
+            rule_yaml: Optional updated YAML to apply if the human confirms.
+            pr_url: Optional PR URL to mark as submitted if the human confirms.
+            pr_repository: Optional PR repository name when pr_url is provided.
+        """
+        if db is None:
+            return "Error: database not available for approve_sigma_queue_rule."
+        if rule_yaml:
+            _, error = _validate_sigma_queue_yaml(rule_yaml)
+            if error:
+                return f"Confirmation request rejected: {error}"
+        try:
+            async with db.get_session() as session:
+                if not await _queue_item_exists(session, queue_number):
+                    return f"No queue item found with queue_number={queue_number}."
+                confirmation = await create_confirmation_request(
+                    session,
+                    operation="approve_sigma_queue_rule",
+                    target_type="sigma_rule_queue",
+                    target_id=queue_number,
+                    requested_action=ACTION_SIGMA_QUEUE_RULE_APPROVED,
+                    payload={
+                        "queue_number": queue_number,
+                        "review_notes": review_notes,
+                        "rule_yaml": rule_yaml,
+                        "pr_url": pr_url,
+                        "pr_repository": pr_repository,
+                    },
+                    summary=f"Requested confirmation to approve queued Sigma rule {queue_number}",
+                    confirmation_instructions=(
+                        f"Open Sigma queue item {queue_number} in the web UI, verify the rule, then approve it there."
+                    ),
+                )
+                response = confirmation_required_response(confirmation)
+                await session.commit()
+                return response
+        except Exception as e:
+            logger.error(f"approve_sigma_queue_rule failed: {e}")
+            return f"Error requesting approval confirmation for queue item {queue_number}: {e}"
+
+    @mcp.tool()
+    async def reject_sigma_queue_rule(
+        queue_number: int,
+        review_notes: str | None = None,
+        rule_yaml: str | None = None,
+    ) -> str:
+        """Request human confirmation to reject a queued Sigma rule.
+
+        Risk tier: confirmation-required. MCP does not reject the rule directly.
+
+        Args:
+            queue_number: Queue ID from list_sigma_queue output.
+            review_notes: Optional rejection notes to apply if the human confirms.
+            rule_yaml: Optional updated YAML to apply if the human confirms.
+        """
+        if db is None:
+            return "Error: database not available for reject_sigma_queue_rule."
+        if rule_yaml:
+            _, error = _validate_sigma_queue_yaml(rule_yaml)
+            if error:
+                return f"Confirmation request rejected: {error}"
+        try:
+            async with db.get_session() as session:
+                if not await _queue_item_exists(session, queue_number):
+                    return f"No queue item found with queue_number={queue_number}."
+                confirmation = await create_confirmation_request(
+                    session,
+                    operation="reject_sigma_queue_rule",
+                    target_type="sigma_rule_queue",
+                    target_id=queue_number,
+                    requested_action=ACTION_SIGMA_QUEUE_RULE_REJECTED,
+                    payload={"queue_number": queue_number, "review_notes": review_notes, "rule_yaml": rule_yaml},
+                    summary=f"Requested confirmation to reject queued Sigma rule {queue_number}",
+                    confirmation_instructions=(
+                        f"Open Sigma queue item {queue_number} in the web UI, verify the rejection reason, "
+                        "then reject it there."
+                    ),
+                )
+                response = confirmation_required_response(confirmation)
+                await session.commit()
+                return response
+        except Exception as e:
+            logger.error(f"reject_sigma_queue_rule failed: {e}")
+            return f"Error requesting rejection confirmation for queue item {queue_number}: {e}"
+
+    @mcp.tool()
+    async def delete_sigma_queue_rule(queue_number: int) -> str:
+        """Request human confirmation to delete a queued Sigma rule.
+
+        Risk tier: confirmation-required. MCP does not delete the rule directly.
+
+        Args:
+            queue_number: Queue ID from list_sigma_queue output.
+        """
+        if db is None:
+            return "Error: database not available for delete_sigma_queue_rule."
+        try:
+            async with db.get_session() as session:
+                if not await _queue_item_exists(session, queue_number):
+                    return f"No queue item found with queue_number={queue_number}."
+                confirmation = await create_confirmation_request(
+                    session,
+                    operation="delete_sigma_queue_rule",
+                    target_type="sigma_rule_queue",
+                    target_id=queue_number,
+                    requested_action=ACTION_SIGMA_QUEUE_RULE_DELETED,
+                    payload={"queue_number": queue_number},
+                    summary=f"Requested confirmation to delete queued Sigma rule {queue_number}",
+                    confirmation_instructions=(
+                        f"Open Sigma queue item {queue_number} in the web UI and delete it only after verifying "
+                        "that deletion is intentional."
+                    ),
+                )
+                response = confirmation_required_response(confirmation)
+                await session.commit()
+                return response
+        except Exception as e:
+            logger.error(f"delete_sigma_queue_rule failed: {e}")
+            return f"Error requesting delete confirmation for queue item {queue_number}: {e}"
+
+    @mcp.tool()
+    async def update_sigma_queue_rule_yaml(queue_number: int, rule_yaml: str) -> str:
+        """Request human confirmation to update queued Sigma YAML.
+
+        Risk tier: confirmation-required. MCP does not edit the rule directly.
+
+        Args:
+            queue_number: Queue ID from list_sigma_queue output.
+            rule_yaml: Replacement Sigma YAML.
+        """
+        if db is None:
+            return "Error: database not available for update_sigma_queue_rule_yaml."
+        _, error = _validate_sigma_queue_yaml(rule_yaml)
+        if error:
+            return f"Confirmation request rejected: {error}"
+        try:
+            async with db.get_session() as session:
+                if not await _queue_item_exists(session, queue_number):
+                    return f"No queue item found with queue_number={queue_number}."
+                confirmation = await create_confirmation_request(
+                    session,
+                    operation="update_sigma_queue_rule_yaml",
+                    target_type="sigma_rule_queue",
+                    target_id=queue_number,
+                    requested_action=ACTION_SIGMA_QUEUE_RULE_EDITED,
+                    payload={"queue_number": queue_number, "rule_yaml": rule_yaml},
+                    summary=f"Requested confirmation to edit queued Sigma rule {queue_number}",
+                    confirmation_instructions=(
+                        f"Open Sigma queue item {queue_number} in the web UI, review the proposed YAML, "
+                        "then save the edit there."
+                    ),
+                )
+                response = confirmation_required_response(confirmation)
+                await session.commit()
+                return response
+        except Exception as e:
+            logger.error(f"update_sigma_queue_rule_yaml failed: {e}")
+            return f"Error requesting YAML update confirmation for queue item {queue_number}: {e}"
+
+    @mcp.tool()
+    async def add_sigma_rule_to_queue(
+        rule_yaml: str | None = None,
+        rule_json: dict[str, Any] | None = None,
+        article_id: int | None = None,
+    ) -> str:
+        """Request human confirmation to add a Sigma rule to the review queue.
+
+        Risk tier: confirmation-required. MCP does not add the rule directly.
+
+        Args:
+            rule_yaml: Sigma YAML string.
+            rule_json: Sigma rule as JSON; converted to YAML if rule_yaml is omitted.
+            article_id: Optional source article ID.
+        """
+        if db is None:
+            return "Error: database not available for add_sigma_rule_to_queue."
+        proposed_yaml = rule_yaml
+        if not proposed_yaml and rule_json:
+            proposed_yaml = yaml.dump(rule_json, default_flow_style=False, sort_keys=False)
+        parsed, error = _validate_sigma_queue_yaml(proposed_yaml or "")
+        if error:
+            return f"Confirmation request rejected: {error}"
+        try:
+            async with db.get_session() as session:
+                if article_id is not None and not await _article_exists(session, article_id):
+                    return f"Article {article_id} not found."
+                confirmation = await create_confirmation_request(
+                    session,
+                    operation="add_sigma_rule_to_queue",
+                    target_type="sigma_rule_queue",
+                    target_id=None,
+                    requested_action=ACTION_SIGMA_QUEUE_RULE_CREATED,
+                    payload={
+                        "article_id": article_id,
+                        "rule_yaml": proposed_yaml,
+                        "rule_metadata": {
+                            "title": parsed.get("title") if parsed else None,
+                            "description": parsed.get("description") if parsed else None,
+                            "tags": parsed.get("tags", []) if parsed else [],
+                            "level": parsed.get("level") if parsed else None,
+                            "status": parsed.get("status", "experimental") if parsed else None,
+                        },
+                    },
+                    summary="Requested confirmation to add a Sigma rule to the queue",
+                    confirmation_instructions=(
+                        "Open the Sigma queue web UI, review the proposed YAML from this confirmation request, "
+                        "then add it manually if it is valid and desired."
+                    ),
+                )
+                response = confirmation_required_response(confirmation)
+                await session.commit()
+                return response
+        except Exception as e:
+            logger.error(f"add_sigma_rule_to_queue failed: {e}")
+            return f"Error requesting add-to-queue confirmation: {e}"
 
     @mcp.tool()
     async def search_unified(
