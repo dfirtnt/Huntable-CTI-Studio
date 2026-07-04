@@ -255,3 +255,32 @@ def test_collect_from_source_keeps_total_articles_in_sync_with_saved_rows():
     assert result["articles_saved"] == len(db.persisted_articles) == 2
     assert db.source.total_articles == len(db.persisted_articles)
     assert db.source_checks and db.source_checks[-1]["articles_found"] == 2
+
+
+def test_collect_from_source_records_collection_breakdown_metadata():
+    """Source check history should retain scraper diagnostics beyond raw article count."""
+    mod = _import_celery_app()
+
+    _FakeDatabaseManager.source_template = _build_source()
+    _FakeDatabaseManager.last_instance = None
+
+    with patch.dict(
+        sys.modules,
+        {
+            "src.database.manager": SimpleNamespace(DatabaseManager=_FakeDatabaseManager),
+            "src.core.fetcher": SimpleNamespace(ContentFetcher=_FakeContentFetcher),
+            "src.core.processor": SimpleNamespace(ContentProcessor=_FakeContentProcessor),
+        },
+    ):
+        result = _call_collect_task(mod, 25)
+
+    db = _FakeDatabaseManager.last_instance
+    assert db is not None
+    assert result["status"] == "success"
+
+    metadata = db.source_checks[-1]["metadata"]
+    assert metadata["articles_collected"] == 2
+    assert metadata["articles_saved"] == 2
+    assert metadata["articles_filtered"] == 0
+    assert metadata["zero_yield"] is False
+    assert metadata["rss_parsing_stats"] == {"total_entries": 10, "parsed_successfully": 10}

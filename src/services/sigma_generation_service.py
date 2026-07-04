@@ -1096,7 +1096,7 @@ Focus on generating rules for the uncovered categories listed above."""
         converted_messages = self.llm_service._convert_messages_for_model(messages, model_name)
 
         is_reasoning_model = _is_reasoning_model(provider, model_name)
-        max_tokens = 4000 if is_reasoning_model else 800
+        max_tokens = 10000 if is_reasoning_model else 800
 
         with trace_llm_call(
             name="generate_sigma",
