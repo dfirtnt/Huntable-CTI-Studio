@@ -31,6 +31,7 @@ def _fake_request():
                 user_id="u1",
                 email="reviewer@example.com",
                 roles=("rule_reviewer",),
+                auth_mode="trusted_header",
             ),
         ),
         client=SimpleNamespace(host="127.0.0.1"),
@@ -294,6 +295,170 @@ class TestWorkflowAudit:
         assert len(rows) == 1
         assert rows[0].action == audit_service.ACTION_WORKFLOW_STALE_CLEANUP_REQUESTED
         session.commit.assert_called_once()
+
+    @staticmethod
+    def _failed_execution():
+        execution = MagicMock()
+        execution.id = 11
+        execution.status = "failed"
+        execution.article_id = 7
+        execution.retry_count = 0
+        execution.config_snapshot = {"rank_agent_enabled": True}
+        return execution
+
+    def test_retry_records_audit_commits_and_persists_initiator(self):
+        import asyncio
+
+        from src.database.models import AgenticWorkflowExecutionTable
+        from src.web.routes.workflow_executions import retry_workflow_execution
+
+        session = _chaining_session(first_row=self._failed_execution())
+
+        with (
+            patch("src.web.routes.workflow_executions.get_db_manager") as mock_get,
+            patch("src.services.workflow_trigger_service.WorkflowTriggerService") as mock_service_cls,
+            patch("src.worker.celery_app.trigger_agentic_workflow") as mock_task,
+        ):
+            mock_get.return_value.get_session.return_value = session
+            mock_service_cls.return_value.get_active_config.return_value = None
+            result = asyncio.run(retry_workflow_execution(_fake_request(), 11))
+
+        assert result["success"] is True
+        rows = _audit_rows(session)
+        assert len(rows) == 1
+        assert rows[0].action == audit_service.ACTION_WORKFLOW_RETRIED
+        assert rows[0].target_id == "11"
+        assert rows[0].event_metadata["article_id"] == 7
+        session.commit.assert_called_once()
+        mock_task.delay.assert_called_once()
+
+        new_executions = [
+            c.args[0] for c in session.add.call_args_list if isinstance(c.args[0], AgenticWorkflowExecutionTable)
+        ]
+        assert len(new_executions) == 1
+        initiated = new_executions[0].config_snapshot["initiated_by"]
+        assert initiated["user_id"] == "u1"
+        assert initiated["auth_mode"] == "trusted_header"
+
+    def test_retry_rolls_back_when_audit_fails(self):
+        import asyncio
+
+        from src.web.routes.workflow_executions import retry_workflow_execution
+
+        session = _chaining_session(first_row=self._failed_execution())
+
+        with (
+            patch("src.web.routes.workflow_executions.get_db_manager") as mock_get,
+            patch("src.services.workflow_trigger_service.WorkflowTriggerService") as mock_service_cls,
+            patch("src.worker.celery_app.trigger_agentic_workflow") as mock_task,
+            patch(
+                "src.web.routes.workflow_executions.AuditService.record_mandatory",
+                side_effect=RuntimeError("audit write failed"),
+            ),
+        ):
+            mock_get.return_value.get_session.return_value = session
+            mock_service_cls.return_value.get_active_config.return_value = None
+            with pytest.raises(HTTPException) as exc_info:
+                asyncio.run(retry_workflow_execution(_fake_request(), 11))
+
+        assert exc_info.value.status_code == 500
+        session.commit.assert_not_called()
+        mock_task.delay.assert_not_called()
+
+    def test_trigger_route_passes_initiator_and_audit_factory(self):
+        import asyncio
+
+        from src.web.routes.workflow_executions import trigger_workflow_for_article
+
+        session = _chaining_session(first_row=None)
+
+        with (
+            patch("src.web.routes.workflow_executions.get_db_manager") as mock_get,
+            patch("src.services.workflow_trigger_service.WorkflowTriggerService") as mock_service_cls,
+        ):
+            mock_get.return_value.get_session.return_value = session
+            mock_service = mock_service_cls.return_value
+            mock_service.trigger_workflow.return_value = (True, None)
+            result = asyncio.run(trigger_workflow_for_article(_fake_request(), article_id=7, force=True))
+
+        assert result["success"] is True
+        kwargs = mock_service.trigger_workflow.call_args.kwargs
+        assert kwargs["force"] is True
+        assert kwargs["initiated_by"]["user_id"] == "u1"
+        event = kwargs["audit_event_factory"](5)
+        assert event.action == audit_service.ACTION_WORKFLOW_TRIGGERED
+        assert event.target_id == "5"
+        assert event.metadata == {"article_id": 7, "force": True}
+
+
+class TestWorkflowTriggerServiceAudit:
+    """Audit contract of WorkflowTriggerService.trigger_workflow itself."""
+
+    @staticmethod
+    def _service(session):
+        from src.services.workflow_trigger_service import WorkflowTriggerService
+
+        service = WorkflowTriggerService(session)
+        service.get_active_config = MagicMock(return_value=None)
+        service._workflow_eligibility = MagicMock(return_value=(True, None))
+        return service
+
+    def test_trigger_workflow_records_mandatory_audit_before_commit(self):
+        article = MagicMock()
+        session = _chaining_session(first_row=article)
+        service = self._service(session)
+        factory = MagicMock(
+            return_value=audit_service.AuditEvent(
+                action=audit_service.ACTION_WORKFLOW_TRIGGERED,
+                target_type="workflow_execution",
+                target_id="1",
+                status=audit_service.STATUS_SUCCESS,
+                summary="t",
+                actor=audit_service.build_actor_context(None, None),
+                metadata={},
+            )
+        )
+
+        with patch("src.worker.celery_app.trigger_agentic_workflow"):
+            triggered, detail = service.trigger_workflow(
+                1, force=True, initiated_by={"user_id": "u1"}, audit_event_factory=factory
+            )
+
+        assert (triggered, detail) == (True, None)
+        factory.assert_called_once()
+        rows = _audit_rows(session)
+        assert len(rows) == 1
+        assert rows[0].action == audit_service.ACTION_WORKFLOW_TRIGGERED
+        session.commit.assert_called_once()
+
+        from src.database.models import AgenticWorkflowExecutionTable
+
+        executions = [
+            c.args[0] for c in session.add.call_args_list if isinstance(c.args[0], AgenticWorkflowExecutionTable)
+        ]
+        assert len(executions) == 1
+        assert executions[0].config_snapshot == {"initiated_by": {"user_id": "u1"}}
+
+    def test_trigger_workflow_audit_failure_rolls_back_and_raises(self):
+        from src.services.workflow_trigger_service import WorkflowAuditError
+
+        article = MagicMock()
+        session = _chaining_session(first_row=article)
+        service = self._service(session)
+
+        with (
+            patch("src.worker.celery_app.trigger_agentic_workflow") as mock_task,
+            patch(
+                "src.services.workflow_trigger_service.AuditService.record_mandatory",
+                side_effect=RuntimeError("audit write failed"),
+            ),
+        ):
+            with pytest.raises(WorkflowAuditError):
+                service.trigger_workflow(1, force=True, audit_event_factory=MagicMock())
+
+        session.rollback.assert_called_once()
+        session.commit.assert_not_called()
+        mock_task.delay.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

@@ -5,14 +5,21 @@ Handles triggering the agentic workflow when articles with high hunt scores are 
 """
 
 import logging
+from collections.abc import Callable
 from datetime import datetime, timedelta
+from typing import Any
 
 from sqlalchemy.orm import Session
 
 from src.database.models import AgenticWorkflowConfigTable, AgenticWorkflowExecutionTable, ArticleTable
+from src.services.audit_service import AuditEvent, AuditService
 from src.utils.default_agent_prompts import get_default_agent_prompts
 
 logger = logging.getLogger(__name__)
+
+
+class WorkflowAuditError(RuntimeError):
+    """Mandatory audit write failed while triggering a workflow; the trigger was rolled back."""
 
 
 class WorkflowTriggerService:
@@ -178,13 +185,30 @@ class WorkflowTriggerService:
         ok, _ = self._workflow_eligibility(article, force=False)
         return ok
 
-    def trigger_workflow(self, article_id: int, *, force: bool = False) -> tuple[bool, str | None]:
+    def trigger_workflow(
+        self,
+        article_id: int,
+        *,
+        force: bool = False,
+        initiated_by: dict[str, Any] | None = None,
+        audit_event_factory: Callable[[int], AuditEvent] | None = None,
+    ) -> tuple[bool, str | None]:
         """
         Trigger agentic workflow for an article.
 
         Args:
             article_id: ID of article to process
             force: If True, skip RegexHunt auto-trigger threshold (manual / explicit runs).
+            initiated_by: redacted-safe snapshot of the requesting human (see
+                ``audit_service.initiating_actor_metadata``). Persisted under
+                ``config_snapshot["initiated_by"]`` so worker-side attribution can
+                reference the originating human without impersonating them. Omitted
+                for service-originated triggers (e.g. ingest auto-trigger), whose
+                executions are attributed to the service by its absence.
+            audit_event_factory: called with the new execution id inside the creation
+                transaction; the returned event is recorded via
+                ``AuditService.record_mandatory`` so an audit-write failure rolls the
+                trigger back (raises ``WorkflowAuditError``).
 
         Returns:
             (True, None) if workflow was triggered successfully.
@@ -203,10 +227,8 @@ class WorkflowTriggerService:
 
             # Create execution record
             config = self.get_active_config()
-            execution = AgenticWorkflowExecutionTable(
-                article_id=article_id,
-                status="pending",
-                config_snapshot={
+            config_snapshot = (
+                {
                     "min_hunt_score": config.min_hunt_score,
                     "ranking_threshold": config.ranking_threshold,
                     "similarity_threshold": config.similarity_threshold,
@@ -225,9 +247,23 @@ class WorkflowTriggerService:
                     "config_version": config.version,
                 }
                 if config
-                else None,
+                else None
+            )
+            if initiated_by:
+                config_snapshot = {**(config_snapshot or {}), "initiated_by": initiated_by}
+            execution = AgenticWorkflowExecutionTable(
+                article_id=article_id,
+                status="pending",
+                config_snapshot=config_snapshot,
             )
             self.db.add(execution)
+            self.db.flush()
+            if audit_event_factory is not None:
+                try:
+                    AuditService.record_mandatory(self.db, audit_event_factory(execution.id))
+                except Exception as audit_exc:
+                    self.db.rollback()
+                    raise WorkflowAuditError(str(audit_exc)) from audit_exc
             self.db.commit()
             self.db.refresh(execution)
 
@@ -241,6 +277,10 @@ class WorkflowTriggerService:
 
             return True, None
 
+        except WorkflowAuditError:
+            # Mandatory-audit contract: the caller must surface this as a server
+            # error, not a soft "not triggered" result.
+            raise
         except Exception as e:
             logger.error(f"Error triggering workflow for article {article_id}: {e}")
             return False, str(e)

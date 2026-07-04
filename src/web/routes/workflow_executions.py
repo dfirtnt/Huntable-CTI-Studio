@@ -20,11 +20,14 @@ from src.database.manager import DatabaseManager
 from src.database.models import AgenticWorkflowExecutionTable, AppSettingsTable, ArticleTable
 from src.services.audit_service import (
     ACTION_WORKFLOW_CANCELLED,
+    ACTION_WORKFLOW_RETRIED,
     ACTION_WORKFLOW_STALE_CLEANUP_REQUESTED,
+    ACTION_WORKFLOW_TRIGGERED,
     STATUS_SUCCESS,
     AuditEvent,
     AuditService,
     build_actor_context,
+    initiating_actor_metadata,
 )
 from src.services.eval_bundle_service import EvalBundleService, compute_sha256_json
 from src.utils.langfuse_client import get_langfuse_trace_id_for_session
@@ -1060,6 +1063,12 @@ async def retry_workflow_execution(request: Request, execution_id: int):
                     f"Retry execution {execution_id}: Preserved rank_agent_enabled={new_config_snapshot['rank_agent_enabled']} from old snapshot (no current config to update from)"
                 )
 
+            # Carry the initiating human into execution metadata (redacted-safe) so
+            # worker-side attribution never has to impersonate the requester.
+            initiated_by = initiating_actor_metadata(getattr(request.state, "identity", None))
+            if initiated_by:
+                new_config_snapshot["initiated_by"] = initiated_by
+
             # Create new execution record
             new_execution = AgenticWorkflowExecutionTable(
                 article_id=execution.article_id,
@@ -1068,6 +1077,21 @@ async def retry_workflow_execution(request: Request, execution_id: int):
                 retry_count=execution.retry_count + 1,
             )
             db_session.add(new_execution)
+            db_session.flush()
+            AuditService.record_mandatory(
+                db_session,
+                _workflow_audit_event(
+                    request,
+                    ACTION_WORKFLOW_RETRIED,
+                    execution_id,
+                    f"Retried workflow execution {execution_id}",
+                    {
+                        "new_execution_id": new_execution.id,
+                        "article_id": execution.article_id,
+                        "retry_count": new_execution.retry_count,
+                    },
+                ),
+            )
             db_session.commit()
             db_session.refresh(new_execution)
 
@@ -1466,7 +1490,19 @@ async def trigger_workflow_for_article(
                         detail=f"Article {article_id} already has an active workflow execution (ID: {existing_execution.id})",
                     )
 
-            triggered, fail_detail = trigger_service.trigger_workflow(article_id, force=force)
+            initiated_by = initiating_actor_metadata(getattr(request.state, "identity", None))
+            triggered, fail_detail = trigger_service.trigger_workflow(
+                article_id,
+                force=force,
+                initiated_by=initiated_by or None,
+                audit_event_factory=lambda new_execution_id: _workflow_audit_event(
+                    request,
+                    ACTION_WORKFLOW_TRIGGERED,
+                    new_execution_id,
+                    f"Triggered workflow for article {article_id}",
+                    {"article_id": article_id, "force": force},
+                ),
+            )
             if triggered:
                 # Get the newly created execution
                 execution = (
