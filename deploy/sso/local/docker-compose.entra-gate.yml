@@ -30,6 +30,13 @@ services:
       OAUTH2_PROXY_EMAIL_DOMAINS: "*"
       # Plain http on localhost: the session cookie cannot require TLS.
       OAUTH2_PROXY_COOKIE_SECURE: "false"
+      # Session lifetime: force a fresh Entra login every 24h. No cookie_refresh is
+      # set, so the session hard-expires at 24h rather than silently extending.
+      OAUTH2_PROXY_COOKIE_EXPIRE: "24h"
+      # Per-login CSRF cookie: each login flow gets its own uniquely-named CSRF
+      # cookie, so parallel tabs / retries do not clobber a single shared cookie
+      # (which otherwise causes "CSRF cookie not found" 403s on the callback).
+      OAUTH2_PROXY_COOKIE_CSRF_PER_REQUEST: "true"
       # Skip the interstitial and go straight to Microsoft.
       OAUTH2_PROXY_SKIP_PROVIDER_BUTTON: "true"
     ports:
