@@ -5,12 +5,21 @@ API endpoints for managing application settings.
 import logging
 import os
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from src.database.async_manager import async_db_manager
 from src.database.models import AppSettingsTable
+from src.services.audit_service import (
+    ACTION_SETTINGS_SECRET_UPDATED,
+    ACTION_SETTINGS_UPDATED,
+    STATUS_SUCCESS,
+    AsyncAuditService,
+    AuditEvent,
+    build_actor_context,
+    redacted_secret_change,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +45,54 @@ _SETTINGS_ENV_OVERRIDE_KEYS = ("WORKFLOW_LMSTUDIO_ENABLED", "PROCEED_WITHOUT_LMS
 _LMSTUDIO_URL_KEYS = ("LMSTUDIO_API_URL", "LMSTUDIO_EMBEDDING_URL")
 # Langfuse credential keys: changing any of these must reset the in-memory client singleton
 _LANGFUSE_KEYS = frozenset({"LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "LANGFUSE_HOST"})
+_SENSITIVE_KEYS = frozenset(
+    {
+        "GITHUB_TOKEN",
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "HUGGINGFACE_API_TOKEN",
+        "WORKFLOW_OPENAI_API_KEY",
+        "WORKFLOW_ANTHROPIC_API_KEY",
+        "LANGFUSE_SECRET_KEY",
+    }
+)
+
+
+def _is_sensitive_setting(key: str) -> bool:
+    normalized = key.upper()
+    return normalized in _SENSITIVE_KEYS or "TOKEN" in normalized or "SECRET" in normalized or "API_KEY" in normalized
+
+
+def _setting_audit_event(
+    *,
+    request: Request | None,
+    key: str,
+    old_value: str | None,
+    new_value: str | None,
+    deleted: bool = False,
+) -> AuditEvent:
+    sensitive = _is_sensitive_setting(key)
+    action = ACTION_SETTINGS_SECRET_UPDATED if sensitive else ACTION_SETTINGS_UPDATED
+    metadata = (
+        redacted_secret_change(key, old_value=old_value, new_value=new_value)
+        if sensitive
+        else {
+            "key": key,
+            "old_value": old_value,
+            "new_value": new_value,
+            "deleted": deleted,
+        }
+    )
+    verb = "Deleted" if deleted else "Updated"
+    return AuditEvent(
+        action=action,
+        target_type="setting",
+        target_id=key,
+        status=STATUS_SUCCESS,
+        summary=f"{verb} setting {key}",
+        actor=build_actor_context(getattr(request.state, "identity", None) if request else None, request),
+        metadata=metadata,
+    )
 
 
 @router.get("")
@@ -95,7 +152,7 @@ async def get_setting(key: str):
 
 
 @router.post("")
-async def update_setting(update: SettingUpdate):
+async def update_setting(update: SettingUpdate, request: Request):
     """Update or create a setting."""
     try:
         async with async_db_manager.get_session() as session:
@@ -107,13 +164,12 @@ async def update_setting(update: SettingUpdate):
             result = await session.execute(select(AppSettingsTable).where(AppSettingsTable.key == update.key))
             setting = result.scalar_one_or_none()
 
-            _SENSITIVE_KEYS = {"GITHUB_TOKEN", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "HUGGINGFACE_API_TOKEN"}
-
             def _safe_log_value(key: str, value: str) -> str:
-                if key in _SENSITIVE_KEYS and value:
+                if _is_sensitive_setting(key) and value:
                     return f"{value[:8]}...({len(value)} chars)"
                 return value
 
+            old_value = setting.value if setting else None
             if setting:
                 # Update existing setting
                 setting.value = update.value
@@ -129,6 +185,15 @@ async def update_setting(update: SettingUpdate):
                 session.add(setting)
                 logger.info(f"Created new setting: {update.key} = {_safe_log_value(update.key, update.value)}")
 
+            await AsyncAuditService.record_mandatory(
+                session,
+                _setting_audit_event(
+                    request=request,
+                    key=update.key,
+                    old_value=old_value,
+                    new_value=update.value,
+                ),
+            )
             await session.commit()
 
             if update.key in _LMSTUDIO_URL_KEYS and update.value:
@@ -155,7 +220,7 @@ async def update_setting(update: SettingUpdate):
 
 
 @router.post("/bulk")
-async def update_settings_bulk(update: SettingsBulkUpdate):
+async def update_settings_bulk(update: SettingsBulkUpdate, request: Request):
     """Update multiple settings at once."""
     try:
         async with async_db_manager.get_session() as session:
@@ -171,6 +236,7 @@ async def update_settings_bulk(update: SettingsBulkUpdate):
                     # Check if setting exists
                     result = await session.execute(select(AppSettingsTable).where(AppSettingsTable.key == key))
                     setting = result.scalar_one_or_none()
+                    old_value = setting.value if setting else None
 
                     if setting:
                         # Update existing
@@ -182,6 +248,15 @@ async def update_settings_bulk(update: SettingsBulkUpdate):
                         session.add(setting)
 
                     updated_keys.append(key)
+                    await AsyncAuditService.record_mandatory(
+                        session,
+                        _setting_audit_event(
+                            request=request,
+                            key=key,
+                            old_value=old_value,
+                            new_value=value,
+                        ),
+                    )
 
                 except Exception as e:
                     logger.error(f"Error updating setting {key}: {e}")
@@ -217,7 +292,7 @@ async def update_settings_bulk(update: SettingsBulkUpdate):
 
 
 @router.delete("/{key}")
-async def delete_setting(key: str):
+async def delete_setting(key: str, request: Request):
     """Delete a setting (revert to environment variable)."""
     try:
         async with async_db_manager.get_session() as session:
@@ -230,8 +305,19 @@ async def delete_setting(key: str):
             if not setting:
                 raise HTTPException(status_code=404, detail=f"Setting '{key}' not found")
 
+            old_value = setting.value
             # Delete the setting
             await session.execute(delete(AppSettingsTable).where(AppSettingsTable.key == key))
+            await AsyncAuditService.record_mandatory(
+                session,
+                _setting_audit_event(
+                    request=request,
+                    key=key,
+                    old_value=old_value,
+                    new_value=None,
+                    deleted=True,
+                ),
+            )
             await session.commit()
 
             logger.info(f"Deleted setting: {key}")

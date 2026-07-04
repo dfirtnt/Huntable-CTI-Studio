@@ -33,7 +33,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import defer, selectinload
 
-from src.database.audit_schema import AUDIT_INDEX_DDLS
+from src.database.audit_schema import AUDIT_INDEX_DDLS, missing_audit_schema_objects
 from src.database.models import (
     ArticleAnnotationTable,
     ArticleTable,
@@ -181,10 +181,45 @@ class AsyncDatabaseManager:
                 except Exception as ddl_err:
                     logger.warning("Skipping schema-ensure DDL (lock contention or non-fatal): %s", ddl_err)
 
+            for index_ddl in AUDIT_INDEX_DDLS:
+                try:
+                    async with self.engine.begin() as conn:
+                        await conn.execute(text("SET LOCAL lock_timeout = '3s'"))
+                        await conn.execute(text(index_ddl))
+                except Exception as ddl_err:
+                    logger.warning("Skipping audit schema-ensure DDL (lock contention or non-fatal): %s", ddl_err)
+
+            if os.getenv("APP_ENV", "").lower() == "production":
+                await self.validate_audit_schema()
+
             logger.info("Database tables created successfully")
         except Exception as e:
             logger.error(f"Failed to create tables: {e}")
             raise
+
+    async def validate_audit_schema(self) -> None:
+        """Validate required audit schema objects for production startup."""
+        if not self.engine.url.drivername.startswith("postgresql"):
+            return
+
+        async with self.engine.connect() as conn:
+            table_result = await conn.execute(text("SELECT to_regclass('public.audit_events') IS NOT NULL"))
+            table_exists = bool(table_result.scalar())
+            index_result = await conn.execute(
+                text(
+                    """
+                    SELECT indexname
+                    FROM pg_indexes
+                    WHERE schemaname = 'public'
+                      AND tablename = 'audit_events'
+                    """
+                )
+            )
+            existing_indexes = tuple(str(row[0]) for row in index_result.fetchall())
+
+        missing = missing_audit_schema_objects(table_exists=table_exists, existing_indexes=existing_indexes)
+        if missing:
+            raise RuntimeError(f"Missing required audit schema objects: {', '.join(missing)}")
 
     async def get_database_stats(self) -> dict[str, Any]:
         """Get comprehensive database statistics."""
@@ -483,151 +518,167 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to get source {source_id}: {e}")
             return None
 
-    async def update_source_min_content_length(self, source_id: int, min_content_length: int) -> dict[str, Any] | None:
-        """Update source minimum content length in config."""
+    async def update_source_min_content_length(
+        self, source_id: int, min_content_length: int, *, session: Any = None
+    ) -> dict[str, Any] | None:
+        """Update source minimum content length in config.
+
+        Accepts an optional caller-owned ``session`` for atomic mutation+audit;
+        see :meth:`toggle_source_status` for the transaction contract.
+        """
+        if session is None:
+            async with self.get_session() as owned:
+                out = await self.update_source_min_content_length(source_id, min_content_length, session=owned)
+                if out is not None:
+                    await owned.commit()
+                return out
+
         try:
-            async with self.get_session() as session:
-                # Get the source
-                result = await session.execute(select(SourceTable).where(SourceTable.id == source_id).limit(1))
-                db_source = result.scalar_one_or_none()
+            result = await session.execute(select(SourceTable).where(SourceTable.id == source_id).limit(1))
+            db_source = result.scalar_one_or_none()
 
-                if not db_source:
-                    return None
+            if not db_source:
+                return None
 
-                # Update config with min_content_length
-                config = db_source.config or {}
-                config["min_content_length"] = min_content_length
-                db_source.config = config
+            config = db_source.config or {}
+            config["min_content_length"] = min_content_length
+            db_source.config = config
+            db_source.updated_at = datetime.now()
+            session.add(db_source)
 
-                # Update timestamp
-                db_source.updated_at = datetime.now()
+            logger.info(f"Updating min_content_length for source {db_source.identifier}: {min_content_length}")
 
-                session.add(db_source)
-                await session.commit()
-                await session.refresh(db_source)
-
-                logger.info(
-                    f"Successfully updated min_content_length for source {db_source.identifier}: {min_content_length}"
-                )
-
-                return {
-                    "success": True,
-                    "message": f"Minimum content length updated to {min_content_length} characters",
-                    "source_name": db_source.name,
-                    "min_content_length": min_content_length,
-                }
+            return {
+                "success": True,
+                "message": f"Minimum content length updated to {min_content_length} characters",
+                "source_name": db_source.name,
+                "min_content_length": min_content_length,
+            }
 
         except Exception as e:
             logger.error(f"Failed to update min_content_length for source {source_id}: {e}")
             raise
 
-    async def update_source_image_ocr_override(self, source_id: int, value: bool | None) -> dict[str, Any] | None:
+    async def update_source_image_ocr_override(
+        self, source_id: int, value: bool | None, *, session: Any = None
+    ) -> dict[str, Any] | None:
         """Set or clear the per-source image OCR override.
 
         value True/False writes config['image_ocr_enabled']; value None removes the
         key (revert to inherit). Returns None if the source does not exist, or a dict
         with success=False, protected=True for internal/eval/manual sources (which
-        must never be opted in)."""
+        must never be opted in).
+
+        Accepts an optional caller-owned ``session`` for atomic mutation+audit;
+        see :meth:`toggle_source_status` for the transaction contract. The
+        protected-source rejection path stages no mutation."""
         from src.services.vision_ocr_service import PROTECTED_INTERNAL_SOURCE_IDENTIFIERS
 
+        if session is None:
+            async with self.get_session() as owned:
+                out = await self.update_source_image_ocr_override(source_id, value, session=owned)
+                # Commit only when a mutation was actually staged (source found and not protected).
+                if out is not None and out.get("success"):
+                    await owned.commit()
+                return out
+
         try:
-            async with self.get_session() as session:
-                result = await session.execute(select(SourceTable).where(SourceTable.id == source_id).limit(1))
-                db_source = result.scalar_one_or_none()
-                if not db_source:
-                    return None
+            result = await session.execute(select(SourceTable).where(SourceTable.id == source_id).limit(1))
+            db_source = result.scalar_one_or_none()
+            if not db_source:
+                return None
 
-                if db_source.identifier in PROTECTED_INTERNAL_SOURCE_IDENTIFIERS:
-                    return {
-                        "success": False,
-                        "protected": True,
-                        "source_name": db_source.name,
-                        "message": f"OCR cannot be enabled for internal source '{db_source.identifier}'",
-                    }
-
-                config = dict(db_source.config or {})
-                if value is None:
-                    config.pop("image_ocr_enabled", None)
-                else:
-                    config["image_ocr_enabled"] = bool(value)
-                db_source.config = config
-                db_source.updated_at = datetime.now()
-
-                session.add(db_source)
-                await session.commit()
-                await session.refresh(db_source)
-
-                state = "inherit" if value is None else ("on" if value else "off")
-                logger.info(
-                    "Updated image_ocr_enabled for source %s -> %s",
-                    db_source.identifier,
-                    state,
-                )
+            if db_source.identifier in PROTECTED_INTERNAL_SOURCE_IDENTIFIERS:
                 return {
-                    "success": True,
+                    "success": False,
+                    "protected": True,
                     "source_name": db_source.name,
-                    "image_ocr_enabled": value,
-                    "state": state,
+                    "message": f"OCR cannot be enabled for internal source '{db_source.identifier}'",
                 }
+
+            config = dict(db_source.config or {})
+            if value is None:
+                config.pop("image_ocr_enabled", None)
+            else:
+                config["image_ocr_enabled"] = bool(value)
+            db_source.config = config
+            db_source.updated_at = datetime.now()
+            session.add(db_source)
+
+            state = "inherit" if value is None else ("on" if value else "off")
+            logger.info("Updating image_ocr_enabled for source %s -> %s", db_source.identifier, state)
+            return {
+                "success": True,
+                "source_name": db_source.name,
+                "image_ocr_enabled": value,
+                "state": state,
+            }
         except Exception as e:
             logger.error("Failed to update image_ocr_enabled for source %s: %s", source_id, e)
             raise
 
-    async def update_source(self, source_id: int, update_data: SourceUpdate) -> Source | None:
-        """Update a source with proper transaction handling."""
+    async def update_source(self, source_id: int, update_data: SourceUpdate, *, session: Any = None) -> Source | None:
+        """Update a source with proper transaction handling.
+
+        Accepts an optional caller-owned ``session`` for atomic mutation+audit;
+        see :meth:`toggle_source_status` for the transaction contract.
+        """
+        if session is None:
+            async with self.get_session() as owned:
+                out = await self.update_source(source_id, update_data, session=owned)
+                if out is not None:
+                    await owned.commit()
+                return out
+
         try:
-            async with self.get_session() as session:
-                # Get the source
-                result = await session.execute(select(SourceTable).where(SourceTable.id == source_id).limit(1))
-                db_source = result.scalar_one_or_none()
+            # Get the source
+            result = await session.execute(select(SourceTable).where(SourceTable.id == source_id).limit(1))
+            db_source = result.scalar_one_or_none()
 
-                if not db_source:
-                    return None
+            if not db_source:
+                return None
 
-                # Update fields
-                update_dict = update_data.model_dump(exclude_unset=True, exclude_none=True)
-                for field, value in update_dict.items():
-                    if field == "config" and value:
-                        # Handle config: extract inner config if SourceConfig model
-                        if hasattr(value, "model_dump"):
-                            # SourceConfig Pydantic model: extract inner 'config' field
-                            config_dict = value.model_dump(exclude_none=True)
-                            # If it has a nested 'config' key, use that (the actual config)
-                            if "config" in config_dict and isinstance(config_dict["config"], dict):
-                                config_dict = config_dict["config"]
-                            # Remove check_frequency and lookback_days (separate columns)
-                            config_dict.pop("check_frequency", None)
-                            config_dict.pop("lookback_days", None)
-                        elif isinstance(value, dict):
-                            # Already a dict: clean it up
-                            config_dict = value.copy()
-                            config_dict.pop("check_frequency", None)
-                            config_dict.pop("lookback_days", None)
-                            # If nested structure exists, extract inner config
-                            if "config" in config_dict and isinstance(config_dict["config"], dict):
-                                config_dict = config_dict["config"]
-                        else:
-                            config_dict = {}
-
-                        # If existing config has nested structure, merge with inner config
-                        existing_config = db_source.config if db_source.config else {}
-                        if isinstance(existing_config, dict) and "config" in existing_config:
-                            existing_inner = existing_config.get("config", {})
-                            if existing_inner and isinstance(existing_inner, dict):
-                                config_dict = {**existing_inner, **config_dict}
-
-                        setattr(db_source, field, config_dict)
+            # Update fields
+            update_dict = update_data.model_dump(exclude_unset=True, exclude_none=True)
+            for field, value in update_dict.items():
+                if field == "config" and value:
+                    # Handle config: extract inner config if SourceConfig model
+                    if hasattr(value, "model_dump"):
+                        # SourceConfig Pydantic model: extract inner 'config' field
+                        config_dict = value.model_dump(exclude_none=True)
+                        # If it has a nested 'config' key, use that (the actual config)
+                        if "config" in config_dict and isinstance(config_dict["config"], dict):
+                            config_dict = config_dict["config"]
+                        # Remove check_frequency and lookback_days (separate columns)
+                        config_dict.pop("check_frequency", None)
+                        config_dict.pop("lookback_days", None)
+                    elif isinstance(value, dict):
+                        # Already a dict: clean it up
+                        config_dict = value.copy()
+                        config_dict.pop("check_frequency", None)
+                        config_dict.pop("lookback_days", None)
+                        # If nested structure exists, extract inner config
+                        if "config" in config_dict and isinstance(config_dict["config"], dict):
+                            config_dict = config_dict["config"]
                     else:
-                        setattr(db_source, field, value)
+                        config_dict = {}
 
-                # Update timestamp
-                db_source.updated_at = datetime.now()
+                    # If existing config has nested structure, merge with inner config
+                    existing_config = db_source.config if db_source.config else {}
+                    if isinstance(existing_config, dict) and "config" in existing_config:
+                        existing_inner = existing_config.get("config", {})
+                        if existing_inner and isinstance(existing_inner, dict):
+                            config_dict = {**existing_inner, **config_dict}
 
-                await session.commit()
-                await session.refresh(db_source)
+                    setattr(db_source, field, config_dict)
+                else:
+                    setattr(db_source, field, value)
 
-                logger.info(f"Successfully updated source: {db_source.identifier}")
-                return self._db_source_to_model(db_source)
+            # Update timestamp
+            db_source.updated_at = datetime.now()
+
+            logger.info(f"Updating source: {db_source.identifier}")
+            return self._db_source_to_model(db_source)
 
         except Exception as e:
             logger.error(f"Failed to update source {source_id}: {e}")
@@ -648,36 +699,42 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to delete source {source_id}: {e}")
             raise
 
-    async def toggle_source_status(self, source_id: int) -> dict[str, Any] | None:
-        """Toggle source active status with proper transaction handling."""
+    async def toggle_source_status(self, source_id: int, *, session: Any = None) -> dict[str, Any] | None:
+        """Toggle source active status.
+
+        When ``session`` is provided the mutation is staged in that caller-owned
+        transaction WITHOUT committing (so callers can record a mandatory audit
+        event and commit atomically). When omitted, a session is opened and
+        committed here, preserving the legacy behavior for existing callers.
+        """
+        if session is None:
+            async with self.get_session() as owned:
+                out = await self.toggle_source_status(source_id, session=owned)
+                if out is not None:
+                    await owned.commit()
+                return out
+
         try:
-            async with self.get_session() as session:
-                # Get the source
-                result = await session.execute(select(SourceTable).where(SourceTable.id == source_id).limit(1))
-                db_source = result.scalar_one_or_none()
+            result = await session.execute(select(SourceTable).where(SourceTable.id == source_id).limit(1))
+            db_source = result.scalar_one_or_none()
 
-                if not db_source:
-                    return None
+            if not db_source:
+                return None
 
-                # Toggle the status
-                old_status = db_source.active
-                new_status = not old_status
-                db_source.active = new_status
-                db_source.updated_at = datetime.now()
+            old_status = db_source.active
+            new_status = not old_status
+            db_source.active = new_status
+            db_source.updated_at = datetime.now()
 
-                # Commit the transaction
-                await session.commit()
-                await session.refresh(db_source)
+            logger.info(f"Toggling source {source_id} from {old_status} to {new_status}")
 
-                logger.info(f"Successfully toggled source {source_id} from {old_status} to {new_status}")
-
-                return {
-                    "source_id": source_id,
-                    "source_name": db_source.name,
-                    "old_status": old_status,
-                    "new_status": new_status,
-                    "success": True,
-                }
+            return {
+                "source_id": source_id,
+                "source_name": db_source.name,
+                "old_status": old_status,
+                "new_status": new_status,
+                "success": True,
+            }
 
         except Exception as e:
             logger.error(f"Failed to toggle source {source_id}: {e}")
@@ -1707,37 +1764,48 @@ class AsyncDatabaseManager:
 
     # Annotation management methods
 
-    async def create_annotation(self, annotation_data: ArticleAnnotationCreate) -> ArticleAnnotation | None:
-        """Create a new annotation."""
+    async def create_annotation(
+        self, annotation_data: ArticleAnnotationCreate, *, session: Any = None
+    ) -> ArticleAnnotation | None:
+        """Create a new annotation.
+
+        Accepts an optional caller-owned ``session`` for atomic mutation+audit;
+        see :meth:`toggle_source_status` for the transaction contract.
+        """
+        if session is None:
+            async with self.get_session() as owned:
+                out = await self.create_annotation(annotation_data, session=owned)
+                if out is not None:
+                    await owned.commit()
+                return out
+
         try:
-            async with self.get_session() as session:
-                # Get used_for_training from annotation_data if it exists, otherwise default to False
-                used_for_training = getattr(annotation_data, "used_for_training", False)
+            # Get used_for_training from annotation_data if it exists, otherwise default to False
+            used_for_training = getattr(annotation_data, "used_for_training", False)
 
-                db_annotation = ArticleAnnotationTable(
-                    article_id=annotation_data.article_id,
-                    user_id=None,  # Set to None for now
-                    annotation_type=annotation_data.annotation_type,
-                    selected_text=annotation_data.selected_text,
-                    start_position=annotation_data.start_position,
-                    end_position=annotation_data.end_position,
-                    context_before=annotation_data.context_before,
-                    context_after=annotation_data.context_after,
-                    confidence_score=annotation_data.confidence_score,
-                    usage=annotation_data.usage,
-                    used_for_training=used_for_training,
-                    created_at=datetime.now(),
-                    updated_at=datetime.now(),
-                )
+            db_annotation = ArticleAnnotationTable(
+                article_id=annotation_data.article_id,
+                user_id=None,  # Set to None for now
+                annotation_type=annotation_data.annotation_type,
+                selected_text=annotation_data.selected_text,
+                start_position=annotation_data.start_position,
+                end_position=annotation_data.end_position,
+                context_before=annotation_data.context_before,
+                context_after=annotation_data.context_after,
+                confidence_score=annotation_data.confidence_score,
+                usage=annotation_data.usage,
+                used_for_training=used_for_training,
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
+            )
 
-                session.add(db_annotation)
-                await session.commit()
-                await session.refresh(db_annotation)
+            session.add(db_annotation)
+            await session.flush()  # assign PK without committing so callers can audit atomically
 
-                logger.info(
-                    f"Created annotation: {annotation_data.annotation_type} for article {annotation_data.article_id}"
-                )
-                return self._db_annotation_to_model(db_annotation)
+            logger.info(
+                f"Created annotation: {annotation_data.annotation_type} for article {annotation_data.article_id}"
+            )
+            return self._db_annotation_to_model(db_annotation)
 
         except Exception as e:
             logger.error(f"Failed to create annotation: {e}", exc_info=True)
@@ -1831,19 +1899,27 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to update annotation {annotation_id}: {e}")
             return None
 
-    async def delete_annotation(self, annotation_id: int) -> bool:
-        """Delete an annotation."""
-        try:
-            async with self.get_session() as session:
-                result = await session.execute(
-                    delete(ArticleAnnotationTable).where(ArticleAnnotationTable.id == annotation_id)
-                )
+    async def delete_annotation(self, annotation_id: int, *, session: Any = None) -> bool:
+        """Delete an annotation.
 
-                if result.rowcount > 0:
-                    await session.commit()
-                    logger.info(f"Deleted annotation {annotation_id}")
-                    return True
-                return False
+        Accepts an optional caller-owned ``session`` for atomic mutation+audit;
+        see :meth:`toggle_source_status` for the transaction contract.
+        """
+        if session is None:
+            async with self.get_session() as owned:
+                deleted = await self.delete_annotation(annotation_id, session=owned)
+                if deleted:
+                    await owned.commit()
+                return deleted
+
+        try:
+            result = await session.execute(
+                delete(ArticleAnnotationTable).where(ArticleAnnotationTable.id == annotation_id)
+            )
+            if result.rowcount > 0:
+                logger.info(f"Deleting annotation {annotation_id}")
+                return True
+            return False
 
         except Exception as e:
             logger.error(f"Failed to delete annotation {annotation_id}: {e}")

@@ -1,0 +1,19 @@
+# Entra login-gate PORT ISOLATION overlay (committed; layered with -f, never auto-merged).
+#
+# Layer this over docker-compose.yml to REMOVE every host port publish from the web
+# service, so cti_web becomes reachable only over the Docker network -- that is, only
+# through the Entra login gate (docker-compose.entra-gate.yml on :4180). The oauth2-proxy
+# reaches cti_web:8001 over huntable-cti-studio_cti_network regardless of host publishing,
+# so the app keeps serving behind the gate while direct :8001 from the host is gone.
+#
+# This is deliberately a SEPARATELY NAMED file passed explicitly with -f. Do NOT rename it
+# to docker-compose.override.yml: that name is auto-merged into every `docker compose up`,
+# which would make the plain-up "reopen the port" path silently keep the port closed -- a
+# lockout trap.
+#
+# Driven by deploy/sso/local/gate.sh (or `./config.sh entra on|off`). The `!override []`
+# tag (Compose >= 2.20) replaces the merged ports list with an empty list, dropping both
+# the 8001 publish and the stray 8888 publish.
+services:
+  web:
+    ports: !override []

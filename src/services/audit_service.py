@@ -74,6 +74,9 @@ _CONNECTION_PREFIXES = (
     "rediss://",
 )
 
+# Value-level secret scrubbing: catches credentials embedded inside free-text
+# strings (e.g. git/provider error messages, URLs) where the *key* name looks
+# innocuous so key-based redaction would miss it. Defense-in-depth backstop.
 _URL_CREDENTIALS_RE = re.compile(r"(?P<scheme>://[^/\s:@]+:)[^/\s@]+(?P<at>@)")
 _XACCESS_TOKEN_RE = re.compile(r"(x-access-token:)[^@/\s]+")
 _BEARER_RE = re.compile(r"(?i)(bearer\s+)[A-Za-z0-9._\-]{8,}")
@@ -204,7 +207,12 @@ def service_actor_context(
     source_ip: str | None = None,
     user_agent: str | None = None,
 ) -> ActorContext:
-    """Build an actor context for a background/service caller."""
+    """Build an actor context for a background/service caller (worker, scheduler, CLI).
+
+    Use the Chunk A ``SERVICE_*`` identity constants for ``service_name`` (e.g.
+    ``service:celery-worker``). Service callers must never reuse human trusted
+    headers; this produces an explicit ``actor_type="service"`` attribution.
+    """
     return ActorContext(
         actor_type="service",
         actor_id=service_name,
@@ -217,7 +225,12 @@ def service_actor_context(
 
 
 def initiating_actor_metadata(identity: RequestIdentity | None) -> dict[str, Any]:
-    """Redacted-safe snapshot of the human who initiated async work."""
+    """Redacted-safe snapshot of the human who initiated async work.
+
+    Embed this in a worker-side audit event's metadata (under e.g.
+    ``initiated_by``) so a service-attributed event still records the originating
+    human, without pretending the worker *is* the human.
+    """
     if identity is None or not identity.user_id:
         return {}
     return {

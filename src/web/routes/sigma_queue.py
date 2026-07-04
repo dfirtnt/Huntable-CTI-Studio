@@ -26,6 +26,20 @@ from src.database.models import (
     SigmaRuleQueueTable,
     SigmaRuleTable,
 )
+from src.services.audit_service import (
+    ACTION_SIGMA_QUEUE_BULK_ACTION,
+    ACTION_SIGMA_QUEUE_PR_SUBMITTED,
+    ACTION_SIGMA_QUEUE_RULE_APPROVED,
+    ACTION_SIGMA_QUEUE_RULE_CREATED,
+    ACTION_SIGMA_QUEUE_RULE_DELETED,
+    ACTION_SIGMA_QUEUE_RULE_EDITED,
+    ACTION_SIGMA_QUEUE_RULE_REJECTED,
+    STATUS_FAILURE,
+    STATUS_SUCCESS,
+    AuditEvent,
+    AuditService,
+    build_actor_context,
+)
 from src.services.llm_service import WORKFLOW_PROVIDER_APPSETTING_KEYS
 from src.services.sigma_matching_service import SigmaMatchingService
 from src.services.sigma_pr_service import SigmaPRService
@@ -37,6 +51,27 @@ from src.utils.prompt_loader import format_prompt
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/sigma-queue", tags=["sigma-queue"])
+
+
+def _sigma_audit_event(
+    request: Request,
+    action: str,
+    queue_id: int | None,
+    summary: str,
+    metadata: dict[str, Any] | None = None,
+    *,
+    status: str = STATUS_SUCCESS,
+) -> AuditEvent:
+    """Build a Sigma-queue audit event with actor context from the request identity."""
+    return AuditEvent(
+        action=action,
+        target_type="sigma_rule_queue",
+        target_id=str(queue_id) if queue_id is not None else None,
+        status=status,
+        summary=summary,
+        actor=build_actor_context(getattr(request.state, "identity", None), request),
+        metadata=metadata or {},
+    )
 
 
 def _extract_yaml_block(text: str) -> str:
@@ -406,6 +441,17 @@ def add_rule_to_queue(request: Request, add_request: AddRuleToQueueRequest):
                 status="pending",
             )
             db_session.add(queue_entry)
+            db_session.flush()  # assign the PK without committing so audit can reference it atomically
+            AuditService.record_mandatory(
+                db_session,
+                _sigma_audit_event(
+                    request,
+                    ACTION_SIGMA_QUEUE_RULE_CREATED,
+                    queue_entry.id,
+                    f"Added Sigma rule {queue_entry.id} to queue",
+                    {"article_id": add_request.article_id, "canonical_class": canonical_class},
+                ),
+            )
             db_session.commit()
 
             logger.info(f"Added rule to queue: queue_id={queue_entry.id}, article_id={add_request.article_id}")
@@ -578,6 +624,16 @@ def approve_queued_rule(request: Request, queue_id: int, update: QueueUpdateRequ
                 rule.pr_submitted = True
                 rule.submitted_at = datetime.now()
 
+            AuditService.record_mandatory(
+                db_session,
+                _sigma_audit_event(
+                    request,
+                    ACTION_SIGMA_QUEUE_RULE_APPROVED,
+                    queue_id,
+                    f"Approved queued Sigma rule {queue_id}",
+                    {"status": rule.status, "pr_submitted": bool(update.pr_url)},
+                ),
+            )
             db_session.commit()
 
             return {"success": True, "message": f"Rule {queue_id} approved"}
@@ -620,6 +676,15 @@ async def reject_queued_rule(request: Request, queue_id: int):
                 if review_notes:
                     rule.review_notes = review_notes
 
+            AuditService.record_mandatory(
+                db_session,
+                _sigma_audit_event(
+                    request,
+                    ACTION_SIGMA_QUEUE_RULE_REJECTED,
+                    queue_id,
+                    f"Rejected queued Sigma rule {queue_id}",
+                ),
+            )
             db_session.commit()
 
             return {"success": True, "message": f"Rule {queue_id} rejected"}
@@ -634,7 +699,7 @@ async def reject_queued_rule(request: Request, queue_id: int):
 
 
 @router.delete("/{queue_id}")
-def delete_queued_rule(queue_id: int):
+def delete_queued_rule(request: Request, queue_id: int):
     """Hard-delete a single queued rule."""
     try:
         db_manager = DatabaseManager()
@@ -643,7 +708,18 @@ def delete_queued_rule(queue_id: int):
             rule = db_session.query(SigmaRuleQueueTable).filter(SigmaRuleQueueTable.id == queue_id).first()
             if not rule:
                 raise HTTPException(status_code=404, detail="Queued rule not found")
+            previous_status = rule.status
             db_session.delete(rule)
+            AuditService.record_mandatory(
+                db_session,
+                _sigma_audit_event(
+                    request,
+                    ACTION_SIGMA_QUEUE_RULE_DELETED,
+                    queue_id,
+                    f"Deleted queued Sigma rule {queue_id}",
+                    {"previous_status": previous_status},
+                ),
+            )
             db_session.commit()
             return {"success": True, "message": f"Rule {queue_id} deleted"}
         finally:
@@ -656,7 +732,7 @@ def delete_queued_rule(queue_id: int):
 
 
 @router.post("/bulk")
-def bulk_action_queued_rules(bulk: BulkActionRequest):
+def bulk_action_queued_rules(request: Request, bulk: BulkActionRequest):
     """Perform a bulk action (approve / reject / delete / set_status) on multiple queue items."""
     if not bulk.ids:
         raise HTTPException(status_code=400, detail="No IDs provided")
@@ -674,22 +750,39 @@ def bulk_action_queued_rules(bulk: BulkActionRequest):
             found_ids = {r.id for r in rules}
             missing = [i for i in bulk.ids if i not in found_ids]
 
+            resolved_status: str | None = None
             if bulk.action == "delete":
                 for rule in rules:
                     db_session.delete(rule)
             else:
-                target_status = (
+                resolved_status = (
                     "approved" if bulk.action == "approve" else "rejected" if bulk.action == "reject" else bulk.status
                 )
                 now = datetime.now()
                 reviewer = _sigma_author_from_db(db_session)
                 for rule in rules:
-                    rule.status = target_status
+                    rule.status = resolved_status
                     rule.reviewed_at = now
                     rule.reviewed_by = reviewer
                     if bulk.review_notes is not None:
                         rule.review_notes = bulk.review_notes
 
+            AuditService.record_mandatory(
+                db_session,
+                _sigma_audit_event(
+                    request,
+                    ACTION_SIGMA_QUEUE_BULK_ACTION,
+                    None,
+                    f"Bulk {bulk.action} on {len(rules)} queued Sigma rules",
+                    {
+                        "action": bulk.action,
+                        "ids": sorted(found_ids),
+                        "count": len(rules),
+                        "missing_ids": missing,
+                        "resolved_status": resolved_status,
+                    },
+                ),
+            )
             db_session.commit()
             result = {"success": True, "updated": len(rules), "action": bulk.action}
             if missing:
@@ -716,7 +809,18 @@ def update_rule_yaml(request: Request, queue_id: int, update: RuleYamlUpdateRequ
             if not rule:
                 raise HTTPException(status_code=404, detail="Queued rule not found")
 
+            old_length = len(rule.rule_yaml or "")
             rule.rule_yaml = update.rule_yaml
+            AuditService.record_mandatory(
+                db_session,
+                _sigma_audit_event(
+                    request,
+                    ACTION_SIGMA_QUEUE_RULE_EDITED,
+                    queue_id,
+                    f"Edited YAML of queued Sigma rule {queue_id}",
+                    {"old_length": old_length, "new_length": len(update.rule_yaml or "")},
+                ),
+            )
             db_session.commit()
 
             return {"success": True, "message": f"Rule {queue_id} YAML updated"}
@@ -2475,6 +2579,7 @@ def submit_pr_for_approved_rules(request: Request):
                 pr_url = result.get("pr_url")
                 pr_repository = pr_service.github_repo
 
+                submitted_ids = [rule.id for rule in approved_rules]
                 for rule in approved_rules:
                     rule.pr_submitted = True
                     rule.pr_url = pr_url
@@ -2482,6 +2587,18 @@ def submit_pr_for_approved_rules(request: Request):
                     rule.submitted_at = datetime.now()
                     rule.status = "submitted"
 
+                # The git/GitHub side effect already happened; record the DB status flip
+                # and the audit event together so accountability matches persisted state.
+                AuditService.record_mandatory(
+                    db_session,
+                    _sigma_audit_event(
+                        request,
+                        ACTION_SIGMA_QUEUE_PR_SUBMITTED,
+                        None,
+                        f"Submitted {len(approved_rules)} approved Sigma rules as a PR",
+                        {"pr_url": pr_url, "rule_ids": submitted_ids, "rules_count": len(submitted_ids)},
+                    ),
+                )
                 db_session.commit()
 
                 return {
@@ -2495,6 +2612,19 @@ def submit_pr_for_approved_rules(request: Request):
             # PR creation failed
             error_msg = result.get("error", "Unknown error")
             logger.error(f"PR submission failed: {error_msg}")
+
+            # No DB mutation occurred on the failure path; record the failed attempt best-effort.
+            AuditService.record_best_effort(
+                db_session,
+                _sigma_audit_event(
+                    request,
+                    ACTION_SIGMA_QUEUE_PR_SUBMITTED,
+                    None,
+                    "Sigma PR submission failed",
+                    {"error": error_msg, "rule_ids": [rule.id for rule in approved_rules]},
+                    status=STATUS_FAILURE,
+                ),
+            )
 
             return {
                 "success": False,

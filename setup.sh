@@ -26,6 +26,9 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/startup_common.sh
 source "$SCRIPT_DIR/scripts/startup_common.sh"
+# shellcheck source=scripts/configure_auth.sh
+# Enterprise SSO helpers (configure_enterprise_auth, scaffold_sso_proxy), shared with config.sh.
+source "$SCRIPT_DIR/scripts/configure_auth.sh"
 
 # Colors for output
 RED='\033[0;31m'
@@ -248,7 +251,12 @@ create_env_file() {
         sed -i "s|your_openai_api_key_here|$OPENAI_API_KEY|g" .env
         sed -i "s|your_anthropic_api_key_here|$ANTHROPIC_API_KEY|g" .env
     fi
-    
+
+    # Write the generated SECRET_KEY directly (the .env.example SECRET_KEY line has no
+    # sed placeholder, so the substitutions above would leave it empty). SECRET_KEY signs
+    # CSRF tokens and is required in production once auth/CSRF is enabled.
+    startup_set_env_key ".env" "SECRET_KEY" "${SECRET_KEY:-$(generate_password 32)}"
+
     # Update LM Studio URLs based on LLM choice (and optional server URL)
     if [[ "$USE_LMSTUDIO" == "true" ]]; then
         local base_url
@@ -270,7 +278,13 @@ create_env_file() {
     fi
     
     print_status ".env file created with your configuration"
+
+    # Optional enterprise SSO wiring (no-op in non-interactive / local mode).
+    configure_enterprise_auth
 }
+
+# scaffold_sso_proxy() and configure_enterprise_auth() now live in
+# scripts/configure_auth.sh (sourced above), shared with config.sh.
 
 # Function to check if we're in the right directory
 check_directory() {

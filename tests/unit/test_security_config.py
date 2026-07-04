@@ -60,6 +60,9 @@ def test_production_wildcard_cors_raises():
         )
 
 
+_STRONG_SECRET = "a-very-strong-secret-key-1234567890"
+
+
 def test_production_trusted_header_ok():
     cfg = load_security_config(
         _env(
@@ -67,10 +70,62 @@ def test_production_trusted_header_ok():
             AUTH_MODE="trusted_header",
             TRUSTED_HOSTS="cti.example.com",
             CORS_ALLOWED_ORIGINS="https://cti.example.com",
+            SECRET_KEY=_STRONG_SECRET,
         )
     )
     assert cfg.auth_enabled is True
     assert cfg.trusted_hosts == ("cti.example.com",)
+    assert cfg.csrf_active is True
+
+
+def test_production_trusted_header_missing_secret_key_raises():
+    # auto-CSRF is active under trusted_header, so a missing SECRET_KEY fails closed.
+    with pytest.raises(InsecureConfigError):
+        load_security_config(
+            _env(
+                APP_ENV="production",
+                AUTH_MODE="trusted_header",
+                TRUSTED_HOSTS="cti.example.com",
+                CORS_ALLOWED_ORIGINS="https://cti.example.com",
+            )
+        )
+
+
+def test_production_default_secret_key_rejected():
+    with pytest.raises(InsecureConfigError):
+        load_security_config(
+            _env(
+                APP_ENV="production",
+                AUTH_MODE="trusted_header",
+                TRUSTED_HOSTS="cti.example.com",
+                CORS_ALLOWED_ORIGINS="https://cti.example.com",
+                SECRET_KEY="change-me",
+            )
+        )
+
+
+def test_production_bearer_only_csrf_disabled_skips_secret_key():
+    cfg = load_security_config(
+        _env(
+            APP_ENV="production",
+            AUTH_MODE="trusted_header",
+            TRUSTED_HOSTS="cti.example.com",
+            CORS_ALLOWED_ORIGINS="https://cti.example.com",
+            CSRF_ENABLED="false",
+        )
+    )
+    assert cfg.csrf_active is False
+    assert cfg.auth_enabled is True
+
+
+def test_csrf_auto_inactive_when_auth_disabled():
+    cfg = load_security_config(_env())
+    assert cfg.csrf_active is False
+
+
+def test_csrf_explicit_true_activates_outside_production():
+    cfg = load_security_config(_env(CSRF_ENABLED="true", SECRET_KEY=_STRONG_SECRET))
+    assert cfg.csrf_active is True
 
 
 def test_csv_parsing_trims_and_splits():

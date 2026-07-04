@@ -213,28 +213,40 @@ async def test_restore_from_file_accepts_sql_gz_extension(monkeypatch, tmp_path)
 
 
 @pytest.mark.api
-def test_backup_endpoints_require_no_admin_auth():
-    """Regression: backup endpoints must not have FastAPI Depends() defaults.
+def test_backup_endpoints_are_admin_classified_in_manifest():
+    """Enterprise contract (replaces the legacy 'no Depends() allowed' rule).
 
-    The Settings page sends no X-API-Key header. If any backup handler grows
-    a `Depends(...)` default (e.g. someone re-adds the old admin-auth guard)
-    the endpoint will start returning 401 silently and break the UI.
+    Backup create/restore/cron endpoints are admin-only and mandatorily audited.
+    Authorization is enforced centrally by the route manifest +
+    AuthorizationMiddleware (see tests/api/test_route_family_authorization.py for
+    the live 403 behavior), not per-handler Depends(). The Settings page keeps
+    working: in production the admin is authenticated by the upstream proxy; in
+    local AUTH_MODE=disabled the synthetic local-dev admin identity satisfies the
+    role.
     """
-    import inspect
+    from fastapi import FastAPI
 
-    from fastapi.params import Depends
+    from src.web.routes import register_routes
+    from src.web.security.route_manifest import (
+        AuditRequirement,
+        RouteClassification,
+        build_route_manifest,
+        find_manifest_entry,
+    )
 
-    handlers = [
-        backup_routes.api_create_backup,
-        backup_routes.api_get_backup_cron,
-        backup_routes.api_update_backup_cron,
-        backup_routes.api_delete_backup_cron,
-        backup_routes.api_restore_backup,
-        backup_routes.api_restore_from_file,
-    ]
-    for handler in handlers:
-        sig = inspect.signature(handler)
-        for param in sig.parameters.values():
-            assert not isinstance(param.default, Depends), (
-                f"{handler.__name__} must not use FastAPI Depends() -- the Settings page does not authenticate"
-            )
+    app = FastAPI()
+    register_routes(app)
+    manifest = build_route_manifest(app)
+
+    for method, path in (
+        ("POST", "/api/backup/create"),
+        ("POST", "/api/backup/restore"),
+        ("POST", "/api/backup/restore-from-file"),
+        ("POST", "/api/backup/cron"),
+        ("DELETE", "/api/backup/cron"),
+    ):
+        entry = find_manifest_entry(manifest, method, path)
+        assert entry is not None, f"{method} {path} missing from route manifest"
+        assert entry.classification is RouteClassification.ROLES, f"{method} {path} not role-gated"
+        assert entry.roles == ("admin",), f"{method} {path} not admin-only"
+        assert entry.audit_requirement is AuditRequirement.MANDATORY, f"{method} {path} not mandatory-audit"
