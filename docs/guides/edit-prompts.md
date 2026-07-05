@@ -113,7 +113,7 @@ See [Workflow Presets](../getting-started/configuration.md#workflow-presets) for
 
 - [Agents and Responsibilities](../concepts/agents.md) — which agents run in what order
 - [Extract Observables](extract-observables.md) — observable shape and downstream consumers
-- [Evaluate Models](evaluate-models.md) — measuring prompt changes against eval articles
+- [Agent Evals](../features/agent-evals.md) — measuring prompt changes against eval articles via the `/mlops/agent-evals` UI
 - [Agent Config Schema](../architecture/agent-config-schema.md) — Pydantic contract for the broader config
 - [Workflow Presets](../getting-started/configuration.md#workflow-presets) -- quickstart preset files and how to import/export configs
 - Contract test: `tests/config/test_subagent_traceability_contract.py` -- authoritative schema enforcement
