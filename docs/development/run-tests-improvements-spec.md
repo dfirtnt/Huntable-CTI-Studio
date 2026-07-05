@@ -470,6 +470,3 @@ All references in this spec point to `run_tests.py` at the commit in which it wa
 ```
 grep -n "_save_failure_log\|in_ci = \|--no-validate\|\\\\xe2\\\\x9c\\\\x93\|self.config.timeout - " run_tests.py
 ```
-<!--stackedit_data:
-eyJoaXN0b3J5IjpbMTk2NzE3MTM0OF19
--->
