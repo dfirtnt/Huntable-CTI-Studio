@@ -39,7 +39,6 @@ MCP server: `.mcp.json` at project root auto-wires `scripts/run_mcp_server.sh` f
 | Workflow config / presets / prompts | `workflow_config_schema.py`, `workflow_config_loader.py`, `config/presets/AgentConfigs/README.md` | config/unit/integration tests (+ UI if edited via UI) |
 | Persistence / contracts | `src/database/models.py`, `docs/reference/schemas.md` | targeted unit/integration/api tests |
 | Source ingestion / scraping | `src/core/fetcher.py`, `rss_parser.py`, `modern_scraper.py`, `source_sync.py` | unit/integration tests |
-| Source auto-healing | `source_healing_service.py`, `source_healing_coordinator.py` | `tests/services/test_source_healing_service.py` |
 | Scheduled jobs / workers | `celery_app.py`, `scheduled_jobs_service.py` | integration tests |
 | Tests / test infrastructure | `run_tests.py`, `docs/development/testing.md`, `pyproject.toml[tool.pytest.ini_options]` | run the affected suites |
 

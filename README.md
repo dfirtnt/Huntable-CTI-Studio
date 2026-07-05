@@ -21,7 +21,7 @@ Aggregates cybersecurity threat intelligence from RSS feeds and web scraping; us
 - **6 services**: PostgreSQL (pgvector), Redis, FastAPI web app, Celery workers (default + workflow), scheduler
 - **LangGraph**: Orchestrates the 7-step agentic workflow as a linear pipeline with conditional early-exit gates (state machine, checkpointing)
 - **Database-backed workflows**: Articles, workflow executions, Sigma rules, presets, settings, evals, and supporting metadata
-- **Source auto-healing**: LLM-powered diagnostics (RSS inspection, sitemap discovery, JS-rendering detection, WP JSON API probing) automatically repair failing sources
+- **Source healing**: operator-invoked Claude Code skill diagnoses failing sources (RSS inspection, sitemap discovery, JS-rendering detection, WP JSON API probing) and proposes a config fix for approval — never auto-applies, never runs on a schedule
 - **Multi-model AI**: OpenAI, Anthropic, LM Studio
 
 ## Agentic Workflow
