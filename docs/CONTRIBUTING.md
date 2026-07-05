@@ -38,7 +38,7 @@ This project and everyone participating in it is governed by our Code of Conduct
    ```
 3. Add the upstream repository:
    ```bash
-   git remote add upstream https://github.com/original-owner/Huntable-CTI-Studio.git
+   git remote add upstream https://github.com/dfirtnt/Huntable-CTI-Studio.git
    ```
 
 ## Development Setup
@@ -89,8 +89,7 @@ We follow PEP 8 with some modifications:
 The project uses `ruff` for linting and formatting (configured in `pyproject.toml`). Pre-commit hooks run automatically on `git commit`:
 
 ```bash
-pip3 install pre-commit
-pre-commit install
+uv run pre-commit install
 ```
 
 To run manually:
@@ -367,4 +366,4 @@ Thank you to all contributors who have helped make Huntable CTI Studio better! Y
 
 ---
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-07-05_
