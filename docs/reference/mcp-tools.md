@@ -1,4 +1,4 @@
-# Huntable CTI Studio MCP tools
+# Huntable CTI Studio MCP tools and resources
 
 The **`huntable-cti-studio`** MCP server exposes read tools plus scoped, audited write tools for the same PostgreSQL corpus and queues as the web app. It uses the same `.env` / database as the API.
 
@@ -9,6 +9,16 @@ The **`huntable-cti-studio`** MCP server exposes read tools plus scoped, audited
 **Article IDs:** Search tools label each hit with **`Article ID`** (database primary key `articles.id`). Pass that value to `get_article`. The numbered list position (1, 2, …) is **not** the article ID.
 
 **Sigma Rule IDs:** Search tools label each Sigma hit with **`Rule ID`** (the SigmaHQ UUID, e.g. `5f1abf38-...`). Pass that value to `get_sigma_rule` for the full YAML.
+
+## Resources
+
+These resources expose small JSON context snapshots so MCP clients can attach ambient app state without first calling a bespoke tool.
+
+| Resource URI | Summary |
+|---|---|
+| `huntable://sigma-queue/status` | Global Sigma queue status counts and total. |
+| `huntable://sigma-queue/recent-rules` | Ten most recent AI-generated Sigma queue entries, including queue number, status, title, source article, similarity, and PR URL. |
+| `huntable://workflow/active-config` | Active workflow config id/version, thresholds, toggles, model assignments, and prompt agent names. Prompt bodies are intentionally omitted. |
 
 ## Write risk tiers
 
@@ -56,4 +66,4 @@ Implementation lives under `src/huntable_mcp/` (`stdio_server.py`, `tools/articl
 
 `sigma_rules.raw_yaml` (TEXT, nullable) stores the verbatim YAML from the SigmaHQ repo file. It is populated during `sigma index` / `sigma index-metadata`. Run `scripts/migrate_sigma_raw_yaml.py` once on existing databases before re-indexing.
 
-_Last updated: 2026-07-02_
+_Last updated: 2026-07-05_
