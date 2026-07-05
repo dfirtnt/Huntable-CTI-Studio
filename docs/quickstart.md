@@ -32,8 +32,8 @@ docker compose ps
 curl http://localhost:8001/health
 ```
 UI entry points:
-- Web UI + API docs: http://localhost:8001
-- OpenAPI schema: http://localhost:8001/docs
+- Web UI: http://localhost:8001
+- Interactive API docs (Swagger UI): http://localhost:8001/docs
 
 ![Health endpoint returning HTTP 200 and a healthy JSON payload](assets/screenshots/01-health-check.png)
 *A `200 OK` from `/health` confirms the web container is reachable and the database is connected.*
@@ -54,12 +54,14 @@ echo "Article ID: ${ARTICLE_ID}"
 *Capture the returned `article_id` -- subsequent workflow calls reference it.*
 
 ## 4) Run the agentic workflow
+On a fresh install, make sure the workflow agents have a provider and model configured first — the fastest way is to load a quickstart preset (see [First Workflow, step 0](getting-started/first-workflow.md)).
+
 Trigger the full pipeline (Platform Detection → junk filter → ranking → Extract Agent → Sigma generation → similarity search). Platform Detection routes Windows-only extractors based on detected platform — Linux/macOS articles skip RegistryExtract, ServicesExtract, and ScheduledTasksExtract automatically:
 ```bash
 TRIGGER=$(curl -s -X POST "http://localhost:8001/api/workflow/articles/${ARTICLE_ID}/trigger")
 EXECUTION_ID=$(echo "$TRIGGER" | jq -r '.execution_id')
 ```
-If an execution is already running for the article, the API returns an error; wait for it to finish or clear the stuck run before retrying.
+If an execution is already running for the article, the API returns an error; wait for it to finish or clear the stuck run before retrying. If the API instead replies that the article's RegexHunt score is not above the auto-trigger threshold, re-run the trigger with `?force=true` appended to the URL.
 
 ![Trigger response with execution_id and queued status](assets/screenshots/04-workflow-triggered.png)
 *The trigger endpoint returns an `execution_id` and queues the agent pipeline (Platform Detection -> ranking -> extract -> Sigma). Platform badge on the execution record indicates which platform was detected.*

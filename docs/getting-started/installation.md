@@ -58,10 +58,10 @@ If you enter these during `./setup.sh`, they are written to `.env` and used at r
 
 ### LM Studio Configuration
 - `LMSTUDIO_API_URL` - Default: `http://host.docker.internal:1234/v1`
-- `LMSTUDIO_MODEL` - Main completion model
-- `LMSTUDIO_MODEL_RANK` - Ranking model
 - `LMSTUDIO_MODEL_EXTRACT` - Observable extraction model
 - `LMSTUDIO_MODEL_SIGMA` - Sigma rule generation model
+
+Note: `LMSTUDIO_MODEL` and `LMSTUDIO_MODEL_RANK` are set directly in `docker-compose.yml` (not read from `.env` by the containers). See [Configuration](configuration.md#lm-studio-configuration) for the full variable table.
 
 ### Langfuse Tracing (Optional)
 Langfuse is an optional tracing integration for workflow and LLM observability.
@@ -128,6 +128,9 @@ docker-compose ps
 # Check application health
 curl http://localhost:8001/health
 
+# Optional: quick stateless smoke tests (requires local Python 3.11 tooling)
+python3 run_tests.py smoke
+
 # View web application logs
 docker-compose logs -f web
 
@@ -191,11 +194,13 @@ See `configuration.md` for detailed port configuration.
 
 The app ships a RandomForest classifier that labels article chunks "Huntable" or "Not Huntable". The trained model is **not committed to git** (it's a binary artifact), but `./setup.sh` seeds it automatically during fresh install:
 
-```
+```text
 ./setup.sh
   └─ docker exec cti_web python3 scripts/seed_model.py
        ├─ trains RandomForest from config/eval_articles_data/ fixtures
-       └─ writes outputs/evaluation_data/eval_set.csv (317-row holdout)
+       └─ invokes scripts/prepare_eval_set.py, which builds
+          outputs/evaluation_data/eval_set.csv (317-row holdout)
+          from config/labeled_chunks/
 ```
 
 If you need to seed manually (e.g., after restoring a database backup without the models volume):

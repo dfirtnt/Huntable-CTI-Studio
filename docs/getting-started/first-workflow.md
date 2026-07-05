@@ -33,7 +33,13 @@ EXECUTION_ID=$(echo "$TRIGGER" | jq -r '.execution_id')
 echo "Execution ID: ${EXECUTION_ID}"
 ```
 
-If an execution is already running for the article, the API returns an error. Wait for it to finish or clear the stuck run before retrying.
+If an execution is already running for the article, the API returns an error. Wait for it to finish or clear the stuck run before retrying. Note that ingestion can also start a workflow automatically when an article's RegexHunt score exceeds the auto-trigger threshold (default 60, editable in Settings → Workflow), so a run may already exist before you trigger one manually.
+
+The same threshold gates manual triggers: if the API replies that the article's RegexHunt score is not above the auto-trigger threshold, re-run with `?force=true`:
+
+```bash
+TRIGGER=$(curl -s -X POST "http://localhost:8001/api/workflow/articles/${ARTICLE_ID}/trigger?force=true")
+```
 
 ## 3) Monitor Execution
 
@@ -81,6 +87,7 @@ The agentic workflow runs these stages in order:
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | `execution_id` is null | Article already has a running execution | Wait or check `/api/workflow/executions?article_id=X` |
+| Trigger refused: score not above threshold | Article's RegexHunt score <= auto-trigger threshold | Re-run the trigger with `?force=true`, or lower the threshold in Settings → Workflow |
 | Status stuck on `running` | Worker not processing tasks | Check `docker-compose logs workflow_worker` |
 | Empty extraction results | Article filtered as non-huntable | Check `termination_reason` in execution record |
 | No Sigma rules generated | Article had no extractable observables | Review extraction_result for empty observables |
