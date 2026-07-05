@@ -624,9 +624,7 @@ class TestGenerateSigmaNode:
         )
 
     @pytest.mark.asyncio
-    async def test_drops_rule_when_generated_logsource_does_not_match_group(
-        self, article, execution, config_obj
-    ):
+    async def test_drops_rule_when_generated_logsource_does_not_match_group(self, article, execution, config_obj):
         config_obj.agent_prompts = {}
         config_obj.sigma_fallback_enabled = False
         db_session = _make_db_session(article, execution)

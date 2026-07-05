@@ -13,6 +13,7 @@ minimum newline count so a DB-sourced sync would fail immediately.
 
 No server or DB needed — all assertions are against files on disk.
 """
+
 from __future__ import annotations
 
 import json
@@ -43,7 +44,7 @@ def _onenote_article(subdir: str) -> dict | None:
 def test_cmdline_onenote_fixture_has_newlines():
     """cmdline eval fixture OneNote article must not have been re-synced from DB."""
     article = _onenote_article("cmdline")
-    assert article is not None, f"OneNote article not found in cmdline/articles.json"
+    assert article is not None, "OneNote article not found in cmdline/articles.json"
     newline_count = article["content"].count("\n")
     assert newline_count >= MIN_NEWLINES, (
         f"cmdline fixture OneNote article has {newline_count} newlines "
@@ -58,7 +59,7 @@ def test_cmdline_onenote_fixture_has_newlines():
 def test_process_lineage_onenote_fixture_has_newlines():
     """process_lineage eval fixture OneNote article must not have been re-synced from DB."""
     article = _onenote_article("process_lineage")
-    assert article is not None, f"OneNote article not found in process_lineage/articles.json"
+    assert article is not None, "OneNote article not found in process_lineage/articles.json"
     newline_count = article["content"].count("\n")
     assert newline_count >= MIN_NEWLINES, (
         f"process_lineage fixture OneNote article has {newline_count} newlines "
@@ -70,7 +71,7 @@ def test_process_lineage_onenote_fixture_has_newlines():
 def test_sigma_onenote_fixture_has_newlines():
     """sigma eval fixture OneNote article must not have been re-synced from DB."""
     article = _onenote_article("sigma")
-    assert article is not None, f"OneNote article not found in sigma/articles.json"
+    assert article is not None, "OneNote article not found in sigma/articles.json"
     newline_count = article["content"].count("\n")
     assert newline_count >= MIN_NEWLINES, (
         f"sigma fixture OneNote article has {newline_count} newlines "

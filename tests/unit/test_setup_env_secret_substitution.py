@@ -43,9 +43,7 @@ def _extract_function(source: str, name: str) -> str:
     return "\n".join(body_lines)
 
 
-def _run_create_env_file(
-    env_overrides: dict[str, str], tmp_path: Path
-) -> subprocess.CompletedProcess:
+def _run_create_env_file(env_overrides: dict[str, str], tmp_path: Path) -> subprocess.CompletedProcess:
     setup_source = SETUP_SH.read_text()
     create_env_file_fn = _extract_function(setup_source, "create_env_file")
 
