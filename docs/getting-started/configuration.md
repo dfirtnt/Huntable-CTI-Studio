@@ -24,7 +24,7 @@ Defines CTI feeds and sources. See [Source Configuration Precedence](../guides/s
 | Service | Host Port | Container Port | Purpose |
 |---------|-----------|----------------|---------|
 | Web/API | 8001 | 8001 | Main FastAPI application |
-| Web (alt) | 8888 | 8888 | Secondary port on the web container |
+| Web (alt) | 8888 | 8888 | Mapped on the web container but unused by the default uvicorn command |
 | PostgreSQL | 5432 | 5432 | Database |
 | Redis | 6379 | 6379 | Cache and message broker |
 | LM Studio | 1234 | — | External (host machine) |
@@ -107,10 +107,10 @@ To resolve conflicts, either stop the conflicting service or change the host por
 | Variable | Purpose | Default |
 |----------|---------|---------|
 | `LMSTUDIO_API_URL` | LM Studio API base URL | `http://host.docker.internal:1234/v1` |
-| `LMSTUDIO_MODEL` | Default LM Studio model | `deepseek/deepseek-r1-0528-qwen3-8b` |
-| `LMSTUDIO_MODEL_RANK` | Model for ranking agent | — |
-| `LMSTUDIO_MODEL_EXTRACT` | Model for extraction agent | — |
-| `LMSTUDIO_MODEL_SIGMA` | Model for Sigma generation | — |
+| `LMSTUDIO_MODEL` | Default LM Studio model | `deepseek/deepseek-r1-0528-qwen3-8b` (hardcoded in `docker-compose.yml`; `.env` value is not passed through) |
+| `LMSTUDIO_MODEL_RANK` | Model for ranking agent | `qwen/qwen3-4b-2507` (hardcoded in `docker-compose.yml`; `.env` value is not passed through) |
+| `LMSTUDIO_MODEL_EXTRACT` | Model for extraction agent | `qwen/qwen3-4b-2507` |
+| `LMSTUDIO_MODEL_SIGMA` | Model for Sigma generation | `qwen/qwen3-4b-2507` |
 | `LMSTUDIO_EMBEDDING_URL` | Embedding API URL | `http://host.docker.internal:1234/v1/embeddings` |
 | `LMSTUDIO_EMBEDDING_MODEL` | Embedding model | `text-embedding-e5-base-v2` |
 | `LMSTUDIO_TEMPERATURE` | LLM temperature | — |
@@ -273,5 +273,5 @@ After modifying configuration:
 
 ---
 
-_Last updated: 2026-06-20_
-_Last reviewed: 2026-05-23_
+_Last updated: 2026-07-04_
+_Last reviewed: 2026-07-04_
