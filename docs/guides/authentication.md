@@ -107,7 +107,10 @@ mandatory-audit coverage:
 - Sigma queue actions (add, edit/YAML, approve, reject, bulk, delete) and PR
   submission (status-aware: the git/GitHub side effect is recorded with explicit
   success/failure)
-- workflow cancellation, bulk cancellation, and stale cleanup
+- workflow trigger, retry, cancellation, bulk cancellation, and stale cleanup
+  (trigger and retry also persist a redacted-safe `initiated_by` snapshot in the
+  execution's `config_snapshot` so worker-side attribution can reference the
+  originating human; service-originated triggers carry no `initiated_by`)
 - annotation create and delete
 - audit export and retention actions
 
@@ -124,7 +127,7 @@ updates record presence/change booleans and hashes, not raw tokens.
 
 > **Not yet mandatory-audited:** backup create/restore, model
 > retrain/rollback/version management, observable training, embedding rebuilds,
-> evaluation runs, and workflow trigger/retry remain role-gated (and, where
+> and evaluation runs remain role-gated (and, where
 > applicable, CSRF-protected) but their durable audit events are a follow-up.
 > These are non-transactional (subprocess/worker/external) paths that need
 > status-aware auditing rather than the same-transaction guarantee above.

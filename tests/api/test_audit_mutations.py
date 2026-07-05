@@ -340,6 +340,32 @@ class TestWorkflowAudit:
         assert initiated["user_id"] == "u1"
         assert initiated["auth_mode"] == "trusted_header"
 
+    def test_retry_without_identity_omits_initiated_by(self):
+        """No request identity -> no initiated_by key (absence means service-originated)."""
+        import asyncio
+
+        from src.database.models import AgenticWorkflowExecutionTable
+        from src.web.routes.workflow_executions import retry_workflow_execution
+
+        request = _fake_request()
+        request.state.identity = None
+        session = _chaining_session(first_row=self._failed_execution())
+
+        with (
+            patch("src.web.routes.workflow_executions.get_db_manager") as mock_get,
+            patch("src.services.workflow_trigger_service.WorkflowTriggerService") as mock_service_cls,
+            patch("src.worker.celery_app.trigger_agentic_workflow"),
+        ):
+            mock_get.return_value.get_session.return_value = session
+            mock_service_cls.return_value.get_active_config.return_value = None
+            result = asyncio.run(retry_workflow_execution(request, 11))
+
+        assert result["success"] is True
+        new_executions = [
+            c.args[0] for c in session.add.call_args_list if isinstance(c.args[0], AgenticWorkflowExecutionTable)
+        ]
+        assert "initiated_by" not in new_executions[0].config_snapshot
+
     def test_retry_rolls_back_when_audit_fails(self):
         import asyncio
 
@@ -438,6 +464,27 @@ class TestWorkflowTriggerServiceAudit:
         ]
         assert len(executions) == 1
         assert executions[0].config_snapshot == {"initiated_by": {"user_id": "u1"}}
+
+    def test_trigger_workflow_without_factory_is_backward_compatible(self):
+        """Auto-trigger callers (ingest) pass no factory: no audit row, no initiated_by."""
+        article = MagicMock()
+        session = _chaining_session(first_row=article)
+        service = self._service(session)
+
+        with patch("src.worker.celery_app.trigger_agentic_workflow") as mock_task:
+            triggered, detail = service.trigger_workflow(1, force=True)
+
+        assert (triggered, detail) == (True, None)
+        assert _audit_rows(session) == []
+        session.commit.assert_called_once()
+        mock_task.delay.assert_called_once()
+
+        from src.database.models import AgenticWorkflowExecutionTable
+
+        executions = [
+            c.args[0] for c in session.add.call_args_list if isinstance(c.args[0], AgenticWorkflowExecutionTable)
+        ]
+        assert executions[0].config_snapshot is None
 
     def test_trigger_workflow_audit_failure_rolls_back_and_raises(self):
         from src.services.workflow_trigger_service import WorkflowAuditError
