@@ -22,7 +22,7 @@ The previous in-app RAG Chat UI was removed in v6.0.0 and the in-app `/search` p
    - Cosine similarity via pgvector `<=>`
    - Used by:
      - MCP tools: `search_articles`, `search_articles_by_keywords`, `search_unified`, `search_sigma_rules` (`src/huntable_mcp/tools/`)
-     - CLI: `./run_cli.sh embed stats | similar` (`src/cli/commands/embed.py`)
+     - CLI: `./run_cli.sh embed stats | search` (`src/cli/commands/embed.py`)
      - Agentic workflow (`src/workflows/agentic_workflow.py`)
 
 4. **Sigma similarity / novelty**
@@ -67,4 +67,4 @@ SIGMA_EMBED_RULES_PER_CHUNK=32 ./run_cli.sh sigma index-embeddings
 
 `GET /api/embeddings/stats` returns a `sigma_corpus` block (SigmaHQ row counts vs. rows with embeddings). Consumed by CLI `embed stats` and MCP `get_stats`.
 
-_Last updated: 2026-07-02_
+_Last updated: 2026-07-05_

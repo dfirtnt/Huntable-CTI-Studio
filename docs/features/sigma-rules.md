@@ -40,7 +40,7 @@ behaviorally novel relative to what is already indexed. Both query the same
 
 Two entry paths lead into Sigma rule processing:
 
-- **Agentic Workflow** (primary): Triggered via `POST /api/workflow/articles/{id}/trigger` — OS Detection → Junk Filter → Rank → Extract → Generate Sigma → Similarity Search → Promote to Queue
+- **Agentic Workflow** (primary): Triggered via `POST /api/workflow/articles/{id}/trigger` — Platform Detection → Junk Filter → Rank → Extract → Generate Sigma → Similarity Search → Promote to Queue
 - **Web/API path**: `POST /api/articles/{article_id}/generate-sigma` — Match Existing Rules → Classify Coverage → Generate New Rules (if needed) → Similarity Check → Store
 
 ### Signal Refinement Loop
@@ -887,4 +887,4 @@ docker compose exec web python3 -c "from src.services.embedding_service import E
 - [Sigma Similarity Case-Sensitive Atom Matching](../solutions/logic-errors/sigma-similarity-case-sensitive-atom-matching-2026-04-08.md)
 - [Sigma Cross-Field Soft Matching](../solutions/logic-errors/sigma-cross-field-soft-matching-zero-similarity-2026-04-12.md)
 
-_Last updated: 2026-07-02_
+_Last updated: 2026-07-05_

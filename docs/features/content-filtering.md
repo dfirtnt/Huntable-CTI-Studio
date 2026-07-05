@@ -262,8 +262,9 @@ python3 scripts/seed_model.py
 ```
 
 The seed model provides a usable baseline. With the v3 extractor and a
-balanced ~1,000-row training set, F1 on Huntable lands around 0.89 on the
-240-row curated eval set; the prior v1 baseline was F1 ≈ 0.69.
+balanced ~1,000-row training set, F1 on Huntable lands around 0.89 (measured
+2026-05 on the then-240-row eval set; the committed `eval_set.csv` now holds
+317 rows); the prior v1 baseline was F1 ≈ 0.69.
 
 ### Defining "Huntable" for Your Use Case
 
@@ -353,5 +354,5 @@ features = filter_system.extract_features_v3(text)
 ```
 
 
-_Last updated: 2026-07-02_
+_Last updated: 2026-07-05_
 _Last reviewed: 2026-05-22_
