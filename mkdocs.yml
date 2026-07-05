@@ -101,6 +101,7 @@ nav:
       - RAG Search: features/semantic-search.md
       - Observable Evaluation: features/observable-evaluation.md
       - Agent Evals: features/agent-evals.md
+      - Image OCR Ingest: features/image-ocr-ingest.md
   - LLM & Models:
       - Model Selection: llm/model-selection.md
       - Context Window Rationale: llm/context-window-rationale.md

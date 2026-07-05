@@ -21,7 +21,7 @@ When artifacts disagree, trust: runtime code > enforced schemas > passing tests 
 | `config/sources.yaml` | Source definitions (seeds DB on first install, DB is source of truth after) |
 | `config/presets/AgentConfigs/` | Workflow presets (full snapshots, not partial overrides) |
 | `src/prompts/` | Seed prompt defaults -- loaded into DB on bootstrap/reset, not read at runtime |
-| `docs/solutions/` | Documented solutions to past problems (bugs, best practices, workflow patterns), organized by category with YAML frontmatter (`module`, `tags`, `problem_type`) |
+| `docs/solutions/` | Documented solutions to past problems (bugs, best practices, workflow patterns), organized by category with YAML frontmatter (`title`, `date`, `module`, `problem_type`) |
 
 Package manager: **uv** (not pip). CI uses `uv sync --frozen`, `uv run`.
 CLI entrypoint: `./run_cli.sh <command>`.
