@@ -1,9 +1,11 @@
 # Threat Hunting Scoring
 
 The threat hunting scorer assigns a 0-100 numeric score to each ingested article
-based on keyword pattern matching. Scores drive filtering and sorting: articles
-below the configured `ranking_threshold` (default 6.0) are suppressed from the
-working queue.
+based on keyword pattern matching. Scores drive filtering, sorting, and workflow
+auto-triggering: an article must clear the configurable
+`auto_trigger_hunt_score_threshold` (default 60) for ingestion to auto-trigger
+the agentic workflow. (The separate `ranking_threshold`, default 6.0, applies to
+the LLM RankAgent's 0-10 score inside the workflow, not to this keyword score.)
 
 Scores are derived from a keyword model trained on 319 labeled articles
 (97 high-signal, 222 low-signal). The scorer runs automatically at ingestion
@@ -148,4 +150,4 @@ Contains `rundll32`, `iex`, `lsass.exe`; code blocks and host-based indicators.
 **Score 0/100**
 No recognized keywords; no technical depth indicators.
 
-_Last updated: 2026-07-02_
+_Last updated: 2026-07-04_

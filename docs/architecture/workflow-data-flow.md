@@ -43,7 +43,7 @@ Results are persisted to PostgreSQL in JSONB format:
 
 ### Step 1: Sub-Agent Execution
 
-Each sub-agent (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract) runs and produces results:
+Each sub-agent (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract, NetworkIndicatorExtract) runs and produces results:
 
 ```python
 subresults = {
@@ -56,7 +56,8 @@ subresults = {
     "hunt_queries": {...},
     "registry_artifacts": {...},
     "windows_services": {...},
-    "scheduled_tasks": {...}
+    "scheduled_tasks": {...},
+    "network_indicators": {...}
 }
 ```
 
@@ -478,10 +479,9 @@ User action / automated trigger
 - ⚠️ **Debugger friendly via Langfuse**: No embedded http debugger, lean on trace views
 
 **Code references:**
-- `src/services/workflow_trigger_service.py:120-165` (creates execution + dispatches Celery)
-- `src/worker/celery_app.py:637-679` (`trigger_agentic_workflow` task)
-- `src/web/routes/workflow_executions.py:1046-1105` (`/api/workflow/articles/{article_id}/trigger`)
-- `src/web/routes/workflow_executions.py:694-770` (`/api/workflow/executions/{execution_id}/retry`)
+- `src/services/workflow_trigger_service.py` — `WorkflowTriggerService.trigger_workflow()` (creates execution + dispatches Celery)
+- `src/worker/celery_app.py` — `trigger_agentic_workflow` task
+- `src/web/routes/workflow_executions.py` — `/api/workflow/articles/{article_id}/trigger` and `/api/workflow/executions/{execution_id}/retry` endpoints
 
 **Note:** The UI still appends `use_langgraph_server` query flags for compatibility, but the backend ignores that parameter—the LangGraph graph always executes inside the Celery task now. The standalone LangGraph server referenced in earlier docs no longer exists.
 
@@ -503,8 +503,8 @@ Test button → test_sub_agent() endpoint → llm_service.run_extraction_agent()
 - ⚠️ **No Langfuse traces**: Runs in-process, no background worker
 
 **Code references:**
-- `src/web/routes/workflow_config.py:579-680`
-- `src/web/templates/workflow.html:2051-2087`
+- `src/web/routes/workflow_config.py` — `test_sub_agent()` (`POST /config/test-subagent`)
+- `src/web/templates/workflow.html` — "Test with Article" handler
 
 ### Comparison Table
 
@@ -538,4 +538,4 @@ Test button → test_sub_agent() endpoint → llm_service.run_extraction_agent()
 - **Direct test trigger**: `src/web/routes/workflow_config.py` — `test_sub_agent()`
 - **Database model**: `src/database/models.py` — `AgenticWorkflowExecutionTable`
 
-_Last updated: 2026-07-02_
+_Last updated: 2026-07-04_
