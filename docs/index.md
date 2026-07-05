@@ -72,7 +72,7 @@ Surfaces high-likelihood parent-child process spawn regions (Sysmon fields, tree
 
 ### Image OCR Ingest
 
-Inline article images are OCR'd locally with Tesseract during ingest and folded into article content as `[Image OCR: <url>]` blocks, making image-embedded observables visible to all downstream extractors and Sigma generation with no consumer-side changes. Disabled by default; enable via `OCR_INGEST_ENABLED` env var and per-source `image_ocr_enabled` config.
+Inline article images are OCR'd locally with Tesseract during ingest and folded into article content as `[Image OCR: <url>]` blocks, making image-embedded observables visible to all downstream extractors and Sigma generation with no consumer-side changes. Enabled by default (`OCR_INGEST_ENABLED` defaults to `true` in `docker-compose.yml`); override globally via that env var or per-source via the `image_ocr_enabled` tri-state config key.
 
 ### MCP Semantic Search
 

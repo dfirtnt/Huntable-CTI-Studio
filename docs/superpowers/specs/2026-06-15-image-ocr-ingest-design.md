@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-15
 **Branch:** `feat/image-ocr-ingest`
-**Status:** Design — pending implementation plan
+**Status:** Implemented and shipped (v7.5.0, 2026-06-16; see `docs/CHANGELOG.md`). Design record retained as historical context.
 **Author:** Brainstorm + adversarial code-verification (workflow `wf_b899e917-f38`, 14 agents, 49 findings)
 
 ---

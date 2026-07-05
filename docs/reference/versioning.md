@@ -58,7 +58,7 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
     - Entity-driven platform classification: deterministic keyword-registry gate + LLM adjudicator for the low-confidence tail + reinforce-only ATT&CK technique signal; CTI-BERT/SEC-BERT embedding decider retired and its dead config removed end-to-end
     - Linux-aware Sigma generation guidance (additive per-platform prompt block) with per-platform/logsource rule groups and platform badges in the review queue
     - Unified keyword/platform scoring: `config/keyword_registry.yaml` (591 faceted entries) now derives `HUNT_SCORING_KEYWORDS`; hunt scoring made platform-complete with macOS/Linux perfect discriminators (perfect 92→114, good 89→94)
-    - Server-side image OCR during article ingest (Tesseract, SSRF-guarded, disabled by default via `OCR_INGEST_ENABLED` + per-source flag)
+    - Server-side image OCR during article ingest (Tesseract, SSRF-guarded, enabled by default via `OCR_INGEST_ENABLED=true` in `docker-compose.yml` + per-source override flag)
     - Security dependency bumps: starlette 1.3.1, pydantic-settings 2.14.2, pypdf 6.13.3, langsmith 0.8.18, pip 26.1.2, msgpack 1.2.1
 
 ### v7.4.1 "Europa" (2026-06-14)
