@@ -159,6 +159,7 @@ nav:
           - ServicesExtract: contracts/services-extract-dropin.md
           - ScheduledTasksExtract: contracts/scheduled-tasks-extract-dropin.md
           - HuntQueriesExtract: contracts/huntquery-extract-dropin.md
+          - NetworkIndicatorExtract: contracts/network-indicator-extract-dropin.md
   - Brand & Style Guide: brand-style-guide.md
   - Contributing: CONTRIBUTING.md
   - Changelog: CHANGELOG.md
