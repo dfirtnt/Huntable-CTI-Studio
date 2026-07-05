@@ -1,5 +1,7 @@
 # Enterprise Auth Chunk C - Audit & Accountability Implementation Plan
 
+> **Status: Complete (2026-07-04, see `docs/CHANGELOG.md` [Unreleased]).** Chunk B's authorization guard has since landed, and the deferred denial-wiring and workflow trigger/retry audit work described below as blocked has shipped. Retained as historical planning context.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add durable, redacted, actor-attributed audit records for security-relevant and data-changing actions, with mandatory-audit transaction boundaries for high-risk mutations and explicit retention/export/tamper-risk controls.
