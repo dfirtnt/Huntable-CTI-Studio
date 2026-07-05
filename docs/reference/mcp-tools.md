@@ -44,8 +44,8 @@ MCP writes are intentionally not action-parity with the web app. Huntable ingest
 | 9 | `list_workflow_executions` | Recent agentic workflow runs (article, status, step, ranking score, errors). Params: optional `status` filter (`pending`, `running`, `completed`, `failed`), `limit`. |
 | 10 | `list_sigma_queue` | Sigma rule review queue (AI-generated rules): rule title/metadata, source article, max similarity to existing rules, notes, PR link. Params: optional `status` filter (`pending`, `approved`, `rejected`, `submitted`), `limit`. |
 | 11 | `get_queue_rule` | Full YAML, status, similarity scores, and reviewer notes for a single AI-generated queue item. Param: `queue_number` (integer; the number after "Queue #" in `list_sigma_queue` output). Returns the raw YAML block, top-10 similarity matches to existing rules, and any reviewer comments. |
-| 12 | `list_tables` | Schema discovery helper. Lists all tables in the connected database with row counts, so callers can plan ad-hoc SQL before issuing `execute_sql`. No params. |
-| 13 | `execute_sql` | Execute a **read-only** SQL statement (single `SELECT` / CTE). Rejects DDL and DML at the parser layer. Param: `sql` (string). Use `list_tables` first to discover schema. |
+| 12 | `list_tables` | Schema discovery helper. Lists all tables in the connected database with each column's name, data type, nullability, and default, so callers can plan ad-hoc SQL before issuing `execute_sql`. No row counts. No params. |
+| 13 | `execute_sql` | Execute a single **read-only** `SELECT` statement — the statement must literally start with `SELECT` (CTEs starting with `WITH` are rejected). Rejects write keywords, semicolons, and comment-masked keywords before execution, then opens the query in a read-only transaction. Param: `sql` (string). Use `list_tables` first to discover schema. |
 | 14 | `retry_workflow_execution` | Auto-executable write. Creates a new pending execution for a failed/completed workflow execution, refreshes current active model settings into the retry snapshot, enqueues Celery, and audits `workflow.retried`. Param: `execution_id`. |
 | 15 | `cancel_workflow_execution` | Auto-executable write. Marks a pending/running workflow execution failed with a cancellation message and audits `workflow.cancelled`. Param: `execution_id`. |
 | 16 | `toggle_source_status` | Auto-executable write. Toggles `sources.active` for one source and audits `source.toggled`. Param: `source_id`. |
@@ -60,10 +60,11 @@ MCP writes are intentionally not action-parity with the web app. Huntable ingest
 | 25 | `update_sigma_queue_rule_yaml` | Confirmation-required write. Validates proposed Sigma YAML and creates a pending confirmation request; does not edit from MCP. Params: `queue_number`, `rule_yaml`. |
 | 26 | `add_sigma_rule_to_queue` | Confirmation-required write. Validates proposed Sigma YAML/JSON and creates a pending confirmation request; does not enqueue from MCP. Params: `rule_yaml` or `rule_json`, optional `article_id`. |
 
-Implementation lives under `src/huntable_mcp/` (`stdio_server.py`, `tools/articles.py`, `tools/sigma.py`, `tools/sources.py`, `tools/workflow.py`, `tools/query.py`, `tools/write_support.py`).
+Implementation lives under `src/huntable_mcp/` (`stdio_server.py`, `resources.py`, `tools/articles.py`, `tools/sigma.py`, `tools/sources.py`, `tools/workflow.py`, `tools/query.py`, `tools/write_support.py`).
 
 ## Schema note — raw_yaml column
 
 `sigma_rules.raw_yaml` (TEXT, nullable) stores the verbatim YAML from the SigmaHQ repo file. It is populated during `sigma index` / `sigma index-metadata`. Run `scripts/migrate_sigma_raw_yaml.py` once on existing databases before re-indexing.
 
 _Last updated: 2026-07-05_
+_Last reviewed: 2026-07-05_
