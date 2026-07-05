@@ -45,6 +45,23 @@ All scheduled/periodic jobs (Celery Beat + host crontab).
 
 ---
 
+## 2a. Managing Celery Beat jobs via API
+
+The four configurable Celery Beat jobs from Section 1 (`cleanup_old_data`, `embed_new_articles`,
+`sync_sigma_rules`, `update_provider_model_catalogs`) can be enabled/disabled and rescheduled
+without a restart:
+
+- `GET /api/scheduled-jobs` — returns the persisted state (enabled flag + cron expression) for
+  each configurable job.
+- `PUT /api/scheduled-jobs` — body `{"jobs": {"<job_id>": {"enabled": bool, "cron": "<crontab expr>"}}}`.
+  Persists the config and an audit event (`scheduled_jobs.updated`) in one transaction, then
+  reloads Celery beat. `check_all_sources` and `index_customer_repo` are registered directly in
+  code (Section 1) and are not editable through this endpoint.
+
+**Source:** `src/web/routes/scheduled_jobs.py`, `src/services/scheduled_jobs_service.py`.
+
+---
+
 ## 3. Queue summary
 
 | Queue | Scheduled tasks (Celery) |
