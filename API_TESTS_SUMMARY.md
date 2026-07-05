@@ -1,10 +1,18 @@
 # API Tests Summary - Workflow Configuration
 
+> **Historical (2026-03-10 snapshot).** Written when `tests/api/test_workflow_config_api.py`
+> had 15 tests across 4 classes. The file has since grown to 25 tests across 8 classes
+> (added `TestWorkflowConfigDeduplication`, `TestWorkflowConfigConsistency`,
+> `TestWorkflowConfigValidation`, and more `TestAgentPrompts`/`TestWorkflowConfigVersions`
+> cases). Counts and endpoint lists below reflect the file as it stood at that commit, not
+> current coverage — read the test file directly for what's covered today. The referenced
+> `TEST_PLAN_AGENT_CONFIG.md` no longer exists.
+
 ## Overview
 Comprehensive API endpoint tests for Workflow Configuration that fill coverage gaps identified in the test plan.
 
 **File:** `tests/api/test_workflow_config_api.py`  
-**Tests:** 15  
+**Tests:** 15 (at time of writing; see banner above)  
 **Markers:** `@pytest.mark.api`, `@pytest.mark.integration_full`
 
 ## Test Coverage
@@ -166,7 +174,6 @@ Tests that create data (presets) include cleanup:
 
 ## References
 
-- Test Plan: `TEST_PLAN_AGENT_CONFIG.md`
 - Existing API Tests: `tests/api/test_endpoints.py`
 - Routes Implementation: `src/web/routes/workflow_config.py`
 - Test Runner: `run_tests.py`
