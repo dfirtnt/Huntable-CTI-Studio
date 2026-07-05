@@ -95,7 +95,6 @@ services:
       - TZ=America/New_York
     ports:
       - "8001:8001"
-      - "8888:8888"
     volumes:
       - ./src:/app/src
       - ./config:/app/config

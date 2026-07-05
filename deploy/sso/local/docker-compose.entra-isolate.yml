@@ -12,8 +12,8 @@
 # lockout trap.
 #
 # Driven by deploy/sso/local/gate.sh (or `./config.sh entra on|off`). The `!override []`
-# tag (Compose >= 2.20) replaces the merged ports list with an empty list, dropping both
-# the 8001 publish and the stray 8888 publish.
+# tag (Compose >= 2.20) replaces the merged ports list with an empty list, dropping
+# the 8001 publish.
 services:
   web:
     ports: !override []

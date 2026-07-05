@@ -41,7 +41,6 @@ Once running, access the application at:
 Additional exposed ports:
 - PostgreSQL: 5432
 - Redis: 6379
-- Jupyter (optional): 8888
 
 ## Environment Configuration
 
@@ -91,7 +90,7 @@ The `docker-compose.yml` stack includes:
 
 - **postgres**: `pgvector/pgvector:pg15` with persistent `postgres_data` volume
 - **redis**: `redis:7-alpine` with `redis_data` volume
-- **web**: FastAPI application (uvicorn on port 8001/8888)
+- **web**: FastAPI application (uvicorn on port 8001)
 - **worker**: Celery worker handling queues: collection_immediate (user "Collect Now"), default, source_checks, maintenance, reports, connectivity, collection (does not process `workflows` queue)
 - **workflow_worker**: Dedicated Celery worker that consumes only the `workflows` queue (agentic workflow execution); separate from the main worker
 - **scheduler**: Celery beat for scheduled tasks

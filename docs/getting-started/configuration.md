@@ -24,7 +24,6 @@ Defines CTI feeds and sources. See [Source Configuration Precedence](../guides/s
 | Service | Host Port | Container Port | Purpose |
 |---------|-----------|----------------|---------|
 | Web/API | 8001 | 8001 | Main FastAPI application |
-| Web (alt) | 8888 | 8888 | Secondary port on the web container |
 | PostgreSQL | 5432 | 5432 | Database |
 | Redis | 6379 | 6379 | Cache and message broker |
 | LM Studio | 1234 | — | External (host machine) |
@@ -38,7 +37,6 @@ services:
   web:
     ports:
       - "8002:8001"  # Map host port 8002 to container port 8001
-      - "8888:8888"
 ```
 
 After changing ports:

@@ -12,7 +12,7 @@ module does NOT exercise live gating. It covers the two things that are both
 deterministic and risk-bearing:
 
   1. The security-critical invariant: layering the isolate overlay actually
-     removes the web host-port publishes (8001 + 8888) from the merged compose
+     removes the web host-port publish (8001) from the merged compose
      config. A silent regression here means `entra on` would gate nothing -- a
      false sense of security -- so this is the test that matters most. It needs
      only `docker compose config` (file parsing; no daemon, no containers) and
@@ -109,11 +109,10 @@ def test_overlay_removes_web_host_ports():
     base = _compose_config(BASE_COMPOSE)
     if base.returncode != 0:
         pytest.skip(f"docker compose config unavailable: {base.stderr.strip()[:200]}")
-    # Only the web service publishes 8001/8888, so these markers are unambiguous.
+    # Only the web service publishes 8001, so this marker is unambiguous.
     if 'published: "8001"' not in base.stdout:
         pytest.skip("compose config output format unexpected; cannot validate overlay")
 
     iso = _compose_config(BASE_COMPOSE, ISOLATE)
     assert iso.returncode == 0, f"overlay broke compose config (tag unsupported?): {iso.stderr}"
     assert 'published: "8001"' not in iso.stdout, "isolate overlay did NOT drop the :8001 host publish"
-    assert 'published: "8888"' not in iso.stdout, "isolate overlay did NOT drop the :8888 host publish"

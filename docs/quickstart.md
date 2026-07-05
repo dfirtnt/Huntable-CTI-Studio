@@ -11,12 +11,12 @@ Total time: ~5 minutes (plus initial Docker image build).
 
 ---
 
-End-to-end run using Docker Compose and the built-in workflow. Commands use `python3` explicitly and match the live stack (`./start.sh`, ports 8001/8888).
+End-to-end run using Docker Compose and the built-in workflow. Commands use `python3` explicitly and match the live stack (`./start.sh`, port 8001).
 
 ## 1) Prerequisites
 - Docker and the Docker Compose plugin available on your PATH
 - `python3` for running tests, `jq` for parsing JSON responses
-- Ports `8001` (web UI/API) and `8888` (auxiliary debug port) free on the host
+- Port `8001` (web UI/API) free on the host
 - `.env` configured via `./setup.sh` (add LLM keys if you want AI features)
 
 ## 2) Start the stack
@@ -127,3 +127,4 @@ docker compose down
 ```
 
 _Last updated: 2026-07-04_
+_Last reviewed: 2026-07-05_
