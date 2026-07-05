@@ -1,5 +1,10 @@
 # CmdlineExtract Eval Audit — 2026-05-31
 
+> **Historical (adjudicated 2026-06):** point-in-time audit record. The divergences
+> below were adjudicated by the operator and the approved fixture corrections applied
+> in June 2026 (CmdlineExtract 10/10 against contract v4280). Retained as the audit
+> trail; do not re-apply its proposals.
+
 Read-only audit of the `cmdline` sub-agent eval fixtures against the live contract.
 **No sinks were modified.** This document exists so the operator can adjudicate the
 judgment calls before any write is applied.

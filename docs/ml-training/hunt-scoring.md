@@ -245,7 +245,7 @@ After retraining, new feedback is marked "used." Previously used feedback stays 
 
 ### Test Set
 
-- **Size**: 240 annotated chunks
+- **Size**: 317 annotated chunks (the committed `eval_set.csv`; was 240 before the 2026-05 fixture sync)
 - **Source**: `article_annotations` table; exported to `outputs/evaluation_data/eval_set.csv`
 - **Labeling**: manually annotated by users
 
@@ -377,5 +377,5 @@ Three settings influence dashboard metrics:
 
 ---
 
-_Last updated: 2026-07-02_
+_Last updated: 2026-07-05_
 _Last reviewed: 2026-05-22_

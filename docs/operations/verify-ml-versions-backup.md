@@ -13,63 +13,7 @@ This document describes a safe verification process to confirm that ML model ver
 
 ## Verification Process
 
-### Method 1: Comprehensive Automated Script (Recommended)
-
-Run the comprehensive verification script for thorough testing:
-
-```bash
-./utils/temp/verify_backup_restore_comprehensive.sh
-```
-
-**What it tests (12 phases, 30+ checks):**
-1. Production database analysis and statistics
-2. Test database setup and data copying
-3. Backup creation (uncompressed and compressed)
-4. Restore operations (both formats)
-5. Data integrity verification (counts, ranges)
-6. Detailed value comparison (specific records)
-7. Timestamp preservation
-8. Foreign key relationships
-9. Metadata accuracy
-10. Edge cases (NULLs, empty JSON)
-11. Statistical verification (averages, sums)
-12. Restore script compatibility
-
-**Alternative: Basic Script**
-
-For quicker verification, use the basic script:
-
-```bash
-./utils/temp/verify_backup_restore_ml_versions.sh
-```
-
-**What it does:**
-1. Creates isolated test database (`cti_scraper_test`)
-2. Copies `ml_model_versions` data from production to test DB
-3. Creates backup of test database
-4. Verifies backup contains `ml_model_versions`
-5. Drops and restores test database from backup
-6. Verifies restored count matches production count
-7. Verifies sample data integrity
-8. Cleans up all test artifacts
-
-**Expected output:**
-```
-✅ Production database has 68 model versions
-✅ Test database created
-✅ Table structure created
-✅ Copied 68 model versions to test database
-✅ Backup created
-✅ Backup contains ml_model_versions
-✅ Database restored
-✅ Verification successful!
-✅ Sample data integrity verified
-✅ Cleanup complete
-```
-
-### Method 2: Manual Verification
-
-If you prefer manual verification:
+The automated scripts that once ran this process (`utils/temp/verify_backup_restore_*.sh`) were removed; the manual steps below are the supported procedure. They create an isolated `cti_scraper_test` database, copy the table, back it up, restore it, and verify integrity.
 
 #### Step 1: Create Test Database
 ```bash
@@ -129,7 +73,7 @@ rm -rf /tmp/backup_test
 
 ## Verification Checklist
 
-### Basic Verification
+### Basic Verification (each manual run)
 - [ ] Test database created successfully
 - [ ] Production data copied to test database
 - [ ] Backup file created and contains `ml_model_versions`
@@ -140,7 +84,9 @@ rm -rf /tmp/backup_test
 - [ ] Evaluation metrics present in restored data
 - [ ] Test database cleaned up
 
-### Comprehensive Verification (30+ checks)
+For the pg_dump/psql commands used in each step, see the Manual Verification steps above.
+
+### Comprehensive Verification (extended criteria for high-stakes checks)
 - [ ] Uncompressed backup created and validated
 - [ ] Compressed backup created and validated
 - [ ] Backup contains COPY statement with data rows
@@ -214,9 +160,7 @@ docker exec cti_postgres psql -U cti_user -d cti_scraper -c "SELECT 1;"
 ## Related Documentation
 
 - [Backup and Restore Guide](../guides/backup-and-restore.md)
-- **ML Model Versioning System**: See model_versioning.py in src/utils/
+- **ML Model Versioning System**: See `model_versioning.py` in `src/utils/`
 
-> **Note:** The verification scripts referenced above (`utils/temp/verify_backup_restore_*.sh`) have been removed. The verification steps documented here remain valid for manual execution.
-
-_Last updated: 2026-07-02_
+_Last updated: 2026-07-05_
 

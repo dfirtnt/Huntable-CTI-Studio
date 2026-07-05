@@ -54,7 +54,7 @@ Expected response includes `"model_loaded": true` and a non-null `current_versio
 Retraining is triggered from **Settings → MLOps → Retrain Model**, or via the API:
 
 ```bash
-curl -X POST http://localhost:8001/api/ml-model/retrain
+curl -X POST http://localhost:8001/api/model/retrain
 ```
 
 ### What happens
@@ -62,7 +62,7 @@ curl -X POST http://localhost:8001/api/ml-model/retrain
 ```
 Label feedback in UI
        ↓
-POST /api/ml-model/retrain
+POST /api/model/retrain
        ↓
 retrain_with_feedback.py runs inside Docker
        ↓
@@ -119,9 +119,11 @@ means the new model was worse than the gate thresholds. Causes:
 Chunks are labeled in the article detail view. Each label is stored in `article_annotations` and pulled into the next retrain via:
 
 ```sql
-SELECT highlighted_text, classification FROM article_annotations
-WHERE used_for_training IS NULL OR used_for_training = FALSE
+SELECT selected_text, annotation_type FROM article_annotations
+WHERE used_for_training = FALSE
 ```
+
+(The retrain script aliases these as `highlighted_text`/`classification` internally — `scripts/retrain_with_feedback.py`.)
 
 After a successful retrain, labeled rows are marked `used_for_training = TRUE`.
 
@@ -156,7 +158,7 @@ Roll back to a previous model version from **Settings → MLOps → Version Hist
 
 ```bash
 # Roll back to version 18
-curl -X POST http://localhost:8001/api/ml-model/rollback/18
+curl -X POST http://localhost:8001/api/model/rollback/18
 ```
 
 ### How rollback works
@@ -269,4 +271,4 @@ docker logs cti_web 2>&1 | grep "\[retrain"
 | `src/utils/model_versioning.py` | Version DB records, artifact resolution, rollback |
 | `src/web/routes/models.py` | API routes: `/retrain`, `/rollback/{id}`, `/performance` |
 
-_Last updated: 2026-07-02_
+_Last updated: 2026-07-05_

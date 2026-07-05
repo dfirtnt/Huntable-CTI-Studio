@@ -24,7 +24,7 @@ Evaluation framework for measuring Extract Agent performance. The active eval sy
 
 2. **Field Completeness Rate**
    - Percentage of extractions with all required fields
-   - Required: `behavioral_observables`, `observable_list`, `discrete_huntables_count`, `content`, `url`
+   - Required: `observables`, `subresults`, `summary`, `discrete_huntables_count`, `content` (the extraction_result contract in `src/workflows/agentic_workflow.py`)
    - Target: 100%
 
 3. **Observable Count**
@@ -283,5 +283,5 @@ pip install torch --index-url https://download.pytorch.org/whl/cu118
 
 ---
 
-_Last updated: 2026-07-02_
+_Last updated: 2026-07-05_
 _Last reviewed: 2026-05-23_

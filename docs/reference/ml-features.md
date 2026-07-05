@@ -9,7 +9,7 @@ The content filter runs a **RandomForestClassifier** trained and inferred agains
 
 **Feature version auto-detection:** `load_model()` reads `<model_path>.meta.json` and sets `feature_version` automatically. Do not pass `feature_version` manually at inference unless you are testing a specific version.
 
-**Eval metrics (v3):** F1 ≈ 0.89 on a 240-row curated eval set (Huntable corpus).
+**Eval metrics (v3):** F1 ≈ 0.89, measured on the curated eval set (240 rows at measurement time, 2026-05; the committed `outputs/evaluation_data/eval_set.csv` now holds 317 rows).
 
 
 **Legacy versions:**
@@ -268,8 +268,8 @@ This is the primary aggregate positive signal. The RF uses it as a length-normal
 | `class_weight` | `"balanced"` |
 | `random_state` | 42 |
 | Train/test split | 80/20, stratified |
-| Eval F1 (Huntable class, v3) | ≈ 0.89 |
-| Eval dataset | 240-row curated Huntable corpus |
+| Eval F1 (Huntable class, v3) | ≈ 0.89 (measured 2026-05 on the then-240-row set) |
+| Eval dataset | Curated Huntable corpus, `outputs/evaluation_data/eval_set.csv` (317 rows) |
 
 ### Hyperparameter rationale
 

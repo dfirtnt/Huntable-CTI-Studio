@@ -7,7 +7,7 @@ This guide answers one question: **which LLM model do I use for each Huntable CT
 It covers local models (LM Studio / GGUF) and cloud models (OpenAI, Anthropic) for the three-stage pipeline:
 
 1. **Rank Agent** — Evaluates article quality and huntability (1–10 score)
-2. **Extractor Agents** — Extracts observables (command lines, process trees, registry keys, services, hunt queries, scheduled tasks)
+2. **Extractor Agents** — Extracts observables (command lines, process trees, registry keys, services, hunt queries, scheduled tasks, network indicators)
 3. **Sigma Generator** — Synthesizes extracted observables into detection rules
 
 **Related documents:**
@@ -112,7 +112,7 @@ Sigma YAML is structurally simple. Instruction-tuned models handle it well. Over
 
 ### 2. Extractor Agents
 
-**Task:** Extract explicitly stated observables with zero inference. Active types: CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract.
+**Task:** Extract explicitly stated observables with zero inference. Active types: CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract, NetworkIndicatorExtract.
 
 **Cognitive profile:** Deterministic pattern matching, literal text grounding, strict JSON output. Precision over recall — false positives are critical failures.
 
@@ -331,4 +331,4 @@ Always verify model hash against official releases.
 
 ---
 
-_Last updated: 2026-07-02_
+_Last updated: 2026-07-05_
