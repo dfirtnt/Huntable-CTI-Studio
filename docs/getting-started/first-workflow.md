@@ -1,6 +1,6 @@
 # First Workflow
 
-Run the full agentic pipeline against a real CTI article: OS detection → junk filter → ranking → extraction → Sigma generation → similarity search.
+Run the full agentic pipeline against a real CTI article: Platform Detection → junk filter → ranking → extraction → Sigma generation → similarity search.
 
 **Prerequisites**: Stack running via `./start.sh` (see [Installation](installation.md)).
 
@@ -68,10 +68,10 @@ In the UI, open `http://localhost:8001/workflow#executions` and click **View** o
 
 The agentic workflow runs these stages in order:
 
-1. **OS Detection** — classifies the article as Windows/Linux/macOS/cross-platform. Non-Windows articles terminate early with reason `non_windows_os_detected`.
+1. **Platform Detection** — classifies the article as Windows/Linux/macOS/cross-platform using the deterministic entity/keyword registry (with an LLM adjudicator for low-confidence cases). Since v7.5.0 this is a router, not a gate: non-Windows articles are not terminated; instead, Windows-only extractors (RegistryExtract, ServicesExtract, ScheduledTasksExtract) are skipped with structured reason records, and Linux evidence still generates Sigma.
 2. **Junk Filter** — ML classifier + hunt score keywords determine if the article has actionable threat content. Low-scoring articles terminate early with reason `no_huntable_content`.
 3. **LLM Ranking** — LLM scores the article for relevance and huntability. Articles below the ranking threshold terminate early with reason `rank_below_threshold`.
-4. **Sub-agent Extraction** — sequential LLM agents extract observables (command lines, process trees, hunt queries, registry artifacts, Windows services, scheduled tasks).
+4. **Sub-agent Extraction** — sequential LLM agents extract observables (command lines, process trees, hunt queries, registry artifacts, Windows services, scheduled tasks, network indicators).
 5. **Aggregation** — code in the extract step merges and deduplicates sub-agent outputs.
 6. **Sigma Generation** — generates detection rules from the extracted observables.
 7. **Similarity Search + Queue Promotion** — new rules are scored against indexed SigmaHQ rules; novel rules are promoted to the Sigma review queue.
@@ -85,4 +85,4 @@ The agentic workflow runs these stages in order:
 | Empty extraction results | Article filtered as non-huntable | Check `termination_reason` in execution record |
 | No Sigma rules generated | Article had no extractable observables | Review extraction_result for empty observables |
 
-_Last updated: 2026-07-02_
+_Last updated: 2026-07-04_

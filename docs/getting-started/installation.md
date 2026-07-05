@@ -49,6 +49,7 @@ Before running `./start.sh`, run `./setup.sh` (which creates and configures `.en
 
 ### Required
 - `POSTGRES_PASSWORD=<strong password>` - Database authentication
+- `SECRET_KEY` - Signs CSRF tokens; generated automatically by `./setup.sh`. Required to be a strong non-default value in production when auth/CSRF is enabled (see [Authentication](../guides/authentication.md))
 
 ### Optional LLM Keys
 - `OPENAI_API_KEY` - For OpenAI - ChatGPT models
@@ -216,7 +217,7 @@ See the [ML Model Operations Runbook](../operations/ml-model-runbook.md) for ret
 
 **MLOps → Agent evals** (Load Eval Articles, run subagent evals) use article snapshots committed in the repo under `config/eval_articles_data/{subagent}/articles.json`. No network fetch is required: the web app seeds these files into the DB at startup, and `start.sh` also runs the seed. If "Load Eval Articles" shows no articles, ensure you have the latest repo so the committed JSON files are present.
 
-The committed eval article directories cover all six extraction sub-agents:
+The committed eval article directories cover all seven extraction sub-agents, plus the end-to-end Sigma eval:
 
 | Directory | Sub-agent |
 |-----------|-----------|
@@ -226,6 +227,8 @@ The committed eval article directories cover all six extraction sub-agents:
 | `config/eval_articles_data/registry_artifacts/` | RegistryExtract |
 | `config/eval_articles_data/windows_services/` | ServicesExtract |
 | `config/eval_articles_data/scheduled_tasks/` | ScheduledTasksExtract |
+| `config/eval_articles_data/network_indicators/` | NetworkIndicatorExtract |
+| `config/eval_articles_data/sigma/` | End-to-end Sigma rule eval (not a sub-agent) |
 
 ## Next Steps
 
@@ -235,7 +238,4 @@ The committed eval article directories cover all six extraction sub-agents:
 
 ---
 
-_Last updated: 2026-07-02_
-<!--stackedit_data:
-eyJoaXN0b3J5IjpbMTU2NDQzMzMxNl19
--->
+_Last updated: 2026-07-04_

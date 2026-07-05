@@ -111,7 +111,7 @@ A zero exit code confirms the stack and core health endpoints are working.
 
 ## 8) MCP server (optional)
 
-For external LLM clients (Claude Desktop, IDE MCP, etc.), a **read-only** MCP server exposes article search, full article fetch, Sigma search, sources, workflow executions, and the Sigma review queue. It uses the same database as the web app. Tool listing and parameters: [MCP tools reference](reference/mcp-tools.md).
+For external LLM clients (Claude Desktop, IDE MCP, etc.), the MCP server exposes read tools (article search, full article fetch, Sigma search, sources, workflow executions, the Sigma review queue, read-only SQL) plus scoped, audited write tools — low-risk writes execute directly; high-risk writes only create pending human-confirmation requests. It uses the same database as the web app. Tool listing, parameters, and write risk tiers: [MCP tools reference](reference/mcp-tools.md).
 
 The repo ships a committed `.mcp.json` registering the server via `scripts/run_mcp_server.sh`; clients that read project `.mcp.json` (Claude Code in this repo) need no setup — just approve the `huntable-cti-studio` server when prompted. For other clients, register `bash scripts/run_mcp_server.sh` as the command.
 
@@ -126,4 +126,4 @@ Stack shutdown (optional):
 docker compose down
 ```
 
-_Last updated: 2026-07-02_
+_Last updated: 2026-07-04_
