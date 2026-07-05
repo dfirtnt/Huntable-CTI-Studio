@@ -138,7 +138,7 @@ no separate "served from main" deployment).
 
 `#workflowConfigForm`, `#save-config-button`, tabs (`#tab-config` / `#tab-content-*`),
 pipeline steps `#s0`-`#s6` (root: `#config-content`),
-sub-agent panels `#sa-cmdline`, `#sa-proctree`, `#sa-huntqueries`, `#sa-registry`, `#sa-services`, `#sa-scheduledtasks`,
+sub-agent panels `#sa-cmdline`, `#sa-proctree`, `#sa-huntqueries`, `#sa-registry`, `#sa-services`, `#sa-scheduledtasks`, `#sa-networkindicator`,
 enable toggles `#toggle-{agentname}-enabled`,
 prompt containers `#{agentprefix}-agent-prompt-container` / `-qa-prompt-container`,
 preset/version modals `#configPresetListModal` etc.,
@@ -159,7 +159,7 @@ step controls `#junkFilterThreshold`, `#similarityThreshold`, `#sigma-fallback-e
 
 | Agent | agentPrefix |
 |---|---|
-| OS Detection | `osdetectionagent` |
+| Platform Detection | `osdetectionagent` |
 | LLM Ranking | `rankagent` |
 | ExtractAgent supervisor | `extractagent` |
 | CmdlineExtract | `cmdlineextract` |
@@ -168,6 +168,7 @@ step controls `#junkFilterThreshold`, `#similarityThreshold`, `#sigma-fallback-e
 | RegistryExtract | `registryextract` |
 | ServicesExtract | `servicesextract` |
 | ScheduledTasksExtract | `scheduledtasksextract` |
+| NetworkIndicatorExtract | `networkindicatorextract` |
 | SIGMA Agent | `sigmaagent` |
 | QA variants | `qa-{agentprefix}` (e.g. `qa-cmdlineextract`, `qa-rankagent`) |
 
