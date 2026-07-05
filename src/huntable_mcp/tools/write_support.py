@@ -14,7 +14,6 @@ from src.services.audit_service import (
 )
 
 MCP_SERVICE_ACTOR = "service:mcp"
-RISK_AUTO_EXECUTABLE = "auto_executable"
 RISK_CONFIRMATION_REQUIRED = "confirmation_required"
 
 

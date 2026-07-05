@@ -155,10 +155,6 @@ class PromptLoader:
 
         return [f.stem for f in self.prompts_dir.glob("*.txt")]
 
-    def clear_cache(self):
-        """Clear the prompt cache."""
-        self._prompt_cache.clear()
-
 
 # Global prompt loader instance
 prompt_loader = PromptLoader()

@@ -65,22 +65,3 @@ def run_sync(coro: Coroutine[Any, Any, T], *, allow_running_loop: bool = False) 
 
     # No running loop — safe to use asyncio.run()
     return asyncio.run(coro)
-
-
-def ensure_async_context(func):
-    """
-    Decorator to ensure a function is only called from async context.
-
-    Raises RuntimeError if called from sync context.
-    """
-
-    def wrapper(*args, **kwargs):
-        try:
-            asyncio.get_running_loop()
-        except RuntimeError as e:
-            raise RuntimeError(
-                f"{func.__name__}() must be called from async context. Use 'await' instead of calling directly."
-            ) from e
-        return func(*args, **kwargs)
-
-    return wrapper

@@ -268,24 +268,6 @@ class ScheduledJobsService:
             )
         return normalized
 
-    async def update_state(self, jobs: dict[str, Any]) -> dict[str, Any]:
-        """Persist the scheduled job config and reload the scheduler container.
-
-        Legacy convenience wrapper that opens its own transaction. Routes that need
-        an atomic mutation+audit should call :meth:`persist_config` with their own
-        session instead.
-        """
-        from src.database.async_manager import async_db_manager
-
-        async with async_db_manager.get_session() as session:
-            normalized = await self.persist_config(session, jobs)
-            await session.commit()
-
-        reload_result = self.restart_scheduler()
-        state = serialize_scheduled_jobs_state(normalized)
-        state["scheduler_reload"] = reload_result
-        return state
-
     def restart_scheduler(self) -> dict[str, Any]:
         """Restart the Celery beat container so updated schedules take effect immediately."""
         try:

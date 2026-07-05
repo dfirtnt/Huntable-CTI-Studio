@@ -392,21 +392,6 @@ class MetadataExtractor:
         return og_data
 
     @staticmethod
-    def extract_twitter_cards(soup: BeautifulSoup) -> dict[str, str]:
-        """Extract Twitter Card metadata."""
-        twitter_data = {}
-
-        for meta in soup.find_all("meta"):
-            name = meta.get("name", "")
-            if name.startswith("twitter:"):
-                content = meta.get("content")
-                if content:
-                    key = name[8:]  # Remove 'twitter:' prefix
-                    twitter_data[key] = content
-
-        return twitter_data
-
-    @staticmethod
     def extract_canonical_url(soup: BeautifulSoup) -> str | None:
         """Extract canonical URL from link tag."""
         canonical = soup.find("link", {"rel": "canonical"})

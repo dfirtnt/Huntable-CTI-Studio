@@ -582,15 +582,6 @@ class HTTPClient:
 # Utility functions
 
 
-def is_valid_url(url: str) -> bool:
-    """Check if URL is valid."""
-    try:
-        result = urlparse(url)
-        return all([result.scheme, result.netloc]) and result.scheme in ("http", "https")
-    except Exception:
-        return False
-
-
 def normalize_url(url: str, base_url: str | None = None) -> str:
     """Normalize URL by resolving relative URLs and cleaning fragments."""
     if base_url:
@@ -604,8 +595,3 @@ def normalize_url(url: str, base_url: str | None = None) -> str:
 def extract_domain(url: str) -> str:
     """Extract domain from URL."""
     return urlparse(url).netloc.lower()
-
-
-def is_same_domain(url1: str, url2: str) -> bool:
-    """Check if two URLs are from the same domain."""
-    return extract_domain(url1) == extract_domain(url2)

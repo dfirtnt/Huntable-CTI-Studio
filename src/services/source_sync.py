@@ -127,15 +127,3 @@ class SourceSyncService:
 async def sync_sources(config_path: str, db_manager: AsyncDatabaseManager) -> int:
     service = SourceSyncService(Path(config_path), db_manager)
     return await service.sync()
-
-
-def sync_sources_blocking(config_path: str, db_manager: AsyncDatabaseManager) -> int:
-    """
-    Synchronous wrapper for sync_sources.
-
-    WARNING: Do not call this from within a running event loop.
-    Use sync_sources() directly with await in async contexts.
-    """
-    from src.utils.async_tools import run_sync
-
-    return run_sync(sync_sources(config_path, db_manager))

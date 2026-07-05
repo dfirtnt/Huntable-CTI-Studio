@@ -618,7 +618,6 @@ entry for display in the Sigma Queue UI.
 | Orchestrator | `sigma_novelty_service.py` | Retrieves candidates, computes Jaccard/containment/filter scores |
 | Precompute | `sigma_atom_precompute.py` | `extract_atom_fields()` / `precompute_atom_fields()` - materializes atom sets at index time |
 | Normalizer | `sigma_behavioral_normalizer.py` | Resolves field aliases (PascalCase / snake_case / lowercase) to canonical identities |
-| Novelty detector | `sigma_novelty_detector.py` | Near-duplicate heuristics before full scoring |
 | Huntability scorer | `sigma_huntability_scorer.py` | Post-generation quality assessment (coverage, specificity) |
 | External engine | `sigma_atom_similarity` pkg | Atom set-math package; used for Sigma-to-Sigma behavioral similarity |
 

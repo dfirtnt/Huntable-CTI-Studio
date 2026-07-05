@@ -8,18 +8,6 @@ Requests to /chat/completions without /v1 return 200 with "Unexpected endpoint o
 import os
 
 
-def _embedding_path_from_url(url: str) -> str:
-    """Return the path part for embeddings (e.g. /v1/embeddings) from any LM Studio URL."""
-    u = (url or "").strip().rstrip("/")
-    if "/v1/embeddings" in u:
-        return "/v1/embeddings"
-    if u.endswith("/v1"):
-        return "/v1/embeddings"
-    if "/embeddings" in u:
-        return "/v1/embeddings"
-    return "/v1/embeddings"
-
-
 def get_lmstudio_embedding_url_candidates() -> list[str]:
     """
     Return candidate embedding URLs to try in order (primary from env, then fallbacks).

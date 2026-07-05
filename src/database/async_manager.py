@@ -15,7 +15,6 @@ from typing import Any, Optional
 from sqlalchemy import (
     Numeric,
     String,
-    and_,
     delete,
     desc,
     func,
@@ -372,16 +371,6 @@ class AsyncDatabaseManager:
         except Exception as e:
             logger.error(f"Failed to get corruption stats: {e}")
             return {"corrupted_count": 0, "examples": [], "error": str(e)}
-
-    async def count_annotated_chunks(self) -> int:
-        """Count total annotated chunks available for training."""
-        async with self.get_session() as session:
-            try:
-                result = await session.execute(text("SELECT COUNT(*) FROM article_annotations"))
-                return result.scalar() or 0
-            except Exception as e:
-                logger.error(f"Error counting annotated chunks: {e}")
-                return 0
 
     async def list_sources(self, filter_params: SourceFilter | None = None) -> list[Source]:
         """List all sources with optional filtering."""
@@ -1043,21 +1032,6 @@ class AsyncDatabaseManager:
 
         except Exception as e:
             logger.error(f"Failed to get article {article_id}: {e}")
-            return None
-
-    async def get_article_by_url(self, canonical_url: str) -> Article | None:
-        """Get a specific article by canonical URL."""
-        try:
-            async with self.get_session() as session:
-                result = await session.execute(select(ArticleTable).where(ArticleTable.canonical_url == canonical_url))
-                db_article = result.scalar_one_or_none()
-
-                if db_article:
-                    return self._db_article_to_model(db_article)
-                return None
-
-        except Exception as e:
-            logger.error(f"Failed to get article by URL {canonical_url}: {e}")
             return None
 
     async def list_articles_by_source(self, source_id: int) -> list[Article]:
@@ -2009,36 +1983,6 @@ class AsyncDatabaseManager:
             usage=db_annotation.usage,
         )
 
-    async def get_annotation_with_article_info(self, annotation_id: int) -> ArticleAnnotationTable | None:
-        """Get annotation with article and source information for embedding generation."""
-        try:
-            async with self.get_session() as session:
-                result = await session.execute(
-                    select(ArticleAnnotationTable)
-                    .options(selectinload(ArticleAnnotationTable.article).selectinload(ArticleTable.source))
-                    .where(ArticleAnnotationTable.id == annotation_id)
-                )
-                return result.scalar_one_or_none()
-
-        except Exception as e:
-            logger.error(f"Failed to get annotation with article info {annotation_id}: {e}")
-            return None
-
-    async def get_annotations_with_article_info(self, annotation_ids: list[int]) -> list[ArticleAnnotationTable]:
-        """Get multiple annotations with article and source information."""
-        try:
-            async with self.get_session() as session:
-                result = await session.execute(
-                    select(ArticleAnnotationTable)
-                    .options(selectinload(ArticleAnnotationTable.article).selectinload(ArticleTable.source))
-                    .where(ArticleAnnotationTable.id.in_(annotation_ids))
-                )
-                return result.scalars().all()
-
-        except Exception as e:
-            logger.error(f"Failed to get annotations with article info: {e}")
-            return []
-
     async def get_annotations_without_embeddings(self) -> list[ArticleAnnotationTable]:
         """Get all annotations that don't have embeddings yet."""
         try:
@@ -2175,64 +2119,6 @@ class AsyncDatabaseManager:
         except Exception as e:
             logger.error(f"Failed to search similar annotations: {e}")
             return []
-
-    async def get_embedding_stats(self) -> dict[str, Any]:
-        """Get statistics about embeddings in the database."""
-        try:
-            async with self.get_session() as session:
-                # Count total annotations
-                total_result = await session.execute(select(func.count(ArticleAnnotationTable.id)))
-                total_annotations = total_result.scalar() or 0
-
-                # Count annotations with embeddings
-                embedded_result = await session.execute(
-                    select(func.count(ArticleAnnotationTable.id)).where(ArticleAnnotationTable.embedding.is_not(None))
-                )
-                embedded_count = embedded_result.scalar() or 0
-
-                # Count by annotation type
-                huntable_embedded_result = await session.execute(
-                    select(func.count(ArticleAnnotationTable.id)).where(
-                        and_(
-                            ArticleAnnotationTable.embedding.is_not(None),
-                            ArticleAnnotationTable.annotation_type == "huntable",
-                        )
-                    )
-                )
-                huntable_embedded = huntable_embedded_result.scalar() or 0
-
-                not_huntable_embedded_result = await session.execute(
-                    select(func.count(ArticleAnnotationTable.id)).where(
-                        and_(
-                            ArticleAnnotationTable.embedding.is_not(None),
-                            ArticleAnnotationTable.annotation_type == "not_huntable",
-                        )
-                    )
-                )
-                not_huntable_embedded = not_huntable_embedded_result.scalar() or 0
-
-                # Calculate percentages
-                embedding_coverage = (embedded_count / total_annotations * 100) if total_annotations > 0 else 0
-
-                return {
-                    "total_annotations": total_annotations,
-                    "embedded_count": embedded_count,
-                    "embedding_coverage_percent": round(embedding_coverage, 1),
-                    "huntable_embedded": huntable_embedded,
-                    "not_huntable_embedded": not_huntable_embedded,
-                    "pending_embeddings": total_annotations - embedded_count,
-                }
-
-        except Exception as e:
-            logger.error(f"Failed to get embedding stats: {e}")
-            return {
-                "total_annotations": 0,
-                "embedded_count": 0,
-                "embedding_coverage_percent": 0.0,
-                "huntable_embedded": 0,
-                "not_huntable_embedded": 0,
-                "pending_embeddings": 0,
-            }
 
     # Article embedding methods
     async def get_article_with_source_info(self, article_id: int) -> ArticleTable | None:

@@ -7,7 +7,6 @@ Prevents command injection, path traversal, SSRF, and other input-based attacks.
 import ipaddress
 import re
 import socket
-from pathlib import Path
 from urllib.parse import urlparse
 
 
@@ -136,51 +135,6 @@ def validate_backup_components(components: str | None) -> str | None:
     return components
 
 
-def validate_file_path(
-    file_path: Path | str,
-    allowed_base: Path,
-    *,
-    must_exist: bool = False,
-    allowed_extensions: set[str] | None = None,
-) -> Path:
-    """
-    Validate that a file path is within allowed directory and safe to use.
-
-    Args:
-        file_path: File path to validate
-        allowed_base: Base directory that file must be within
-        must_exist: If True, path must exist
-        allowed_extensions: If provided, file extension must be in this set
-
-    Returns:
-        Resolved absolute path
-
-    Raises:
-        ValidationError: If path is invalid or unsafe
-    """
-    try:
-        path = Path(file_path).resolve()
-        base = Path(allowed_base).resolve()
-    except (ValueError, OSError) as e:
-        raise ValidationError(f"Invalid path: {e}") from e
-
-    # Check if path is within allowed base
-    try:
-        path.relative_to(base)
-    except ValueError as e:
-        raise ValidationError(f"Path is outside allowed directory: {path}") from e
-
-    # Check existence
-    if must_exist and not path.exists():
-        raise ValidationError(f"Path does not exist: {path}")
-
-    # Check extension
-    if allowed_extensions is not None and path.suffix not in allowed_extensions:
-        raise ValidationError(f"File extension {path.suffix!r} not allowed")
-
-    return path
-
-
 def validate_url_for_scraping(url: str) -> str:
     """
     Validate a URL is safe to fetch (prevents SSRF).
@@ -211,28 +165,3 @@ def validate_url_for_scraping(url: str) -> str:
         raise ValidationError("URL resolves to a private or reserved address")
 
     return url
-
-
-def sanitize_shell_arg(arg: str) -> str:
-    """
-    Sanitize a string for use as a shell argument.
-
-    This is a defense-in-depth measure. Prefer passing arguments as list to subprocess.run
-    instead of using shell=True.
-
-    Args:
-        arg: Argument to sanitize
-
-    Returns:
-        Sanitized argument
-
-    Raises:
-        ValidationError: If argument contains dangerous characters
-    """
-    # Reject strings with shell metacharacters
-    dangerous_chars = [";", "&", "|", "$", "`", "(", ")", "<", ">", "\n", "\r", "\\"]
-    for char in dangerous_chars:
-        if char in arg:
-            raise ValidationError(f"Argument contains dangerous character: {char!r}")
-
-    return arg

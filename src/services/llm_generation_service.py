@@ -144,36 +144,6 @@ class LLMGenerationService:
         }
         return mapping.get(provider, provider.title())
 
-    def _build_model_display(
-        self,
-        provider: str,
-        model_name: str | None,
-        requested_provider: str | None = None,
-    ) -> str:
-        """Build a user-facing display label for the resolved model."""
-        base_provider = provider
-        detail = model_name or ""
-
-        if provider == "lmstudio":
-            detail = model_name or self.lmstudio_model or "local-model"
-        elif provider == "template":
-            base_provider = "template"
-            detail = ""
-        elif provider == "openai":
-            detail = model_name or "gpt-4o-mini"
-        elif provider == "anthropic":
-            detail = model_name or "claude-sonnet-4-5"
-
-        provider_label = self._format_provider_name(base_provider)
-        detail = detail.strip()
-        display = f"{provider_label} • {detail}" if detail else provider_label
-
-        normalized_requested = None if requested_provider in {None, "", "auto"} else requested_provider
-        if normalized_requested and normalized_requested != provider:
-            display = f"{display} (fallback from {self._format_provider_name(normalized_requested)})"
-
-        return display
-
     def _select_provider(self, provider: str) -> str:
         """Select the effective LLM provider with graceful fallbacks."""
         normalized = self._canonicalize_requested_provider(provider)
@@ -466,17 +436,3 @@ class LLMGenerationService:
             # Capture actual model used by LMStudio for accurate UI display
             self.last_lmstudio_model = result.get("model") or self.lmstudio_model
             return result["choices"][0]["message"]["content"]
-
-    def get_available_providers(self) -> list[str]:
-        """Get list of available LLM providers."""
-        providers = []
-
-        if self.openai_api_key:
-            providers.append("openai")
-
-        if self.anthropic_api_key:
-            providers.append("anthropic")
-
-        providers.append("lmstudio")  # Always available if LMStudio is running
-
-        return providers

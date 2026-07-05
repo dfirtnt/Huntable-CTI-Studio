@@ -619,15 +619,6 @@ def load_workflow_config(raw: dict[str, Any] | Any) -> WorkflowConfigV2:
     return WorkflowConfigV2.model_validate(migrated)
 
 
-def config_row_to_v2_dict(row: Any) -> dict[str, Any]:
-    """
-    Convert DB config row to v2 dict (PascalCase) without Pydantic.
-    Use when you need a serializable v2 structure for API response.
-    """
-    raw = _normalize_raw_from_db(row)
-    return migrate_v1_to_v2(raw)
-
-
 def config_row_to_flat_agent_models(row: Any) -> dict[str, Any]:
     """
     Convert DB config row to flat agent_models dict for LLMService and other legacy consumers.

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-AUDIT_TABLE_NAME = "audit_events"
-
 AUDIT_REQUIRED_INDEXES = (
     "ix_audit_events_created_at",
     "ix_audit_events_actor_id",

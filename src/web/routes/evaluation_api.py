@@ -934,12 +934,6 @@ async def get_execution_commandlines(
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-def resolve_article_by_url(url: str) -> int | None:
-    """Resolve article ID from URL (single-URL wrapper; prefer resolve_articles_by_urls for many URLs)."""
-    mapping = resolve_articles_by_urls([url])
-    return mapping.get(url)
-
-
 def resolve_articles_by_urls(urls: list[str]) -> dict[str, int]:
     """
     Resolve multiple article URLs to article IDs in one session with batch queries.

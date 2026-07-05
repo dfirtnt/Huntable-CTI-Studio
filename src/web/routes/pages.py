@@ -36,50 +36,6 @@ def _compact_unique(values: list | None, limit: int = 6) -> list[str]:
     return items
 
 
-def _extract_ioc_values(article_metadata: dict | None, limit: int = 6) -> list[str]:
-    if not article_metadata:
-        return []
-
-    candidates: list[str] = []
-
-    def add_payload(payload: object) -> None:
-        if not payload:
-            return
-        iocs = payload.get("iocs") if isinstance(payload, dict) else payload
-        if not isinstance(iocs, list):
-            return
-        for ioc in iocs:
-            if isinstance(ioc, dict):
-                value = ioc.get("value") or ioc.get("indicator") or ioc.get("ioc")
-                ioc_type = ioc.get("type") or ioc.get("ioc_type")
-                if value:
-                    label = f"{ioc_type}: {value}" if ioc_type else str(value)
-                    candidates.append(label)
-            else:
-                candidates.append(str(ioc))
-
-    add_payload(article_metadata.get("extracted_iocs"))
-
-    return _compact_unique(candidates, limit=limit)
-
-
-def _build_share_excerpt(article: object, max_length: int = 420) -> str:
-    summary = str(getattr(article, "summary", "") or "").strip()
-    if summary:
-        return summary
-
-    content = str(getattr(article, "content", "") or "").strip()
-    if not content:
-        return ""
-
-    normalized = " ".join(content.split())
-    if len(normalized) <= max_length:
-        return normalized
-
-    trimmed = normalized[:max_length].rsplit(" ", 1)[0].strip()
-    return f"{trimmed}..." if trimmed else normalized[:max_length]
-
-
 @router.get("/", response_class=HTMLResponse)
 @router.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):

@@ -10,6 +10,10 @@ from typing import Any
 from src.database.models import AuditEventTable
 from src.web.security.identity import RequestIdentity
 
+# Stable audit action vocabulary. Several names are reserved ahead of use by the
+# enterprise-auth auditability spec ("Initial stable action names",
+# docs/superpowers/specs/2026-06-17-enterprise-auth-auditability-build-spec.md)
+# and have no emitter yet -- do not remove them as dead code.
 ACTION_AUTH_REQUEST_AUTHENTICATED = "auth.request_authenticated"
 ACTION_AUTH_REQUEST_DENIED = "auth.request_denied"
 ACTION_SETTINGS_UPDATED = "settings.updated"

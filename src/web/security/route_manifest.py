@@ -77,8 +77,6 @@ class RouteRule:
         return entry.path == self.pattern
 
 
-PUBLIC_PATHS = frozenset({"/health", "/api/health", "/static/{path:path}"})
-
 _OPERATOR_ADMIN = ("operator", "admin")
 _RULE_REVIEWER_ADMIN = ("rule_reviewer", "admin")
 _ANALYST_ADMIN = ("analyst", "admin")

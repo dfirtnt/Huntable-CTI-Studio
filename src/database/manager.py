@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from src.database.audit_schema import AUDIT_INDEX_DDLS, missing_audit_schema_objects
 from src.database.models import ArticleTable, Base, ContentHashTable, SourceCheckTable, SourceTable, URLTrackingTable
 from src.models.article import Article, ArticleCreate, ArticleFilter
-from src.models.source import Source, SourceCreate, SourceFilter, SourceHealth, SourceUpdate
+from src.models.source import Source, SourceCreate, SourceFilter, SourceUpdate
 
 logger = logging.getLogger(__name__)
 
@@ -731,27 +731,6 @@ class DatabaseManager:
             except Exception as e:
                 session.rollback()
                 logger.error(f"Failed to record source check: {e}")
-
-    def get_source_health_status(self, source_id: int) -> SourceHealth | None:
-        """Get detailed health status for a source."""
-        with self.get_session() as session:
-            db_source = session.query(SourceTable).filter(SourceTable.id == source_id).first()
-
-            if not db_source:
-                return None
-
-            return SourceHealth(
-                source_id=db_source.id,
-                identifier=db_source.identifier,
-                name=db_source.name,
-                active=db_source.active,
-                tier=getattr(db_source, "tier", None),
-                last_check=db_source.last_check,
-                last_success=db_source.last_success,
-                consecutive_failures=db_source.consecutive_failures,
-                average_response_time=db_source.average_response_time,
-                total_articles=db_source.total_articles,
-            )
 
     # Statistics and reporting
 

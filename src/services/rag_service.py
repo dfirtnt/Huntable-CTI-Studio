@@ -298,33 +298,6 @@ class RAGService:
             logger.error(f"Failed to get context for SIGMA: {e}")
             return {}
 
-    async def dedupe_similar_articles(self, threshold: float = 0.85) -> dict[str, Any]:
-        """
-        Find and report similar articles for deduplication.
-
-        Args:
-            threshold: Similarity threshold for considering articles as duplicates
-
-        Returns:
-            Dictionary with deduplication results
-        """
-        try:
-            # This is a simplified implementation - in practice, you'd want to
-            # compare all articles against each other, which is computationally expensive
-            # For now, we'll return a placeholder structure
-
-            logger.warning("Deduplication of similar articles not yet implemented - computationally expensive")
-
-            return {
-                "status": "not_implemented",
-                "message": "Similar article deduplication requires pairwise comparison of all embeddings",
-                "recommendation": "Use content_hash-based deduplication for exact duplicates instead",
-            }
-
-        except Exception as e:
-            logger.error(f"Failed to dedupe similar articles: {e}")
-            return {"status": "error", "message": str(e)}
-
     async def find_similar_sigma_rules(
         self, query: str, top_k: int = 10, threshold: float = 0.7
     ) -> list[dict[str, Any]]:
@@ -551,76 +524,6 @@ class RAGService:
                 "error": str(e),
             }
 
-    async def find_related_techniques(self, technique: str, top_k: int = 5) -> list[dict[str, Any]]:
-        """
-        Find related threat techniques based on semantic similarity.
-
-        Args:
-            technique: Threat technique to find related ones for
-            top_k: Number of related techniques to return
-
-        Returns:
-            List of related techniques with similarity scores
-        """
-        try:
-            # Search for similar articles
-            similar_articles = await self.find_similar_articles(
-                query=technique,
-                top_k=top_k * 2,  # Get more results to filter
-                threshold=0.6,
-                source_id=None,
-            )
-
-            # Extract unique techniques (simplified - in practice you'd want more sophisticated extraction)
-            related_techniques = []
-            seen_techniques = set()
-
-            for article in similar_articles:
-                # Simple technique extraction - look for common threat technique patterns
-                text = (article["title"] + " " + article["content"]).lower()
-
-                # Common technique keywords (simplified)
-                technique_keywords = [
-                    "persistence",
-                    "privilege escalation",
-                    "defense evasion",
-                    "credential access",
-                    "discovery",
-                    "lateral movement",
-                    "collection",
-                    "command and control",
-                    "exfiltration",
-                    "impact",
-                    "initial access",
-                    "execution",
-                ]
-
-                for keyword in technique_keywords:
-                    if keyword in text and keyword not in seen_techniques:
-                        related_techniques.append(
-                            {
-                                "technique": keyword,
-                                "similarity": article["similarity"],
-                                "source_article": article["title"],
-                                "content_preview": article["content"][:200] + "...",
-                                "source_name": article["source_name"],
-                            }
-                        )
-                        seen_techniques.add(keyword)
-
-                        if len(related_techniques) >= top_k:
-                            break
-
-                if len(related_techniques) >= top_k:
-                    break
-
-            logger.info(f"Found {len(related_techniques)} related techniques for: {technique}")
-            return related_techniques
-
-        except Exception as e:
-            logger.error(f"Failed to find related techniques: {e}")
-            return []
-
     async def close(self):
         """Close database connections."""
         await self.db_manager.close()
@@ -646,32 +549,3 @@ def get_rag_service() -> RAGService:
 
 
 # Convenience functions for common operations
-async def semantic_search_articles(query: str, top_k: int = 10, threshold: float = 0.7) -> list[dict[str, Any]]:
-    """
-    Convenience function for semantic article search.
-
-    Args:
-        query: Search query
-        top_k: Number of results
-        threshold: Similarity threshold
-
-    Returns:
-        List of similar articles
-    """
-    rag_service = get_rag_service()
-    return await rag_service.find_similar_articles(query, top_k, threshold)
-
-
-async def get_sigma_context(techniques: list[str], top_k: int = 5) -> dict[str, list[dict[str, Any]]]:
-    """
-    Convenience function for SIGMA context retrieval.
-
-    Args:
-        techniques: List of threat techniques
-        top_k: Number of articles per technique
-
-    Returns:
-        Dictionary mapping techniques to relevant articles
-    """
-    rag_service = get_rag_service()
-    return await rag_service.get_context_for_sigma(techniques, top_k)
