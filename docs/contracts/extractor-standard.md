@@ -2,7 +2,7 @@
 
 Version: 1.1
 Last Updated: 2026-07-02
-Applies To: All ExtractAgent sub-agents (CmdLine, ProcTree, Registry, Services, HuntQueries, future extractors)
+Applies To: All ExtractAgent sub-agents (CmdLine, ProcTree, Registry, Services, HuntQueries, ScheduledTasks, NetworkIndicator, future extractors)
 
 ## Jump to an agent contract
 
@@ -12,6 +12,7 @@ Applies To: All ExtractAgent sub-agents (CmdLine, ProcTree, Registry, Services, 
 - [**ServicesExtract**](services-extract.md) — Windows service artifacts
 - [**HuntQueriesExtract**](huntquery-extract.md) — EDR/SIEM queries & Sigma rules
 - [**ScheduledTasksExtract**](scheduled-tasks-extract.md) — scheduled-task identity & schedule
+- [**NetworkIndicatorExtract**](network-indicator-extract.md) — network indicators
 
 ---
 
@@ -54,7 +55,7 @@ The Huntable pipeline code (`llm_service.py`) enforces specific prompt structure
 
 ### 5. User message scaffold is code-owned
 
-- The user message (Title/URL/Content headers + instructions footer) is hardcoded in `src/services/llm_service.py` as `_EXTRACT_BEHAVIORS_TEMPLATE`, not authored in presets.
+- The user message (Title/URL/Content headers + instructions footer) is hardcoded as an inline f-string in `run_extraction_agent()` (`src/services/llm_service.py`), not authored in presets.
 - Preset authors do NOT write or edit `user_template`.
 - The runtime assembles the user message from the article content, title, URL, and the `instructions` config key.
 - The INPUT CONTRACT section (section 4) documents the design intent for how article content reaches the model, but the actual assembly is code-owned.
@@ -119,7 +120,7 @@ Purpose: Declare sibling agents and boundary rules to prevent overlap.
 Required elements:
 
 - "You are a sub-agent of ExtractAgent."
-- List ALL sibling extractors by name (CmdlineExtract, ProcTreeExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract, HuntQueriesExtract, plus any future agents)
+- List ALL sibling extractors by name (CmdlineExtract, ProcTreeExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract, HuntQueriesExtract, NetworkIndicatorExtract, plus any future agents)
 - Explicit "Do NOT extract" rules for each sibling's scope
 - Any "You MAY extract" carve-outs where scopes partially overlap (e.g., RegistryExtract may extract the key from a reg.exe command, but not the command itself)
 
@@ -445,4 +446,4 @@ This can produce false-NOVEL classifications for behaviorally equivalent rules.
 This structural limitation is tracked separately and requires cross-class comparison
 support to resolve (Option B).
 
-_Last updated: 2026-07-02_
+_Last updated: 2026-07-05_
