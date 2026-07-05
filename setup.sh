@@ -235,27 +235,22 @@ create_env_file() {
         cp env.example .env
     fi
     
-    # Replace passwords
+    # Replace the postgres password placeholder (still present in .env.example).
     if [[ "$(uname)" == "Darwin" ]]; then
-        # macOS
         sed -i '' "s|your_secure_postgres_password_change_this|$POSTGRES_PASSWORD|g" .env
-        sed -i '' "s|your_secure_redis_password_change_this|$REDIS_PASSWORD|g" .env
-        sed -i '' "s|your-super-secret-key-change-this-in-production|$SECRET_KEY|g" .env
-        sed -i '' "s|your_openai_api_key_here|$OPENAI_API_KEY|g" .env
-        sed -i '' "s|your_anthropic_api_key_here|$ANTHROPIC_API_KEY|g" .env
     else
-        # Linux
         sed -i "s|your_secure_postgres_password_change_this|$POSTGRES_PASSWORD|g" .env
-        sed -i "s|your_secure_redis_password_change_this|$REDIS_PASSWORD|g" .env
-        sed -i "s|your-super-secret-key-change-this-in-production|$SECRET_KEY|g" .env
-        sed -i "s|your_openai_api_key_here|$OPENAI_API_KEY|g" .env
-        sed -i "s|your_anthropic_api_key_here|$ANTHROPIC_API_KEY|g" .env
     fi
 
-    # Write the generated SECRET_KEY directly (the .env.example SECRET_KEY line has no
-    # sed placeholder, so the substitutions above would leave it empty). SECRET_KEY signs
-    # CSRF tokens and is required in production once auth/CSRF is enabled.
+    # Write these directly via key=value replacement rather than sed placeholder
+    # substitution: .env.example ships OPENAI_API_KEY=, ANTHROPIC_API_KEY=, and
+    # SECRET_KEY= with no placeholder text (and has no REDIS_PASSWORD line at all),
+    # so sed substitutions on placeholder strings would silently no-op and drop
+    # these values.
     startup_set_env_key ".env" "SECRET_KEY" "${SECRET_KEY:-$(generate_password 32)}"
+    startup_set_env_key ".env" "OPENAI_API_KEY" "${OPENAI_API_KEY:-}"
+    startup_set_env_key ".env" "ANTHROPIC_API_KEY" "${ANTHROPIC_API_KEY:-}"
+    startup_set_env_key ".env" "REDIS_PASSWORD" "${REDIS_PASSWORD:-}"
 
     # Update LM Studio URLs based on LLM choice (and optional server URL)
     if [[ "$USE_LMSTUDIO" == "true" ]]; then
