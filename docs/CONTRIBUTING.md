@@ -317,9 +317,9 @@ Add any other context or screenshots.
 
 **Do not report security issues through public GitHub issues.**
 
-Please report security vulnerabilities via email to `security@ctiscraper.com`.
+Please report security vulnerabilities using GitHub's private vulnerability reporting: go to the repository's **Security** tab and select **Report a vulnerability**.
 
-For security policy details, see the SECURITY.md file in the .github directory.
+See the [Security Policy](https://github.com/dfirtnt/Huntable-CTI-Studio/security/policy) (`.github/SECURITY.md`) for the project's security posture.
 
 ## Documentation
 
