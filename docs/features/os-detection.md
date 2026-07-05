@@ -77,7 +77,7 @@ and the checkboxes were never wired to the detector. The underlying config key
 | Code | Condition |
 |---|---|
 | `422 no_huntable_content` | Content filter found no huntable chunks; LLM is not called |
-| `422 article_not_found` | Article ID does not exist |
+| `404` | Article ID does not exist |
 
 ## Programmatic Usage
 
@@ -139,4 +139,4 @@ regardless of content-filtering level.
 - `src/services/attack_platform_signal.py` + `config/attack_technique_platforms.json` — ATT&CK reinforcement
 - `src/services/platform_adjudicator.py` — LLM adjudication for the low-confidence tail
 
-_Last updated: 2026-07-02_
+_Last updated: 2026-07-05_

@@ -91,7 +91,7 @@ prompt editor UI does not expose:
 - **User message scaffold**: `Title:` / `URL:` / `Content:` headers and the
   article body are assembled in code. The `instructions` field is injected as
   a footer.
-- **Traceability block** (all six extract sub-agents): forces every extracted
+- **Traceability block** (all seven extract sub-agents): forces every extracted
   item to carry `value`, `source_evidence`, `extraction_justification`, and
   `confidence_score`. Appended after the user message regardless of the prompt
   config.
@@ -107,7 +107,7 @@ To see the full assembled prompt for any execution, check its Langfuse trace.
 
 ### Traceability Fields
 
-All six extract sub-agents require these fields on every extracted item. They
+All seven extract sub-agents require these fields on every extracted item. They
 are required by the pipeline and feed the evaluation pipeline:
 
 - **`value`**: the extracted artifact itself.
@@ -138,7 +138,7 @@ Per-article workflow run state, surfaced on the Workflow page and article pages:
 |---|---|
 | `pending` | Queued, not yet picked up by a worker |
 | `running` | A worker has started executing the LangGraph pipeline |
-| `completed` | All steps finished (including early termination for non-Windows OS) |
+| `completed` | All steps finished normally, or terminated early at a gate (junk filter or ranking threshold) |
 | `failed` | An unrecoverable error occurred in one of the agents |
 
 A `pending` execution older than the stale cutoff is re-triggerable. See
@@ -169,4 +169,4 @@ run is currently streaming results.
 - Prefer API/CLI entry points (`./run_cli.sh`, workflow triggers) over ad-hoc
   code paths to keep telemetry consistent.
 
-_Last updated: 2026-07-02_
+_Last updated: 2026-07-05_
