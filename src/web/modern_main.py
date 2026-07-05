@@ -17,6 +17,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from src import __version__
 from src.database.async_manager import async_db_manager
 from src.services.source_sync import SourceSyncService
 from src.web.dependencies import DEFAULT_SOURCE_USER_AGENT, logger, templates
@@ -183,7 +184,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 app = FastAPI(
     title="Huntable CTI Studio - Modern Threat Intelligence Platform",
     description="Enterprise-grade threat intelligence aggregation and analysis platform",
-    version="5.1.0",
+    version=__version__,
     lifespan=lifespan,
 )
 
