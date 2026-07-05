@@ -92,6 +92,7 @@ Known `subresults` keys (one per sub-agent):
 | `registry_artifacts` | RegistryExtract |
 | `windows_services` | ServicesExtract |
 | `scheduled_tasks` | ScheduledTasksExtract |
+| `network_indicators` | NetworkIndicatorExtract |
 
 ## Workflow Config V2
 
@@ -141,4 +142,4 @@ Operationally important tables include:
 
 Use `src/database/models.py` when you need exact field names, nullability, or relationships.
 
-_Last updated: 2026-07-02_
+_Last updated: 2026-07-04_

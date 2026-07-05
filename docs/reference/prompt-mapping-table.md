@@ -25,12 +25,13 @@ These agents have both a seed file in `src/prompts/` and a database entry in wor
 | `RegistryExtract` | `RegistryExtract` | Registry artifact extraction |
 | `ServicesExtract` | `ServicesExtract` | Windows services extraction |
 | `ScheduledTasksExtract` | `ScheduledTasksExtract` | Scheduled tasks extraction |
+| `NetworkIndicatorExtract` | `NetworkIndicatorExtract` | Network indicators extraction |
 
-## File-Only Prompts (Not in Workflow Config)
+## Platform Detection Prompt
 
 | Seed File | Usage |
 |-----------|-------|
-| `OSDetectionAgent` | Seeded via `AGENT_PROMPT_FILES["OSDetectionAgent"]`; OS detection uses regex at runtime, not an LLM call |
+| `OSDetectionAgent` | Seeded via `AGENT_PROMPT_FILES["OSDetectionAgent"]`. Platform detection is deterministic (entity/keyword registry), but the low-confidence tail is adjudicated by an LLM: `os_detection_node` resolves `agent_prompts["OSDetectionAgent"]` from the workflow config and passes it as the adjudicator's system prompt (`src/workflows/agentic_workflow.py`, `src/services/platform_adjudicator.py`) |
 
 ## Sigma Support Prompts
 
@@ -45,7 +46,4 @@ These agents have both a seed file in `src/prompts/` and a database entry in wor
 1. **Database** (workflow config `agent_prompts`) -- takes precedence
 2. **Seed file** (`src/prompts/`) -- fallback on bootstrap or reset
 
-_Last updated: 2026-07-02_
-<!--stackedit_data:
-eyJoaXN0b3J5IjpbLTEzMDQ3ODU5NDFdfQ==
--->
+_Last updated: 2026-07-04_

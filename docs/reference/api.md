@@ -90,7 +90,7 @@ The workflow engine writes its state into `agentic_workflow_executions` and expo
 - `POST /api/workflow/config/preset/save`
 - `PATCH /api/workflow/config/auto-trigger-threshold` — Update the auto-trigger hunt score threshold (0–100). Body: `{ "auto_trigger_hunt_score_threshold": <float> }`. **This is the only endpoint that changes this value.** It mutates the active config row in-place and is intentionally excluded from the main `PUT /api/workflow/config` endpoint and from all preset import/export paths. Manage this setting only through the Settings UI.
 
-Valid `agent_name` values for the prompts endpoints are the canonical agent names defined in `src/config/workflow_config_schema.py`: `RankAgent`, `ExtractAgent`, `SigmaAgent`, `CmdlineExtract`, `ProcTreeExtract`, `HuntQueriesExtract`, `RegistryExtract`, `ServicesExtract`, `ScheduledTasksExtract`. QA agents (`RankAgentQA` and all extractor QA agents) were fully removed in v7.1.0 (2026-05-22) and are no longer valid agent names.
+Valid `agent_name` values for the prompts endpoints are the canonical agent names defined in `src/config/workflow_config_schema.py`: `RankAgent`, `ExtractAgent`, `SigmaAgent`, `CmdlineExtract`, `ProcTreeExtract`, `HuntQueriesExtract`, `RegistryExtract`, `ServicesExtract`, `ScheduledTasksExtract`, `NetworkIndicatorExtract`. QA agents (`RankAgentQA` and all extractor QA agents) were fully removed in v7.1.0 (2026-05-22) and are no longer valid agent names.
 
 Each prompt object is a JSON dict with these fields:
 
@@ -145,7 +145,7 @@ Route module: `src/web/routes/models.py`. Version data is stored in the `ml_mode
 
 #### Subagent Evaluation Endpoints
 
-These support per-subagent extraction evals (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, **ScheduledTasksExtract**):
+These support per-subagent extraction evals (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract, NetworkIndicatorExtract):
 
 - `GET /api/evaluations/subagent-eval-articles` — List seeded eval articles for a given subagent.
 - `POST /api/evaluations/run-subagent-eval` — Trigger a subagent eval run.
@@ -178,4 +178,4 @@ Start in `src/web/routes/__init__.py`, then open the matching module:
 - Workflow API changes: run `python3 run_tests.py integration`
 - UI flows that call the API: run `python3 run_tests.py ui` or `python3 run_tests.py e2e`
 
-_Last updated: 2026-07-02_
+_Last updated: 2026-07-04_
