@@ -416,6 +416,29 @@ class TestWorkflowAudit:
         assert event.target_id == "5"
         assert event.metadata == {"article_id": 7, "force": True}
 
+    def test_trigger_route_surfaces_audit_failure_as_500(self):
+        """A trigger whose mandatory audit fails must reach the operator as a 500,
+        never a false 'triggered' success (WorkflowAuditError -> generic 500 path)."""
+        import asyncio
+
+        from src.services.workflow_trigger_service import WorkflowAuditError
+        from src.web.routes.workflow_executions import trigger_workflow_for_article
+
+        session = _chaining_session(first_row=None)
+
+        with (
+            patch("src.web.routes.workflow_executions.get_db_manager") as mock_get,
+            patch("src.services.workflow_trigger_service.WorkflowTriggerService") as mock_service_cls,
+        ):
+            mock_get.return_value.get_session.return_value = session
+            mock_service_cls.return_value.trigger_workflow.side_effect = WorkflowAuditError("audit write failed")
+            with pytest.raises(HTTPException) as exc_info:
+                asyncio.run(trigger_workflow_for_article(_fake_request(), article_id=7, force=True))
+
+        assert exc_info.value.status_code == 500
+        # The route's generic handler rolls the request session back before re-raising.
+        assert session.rollback.called
+
 
 class TestWorkflowTriggerServiceAudit:
     """Audit contract of WorkflowTriggerService.trigger_workflow itself."""
