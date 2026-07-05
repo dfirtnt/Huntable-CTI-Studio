@@ -9,9 +9,6 @@ The browser extension lets you send any article to Huntable CTI Studio with one 
 3. Click **Load unpacked** and select the `browser-extension/` directory in the project root
 4. The extension icon appears in your browser toolbar
 
-!!! tip "Icon placeholders"
-    Run `./scripts/generate_extension_icons.sh` to create proper icon files if you see missing-image placeholders in the toolbar.
-
 ## Usage
 
 1. Navigate to any article you want to analyze
@@ -78,3 +75,5 @@ browser-extension/
   icons/              # Extension icons
   tesseract*.wasm     # Bundled Tesseract.js OCR engine
 ```
+
+_Last updated: 2026-07-05_
