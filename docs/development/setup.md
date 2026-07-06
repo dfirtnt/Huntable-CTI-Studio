@@ -111,4 +111,4 @@ The test runner auto-manages the isolated test environment when needed. See [Tes
 - [Workflow Queue](workflow-queue.md)
 - [Architecture Overview](../architecture/overview.md)
 
-_Last updated: 2026-07-02_
+_Last updated: 2026-07-03_

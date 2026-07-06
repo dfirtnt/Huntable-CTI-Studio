@@ -1,8 +1,8 @@
 # Extractor Agent Prompt Standard
 
 Version: 1.1
-Last Updated: 2026-07-02
-Applies To: All ExtractAgent sub-agents (CmdLine, ProcTree, Registry, Services, HuntQueries, ScheduledTasks, NetworkIndicator, future extractors)
+Last Updated: 2026-07-03
+Applies To: All ExtractAgent sub-agents (CmdLine, ProcTree, Registry, Services, HuntQueries, future extractors)
 
 ## Jump to an agent contract
 
