@@ -125,7 +125,7 @@ def validate_backup_components(components: str | None) -> str | None:
             raise ValidationError(f"Components string contains invalid character: {char!r}")
 
     # Split and validate individual components
-    valid_components = {"database", "models", "config", "outputs", "logs", "docker_volumes"}
+    valid_components = {"database", "models", "config", "outputs", "logs"}
     component_list = [c.strip() for c in components.split(",")]
 
     for component in component_list:

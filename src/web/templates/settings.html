@@ -253,15 +253,6 @@
                                 Logs
                             </label>
                         </div>
-                        <div class="flex items-center">
-                            <input type="checkbox" 
-                                   id="backupDockerVolumes" 
-                                   checked
-                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                            <label for="backupDockerVolumes" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                                Docker Volumes
-                            </label>
-                        </div>
                     </div>
                 </div>
 
@@ -1327,7 +1318,6 @@
         document.getElementById('backupConfig').checked = backupSettings.backupConfig !== false;
         document.getElementById('backupOutputs').checked = backupSettings.backupOutputs !== false;
         document.getElementById('backupLogs').checked = backupSettings.backupLogs !== false;
-        document.getElementById('backupDockerVolumes').checked = backupSettings.backupDockerVolumes !== false;
         document.getElementById('backupDirectory').value = backupSettings.backupDirectory || 'backups';
         document.getElementById('backupType').value = backupSettings.backupType || 'full';
         document.getElementById('enableCompression').checked = backupSettings.enableCompression !== false;
@@ -1347,7 +1337,7 @@
             backupConfig: document.getElementById('backupConfig').checked,
             backupOutputs: document.getElementById('backupOutputs').checked,
             backupLogs: document.getElementById('backupLogs').checked,
-            backupDockerVolumes: document.getElementById('backupDockerVolumes').checked,
+            backupDockerVolumes: false,
             backupDirectory: document.getElementById('backupDirectory').value,
             backupType: document.getElementById('backupType').value,
             enableCompression: document.getElementById('enableCompression').checked,
@@ -1591,7 +1581,7 @@
                 backupConfig: config.components ? config.components.config !== false : backupSettings.backupConfig !== false,
                 backupOutputs: config.components ? config.components.outputs !== false : backupSettings.backupOutputs !== false,
                 backupLogs: config.components ? config.components.logs !== false : backupSettings.backupLogs !== false,
-                backupDockerVolumes: config.components ? config.components.docker_volumes !== false : backupSettings.backupDockerVolumes !== false,
+                backupDockerVolumes: false,
                 backupDirectory: config.backup_dir || backupSettings.backupDirectory || 'backups',
                 backupType: config.backup_type || backupSettings.backupType || 'full',
                 enableCompression: config.compress !== false,
@@ -1678,7 +1668,7 @@
                 config: backupSettings.backupConfig,
                 outputs: backupSettings.backupOutputs,
                 logs: backupSettings.backupLogs,
-                docker_volumes: backupSettings.backupDockerVolumes,
+                docker_volumes: false,
                 install_crontab: installCrontab
             })
         });
@@ -2374,7 +2364,7 @@
         });
 
         // Backup checkboxes
-        ['backupDatabase', 'backupModels', 'backupConfig', 'backupOutputs', 'backupLogs', 'backupDockerVolumes'].forEach(function(id) {
+        ['backupDatabase', 'backupModels', 'backupConfig', 'backupOutputs', 'backupLogs'].forEach(function(id) {
             var element = document.getElementById(id);
             if (element) {
                 element.addEventListener('change', saveSettings);

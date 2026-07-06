@@ -44,7 +44,7 @@ class BackupCronUpdate(BaseModel):
     config: bool = True
     outputs: bool = True
     logs: bool = True
-    docker_volumes: bool = True
+    docker_volumes: bool = False
     install_crontab: bool = False
 
 
@@ -66,7 +66,7 @@ def _sync_backup_config(manager: BackupConfigManager, payload: BackupCronUpdate)
     config.config = payload.config
     config.outputs = payload.outputs
     config.logs = payload.logs
-    config.docker_volumes = payload.docker_volumes
+    config.docker_volumes = False
     return config
 
 

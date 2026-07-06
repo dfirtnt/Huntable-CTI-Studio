@@ -187,8 +187,29 @@ class TestHelperMethods:
         expected = {"database", "models", "config", "outputs", "logs", "docker_volumes"}
         assert set(components.keys()) == expected
 
+    def test_docker_volume_backups_disabled_by_default(self):
+        config = self._manager().get_config()
+        assert config.docker_volumes is False
+        assert config.volume_list == []
+
+    def test_docker_volume_backups_ignored_from_yaml(self, tmp_path):
+        config_path = tmp_path / "backup.yaml"
+        config_path.write_text(
+            yaml.safe_dump(
+                {
+                    "components": {"docker_volumes": True},
+                    "docker_volumes": {"volumes": ["postgres_data", "redis_data"]},
+                }
+            )
+        )
+
+        config = BackupConfigManager(config_file=str(config_path)).get_config()
+        assert config.docker_volumes is False
+        assert config.volume_list == []
+
     def test_get_docker_volumes_is_copy(self):
         manager = self._manager()
+        manager.get_config().volume_list = ["test_data"]
         volumes = manager.get_docker_volumes()
         volumes.append("injected")
         assert "injected" not in manager.get_docker_volumes()

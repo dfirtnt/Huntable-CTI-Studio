@@ -6,13 +6,11 @@ This script restores complete system backups including:
 - Database (PostgreSQL restore)
 - ML models and training data
 - Configuration files
-- Docker volumes
 - Generated content and outputs
 
 Features:
 - Selective component restore
 - Pre-restore snapshot creation
-- Docker volume restoration with container management
 - Dry-run mode
 - Component-by-component rollback on failure
 """
@@ -42,8 +40,9 @@ DB_CONFIG = {
     "password": os.getenv("POSTGRES_PASSWORD", "cti_password"),
 }
 
-# Docker volume names
-DOCKER_VOLUMES = ["postgres_data", "redis_data"]
+# Docker volume restore is intentionally disabled. PostgreSQL is restored from
+# SQL dumps, and Redis only holds ephemeral queue state.
+DOCKER_VOLUMES = []
 
 
 def get_docker_exec_cmd(container_name: str, command: str) -> list:
@@ -360,77 +359,8 @@ def restore_directory(backup_path: Path, component_name: str, target_dir: Path, 
 
 def restore_docker_volume(backup_path: Path, volume_name: str, dry_run: bool = False) -> bool:
     """Restore a Docker volume from backup."""
-    print(f"🐳 Restoring Docker volume: {volume_name}")
-
-    # Find volume backup file
-    volume_backup_files = list(backup_path.glob(f"{volume_name}_*.tar.gz"))
-    if not volume_backup_files:
-        print(f"❌ No backup file found for volume {volume_name}")
-        return False
-
-    # Use the most recent backup file
-    volume_backup_file = max(volume_backup_files, key=lambda f: f.stat().st_mtime)
-
-    if dry_run:
-        print(f"🔍 [DRY RUN] Would restore volume {volume_name} from {volume_backup_file}")
-        return True
-
-    try:
-        # Stop containers that use this volume
-        containers_to_stop = []
-        if volume_name == "postgres_data":
-            containers_to_stop = ["cti_postgres"]
-        elif volume_name == "redis_data":
-            containers_to_stop = ["cti_redis"]
-        if containers_to_stop:
-            if not stop_containers(containers_to_stop):
-                return False
-
-        # Remove existing volume if it exists
-        if check_docker_volume(volume_name):
-            print(f"🗑️  Removing existing volume: {volume_name}")
-            subprocess.run(["docker", "volume", "rm", volume_name], check=True)
-
-        # Create new volume
-        print(f"🆕 Creating new volume: {volume_name}")
-        subprocess.run(["docker", "volume", "create", volume_name], check=True)
-
-        # Restore volume data
-        # Since we're running inside a container, docker run -v needs host paths
-        # Solution: Pipe tar file via stdin to avoid path issues
-        print(f"📥 Restoring volume data from: {volume_backup_file.name}")
-
-        # Read tar file and pipe to docker run via stdin
-        with open(volume_backup_file, "rb") as tar_file:
-            restore_cmd = [
-                "docker",
-                "run",
-                "--rm",
-                "-i",
-                "-v",
-                f"{volume_name}:/data",
-                "alpine",
-                "sh",
-                "-c",
-                "tar xzf /dev/stdin -C /data",
-            ]
-
-            subprocess.run(restore_cmd, stdin=tar_file, check=True)
-
-        # Start containers
-        if containers_to_stop:
-            if not start_containers(containers_to_stop):
-                return False
-
-        print(f"✅ Volume {volume_name} restore completed successfully!")
-        return True
-
-    except subprocess.CalledProcessError as e:
-        print(f"❌ Volume {volume_name} restore failed: {e}")
-        return False
-    except Exception as e:
-        print(f"❌ Unexpected error during volume {volume_name} restore: {e}")
-        return False
+    print("❌ Docker volume restore is not supported. Restore PostgreSQL from the database dump instead.")
+    return False
 
 
 def verify_restore(components: set[str]) -> bool:
@@ -522,11 +452,26 @@ def restore_system(
 
     # Determine components to restore
     available_components = set(metadata.get("components", {}).keys())
+    unsupported_volume_components = {component for component in available_components if component.startswith("docker_volume_")}
 
     if components is None:
-        components_to_restore = available_components
+        components_to_restore = available_components - unsupported_volume_components
+        if unsupported_volume_components:
+            print(
+                "⚠️  Skipping unsupported Docker volume components: "
+                f"{', '.join(sorted(unsupported_volume_components))}"
+            )
     else:
         components_to_restore = set(components)
+        requested_unsupported = {
+            component for component in components_to_restore if component == "docker_volumes" or component.startswith("docker_volume_")
+        }
+        if requested_unsupported:
+            print(
+                "❌ Docker volume restore is not supported. "
+                "Restore PostgreSQL from the database dump instead."
+            )
+            return False
         # Validate requested components exist
         missing_components = components_to_restore - available_components
         if missing_components:

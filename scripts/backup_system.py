@@ -6,7 +6,6 @@ This script creates complete system backups including:
 - Database (PostgreSQL dump)
 - ML models and training data
 - Configuration files
-- Docker volumes
 - Generated content and outputs
 
 Features:
@@ -395,74 +394,12 @@ def backup_directory(
 
 def backup_docker_volume(volume_name: str, backup_dir: Path) -> dict[str, Any]:
     """Backup a Docker volume to tar.gz."""
-    print(f"🐳 Backing up Docker volume: {volume_name}")
-
-    if not check_docker_volume(volume_name):
-        return {
-            "volume": volume_name,
-            "filename": None,
-            "size_mb": 0.0,
-            "errors": [f"Docker volume '{volume_name}' does not exist"],
-        }
-
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_filename = f"{volume_name}_{timestamp}.tar.gz"
-    backup_filepath = backup_dir / backup_filename
-
-    try:
-        # Create volume backup using docker run
-        backup_cmd = [
-            "docker",
-            "run",
-            "--rm",
-            "-v",
-            f"{volume_name}:/data",
-            "-v",
-            f"{backup_dir.absolute()}:/backup",
-            "alpine",
-            "tar",
-            "czf",
-            f"/backup/{backup_filename}",
-            "-C",
-            "/data",
-            ".",
-        ]
-
-        subprocess.run(backup_cmd, capture_output=True, text=True, check=True)
-
-        if not backup_filepath.exists():
-            raise RuntimeError("Volume backup file was not created")
-
-        # Calculate checksum and size
-        checksum = calculate_checksum(backup_filepath)
-        file_size = backup_filepath.stat().st_size
-
-        return {
-            "volume": volume_name,
-            "filename": backup_filename,
-            "filepath": str(backup_filepath),
-            "size_mb": file_size / (1024 * 1024),
-            "checksum": checksum,
-            "errors": [],
-        }
-
-    except subprocess.CalledProcessError as e:
-        # Clean up partial backup
-        if backup_filepath.exists():
-            backup_filepath.unlink()
-        return {
-            "volume": volume_name,
-            "filename": None,
-            "size_mb": 0.0,
-            "errors": [f"Volume backup failed: {e.stderr}"],
-        }
-    except Exception as e:
-        return {
-            "volume": volume_name,
-            "filename": None,
-            "size_mb": 0.0,
-            "errors": [f"Volume backup failed: {e}"],
-        }
+    return {
+        "volume": volume_name,
+        "filename": None,
+        "size_mb": 0.0,
+        "errors": ["Docker volume backup is not supported; PostgreSQL is backed up via pg_dump"],
+    }
 
 
 def create_system_backup(
@@ -547,12 +484,8 @@ def create_system_backup(
                 )
                 dir_futures[component_name] = future
 
-            # Submit Docker volume backups
-            volume_futures = {}
-            volumes_to_backup = config.volume_list if config and config.docker_volumes else DOCKER_VOLUMES
-            for volume_name in volumes_to_backup:
-                future = executor.submit(backup_docker_volume, volume_name, backup_path)
-                volume_futures[volume_name] = future
+            # Docker volume backups are disabled. PostgreSQL is backed up via pg_dump,
+            # and Redis only stores ephemeral queue state.
 
             # Collect results
             print("⏳ Waiting for backup components to complete...")
@@ -580,21 +513,6 @@ def create_system_backup(
                 except Exception as e:
                     backup_results["components"][component_name] = {"errors": [f"{component_name} backup failed: {e}"]}
                     print(f"❌ {component_name} backup failed: {e}")
-
-            # Docker volume backups
-            for volume_name, future in volume_futures.items():
-                try:
-                    result = future.result(timeout=300)  # 5 minute timeout
-                    backup_results["components"][f"docker_volume_{volume_name}"] = result
-                    if result["errors"]:
-                        print(f"⚠️  {volume_name} volume backup completed with errors: {result['errors']}")
-                    else:
-                        print(f"✅ {volume_name} volume backup completed: {result['size_mb']:.2f} MB")
-                except Exception as e:
-                    backup_results["components"][f"docker_volume_{volume_name}"] = {
-                        "errors": [f"{volume_name} volume backup failed: {e}"]
-                    }
-                    print(f"❌ {volume_name} volume backup failed: {e}")
 
         # Validate critical files if requested
         if verify:

@@ -61,7 +61,7 @@ Comprehensive guide for Huntable CTI Studio backup and restore operations, inclu
 | Type | Components | Use Case | Speed |
 |------|------------|----------|-------|
 | **Database-Only** | PostgreSQL dump | Quick DB snapshot | Fast (~1-2 min) |
-| **Full System** | Database + Models + Config + Volumes | Complete recovery | Slow (~5-10 min) |
+| **Full System** | Database + Models + Config + Outputs + Logs | Complete recovery | Slow (~5-10 min) |
 
 ### Components Backed Up
 
@@ -84,8 +84,10 @@ Comprehensive guide for Huntable CTI Studio backup and restore operations, inclu
    - **`config/sources.yaml`** - Source definitions (⚠️ Can overwrite database on sync)
    - Other configuration files
 4. **Training Data** - User feedback and training datasets (`outputs/` directory)
-5. **Docker Volumes** - Persistent data (postgres_data, redis_data)
-6. **Logs** - Application logs (`logs/` directory)
+5. **Logs** - Application logs (`logs/` directory)
+
+!!! note "Docker volumes are not backed up"
+    Full system backups intentionally do not archive Docker volumes. PostgreSQL state is captured by the SQL dump, which is the supported database backup and restore mechanism. Redis only stores ephemeral queue state and is not restored from backup.
 
 **✅ Source Configuration**: Database values are the source of truth. `config/sources.yaml` is only used for brand new builds (< 5 sources). After restore, database settings are automatically preserved. See [Source Configuration Precedence](./source-config.md) for details.
 
@@ -106,10 +108,6 @@ backups/system_backup_20251010_103000/
 ├── models/
 ├── config/
 ├── outputs/
-├── docker_volumes/
-│   ├── postgres_data.tar.gz
-│   ├── redis_data.tar.gz
-│   └── (volume archives)
 └── logs/
 ```
 
@@ -839,7 +837,7 @@ Backups created on one computer can be restored on another computer. The backup 
 
 2. **Backup file/directory** copied to the target machine
 
-3. **Same Docker volume names** (default: `postgres_data`, `redis_data`)
+3. **Docker Compose stack available** on the target machine
 
 ## Restore Methods
 
@@ -884,15 +882,9 @@ python3 scripts/restore_system.py /path/to/backup/system_backup_20260121_113825
 ✅ **Outputs** - Training data and generated content  
 ✅ **Logs** - Application logs  
 
-### Docker Volumes (Requires Matching Names)
+### Docker Volumes
 
-⚠️ **Docker Volumes** - Restored if volume names match:
-- `postgres_data` (default)
-- `redis_data` (default)
-
-**Note**: If your target machine uses different volume names, you can:
-1. Restore without Docker volumes: `--components database,models,config`
-2. Manually restore volumes after renaming them
+Docker volumes are not restored by the system restore script. Use the database component for PostgreSQL recovery. Redis volume contents are treated as disposable queue/cache state.
 
 ## Important Considerations
 
@@ -925,7 +917,7 @@ You can restore only specific components:
 python3 scripts/restore_system.py system_backup_20260121_113825 \
   --components database,models
 
-# Restore everything except Docker volumes
+# Restore file-backed components
 python3 scripts/restore_system.py system_backup_20260121_113825 \
   --components database,models,config,outputs,logs
 ```
@@ -1002,13 +994,9 @@ docker ps | grep postgres
 # Should show: cti_postgres
 ```
 
-### "Volume restore failed"
+### "Docker volume restore is not supported"
 
-**Solution**: Restore without volumes first:
-```bash
-python3 scripts/restore_system.py system_backup_20260121_113825 \
-  --components database,models,config,outputs,logs
-```
+**Solution**: Restore the `database` component from the SQL dump. Legacy backups may contain `docker_volume_*` metadata, but those components are skipped because Docker volume archives are not a supported restore mechanism.
 
 ### Verification Failures
 
