@@ -558,7 +558,10 @@ async def api_hunt_source_performance():
             source_query = text("""
                 SELECT
                     s.name as source_name,
-                    ROUND(AVG((a.article_metadata->>'threat_hunting_score')::float)::numeric, 1) as avg_score
+                    ROUND(AVG((a.article_metadata->>'threat_hunting_score')::float)::numeric, 1) as avg_score,
+                    ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (
+                        ORDER BY (a.article_metadata->>'threat_hunting_score')::float
+                    )::numeric, 1) as median_score
                 FROM sources s
                 JOIN articles a ON s.id = a.source_id
                 WHERE (a.article_metadata->>'threat_hunting_score')::float > 0
@@ -572,11 +575,12 @@ async def api_hunt_source_performance():
 
             labels = [row.source_name for row in rows]
             values = [float(row.avg_score) for row in rows]
+            medians = [float(row.median_score) for row in rows]
 
-            return {"labels": labels, "values": values}
+            return {"labels": labels, "values": values, "medians": medians}
     except Exception as e:
         logger.error(f"Failed to get source performance: {e}")
-        return {"labels": [], "values": []}
+        return {"labels": [], "values": [], "medians": []}
 
 
 @router.get("/hunt/quality-distribution")
