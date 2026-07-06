@@ -7,7 +7,6 @@ Comprehensive guide to all utility scripts in the Huntable CTI Studio project.
 - [Setup & Installation](#setup--installation)
 - [Testing](#testing)
 - [Backup & Restore](#backup--restore)
-- [Training & ML](#training--ml)
 - [Evaluation](#evaluation)
 - [Maintenance](#maintenance)
 - [Migration](#migration)
@@ -176,79 +175,6 @@ python3 scripts/verify_backup.py /path/to/backup.tar.gz
 
 ---
 
-## Training & ML
-
-### `train_os_bert_workflow.sh`
-**Purpose**: Complete OS-BERT fine-tuning workflow  
-**Usage**:
-```bash
-# With defaults
-./scripts/train_os_bert_workflow.sh
-
-# With custom parameters
-MIN_HUNT_SCORE=80.0 LIMIT=200 EPOCHS=3 ./scripts/train_os_bert_workflow.sh
-```
-**Steps**: Data preparation → Quality check → Fine-tuning → Model save
-
-### `train_huntable_windows_workflow.sh`
-**Purpose**: Huntable Windows classifier training workflow  
-**Usage**:
-```bash
-./scripts/train_huntable_windows_workflow.sh
-```
-
-### `finetune_os_bert.py`
-**Purpose**: Fine-tune OS-BERT model  
-**Usage**:
-```bash
-python3 scripts/finetune_os_bert.py \
-    --data data/os_detection_training_data.json \
-    --base-model ibm-research/CTI-BERT \
-    --output-dir models/os-bert \
-    --epochs 3 \
-    --batch-size 16 \
-    --learning-rate 2e-5 \
-    --use-gpu
-```
-
-### `prepare_os_detection_training_data.py`
-**Purpose**: Prepare training data for OS detection  
-**Usage**:
-```bash
-python3 scripts/prepare_os_detection_training_data.py \
-    --min-hunt-score 80.0 \
-    --limit 200 \
-    --output data/os_detection_training_data.json
-```
-
-### `prepare_huntable_windows_training_data.py`
-**Purpose**: Prepare training data for huntable Windows classifier  
-**Usage**:
-```bash
-python3 scripts/prepare_huntable_windows_training_data.py \
-    --output data/huntable_windows_training_data.json
-```
-
-### `publish_os_bert_to_hf.py`
-**Purpose**: Publish fine-tuned model to HuggingFace  
-**Usage**:
-```bash
-python3 scripts/publish_os_bert_to_hf.py \
-    --model-dir models/os-bert \
-    --repo-id your-username/os-bert
-```
-
-### `train_huntable_windows_classifier.py`
-**Purpose**: Train huntable Windows classifier  
-**Usage**:
-```bash
-python3 scripts/train_huntable_windows_classifier.py \
-    --data data/huntable_windows_training_data.json \
-    --output-dir models/huntable-windows
-```
-
----
-
 ## Evaluation
 
 ### `eval_extract_agent.py`
@@ -259,24 +185,6 @@ python3 scripts/eval_extract_agent.py \
     --test-data outputs/training_data/test_finetuning_data.json \
     --output outputs/evaluations/extract_agent_baseline.json \
     --model gpt-4o
-```
-
-### `eval_os_detection.py`
-**Purpose**: Evaluate OS detection model  
-**Usage**:
-```bash
-python3 scripts/eval_os_detection.py \
-    --model-dir models/os-bert \
-    --test-data data/os_detection_test_data.json
-```
-
-### `eval_os_detection_multiple_models.py`
-**Purpose**: Compare multiple OS detection models  
-**Usage**:
-```bash
-python3 scripts/eval_os_detection_multiple_models.py \
-    --models models/os-bert,models/os-bert-v2 \
-    --test-data data/os_detection_test_data.json
 ```
 
 ### `eval_sigma_agent.py`
@@ -303,21 +211,6 @@ python3 scripts/eval_rank_agent.py \
 ```bash
 python3 scripts/eval_all_agents.py \
     --output-dir outputs/evaluations/
-```
-
-### `evaluate_huntable_windows_baseline.py`
-**Purpose**: Evaluate baseline huntable Windows classifier  
-**Usage**:
-```bash
-python3 scripts/evaluate_huntable_windows_baseline.py
-```
-
-### `evaluate_huntable_windows_model.py`
-**Purpose**: Evaluate trained huntable Windows model  
-**Usage**:
-```bash
-python3 scripts/evaluate_huntable_windows_model.py \
-    --model-dir models/huntable-windows
 ```
 
 ### `run_cmdline_count_eval.py`
