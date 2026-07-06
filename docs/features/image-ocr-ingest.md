@@ -34,6 +34,10 @@ enhancement exactly like native article text.
 - Re-process articles whose `ocr_status` is already `completed` / `skipped_no_images`
 - Touch protected internal sources (eval ground truth, manual entries) — enforced in code
   via `PROTECTED_INTERNAL_SOURCE_IDENTIFIERS`, not just config
+- Re-OCR images already covered by a `[Image OCR: <url>]` marker in the incoming content —
+  including ones submitted by the [browser extension's](../guides/browser-extension.md) client-side
+  OCR/Vision LLM modes, which run independently of this pipeline (see
+  `_parse_existing_ocr_urls` in `vision_ocr_service.py`)
 
 ## SSRF guard model
 
@@ -113,6 +117,8 @@ otherwise. A missing binary is non-fatal when OCR is disabled.
 
 ## Related
 
+- [Browser Extension](../guides/browser-extension.md) — separate client-side OCR/Vision LLM
+  pipeline; this document covers server-side ingest OCR only
 - Design history: [2026-06-15 initial ship](../superpowers/specs/2026-06-15-image-ocr-ingest-design.md)
   and [2026-06-17 default-on flip + per-source override](../superpowers/specs/2026-06-17-image-ocr-global-default-source-override-design.md)
   (both implemented)

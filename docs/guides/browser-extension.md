@@ -44,6 +44,8 @@ Vision LLM providers (`openai` or `anthropic`) are selected in the extension pop
 
 Article extraction inserts `[IMAGE:<src>]` markers where qualifying page images appear. When you OCR or run Vision LLM extraction for those images, the extension replaces the matching marker with a `[Image OCR: <alt text>]` block before sending, so extracted image text stays inline with the surrounding article context. If an extracted image is not present in the article text, its OCR block is appended as a fallback.
 
+This is a separate pipeline from the server-side [Image OCR Ingest](../features/image-ocr-ingest.md) feature. The extension's OCR/Vision LLM runs client-side, on demand, only for images you choose to extract before clicking **Send**. The ingest pipeline runs server-side, automatically, on every article regardless of source (local Tesseract only, no Vision LLM) -- it re-scans images the extension didn't touch and skips ones already OCR'd via the `[Image OCR: <url>]` marker it recognizes. You don't need to run extension-side OCR for the server pipeline to work; the two are complementary, not exclusive.
+
 ## How It Works
 
 The extension calls `POST /api/scrape-url` on your instance with the page title, URL, and extracted content (including any inline OCR text). The backend processes the article through the standard ingestion pipeline -- threat hunting scoring and all.
