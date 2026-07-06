@@ -6,6 +6,7 @@ variables. No FastAPI imports here so it stays trivially unit-testable.
 
 from __future__ import annotations
 
+import ipaddress
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -92,6 +93,7 @@ class SecurityConfig:
     groups_header: str
     secret_key: str = ""
     csrf_mode: str = "auto"  # auto | true | false
+    allow_insecure_prod_trusted_proxy_open: bool = False
     group_role_map: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
 
     @property
@@ -136,6 +138,7 @@ def load_security_config(env: Mapping[str, str] | None = None) -> SecurityConfig
         app_env=e.get("APP_ENV", "development"),
         auth_mode=auth_mode,
         allow_insecure_prod_auth_disabled=_as_bool(e.get("ALLOW_INSECURE_PRODUCTION_AUTH_DISABLED")),
+        allow_insecure_prod_trusted_proxy_open=_as_bool(e.get("ALLOW_INSECURE_PRODUCTION_TRUSTED_PROXY_OPEN")),
         trusted_hosts=_split_csv(e.get("TRUSTED_HOSTS", "localhost,127.0.0.1")),
         cors_allowed_origins=_split_csv(e.get("CORS_ALLOWED_ORIGINS", "http://localhost:8001")),
         trusted_proxy_header=e.get("AUTH_TRUSTED_PROXY_HEADER", "X-Huntable-Verified"),
@@ -161,6 +164,29 @@ def _validate(cfg: SecurityConfig) -> None:
             "AUTH_MODE=disabled is not allowed in production. Set AUTH_MODE=trusted_header, "
             "or set ALLOW_INSECURE_PRODUCTION_AUTH_DISABLED=true to override."
         )
+    if (
+        cfg.auth_mode is AuthMode.TRUSTED_HEADER
+        and not cfg.trusted_proxy_ips
+        and not cfg.allow_insecure_prod_trusted_proxy_open
+    ):
+        # SRF-1: an empty allowlist makes parse_trusted_identity() trust the
+        # identity headers from ANY peer, so a direct client can forge admin.
+        raise InsecureConfigError(
+            "AUTH_TRUSTED_PROXY_IPS must be set when AUTH_MODE=trusted_header in production; "
+            "an empty allowlist accepts identity headers from any peer. Set the reverse proxy "
+            "IP(s), or set ALLOW_INSECURE_PRODUCTION_TRUSTED_PROXY_OPEN=true only when direct "
+            "access to the app is blocked at the network level."
+        )
+    for peer_ip in cfg.trusted_proxy_ips:
+        try:
+            ipaddress.ip_address(peer_ip)
+        except ValueError:
+            # Entries are matched exactly against the TCP peer IP; a wildcard or
+            # CIDR entry can never match and would silently deny every request.
+            raise InsecureConfigError(
+                f"AUTH_TRUSTED_PROXY_IPS entry {peer_ip!r} is not a literal IP address. "
+                "Wildcards and CIDR ranges are not supported; list each proxy IP exactly."
+            ) from None
     if WILDCARD in cfg.trusted_hosts:
         raise InsecureConfigError("Wildcard TRUSTED_HOSTS is not allowed in production.")
     if WILDCARD in cfg.cors_allowed_origins:

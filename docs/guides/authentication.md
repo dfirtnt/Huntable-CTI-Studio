@@ -17,14 +17,23 @@ see [Enterprise SSO Setup](enterprise-sso.md).
 ## Fail-closed startup (when `APP_ENV=production`)
 
 Startup aborts if: `AUTH_MODE=disabled` (without the break-glass override),
-`TRUSTED_HOSTS` is wildcard, `CORS_ALLOWED_ORIGINS` is wildcard, or CSRF is
-active (see below) while `SECRET_KEY` is missing or a known-default/short value.
+`AUTH_MODE=trusted_header` with an empty `AUTH_TRUSTED_PROXY_IPS` (without the
+break-glass override below), `TRUSTED_HOSTS` is wildcard, `CORS_ALLOWED_ORIGINS`
+is wildcard, or CSRF is active (see below) while `SECRET_KEY` is missing or a
+known-default/short value.
 
 ## Trusted-header contract
 
 The app trusts identity headers **only** when the request carries the proxy
 marker (`AUTH_TRUSTED_PROXY_HEADER` == `AUTH_TRUSTED_PROXY_VALUE`) and, if
 `AUTH_TRUSTED_PROXY_IPS` is set, originates from a listed peer.
+
+In production, `AUTH_TRUSTED_PROXY_IPS` is **required** for trusted-header mode:
+an empty allowlist would accept identity headers from any direct peer, letting a
+client forge admin. Startup fails closed unless
+`ALLOW_INSECURE_PRODUCTION_TRUSTED_PROXY_OPEN=true` is set — use that override
+only when direct network access to the app is blocked outside the application
+(the network-level isolation this contract already assumes).
 
 > **The proxy must strip then set.** It must remove any client-supplied
 > `X-Huntable-*` headers before injecting verified identity headers, and direct

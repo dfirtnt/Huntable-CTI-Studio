@@ -70,7 +70,18 @@ apply_enterprise_sso_config() {
     [[ -n "$operator_g" ]] && startup_set_env_key "$env_file" "AUTH_OPERATOR_GROUPS" "$operator_g"
     [[ -n "$reviewer_g" ]] && startup_set_env_key "$env_file" "AUTH_REVIEWER_GROUPS" "$reviewer_g"
     [[ -n "$analyst_g" ]] && startup_set_env_key "$env_file" "AUTH_ANALYST_GROUPS" "$analyst_g"
-    [[ "$make_prod" == "true" ]] && startup_set_env_key "$env_file" "APP_ENV" "production"
+    if [[ "$make_prod" == "true" ]]; then
+        startup_set_env_key "$env_file" "APP_ENV" "production"
+        # SRF-1: production trusted_header fails closed on an empty AUTH_TRUSTED_PROXY_IPS.
+        # The SSO overlay's proxy container has a dynamic IP, so a static allowlist is not
+        # reliably available; the overlay's isolation comes from removing the direct app
+        # port (step 3 below), which is the documented break-glass case.
+        startup_set_env_key "$env_file" "ALLOW_INSECURE_PRODUCTION_TRUSTED_PROXY_OPEN" "true"
+        print_warning "ALLOW_INSECURE_PRODUCTION_TRUSTED_PROXY_OPEN=true was written: the app will"
+        print_warning "accept identity headers from any network peer, relying on step 3 below"
+        print_warning "(remove the direct 8001 port mapping) for isolation. If your proxy has a"
+        print_warning "static IP, set AUTH_TRUSTED_PROXY_IPS to it and flip the override to false."
+    fi
 
     scaffold_sso_proxy "$hostname" "$provider"
 

@@ -70,35 +70,107 @@ def test_production_trusted_header_ok():
             AUTH_MODE="trusted_header",
             TRUSTED_HOSTS="cti.example.com",
             CORS_ALLOWED_ORIGINS="https://cti.example.com",
+            AUTH_TRUSTED_PROXY_IPS="10.0.0.1",
             SECRET_KEY=_STRONG_SECRET,
         )
     )
     assert cfg.auth_enabled is True
     assert cfg.trusted_hosts == ("cti.example.com",)
     assert cfg.csrf_active is True
+    assert cfg.trusted_proxy_ips == ("10.0.0.1",)
 
 
-def test_production_trusted_header_missing_secret_key_raises():
-    # auto-CSRF is active under trusted_header, so a missing SECRET_KEY fails closed.
-    with pytest.raises(InsecureConfigError):
+def test_production_trusted_header_empty_proxy_ips_raises():
+    # SRF-1: empty AUTH_TRUSTED_PROXY_IPS means any direct peer can forge
+    # identity headers, so production startup must fail closed.
+    with pytest.raises(InsecureConfigError, match="AUTH_TRUSTED_PROXY_IPS"):
         load_security_config(
             _env(
                 APP_ENV="production",
                 AUTH_MODE="trusted_header",
                 TRUSTED_HOSTS="cti.example.com",
                 CORS_ALLOWED_ORIGINS="https://cti.example.com",
+                SECRET_KEY=_STRONG_SECRET,
+            )
+        )
+
+
+def test_production_trusted_header_empty_proxy_ips_with_breakglass_ok():
+    cfg = load_security_config(
+        _env(
+            APP_ENV="production",
+            AUTH_MODE="trusted_header",
+            TRUSTED_HOSTS="cti.example.com",
+            CORS_ALLOWED_ORIGINS="https://cti.example.com",
+            ALLOW_INSECURE_PRODUCTION_TRUSTED_PROXY_OPEN="true",
+            SECRET_KEY=_STRONG_SECRET,
+        )
+    )
+    assert cfg.auth_enabled is True
+    assert cfg.trusted_proxy_ips == ()
+
+
+def test_production_trusted_header_wildcard_proxy_ip_raises():
+    # "*" has wildcard semantics for TRUSTED_HOSTS/CORS in the same file, but the
+    # peer gate is exact-match: "*" can never match and would lock everyone out.
+    with pytest.raises(InsecureConfigError, match="literal IP"):
+        load_security_config(
+            _env(
+                APP_ENV="production",
+                AUTH_MODE="trusted_header",
+                TRUSTED_HOSTS="cti.example.com",
+                CORS_ALLOWED_ORIGINS="https://cti.example.com",
+                AUTH_TRUSTED_PROXY_IPS="*",
+                SECRET_KEY=_STRONG_SECRET,
+            )
+        )
+
+
+def test_production_trusted_header_cidr_proxy_ip_raises():
+    with pytest.raises(InsecureConfigError, match="literal IP"):
+        load_security_config(
+            _env(
+                APP_ENV="production",
+                AUTH_MODE="trusted_header",
+                TRUSTED_HOSTS="cti.example.com",
+                CORS_ALLOWED_ORIGINS="https://cti.example.com",
+                AUTH_TRUSTED_PROXY_IPS="10.0.0.0/8",
+                SECRET_KEY=_STRONG_SECRET,
+            )
+        )
+
+
+def test_dev_trusted_header_empty_proxy_ips_ok():
+    # The fail-close is production-only; dev/test trusted_header stays usable
+    # without a proxy allowlist.
+    cfg = load_security_config(_env(AUTH_MODE="trusted_header", SECRET_KEY=_STRONG_SECRET))
+    assert cfg.auth_enabled is True
+    assert cfg.trusted_proxy_ips == ()
+
+
+def test_production_trusted_header_missing_secret_key_raises():
+    # auto-CSRF is active under trusted_header, so a missing SECRET_KEY fails closed.
+    with pytest.raises(InsecureConfigError, match="SECRET_KEY"):
+        load_security_config(
+            _env(
+                APP_ENV="production",
+                AUTH_MODE="trusted_header",
+                TRUSTED_HOSTS="cti.example.com",
+                CORS_ALLOWED_ORIGINS="https://cti.example.com",
+                AUTH_TRUSTED_PROXY_IPS="10.0.0.1",
             )
         )
 
 
 def test_production_default_secret_key_rejected():
-    with pytest.raises(InsecureConfigError):
+    with pytest.raises(InsecureConfigError, match="SECRET_KEY"):
         load_security_config(
             _env(
                 APP_ENV="production",
                 AUTH_MODE="trusted_header",
                 TRUSTED_HOSTS="cti.example.com",
                 CORS_ALLOWED_ORIGINS="https://cti.example.com",
+                AUTH_TRUSTED_PROXY_IPS="10.0.0.1",
                 SECRET_KEY="change-me",
             )
         )
@@ -111,6 +183,7 @@ def test_production_bearer_only_csrf_disabled_skips_secret_key():
             AUTH_MODE="trusted_header",
             TRUSTED_HOSTS="cti.example.com",
             CORS_ALLOWED_ORIGINS="https://cti.example.com",
+            AUTH_TRUSTED_PROXY_IPS="10.0.0.1",
             CSRF_ENABLED="false",
         )
     )

@@ -42,6 +42,10 @@ full installer).
    AUTH_OPERATOR_GROUPS=...
    AUTH_REVIEWER_GROUPS=...
    AUTH_ANALYST_GROUPS=...
+   # Production trusted_header fails closed without a proxy-IP allowlist. The
+   # overlay's proxy container IP is dynamic, so setup.sh writes the override
+   # below instead; it is safe ONLY because step 4 removes the direct app port.
+   ALLOW_INSECURE_PRODUCTION_TRUSTED_PROXY_OPEN=true
    ```
 
 2. **OAuth credentials** -- fill `deploy/sso/oauth2-proxy.env`:

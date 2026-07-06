@@ -66,6 +66,13 @@ TRUSTED_HOSTS=cti.example.com
 CORS_ALLOWED_ORIGINS=https://cti.example.com
 CSRF_ENABLED=auto
 
+# Production trusted_header fails closed unless one of these is set. Prefer the
+# proxy's literal IP(s) when it has a static address; use the override only when
+# direct access to the app is blocked at the network level (the SSO overlay's
+# posture once the direct 8001 port mapping is removed -- container IPs are dynamic).
+AUTH_TRUSTED_PROXY_IPS=<static proxy IP, if you have one>
+# ...or: ALLOW_INSECURE_PRODUCTION_TRUSTED_PROXY_OPEN=true
+
 AUTH_ADMIN_GROUPS=...
 AUTH_OPERATOR_GROUPS=...
 AUTH_REVIEWER_GROUPS=...
@@ -247,7 +254,7 @@ default admin access until you move to the trusted-header RBAC setup.
 | 403 on every form submit | CSRF active but token missing | Confirm pages render through the proxy; do not call the app directly from a browser |
 | User authenticates but every action is 403 | Groups not mapped to roles | Check the `AUTH_*_GROUPS` values match the provider's group strings (see Verify -> Audit for the actual groups received) |
 | Identity ignored, user treated as anonymous | Missing `X-Huntable-Verified` marker or wrong header names | Use the supplied `nginx.conf`; do not change `AUTH_*_HEADER` without matching the proxy |
-| Startup aborts in production | `AUTH_MODE=disabled`, wildcard hosts/CORS, or weak `SECRET_KEY` | Set real values; the fail-closed checks are intentional |
+| Startup aborts in production | `AUTH_MODE=disabled`, wildcard hosts/CORS, weak `SECRET_KEY`, or `trusted_header` with empty/non-literal `AUTH_TRUSTED_PROXY_IPS` | Set real values; the fail-closed checks are intentional. For the proxy allowlist, set the proxy's literal IP(s), or `ALLOW_INSECURE_PRODUCTION_TRUSTED_PROXY_OPEN=true` when direct app access is network-blocked |
 
 ## See also
 
