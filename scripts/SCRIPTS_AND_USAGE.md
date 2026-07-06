@@ -177,56 +177,12 @@ python3 scripts/verify_backup.py /path/to/backup.tar.gz
 
 ## Evaluation
 
-### `eval_extract_agent.py`
-**Purpose**: Evaluate Extract Agent performance  
-**Usage**:
-```bash
-python3 scripts/eval_extract_agent.py \
-    --test-data outputs/training_data/test_finetuning_data.json \
-    --output outputs/evaluations/extract_agent_baseline.json \
-    --model gpt-4o
-```
-
-### `eval_sigma_agent.py`
-**Purpose**: Evaluate Sigma generation agent  
-**Usage**:
-```bash
-python3 scripts/eval_sigma_agent.py \
-    --test-articles 68,69,70 \
-    --output outputs/evaluations/sigma_agent.json
-```
-
-### `eval_rank_agent.py`
-**Purpose**: Evaluate Rank Agent performance  
-**Usage**:
-```bash
-python3 scripts/eval_rank_agent.py \
-    --test-set eval \
-    --output outputs/evaluations/rank_agent.json
-```
-
-### `eval_all_agents.py`
-**Purpose**: Run evaluation for all agents  
-**Usage**:
-```bash
-python3 scripts/eval_all_agents.py \
-    --output-dir outputs/evaluations/
-```
-
 ### `run_cmdline_count_eval.py`
 **Purpose**: Evaluate command-line extraction counts  
 **Usage**:
 ```bash
 python3 scripts/run_cmdline_count_eval.py \
     --article-id 68
-```
-
-### `generate_cmdextract_eval_csv.py`
-**Purpose**: Generate CSV for command-line extraction evaluation  
-**Usage**:
-```bash
-python3 scripts/generate_cmdextract_eval_csv.py \
-    --output outputs/evaluations/cmdline_eval.csv
 ```
 
 ---
