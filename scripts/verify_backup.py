@@ -30,7 +30,7 @@ from typing import Any
 
 # Allow `python scripts/verify_backup.py` to import sibling helpers.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _restore_common import filter_dump_lines  # noqa: E402
+from _restore_common import extract_psql_errors, filter_dump_lines  # noqa: E402
 
 # Database configuration
 DB_CONFIG = {
@@ -121,7 +121,7 @@ def validate_backup_structure(backup_path: Path) -> dict[str, Any]:
                     validation_result["warnings"].append(f"Component '{component}' not found in backup")
 
             # Check component directories exist
-            for component_name in components.keys():
+            for component_name in components:
                 if component_name.startswith("docker_volume_"):
                     # Docker volume backups are files, not directories
                     volume_name = component_name.replace("docker_volume_", "")
@@ -246,7 +246,7 @@ def test_database_restore(backup_path: Path, metadata: dict[str, Any]) -> dict[s
     try:
         # Create test database
         create_cmd = get_docker_exec_cmd(
-            "cti_postgres", f"psql -U {DB_CONFIG['user']} -c 'CREATE DATABASE {test_db_name};'"
+            "cti_postgres", f"psql -U {DB_CONFIG['user']} -d postgres -c 'CREATE DATABASE {test_db_name};'"
         )
         subprocess.run(create_cmd, check=True, capture_output=True)
 
@@ -257,12 +257,8 @@ def test_database_restore(backup_path: Path, metadata: dict[str, Any]) -> dict[s
             # Extract SQL content through the shared filter so a verification
             # restore tolerates the same dangling-FK situation that real restores
             # do (dumps with NOT-yet-cleaned orphan rows are still considered valid).
-            opener = (
-                (lambda: gzip.open(db_backup_file, "rt"))
-                if db_filename.endswith(".gz")
-                else (lambda: open(db_backup_file))
-            )
-            with opener() as f_in:
+            opener = gzip.open if db_filename.endswith(".gz") else open
+            with opener(db_backup_file, "rt") as f_in:
                 for filtered_line in filter_dump_lines(
                     f_in,
                     skip_unsupported_sets=True,
@@ -276,14 +272,16 @@ def test_database_restore(backup_path: Path, metadata: dict[str, Any]) -> dict[s
 
         # Restore to test database
         restore_cmd = get_docker_exec_cmd(
-            "cti_postgres", f"psql -U {DB_CONFIG['user']} -d {test_db_name} -f /tmp/test_restore.sql"
+            "cti_postgres", f"psql -v ON_ERROR_STOP=1 -U {DB_CONFIG['user']} -d {test_db_name} -f /tmp/test_restore.sql"
         )
 
         result = subprocess.run(restore_cmd, capture_output=True, text=True)
+        psql_errors = extract_psql_errors(result.stderr)
 
-        if result.returncode != 0:
+        if result.returncode != 0 or psql_errors:
             restore_result["valid"] = False
-            restore_result["errors"].append(f"Database restore test failed: {result.stderr}")
+            error_output = "\n".join(psql_errors) if psql_errors else result.stderr
+            restore_result["errors"].append(f"Database restore test failed: {error_output}")
         else:
             # Verify restore by checking table count
             verify_cmd = get_docker_exec_cmd(
@@ -315,7 +313,7 @@ def test_database_restore(backup_path: Path, metadata: dict[str, Any]) -> dict[s
             if restore_result["test_database"]:
                 drop_cmd = get_docker_exec_cmd(
                     "cti_postgres",
-                    f"psql -U {DB_CONFIG['user']} -c 'DROP DATABASE IF EXISTS {restore_result['test_database']};'",
+                    f"psql -U {DB_CONFIG['user']} -d postgres -c 'DROP DATABASE IF EXISTS {restore_result['test_database']};'",
                 )
                 subprocess.run(drop_cmd, capture_output=True)
         except (subprocess.SubprocessError, KeyError):

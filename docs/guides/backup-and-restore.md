@@ -675,6 +675,13 @@ docker system prune -a
 - Ensure sufficient disk space
 - Try selective component restore
 
+If restore verification fails with `could not resize shared memory segment`, raise the Postgres container shared-memory allocation and recreate the container:
+
+```bash
+POSTGRES_SHM_SIZE=2g docker compose up -d --force-recreate postgres
+./scripts/backup_restore.sh verify system_backup_YYYYMMDD_HHMMSS --test-restore
+```
+
 #### 6. Checksum Validation Fails
 
 **Solutions**:

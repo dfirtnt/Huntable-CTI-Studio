@@ -29,7 +29,7 @@ from typing import Any
 
 # Allow `python scripts/restore_system.py` to import sibling helpers.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _restore_common import filter_dump_lines  # noqa: E402
+from _restore_common import extract_psql_errors, filter_dump_lines  # noqa: E402
 
 # Database configuration -- read from env vars to match deployment context
 DB_CONFIG = {
@@ -223,12 +223,8 @@ def restore_database(
             # Extract SQL content through the shared filter so dumps with
             # dangling FK references (NOT VALID rewrite) and stray DROP/CREATE
             # DATABASE statements load cleanly into the harness-managed target.
-            opener = (
-                (lambda: gzip.open(db_backup_file, "rt"))
-                if db_filename.endswith(".gz")
-                else (lambda: open(db_backup_file))
-            )
-            with opener() as f_in:
+            opener = gzip.open if db_filename.endswith(".gz") else open
+            with opener(db_backup_file, "rt") as f_in:
                 for filtered_line in filter_dump_lines(
                     f_in,
                     skip_unsupported_sets=True,
@@ -279,13 +275,16 @@ def restore_database(
         # Restore from backup
         print("📥 Restoring data...")
         restore_cmd = get_docker_exec_cmd(
-            "cti_postgres", f"psql -U {DB_CONFIG['user']} -d {DB_CONFIG['database']} -f /tmp/restore.sql"
+            "cti_postgres",
+            f"psql -v ON_ERROR_STOP=1 -U {DB_CONFIG['user']} -d {DB_CONFIG['database']} -f /tmp/restore.sql",
         )
 
         result = subprocess.run(restore_cmd, capture_output=True, text=True)
+        psql_errors = extract_psql_errors(result.stderr)
 
-        if result.returncode != 0:
-            print(f"❌ Database restore failed: {result.stderr}")
+        if result.returncode != 0 or psql_errors:
+            error_output = "\n".join(psql_errors) if psql_errors else result.stderr
+            print(f"❌ Database restore failed: {error_output}")
 
             # Try to restore from snapshot if available
             if snapshot_path and Path(snapshot_path).exists():
@@ -452,25 +451,25 @@ def restore_system(
 
     # Determine components to restore
     available_components = set(metadata.get("components", {}).keys())
-    unsupported_volume_components = {component for component in available_components if component.startswith("docker_volume_")}
+    unsupported_volume_components = {
+        component for component in available_components if component.startswith("docker_volume_")
+    }
 
     if components is None:
         components_to_restore = available_components - unsupported_volume_components
         if unsupported_volume_components:
             print(
-                "⚠️  Skipping unsupported Docker volume components: "
-                f"{', '.join(sorted(unsupported_volume_components))}"
+                f"⚠️  Skipping unsupported Docker volume components: {', '.join(sorted(unsupported_volume_components))}"
             )
     else:
         components_to_restore = set(components)
         requested_unsupported = {
-            component for component in components_to_restore if component == "docker_volumes" or component.startswith("docker_volume_")
+            component
+            for component in components_to_restore
+            if component == "docker_volumes" or component.startswith("docker_volume_")
         }
         if requested_unsupported:
-            print(
-                "❌ Docker volume restore is not supported. "
-                "Restore PostgreSQL from the database dump instead."
-            )
+            print("❌ Docker volume restore is not supported. Restore PostgreSQL from the database dump instead.")
             return False
         # Validate requested components exist
         missing_components = components_to_restore - available_components
