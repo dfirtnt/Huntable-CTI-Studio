@@ -98,4 +98,4 @@ See [Local Model Selection Guide](llm/model-selection.md) for recommendations.
 - **Contributing**: See [Contributing Guide](CONTRIBUTING.md)
 - **Issues**: [GitHub Issues](https://github.com/dfirtnt/Huntable-CTI-Studio/issues)
 
-_Last updated: 2026-07-04_
+_Last updated: 2026-07-05_

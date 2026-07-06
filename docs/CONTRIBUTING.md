@@ -38,7 +38,7 @@ This project and everyone participating in it is governed by our Code of Conduct
    ```
 3. Add the upstream repository:
    ```bash
-   git remote add upstream https://github.com/original-owner/Huntable-CTI-Studio.git
+   git remote add upstream https://github.com/dfirtnt/Huntable-CTI-Studio.git
    ```
 
 ## Development Setup
@@ -368,4 +368,4 @@ Thank you to all contributors who have helped make Huntable CTI Studio better! Y
 
 ---
 
-_Last updated: 2026-07-02_
+_Last updated: 2026-07-05_
