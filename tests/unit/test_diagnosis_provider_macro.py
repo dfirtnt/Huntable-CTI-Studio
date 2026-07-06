@@ -33,7 +33,7 @@ STALE_ANTHROPIC_MODELS = ["claude-sonnet-4-5"]
 
 @pytest.fixture(scope="module")
 def jinja_env() -> Environment:
-    return Environment(loader=FileSystemLoader(str(TEMPLATE_DIR)))
+    return Environment(loader=FileSystemLoader(str(TEMPLATE_DIR)), autoescape=True)
 
 
 @pytest.fixture(scope="module")

@@ -220,7 +220,10 @@ class ContentCleaner:
         # ``[^\S\n]`` = any whitespace that is NOT a newline (space/tab/\r/etc.)
         text = re.sub(r"[^\S\n]+", " ", text)
         # Drop spaces hugging newlines, then cap consecutive blank lines at one
-        text = re.sub(r" *\n *", "\n", text)
+        # (two single-quantifier passes, not one combined " *\n *" pattern --
+        # that shape backtracks quadratically on long runs of spaces with no newline)
+        text = re.sub(r" +\n", "\n", text)
+        text = re.sub(r"\n +", "\n", text)
         text = re.sub(r"\n{3,}", "\n\n", text)
         return text.strip()
 

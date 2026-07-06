@@ -66,10 +66,11 @@ def _make_sigma_stats(total=2000, embedded=1800, coverage=90.0, pending=200):
 class TestListSources:
     @pytest.mark.asyncio
     async def test_returns_formatted_source_list(self):
+        source_url = "https://bleepingcomputer.com"
         src = _make_source(
             name="Bleeping Computer",
             id=3,
-            url="https://bleepingcomputer.com",
+            url=source_url,
             total_articles=800,
             active=True,
             consecutive_failures=0,
@@ -83,7 +84,7 @@ class TestListSources:
 
         assert "Bleeping Computer" in result
         assert "ID: 3" in result
-        assert "https://bleepingcomputer.com" in result
+        assert f"URL: {source_url}" in result
         assert "800" in result
 
     @pytest.mark.asyncio
