@@ -1929,6 +1929,7 @@ class LLMService:
         logger.info(f"Ranking request: max_tokens={max_output_tokens} (reasoning_model={is_reasoning_model})")
 
         ranking_metadata = {
+            "agent_name": "rank_article",
             "prompt_length": len(prompt_text),
             "max_tokens": max_output_tokens,
             "title": title,

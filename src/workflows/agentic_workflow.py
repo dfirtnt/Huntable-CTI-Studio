@@ -44,8 +44,11 @@ from src.services.workflow_trigger_service import WorkflowTriggerService
 from src.utils.content_filter import ContentFilter
 from src.utils.langfuse_client import (
     get_active_trace_id,
+    log_llm_completion,
+    log_llm_error,
     log_workflow_step,
     score_langfuse_trace,
+    trace_llm_call,
     trace_workflow_execution,
 )
 from src.utils.subagent_utils import build_subagent_lookup_values, normalize_subagent_name
@@ -1216,17 +1219,45 @@ async def _maybe_adjudicate_platform(
         llm_service = LLMService(config_models=models)
 
         async def _adj_call(messages: list[dict]) -> str:
-            resp = await llm_service.request_chat(
-                provider=provider,
-                model_name=model_name,
-                messages=messages,
-                max_tokens=400,
-                temperature=0.0,
-                timeout=60.0,
-                failure_context="platform_adjudication",
-            )
-            choices = resp.get("choices", []) if isinstance(resp, dict) else []
-            return choices[0].get("message", {}).get("content", "") if choices else ""
+            with trace_llm_call(
+                name="platform_adjudication",
+                model=model_name,
+                execution_id=execution_id,
+                metadata={
+                    "agent_name": "platform_adjudication",
+                    "prompt_length": sum(len(m.get("content", "")) for m in messages),
+                    "messages": messages,
+                },
+            ) as generation:
+                try:
+                    resp = await llm_service.request_chat(
+                        provider=provider,
+                        model_name=model_name,
+                        messages=messages,
+                        max_tokens=400,
+                        temperature=0.0,
+                        timeout=60.0,
+                        failure_context="platform_adjudication",
+                    )
+                    choices = resp.get("choices", []) if isinstance(resp, dict) else []
+                    content = choices[0].get("message", {}).get("content", "") if choices else ""
+
+                    usage = resp.get("usage", {}) if isinstance(resp, dict) else {}
+                    log_llm_completion(
+                        generation,
+                        input_messages=messages,
+                        output=content,
+                        usage={
+                            "prompt_tokens": usage.get("prompt_tokens", 0),
+                            "completion_tokens": usage.get("completion_tokens", 0),
+                            "total_tokens": usage.get("total_tokens", 0),
+                        },
+                    )
+                    return content
+                except Exception as e:
+                    if generation:
+                        log_llm_error(generation, e)
+                    raise
 
         adj = await adjudicate_platforms(content, llm_call=_adj_call, system_prompt=os_detection_prompt)
         if adj.platforms:

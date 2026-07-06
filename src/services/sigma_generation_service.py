@@ -903,6 +903,7 @@ class SigmaGenerationService:
                         execution_id=execution_id,
                         article_id=article_id,
                         system_prompt=sigma_system_prompt,
+                        attempt=attempt + 1,
                     )
 
                     if repaired_yaml is None:
@@ -1079,6 +1080,7 @@ Focus on generating rules for the uncovered categories listed above."""
         execution_id: int | None = None,
         article_id: int | None = None,
         system_prompt: str | None = None,
+        attempt: int | None = None,
     ) -> str:
         raw_model_name = self.llm_service.model_sigma or self.llm_service.provider_defaults.get(
             provider, self.llm_service.lmstudio_model
@@ -1098,12 +1100,22 @@ Focus on generating rules for the uncovered categories listed above."""
         is_reasoning_model = _is_reasoning_model(provider, model_name)
         max_tokens = 10000 if is_reasoning_model else 800
 
+        sigma_metadata: dict[str, Any] = {
+            "agent_name": "generate_sigma",
+            "prompt_length": len(prompt),
+            "max_tokens": max_tokens,
+            "provider": provider,
+            "messages": messages,  # Include messages for input display
+        }
+        if attempt is not None:
+            sigma_metadata["attempt"] = attempt
+
         with trace_llm_call(
             name="generate_sigma",
             model=model_name,
             execution_id=execution_id,
             article_id=article_id,
-            metadata={"prompt_length": len(prompt), "max_tokens": max_tokens, "provider": provider},
+            metadata=sigma_metadata,
         ) as generation:
             try:
                 result = await self.llm_service.request_chat(
