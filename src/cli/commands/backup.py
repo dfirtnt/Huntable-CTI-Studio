@@ -35,8 +35,8 @@ def backup():
 def create(ctx: CLIContext, backup_dir: str, backup_type: str, no_compress: bool, no_verify: bool):
     """Create a comprehensive system backup."""
     if backup_type == "database":
-        # Use legacy database backup script
-        script_path = Path(__file__).parent.parent.parent.parent / "scripts" / "backup_database.py"
+        # Use the current database backup script.
+        script_path = Path(__file__).parent.parent.parent.parent / "scripts" / "backup_database_v3.py"
         if not script_path.exists():
             click.echo("❌ Database backup script not found!", err=True)
             sys.exit(1)
@@ -83,7 +83,7 @@ def list(ctx: CLIContext, backup_dir: str, show_details: bool):
 
     # List database-only backups if requested
     if show_details:
-        db_script_path = Path(__file__).parent.parent.parent.parent / "scripts" / "backup_database.py"
+        db_script_path = Path(__file__).parent.parent.parent.parent / "scripts" / "backup_database_v3.py"
         if db_script_path.exists():
             click.echo("\n📊 Database-only backups:")
             cmd = [sys.executable, str(db_script_path), "--list", "--backup-dir", backup_dir]

@@ -82,11 +82,11 @@ done
 case "$COMMAND" in
     "create")
         echo "🔄 Creating database backup..."
-        python3 scripts/backup_database.py --backup-dir "$BACKUP_DIR" $NO_COMPRESS
+        python3 scripts/backup_database_v3.py --backup-dir "$BACKUP_DIR" $NO_COMPRESS
         ;;
     "list")
         echo "📋 Listing available backups..."
-        python3 scripts/backup_database.py --list --backup-dir "$BACKUP_DIR"
+        python3 scripts/backup_database_v3.py --list --backup-dir "$BACKUP_DIR"
         ;;
     "restore")
         if [ -z "$BACKUP_FILE" ]; then

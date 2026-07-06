@@ -4,9 +4,11 @@ Improved Database Backup Script v3
 Uses PostgreSQL native pg_dump for reliable backups
 """
 
+import gzip
 import json
 import logging
 import os
+import shutil
 import subprocess
 import sys
 from datetime import datetime
@@ -243,5 +245,96 @@ def main():
     return 1
 
 
+def compress_backup(backup_path: str) -> str:
+    """Compress a SQL backup and remove the uncompressed source file."""
+    source_path = Path(backup_path)
+    compressed_path = source_path.with_name(f"{source_path.name}.gz")
+
+    with open(source_path, "rb") as f_in, gzip.open(compressed_path, "wb") as f_out:
+        shutil.copyfileobj(f_in, f_out)
+
+    source_path.unlink()
+    return str(compressed_path)
+
+
+def list_backups(backup_dir: str = "backups") -> None:
+    """List available database-only backups."""
+    backup_path = Path(backup_dir)
+
+    if not backup_path.exists():
+        print("No backup directory found.")
+        return
+
+    backups = sorted(backup_path.glob("cti_scraper_backup_*.sql*"), reverse=True)
+
+    if not backups:
+        print("No database backups found.")
+        return
+
+    print("Available database backups:")
+    print("-" * 80)
+
+    for backup in backups:
+        stat = backup.stat()
+        size_mb = stat.st_size / (1024 * 1024)
+        modified = datetime.fromtimestamp(stat.st_mtime)
+
+        print(f"{backup.name}")
+        print(f"   Size: {size_mb:.2f} MB")
+        print(f"   Modified: {modified.strftime('%Y-%m-%d %H:%M:%S')}")
+
+        metadata_name = backup.name.replace(".sql.gz", ".json").replace(".sql", ".json")
+        metadata_file = backup_path / metadata_name
+        if metadata_file.exists():
+            try:
+                with open(metadata_file) as f:
+                    metadata = json.load(f)
+                statistics = metadata.get("statistics") or {}
+                if statistics:
+                    print(
+                        "   Stats: "
+                        f"{statistics.get('articles', 'unknown')} articles, "
+                        f"{statistics.get('sources', 'unknown')} sources"
+                    )
+            except (OSError, json.JSONDecodeError):
+                pass
+
+        print()
+
+
+def parse_args():
+    """Parse command line arguments."""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="CTI Scraper Database Backup Tool")
+    parser.add_argument("--backup-dir", default=str(BACKUP_DIR), help="Backup directory")
+    parser.add_argument("--no-compress", action="store_true", help="Skip compression")
+    parser.add_argument("--list", action="store_true", help="List database backups")
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    args = parse_args()
+
+    if args.list:
+        list_backups(args.backup_dir)
+        sys.exit(0)
+
+    logger.info("Starting database backup v3...")
+    try:
+        subprocess.run(["docker", "--version"], capture_output=True, check=True)
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        logger.error("Docker not found - required for database backup")
+        sys.exit(1)
+
+    result = create_backup(args.backup_dir)
+    if not result or not result["success"]:
+        logger.error("Backup failed")
+        sys.exit(1)
+
+    if not args.no_compress:
+        compressed_path = compress_backup(result["backup_path"])
+        result["backup_path"] = compressed_path
+
+    print(json.dumps(result, indent=2))
+    sys.exit(0)
