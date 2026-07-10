@@ -4,11 +4,15 @@ The `/mlops/agent-evals` page runs extraction agents against a ground-truth
 dataset and shows how many observables each agent found versus the expected
 count. This reference explains every number, color, and badge in the UI.
 
+![Agent Evals page with configuration panel, active preset, and run controls](../assets/screenshots/11-agent-evals-config.png)
+
 ---
 
 ## Results Comparison Table
 
 Each cell in the table represents one article evaluated by one config version.
+
+![Results comparison table: articles by config version with counts, deltas, and badges](../assets/screenshots/13-agent-evals-results-table.png)
 
 | Element | Meaning |
 |---|---|
@@ -31,11 +35,15 @@ Each cell in the table represents one article evaluated by one config version.
 Clicking a completed cell opens the full execution detail (messages, extracted
 items, process lineage) so you can inspect what the agent actually returned.
 
+![Execution detail modal listing extracted commandlines with Export Bundle and Diagnose buttons](../assets/screenshots/14-agent-evals-execution-modal.png)
+
 ---
 
 ## MAE chart metrics
 
 The **MAE by Config Version** chart tracks extraction accuracy over time.
+
+![MAE by Config Version chart with per-version data points](../assets/screenshots/12-agent-evals-mae-chart.png)
 
 ### MAE — Mean Absolute Error
 
