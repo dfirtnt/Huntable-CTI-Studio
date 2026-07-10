@@ -1,5 +1,12 @@
 # Enterprise SSO Setup
 
+!!! warning "Beta"
+    Login has been verified end-to-end for all three providers. Group-to-role
+    mapping (`AUTH_*_GROUPS`) has only been validated with one provider so far --
+    Google groups require a service account with domain-wide delegation, and Entra
+    groups must be referenced by object GUID, not name. Confirm role mapping
+    yourself before relying on it in production.
+
 Run Huntable CTI Studio behind Google, GitHub, or Microsoft Entra (or any OIDC
 provider) without building a login system into the app. A reverse proxy performs
 the OAuth flow and injects verified identity headers; the app maps those to roles

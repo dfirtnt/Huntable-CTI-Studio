@@ -103,6 +103,10 @@ configure_enterprise_auth() {
     fi
 
     print_header "Enterprise SSO (optional)"
+    print_warning "BETA: SSO is a beta feature. Login works for all three providers, but"
+    print_warning "      group->role mapping has been validated with only one provider so far."
+    print_warning "      Google groups need a service account and Entra groups use object GUIDs;"
+    print_warning "      see deploy/sso/README.md before relying on it in production."
     print_status "Leave off for local/dev use (AUTH_MODE=disabled, no login required)."
     print_status "Enable to run behind an OAuth reverse proxy (Google / GitHub / Microsoft)."
     if ! prompt_yes_no "Enable enterprise SSO via a trusted-header reverse proxy?" "no"; then

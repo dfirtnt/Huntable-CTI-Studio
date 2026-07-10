@@ -1,5 +1,11 @@
 # Enterprise SSO (reverse-proxy OAuth)
 
+> **Beta.** Login has been verified end-to-end for all three providers. Group->role
+> mapping (`AUTH_*_GROUPS`) has only been validated with one provider so far — Google
+> groups require a service account with domain-wide delegation, and Entra groups must
+> be referenced by object GUID, not name. Confirm role mapping yourself before relying
+> on it in production.
+
 Huntable CTI Studio does not implement OAuth itself. A reverse proxy performs the
 OAuth flow (Google / GitHub / Microsoft Entra / any OIDC) and injects **verified
 identity headers** that the app consumes, maps to roles, and audits. This directory
