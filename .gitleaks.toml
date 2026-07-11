@@ -24,6 +24,9 @@ regexes = [
     "deepseek-r1-qwen3-8b",
     # Sigma rule relationship syntax (e.g. "parent/child")
     "parent/child",
+    # Fake SECRET_KEY fixture in tests/unit/test_security_config.py -- literal
+    # placeholder string, not a real secret
+    "a-very-strong-secret-key-1234567890",
 ]
 
 # Allow entire files from scanning
