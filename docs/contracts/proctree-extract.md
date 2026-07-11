@@ -41,6 +41,7 @@ You are a sub-agent of ExtractAgent. Sibling extractors:
 - **ServicesExtract** -- Windows service artifacts
 - **ScheduledTasksExtract** -- Windows scheduled task artifacts
 - **HuntQueriesExtract** -- Finished detection logic (Sigma rules, KQL/SPL/EQL/XQL queries)
+- **NetworkIndicatorExtract** -- Network indicators (domain/DNS, IP+port, URL, URI path, User-Agent)
 
 ### Boundary rules
 
@@ -53,6 +54,9 @@ You are a sub-agent of ExtractAgent. Sibling extractors:
   remains HuntQueriesExtract's artifact; only the lineage pair is yours.
   (Same carve-out pattern as RegistryExtract pulling a key out of a reg.exe
   command without owning the command.)
+- Do NOT extract network indicators (domains, IPs, ports, URLs, URI paths, User-Agent strings) --
+  NetworkIndicatorExtract owns those, even when they appear inside your artifact (extract your own
+  artifact, leave the network indicator to NetworkIndicatorExtract).
 
 You MAY reference process names that also appear in command lines, but only to establish
 the lineage pair. The command line itself belongs to CmdlineExtract.
@@ -326,4 +330,4 @@ If injection, hollowing, or DLL loading is described, SKIP -- that is not proces
 If the source is a bare command listing that names no parent, SKIP.
 When in doubt, OMIT.
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-07-05 -- added NetworkIndicatorExtract sibling and boundary rule (doc sync with live seed prompt)._

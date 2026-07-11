@@ -47,10 +47,10 @@ class BackupConfig:
     config: bool = True
     outputs: bool = True
     logs: bool = True
-    docker_volumes: bool = True
+    docker_volumes: bool = False
 
     # Docker volume settings
-    volume_list: list[str] = field(default_factory=lambda: ["postgres_data", "redis_data"])
+    volume_list: list[str] = field(default_factory=list)
     stop_containers: bool = True
 
     # Verification settings
@@ -184,13 +184,13 @@ class BackupConfigManager:
             if "logs" in components:
                 self.config.logs = components["logs"]
             if "docker_volumes" in components:
-                self.config.docker_volumes = components["docker_volumes"]
+                self.config.docker_volumes = False
 
         # Docker volumes
         if "docker_volumes" in config_data:
             docker_volumes = config_data["docker_volumes"]
             if "volumes" in docker_volumes:
-                self.config.volume_list = docker_volumes["volumes"]
+                self.config.volume_list = []
             if "stop_containers" in docker_volumes:
                 self.config.stop_containers = docker_volumes["stop_containers"]
 
@@ -377,10 +377,7 @@ class BackupConfigManager:
                 "logs": self.config.logs,
                 "docker_volumes": self.config.docker_volumes,
             }
-            config_data["docker_volumes"] = {
-                "volumes": self.config.volume_list,
-                "stop_containers": self.config.stop_containers,
-            }
+            config_data.pop("docker_volumes", None)
             config_data["verification"] = {
                 "checksums": self.config.checksums,
                 "test_restore": self.config.test_restore,

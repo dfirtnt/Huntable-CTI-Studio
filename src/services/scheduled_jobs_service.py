@@ -238,38 +238,35 @@ class ScheduledJobsService:
             )
         return jobs
 
-    async def update_state(self, jobs: dict[str, Any]) -> dict[str, Any]:
-        """Persist the scheduled job config and reload the scheduler container."""
-        from sqlalchemy import select
+    async def persist_config(self, session: Any, jobs: dict[str, Any]) -> dict[str, Any]:
+        """Stage the scheduled-job config upsert in a caller-owned session (no commit).
 
-        from src.database.async_manager import async_db_manager
+        Returns the normalized config. The caller owns the transaction (so it can
+        record a mandatory audit event and commit atomically) and is responsible
+        for calling :meth:`restart_scheduler` afterwards.
+        """
+        from sqlalchemy import select
 
         normalized = normalize_scheduled_job_config(jobs)
         payload = json.dumps({"jobs": normalized}, sort_keys=True)
 
-        async with async_db_manager.get_session() as session:
-            result = await session.execute(
-                select(AppSettingsTable).where(AppSettingsTable.key == SCHEDULED_JOBS_SETTING_KEY)
-            )
-            row = result.scalar_one_or_none()
-            if row:
-                row.value = payload
-                row.updated_at = datetime.now()
-            else:
-                session.add(
-                    AppSettingsTable(
-                        key=SCHEDULED_JOBS_SETTING_KEY,
-                        value=payload,
-                        category="system",
-                        description="UI-managed schedule config for non-source Celery periodic jobs.",
-                    )
+        result = await session.execute(
+            select(AppSettingsTable).where(AppSettingsTable.key == SCHEDULED_JOBS_SETTING_KEY)
+        )
+        row = result.scalar_one_or_none()
+        if row:
+            row.value = payload
+            row.updated_at = datetime.now()
+        else:
+            session.add(
+                AppSettingsTable(
+                    key=SCHEDULED_JOBS_SETTING_KEY,
+                    value=payload,
+                    category="system",
+                    description="UI-managed schedule config for non-source Celery periodic jobs.",
                 )
-            await session.commit()
-
-        reload_result = self.restart_scheduler()
-        state = serialize_scheduled_jobs_state(normalized)
-        state["scheduler_reload"] = reload_result
-        return state
+            )
+        return normalized
 
     def restart_scheduler(self) -> dict[str, Any]:
         """Restart the Celery beat container so updated schedules take effect immediately."""

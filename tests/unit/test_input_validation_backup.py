@@ -121,8 +121,12 @@ class TestValidateBackupComponents:
         assert result == "database,models,config"
 
     def test_all_valid_components(self):
-        all_valid = "database,models,config,outputs,logs,docker_volumes"
+        all_valid = "database,models,config,outputs,logs"
         assert validate_backup_components(all_valid) == all_valid
+
+    def test_docker_volume_component_rejected(self):
+        with pytest.raises(ValidationError, match="Invalid component"):
+            validate_backup_components("database,docker_volumes")
 
     def test_unknown_component_rejected(self):
         with pytest.raises(ValidationError, match="Invalid component"):

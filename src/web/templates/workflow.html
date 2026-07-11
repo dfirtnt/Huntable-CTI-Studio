@@ -2372,6 +2372,10 @@ tr.q-row-selected td {
                 <div class="mt-1">{% include 'components/workflow_config_snippet.html' %}</div>
               </details>
 
+              <!-- Sized by scrollToStep so any step section can align to the container top,
+                   even when the collapsed accordion leaves too little content below it. -->
+              <div id="config-scroll-spacer" aria-hidden="true" style="pointer-events: none;"></div>
+
             </div><!-- end #config-content -->
 
             <!-- ── Sticky Footer ─────────────────────────── -->
@@ -2841,7 +2845,22 @@ tr.q-row-selected td {
             document.querySelectorAll('.step-section').forEach(function(s) { s.classList.remove('open'); });
             section.classList.add('open');
           }
-          content.scrollTo({ top: section.offsetTop - 16, behavior: 'smooth' });
+          // Align the section header to the container's visible top. offsetTop is
+          // unusable here: #config-content is not positioned, so offsetParent is <body>
+          // and offsetTop would include the page header above the panel, overshooting
+          // every scroll. 'instant' rather than smooth: the accordion re-layout is
+          // already instant, and a smooth animation's target goes stale if layout
+          // shifts (async config load) or the tab is backgrounded mid-flight.
+          var top = content.scrollTop + section.getBoundingClientRect().top - content.getBoundingClientRect().top - 16;
+          // Top up the scroll range with the trailing spacer when the collapsed accordion
+          // leaves too little content below the target for it to reach the container top.
+          var spacer = document.getElementById('config-scroll-spacer');
+          if (spacer) {
+            var baseScrollHeight = content.scrollHeight - spacer.offsetHeight;
+            var deficit = Math.ceil(top + content.clientHeight - baseScrollHeight);
+            spacer.style.height = Math.max(0, deficit) + 'px';
+          }
+          content.scrollTo({ top: top, behavior: 'instant' });
           document.querySelectorAll('.rail-item').forEach(function(el, i) {
             el.classList.toggle('active', i === n);
           });
@@ -3115,6 +3134,14 @@ tr.q-row-selected td {
                         <h3 class="q-modal-title">Execution Details</h3>
                     </div>
                     <div class="q-modal-controls">
+                        <button type="button" id="downloadTraceBundleBtn" onclick="downloadExecutionTraceBundle()" class="q-cmd-btn neutral" title="Download full execution trace JSON" aria-label="Download full execution trace" disabled>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            Download Trace
+                        </button>
                         <button onclick="toggleModalFullscreen()" class="q-modal-ctrl-btn" title="Toggle fullscreen">
                             <svg id="fullscreenIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
@@ -3237,7 +3264,7 @@ tr.q-row-selected td {
             <table class="q-table" id="sigmaQueueTable">
                 <colgroup>
                     <col id="scol-checkbox" style="width:36px">
-                    <col id="scol-indicator">
+                    <col id="scol-indicator" style="width:3px">
                     <col id="scol-id">
                     <col id="scol-article">
                     <col id="scol-rule-title">
@@ -3246,7 +3273,7 @@ tr.q-row-selected td {
                     <col id="scol-similarity">
                     <col id="scol-status">
                     <col id="scol-created">
-                    <col id="scol-actions">
+                    <col id="scol-actions" style="width:210px">
                 </colgroup>
                 <thead>
                     <tr>
@@ -3655,7 +3682,7 @@ END SYSTEM PROMPT</textarea>
                                 <span id="rawResponseCaret" class="transform transition-transform">▼</span>
                             </button>
                             <div id="rawResponseContent" class="hidden mt-2">
-                                <pre id="rawResponseText" class="text-xs bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-96 overflow-y-auto text-gray-900 dark:text-gray-100"></pre>
+                                <div id="rawResponseText" class="text-xs bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700 max-h-96 overflow-y-auto text-gray-900 dark:text-gray-100"></div>
                             </div>
                         </div>
                     </div>
@@ -10574,8 +10601,8 @@ if (workflowConfigForm) {
     promptsSource.ExtractAgentSettings = extractSettings;
     formData.agent_prompts = promptsSource;
     
-    // Validate RankAgent model is set
-    if (!formData.agent_models.RankAgent) {
+    // Validate RankAgent model is set (only required when Rank Agent is enabled)
+    if (formData.rank_agent_enabled && !formData.agent_models.RankAgent) {
         showNotification('Rank Agent model is required. Please select a model from the dropdown.', 'error');
         document.getElementById('rankagent-model-2')?.focus();
         return;
@@ -11027,6 +11054,11 @@ async function viewExecution(executionId) {
         const response = await fetch(`/api/workflow/executions/${executionId}`);
         if (response.ok) {
             const exec = await response.json();
+            const downloadTraceBtn = document.getElementById('downloadTraceBundleBtn');
+            if (downloadTraceBtn) {
+                downloadTraceBtn.dataset.executionId = executionId;
+                downloadTraceBtn.disabled = false;
+            }
             
             // Fetch active config to get agent_models if not in config_snapshot
             let activeConfig = null;
@@ -11071,11 +11103,6 @@ async function viewExecution(executionId) {
                     ? exec.extraction_result.summary.platforms_detected
                     : (detectedOS ? [detectedOS] : []));
             const platformsDetectedLabel = platformsDetected.length > 0 ? platformsDetected.join(', ') : 'Unknown';
-            // Phase D: Domains + Products dimensions (entity-driven, stored in os_detection_result).
-            const detectedDomains = Array.isArray(osDetectionData.domains) ? osDetectionData.domains : [];
-            const detectedProducts = Array.isArray(osDetectionData.products) ? osDetectionData.products : [];
-            const domainsLabel = detectedDomains.length > 0 ? detectedDomains.join(', ') : '—';
-            const productsLabel = detectedProducts.length > 0 ? detectedProducts.join(', ') : '—';
 
             // Show Platform Detection step if:
             // 1. Platform detection result exists in error_log
@@ -11106,7 +11133,7 @@ async function viewExecution(executionId) {
                         .map(([os, sim]) => `<div>• ${os}: ${(sim * 100).toFixed(1)}%</div>`)
                         .join('');
                     similaritiesHtml = `<details class="mt-2 w-full">
-                        <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: var(--text-emphasis) !important;">View Platform Similarity Scores</summary>
+                        <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: var(--text-emphasis) !important;">View Platform Score Distribution</summary>
                         <div class="mt-2 w-full bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs text-gray-900 dark:text-white">
                             ${similaritiesList}
                         </div>
@@ -11131,11 +11158,9 @@ async function viewExecution(executionId) {
                     osOutput = `<div class="space-y-1 text-gray-700 dark:text-gray-300">
                         <div><strong>Detected OS:</strong> ${detectedOS}</div>
                         <div><strong>Platforms Detected:</strong> ${platformsDetectedLabel}</div>
-                        <div><strong>Domains:</strong> ${domainsLabel}</div>
-                        <div><strong>Products:</strong> ${productsLabel}</div>
                         <div><strong>Method:</strong> ${osMethod}</div>
                         <div><strong>Confidence:</strong> ${osConfidence}</div>
-                        ${osMaxSimilarity !== undefined ? `<div><strong>Max Similarity:</strong> ${(osMaxSimilarity * 100).toFixed(1)}%</div>` : ''}
+                        ${osMaxSimilarity !== undefined ? `<div><strong>Top Platform Score:</strong> ${(osMaxSimilarity * 100).toFixed(1)}%</div>` : ''}
                         <div><strong>Decision:</strong> Continue to capability routing</div>
                     </div>`;
                 } else if (!osDetectionResult) {
@@ -12182,6 +12207,60 @@ ${ obs.source_evidence != null ? `<button type="button" class="mt-2 px-2 py-1 te
     }
 }
 
+async function downloadExecutionTraceBundle(executionId = null, slim = false) {
+    const button = document.getElementById('downloadTraceBundleBtn');
+    const targetExecutionId = executionId || button?.dataset.executionId;
+    if (!targetExecutionId) {
+        showNotification('No execution selected for trace download', 'error');
+        return;
+    }
+
+    const originalHtml = button ? button.innerHTML : '';
+    if (button) {
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+        button.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+            </svg>
+            Downloading...
+        `;
+    }
+
+    try {
+        let url = `/api/workflow/executions/${targetExecutionId}/trace-bundle`;
+        if (slim) {
+            url += '?slim=true';
+        }
+        const response = await fetch(url);
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ detail: response.statusText }));
+            throw new Error(error.detail || `HTTP ${response.status}`);
+        }
+
+        const blob = await response.blob();
+        const downloadUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        const suffix = slim ? '_slim' : '';
+        a.download = `workflow_execution_trace_${targetExecutionId}${suffix}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(downloadUrl);
+        showNotification(`Downloaded trace for execution ${targetExecutionId}`, 'success');
+    } catch (error) {
+        console.error('Error downloading execution trace bundle:', error);
+        showNotification('Trace download failed: ' + error.message, 'error');
+    } finally {
+        if (button) {
+            button.disabled = false;
+            button.removeAttribute('aria-busy');
+            button.innerHTML = originalHtml;
+        }
+    }
+}
+
 async function retryExecution(executionId, useLangGraphServer = false) {
     const mode = useLangGraphServer ? 'synchronously (wait for completion)' : 'asynchronously (background)';
     if (!confirm(`Retry execution ${executionId} ${mode}?`)) return;
@@ -12210,7 +12289,7 @@ async function retryExecution(executionId, useLangGraphServer = false) {
 }
 
 function buildTraceUrl(info) {
-    // Prefer the session URL because one workflow execution can create multiple traces.
+    // Prefer the backend-selected trace URL; fall back to legacy session/search URLs.
     if (info.agent_chat_url) return info.agent_chat_url;
     if (info.session_url) return info.session_url;
     if (info.search_url) return info.search_url;
@@ -12220,7 +12299,7 @@ function buildTraceUrl(info) {
 
 async function debugInAgentChat(executionId) {
     try {
-        // Get debug info (Langfuse session URL)
+        // Get debug info (Langfuse trace URL)
         const response = await fetch(`/api/workflow/executions/${executionId}/debug-info`);
         if (response.ok) {
             const info = await response.json();
@@ -12229,10 +12308,10 @@ async function debugInAgentChat(executionId) {
             if (sessionUrl) {
                 // Check if Langfuse is configured
                 if (!info.uses_langfuse && info.instructions && info.instructions.includes('not configured')) {
-                    // Show warning but still open session URL
+                    // Show warning but still open trace URL
                     const proceed = confirm(
-                        'Langfuse keys are not configured. The session will only exist if the execution ran with Langfuse tracing enabled.\n\n' +
-                        'Would you like to open the session URL anyway?'
+                        'Langfuse keys are not configured. Trace results will only exist if the execution ran with Langfuse tracing enabled.\n\n' +
+                        'Would you like to open the trace URL anyway?'
                     );
                     if (!proceed) {
                         return;
@@ -12245,17 +12324,17 @@ async function debugInAgentChat(executionId) {
                 }
                 
                 // Show helpful message with search info
-                let message = 'Opening Langfuse session...\n\n';
+                let message = 'Opening Langfuse trace...\n\n';
                 if (info.session_id) {
-                    message += `If the session is not found (404), search for:\n`;
+                    message += `If the trace is not found (404), search for:\n`;
                     message += `Session ID: ${info.session_id}\n`;
                     if (info.trace_id) {
                         message += `Trace ID: ${info.trace_id}\n`;
                     }
-                    message += `\nUse the search/filter in Langfuse UI to find sessions by session_id.`;
+                    message += `\nUse the search/filter in Langfuse UI to find traces by session_id.`;
                 }
                 
-                // Open Langfuse session directly in new tab
+                // Open Langfuse trace directly in new tab
                 window.open(sessionUrl, '_blank');
 
                 // Show message after a brief delay (so it doesn't block the window.open)
@@ -12265,7 +12344,7 @@ async function debugInAgentChat(executionId) {
                     }
                 }, 500);
             } else {
-                showNotification('Unable to generate session URL. Please check Langfuse configuration.', 'error');
+                showNotification('Unable to generate trace URL. Please check Langfuse configuration.', 'error');
             }
         } else {
             const error = await response.json();
@@ -14506,7 +14585,7 @@ END SYSTEM PROMPT`;
     if (rawResponseToggle) rawResponseToggle.setAttribute('aria-expanded', 'false');
     if (rawResponseCaret) rawResponseCaret.textContent = '▼';
     const rawResponseText = document.getElementById('rawResponseText');
-    if (rawResponseText) rawResponseText.textContent = '';
+    if (rawResponseText) rawResponseText.innerHTML = '';
     
     // Load provider/model catalog and populate dropdowns, then restore last preset if any
     await loadEnrichProviderModelCatalog();
@@ -15431,10 +15510,7 @@ async function enrichRule() {
             // Set enriched rule in textarea
             textarea.value = enrichedYaml;
             
-            // Set raw response
-            if (rawResponseText) {
-                rawResponseText.textContent = rawResponse;
-            }
+            setRawLLMResponse(rawResponse);
             
             // Update labels and info based on iteration
             if (isIterative) {
@@ -15681,10 +15757,7 @@ async function enrichRuleFurther() {
             // Set enriched rule in textarea
             textarea.value = enrichedYaml;
             
-            // Set raw response
-            if (rawResponseText) {
-                rawResponseText.textContent = rawResponse;
-            }
+            setRawLLMResponse(rawResponse);
             
             // Update labels for iterative enrichment
             leftLabel.textContent = `Previous (Iteration ${enrichIteration - 1})`;
@@ -15765,6 +15838,90 @@ function toggleRawResponse() {
         content.classList.add('hidden');
         toggle.setAttribute('aria-expanded', 'false');
         if (caret) caret.textContent = '▼';
+    }
+}
+
+function normalizeRawLLMList(value) {
+    if (Array.isArray(value)) return value;
+    if (value === null || value === undefined || value === '') return [];
+    return [value];
+}
+
+function formatRawLLMValue(value) {
+    if (typeof value === 'string') return value;
+    return JSON.stringify(value, null, 2);
+}
+
+function rawLLMListHtml(items) {
+    const normalized = normalizeRawLLMList(items);
+    if (!normalized.length) {
+        return '<p class="text-xs text-gray-500 dark:text-gray-400 italic">None reported.</p>';
+    }
+    return `<ul class="list-disc list-inside space-y-1 text-sm text-gray-800 dark:text-gray-200">${normalized.map(item => `<li>${escapeHtml(formatRawLLMValue(item))}</li>`).join('')}</ul>`;
+}
+
+function rawLLMFieldHtml(label, value) {
+    if (value === null || value === undefined || value === '') return '';
+    return `
+        <div>
+            <h5 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">${escapeHtml(label)}</h5>
+            <div class="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">${escapeHtml(formatRawLLMValue(value))}</div>
+        </div>
+    `;
+}
+
+function formatRawLLMResponse(rawResponse) {
+    const rawText = String(rawResponse || '').trim();
+    if (!rawText) {
+        return '<p class="text-sm text-gray-500 dark:text-gray-400 italic">No raw response returned.</p>';
+    }
+
+    let parsed;
+    try {
+        parsed = JSON.parse(rawText);
+    } catch (_) {
+        return `<pre class="font-mono whitespace-pre-wrap overflow-x-auto text-xs text-gray-900 dark:text-gray-100">${escapeHtml(rawText)}</pre>`;
+    }
+
+    if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
+        return `<pre class="font-mono whitespace-pre-wrap overflow-x-auto text-xs text-gray-900 dark:text-gray-100">${escapeHtml(JSON.stringify(parsed, null, 2))}</pre>`;
+    }
+
+    const knownFields = new Set(['status', 'summary', 'actions_taken', 'issues', 'updated_sigma_yaml']);
+    const extraFields = Object.keys(parsed).filter(key => !knownFields.has(key));
+    const status = parsed.status ? String(parsed.status) : 'unknown';
+    const yaml = parsed.updated_sigma_yaml ? String(parsed.updated_sigma_yaml) : '';
+
+    return `
+        <div class="space-y-4">
+            <div class="flex items-center gap-2">
+                <h4 class="text-sm font-semibold text-gray-900 dark:text-gray-100">LLM Response</h4>
+                <span class="inline-flex items-center rounded border border-gray-300 dark:border-gray-600 px-2 py-0.5 text-xs font-medium tracking-wide text-gray-700 dark:text-gray-300">${escapeHtml(status.toUpperCase())}</span>
+            </div>
+            ${rawLLMFieldHtml('Summary', parsed.summary)}
+            <div>
+                <h5 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Actions Taken</h5>
+                ${rawLLMListHtml(parsed.actions_taken)}
+            </div>
+            <div>
+                <h5 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Issues</h5>
+                ${rawLLMListHtml(parsed.issues)}
+            </div>
+            ${yaml ? `
+                <div>
+                    <h5 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Updated Sigma YAML</h5>
+                    <pre class="font-mono whitespace-pre-wrap overflow-x-auto text-xs bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded p-3 text-gray-900 dark:text-gray-100">${escapeHtml(yaml)}</pre>
+                </div>
+            ` : ''}
+            ${extraFields.map(key => rawLLMFieldHtml(key.replace(/_/g, ' '), parsed[key])).join('')}
+        </div>
+    `;
+}
+
+function setRawLLMResponse(rawResponse) {
+    const rawResponseText = document.getElementById('rawResponseText');
+    if (rawResponseText) {
+        rawResponseText.innerHTML = formatRawLLMResponse(rawResponse);
     }
 }
 
@@ -17564,7 +17721,7 @@ if (document.readyState === 'loading') {
 (function() {
     const STORAGE_KEY = 'sigma-queue-col-widths-v1';
     const COL_IDS = ['scol-id','scol-article','scol-rule-title','scol-obs-used','scol-job-id','scol-similarity','scol-status','scol-created'];
-    const DEFAULT_W = { 'scol-id':60, 'scol-article':220, 'scol-rule-title':220, 'scol-obs-used':90, 'scol-job-id':90, 'scol-similarity':100, 'scol-status':110, 'scol-created':150 };
+    const DEFAULT_W = { 'scol-id':60, 'scol-article':198, 'scol-rule-title':198, 'scol-obs-used':90, 'scol-job-id':90, 'scol-similarity':100, 'scol-status':110, 'scol-created':150 };
     const MIN_W = 48;
 
     function lockWidths() {

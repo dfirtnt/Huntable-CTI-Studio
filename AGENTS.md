@@ -21,7 +21,7 @@ When artifacts disagree, trust: runtime code > enforced schemas > passing tests 
 | `config/sources.yaml` | Source definitions (seeds DB on first install, DB is source of truth after) |
 | `config/presets/AgentConfigs/` | Workflow presets (full snapshots, not partial overrides) |
 | `src/prompts/` | Seed prompt defaults -- loaded into DB on bootstrap/reset, not read at runtime |
-| `docs/solutions/` | Documented solutions to past problems (bugs, best practices, workflow patterns), organized by category with YAML frontmatter (`module`, `tags`, `problem_type`) |
+| `docs/solutions/` | Documented solutions to past problems (bugs, best practices, workflow patterns), organized by category with YAML frontmatter (`title`, `date`, `module`, `problem_type`) |
 
 Package manager: **uv** (not pip). CI uses `uv sync --frozen`, `uv run`.
 CLI entrypoint: `./run_cli.sh <command>`.
@@ -39,7 +39,6 @@ MCP server: `.mcp.json` at project root auto-wires `scripts/run_mcp_server.sh` f
 | Workflow config / presets / prompts | `workflow_config_schema.py`, `workflow_config_loader.py`, `config/presets/AgentConfigs/README.md` | config/unit/integration tests (+ UI if edited via UI) |
 | Persistence / contracts | `src/database/models.py`, `docs/reference/schemas.md` | targeted unit/integration/api tests |
 | Source ingestion / scraping | `src/core/fetcher.py`, `rss_parser.py`, `modern_scraper.py`, `source_sync.py` | unit/integration tests |
-| Source auto-healing | `source_healing_service.py`, `source_healing_coordinator.py` | `tests/services/test_source_healing_service.py` |
 | Scheduled jobs / workers | `celery_app.py`, `scheduled_jobs_service.py` | integration tests |
 | Tests / test infrastructure | `run_tests.py`, `docs/development/testing.md`, `pyproject.toml[tool.pytest.ini_options]` | run the affected suites |
 
@@ -138,7 +137,7 @@ no separate "served from main" deployment).
 
 `#workflowConfigForm`, `#save-config-button`, tabs (`#tab-config` / `#tab-content-*`),
 pipeline steps `#s0`-`#s6` (root: `#config-content`),
-sub-agent panels `#sa-cmdline`, `#sa-proctree`, `#sa-huntqueries`, `#sa-registry`, `#sa-services`, `#sa-scheduledtasks`,
+sub-agent panels `#sa-cmdline`, `#sa-proctree`, `#sa-huntqueries`, `#sa-registry`, `#sa-services`, `#sa-scheduledtasks`, `#sa-networkindicator`,
 enable toggles `#toggle-{agentname}-enabled`,
 prompt containers `#{agentprefix}-agent-prompt-container` / `-qa-prompt-container`,
 preset/version modals `#configPresetListModal` etc.,
@@ -159,7 +158,7 @@ step controls `#junkFilterThreshold`, `#similarityThreshold`, `#sigma-fallback-e
 
 | Agent | agentPrefix |
 |---|---|
-| OS Detection | `osdetectionagent` |
+| Platform Detection | `osdetectionagent` |
 | LLM Ranking | `rankagent` |
 | ExtractAgent supervisor | `extractagent` |
 | CmdlineExtract | `cmdlineextract` |
@@ -168,6 +167,7 @@ step controls `#junkFilterThreshold`, `#similarityThreshold`, `#sigma-fallback-e
 | RegistryExtract | `registryextract` |
 | ServicesExtract | `servicesextract` |
 | ScheduledTasksExtract | `scheduledtasksextract` |
+| NetworkIndicatorExtract | `networkindicatorextract` |
 | SIGMA Agent | `sigmaagent` |
 | QA variants | `qa-{agentprefix}` (e.g. `qa-cmdlineextract`, `qa-rankagent`) |
 

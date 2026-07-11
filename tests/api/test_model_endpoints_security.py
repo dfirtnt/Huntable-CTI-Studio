@@ -11,6 +11,34 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import httpx
 import pytest
+import pytest_asyncio
+
+# ---------------------------------------------------------------------------
+# In-process client
+# ---------------------------------------------------------------------------
+#
+# These tests inject behavior into the route handlers with unittest.mock.patch
+# (forcing exceptions, asserting call_args). That only works when the app runs
+# in-process: a patch in the test process cannot reach a separate live server.
+# The shared ``async_client`` fixture targets the live server on :8001 unless
+# USE_ASGI_CLIENT=1 is set, so override it here to always use ASGITransport.
+# This keeps the file deterministic regardless of that env var or a running app.
+
+
+@pytest_asyncio.fixture
+async def async_client():
+    """In-process ASGI client so mock.patch reaches the route handlers."""
+    from httpx import ASGITransport
+
+    from src.web.modern_main import app
+
+    transport = ASGITransport(app=app, raise_app_exceptions=False)
+    client = httpx.AsyncClient(transport=transport, base_url="http://testserver", timeout=httpx.Timeout(60.0))
+    try:
+        yield client
+    finally:
+        await client.aclose()
+
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -56,6 +56,8 @@ venv.bak/
 !.claude/skills/
 !.claude/skills/**
 .claude/skills/finish-task/
+!.claude/agents/
+!.claude/agents/**
 .opencode/
 .context/
 .vscode/
@@ -175,6 +177,7 @@ datasets/
 *.json
 !workflows/presets/*.json
 !config/presets/AgentConfigs/quickstart/*.json
+!.claude/settings.json
 !config/eval_articles_data/**/articles.json
 !config/eval_articles_data/**/ground_truth.json
 !config/labeled_chunks/**
@@ -292,3 +295,9 @@ create-agent-wiring-map.html
 create-agent-wiring-map.pdf
 hunt_score_distribution.html
 .worktrees
+
+# Enterprise SSO: generated active configs + credentials + TLS (templates are committed)
+deploy/sso/nginx.conf
+deploy/sso/oauth2-proxy.env
+deploy/sso/tls/
+deploy/sso/local/oauth2-proxy.env

@@ -560,11 +560,11 @@
         </div>
         <div class="eval-panel-body">
             <p class="eval-mono mb-3 text-xs" style="color: var(--text-muted-slate);">
-                Macro-averaged Precision, Recall, and F1 across articles with human-validated ground truth, plotted per <strong>config_version</strong>.
+                Macro-averaged Precision, Recall, and F0.5 across articles with human-validated ground truth, plotted per <strong>config_version</strong>.
                 Use the model dropdown to show all config versions, or only versions where this subagent used a selected model. Articles without <code>expected_items</code> are excluded.
             </p>
             <div id="trendChartEmpty" class="eval-mono text-center py-8 text-xs" style="color: var(--text-muted-slate);">
-                Select all models or a single model above to plot precision/recall/F1 trajectory across config versions.
+                Select all models or a single model above to plot precision/recall/F0.5 trajectory across config versions.
             </div>
             <div id="trendChartContainer" class="hidden">
                 <div style="position: relative; height: 380px; width: 100%;">
@@ -599,6 +599,7 @@ const LATEST_CONFIG_VERSION = '__latest__';
 const THROTTLE_LS_KEY = 'eval2.concurrency_throttle_seconds';
 const THROTTLE_DEFAULT = 5;
 const MULTIPLIER_LS_KEY = 'eval2.runs_per_article';
+const AGENT_EVAL_F_BETA = 0.5;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -623,6 +624,12 @@ function metricColorClass(v) {
     if (v >= 0.90) return 'metric-value--good';
     if (v >= 0.70) return 'metric-value--ok';
     return 'metric-value--bad';
+}
+
+function calculateFBeta(precision, recall, beta) {
+    const betaSquared = beta * beta;
+    const denominator = (betaSquared * precision) + recall;
+    return denominator > 0 ? ((1 + betaSquared) * precision * recall) / denominator : 0;
 }
 
 function fmtPct(v) {
@@ -1153,7 +1160,7 @@ function renderItemLevelTable(rows) {
         { text: 'Actual', cls: 'center', style: 'min-width: 60px;' },
         { text: 'Precision', cls: 'center', style: 'min-width: 80px;' },
         { text: 'Recall', cls: 'center', style: 'min-width: 80px;' },
-        { text: 'F1', cls: 'center', style: 'min-width: 70px;', title: 'Harmonic mean of Precision and Recall' },
+        { text: 'F0.5', cls: 'center', style: 'min-width: 70px;', title: 'F-beta score with beta=0.5; precision weighted higher than recall' },
         { text: 'Matched', cls: 'center', style: 'min-width: 60px;', title: 'Items in both expected and extracted' },
         { text: 'Missed', cls: 'center', style: 'min-width: 60px;', title: 'Expected but not extracted' },
         { text: 'Extra', cls: 'center', style: 'min-width: 60px;', title: 'Extracted but not expected' },
@@ -1180,10 +1187,10 @@ function renderItemLevelTable(rows) {
 
         let precision = null;
         let recall = null;
-        let f1 = null;
+        let f05 = null;
         if (hasItemScoring && actual != null && actual > 0) precision = r.matched_count / actual;
         if (hasItemScoring && expected != null && expected > 0) recall = r.matched_count / expected;
-        if (precision != null && recall != null && (precision + recall) > 0) f1 = 2 * precision * recall / (precision + recall);
+        if (precision != null && recall != null) f05 = calculateFBeta(precision, recall, AGENT_EVAL_F_BETA);
 
         const tr = document.createElement('tr');
         if (isCompleted && r.execution_id != null) {
@@ -1256,21 +1263,21 @@ function renderItemLevelTable(rows) {
         }
         tr.appendChild(tdRec);
 
-        // F1 cell
-        const tdF1 = document.createElement('td');
-        tdF1.className = 'metric-cell';
+        // F0.5 cell
+        const tdF05 = document.createElement('td');
+        tdF05.className = 'metric-cell';
         if (hasItemScoring) {
             const span = document.createElement('span');
-            span.className = 'metric-value ' + metricColorClass(f1);
-            span.textContent = f1 != null ? (f1 * 100).toFixed(0) + '%' : 'n/a';
-            tdF1.appendChild(span);
+            span.className = 'metric-value ' + metricColorClass(f05);
+            span.textContent = f05 != null ? (f05 * 100).toFixed(0) + '%' : 'n/a';
+            tdF05.appendChild(span);
         } else {
             const span = document.createElement('span');
             span.className = 'metric-value metric-value--na';
             span.textContent = 'n/a';
-            tdF1.appendChild(span);
+            tdF05.appendChild(span);
         }
-        tr.appendChild(tdF1);
+        tr.appendChild(tdF05);
 
         tr.appendChild(mkCountCell(hasItemScoring ? r.matched_count : null, 'count-matched'));
         tr.appendChild(mkCountCell(hasItemScoring ? r.missed_count : null, 'count-missed'));
@@ -1282,7 +1289,7 @@ function renderItemLevelTable(rows) {
         badge.className = 'status-badge';
         if (r.status === 'completed') {
             if (hasItemScoring) {
-                const rc = f1 != null ? f1 : (recall != null ? recall : 0);
+                const rc = f05 != null ? f05 : (recall != null ? recall : 0);
                 badge.className += rc >= 0.9 ? ' status-exact' : rc >= 0.7 ? ' status-warning' : ' status-mismatch';
             } else {
                 badge.className += ' status-dim';
@@ -1416,7 +1423,7 @@ function showItemDetail(row) {
     const extra = row.extra_count || 0;
     const precision = actual > 0 ? matched / actual : 1;
     const recall = expected > 0 ? matched / expected : 1;
-    const f1 = (precision + recall) > 0 ? 2 * precision * recall / (precision + recall) : 0;
+    const f05 = calculateFBeta(precision, recall, AGENT_EVAL_F_BETA);
 
     // Score summary bar
     const summaryGrid = document.createElement('div');
@@ -1445,7 +1452,7 @@ function showItemDetail(row) {
 
     summaryGrid.appendChild(mkScoreCell('Precision', precision, matched + '/' + actual));
     summaryGrid.appendChild(mkScoreCell('Recall', recall, matched + '/' + expected));
-    summaryGrid.appendChild(mkScoreCell('F1', f1, '2*P*R/(P+R)'));
+    summaryGrid.appendChild(mkScoreCell('F0.5', f05, '1.25*P*R/(0.25*P+R)'));
 
     const execDiv = document.createElement('div');
     execDiv.className = 'text-center';
@@ -1734,7 +1741,7 @@ async function loadTrendData(model) {
         const aggs = Array.isArray(data.aggregates) ? data.aggregates : [];
         // Keep only versions that have item-level scoring (at least one article with ground truth).
         const scored = aggs.filter(a =>
-            a.mean_precision != null && a.mean_recall != null && a.mean_f1 != null,
+            a.mean_precision != null && a.mean_recall != null && a.mean_f05 != null,
         );
         // Sort ascending by config_version so the line moves left-to-right in time order.
         scored.sort((a, b) => Number(a.config_version) - Number(b.config_version));
@@ -1767,12 +1774,12 @@ function renderTrendChart(model, aggregates) {
     // Convert 0-1 ratios to 0-100 for the y-axis.
     const precisionData = aggregates.map(a => +(a.mean_precision * 100).toFixed(2));
     const recallData = aggregates.map(a => +(a.mean_recall * 100).toFixed(2));
-    const f1Data = aggregates.map(a => +(a.mean_f1 * 100).toFixed(2));
+    const f05Data = aggregates.map(a => +(a.mean_f05 * 100).toFixed(2));
 
     // Theme-aware palette: align with --chart-* variables defined in theme-variables.css.
     const colorPrecision = getThemeColor('--chart-pink') || '#ff6384';
     const colorRecall = getThemeColor('--chart-blue-light') || '#36a2eb';
-    const colorF1 = getThemeColor('--chart-orange') || '#f97316';
+    const colorF05 = getThemeColor('--chart-orange') || '#f97316';
     const gridColor = getThemeColor('--chart-grid') || 'rgba(113, 113, 122, 0.1)';
     const tickColor = getThemeColor('--text-muted') || '#9ca3af';
 
@@ -1806,10 +1813,10 @@ function renderTrendChart(model, aggregates) {
                     pointHoverRadius: 6,
                 },
                 {
-                    label: 'F1 Score',
-                    data: f1Data,
-                    borderColor: colorF1,
-                    backgroundColor: colorF1,
+                    label: 'F0.5 Score',
+                    data: f05Data,
+                    borderColor: colorF05,
+                    backgroundColor: colorF05,
                     tension: 0.25,
                     pointRadius: 4,
                     pointHoverRadius: 6,

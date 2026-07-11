@@ -1,11 +1,16 @@
 """MCP tools for browsing CTI sources and database stats."""
 
 import logging
+from datetime import datetime
 
 from mcp.server.fastmcp import FastMCP
+from sqlalchemy import select
 
 from src.database.async_manager import AsyncDatabaseManager
+from src.database.models import SourceTable
+from src.huntable_mcp.tools.write_support import record_mcp_audit
 from src.models.source import SourceFilter
+from src.services.audit_service import ACTION_SOURCE_TOGGLED
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +52,43 @@ def register(mcp: FastMCP, db: AsyncDatabaseManager) -> None:
         except Exception as e:
             logger.error(f"list_sources failed: {e}")
             return f"Error listing sources: {e}"
+
+    @mcp.tool()
+    async def toggle_source_status(source_id: int) -> str:
+        """Toggle a source active/inactive.
+
+        Risk tier: auto-executable. This is reversible and low blast radius.
+
+        Args:
+            source_id: Source database ID from list_sources output.
+        """
+        try:
+            async with db.get_session() as session:
+                result = await session.execute(select(SourceTable).where(SourceTable.id == source_id).limit(1))
+                source = result.scalar_one_or_none()
+                if source is None:
+                    return f"Source {source_id} not found."
+
+                source_name = source.name
+                old_status = bool(source.active)
+                new_status = not old_status
+                source.active = new_status
+                source.updated_at = datetime.now()
+                await record_mcp_audit(
+                    session,
+                    ACTION_SOURCE_TOGGLED,
+                    "source",
+                    source_id,
+                    f"Toggled source {source_id} active status to {new_status}",
+                    {"old_status": old_status, "new_status": new_status},
+                )
+                await session.commit()
+
+            state = "active" if new_status else "inactive"
+            return f"Source {source_id} ({source_name}) is now {state}."
+        except Exception as e:
+            logger.error(f"toggle_source_status failed: {e}")
+            return f"Error toggling source {source_id}: {e}"
 
     @mcp.tool()
     async def get_stats() -> str:

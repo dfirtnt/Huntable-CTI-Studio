@@ -2,11 +2,11 @@
 
 **Reports to Rules... in Record time.**
 
-Huntable CTI Studio is an AI-assisted workbench for detection engineers and threat hunters. It ingests open-source threat intelligence from RSS feeds and web scraping, extracts Windows observables, command lines, process trees, event IDs, registry keys, services, scheduled tasks, and hunt queries, and turns them into Sigma rules you can validate, review, and ship.
+Huntable CTI Studio is an AI-assisted workbench for detection engineers and threat hunters. It ingests open-source threat intelligence from RSS feeds and web scraping, extracts platform-aware observables (command lines, process trees, registry keys, services, scheduled tasks, network indicators, hunt queries) across Windows, Linux, and macOS, and turns them into Sigma rules you can validate, review, and ship.
 
 With full transparency, each article moves through an explicit LangGraph pipeline, execution state is checkpointed in PostgreSQL, configuration is versioned through presets, and novelty is enforced by similarity search against 3,000+ community Sigma rules. Bring your own model using OpenAI, Anthropic, or local LM Studio.
 
-## Who Is This For??
+## Who Is This For?
 
 | Role | What you get |
 |------|--------------|
@@ -18,11 +18,11 @@ With full transparency, each article moves through an explicit LangGraph pipelin
 ## Highlights
 
 - **Multi-source aggregation** — RSS feeds, direct scrape endpoints, and browser extension
-- **Agentic workflows** — OS detection → junk filter → ranking → extraction → Sigma generation → similarity → queue promotion
+- **Agentic workflows** — Platform Detection → junk filter → ranking → extraction → Sigma generation → similarity → queue promotion; platform-aware routing skips Windows-only extractors for Linux/macOS articles
 - **Detection support** — validation, similarity matching, and coverage classification
 - **Storage & services** — FastAPI web app, PostgreSQL + pgvector, Redis, Celery worker/scheduler
 - **Search & MCP retrieval** — Semantic search across collected intelligence; conversational retrieval via the Huntable MCP server
-- **MCP (optional)** — Read-only Model Context Protocol server; committed `.mcp.json` wires it up for project-aware clients with no setup (same env as the web app; [tool reference](reference/mcp-tools.md))
+- **MCP (optional)** — Model Context Protocol server with read tools plus scoped, audited write tools; committed `.mcp.json` wires it up for project-aware clients with no setup (same env as the web app; [tool reference](reference/mcp-tools.md))
 
 ## Quick Start
 
@@ -31,8 +31,9 @@ git clone https://github.com/dfirtnt/Huntable-CTI-Studio.git
 cd Huntable-CTI-Studio
 ./setup.sh --no-backups
 ./start.sh
-python3 scripts/seed_model.py  # required on first install or after a restore
 ```
+
+`setup.sh` seeds the ML content-filter model automatically. If you ever need to re-seed (e.g. after restoring a database backup without the models volume): `docker exec cti_web python3 scripts/seed_model.py`.
 
 If prompted, you can run the MkDocs docs server in the background; logs go to `logs/mkdocs.log`.
 
@@ -49,6 +50,7 @@ If prompted, you can run the MkDocs docs server in the background; logs go to `l
 - **Configure workflow models and prompts** → [Configuration](getting-started/configuration.md) | [Schemas](reference/schemas.md)
 - **Develop or debug the app** → [Agent Orientation](development/agent-orientation.md) | [Development Setup](development/setup.md) | [Testing](development/testing.md) | [UI Test Tiers](development/ui-test-tiers.md)
 - **Integrate with the API** → [API Reference](reference/api.md) | [CLI Reference](reference/cli.md) | [MCP tools](reference/mcp-tools.md)
+- **Deploy with SSO and auditing** → [Authentication](guides/authentication.md) | [Enterprise SSO Setup](guides/enterprise-sso.md)
 
 ## Features
 
@@ -60,13 +62,17 @@ Automatically generate Sigma detection rules from CTI content. See [Sigma Detect
 
 ML-based classification to filter low-quality content. See [Content Filtering](features/content-filtering.md).
 
-### OS Detection
+### Platform Detection
 
-Multi-tier detection to identify Windows/Linux/macOS content. See [OS Detection](features/os-detection.md).
+Entity-driven platform classification that identifies Windows, Linux, and macOS content using a deterministic keyword knowledge base plus an LLM adjudicator for low-confidence cases. Replaces the retired CTI-BERT/SEC-BERT embedding detector. Platform-aware extractor routing skips Windows-only sub-agents (RegistryExtract, ServicesExtract, ScheduledTasksExtract) when non-Windows evidence is detected. See [Platform Detection](features/os-detection.md).
 
 ### ProcTree Attention Preprocessor
 
 Surfaces high-likelihood parent-child process spawn regions (Sysmon fields, tree glyphs, lineage verbs, PID/PPID pairs) as focused snippets before the full article is passed to ProcTreeExtract. Parallel to the existing CmdlineExtract preprocessor. Toggle via `proc_tree_attention_preprocessor_enabled` in workflow config.
+
+### Image OCR Ingest
+
+Inline article images are OCR'd locally with Tesseract during ingest and folded into article content as `[Image OCR: <url>]` blocks, making image-embedded observables visible to all downstream extractors and Sigma generation with no consumer-side changes. Enabled by default (`OCR_INGEST_ENABLED` defaults to `true` in `docker-compose.yml`); override globally via that env var or per-source via the `image_ocr_enabled` tri-state config key. See [Image OCR Ingest](features/image-ocr-ingest.md) for the SSRF guard model, status vocabulary, and backfill script.
 
 ### MCP Semantic Search
 
@@ -92,7 +98,4 @@ See [Local Model Selection Guide](llm/model-selection.md) for recommendations.
 - **Contributing**: See [Contributing Guide](CONTRIBUTING.md)
 - **Issues**: [GitHub Issues](https://github.com/dfirtnt/Huntable-CTI-Studio/issues)
 
-_Last updated: 2026-06-20_
-<!--stackedit_data:
-eyJoaXN0b3J5IjpbLTEwNzM5MDg3MjEsLTYxMzk0MzI2NF19
--->
+_Last updated: 2026-07-05_

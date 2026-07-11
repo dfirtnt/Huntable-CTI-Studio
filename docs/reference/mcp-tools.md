@@ -1,6 +1,6 @@
-# Huntable CTI Studio MCP tools
+# Huntable CTI Studio MCP tools and resources
 
-The **`huntable-cti-studio`** MCP server exposes **thirteen read-only tools** for querying the same PostgreSQL corpus and queues as the web app. It uses the same `.env` / database as the API.
+The **`huntable-cti-studio`** MCP server exposes read tools plus scoped, audited write tools for the same PostgreSQL corpus and queues as the web app. It uses the same `.env` / database as the API.
 
 **Connecting a client.** The repo ships a committed `.mcp.json` registering this server via `scripts/run_mcp_server.sh`. Clients that read project `.mcp.json` (Claude Code launched in the repo) need no further setup — approve the server when prompted. For other clients, register the command `bash scripts/run_mcp_server.sh`.
 
@@ -9,6 +9,27 @@ The **`huntable-cti-studio`** MCP server exposes **thirteen read-only tools** fo
 **Article IDs:** Search tools label each hit with **`Article ID`** (database primary key `articles.id`). Pass that value to `get_article`. The numbered list position (1, 2, …) is **not** the article ID.
 
 **Sigma Rule IDs:** Search tools label each Sigma hit with **`Rule ID`** (the SigmaHQ UUID, e.g. `5f1abf38-...`). Pass that value to `get_sigma_rule` for the full YAML.
+
+## Resources
+
+These resources expose small JSON context snapshots so MCP clients can attach ambient app state without first calling a bespoke tool.
+
+| Resource URI | Summary |
+|---|---|
+| `huntable://sigma-queue/status` | Global Sigma queue status counts and total. |
+| `huntable://sigma-queue/recent-rules` | Ten most recent AI-generated Sigma queue entries, including queue number, status, title, source article, similarity, and PR URL. |
+| `huntable://workflow/active-config` | Active workflow config id/version, thresholds, toggles, model assignments, and prompt agent names. Prompt bodies are intentionally omitted. |
+
+## Write risk tiers
+
+MCP writes are intentionally not action-parity with the web app. Huntable ingests untrusted CTI articles, so high-risk tools are designed to avoid prompt-injection and confused-deputy failures.
+
+| Tier | Behavior | Tools |
+|---|---|---|
+| Auto-executable | Applies a scoped, reversible mutation immediately and writes a mandatory `audit_events` row in the same transaction. | `retry_workflow_execution`, `cancel_workflow_execution`, `toggle_source_status`, `mark_article_reviewed`, `create_annotation`, `update_annotation`, `delete_annotation` |
+| Confirmation-required | Creates a pending `mcp_write_confirmations` row and an audit event. MCP does **not** apply the production mutation. A human must review and complete the action in the normal web UI. | `approve_sigma_queue_rule`, `reject_sigma_queue_rule`, `delete_sigma_queue_rule`, `update_sigma_queue_rule_yaml`, `add_sigma_rule_to_queue`, `delete_article` |
+
+`execute_sql` stays permanently read-only. It rejects DDL/DML before database execution and still opens a read-only transaction.
 
 | # | Tool | Summary |
 |---|------|---------|
@@ -23,13 +44,27 @@ The **`huntable-cti-studio`** MCP server exposes **thirteen read-only tools** fo
 | 9 | `list_workflow_executions` | Recent agentic workflow runs (article, status, step, ranking score, errors). Params: optional `status` filter (`pending`, `running`, `completed`, `failed`), `limit`. |
 | 10 | `list_sigma_queue` | Sigma rule review queue (AI-generated rules): rule title/metadata, source article, max similarity to existing rules, notes, PR link. Params: optional `status` filter (`pending`, `approved`, `rejected`, `submitted`), `limit`. |
 | 11 | `get_queue_rule` | Full YAML, status, similarity scores, and reviewer notes for a single AI-generated queue item. Param: `queue_number` (integer; the number after "Queue #" in `list_sigma_queue` output). Returns the raw YAML block, top-10 similarity matches to existing rules, and any reviewer comments. |
-| 12 | `list_tables` | Schema discovery helper. Lists all tables in the connected database with row counts, so callers can plan ad-hoc SQL before issuing `execute_sql`. No params. |
-| 13 | `execute_sql` | Execute a **read-only** SQL statement (single `SELECT` / CTE). Rejects DDL and DML at the parser layer. Param: `sql` (string). Use `list_tables` first to discover schema. |
+| 12 | `list_tables` | Schema discovery helper. Lists all tables in the connected database with each column's name, data type, nullability, and default, so callers can plan ad-hoc SQL before issuing `execute_sql`. No row counts. No params. |
+| 13 | `execute_sql` | Execute a single **read-only** `SELECT` statement — the statement must literally start with `SELECT` (CTEs starting with `WITH` are rejected). Rejects write keywords, semicolons, and comment-masked keywords before execution, then opens the query in a read-only transaction. Param: `sql` (string). Use `list_tables` first to discover schema. |
+| 14 | `retry_workflow_execution` | Auto-executable write. Creates a new pending execution for a failed/completed workflow execution, refreshes current active model settings into the retry snapshot, enqueues Celery, and audits `workflow.retried`. Param: `execution_id`. |
+| 15 | `cancel_workflow_execution` | Auto-executable write. Marks a pending/running workflow execution failed with a cancellation message and audits `workflow.cancelled`. Param: `execution_id`. |
+| 16 | `toggle_source_status` | Auto-executable write. Toggles `sources.active` for one source and audits `source.toggled`. Param: `source_id`. |
+| 17 | `mark_article_reviewed` | Auto-executable write. Sets article metadata `reviewed`, `reviewed_by`, and `reviewed_at`, and audits `article.reviewed`. Params: `article_id`, optional `reviewed`. |
+| 18 | `create_annotation` | Auto-executable write. Creates one article annotation using the same validation rules as the annotation API, updates article annotation count metadata, and audits `annotation.created`. |
+| 19 | `update_annotation` | Auto-executable write. Updates one annotation, preserves usage immutability, and audits `annotation.updated`. |
+| 20 | `delete_annotation` | Auto-executable write. Deletes one annotation, updates article annotation count metadata, and audits `annotation.deleted`. |
+| 21 | `delete_article` | Confirmation-required write. Creates a pending confirmation request for article deletion; does not delete from MCP. Param: `article_id`. |
+| 22 | `approve_sigma_queue_rule` | Confirmation-required write. Creates a pending confirmation request for queue approval; does not approve from MCP. Params: `queue_number`, optional review/PR fields. |
+| 23 | `reject_sigma_queue_rule` | Confirmation-required write. Creates a pending confirmation request for queue rejection; does not reject from MCP. Params: `queue_number`, optional notes/YAML. |
+| 24 | `delete_sigma_queue_rule` | Confirmation-required write. Creates a pending confirmation request for queue deletion; does not delete from MCP. Param: `queue_number`. |
+| 25 | `update_sigma_queue_rule_yaml` | Confirmation-required write. Validates proposed Sigma YAML and creates a pending confirmation request; does not edit from MCP. Params: `queue_number`, `rule_yaml`. |
+| 26 | `add_sigma_rule_to_queue` | Confirmation-required write. Validates proposed Sigma YAML/JSON and creates a pending confirmation request; does not enqueue from MCP. Params: `rule_yaml` or `rule_json`, optional `article_id`. |
 
-Implementation lives under `src/huntable_mcp/` (`stdio_server.py`, `tools/articles.py`, `tools/sigma.py`, `tools/sources.py`, `tools/workflow.py`, `tools/query.py`).
+Implementation lives under `src/huntable_mcp/` (`stdio_server.py`, `resources.py`, `tools/articles.py`, `tools/sigma.py`, `tools/sources.py`, `tools/workflow.py`, `tools/query.py`, `tools/write_support.py`).
 
 ## Schema note — raw_yaml column
 
 `sigma_rules.raw_yaml` (TEXT, nullable) stores the verbatim YAML from the SigmaHQ repo file. It is populated during `sigma index` / `sigma index-metadata`. Run `scripts/migrate_sigma_raw_yaml.py` once on existing databases before re-indexing.
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-07-05_
+_Last reviewed: 2026-07-05_

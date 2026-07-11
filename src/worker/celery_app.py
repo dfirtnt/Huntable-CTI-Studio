@@ -220,6 +220,36 @@ def _release_redis_lock(lock_key: str, token: str | None) -> None:
         logger.warning("Could not release Redis lock %s: %s", lock_key, exc)
 
 
+def _build_collection_check_metadata(
+    *,
+    articles_collected: int,
+    articles_saved: int = 0,
+    filter_stats: dict | None = None,
+    rss_parsing_stats: dict | None = None,
+) -> dict:
+    """Build the source_checks metadata payload for scraper health analytics."""
+    filter_stats = filter_stats or {}
+    rss_parsing_stats = rss_parsing_stats or {}
+    filter_details = {
+        "quality_filtered": filter_stats.get("quality_filtered", 0),
+        "hash_duplicates": filter_stats.get("hash_duplicates", 0),
+        "url_duplicates": filter_stats.get("url_duplicates", 0),
+        "similarity_duplicates": filter_stats.get("similarity_duplicates", 0),
+        "validation_failures": filter_stats.get("validation_failures", 0),
+    }
+    articles_filtered = sum(filter_details.values())
+    zero_yield = articles_collected == 0 or (articles_collected > 0 and articles_saved == 0)
+
+    return {
+        "articles_collected": articles_collected,
+        "articles_saved": articles_saved,
+        "articles_filtered": articles_filtered,
+        "filter_details": filter_details,
+        "rss_parsing_stats": rss_parsing_stats,
+        "zero_yield": zero_yield,
+    }
+
+
 @celery_app.task(bind=True, max_retries=2)
 def index_customer_repo(self):
     """Index approved Sigma rules from the customer repo into the similarity corpus.
@@ -362,11 +392,15 @@ def check_all_sources(self):
                         fetch_result = None
                         articles = []
                         error_msg = None
+                        saved_count = 0
+                        filter_stats = {}
+                        rss_parsing_stats = {}
 
                         try:
                             fetch_result = await fetcher.fetch_source(source)
                             articles = fetch_result.articles or []
                             collection_success = fetch_result.success
+                            rss_parsing_stats = getattr(fetch_result, "rss_parsing_stats", {})
 
                             if collection_success and articles:
                                 total_articles_collected += len(articles)
@@ -391,7 +425,6 @@ def check_all_sources(self):
                                     source_config=source_config,
                                 )
 
-                                saved_count = 0
                                 if dedup_result.unique_articles:
                                     for article in dedup_result.unique_articles:
                                         try:
@@ -401,6 +434,7 @@ def check_all_sources(self):
                                             logger.error(f"Error storing article from {source.name}: {e}")
                                             continue
 
+                                filter_stats = dedup_result.stats if hasattr(dedup_result, "stats") else {}
                                 filtered_count = len(dedup_result.duplicates)
                                 total_articles_saved += saved_count
                                 total_articles_filtered += filtered_count
@@ -438,6 +472,12 @@ def check_all_sources(self):
                                     articles_found=articles_found,
                                     response_time=response_time,
                                     error_message=error_msg,
+                                    metadata=_build_collection_check_metadata(
+                                        articles_collected=articles_found,
+                                        articles_saved=saved_count,
+                                        filter_stats=filter_stats,
+                                        rss_parsing_stats=rss_parsing_stats,
+                                    ),
                                 )
 
                                 logger.info(f"Updated source {source.id} health and article count")
@@ -626,10 +666,15 @@ def check_source(self, source_identifier: str):
                     # Track timing for health metrics
                     start_time = time.time()
                     collection_success = False
+                    fetch_result = None
+                    saved_count = 0
+                    filter_stats = {}
+                    rss_parsing_stats = {}
 
                     try:
                         # Fetch articles using hierarchical strategy
                         fetch_result = await fetcher.fetch_source(source)
+                        rss_parsing_stats = getattr(fetch_result, "rss_parsing_stats", {})
 
                         if fetch_result.success and fetch_result.articles:
                             logger.info(
@@ -651,7 +696,6 @@ def check_source(self, source_identifier: str):
                             )
 
                             # Save deduplicated articles
-                            saved_count = 0
                             if dedup_result.unique_articles:
                                 for article in dedup_result.unique_articles:
                                     try:
@@ -664,6 +708,7 @@ def check_source(self, source_identifier: str):
                             # Log filtering statistics
                             filtered_count = len(dedup_result.duplicates)
                             duplicates_filtered = filtered_count
+                            filter_stats = dedup_result.stats if hasattr(dedup_result, "stats") else {}
 
                             logger.info(f"    - Collected: {len(fetch_result.articles)} articles")
                             logger.info(f"    - Saved: {saved_count} new articles")
@@ -730,6 +775,12 @@ def check_source(self, source_identifier: str):
                                 articles_found=articles_found,
                                 response_time=response_time,
                                 error_message=error_msg,
+                                metadata=_build_collection_check_metadata(
+                                    articles_collected=articles_found,
+                                    articles_saved=saved_count,
+                                    filter_stats=filter_stats,
+                                    rss_parsing_stats=rss_parsing_stats,
+                                ),
                             )
 
                             logger.info(f"Updated source {source.id} health and article count")
@@ -1209,6 +1260,11 @@ def collect_from_source(self, source_id: int):
                     # Track timing for health metrics
                     start_time = time.time()
                     collection_success = False
+                    fetch_result = None
+                    saved_count = 0
+                    filter_stats = {}
+                    rss_parsing_stats = {}
+                    real_articles = []
 
                     try:
                         # Fetch articles using hierarchical strategy
@@ -1253,7 +1309,6 @@ def collect_from_source(self, source_id: int):
                             dedup_result = await processor.process_articles(real_articles, existing_hashes)
 
                             # Save deduplicated articles using sync database manager
-                            saved_count = 0
                             if dedup_result.unique_articles:
                                 # dedup_result.unique_articles are already ArticleCreate objects
                                 # from ContentProcessor with enhanced metadata (including scores)
@@ -1354,6 +1409,12 @@ def collect_from_source(self, source_id: int):
                                 articles_found=articles_found,
                                 response_time=response_time,
                                 error_message=error_msg,
+                                metadata=_build_collection_check_metadata(
+                                    articles_collected=len(real_articles),
+                                    articles_saved=saved_count,
+                                    filter_stats=filter_stats,
+                                    rss_parsing_stats=rss_parsing_stats,
+                                ),
                             )
 
                             logger.info(f"Updated source {source_id} health and article count")

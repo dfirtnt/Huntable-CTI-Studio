@@ -63,6 +63,11 @@ _SKIP_UNSUPPORTED_SETS = (
     "SET idle_in_transaction_session_timeout",
 )
 
+# psql can return 0 after statement-level failures unless ON_ERROR_STOP is set.
+# Keep this narrow to actual server/client error records so NOTICE/WARNING output
+# from a tolerated restore does not fail the run.
+_PSQL_ERROR_RE = re.compile(r"^(?:psql:[^:]+:\d+:\s*)?(ERROR|FATAL|PANIC):\s+", re.IGNORECASE)
+
 
 def rewrite_fk_to_not_valid(line: str) -> str:
     """Append ``NOT VALID`` to single-line FK constraint additions.
@@ -112,13 +117,13 @@ def filter_dump_lines(
     # header and ADD CONSTRAINT body on adjacent lines with no blank line between
     # them, so a two-line look-ahead is sufficient.
     tables_with_pk: set[str] = set()
-    pending_alter_table: str | None = None   # table name being buffered
-    pending_alter_line: str | None = None    # the actual ALTER TABLE line text
+    pending_alter_table: str | None = None  # table name being buffered
+    pending_alter_line: str | None = None  # the actual ALTER TABLE line text
 
     # State for COPY-row deduplication.
     in_copy: bool = False
-    copy_id_col: int | None = None          # 0-based index of the "id" column
-    copy_seen_ids: set[str] = set()         # id values emitted so far for this COPY block
+    copy_id_col: int | None = None  # 0-based index of the "id" column
+    copy_seen_ids: set[str] = set()  # id values emitted so far for this COPY block
 
     for line in lines:
         # --- primary-key dedup state machine ---
@@ -213,6 +218,11 @@ def filter_dump_lines(
         )
         if filtered is not None:
             yield filtered
+
+
+def extract_psql_errors(stderr: str) -> list[str]:
+    """Return psql error lines from captured stderr."""
+    return [line for line in stderr.splitlines() if _PSQL_ERROR_RE.match(line.strip())]
 
 
 def _apply_line_filters(

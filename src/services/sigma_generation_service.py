@@ -541,32 +541,46 @@ class SigmaGenerationService:
                         extraction_result=extraction_result,
                     )
 
-                    expansion_yaml = await self._generate_multi_rules(
-                        sigma_prompt=expansion_prompt,
-                        sigma_system_prompt=sigma_system_prompt,
-                        ai_model=ai_model,
-                        execution_id=execution_id,
-                        article_id=article_id,
-                    )
-
-                    expansion_validation = self._validate_all_rules(expansion_yaml, extraction_result=extraction_result)
-                    # Mark expansion rules with correct phase
-                    for rule in expansion_validation.all_rules:
-                        rule.generation_phase = "expansion"
-
-                    # Repair expansion rules if needed
-                    if expansion_validation.invalid_rules:
-                        expansion_repaired = await self._repair_rules(
-                            invalid_rules=expansion_validation.invalid_rules,
-                            max_repair_attempts_per_rule=max_repair_attempts_per_rule,
+                    # Phase 4 is best-effort: the model may legitimately return nothing
+                    # for an uncovered category (FAIL-SAFE / already-covered observable),
+                    # which surfaces as an empty-response ValueError. That must not discard
+                    # the rules already produced in Phase 1.
+                    try:
+                        expansion_yaml = await self._generate_multi_rules(
+                            sigma_prompt=expansion_prompt,
+                            sigma_system_prompt=sigma_system_prompt,
+                            ai_model=ai_model,
                             execution_id=execution_id,
                             article_id=article_id,
-                            sigma_system_prompt=sigma_system_prompt,
-                            sigma_repair_template=sigma_repair_template,
                         )
-                        expansion_rules = expansion_validation.valid_rules + expansion_repaired
-                    else:
-                        expansion_rules = expansion_validation.valid_rules
+
+                        expansion_validation = self._validate_all_rules(
+                            expansion_yaml, extraction_result=extraction_result
+                        )
+                        # Mark expansion rules with correct phase
+                        for rule in expansion_validation.all_rules:
+                            rule.generation_phase = "expansion"
+
+                        # Repair expansion rules if needed
+                        if expansion_validation.invalid_rules:
+                            expansion_repaired = await self._repair_rules(
+                                invalid_rules=expansion_validation.invalid_rules,
+                                max_repair_attempts_per_rule=max_repair_attempts_per_rule,
+                                execution_id=execution_id,
+                                article_id=article_id,
+                                sigma_system_prompt=sigma_system_prompt,
+                                sigma_repair_template=sigma_repair_template,
+                            )
+                            expansion_rules = expansion_validation.valid_rules + expansion_repaired
+                        else:
+                            expansion_rules = expansion_validation.valid_rules
+                    except Exception as expansion_error:
+                        logger.warning(
+                            f"Phase 4 expansion produced no usable rules ({expansion_error}); "
+                            f"keeping {len(all_valid_rules)} rule(s) from initial generation."
+                        )
+                        expansion_rules = []
+                        expansion_validation = None
 
             # Build final rules list and conversation log
             final_rules = []
@@ -889,6 +903,7 @@ class SigmaGenerationService:
                         execution_id=execution_id,
                         article_id=article_id,
                         system_prompt=sigma_system_prompt,
+                        attempt=attempt + 1,
                     )
 
                     if repaired_yaml is None:
@@ -1065,6 +1080,7 @@ Focus on generating rules for the uncovered categories listed above."""
         execution_id: int | None = None,
         article_id: int | None = None,
         system_prompt: str | None = None,
+        attempt: int | None = None,
     ) -> str:
         raw_model_name = self.llm_service.model_sigma or self.llm_service.provider_defaults.get(
             provider, self.llm_service.lmstudio_model
@@ -1082,14 +1098,24 @@ Focus on generating rules for the uncovered categories listed above."""
         converted_messages = self.llm_service._convert_messages_for_model(messages, model_name)
 
         is_reasoning_model = _is_reasoning_model(provider, model_name)
-        max_tokens = 4000 if is_reasoning_model else 800
+        max_tokens = 10000 if is_reasoning_model else 800
+
+        sigma_metadata: dict[str, Any] = {
+            "agent_name": "generate_sigma",
+            "prompt_length": len(prompt),
+            "max_tokens": max_tokens,
+            "provider": provider,
+            "messages": messages,  # Include messages for input display
+        }
+        if attempt is not None:
+            sigma_metadata["attempt"] = attempt
 
         with trace_llm_call(
             name="generate_sigma",
             model=model_name,
             execution_id=execution_id,
             article_id=article_id,
-            metadata={"prompt_length": len(prompt), "max_tokens": max_tokens, "provider": provider},
+            metadata=sigma_metadata,
         ) as generation:
             try:
                 result = await self.llm_service.request_chat(

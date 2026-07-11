@@ -79,3 +79,20 @@ def test_mcp_server_url_built_flag_false_when_url_explicit(monkeypatch):
         reload(mod)
 
     assert mod._url_built_from_pw is False
+
+
+@pytest.mark.unit
+def test_mcp_server_registers_ambient_context_resources(monkeypatch):
+    """The exported stdio MCP server should expose ambient context resources."""
+    monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://cti_user:explicit@localhost:5432/db")
+    monkeypatch.setenv("POSTGRES_PASSWORD", "pw123")
+
+    mod = import_module("src.huntable_mcp.stdio_server")
+    with _no_dotenv:
+        reload(mod)
+
+    uris = {str(resource.uri) for resource in mod.mcp._resource_manager.list_resources()}
+
+    assert "huntable://sigma-queue/status" in uris
+    assert "huntable://sigma-queue/recent-rules" in uris
+    assert "huntable://workflow/active-config" in uris

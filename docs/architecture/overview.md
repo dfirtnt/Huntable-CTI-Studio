@@ -43,7 +43,7 @@ The runtime stack is composed of:
 
 The main workflow is implemented in `src/workflows/agentic_workflow.py`. The high-level order is:
 
-1. OS detection
+1. Platform Detection
 2. Junk filter
 3. LLM ranking
 4. Extract Agent
@@ -105,4 +105,4 @@ The isolated test stack is defined separately in `docker-compose.test.yml`.
 - [Schemas](../reference/schemas.md)
 - [Agent Orientation](../development/agent-orientation.md)
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-07-04_

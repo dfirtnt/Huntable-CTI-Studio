@@ -484,6 +484,74 @@ class TestGenerateSigmaNode:
         assert execution.error_log["generate_sigma"]["sigma_generation_groups"][1]["platform"] == "linux"
 
     @pytest.mark.asyncio
+    async def test_empty_observables_used_is_inferred_for_grouped_rule(self, article, execution, config_obj):
+        config_obj.agent_prompts = {}
+        config_obj.sigma_fallback_enabled = False
+        db_session = _make_db_session(article, execution)
+        nodes = _capture_nodes(db_session, trigger_service_config=config_obj)
+
+        async def generate_side_effect(*args, **kwargs):
+            return {
+                "rules": [
+                    {
+                        "title": "Suspicious WScript From WhatsApp",
+                        "description": "Detects VBScript launched from WhatsApp transfer storage",
+                        "logsource": {"product": "windows", "category": "process_creation"},
+                        "detection": {
+                            "selection": {"CommandLine|contains|all": ["WhatsAppDesktop", "Transfers", ".vbs"]},
+                            "condition": "selection",
+                        },
+                        "observables_used": [],
+                    }
+                ],
+                "metadata": {
+                    "total_attempts": 1,
+                    "valid_rules": 1,
+                    "validation_results": [{"is_valid": True, "errors": [], "warnings": [], "rule_index": 1}],
+                    "conversation_log": [{"event_type": "generation_call", "generated_rule_count": 1}],
+                },
+                "errors": None,
+            }
+
+        extraction_result = {
+            "observables": [
+                {
+                    "type": "cmdline",
+                    "value": (
+                        '"C:\\Windows\\System32\\WScript.exe" '
+                        '"C:\\Users\\user\\AppData\\Local\\Packages\\5319275A.WhatsAppDesktop_cv1g1gvanyjgm'
+                        '\\LocalState\\Sessions\\abc\\Transfers\\financial reports(s).vbs"'
+                    ),
+                    "platform": "windows",
+                    "telemetry_category": "process_creation",
+                    "logsource_hint": {"product": "windows", "category": "process_creation"},
+                }
+            ],
+            "summary": {"count": 1, "platforms_detected": ["windows"]},
+            "discrete_huntables_count": 1,
+            "content": (
+                "WScript.exe WhatsAppDesktop Transfers financial reports(s).vbs "
+                "was observed executing from the WhatsApp Desktop package LocalState Sessions transfer path."
+            ),
+        }
+
+        with patch("src.services.sigma_generation_service.SigmaGenerationService") as mock_sigma_cls:
+            mock_sigma = Mock()
+            mock_sigma.generate_sigma_rules = AsyncMock(side_effect=generate_side_effect)
+            mock_sigma_cls.return_value = mock_sigma
+
+            result = await nodes["generate_sigma"](
+                _default_state(
+                    filtered_content=article.content,
+                    extraction_result=extraction_result,
+                    discrete_huntables_count=1,
+                )
+            )
+
+        assert result["sigma_rules"][0]["observables_used"] == [0]
+        assert result["sigma_rules"][0]["observables_used_inferred"] is True
+
+    @pytest.mark.asyncio
     async def test_full_content_sigma_fallback_runs_when_no_observables_are_eligible(
         self, article, execution, config_obj
     ):
@@ -554,6 +622,67 @@ class TestGenerateSigmaNode:
         assert (
             execution.error_log["generate_sigma"]["sigma_generation_groups"][0]["telemetry_category"] == "full_content"
         )
+
+    @pytest.mark.asyncio
+    async def test_drops_rule_when_generated_logsource_does_not_match_group(self, article, execution, config_obj):
+        config_obj.agent_prompts = {}
+        config_obj.sigma_fallback_enabled = False
+        db_session = _make_db_session(article, execution)
+        nodes = _capture_nodes(db_session, trigger_service_config=config_obj)
+
+        async def generate_side_effect(*args, **kwargs):
+            return {
+                "rules": [
+                    {
+                        "title": "Defender Disablement From Network Group",
+                        "description": "Wrong telemetry escaped the network group",
+                        "logsource": {"product": "windows", "category": "process_creation"},
+                        "detection": {
+                            "selection": {"CommandLine|contains|all": ["Stop-Service", "WinDefend"]},
+                            "condition": "selection",
+                        },
+                        "observables_used": [0],
+                    }
+                ],
+                "metadata": {
+                    "total_attempts": 1,
+                    "valid_rules": 1,
+                    "validation_results": [{"is_valid": True, "errors": [], "warnings": [], "rule_index": 1}],
+                    "conversation_log": [{"event_type": "generation_call", "generated_rule_count": 1}],
+                },
+                "errors": None,
+            }
+
+        extraction_result = {
+            "observables": [
+                {
+                    "type": "network_indicators",
+                    "value": "hxxp://77.110.122[.]58:24954",
+                    "platform": "windows",
+                    "telemetry_category": "network_connection",
+                    "logsource_hint": {"product": "windows", "category": "network_connection"},
+                }
+            ],
+            "summary": {"count": 1, "platforms_detected": ["windows"]},
+            "discrete_huntables_count": 1,
+            "content": "hxxp://77.110.122[.]58:24954 " + "network indicator context " * 5,
+        }
+
+        with patch("src.services.sigma_generation_service.SigmaGenerationService") as mock_sigma_cls:
+            mock_sigma = Mock()
+            mock_sigma.generate_sigma_rules = AsyncMock(side_effect=generate_side_effect)
+            mock_sigma_cls.return_value = mock_sigma
+
+            result = await nodes["generate_sigma"](
+                _default_state(
+                    filtered_content=article.content,
+                    extraction_result=extraction_result,
+                    discrete_huntables_count=1,
+                )
+            )
+
+        assert result["sigma_rules"] == []
+        assert mock_sigma.generate_sigma_rules.await_count == 1
 
 
 # ---------------------------------------------------------------------------
@@ -694,6 +823,7 @@ class TestQueuePromotionNode:
                     "generation_basis": "process_creation_generic",
                     "detection_readiness": "generic",
                     "logsource_hint": {"product": "linux", "category": "process_creation"},
+                    "observable_attribution_warnings": ["empty_for_observable_group"],
                     "sigma_generation_group": {
                         "platform": "linux",
                         "telemetry_category": "process_creation",
@@ -723,41 +853,19 @@ class TestQueuePromotionNode:
         parsed_yaml = yaml.safe_load(queue_entry.rule_yaml)
         assert "platform" not in parsed_yaml
         assert "sigma_generation_group" not in parsed_yaml
+        assert "observable_attribution_warnings" not in parsed_yaml
         assert queue_entry.rule_metadata["platform"] == "linux"
         assert queue_entry.rule_metadata["sigma_generation_group"]["observable_indices"] == [1]
+        assert queue_entry.rule_metadata["observable_attribution_warnings"] == ["empty_for_observable_group"]
 
 
 # ---------------------------------------------------------------------------
-# Platform Detection node — Domains/Products surfacing (Phase D)
+# Platform Detection node — verdict wiring
 # ---------------------------------------------------------------------------
 
 
-class TestOsDetectionNodeDimensions:
-    """The os_detection node must store domains + products in os_detection_result so the
-    execution API / trace can surface them. The classifiers are unit-tested elsewhere;
-    this locks the node *wiring* (a Playwright spec only renders mocked data)."""
-
-    @pytest.mark.asyncio
-    async def test_os_detection_node_stores_domains_and_products(self, article, execution, config_obj):
-        article.content = (
-            "Linux intrusion: attacker used systemctl and dropped an /etc/cron.d entry for "
-            "persistence; targeted Active Directory and Kerberos, pivoted through an F5 BIG-IP "
-            "edge appliance and exploited Confluence. " + "x" * 600
-        )
-        execution.error_log = None
-        execution.config_snapshot = {}
-        db_session = _make_db_session(article, execution)
-        nodes = _capture_nodes(db_session, trigger_service_config=config_obj)
-
-        with patch("src.workflows.agentic_workflow.flag_modified"):
-            await nodes["os_detection"](_default_state(article_id=1, execution_id=100))
-
-        od = execution.error_log["os_detection_result"]
-        assert od["platforms_detected"] == ["linux"]
-        assert "domains" in od and "products" in od
-        assert "Identity" in od["domains"]
-        assert any("Active Directory" in p for p in od["products"])
-        assert any("F5 BIG-IP" in p for p in od["products"])
+class TestOsDetectionNode:
+    """Locks the os_detection node's verdict wiring into os_detection_result."""
 
     @pytest.mark.asyncio
     async def test_os_detection_node_reuses_precomputed_verdict(self, article, execution, config_obj):

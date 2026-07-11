@@ -62,7 +62,7 @@ DARK_SELECT_TOKENS = (
 
 @pytest.fixture(scope="module")
 def jinja_env() -> Environment:
-    return Environment(loader=FileSystemLoader(str(TEMPLATE_DIR)))
+    return Environment(loader=FileSystemLoader(str(TEMPLATE_DIR)), autoescape=True)
 
 
 @pytest.fixture(scope="module")

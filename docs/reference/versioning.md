@@ -13,9 +13,9 @@ Huntable CTI Studio uses a combination of semantic versioning and planetary moon
 
 ## Current Version
 
-**v7.5.0 "Europa"** - Current stable release
-**v7.4.1 "Europa"** - Previous stable release
-**v7.4.0 "Europa"** - Earlier stable release
+**v7.6.0 "Europa"** - Current stable release
+**v7.5.0 "Europa"** - Previous stable release
+**v7.4.1 "Europa"** - Earlier stable release
 
 ## Planetary Moon Naming System
 
@@ -46,15 +46,26 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 - Callisto (v5.0 - v5.3)
 - Ganymede (v5.2)
 - Io (v6.0 - v6.2)
-- Europa (v7.0 - v7.2)
+- Europa (v7.0 - v7.5)
 
 ## Version History
 
-### v7.5.0 "Europa" (2026-06-22)
-<!-- TODO: fill Significance and Features before merging to main; pull content from docs/CHANGELOG.md [7.5.0] section. -->
+### v7.6.0 "Europa" (2026-07-10)
+<!-- TODO: fill Significance and Features before merging to main; pull content from docs/CHANGELOG.md [7.6.0] section. -->
 - **Named After**: <fill>
 - **Significance**: <fill>
 - **Features**: <fill>
+
+### v7.5.0 "Europa" (2026-06-22)
+- **Named After**: Europa, one of Jupiter's four Galilean moons; minor release continues the Europa codename
+- **Significance**: Platform Telemetry Expansion phase one — the agentic workflow is no longer Windows-only. Entity-driven platform classification replaces the embedding OS detector, Linux articles generate reviewable Sigma, and the keyword/platform registry becomes the single scoring source of truth
+- **Features**:
+    - Platform-aware extractor routing: Platform Detection (renamed from OS Detection) returns platform context instead of a hard gate; Windows-only extractors (RegistryExtract/ServicesExtract/ScheduledTasksExtract) are skipped on non-Windows evidence with structured reason records; every observable carries platform + telemetry metadata
+    - Entity-driven platform classification: deterministic keyword-registry gate + LLM adjudicator for the low-confidence tail + reinforce-only ATT&CK technique signal; CTI-BERT/SEC-BERT embedding decider retired and its dead config removed end-to-end
+    - Linux-aware Sigma generation guidance (additive per-platform prompt block) with per-platform/logsource rule groups and platform badges in the review queue
+    - Unified keyword/platform scoring: `config/keyword_registry.yaml` (591 faceted entries) now derives `HUNT_SCORING_KEYWORDS`; hunt scoring made platform-complete with macOS/Linux perfect discriminators (perfect 92→114, good 89→94)
+    - Server-side image OCR during article ingest (Tesseract, SSRF-guarded, enabled by default via `OCR_INGEST_ENABLED=true` in `docker-compose.yml` + per-source override flag)
+    - Security dependency bumps: starlette 1.3.1, pydantic-settings 2.14.2, pypdf 6.13.3, langsmith 0.8.18, pip 26.1.2, msgpack 1.2.1
 
 ### v7.4.1 "Europa" (2026-06-14)
 - **Named After**: Europa, one of Jupiter's four Galilean moons; patch release continues the Europa codename
@@ -167,4 +178,4 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 ### v4.0.0 "Kepler" (2025-11-04)
 - **Named After**: Johannes Kepler, known for planetary motion laws
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-07-04_

@@ -341,6 +341,59 @@ test.describe('Collapsible Sections', () => {
       await expect(contentA).toBeVisible();
       await expect(contentB).toHaveClass(/hidden/);
     });
+
+    // Regression: scrollToStep() used section.offsetTop, whose offsetParent is
+    // <body> (#config-content is not positioned), so every rail click overshot
+    // by the page-header height — tall panels scrolled past their header, short
+    // panels clamped at max-scroll partway down. Pre-fix, the offsets measured
+    // here ranged from -272px to +305px against the 16px design inset.
+    const railItem = (page: import('@playwright/test').Page, n: number) =>
+      page.locator('.rail-item').filter({ has: page.locator('.rail-node', { hasText: String(n) }) });
+
+    const measureStepAlignment = (page: import('@playwright/test').Page, n: number) =>
+      page.evaluate((idx) => {
+        const content = document.getElementById('config-content')!;
+        const section = document.getElementById(`s${idx}`)!;
+        const spacer = document.getElementById('config-scroll-spacer');
+        return {
+          headerOffset: Math.round(section.getBoundingClientRect().top - content.getBoundingClientRect().top),
+          spacerPx: spacer ? Math.round(spacer.getBoundingClientRect().height) : -1,
+          scrollTop: Math.round(content.scrollTop),
+          maxScroll: Math.round(content.scrollHeight - content.clientHeight),
+        };
+      }, n);
+
+    test('rail nav scrolls the clicked step header to the container top, never past it', async ({ page }) => {
+      for (let n = 0; n <= 5; n++) {
+        await railItem(page, n).click();
+        await page.waitForTimeout(100); // scroll is instant; small settle for click dispatch
+        const m = await measureStepAlignment(page, n);
+
+        // At the visible top: 16px design inset, small tolerance. Negative = scrolled past.
+        expect(m.headerOffset, `step ${n} header offset`).toBeGreaterThanOrEqual(0);
+        expect(m.headerOffset, `step ${n} header offset`).toBeLessThanOrEqual(24);
+
+        // Spacer contract: it tops up the scroll range exactly — when it is in
+        // play the container is scrolled to its max, i.e. no gratuitous void.
+        expect(m.spacerPx, `step ${n} spacer present`).toBeGreaterThanOrEqual(0);
+        if (m.spacerPx > 0) {
+          expect(Math.abs(m.scrollTop - m.maxScroll), `step ${n} spacer sized exactly`).toBeLessThanOrEqual(1);
+        }
+      }
+    });
+
+    test('rail nav alignment is stable across mixed and repeated clicks', async ({ page }) => {
+      // Mixed order plus a repeat click — pre-fix the landing position depended
+      // on the previously open section (stale geometry), and repeat clicks were
+      // not idempotent.
+      for (const n of [5, 2, 0, 3, 3, 1]) {
+        await railItem(page, n).click();
+        await page.waitForTimeout(100);
+        const m = await measureStepAlignment(page, n);
+        expect(m.headerOffset, `step ${n} header offset (mixed order)`).toBeGreaterThanOrEqual(0);
+        expect(m.headerOffset, `step ${n} header offset (mixed order)`).toBeLessThanOrEqual(24);
+      }
+    });
   });
 });
 

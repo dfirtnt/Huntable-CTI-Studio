@@ -493,15 +493,28 @@ document.addEventListener('DOMContentLoaded', loadHuntMetrics);
 function renderSourcePerformanceChart(data) {
     const ctx = document.getElementById('sourcePerformanceChart').getContext('2d');
     new Chart(ctx, {
-        type: 'bar',
         data: {
             labels: data.labels || [],
             datasets: [{
+                type: 'bar',
                 label: 'Avg Hunt Score',
                 data: data.values || [],
                 backgroundColor: getThemeColor('--chart-blue-fill') || 'rgba(59, 130, 246, 0.6)',
                 borderColor: getThemeColor('--action-info') || 'rgb(59, 130, 246)',
-                borderWidth: 1
+                borderWidth: 1,
+                order: 2
+            }, {
+                type: 'line',
+                label: 'Median Hunt Score',
+                data: data.medians || [],
+                borderColor: getThemeColor('--action-warning') || '#eab308',
+                backgroundColor: getThemeColor('--action-warning') || '#eab308',
+                borderWidth: 2,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                fill: false,
+                tension: 0,
+                order: 1
             }]
         },
         options: {

@@ -126,7 +126,7 @@ AGENT_DISPLAY_NAMES: dict[str, str] = {
     "RankAgent": "Rank Agent",
     "ExtractAgent": "Extract Agent",
     "SigmaAgent": "SIGMA Agent",
-    "OSDetectionAgent": "OS Detection",
+    "OSDetectionAgent": "Platform Detection",
     "CmdlineExtract": "Command Line Extraction",
     "ProcTreeExtract": "Process Lineage Extraction",
     "HuntQueriesExtract": "Hunt Queries Extraction",

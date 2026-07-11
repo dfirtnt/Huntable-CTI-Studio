@@ -37,14 +37,18 @@ from src.services.sigma_eval_service import (
     mark_pending_sigma_evals_as_failed,
     score_and_persist_execution,
 )
+from src.services.sigma_generation_service import _infer_observables_used
 from src.services.sigma_matching_service import SigmaMatchingService
 from src.services.workflow_provider_options import _probe_lmstudio
 from src.services.workflow_trigger_service import WorkflowTriggerService
 from src.utils.content_filter import ContentFilter
 from src.utils.langfuse_client import (
     get_active_trace_id,
+    log_llm_completion,
+    log_llm_error,
     log_workflow_step,
     score_langfuse_trace,
+    trace_llm_call,
     trace_workflow_execution,
 )
 from src.utils.subagent_utils import build_subagent_lookup_values, normalize_subagent_name
@@ -444,6 +448,154 @@ def _rebase_group_observable_indices(rule: dict[str, Any], original_indices: lis
         if isinstance(idx, int) and 0 <= idx < len(original_indices):
             rebased.append(original_indices[idx])
     rule["observables_used"] = rebased
+
+
+def _logsource_key(rule: dict[str, Any]) -> tuple[str, str]:
+    """Return (category, product) logsource key for a rule dict."""
+    ls = rule.get("logsource") or {}
+    if not isinstance(ls, dict):
+        return ("", "")
+    return (str(ls.get("category") or ""), str(ls.get("product") or ""))
+
+
+def _rule_logsource_matches_group(rule: dict[str, Any], group: dict[str, Any]) -> bool:
+    """Return False when a generated rule crossed out of its Sigma generation group."""
+    if group.get("telemetry_category") == "full_content":
+        return True
+
+    hint = group.get("logsource_hint") or {}
+    if not isinstance(hint, dict):
+        return True
+
+    expected_category = str(hint.get("category") or "").strip().lower()
+    expected_product = str(hint.get("product") or "").strip().lower()
+    if not expected_category and not expected_product:
+        return True
+
+    logsource = rule.get("logsource") or {}
+    if not isinstance(logsource, dict):
+        return False
+
+    actual_category = str(logsource.get("category") or "").strip().lower()
+    actual_product = str(logsource.get("product") or "").strip().lower()
+    if expected_category and actual_category != expected_category:
+        return False
+    if expected_product and actual_product != expected_product:
+        return False
+    return True
+
+
+def _metadata_without_grounding_fields(rule: dict[str, Any]) -> dict[str, Any]:
+    grounding_fields = {
+        "observables_used",
+        "observables_used_inferred",
+        "platform",
+        "telemetry_category",
+        "generation_basis",
+        "detection_readiness",
+        "logsource_hint",
+        "sigma_generation_group",
+        "observable_attribution_warnings",
+    }
+    return {k: v for k, v in rule.items() if k not in grounding_fields}
+
+
+def _append_observable_attribution_warning(rule: dict[str, Any], warning: str) -> None:
+    warnings = rule.setdefault("observable_attribution_warnings", [])
+    if isinstance(warnings, list) and warning not in warnings:
+        warnings.append(warning)
+
+
+def _repair_empty_observable_attribution(
+    rule: dict[str, Any],
+    *,
+    extraction_result: dict[str, Any] | None,
+    group_original_indices: list[int],
+    group_logsource_hint: dict[str, Any] | None,
+) -> None:
+    """Recover traceability when a grouped Sigma rule explicitly returned observables_used: []."""
+    rule_logsource = rule.get("logsource") if isinstance(rule.get("logsource"), dict) else {}
+    rule_category = rule_logsource.get("category")
+    group_category = group_logsource_hint.get("category") if isinstance(group_logsource_hint, dict) else None
+    if rule_category and group_category and rule_category != group_category:
+        _append_observable_attribution_warning(rule, "logsource_mismatch")
+
+    if rule.get("observables_used") != [] or not group_original_indices:
+        return
+
+    inferred = _infer_observables_used(yaml.dump(_metadata_without_grounding_fields(rule)), extraction_result or {})
+    if inferred:
+        rule["observables_used"] = inferred
+        rule["observables_used_inferred"] = True
+        return
+
+    _append_observable_attribution_warning(rule, "empty_for_observable_group")
+
+
+def _detection_leaf_values(detection: Any) -> frozenset[str]:
+    """Collect all scalar string values from a detection block for overlap comparison."""
+    values: set[str] = set()
+    if isinstance(detection, dict):
+        for v in detection.values():
+            values |= _detection_leaf_values(v)
+    elif isinstance(detection, list):
+        for item in detection:
+            values |= _detection_leaf_values(item)
+    elif isinstance(detection, str) and detection not in ("selection", "condition", "all of them", "any of them"):
+        values.add(detection.lower())
+    return frozenset(values)
+
+
+def _deduplicate_batch_rules(rules: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Drop intra-batch duplicate rules before similarity search.
+
+    Two rules are considered duplicates when they share the same logsource
+    (category + product) AND their detection leaf-value sets overlap by ≥ 80%.
+    The rule retained is the one with MORE detection conditions (more specific);
+    ties keep the first occurrence. Dropped rules are logged at WARNING level.
+    """
+    if len(rules) <= 1:
+        return rules
+
+    kept: list[dict[str, Any]] = []
+    for candidate in rules:
+        ls_key = _logsource_key(candidate)
+        cand_values = _detection_leaf_values(candidate.get("detection"))
+        is_dup = False
+        for existing in kept:
+            if _logsource_key(existing) != ls_key:
+                continue
+            existing_values = _detection_leaf_values(existing.get("detection"))
+            union = cand_values | existing_values
+            if not union:
+                continue
+            overlap = len(cand_values & existing_values) / len(union)
+            if overlap >= 0.8:
+                # Keep the rule with more detection conditions (higher specificity)
+                cand_cond_count = len(cand_values)
+                existing_cond_count = len(existing_values)
+                if cand_cond_count > existing_cond_count:
+                    # Swap: candidate is more specific, replace existing in kept
+                    kept[kept.index(existing)] = candidate
+                    logger.warning(
+                        "intra-batch dedup: dropped '%s' (%.0f%% overlap with '%s', less specific)",
+                        existing.get("title"),
+                        overlap * 100,
+                        candidate.get("title"),
+                    )
+                else:
+                    logger.warning(
+                        "intra-batch dedup: dropped '%s' (%.0f%% overlap with '%s', less specific)",
+                        candidate.get("title"),
+                        overlap * 100,
+                        existing.get("title"),
+                    )
+                is_dup = True
+                break
+        if not is_dup:
+            kept.append(candidate)
+
+    return kept
 
 
 _INFRA_FAILURE_RE = re.compile(
@@ -1067,17 +1219,45 @@ async def _maybe_adjudicate_platform(
         llm_service = LLMService(config_models=models)
 
         async def _adj_call(messages: list[dict]) -> str:
-            resp = await llm_service.request_chat(
-                provider=provider,
-                model_name=model_name,
-                messages=messages,
-                max_tokens=400,
-                temperature=0.0,
-                timeout=60.0,
-                failure_context="platform_adjudication",
-            )
-            choices = resp.get("choices", []) if isinstance(resp, dict) else []
-            return choices[0].get("message", {}).get("content", "") if choices else ""
+            with trace_llm_call(
+                name="platform_adjudication",
+                model=model_name,
+                execution_id=execution_id,
+                metadata={
+                    "agent_name": "platform_adjudication",
+                    "prompt_length": sum(len(m.get("content", "")) for m in messages),
+                    "messages": messages,
+                },
+            ) as generation:
+                try:
+                    resp = await llm_service.request_chat(
+                        provider=provider,
+                        model_name=model_name,
+                        messages=messages,
+                        max_tokens=400,
+                        temperature=0.0,
+                        timeout=60.0,
+                        failure_context="platform_adjudication",
+                    )
+                    choices = resp.get("choices", []) if isinstance(resp, dict) else []
+                    content = choices[0].get("message", {}).get("content", "") if choices else ""
+
+                    usage = resp.get("usage", {}) if isinstance(resp, dict) else {}
+                    log_llm_completion(
+                        generation,
+                        input_messages=messages,
+                        output=content,
+                        usage={
+                            "prompt_tokens": usage.get("prompt_tokens", 0),
+                            "completion_tokens": usage.get("completion_tokens", 0),
+                            "total_tokens": usage.get("total_tokens", 0),
+                        },
+                    )
+                    return content
+                except Exception as e:
+                    if generation:
+                        log_llm_error(generation, e)
+                    raise
 
         adj = await adjudicate_platforms(content, llm_call=_adj_call, system_prompt=os_detection_prompt)
         if adj.platforms:
@@ -1180,7 +1360,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 service = OSDetectionService()
                 os_result = await service.detect_os(
                     content=content,
-                    use_classifier=True,
                     precomputed=precomputed_os,
                 )
                 detected_os = os_result.get("operating_system", "Unknown") if os_result else "Unknown"
@@ -1228,20 +1407,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             termination_reason = state.get("termination_reason")
             termination_details = state.get("termination_details")
 
-            # Phase D: Domains + Products dimensions (deterministic entity KBs; free).
-            # Stored alongside platform detection for API/trace surfacing.
-            try:
-                from src.services.entity_dimension_classifier import (
-                    classify_domains,
-                    classify_named_products,
-                )
-
-                detected_domains = classify_domains(content).labels
-                detected_products = [p["product"] for p in classify_named_products(content)]
-            except Exception as e:  # pragma: no cover - defensive
-                logger.warning(f"[Workflow {state['execution_id']}] Domain/product classification skipped: {e}")
-                detected_domains, detected_products = [], []
-
             if execution:
                 execution.current_step = "os_detection"
                 if execution.error_log is None:
@@ -1249,8 +1414,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 execution.error_log["os_detection_result"] = {
                     "detected_os": detected_os,
                     "platforms_detected": platforms_detected,
-                    "domains": detected_domains,
-                    "products": detected_products,
                     "detection_method": os_result.get("method"),
                     "confidence": os_result.get("confidence"),
                     "similarities": os_result.get("similarities"),
@@ -2677,7 +2840,20 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 for rule in group_rules:
                     if not isinstance(rule, dict):
                         continue
+                    if not _rule_logsource_matches_group(rule, group):
+                        logger.warning(
+                            f"[Workflow {state['execution_id']}] Dropping SIGMA rule {rule.get('title')!r}: "
+                            f"logsource {rule.get('logsource')} does not match generation group "
+                            f"{group.get('logsource_hint')}"
+                        )
+                        continue
                     _rebase_group_observable_indices(rule, group["original_indices"])
+                    _repair_empty_observable_attribution(
+                        rule,
+                        extraction_result=extraction_result,
+                        group_original_indices=group["original_indices"],
+                        group_logsource_hint=group["logsource_hint"],
+                    )
                     rule.setdefault("platform", group["platform"])
                     rule.setdefault("telemetry_category", group["telemetry_category"])
                     rule.setdefault("logsource_hint", group["logsource_hint"])
@@ -2723,6 +2899,18 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 )
 
             sigma_errors = "; ".join(group_errors) if group_errors and not sigma_rules else None
+
+            # Drop intra-batch duplicates before similarity search. The similarity
+            # search only compares against the existing rule library — it never sees
+            # sibling rules generated in the same batch, so near-identical rules
+            # produced by multiple generation groups would all score as "novel".
+            pre_dedup_count = len(sigma_rules)
+            sigma_rules = _deduplicate_batch_rules(sigma_rules)
+            if len(sigma_rules) < pre_dedup_count:
+                logger.info(
+                    f"[Workflow {state['execution_id']}] intra-batch dedup: {pre_dedup_count} → {len(sigma_rules)} rules"
+                )
+
             sigma_metadata = {
                 "total_attempts": total_attempts,
                 "valid_rules": valid_rules,
@@ -3147,6 +3335,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                                 "detection_readiness",
                                 "logsource_hint",
                                 "sigma_generation_group",
+                                "observable_attribution_warnings",
                             }
                             rule_for_yaml = {k: v for k, v in rule.items() if k not in non_sigma_metadata_fields}
                             rule_yaml = yaml.dump(rule_for_yaml, default_flow_style=False, sort_keys=False)
@@ -3183,6 +3372,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                                 "detection_readiness",
                                 "logsource_hint",
                                 "sigma_generation_group",
+                                "observable_attribution_warnings",
                             ):
                                 if rule.get(metadata_key) is not None:
                                     rule_meta[metadata_key] = rule[metadata_key]

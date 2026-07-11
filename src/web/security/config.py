@@ -6,6 +6,7 @@ variables. No FastAPI imports here so it stays trivially unit-testable.
 
 from __future__ import annotations
 
+import ipaddress
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -34,6 +35,39 @@ def _as_bool(raw: str | None) -> bool:
     return (raw or "").strip().lower() in ("1", "true", "yes")
 
 
+def _normalize_csrf_mode(raw: str | None) -> str:
+    """Normalize CSRF_ENABLED into one of: auto, true, false."""
+    value = (raw or "auto").strip().lower()
+    if value in ("1", "true", "yes", "on"):
+        return "true"
+    if value in ("0", "false", "no", "off"):
+        return "false"
+    return "auto"
+
+
+# Values that must never be accepted as a real SECRET_KEY in production.
+_INSECURE_SECRET_DEFAULTS = frozenset(
+    {
+        "",
+        "change-me",
+        "changeme",
+        "secret",
+        "dev",
+        "development",
+        "test",
+        "your-secret-key-here",
+        "your-secret-key",
+    }
+)
+
+
+def _secret_is_insecure(secret_key: str) -> bool:
+    value = (secret_key or "").strip()
+    if value.lower() in _INSECURE_SECRET_DEFAULTS:
+        return True
+    return len(value) < 16
+
+
 # role name -> env var holding the comma-separated IdP group list that grants it
 _ROLE_ENV = {
     "admin": "AUTH_ADMIN_GROUPS",
@@ -57,6 +91,9 @@ class SecurityConfig:
     email_header: str
     name_header: str
     groups_header: str
+    secret_key: str = ""
+    csrf_mode: str = "auto"  # auto | true | false
+    allow_insecure_prod_trusted_proxy_open: bool = False
     group_role_map: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
 
     @property
@@ -66,6 +103,20 @@ class SecurityConfig:
     @property
     def auth_enabled(self) -> bool:
         return self.auth_mode is not AuthMode.DISABLED
+
+    @property
+    def csrf_active(self) -> bool:
+        """Whether CSRF protection is active for this configuration.
+
+        ``auto`` (the default) activates CSRF whenever auth is enabled, on the
+        assumption that the upstream proxy authenticates the browser with
+        cookies. Bearer/cookieless deployments set ``CSRF_ENABLED=false``.
+        """
+        if self.csrf_mode == "true":
+            return True
+        if self.csrf_mode == "false":
+            return False
+        return self.auth_enabled
 
 
 def load_security_config(env: Mapping[str, str] | None = None) -> SecurityConfig:
@@ -87,6 +138,7 @@ def load_security_config(env: Mapping[str, str] | None = None) -> SecurityConfig
         app_env=e.get("APP_ENV", "development"),
         auth_mode=auth_mode,
         allow_insecure_prod_auth_disabled=_as_bool(e.get("ALLOW_INSECURE_PRODUCTION_AUTH_DISABLED")),
+        allow_insecure_prod_trusted_proxy_open=_as_bool(e.get("ALLOW_INSECURE_PRODUCTION_TRUSTED_PROXY_OPEN")),
         trusted_hosts=_split_csv(e.get("TRUSTED_HOSTS", "localhost,127.0.0.1")),
         cors_allowed_origins=_split_csv(e.get("CORS_ALLOWED_ORIGINS", "http://localhost:8001")),
         trusted_proxy_header=e.get("AUTH_TRUSTED_PROXY_HEADER", "X-Huntable-Verified"),
@@ -96,6 +148,8 @@ def load_security_config(env: Mapping[str, str] | None = None) -> SecurityConfig
         email_header=e.get("AUTH_EMAIL_HEADER", "X-Huntable-Email"),
         name_header=e.get("AUTH_NAME_HEADER", "X-Huntable-Name"),
         groups_header=e.get("AUTH_GROUPS_HEADER", "X-Huntable-Groups"),
+        secret_key=e.get("SECRET_KEY", ""),
+        csrf_mode=_normalize_csrf_mode(e.get("CSRF_ENABLED")),
         group_role_map=group_role_map,
     )
     _validate(cfg)
@@ -110,7 +164,36 @@ def _validate(cfg: SecurityConfig) -> None:
             "AUTH_MODE=disabled is not allowed in production. Set AUTH_MODE=trusted_header, "
             "or set ALLOW_INSECURE_PRODUCTION_AUTH_DISABLED=true to override."
         )
+    if (
+        cfg.auth_mode is AuthMode.TRUSTED_HEADER
+        and not cfg.trusted_proxy_ips
+        and not cfg.allow_insecure_prod_trusted_proxy_open
+    ):
+        # SRF-1: an empty allowlist makes parse_trusted_identity() trust the
+        # identity headers from ANY peer, so a direct client can forge admin.
+        raise InsecureConfigError(
+            "AUTH_TRUSTED_PROXY_IPS must be set when AUTH_MODE=trusted_header in production; "
+            "an empty allowlist accepts identity headers from any peer. Set the reverse proxy "
+            "IP(s), or set ALLOW_INSECURE_PRODUCTION_TRUSTED_PROXY_OPEN=true only when direct "
+            "access to the app is blocked at the network level."
+        )
+    for peer_ip in cfg.trusted_proxy_ips:
+        try:
+            ipaddress.ip_address(peer_ip)
+        except ValueError:
+            # Entries are matched exactly against the TCP peer IP; a wildcard or
+            # CIDR entry can never match and would silently deny every request.
+            raise InsecureConfigError(
+                f"AUTH_TRUSTED_PROXY_IPS entry {peer_ip!r} is not a literal IP address. "
+                "Wildcards and CIDR ranges are not supported; list each proxy IP exactly."
+            ) from None
     if WILDCARD in cfg.trusted_hosts:
         raise InsecureConfigError("Wildcard TRUSTED_HOSTS is not allowed in production.")
     if WILDCARD in cfg.cors_allowed_origins:
         raise InsecureConfigError("Wildcard CORS_ALLOWED_ORIGINS is not allowed in production.")
+    if cfg.csrf_active and _secret_is_insecure(cfg.secret_key):
+        raise InsecureConfigError(
+            "SECRET_KEY must be set to a strong, non-default value (>=16 chars) when CSRF is "
+            "active in production. Set a real SECRET_KEY, or set CSRF_ENABLED=false for a "
+            "documented bearer-only/cookieless deployment."
+        )

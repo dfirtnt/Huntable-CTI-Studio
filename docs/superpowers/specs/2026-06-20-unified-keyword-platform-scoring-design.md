@@ -112,7 +112,6 @@ already happens, from a single platform-tagged keyword source of truth.
 | `keyword_resolution` | `src/utils/keyword_resolution.py` | display/highlight layer | per-article matched-keyword metadata |
 | `PlatformClassifier` | `src/services/platform_classifier.py` | OS verdict (argmax + margin + evidence floor) | `config/platform_classification_kb.yaml` |
 | `attack_platform_signal` | `src/services/attack_platform_signal.py` | ATT&CK technique → platform reinforcement | `config/attack_technique_platforms.json` |
-| `entity_dimension_classifier` | `src/services/entity_dimension_classifier.py` | Domains/Products (separate axes) | domain/product KBs |
 
 Gates (defaults): `min_hunt_score` 97.0, `junk_filter_threshold` 0.8, `ranking_threshold` 6.0.
 Hunt score is computed **at ingest**; OS detection runs **inside the workflow**, post-gate.

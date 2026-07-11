@@ -58,8 +58,10 @@ reinforcement run on top of the deterministic verdict either way.
 ## Configuration
 
 Platform Detection is **deterministic** — there is no model to configure. The Workflow Config UI
-exposes only the (currently single-OS) target-OS selection; the former embedding-model dropdown was
-removed (2026-06-22).
+shows only an informational label for Platform Detection; the OS selection checkboxes and the
+former embedding-model dropdown were both removed (2026-06-22). Detection is always multi-platform
+and the checkboxes were never wired to the detector. The underlying config key
+`OSDetectionAgent_selected_os` is retained in the schema but is no longer user-settable via the UI.
 
 ## Storage
 
@@ -75,7 +77,7 @@ removed (2026-06-22).
 | Code | Condition |
 |---|---|
 | `422 no_huntable_content` | Content filter found no huntable chunks; LLM is not called |
-| `422 article_not_found` | Article ID does not exist |
+| `404` | Article ID does not exist |
 
 ## Programmatic Usage
 
@@ -101,40 +103,12 @@ record = build_os_classification(content)      # compact dict stored in article_
 - Registry/keyword scan: < 5 ms (no model load).
 - LLM adjudication: only on the low-confidence/Unknown tail.
 
-## Huntable Windows Classifier
-
-A separate binary classifier answers: "Does this article contain Windows-based huntables?" —
-independent of Platform Detection, and **does** still use CTI-BERT embeddings
-(`huntable_windows_service`).
-
-### Approach
-
-Hybrid model combining keyword features and CTI-BERT embeddings:
-
-| Feature group | Dimensions | Source |
-|---|---|---|
-| LOLBAS counts, perfect/good keyword counts | 3 | Article metadata |
-| Key LOLBAS binary indicators (8 executables) | 8 | Article content |
-| CTI-BERT embeddings | 768 | First 2000 chars of content |
-| **Total** | **779** | |
-
-Labels are derived from LOLBAS keyword matches (ground truth): positive = ≥ 1 LOLBAS match.
-
-### Training
-
-```bash
-bash scripts/train_huntable_windows_workflow.sh
-```
-
-Train on **raw content** (no filtering): more samples, LOLBAS keyword features anchor the model
-regardless of content-filtering level.
-
 ## Related Files
 
-- `src/services/os_detection_service.py` — `detect_os` (entity-driven; embedding infra retained only for the Huntable-Windows classifier/trainer)
+- `src/services/os_detection_service.py` — `detect_os` (entity-driven)
 - `src/services/platform_classifier.py` — `PlatformClassifier` engine (entries = registry platform vocabulary)
 - `src/utils/keyword_registry.py` — `project_platform` / `build_os_classification`; the faceted registry is the single platform vocabulary
 - `src/services/attack_platform_signal.py` + `config/attack_technique_platforms.json` — ATT&CK reinforcement
 - `src/services/platform_adjudicator.py` — LLM adjudication for the low-confidence tail
 
-_Last updated: 2026-06-22_
+_Last updated: 2026-07-06_

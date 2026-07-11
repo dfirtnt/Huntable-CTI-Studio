@@ -4,6 +4,7 @@ API routes for agentic workflow execution monitoring.
 
 import asyncio
 import contextlib
+import io
 import json
 import logging
 from datetime import datetime, timedelta
@@ -17,13 +18,46 @@ from sqlalchemy.orm import Session, defer, joinedload
 
 from src.database.manager import DatabaseManager
 from src.database.models import AgenticWorkflowExecutionTable, AppSettingsTable, ArticleTable
-from src.services.eval_bundle_service import EvalBundleService
+from src.services.audit_service import (
+    ACTION_WORKFLOW_CANCELLED,
+    ACTION_WORKFLOW_RETRIED,
+    ACTION_WORKFLOW_STALE_CLEANUP_REQUESTED,
+    ACTION_WORKFLOW_TRIGGERED,
+    STATUS_SUCCESS,
+    AuditEvent,
+    AuditService,
+    build_actor_context,
+    initiating_actor_metadata,
+)
+from src.services.eval_bundle_service import EvalBundleService, compute_sha256_json
 from src.utils.langfuse_client import get_langfuse_trace_id_for_session
 from src.workflows.status_utils import extract_termination_info
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/workflow", tags=["workflow"])
+
+
+def _workflow_audit_event(
+    request: Request,
+    action: str,
+    target_id: int | None,
+    summary: str,
+    metadata: dict[str, Any] | None = None,
+    *,
+    status: str = STATUS_SUCCESS,
+) -> AuditEvent:
+    """Build a workflow audit event with actor context from the request identity."""
+    return AuditEvent(
+        action=action,
+        target_type="workflow_execution",
+        target_id=str(target_id) if target_id is not None else None,
+        status=status,
+        summary=summary,
+        actor=build_actor_context(getattr(request.state, "identity", None), request),
+        metadata=metadata or {},
+    )
+
 
 # Singleton DatabaseManager instance to prevent connection pool exhaustion
 _db_manager: DatabaseManager | None = None
@@ -208,6 +242,169 @@ class ExecutionDetailResponse(ExecutionResponse):
     queued_rule_ids: list[int] | None = None  # IDs of queued rules for linking
     article_content: str | None = None  # Full article content for showing inputs
     article_content_preview: str | None = None  # Preview (first 500 chars)
+
+
+def _to_local_iso(dt: datetime | None) -> str | None:
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        # Convert to local time and remove timezone info
+        return dt.astimezone().replace(tzinfo=None).isoformat()
+    # Already naive, assume it's in local time
+    return dt.isoformat()
+
+
+def _response_to_dict(response: BaseModel) -> dict[str, Any]:
+    if hasattr(response, "model_dump"):
+        return response.model_dump()
+    return response.dict()
+
+
+def _build_execution_detail_response(
+    db_session: Session,
+    execution_id: int,
+) -> ExecutionDetailResponse:
+    """Build the execution detail payload used by the UI and trace export."""
+    execution = (
+        db_session.query(AgenticWorkflowExecutionTable).filter(AgenticWorkflowExecutionTable.id == execution_id).first()
+    )
+
+    if not execution:
+        raise HTTPException(status_code=404, detail="Workflow execution not found")
+
+    # Explicitly expire and refresh to bypass any session cache
+    db_session.expire(execution)
+    db_session.refresh(execution)
+
+    article = db_session.query(ArticleTable).filter(ArticleTable.id == execution.article_id).first()
+
+    from src.database.models import SigmaRuleQueueTable
+
+    queued_rules = (
+        db_session.query(SigmaRuleQueueTable).filter(SigmaRuleQueueTable.workflow_execution_id == execution.id).all()
+    )
+    queued_count = len(queued_rules)
+    queued_rule_ids = [rule.id for rule in queued_rules]
+
+    article_content = article.content if article else None
+    article_content_preview = (
+        article_content[:500] + "..." if article_content and len(article_content) > 500 else article_content
+    )
+    term_reason, term_details = extract_termination_info(execution.error_log)
+
+    return ExecutionDetailResponse(
+        id=execution.id,
+        article_id=execution.article_id,
+        article_title=article.title if article else None,
+        article_url=article.canonical_url if article else None,
+        status=execution.status,
+        current_step=execution.current_step,
+        ranking_score=execution.ranking_score,
+        ranking_reasoning=execution.ranking_reasoning,
+        config_snapshot=execution.config_snapshot,
+        error_message=execution.error_message,
+        retry_count=execution.retry_count,
+        started_at=_to_local_iso(execution.started_at),
+        completed_at=_to_local_iso(execution.completed_at),
+        created_at=_to_local_iso(execution.created_at),
+        updated_at=_to_local_iso(execution.updated_at),
+        junk_filter_result=execution.junk_filter_result,
+        extraction_result=execution.extraction_result,
+        sigma_rules=execution.sigma_rules,
+        similarity_results=execution.similarity_results,
+        error_log=execution.error_log,
+        queued_rules_count=queued_count,
+        queued_rule_ids=queued_rule_ids,
+        article_content=article_content,
+        article_content_preview=article_content_preview,
+        termination_reason=term_reason,
+        termination_details=term_details,
+        extraction_counts=calculate_extraction_counts(execution.extraction_result),
+    )
+
+
+_EXTRACT_BUNDLE_AGENTS = {
+    "CmdlineExtract",
+    "ProcTreeExtract",
+    "HuntQueriesExtract",
+    "RegistryExtract",
+    "ServicesExtract",
+    "ScheduledTasksExtract",
+    "NetworkIndicatorExtract",
+}
+
+
+def _detect_eval_bundle_agents(error_log: dict[str, Any] | None) -> list[str]:
+    """Return bundle-capable agents present in a workflow error_log."""
+    if not isinstance(error_log, dict):
+        return []
+
+    agents: list[str] = []
+    for agent_name in ("os_detection", "rank_article", "generate_sigma"):
+        agent_log = error_log.get(agent_name)
+        if isinstance(agent_log, dict) and isinstance(agent_log.get("conversation_log"), list):
+            agents.append(agent_name)
+
+    extract_log = error_log.get("extract_agent")
+    conversation_log = extract_log.get("conversation_log") if isinstance(extract_log, dict) else None
+    if isinstance(conversation_log, list):
+        seen_extract_agents: set[str] = set()
+        for entry in conversation_log:
+            if not isinstance(entry, dict):
+                continue
+            agent_name = entry.get("agent")
+            if agent_name in _EXTRACT_BUNDLE_AGENTS and agent_name not in seen_extract_agents:
+                agents.append(agent_name)
+                seen_extract_agents.add(agent_name)
+
+    return agents
+
+
+def _build_workflow_trace_bundle(
+    db_session: Session,
+    execution_id: int,
+    include_eval_bundles: bool = True,
+    fetch_langfuse: bool = False,
+    slim: bool = False,
+) -> dict[str, Any]:
+    """Build a downloadable trace bundle for a single workflow execution."""
+    detail = _build_execution_detail_response(db_session, execution_id)
+    execution_payload = _response_to_dict(detail)
+    warnings: list[str] = []
+    eval_bundles: dict[str, Any] = {}
+    eval_bundle_errors: dict[str, str] = {}
+
+    if include_eval_bundles:
+        bundle_service = EvalBundleService(db_session)
+        for agent_name in _detect_eval_bundle_agents(execution_payload.get("error_log")):
+            try:
+                eval_bundles[agent_name] = bundle_service.generate_bundle(
+                    execution_id=execution_id,
+                    agent_name=agent_name,
+                    attempt=None,
+                    fetch_langfuse=fetch_langfuse,
+                    slim=slim,
+                )
+            except (ValueError, AttributeError) as e:
+                eval_bundle_errors[agent_name] = str(e)
+                warnings.append(f"EVAL_BUNDLE_FAILED_{agent_name}")
+
+    bundle = {
+        "schema_version": "workflow_execution_trace_v1",
+        "collected_at": datetime.now().isoformat(),
+        "execution_id": execution_id,
+        "execution": execution_payload,
+        "eval_bundles": eval_bundles,
+        "eval_bundle_errors": eval_bundle_errors,
+        "integrity": {
+            "bundle_sha256": "",
+            "warnings": warnings,
+        },
+    }
+    bundle_for_hash = dict(bundle)
+    bundle_for_hash["integrity"] = {"bundle_sha256": "", "warnings": warnings}
+    bundle["integrity"]["bundle_sha256"] = compute_sha256_json(bundle_for_hash)
+    return bundle
 
 
 class ObservableTraceabilityItem(BaseModel):
@@ -407,80 +604,7 @@ def get_workflow_execution(request: Request, execution_id: int):
         db_session = db_manager.get_session()
 
         try:
-            # Query with fresh session to ensure we get latest data
-            execution = (
-                db_session.query(AgenticWorkflowExecutionTable)
-                .filter(AgenticWorkflowExecutionTable.id == execution_id)
-                .first()
-            )
-
-            if not execution:
-                raise HTTPException(status_code=404, detail="Workflow execution not found")
-
-            # Explicitly expire and refresh to bypass any session cache
-            db_session.expire(execution)
-            db_session.refresh(execution)
-
-            # Get article title and URL
-            article = db_session.query(ArticleTable).filter(ArticleTable.id == execution.article_id).first()
-
-            # Get queued rules for this execution
-            from src.database.models import SigmaRuleQueueTable
-
-            queued_rules = (
-                db_session.query(SigmaRuleQueueTable)
-                .filter(SigmaRuleQueueTable.workflow_execution_id == execution.id)
-                .all()
-            )
-            queued_count = len(queued_rules)
-            queued_rule_ids = [rule.id for rule in queued_rules]
-
-            # Get article content for displaying inputs
-            article_content = article.content if article else None
-            article_content_preview = (
-                article_content[:500] + "..." if article_content and len(article_content) > 500 else article_content
-            )
-            term_reason, term_details = extract_termination_info(execution.error_log)
-
-            # Convert timestamps to local time if they're timezone-aware
-            def to_local_iso(dt):
-                if dt is None:
-                    return None
-                if dt.tzinfo is not None:
-                    # Convert to local time and remove timezone info
-                    return dt.astimezone().replace(tzinfo=None).isoformat()
-                # Already naive, assume it's in local time
-                return dt.isoformat()
-
-            return ExecutionDetailResponse(
-                id=execution.id,
-                article_id=execution.article_id,
-                article_title=article.title if article else None,
-                article_url=article.canonical_url if article else None,
-                status=execution.status,
-                current_step=execution.current_step,
-                ranking_score=execution.ranking_score,
-                ranking_reasoning=execution.ranking_reasoning,
-                config_snapshot=execution.config_snapshot,
-                error_message=execution.error_message,
-                retry_count=execution.retry_count,
-                started_at=to_local_iso(execution.started_at),
-                completed_at=to_local_iso(execution.completed_at),
-                created_at=to_local_iso(execution.created_at),
-                updated_at=to_local_iso(execution.updated_at),
-                junk_filter_result=execution.junk_filter_result,
-                extraction_result=execution.extraction_result,
-                sigma_rules=execution.sigma_rules,
-                similarity_results=execution.similarity_results,
-                error_log=execution.error_log,
-                queued_rules_count=queued_count,
-                queued_rule_ids=queued_rule_ids,
-                article_content=article_content,
-                article_content_preview=article_content_preview,
-                termination_reason=term_reason,
-                termination_details=term_details,
-                extraction_counts=calculate_extraction_counts(execution.extraction_result),
-            )
+            return _build_execution_detail_response(db_session, execution_id)
         finally:
             db_session.close()
 
@@ -488,6 +612,45 @@ def get_workflow_execution(request: Request, execution_id: int):
         raise
     except Exception as e:
         logger.error(f"Error getting workflow execution: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@router.get("/executions/{execution_id}/trace-bundle")
+def export_workflow_execution_trace_bundle(
+    request: Request,
+    execution_id: int,
+    include_eval_bundles: bool = Query(True, description="Include eval_bundle_v1 entries when LLM traces exist"),
+    include_langfuse: bool = Query(False, description="Fetch Langfuse data for bundle enrichment"),
+    slim: bool = Query(False, description="Strip bulky duplicate text from embedded eval bundles"),
+):
+    """Download a complete JSON trace bundle for one workflow execution."""
+    try:
+        db_manager = get_db_manager()
+        db_session = db_manager.get_session()
+
+        try:
+            bundle = _build_workflow_trace_bundle(
+                db_session=db_session,
+                execution_id=execution_id,
+                include_eval_bundles=include_eval_bundles,
+                fetch_langfuse=include_langfuse,
+                slim=slim,
+            )
+            payload = json.dumps(bundle, indent=2, ensure_ascii=False).encode("utf-8")
+            suffix = "_slim" if slim else ""
+            filename = f"workflow_execution_trace_{execution_id}{suffix}.json"
+            return StreamingResponse(
+                io.BytesIO(payload),
+                media_type="application/json",
+                headers={"Content-Disposition": f"attachment; filename={filename}"},
+            )
+        finally:
+            db_session.close()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error exporting workflow execution trace bundle {execution_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -624,6 +787,16 @@ def cleanup_stale_executions(
                 count += 1
 
             if count > 0:
+                AuditService.record_mandatory(
+                    db_session,
+                    _workflow_audit_event(
+                        request,
+                        ACTION_WORKFLOW_STALE_CLEANUP_REQUESTED,
+                        None,
+                        f"Marked {count} stale workflow execution(s) as failed",
+                        {"count": count, "max_age_hours": float(max_age_hours)},
+                    ),
+                )
                 db_session.commit()
                 logger.info(f"Marked {count} stale execution(s) as failed")
                 return {"success": True, "message": f"Marked {count} stale execution(s) as failed", "count": count}
@@ -890,6 +1063,12 @@ async def retry_workflow_execution(request: Request, execution_id: int):
                     f"Retry execution {execution_id}: Preserved rank_agent_enabled={new_config_snapshot['rank_agent_enabled']} from old snapshot (no current config to update from)"
                 )
 
+            # Carry the initiating human into execution metadata (redacted-safe) so
+            # worker-side attribution never has to impersonate the requester.
+            initiated_by = initiating_actor_metadata(getattr(request.state, "identity", None))
+            if initiated_by:
+                new_config_snapshot["initiated_by"] = initiated_by
+
             # Create new execution record
             new_execution = AgenticWorkflowExecutionTable(
                 article_id=execution.article_id,
@@ -898,6 +1077,21 @@ async def retry_workflow_execution(request: Request, execution_id: int):
                 retry_count=execution.retry_count + 1,
             )
             db_session.add(new_execution)
+            db_session.flush()
+            AuditService.record_mandatory(
+                db_session,
+                _workflow_audit_event(
+                    request,
+                    ACTION_WORKFLOW_RETRIED,
+                    execution_id,
+                    f"Retried workflow execution {execution_id}",
+                    {
+                        "new_execution_id": new_execution.id,
+                        "article_id": execution.article_id,
+                        "retry_count": new_execution.retry_count,
+                    },
+                ),
+            )
             db_session.commit()
             db_session.refresh(new_execution)
 
@@ -955,9 +1149,20 @@ async def cancel_workflow_execution(request: Request, execution_id: int):
                 )
 
             # Mark as failed with cancellation message
+            previous_status = execution.status
             execution.status = "failed"
-            execution.error_message = f"Execution cancelled by user (was {execution.status})"
+            execution.error_message = f"Execution cancelled by user (was {previous_status})"
             execution.completed_at = datetime.now()
+            AuditService.record_mandatory(
+                db_session,
+                _workflow_audit_event(
+                    request,
+                    ACTION_WORKFLOW_CANCELLED,
+                    execution_id,
+                    f"Cancelled workflow execution {execution_id}",
+                    {"previous_status": previous_status},
+                ),
+            )
             db_session.commit()
 
             logger.info(f"Execution {execution_id} cancelled by user")
@@ -1002,13 +1207,25 @@ async def cancel_all_running_executions(request: Request):
                 return {"success": True, "message": "No running or pending executions found", "count": 0}
 
             count = 0
+            cancelled_ids = []
             for execution in running_executions:
                 original_status = execution.status
                 execution.status = "failed"
                 execution.error_message = f"Execution cancelled by user (was {original_status})"
                 execution.completed_at = datetime.now()
+                cancelled_ids.append(execution.id)
                 count += 1
 
+            AuditService.record_mandatory(
+                db_session,
+                _workflow_audit_event(
+                    request,
+                    ACTION_WORKFLOW_CANCELLED,
+                    None,
+                    f"Cancelled {count} running/pending workflow execution(s)",
+                    {"bulk": True, "count": count, "execution_ids": cancelled_ids},
+                ),
+            )
             db_session.commit()
             logger.info(f"Cancelled {count} running/pending execution(s) by user")
 
@@ -1050,6 +1267,29 @@ def _get_langfuse_setting(db_session: Session, key: str, env_key: str, default: 
     if default:
         logger.debug(f"📝 Using default value for {key}: {default}")
     return default
+
+
+def _build_langfuse_debug_urls(
+    langfuse_host: str,
+    langfuse_project_id: str | None,
+    session_id: str,
+    trace_id: str | None,
+) -> dict[str, str | None]:
+    """Build Langfuse debug URLs for a workflow execution."""
+    if langfuse_project_id:
+        search_url = f"{langfuse_host}/project/{langfuse_project_id}/traces?search={session_id}"
+        session_url = f"{langfuse_host}/project/{langfuse_project_id}/sessions/{session_id}"
+        agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces/{trace_id}" if trace_id else search_url
+    else:
+        search_url = f"{langfuse_host}/traces?search={session_id}"
+        session_url = None
+        agent_chat_url = search_url
+
+    return {
+        "agent_chat_url": agent_chat_url,
+        "session_url": session_url,
+        "search_url": search_url,
+    }
 
 
 @router.get("/executions/{execution_id}/debug-info")
@@ -1118,10 +1358,13 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
             # Normalize host URL (remove trailing slash)
             langfuse_host = langfuse_host.rstrip("/") if langfuse_host else "https://us.cloud.langfuse.com"
 
-            if langfuse_project_id:
-                agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/sessions/{session_id}"
-            else:
-                agent_chat_url = f"{langfuse_host}/traces?search={session_id}"
+            debug_urls = _build_langfuse_debug_urls(
+                langfuse_host,
+                langfuse_project_id,
+                session_id,
+                resolved_trace_id,
+            )
+            agent_chat_url = debug_urls["agent_chat_url"]
 
             logger.info(f"🔗 Generated Langfuse URL: {agent_chat_url} (trace_id={bool(resolved_trace_id)})")
             logger.info(
@@ -1134,10 +1377,11 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
             )
 
             if langfuse_public_key:
+                target = "trace" if resolved_trace_id else "trace search"
                 instructions = (
-                    f"Opening Langfuse session for execution #{execution_id}.\n"
+                    f"Opening Langfuse {target} for execution #{execution_id}.\n"
                     f"Session ID: {session_id}\n"
-                    "This session contains all traces for this workflow execution."
+                    f"Trace ID: {resolved_trace_id or 'not resolved'}"
                 )
             else:
                 # Warn user that Langfuse may not be configured, but still try to open session
@@ -1147,9 +1391,9 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
                     f"Configure Langfuse in Settings page or set LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY in environment."
                 )
                 instructions = (
-                    f"Opening Langfuse session for execution #{execution_id}.\n"
+                    f"Opening Langfuse trace search for execution #{execution_id}.\n"
                     f"Session ID: {session_id}\n"
-                    "Note: Langfuse keys not configured. Session will only exist if execution ran with Langfuse tracing enabled. "
+                    "Note: Langfuse keys not configured. Results will only exist if execution ran with Langfuse tracing enabled. "
                     f"If you get a 404, search for session_id '{session_id}' in Langfuse UI."
                 )
 
@@ -1163,11 +1407,8 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
                 "graph_id": "agentic_workflow",
                 "langfuse_host": langfuse_host,
                 "langfuse_project_id": langfuse_project_id,
-                "search_url": (
-                    f"{langfuse_host}/project/{langfuse_project_id}/traces?search={session_id}"
-                    if langfuse_project_id
-                    else f"{langfuse_host}/traces?search={session_id}"
-                ),
+                "session_url": debug_urls["session_url"],
+                "search_url": debug_urls["search_url"],
                 "instructions": instructions,
                 "uses_langfuse": bool(langfuse_public_key),
             }
@@ -1249,7 +1490,19 @@ async def trigger_workflow_for_article(
                         detail=f"Article {article_id} already has an active workflow execution (ID: {existing_execution.id})",
                     )
 
-            triggered, fail_detail = trigger_service.trigger_workflow(article_id, force=force)
+            initiated_by = initiating_actor_metadata(getattr(request.state, "identity", None))
+            triggered, fail_detail = trigger_service.trigger_workflow(
+                article_id,
+                force=force,
+                initiated_by=initiated_by or None,
+                audit_event_factory=lambda new_execution_id: _workflow_audit_event(
+                    request,
+                    ACTION_WORKFLOW_TRIGGERED,
+                    new_execution_id,
+                    f"Triggered workflow for article {article_id}",
+                    {"article_id": article_id, "force": force},
+                ),
+            )
             if triggered:
                 # Get the newly created execution
                 execution = (

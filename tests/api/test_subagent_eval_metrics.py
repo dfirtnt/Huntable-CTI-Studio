@@ -2,7 +2,7 @@
 and the model filter on the v1 eval page (agent_evals.html SYS.03).
 
 Covers:
-- /subagent-eval-aggregate response shape (precision/recall/F1/scored_articles fields)
+- /subagent-eval-aggregate response shape (precision/recall/F0.5/scored_articles fields)
 - ?model=... query param shape (filter is accepted; result is well-formed)
 - /subagent-eval-models response shape
 - /config-versions-models agent_models key structure (used by the JS model filter)
@@ -23,14 +23,14 @@ async def test_aggregate_response_includes_item_level_fields(async_client: httpx
     assert data.get("subagent") == "cmdline"
     assert isinstance(data.get("aggregates"), list)
 
-    new_fields = {"mean_precision", "mean_recall", "mean_f1", "scored_articles"}
+    new_fields = {"mean_precision", "mean_recall", "mean_f05", "scored_articles"}
     for agg in data["aggregates"]:
         missing = new_fields - set(agg.keys())
         assert not missing, f"Aggregate row missing fields: {missing}"
         # scored_articles is always an int (0 when no annotated articles).
         assert isinstance(agg["scored_articles"], int)
-        # P/R/F1 are floats in [0, 1] when populated, or null when no scoring.
-        for key in ("mean_precision", "mean_recall", "mean_f1"):
+        # P/R/F0.5 are floats in [0, 1] when populated, or null when no scoring.
+        for key in ("mean_precision", "mean_recall", "mean_f05"):
             v = agg[key]
             assert v is None or (isinstance(v, (int, float)) and 0.0 <= v <= 1.0)
 

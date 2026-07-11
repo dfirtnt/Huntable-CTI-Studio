@@ -45,6 +45,17 @@ detection:
   condition: selection
 `;
 
+const RAW_LLM_RESPONSE = JSON.stringify({
+  status: 'pass',
+  summary: 'Pass; the rule was evidence-backed and narrowed to low-noise behavior.',
+  actions_taken: [
+    'Validated the existing UUID as Sigma-compatible.',
+    'Converted weak command-line matching into account-specific contains all matching.',
+  ],
+  issues: [],
+  updated_sigma_yaml: ENRICHED_YAML,
+});
+
 async function mockEnrichmentEndpoints(page: Page) {
   await page.route('**/api/sigma-queue/**/enrich', (route) =>
     route.fulfill({
@@ -53,7 +64,7 @@ async function mockEnrichmentEndpoints(page: Page) {
       body: JSON.stringify({
         success: true,
         enriched_yaml: ENRICHED_YAML,
-        raw_response: ENRICHED_YAML,
+        raw_response: RAW_LLM_RESPONSE,
       }),
     }),
   );
@@ -245,5 +256,23 @@ test.describe('Sigma enrich modal — no duplicate Original Rule', () => {
     );
     await expect(page.locator('#enrichOriginalSection')).toBeHidden();
     await expect(page.locator('#enrichResult')).toBeVisible();
+  });
+
+  test('formats the raw LLM JSON response into readable sections', async ({ page }) => {
+    await openEnrichModal(page);
+    await page.locator('#enrichBtn').click();
+    await expect(page.locator('#enrichResult')).toBeVisible();
+
+    await page.locator('#rawResponseToggle').click();
+
+    const rawResponse = page.locator('#rawResponseText');
+    await expect(rawResponse).toContainText('LLM Response');
+    await expect(rawResponse).toContainText('PASS');
+    await expect(rawResponse).toContainText('Summary');
+    await expect(rawResponse).toContainText('Actions Taken');
+    await expect(rawResponse).toContainText('Issues');
+    await expect(rawResponse).toContainText('Updated Sigma YAML');
+    await expect(rawResponse).toContainText('title: Discovery Command Output Redirected to ADMIN Share');
+    await expect(rawResponse).not.toContainText('{"status":"pass"');
   });
 });

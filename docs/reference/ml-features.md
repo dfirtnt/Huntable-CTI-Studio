@@ -9,7 +9,7 @@ The content filter runs a **RandomForestClassifier** trained and inferred agains
 
 **Feature version auto-detection:** `load_model()` reads `<model_path>.meta.json` and sets `feature_version` automatically. Do not pass `feature_version` manually at inference unless you are testing a specific version.
 
-**Eval metrics (v3):** F1 ≈ 0.89 on a 240-row curated eval set (Huntable corpus).
+**Eval metrics (v3):** F1 ≈ 0.89, measured on the curated eval set (240 rows at measurement time, 2026-05; the committed `outputs/evaluation_data/eval_set.csv` now holds 317 rows).
 
 
 **Legacy versions:**
@@ -175,7 +175,7 @@ These four features are cross-cutting signals that help the model distinguish te
 
 Count of perfect-discriminator keyword matches, with noisy short patterns excluded.
 
-**Detection:** Iterates `HUNT_SCORING_KEYWORDS["perfect_discriminators"]` (92 patterns), skipping `V3_NOISY_PERFECT_DISCRIMINATORS` = `{"MZ", "C:\\", "D:\\"}`. Remaining patterns are matched case-insensitively against the raw text via `re.escape()`.
+**Detection:** Iterates `HUNT_SCORING_KEYWORDS["perfect_discriminators"]` (114 patterns as of v7.5.0, including the macOS/Linux carriers added 2026-06-21), skipping `V3_NOISY_PERFECT_DISCRIMINATORS` = `{"MZ", "C:\\", "D:\\"}`. Remaining patterns are matched case-insensitively against the raw text via `re.escape()`.
 
 
 **Pattern categories:**
@@ -268,8 +268,8 @@ This is the primary aggregate positive signal. The RF uses it as a length-normal
 | `class_weight` | `"balanced"` |
 | `random_state` | 42 |
 | Train/test split | 80/20, stratified |
-| Eval F1 (Huntable class, v3) | ≈ 0.89 |
-| Eval dataset | 240-row curated Huntable corpus |
+| Eval F1 (Huntable class, v3) | ≈ 0.89 (measured 2026-05 on the then-240-row set) |
+| Eval dataset | Curated Huntable corpus, `outputs/evaluation_data/eval_set.csv` (317 rows) |
 
 ### Hyperparameter rationale
 
@@ -289,7 +289,7 @@ Feature importances are learned from training data; call `model.feature_importan
 
 `extract_features_v3()` uses pre-compiled class-level regexes (named `_V3_*`) to avoid per-call compilation overhead. The vocabulary lists (`V2_TECHNICAL_TERMS`, `V2_MARKETING_TERMS`, `V3_EDUCATIONAL_PHRASES`, `V3_BEACON_CONFIG_KEYS`) are tuples defined at class level and iterated with `in` (substring) or `re.search(re.escape(p), ...)` matching depending on the feature.
 
-`HUNT_SCORING_KEYWORDS["perfect_discriminators"]` is imported from `src/utils/content.py` and shared by both the keyword-scoring system and the v3 extractor. Changes to that list affect both systems.
+`HUNT_SCORING_KEYWORDS["perfect_discriminators"]` is imported from `src/utils/content.py` and shared by both the keyword-scoring system and the v3 extractor. Since v7.5.0 the dict is derived from the faceted registry `config/keyword_registry.yaml` via `build_hunt_scoring_keywords()` (`src/utils/keyword_registry.py`); edit the registry, not the dict. Changes affect both systems.
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-07-04_
 _Last reviewed: 2026-05-22_

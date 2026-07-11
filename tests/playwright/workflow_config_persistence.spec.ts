@@ -153,47 +153,6 @@ test.describe('Workflow Config Persistence', () => {
     expect(text).toContain('Updated');
   });
 
-  test('config display includes RankAgentQA when Rank is disabled', async ({ page }) => {
-    await gotoWorkflowConfig(page);
-    await ensureRankAgentPanel(page);
-    const toggle = page.locator('#rank-agent-enabled');
-    const initiallyEnabled = await toggle.isChecked();
-
-    try {
-      if (initiallyEnabled) {
-        // Toggling #rank-agent-enabled triggers autoSaveConfig via onchange
-        const savePromise = page.waitForResponse(
-          (r) => r.url().includes('/api/workflow/config') && r.request().method() === 'PUT',
-          { timeout: 15000 }
-        );
-        await page.evaluate(() => {
-          const input = document.getElementById('rank-agent-enabled') as HTMLInputElement | null;
-          if (!input) throw new Error('Rank Agent toggle not found');
-          input.checked = false;
-          input.dispatchEvent(new Event('change', { bubbles: true }));
-        });
-        await savePromise;
-        await page.waitForTimeout(500);
-      }
-      const displayText = await page.locator('#configDisplay').innerText();
-      expect(displayText).toContain('RankAgentQA');
-    } finally {
-      if (initiallyEnabled) {
-        const restorePromise = page.waitForResponse(
-          (r) => r.url().includes('/api/workflow/config') && r.request().method() === 'PUT',
-          { timeout: 15000 }
-        ).catch(() => {});
-        await page.evaluate(() => {
-          const input = document.getElementById('rank-agent-enabled') as HTMLInputElement | null;
-          if (!input) return;
-          input.checked = true;
-          input.dispatchEvent(new Event('change', { bubbles: true }));
-        });
-        await restorePromise;
-      }
-    }
-  });
-
   // retries: 4 guards against concurrent-test DB interference on the reload check.
   // The primary persistence assertion is on the PUT response body (immune to races);
   // the reload check is secondary and can be disrupted when other spec files run in
@@ -256,6 +215,79 @@ test.describe('Workflow Config Persistence', () => {
         input.checked = value;
         input.dispatchEvent(new Event('change', { bubbles: true }));
       }, originalValue);
+      await restorePromise;
+    }
+  });
+
+  test('save succeeds when Rank Agent is disabled with no model selected', async ({ page }) => {
+    await gotoWorkflowConfig(page);
+    await ensureRankAgentPanel(page);
+
+    const toggle = page.locator('#rank-agent-enabled');
+    const originalEnabled = await toggle.isChecked();
+    const modelLocator = page.locator('#rankagent-model-2, #rankagent-model').first();
+    const originalModel = await modelLocator.inputValue().catch(() => '');
+
+    try {
+      if (originalEnabled) {
+        const disablePromise = page.waitForResponse(
+          r => r.url().includes('/api/workflow/config') && r.request().method() === 'PUT',
+          { timeout: 15000 }
+        );
+        await page.evaluate(() => {
+          const input = document.getElementById('rank-agent-enabled') as HTMLInputElement | null;
+          if (input) {
+            input.checked = false;
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        });
+        await disablePromise;
+        await page.waitForTimeout(300);
+      }
+
+      await page.evaluate(() => {
+        const el = (document.getElementById('rankagent-model-2') || document.getElementById('rankagent-model')) as HTMLInputElement | HTMLSelectElement | null;
+        if (el) {
+          el.value = '';
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
+      await page.waitForTimeout(300);
+
+      // Regression guard: this used to block with "Rank Agent model is required"
+      // even though Rank Agent was disabled.
+      const savePromise = page.waitForResponse(
+        r => r.url().includes('/api/workflow/config') && r.request().method() === 'PUT',
+        { timeout: 15000 }
+      );
+      await page.locator('#save-config-button').click();
+      const response = await savePromise;
+      expect(response.status()).toBe(200);
+
+      const body = await response.json();
+      expect(body.rank_agent_enabled).toBe(false);
+
+      const alertText = await page.locator('[role="alert"]').allInnerTexts();
+      expect(alertText.join(' ')).not.toContain('Rank Agent model is required');
+    } finally {
+      const restorePromise = page.waitForResponse(
+        r => r.url().includes('/api/workflow/config') && r.request().method() === 'PUT',
+        { timeout: 15000 }
+      ).catch(() => {});
+      await page.evaluate(({ enabled, model }) => {
+        const modelEl = (document.getElementById('rankagent-model-2') || document.getElementById('rankagent-model')) as HTMLInputElement | HTMLSelectElement | null;
+        if (modelEl && model) {
+          modelEl.value = model;
+          modelEl.dispatchEvent(new Event('input', { bubbles: true }));
+          modelEl.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        const toggleEl = document.getElementById('rank-agent-enabled') as HTMLInputElement | null;
+        if (toggleEl) {
+          toggleEl.checked = enabled;
+          toggleEl.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }, { enabled: originalEnabled, model: originalModel });
       await restorePromise;
     }
   });

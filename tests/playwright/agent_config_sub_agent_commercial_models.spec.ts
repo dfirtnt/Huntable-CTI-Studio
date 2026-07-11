@@ -20,11 +20,9 @@ const BASE = process.env.CTI_SCRAPER_URL || 'http://127.0.0.1:8001';
 
 // Agents covered by renderSubAgentCommercialInputs:
 //   isSubAgent: cmdlineextract, proctreeextract, huntqueriesextract, registryextract, servicesextract
-//   isQA:       rankqa, cmdlineqa, proctreeqa, huntqueriesqa, registryqa, servicesqa
 //
-// We test two representative agents:
+// We test one representative agent:
 //   - cmdlineextract  (sub-agent, in extract step s3 / sa-cmdline accordion)
-//   - rankqa          (QA agent, in rank agent step s2 / qa-settings panel)
 
 test.describe('Sub-agent commercial model inputs have onchange handler', () => {
   test.beforeEach(async ({ page }) => {
@@ -112,38 +110,6 @@ test.describe('Sub-agent commercial model inputs have onchange handler', () => {
     await page.waitForTimeout(2000);
 
     const modelInput = page.locator('#cmdlineextract-model-anthropic');
-    await modelInput.waitFor({ state: 'attached', timeout: 8000 });
-
-    const onchange = await modelInput.getAttribute('onchange');
-    expect(onchange).not.toBeNull();
-    expect(onchange).toContain('autoSaveModelChange');
-  });
-
-  // -------------------------------------------------------------------------
-  // rankqa (QA agent inside Rank Agent step s2)
-  // -------------------------------------------------------------------------
-
-  test('rankqa: switching to OpenAI renders model input with onchange', async ({ page }) => {
-    await page.evaluate(() => {
-      document.getElementById('s2')?.classList.add('open');
-      // rankqa panel is inside rank-agent-qa-configs which is hidden until QA is enabled
-      document.getElementById('rank-agent-qa-configs')?.classList.remove('hidden');
-    });
-    await page.waitForTimeout(800);
-
-    const providerSelect = page.locator('#rankqa-provider');
-    await providerSelect.waitFor({ state: 'visible', timeout: 10000 });
-
-    const hasOpenAI = await providerSelect.locator('option[value="openai"]').count() > 0;
-    if (!hasOpenAI) {
-      test.skip(true, 'OpenAI provider not available (no API key configured in Settings)');
-      return;
-    }
-
-    await providerSelect.selectOption('openai');
-    await page.waitForTimeout(2000);
-
-    const modelInput = page.locator('#rankqa-model-openai');
     await modelInput.waitFor({ state: 'attached', timeout: 8000 });
 
     const onchange = await modelInput.getAttribute('onchange');

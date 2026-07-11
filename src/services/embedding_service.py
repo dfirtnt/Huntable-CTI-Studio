@@ -7,7 +7,6 @@ Supports batch processing and model caching for efficiency.
 
 import logging
 import os
-from typing import Any
 
 import numpy as np
 
@@ -235,42 +234,6 @@ class EmbeddingService:
         text_parts.append(f"Content: {content}")
 
         return "\n".join(text_parts)
-
-    def get_model_info(self) -> dict[str, Any]:
-        """
-        Get information about the loaded model.
-
-        Returns:
-            Dictionary with model information
-        """
-        if not self._model_loaded:
-            return {"model_name": self.model_name, "loaded": False, "device": self.device}
-
-        return {
-            "model_name": self.model_name,
-            "loaded": True,
-            "device": self.device,
-            "max_seq_length": getattr(self.model, "max_seq_length", 512),
-            "embedding_dimension": 768,  # all-mpnet-base-v2 has 768 dimensions
-        }
-
-    def validate_embedding(self, embedding: list[float]) -> bool:
-        """
-        Validate that an embedding is properly formatted.
-
-        Args:
-            embedding: Embedding to validate
-
-        Returns:
-            True if valid, False otherwise
-        """
-        if not isinstance(embedding, list):
-            return False
-
-        if len(embedding) != 768:
-            return False
-
-        return all(isinstance(x, (int, float)) for x in embedding)
 
 
 # Global instance for reuse across the application

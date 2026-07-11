@@ -220,7 +220,15 @@ class ContentCleaner:
         # ``[^\S\n]`` = any whitespace that is NOT a newline (space/tab/\r/etc.)
         text = re.sub(r"[^\S\n]+", " ", text)
         # Drop spaces hugging newlines, then cap consecutive blank lines at one
-        text = re.sub(r" *\n *", "\n", text)
+        # (two single-quantifier passes, not one combined " *\n *" pattern --
+        # that shape backtracks quadratically on long runs of spaces with no
+        # newline). The line above already collapsed every horizontal-whitespace
+        # run to a single space, so at most one space can ever precede a
+        # newline here; the quantifier is still explicitly bounded (rather than
+        # left unbounded) so this is not a polynomial-regex shape regardless of
+        # that upstream invariant.
+        text = re.sub(r" {1,64}\n", "\n", text)
+        text = re.sub(r"\n +", "\n", text)
         text = re.sub(r"\n{3,}", "\n\n", text)
         return text.strip()
 
@@ -390,21 +398,6 @@ class MetadataExtractor:
                     og_data[key] = content
 
         return og_data
-
-    @staticmethod
-    def extract_twitter_cards(soup: BeautifulSoup) -> dict[str, str]:
-        """Extract Twitter Card metadata."""
-        twitter_data = {}
-
-        for meta in soup.find_all("meta"):
-            name = meta.get("name", "")
-            if name.startswith("twitter:"):
-                content = meta.get("content")
-                if content:
-                    key = name[8:]  # Remove 'twitter:' prefix
-                    twitter_data[key] = content
-
-        return twitter_data
 
     @staticmethod
     def extract_canonical_url(soup: BeautifulSoup) -> str | None:

@@ -1,5 +1,9 @@
 # NetworkIndicatorExtract -- Prompt v1.0 (Standard-compliant)
 
+!!! tip "Use this outside Huntable"
+    Grab the [drop-in version](network-indicator-extract-dropin.md) — paste it into a Claude or
+    ChatGPT Project and feed it a URL, text, or PDF.
+
 ## ROLE
 
 You extract literal network indicators from threat intelligence articles.
@@ -135,4 +139,4 @@ If no valid network indicators exist, return exactly:
 Precision over recall. Network-telemetry observability overrides completeness.
 Reproduce indicator values EXACTLY, including defanging. When in doubt, OMIT.
 
-_Last updated: 2026-06-17_
+_Last updated: 2026-07-05 -- linked companion drop-in prompt._

@@ -1,7 +1,7 @@
 # Image OCR: Global-On Default + Per-Source Override — Design
 
 **Date:** 2026-06-17
-**Status:** Approved (design); revised after spec review
+**Status:** Implemented and shipped (commit `464b3452`, 2026-06-17). Design record retained as historical context.
 **Related:** [`2026-06-15-image-ocr-ingest-design.md`](2026-06-15-image-ocr-ingest-design.md) (the OCR pre-pass this builds on)
 
 ## Problem

@@ -1,5 +1,12 @@
 site_name: Huntable CTI Studio
 site_description: Modern threat intelligence collection and analysis platform
+
+# Internal planning artifacts (build specs, implementation plans) are not part of the
+# published site. They intentionally link to source files, which fail mkdocs --strict
+# link validation. Keep them in the repo, out of the docs build.
+exclude_docs: |
+  superpowers/
+
 theme:
   name: material
   palette:
@@ -72,9 +79,9 @@ nav:
       - Langfuse Setup: guides/langfuse-setup.md
       - Browser Extension: guides/browser-extension.md
       - Generate Sigma Rules: guides/generate-sigma.md
-      - Evaluate Models: guides/evaluate-models.md
       - Backup & Restore: guides/backup-and-restore.md
       - Authentication: guides/authentication.md
+      - Enterprise SSO Setup: guides/enterprise-sso.md
       - Source Configuration: guides/source-config.md
       - Memory Tuning: guides/memory-tuning.md
   - Architecture:
@@ -94,6 +101,7 @@ nav:
       - RAG Search: features/semantic-search.md
       - Observable Evaluation: features/observable-evaluation.md
       - Agent Evals: features/agent-evals.md
+      - Image OCR Ingest: features/image-ocr-ingest.md
   - LLM & Models:
       - Model Selection: llm/model-selection.md
       - Context Window Rationale: llm/context-window-rationale.md
@@ -152,6 +160,7 @@ nav:
           - ServicesExtract: contracts/services-extract-dropin.md
           - ScheduledTasksExtract: contracts/scheduled-tasks-extract-dropin.md
           - HuntQueriesExtract: contracts/huntquery-extract-dropin.md
+          - NetworkIndicatorExtract: contracts/network-indicator-extract-dropin.md
   - Brand & Style Guide: brand-style-guide.md
   - Contributing: CONTRIBUTING.md
   - Changelog: CHANGELOG.md

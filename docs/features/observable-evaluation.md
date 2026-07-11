@@ -27,9 +27,15 @@ The evaluation pipeline is implemented in `src/services/observable_evaluation/`:
 - `GET /api/observables/evaluation/metrics/aggregated` — Aggregated metrics by model version and usage (eval/gold)
 - `GET /api/observables/evaluation/failures` — List evaluation failures
 
+The companion training side of this unsupported subsystem is `src/services/observable_training.py`,
+exposed under `src/web/routes/observable_training.py`:
+
+- `GET /api/observables/training/summary` — Training data summary per observable type
+- `POST /api/observables/training/run` — Trigger a training job
+
 ## Related
 
 - [Observable Training Dashboard](http://localhost:8001/observables-training) — in-app page (when the app is running)
 - [Extract Observables How-To](../guides/extract-observables.md) — Usage guide
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-07-05_

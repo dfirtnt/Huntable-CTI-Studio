@@ -174,7 +174,7 @@ ASCII diagrams of the main workflows in Huntable CTI Studio. Use these to orient
 │ LOLBAS: 10pts   │
 │ Intel: 10pts    │
 │ Good: 5pts      │
-│ Negative: -10pts│
+│ Negative: -15pts│
 └─────────┬───────┘
           │
           ▼
@@ -272,7 +272,7 @@ API Endpoints:
 │    (Redis)      │
 │                 │
 │ • source_checks │
-│ • priority_checks│
+│ • collection    │
 │ • maintenance   │
 │ • reports       │
 └─────────┬───────┘
@@ -701,4 +701,4 @@ Manual backups via CLI: ./run_cli.sh backup create
 └─────────────────┘
 ```
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-07-04_

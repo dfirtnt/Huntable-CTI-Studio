@@ -192,10 +192,6 @@ class MLModelVersionManager:
             logger.error(f"Error saving evaluation metrics: {e}")
             return False
 
-    async def get_version_with_eval(self, version_id: int) -> MLModelVersionTable | None:
-        """Get a model version with evaluation metrics included."""
-        return await self.get_version_by_id(version_id)
-
     async def get_all_versions(self, limit: int = 50) -> list[MLModelVersionTable]:
         """Get all model versions, ordered by version number descending."""
         try:
@@ -343,92 +339,6 @@ class MLModelVersionManager:
 
         except Exception as e:
             logger.error(f"Error comparing versions: {e}")
-            raise
-
-    async def run_comparison_test(
-        self, old_model_path: str, new_model_path: str, test_articles: list[dict[str, Any]]
-    ) -> dict[str, Any]:
-        """
-        Run a comparison test by classifying the same articles with both models.
-
-        Args:
-            old_model_path: Path to the old model file
-            new_model_path: Path to the new model file
-            test_articles: List of articles to test with
-
-        Returns:
-            Dict containing comparison test results
-        """
-        try:
-            from src.utils.content_filter import ContentFilter
-
-            # Load both models. load_model() reads each pkl's .meta.json sidecar
-            # to auto-set the correct feature_version, so a v1-era pkl will be
-            # featurized with extract_features() while a v3 pkl uses
-            # extract_features_v3(). Without the sidecar fix, both filters
-            # would default to v3 and produce shape-mismatch errors on any
-            # pre-2026-05-21 model.
-            old_filter = ContentFilter(model_path=old_model_path)
-            new_filter = ContentFilter(model_path=new_model_path)
-
-            if not old_filter.load_model() or not new_filter.load_model():
-                raise ValueError("Failed to load one or both models")
-
-            # Test each article with both models
-            results = []
-            prediction_changes = []
-
-            for article in test_articles:
-                content = article.get("content", "")
-                if not content:
-                    continue
-
-                # Get predictions from both models
-                old_result = old_filter.filter_content(content, min_confidence=0.7)
-                new_result = new_filter.filter_content(content, min_confidence=0.7)
-
-                # Compare predictions
-                prediction_changed = old_result.is_huntable != new_result.is_huntable
-
-                result = {
-                    "article_id": article.get("id"),
-                    "article_title": article.get("title", "")[:100],
-                    "old_prediction": old_result.is_huntable,
-                    "old_confidence": old_result.confidence,
-                    "new_prediction": new_result.is_huntable,
-                    "new_confidence": new_result.confidence,
-                    "prediction_changed": prediction_changed,
-                    "old_cost_savings": old_result.cost_savings,
-                    "new_cost_savings": new_result.cost_savings,
-                }
-
-                results.append(result)
-
-                if prediction_changed:
-                    prediction_changes.append(result)
-
-            # Calculate summary statistics
-            total_articles = len(results)
-            changed_predictions = len(prediction_changes)
-            change_rate = (changed_predictions / total_articles * 100) if total_articles > 0 else 0
-
-            # Calculate average confidence changes
-            old_avg_confidence = sum(r["old_confidence"] for r in results) / total_articles if total_articles > 0 else 0
-            new_avg_confidence = sum(r["new_confidence"] for r in results) / total_articles if total_articles > 0 else 0
-
-            return {
-                "total_articles_tested": total_articles,
-                "prediction_changes": changed_predictions,
-                "change_rate_percent": change_rate,
-                "old_avg_confidence": old_avg_confidence,
-                "new_avg_confidence": new_avg_confidence,
-                "confidence_improvement": new_avg_confidence - old_avg_confidence,
-                "detailed_results": results,
-                "prediction_changes_detail": prediction_changes,
-            }
-
-        except Exception as e:
-            logger.error(f"Error running comparison test: {e}")
             raise
 
     async def update_comparison_results(self, version_id: int, comparison_results: dict[str, Any]) -> bool:

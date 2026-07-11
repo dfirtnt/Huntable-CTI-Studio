@@ -41,7 +41,6 @@ Once running, access the application at:
 Additional exposed ports:
 - PostgreSQL: 5432
 - Redis: 6379
-- Jupyter (optional): 8888
 
 ## Environment Configuration
 
@@ -49,6 +48,7 @@ Before running `./start.sh`, run `./setup.sh` (which creates and configures `.en
 
 ### Required
 - `POSTGRES_PASSWORD=<strong password>` - Database authentication
+- `SECRET_KEY` - Signs CSRF tokens; generated automatically by `./setup.sh`. Required to be a strong non-default value in production when auth/CSRF is enabled (see [Authentication](../guides/authentication.md))
 
 ### Optional LLM Keys
 - `OPENAI_API_KEY` - For OpenAI - ChatGPT models
@@ -58,10 +58,10 @@ If you enter these during `./setup.sh`, they are written to `.env` and used at r
 
 ### LM Studio Configuration
 - `LMSTUDIO_API_URL` - Default: `http://host.docker.internal:1234/v1`
-- `LMSTUDIO_MODEL` - Main completion model
-- `LMSTUDIO_MODEL_RANK` - Ranking model
 - `LMSTUDIO_MODEL_EXTRACT` - Observable extraction model
 - `LMSTUDIO_MODEL_SIGMA` - Sigma rule generation model
+
+Note: `LMSTUDIO_MODEL` and `LMSTUDIO_MODEL_RANK` are set directly in `docker-compose.yml` (not read from `.env` by the containers). See [Configuration](configuration.md#lm-studio-configuration) for the full variable table.
 
 ### Langfuse Tracing (Optional)
 Langfuse is an optional tracing integration for workflow and LLM observability.
@@ -90,7 +90,7 @@ The `docker-compose.yml` stack includes:
 
 - **postgres**: `pgvector/pgvector:pg15` with persistent `postgres_data` volume
 - **redis**: `redis:7-alpine` with `redis_data` volume
-- **web**: FastAPI application (uvicorn on port 8001/8888)
+- **web**: FastAPI application (uvicorn on port 8001)
 - **worker**: Celery worker handling queues: collection_immediate (user "Collect Now"), default, source_checks, maintenance, reports, connectivity, collection (does not process `workflows` queue)
 - **workflow_worker**: Dedicated Celery worker that consumes only the `workflows` queue (agentic workflow execution); separate from the main worker
 - **scheduler**: Celery beat for scheduled tasks
@@ -127,6 +127,9 @@ docker-compose ps
 
 # Check application health
 curl http://localhost:8001/health
+
+# Optional: quick stateless smoke tests (requires local Python 3.11 tooling)
+python3 run_tests.py smoke
 
 # View web application logs
 docker-compose logs -f web
@@ -191,11 +194,13 @@ See `configuration.md` for detailed port configuration.
 
 The app ships a RandomForest classifier that labels article chunks "Huntable" or "Not Huntable". The trained model is **not committed to git** (it's a binary artifact), but `./setup.sh` seeds it automatically during fresh install:
 
-```
+```text
 ./setup.sh
   └─ docker exec cti_web python3 scripts/seed_model.py
        ├─ trains RandomForest from config/eval_articles_data/ fixtures
-       └─ writes outputs/evaluation_data/eval_set.csv (317-row holdout)
+       └─ invokes scripts/prepare_eval_set.py, which builds
+          outputs/evaluation_data/eval_set.csv (317-row holdout)
+          from config/labeled_chunks/
 ```
 
 If you need to seed manually (e.g., after restoring a database backup without the models volume):
@@ -216,7 +221,7 @@ See the [ML Model Operations Runbook](../operations/ml-model-runbook.md) for ret
 
 **MLOps → Agent evals** (Load Eval Articles, run subagent evals) use article snapshots committed in the repo under `config/eval_articles_data/{subagent}/articles.json`. No network fetch is required: the web app seeds these files into the DB at startup, and `start.sh` also runs the seed. If "Load Eval Articles" shows no articles, ensure you have the latest repo so the committed JSON files are present.
 
-The committed eval article directories cover all six extraction sub-agents:
+The committed eval article directories cover all seven extraction sub-agents, plus the end-to-end Sigma eval:
 
 | Directory | Sub-agent |
 |-----------|-----------|
@@ -226,6 +231,8 @@ The committed eval article directories cover all six extraction sub-agents:
 | `config/eval_articles_data/registry_artifacts/` | RegistryExtract |
 | `config/eval_articles_data/windows_services/` | ServicesExtract |
 | `config/eval_articles_data/scheduled_tasks/` | ScheduledTasksExtract |
+| `config/eval_articles_data/network_indicators/` | NetworkIndicatorExtract |
+| `config/eval_articles_data/sigma/` | End-to-end Sigma rule eval (not a sub-agent) |
 
 ## Next Steps
 
@@ -235,7 +242,4 @@ The committed eval article directories cover all six extraction sub-agents:
 
 ---
 
-_Last updated: 2026-06-20_
-<!--stackedit_data:
-eyJoaXN0b3J5IjpbMTU2NDQzMzMxNl19
--->
+_Last updated: 2026-07-04_

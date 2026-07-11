@@ -553,34 +553,6 @@ async def api_test_anthropic_key(request: Request):
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-async def _get_hf_token() -> str | None:
-    """Load Hugging Face token from AppSettings or environment."""
-    token = None
-    try:
-        from sqlalchemy import select
-
-        from src.database.models import AppSettingsTable
-
-        async with async_db_manager.get_session() as session:
-            result = await session.execute(
-                select(AppSettingsTable).where(AppSettingsTable.key == "HUGGINGFACE_API_TOKEN")
-            )
-            setting = result.scalar_one_or_none()
-            if setting and setting.value:
-                token = setting.value.strip() or None
-    except Exception as exc:
-        logger.warning(f"Unable to load Hugging Face token from AppSettings: {exc}")
-
-    if token:
-        return token
-
-    for env_var in ("HUGGINGFACE_API_TOKEN", "HF_API_TOKEN", "HUGGINGFACE_HUB_TOKEN"):
-        env_val = os.getenv(env_var)
-        if env_val:
-            return env_val
-    return None
-
-
 @test_router.post("/test-hf-key")
 async def api_test_hf_key(request: Request):
     """Validate a Hugging Face access token (used for gated models like CMDCaliper)."""
@@ -1764,7 +1736,6 @@ async def api_detect_os(article_id: int, request: Request):
 
         # Get request body
         body = await request.json()
-        use_classifier = body.get("use_classifier", True)
         use_junk_filter = body.get("use_junk_filter", True)  # Enable junk filter by default
         junk_filter_threshold = body.get("junk_filter_threshold", 0.8)  # Default threshold
 
@@ -1832,10 +1803,7 @@ async def api_detect_os(article_id: int, request: Request):
         # Platform detection is entity-driven (registry); no embedding model is loaded.
         service = OSDetectionService()
 
-        result = await service.detect_os(
-            content=content_to_analyze,
-            use_classifier=use_classifier,
-        )
+        result = await service.detect_os(content=content_to_analyze)
 
         # Update article metadata with OS detection result
         if article.article_metadata:

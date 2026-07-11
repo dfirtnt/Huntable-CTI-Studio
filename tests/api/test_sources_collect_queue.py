@@ -2,11 +2,31 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from src.services.audit_service import ACTION_SOURCE_COLLECTION_REQUESTED
+
 pytestmark = pytest.mark.api
+
+
+def _fake_request():
+    return SimpleNamespace(
+        state=SimpleNamespace(
+            request_id="test-request",
+            identity=SimpleNamespace(
+                actor_type="human",
+                user_id="u1",
+                email="operator@example.com",
+                roles=("operator",),
+                auth_mode="trusted_header",
+            ),
+        ),
+        client=SimpleNamespace(host="127.0.0.1"),
+        headers={"user-agent": "pytest"},
+    )
 
 
 class TestCollectNowUsesImmediateQueue:
@@ -23,8 +43,15 @@ class TestCollectNowUsesImmediateQueue:
         mock_celery = MagicMock()
         mock_celery.send_task.return_value = mock_task
 
-        with patch("src.web.routes.sources.Celery", return_value=mock_celery):
-            result = await api_collect_from_source(source_id=1)
+        with (
+            patch("src.web.routes.sources.Celery", return_value=mock_celery),
+            patch("src.web.routes.sources.async_db_manager"),
+            patch(
+                "src.web.routes.sources.AsyncAuditService.record_best_effort",
+                new_callable=AsyncMock,
+            ) as mock_audit,
+        ):
+            result = await api_collect_from_source(_fake_request(), source_id=1)
 
         mock_celery.send_task.assert_called_once_with(
             "src.worker.celery_app.collect_from_source",
@@ -33,3 +60,5 @@ class TestCollectNowUsesImmediateQueue:
         )
         assert result["success"] is True
         assert result["task_id"] == "fake-task-id"
+        assert mock_audit.await_count == 1
+        assert mock_audit.await_args.args[1].action == ACTION_SOURCE_COLLECTION_REQUESTED

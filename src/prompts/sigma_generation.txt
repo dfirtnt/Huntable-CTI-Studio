@@ -91,5 +91,29 @@ Behavioral Extraction Rules:
 - For system modification: include registry, services, scheduled tasks.
 - For defense evasion: include AV disablement, AMSI bypass, obfuscation flags.
 
+Network Observable Abstraction (no atomic IOCs):
+Atomic network observables (full URLs, full domains/hostnames, IP addresses, full User-Agent strings, full header values, exact cloud object IDs, exact SNI, JA3/JA4, certificate hashes) are evidence only -- generalize into durable behavior or discard. Never emit a bare atomic value in a selection (no `DestinationIp: '<ip>'`, `QueryName: '<full_hostname>'`, `url: '<full_url>'`, `UserAgent: '<full_ua>'`, `ja3: '<hash>'`).
+
+Prefer `|startswith` for stable prefixes, `|endswith` for DNS/URL suffixes, `|contains`/`|contains|all` for path fragments and multi-component behavior. Avoid regex unless no simple operator can express the behavior.
+
+Per-observable rules:
+- URLs: strip query strings, tokens, IDs, GUIDs, filenames -- keep path family/route shape (e.g. `url|contains|all: ['/export', 'format=']` for cloud document export, or `url|contains: ['.ps1','.js','.zip']` for script/archive retrieval).
+- Domains: strip attacker-controlled subdomains/labels -- keep only structurally suspicious patterns (DGA-like high-entropy labels, excessive subdomain depth) or a service suffix paired with other behavior; never a bare full hostname.
+- IPs: never emit a bare IP. Only usable via structural behavior: direct-to-IP HTTP (`url|re: '^https?://[0-9]{{1,3}}(\.[0-9]{{1,3}}){{3}}'`) or TLS without SNI (`ServerName: null`).
+- User-Agent/headers: strip exact strings/tokens/JWTs -- keep only client-family prefixes (`UserAgent|startswith: ['curl/','python-requests/']`) or rare header names paired with other behavior.
+- TLS (JA3/JA4/cert hash/exact SNI): never emit the exact hash/value -- only structural behavior (missing SNI, self-signed cert pattern) counts.
+- Cloud object IDs (Drive/SharePoint/Dropbox/OneDrive/S3/GCS/CloudFront): strip the object/bucket/tenant ID -- keep the platform route (export/download/raw) optionally paired with a suspicious file-type class.
+
+Suppression: a network rule needs at least 2 non-atomic behavioral components, or one structurally-suspicious single component (direct-to-IP regex, DGA-like label regex, excessive-subdomain-depth regex). If all available evidence reduces to one atomic value, omit the rule entirely -- atomic IOCs are evidence, not detections.
+
+Test before emitting: would this still detect the same behavior if every IOC in it were regenerated tomorrow? If no, keep abstracting or drop the rule.
+
+Deduplication Contract (review your full output before emitting):
+- Two rules are DUPLICATES if they share the same logsource.category + logsource.product and their detection.selection conditions overlap on the same observable (same Image, CommandLine value, DestinationIp, or RegistryKey).
+- Do NOT generate a separate rule for the parent→child perspective AND the child-only perspective of the same execution — fold parent context into the SAME rule as an additional condition or omit it if it adds no fidelity.
+- Do NOT generate multiple network rules with the same IP list — one rule covering all IPs.
+- Do NOT generate two rules that differ only in title wording, description, or MITRE tag while the detection.selection is functionally identical. Keep the most specific one.
+- Do NOT create a rule whose detection condition is strictly a subset of another rule you already generated in this response.
+
 Final Instruction:
 Generate all applicable SIGMA rules from the threat intelligence above.

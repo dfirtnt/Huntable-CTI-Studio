@@ -9,9 +9,10 @@ from sqlalchemy import create_engine, desc, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
+from src.database.audit_schema import AUDIT_INDEX_DDLS, missing_audit_schema_objects
 from src.database.models import ArticleTable, Base, ContentHashTable, SourceCheckTable, SourceTable, URLTrackingTable
 from src.models.article import Article, ArticleCreate, ArticleFilter
-from src.models.source import Source, SourceCreate, SourceFilter, SourceHealth, SourceUpdate
+from src.models.source import Source, SourceCreate, SourceFilter, SourceUpdate
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +131,7 @@ class DatabaseManager:
                 "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS tags_embedding",
                 "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS detection_structure_embedding",
                 "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS detection_fields_embedding",
+                *AUDIT_INDEX_DDLS,
             ]
             # Add primary keys to tables that pre-date PK enforcement. Each is a no-op if
             # the constraint already exists; will raise if duplicate IDs remain (needs a
@@ -182,10 +184,47 @@ class DatabaseManager:
                     # than block startup or abort the remaining statements.
                     logger.warning("Skipping schema-ensure DDL (lock contention or non-fatal): %s", ddl_err)
 
+            for ddl in AUDIT_INDEX_DDLS:
+                try:
+                    with self.engine.begin() as conn:
+                        if is_postgres:
+                            conn.execute(text("SET LOCAL lock_timeout = '3s'"))
+                        conn.execute(text(ddl))
+                except Exception as ddl_err:
+                    logger.warning("Skipping audit schema-ensure DDL (lock contention or non-fatal): %s", ddl_err)
+
+            if os.getenv("APP_ENV", "").lower() == "production":
+                self.validate_audit_schema()
+
             logger.info("Database tables created successfully")
         except Exception as e:
             logger.error(f"Failed to create database tables: {e}")
             raise
+
+    def validate_audit_schema(self) -> None:
+        """Validate required audit schema objects for production startup."""
+        if not self.engine.url.drivername.startswith("postgresql"):
+            return
+
+        from sqlalchemy import text
+
+        with self.engine.connect() as conn:
+            table_exists = bool(conn.execute(text("SELECT to_regclass('public.audit_events') IS NOT NULL")).scalar())
+            rows = conn.execute(
+                text(
+                    """
+                    SELECT indexname
+                    FROM pg_indexes
+                    WHERE schemaname = 'public'
+                      AND tablename = 'audit_events'
+                    """
+                )
+            ).fetchall()
+            existing_indexes = tuple(str(row[0]) for row in rows)
+
+        missing = missing_audit_schema_objects(table_exists=table_exists, existing_indexes=existing_indexes)
+        if missing:
+            raise RuntimeError(f"Missing required audit schema objects: {', '.join(missing)}")
 
     def get_session(self) -> Session:
         """Get database session."""
@@ -692,27 +731,6 @@ class DatabaseManager:
             except Exception as e:
                 session.rollback()
                 logger.error(f"Failed to record source check: {e}")
-
-    def get_source_health_status(self, source_id: int) -> SourceHealth | None:
-        """Get detailed health status for a source."""
-        with self.get_session() as session:
-            db_source = session.query(SourceTable).filter(SourceTable.id == source_id).first()
-
-            if not db_source:
-                return None
-
-            return SourceHealth(
-                source_id=db_source.id,
-                identifier=db_source.identifier,
-                name=db_source.name,
-                active=db_source.active,
-                tier=getattr(db_source, "tier", None),
-                last_check=db_source.last_check,
-                last_success=db_source.last_success,
-                consecutive_failures=db_source.consecutive_failures,
-                average_response_time=db_source.average_response_time,
-                total_articles=db_source.total_articles,
-            )
 
     # Statistics and reporting
 

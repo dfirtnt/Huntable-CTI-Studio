@@ -30,6 +30,7 @@ You are a sub-agent of ExtractAgent. Sibling extractors:
 - **RegistryExtract** -- Windows registry artifacts
 - **ScheduledTasksExtract** -- Windows scheduled task artifacts
 - **HuntQueriesExtract** -- Finished detection logic (Sigma rules, KQL/SPL/EQL/XQL queries)
+- **NetworkIndicatorExtract** -- Network indicators (domain/DNS, IP+port, URL, URI path, User-Agent)
 
 ### Boundary rules
 
@@ -39,6 +40,9 @@ You are a sub-agent of ExtractAgent. Sibling extractors:
 - Do NOT extract the raw HKLM\\SYSTEM\\CurrentControlSet\\Services\\\<name\> registry key as a registry artifact
   (RegistryExtract). You own the derived service ATTRIBUTES from that key.
 - Do NOT extract the Sigma rules or EDR queries themselves (HuntQueriesExtract). Service attributes extracted from within those rules/queries under the Complete-Artifact Rule ARE allowed.
+- Do NOT extract network indicators (domains, IPs, ports, URLs, URI paths, User-Agent strings) --
+  NetworkIndicatorExtract owns those, even when they appear inside your artifact (extract your own
+  artifact, leave the network indicator to NetworkIndicatorExtract).
 
 ## INPUT CONTRACT
 
@@ -268,4 +272,4 @@ If the source is malware source code or a YARA rule body, SKIP.
 Only the FIRST valid occurrence of each unique service is extracted.
 When in doubt, OMIT.
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-07-05 -- added NetworkIndicatorExtract sibling and boundary rule (doc sync with live seed prompt)._

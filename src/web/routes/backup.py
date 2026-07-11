@@ -44,7 +44,7 @@ class BackupCronUpdate(BaseModel):
     config: bool = True
     outputs: bool = True
     logs: bool = True
-    docker_volumes: bool = True
+    docker_volumes: bool = False
     install_crontab: bool = False
 
 
@@ -66,7 +66,7 @@ def _sync_backup_config(manager: BackupConfigManager, payload: BackupCronUpdate)
     config.config = payload.config
     config.outputs = payload.outputs
     config.logs = payload.logs
-    config.docker_volumes = payload.docker_volumes
+    config.docker_volumes = False
     return config
 
 
@@ -124,13 +124,44 @@ async def api_create_backup(request: Request):
         raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
+def _parse_backup_list(lines: list[str]) -> list[dict[str, Any]]:
+    """Parse the numbered "Recent backups" section of prune_backups.py --stats output."""
+    backups: list[dict[str, Any]] = []
+    in_backup_list = False
+
+    for index, line in enumerate(lines):
+        if "recent backups" in line.lower():
+            in_backup_list = True
+            continue
+        if in_backup_list and line.strip() and any(line.strip().startswith(f"{i}.") for i in range(1, 11)):
+            parts = line.strip().split(".", 1)
+            if len(parts) < 2:
+                continue
+            backup_name = parts[1].strip()
+
+            size_mb = 0.0
+            for lookahead in range(index + 1, min(index + 4, len(lines))):
+                next_line = lines[lookahead]
+                if "MB" in next_line:
+                    for token in next_line.split():
+                        try:
+                            size_mb = float(token.replace("MB", ""))
+                            break
+                        except ValueError:
+                            continue
+                    break
+
+            backups.append({"name": backup_name, "size_mb": size_mb})
+
+    return backups
+
+
 @router.get("/list")
 async def api_list_backups():
     """API endpoint for listing backups."""
     try:
         project_root = Path(__file__).parent.parent.parent.parent
 
-        backups: list[dict[str, Any]] = []
         script_path = project_root / "scripts" / "prune_backups.py"
         if script_path.exists():
             result = subprocess.run(
@@ -144,33 +175,8 @@ async def api_list_backups():
             lines = result.stdout.split("\n") if result.returncode == 0 else []
         else:
             lines = []
-        in_backup_list = False
 
-        for index, line in enumerate(lines):
-            if "Recent Backups" in line:
-                in_backup_list = True
-                continue
-            if in_backup_list and line.strip() and any(line.strip().startswith(f"{i}.") for i in range(1, 11)):
-                parts = line.strip().split(".", 1)
-                if len(parts) < 2:
-                    continue
-                backup_name = parts[1].strip()
-
-                size_mb = 0.0
-                for lookahead in range(index + 1, min(index + 4, len(lines))):
-                    next_line = lines[lookahead]
-                    if "MB" in next_line:
-                        for token in next_line.split():
-                            try:
-                                size_mb = float(token.replace("MB", ""))
-                                break
-                            except ValueError:
-                                continue
-                        break
-
-                backups.append({"name": backup_name, "size_mb": size_mb})
-
-        return backups
+        return _parse_backup_list(lines)
 
     except subprocess.TimeoutExpired as exc:
         raise HTTPException(status_code=500, detail="List backups timed out") from exc

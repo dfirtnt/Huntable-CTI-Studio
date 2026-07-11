@@ -40,10 +40,10 @@ Scheduler triggers source check
 
 ```
 Article trigger (API or UI)
-  -> OS Detection (Windows gate)
+  -> Platform Detection (platform routing, not a gate)
   -> Junk Filter
   -> LLM Ranking (score threshold)
-  -> Extract Agent (6 sequential sub-agents + aggregation)
+  -> Extract Agent (7 sequential sub-agents + aggregation)
   -> Sigma Generation (pySigma validation + retry)
   -> Similarity Search (pgvector)
   -> Promote to review queue
@@ -80,4 +80,4 @@ Boolean search, pagination, source filtering, and article detail views.
 | Workflow execution | [Pipelines](../concepts/pipelines.md) |
 | Agent responsibilities | [Agents](../concepts/agents.md) |
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-07-05_

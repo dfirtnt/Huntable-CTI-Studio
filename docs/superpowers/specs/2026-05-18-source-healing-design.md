@@ -1,7 +1,7 @@
 # Design: `source-healing` skill
 
 - **Date:** 2026-05-18
-- **Status:** Approved (design); pending implementation plan
+- **Status:** Implemented as `.claude/skills/source-healing/SKILL.md` (operator-invoked, propose-and-confirm). Design record retained as historical context.
 - **Topic:** Operator-invoked skill to diagnose and repair troubled CTI sources
 - **Author:** Andrew Skatoff (via Claude Code brainstorming)
 

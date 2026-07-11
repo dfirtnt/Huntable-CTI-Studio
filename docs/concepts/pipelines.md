@@ -18,14 +18,15 @@ Sigma generation and similarity matching.
              |
              v
     +---------------------------------+
-    |  Step 0: OS Detection           |
+    |  Step 0: Platform Detection     |
     |  -----------------------------  |
-    |  Detect OS (Windows/Linux/etc)  |
-    |  Continue if Windows detected   |
-    |  Terminate if non-Windows       |
+    |  Detect platform(s): Windows/   |
+    |  Linux/macOS/multiple/Unknown   |
+    |  Routes extractors; does NOT    |
+    |  terminate on non-Windows       |
     +--------+------------------------+
              |
-             v (Windows detected)
+             v
     +---------------------------------+
     |  Step 1: Junk Filter            |
     |  -----------------------------  |
@@ -51,9 +52,11 @@ Sigma generation and similarity matching.
     |    Attention Preprocessor (opt) |
     |  HuntQueriesExtract             |
     |  ProcTreeExtract                |
-    |  RegistryExtract                |
-    |  ServicesExtract                |
-    |  ScheduledTasksExtract          |
+    |    Attention Preprocessor (opt) |
+    |  RegistryExtract    (Win-only)  |
+    |  ServicesExtract     (Win-only) |
+    |  ScheduledTasksExtract (Win-only)|
+    |  NetworkIndicatorExtract        |
     |  Aggregate -> extraction_result |
     +--------+------------------------+
              |
@@ -92,18 +95,19 @@ Sigma generation and similarity matching.
 ## Execution Order Summary
 
 ```
-0. OS Detection             -> Windows check (terminate if non-Windows)
+0. Platform Detection       -> Detect Windows/Linux/macOS/multiple/Unknown; routes extractors, does not terminate
 1. Junk Filter              -> Content quality filtering
 2. LLM Ranking              -> Article scoring (continue if >= threshold)
 3. Extract Agent (sequential):
    +- CmdlineExtract        -> Attention preprocessor (optional) -> command-line observables
    +- HuntQueriesExtract    -> Detection queries (EDR and Sigma)
-   +- ProcTreeExtract       -> Process lineage
-   +- RegistryExtract       -> Windows registry artifacts (split-hive output)
-   +- ServicesExtract       -> Windows service artifacts
-   +- ScheduledTasksExtract -> Windows scheduled task artifacts
+   +- ProcTreeExtract       -> Attention preprocessor (optional) -> process lineage
+   +- RegistryExtract       -> Windows-only; skipped on non-Windows evidence
+   +- ServicesExtract       -> Windows-only; skipped on non-Windows evidence
+   +- ScheduledTasksExtract -> Windows-only; skipped on non-Windows evidence
+   +- NetworkIndicatorExtract -> Network indicators (all platforms)
    +- Aggregation           -> Merge all results into extraction_result
-4. Generate Sigma           -> Create detection rules
+4. Generate Sigma           -> Create detection rules (per platform/logsource group)
 5. Similarity Search        -> Check for duplicates
 6. Promote to Queue         -> Queue for human review
 ```
@@ -116,4 +120,4 @@ Sigma generation and similarity matching.
 See [Workflow Data Flow](../architecture/workflow-data-flow.md) for state and
 persistence details, and [Agents](agents.md) for per-agent responsibilities.
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-07-05_

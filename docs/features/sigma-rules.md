@@ -40,7 +40,7 @@ behaviorally novel relative to what is already indexed. Both query the same
 
 Two entry paths lead into Sigma rule processing:
 
-- **Agentic Workflow** (primary): Triggered via `POST /api/workflow/articles/{id}/trigger` — OS Detection → Junk Filter → Rank → Extract → Generate Sigma → Similarity Search → Promote to Queue
+- **Agentic Workflow** (primary): Triggered via `POST /api/workflow/articles/{id}/trigger` — Platform Detection → Junk Filter → Rank → Extract → Generate Sigma → Similarity Search → Promote to Queue
 - **Web/API path**: `POST /api/articles/{article_id}/generate-sigma` — Match Existing Rules → Classify Coverage → Generate New Rules (if needed) → Similarity Check → Store
 
 ### Signal Refinement Loop
@@ -111,6 +111,34 @@ The article UI renders the LLM ↔ pySigma conversation:
   `sigma index-embeddings`). Note: the rule novelty/deduplication path uses Jaccard×Containment
   scoring and does not require embeddings — only `sigma index-metadata` is needed for it.
 - Threat hunting score < 65 shows a warning but does not block generation
+
+### Platform-Aware Generation
+
+Sigma generation runs **per platform/logsource group** derived from observable-level platform
+and telemetry metadata (`platform`, `telemetry_category`, `logsource_hint`). The
+`ExtractAgent` supervisor tags each observable with these fields during aggregation;
+`SigmaGenerationService` groups them and runs a separate generation pass per group.
+
+**Platform routing:**
+
+| Platform | Behavior |
+|---|---|
+| `windows` | Standard generation; existing Windows-tuned base prompt applies. |
+| `linux` | Generates Sigma. An additive **Linux guidance block** (`LINUX_SIGMA_GUIDANCE`) is appended to the generation prompt, steering toward Linux `process_creation` fields (`Image`, `CommandLine`, `ParentImage`), behavior-specific multi-condition detections, and Linux ATT&CK tags (T1059.004, T1222.002, T1053.003, T1105, T1543.002). Linux rules join the shared review queue with a `linux` platform badge. |
+| `macos` | **No Sigma generated**, even under the full-content fallback. macOS telemetry coverage is deferred; the workflow records a structured skip for this platform. |
+
+**Linux guidance rationale:** The base Sigma prompt is Windows-tuned. Without guidance, Linux
+rules tended to produce over-broad single-token selections (e.g. `CommandLine|contains: /tmp`)
+that match almost every command. The injected guidance block requires multi-condition detections
+keyed on the described behavior -- for example, a `chmod 777` rule must key on both the binary
+(`Image|endswith: '/chmod'`) and the mode/target, not a bare directory token.
+
+**Rule metadata:** Each generated rule carries `generation_basis` and `detection_readiness`
+metadata derived from the grounded observables and the rule's `logsource` block. These fields
+are exposed in the Workflow Execution review API and the Sigma Queue UI.
+
+**Implementation:** `src/services/sigma_generation_service.py` --
+`LINUX_SIGMA_GUIDANCE`, `_platform_sigma_guidance()`, `_rule_grounding_metadata()`.
 
 ---
 
@@ -590,7 +618,6 @@ entry for display in the Sigma Queue UI.
 | Orchestrator | `sigma_novelty_service.py` | Retrieves candidates, computes Jaccard/containment/filter scores |
 | Precompute | `sigma_atom_precompute.py` | `extract_atom_fields()` / `precompute_atom_fields()` - materializes atom sets at index time |
 | Normalizer | `sigma_behavioral_normalizer.py` | Resolves field aliases (PascalCase / snake_case / lowercase) to canonical identities |
-| Novelty detector | `sigma_novelty_detector.py` | Near-duplicate heuristics before full scoring |
 | Huntability scorer | `sigma_huntability_scorer.py` | Post-generation quality assessment (coverage, specificity) |
 | External engine | `sigma_atom_similarity` pkg | Atom set-math package; used for Sigma-to-Sigma behavioral similarity |
 
@@ -859,4 +886,4 @@ docker compose exec web python3 -c "from src.services.embedding_service import E
 - [Sigma Similarity Case-Sensitive Atom Matching](../solutions/logic-errors/sigma-similarity-case-sensitive-atom-matching-2026-04-08.md)
 - [Sigma Cross-Field Soft Matching](../solutions/logic-errors/sigma-cross-field-soft-matching-zero-similarity-2026-04-12.md)
 
-_Last updated: 2026-06-15_
+_Last updated: 2026-07-05_

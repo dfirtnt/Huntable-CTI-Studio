@@ -3,7 +3,7 @@
 **By the end of this guide you will have:**
 
 1. Ingested a real CTI article (CISA advisory)
-2. Run the full agentic workflow (OS detection → extraction → Sigma generation)
+2. Run the full agentic workflow (Platform detection → extraction → Sigma generation)
 3. Viewed extracted huntables and validated Sigma rules
 4. Confirmed the stack is healthy with pytest
 
@@ -11,12 +11,12 @@ Total time: ~5 minutes (plus initial Docker image build).
 
 ---
 
-End-to-end run using Docker Compose and the built-in workflow. Commands use `python3` explicitly and match the live stack (`./start.sh`, ports 8001/8888).
+End-to-end run using Docker Compose and the built-in workflow. Commands use `python3` explicitly and match the live stack (`./start.sh`, port 8001).
 
 ## 1) Prerequisites
 - Docker and the Docker Compose plugin available on your PATH
 - `python3` for running tests, `jq` for parsing JSON responses
-- Ports `8001` (web UI/API) and `8888` (auxiliary debug port) free on the host
+- Port `8001` (web UI/API) free on the host
 - `.env` configured via `./setup.sh` (add LLM keys if you want AI features)
 
 ## 2) Start the stack
@@ -28,12 +28,12 @@ cd Huntable-CTI-Studio
 ```
 Check that services are healthy:
 ```bash
-docker-compose ps
+docker compose ps
 curl http://localhost:8001/health
 ```
 UI entry points:
-- Web UI + API docs: http://localhost:8001
-- OpenAPI schema: http://localhost:8001/docs
+- Web UI: http://localhost:8001
+- Interactive API docs (Swagger UI): http://localhost:8001/docs
 
 ![Health endpoint returning HTTP 200 and a healthy JSON payload](assets/screenshots/01-health-check.png)
 *A `200 OK` from `/health` confirms the web container is reachable and the database is connected.*
@@ -54,15 +54,17 @@ echo "Article ID: ${ARTICLE_ID}"
 *Capture the returned `article_id` -- subsequent workflow calls reference it.*
 
 ## 4) Run the agentic workflow
-Trigger the full pipeline (OS detection → junk filter → ranking → Extract Agent → Sigma generation → similarity search):
+On a fresh install, make sure the workflow agents have a provider and model configured first — the fastest way is to load a quickstart preset (see [First Workflow, step 0](getting-started/first-workflow.md)).
+
+Trigger the full pipeline (Platform Detection → junk filter → ranking → Extract Agent → Sigma generation → similarity search). Platform Detection routes Windows-only extractors based on detected platform — Linux/macOS articles skip RegistryExtract, ServicesExtract, and ScheduledTasksExtract automatically:
 ```bash
 TRIGGER=$(curl -s -X POST "http://localhost:8001/api/workflow/articles/${ARTICLE_ID}/trigger")
 EXECUTION_ID=$(echo "$TRIGGER" | jq -r '.execution_id')
 ```
-If an execution is already running for the article, the API returns an error; wait for it to finish or clear the stuck run before retrying.
+If an execution is already running for the article, the API returns an error; wait for it to finish or clear the stuck run before retrying. If the API instead replies that the article's RegexHunt score is not above the auto-trigger threshold, re-run the trigger with `?force=true` appended to the URL.
 
 ![Trigger response with execution_id and queued status](assets/screenshots/04-workflow-triggered.png)
-*The trigger endpoint returns an `execution_id` and queues the agent pipeline (OS detection -> ranking -> extract -> Sigma).*
+*The trigger endpoint returns an `execution_id` and queues the agent pipeline (Platform Detection -> ranking -> extract -> Sigma). Platform badge on the execution record indicates which platform was detected.*
 
 ## 5) Monitor and view huntables
 Watch execution status and counts:
@@ -102,7 +104,7 @@ In the UI, open `http://localhost:8001/workflow#executions` and click **View** o
 ## 7) Verify with pytest
 Run a lightweight API health test from the running web container:
 ```bash
-docker-compose exec web python3 -m pytest tests/api/test_endpoints.py::TestHealthEndpoints::test_health_endpoints -q
+docker compose exec web python3 -m pytest tests/api/test_endpoints.py::TestHealthEndpoints::test_health_endpoints -q
 ```
 A zero exit code confirms the stack and core health endpoints are working.
 
@@ -111,7 +113,7 @@ A zero exit code confirms the stack and core health endpoints are working.
 
 ## 8) MCP server (optional)
 
-For external LLM clients (Claude Desktop, IDE MCP, etc.), a **read-only** MCP server exposes article search, full article fetch, Sigma search, sources, workflow executions, and the Sigma review queue. It uses the same database as the web app. Tool listing and parameters: [MCP tools reference](reference/mcp-tools.md).
+For external LLM clients (Claude Desktop, IDE MCP, etc.), the MCP server exposes read tools (article search, full article fetch, Sigma search, sources, workflow executions, the Sigma review queue, read-only SQL) plus scoped, audited write tools — low-risk writes execute directly; high-risk writes only create pending human-confirmation requests. It uses the same database as the web app. Tool listing, parameters, and write risk tiers: [MCP tools reference](reference/mcp-tools.md).
 
 The repo ships a committed `.mcp.json` registering the server via `scripts/run_mcp_server.sh`; clients that read project `.mcp.json` (Claude Code in this repo) need no setup — just approve the `huntable-cti-studio` server when prompted. For other clients, register `bash scripts/run_mcp_server.sh` as the command.
 
@@ -123,7 +125,8 @@ bash scripts/run_mcp_server.sh     # runs the server in the Docker cli container
 
 Stack shutdown (optional):
 ```bash
-docker-compose down
+docker compose down
 ```
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-07-05_
+_Last reviewed: 2026-07-05_

@@ -4,6 +4,7 @@ services:
     image: pgvector/pgvector:pg15
     container_name: cti_postgres
     command: ["postgres", "-c", "log_min_duration_statement=500"]
+    shm_size: ${POSTGRES_SHM_SIZE:-1g}
     environment:
       POSTGRES_DB: cti_scraper
       POSTGRES_USER: cti_user
@@ -95,7 +96,6 @@ services:
       - TZ=America/New_York
     ports:
       - "8001:8001"
-      - "8888:8888"
     volumes:
       - ./src:/app/src
       - ./config:/app/config

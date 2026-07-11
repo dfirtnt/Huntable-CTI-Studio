@@ -18,6 +18,13 @@ router = APIRouter(prefix="/api/analytics", tags=["Analytics"])
 EVENT_COUNTS: dict[str, int] = defaultdict(int)
 
 
+def _metadata_int(metadata: dict, key: str, default: int = 0) -> int:
+    try:
+        return int(metadata.get(key, default) or default)
+    except (TypeError, ValueError):
+        return default
+
+
 @router.get("/scraper/overview")
 async def api_scraper_overview():
     """Get scraper overview metrics."""
@@ -182,6 +189,12 @@ async def api_scraper_source_performance():
         # Per-source error rates and median response times from source_checks (last 7 days)
         source_error_rates: dict[int, float] = {}
         source_median_rt: dict[int, int] = {}
+        source_collected_7d: dict[int, int] = {}
+        source_saved_7d: dict[int, int] = {}
+        source_filtered_7d: dict[int, int] = {}
+        source_zero_yield_runs: dict[int, int] = {}
+        source_latest_metadata: dict[int, dict] = {}
+        source_latest_error: dict[int, str | None] = {}
         try:
             async with async_db_manager.get_session() as session:
                 result = await session.execute(
@@ -190,6 +203,12 @@ async def api_scraper_source_performance():
                         source_id,
                         COUNT(*) AS total,
                         COUNT(*) FILTER (WHERE NOT success) AS failures,
+                        SUM(COALESCE((check_metadata->>'articles_collected')::int, articles_found, 0)) AS collected_7d,
+                        SUM(COALESCE((check_metadata->>'articles_saved')::int, 0)) AS saved_7d,
+                        SUM(COALESCE((check_metadata->>'articles_filtered')::int, 0)) AS filtered_7d,
+                        COUNT(*) FILTER (
+                            WHERE COALESCE((check_metadata->>'zero_yield')::boolean, articles_found = 0)
+                        ) AS zero_yield_runs,
                         PERCENTILE_CONT(0.5) WITHIN GROUP (
                             ORDER BY response_time
                         ) FILTER (WHERE response_time IS NOT NULL AND response_time > 0)
@@ -202,8 +221,26 @@ async def api_scraper_source_performance():
                 for row in result.fetchall():
                     rate = round(row.failures / row.total * 100, 1) if row.total > 0 else 0.0
                     source_error_rates[row.source_id] = rate
+                    source_collected_7d[row.source_id] = int(row.collected_7d or 0)
+                    source_saved_7d[row.source_id] = int(row.saved_7d or 0)
+                    source_filtered_7d[row.source_id] = int(row.filtered_7d or 0)
+                    source_zero_yield_runs[row.source_id] = int(row.zero_yield_runs or 0)
                     if row.median_rt:
                         source_median_rt[row.source_id] = round(row.median_rt * 1000)
+
+                latest_result = await session.execute(
+                    sa_text("""
+                    SELECT DISTINCT ON (source_id)
+                        source_id,
+                        error_message,
+                        check_metadata
+                    FROM source_checks
+                    ORDER BY source_id, check_time DESC
+                """)
+                )
+                for row in latest_result.fetchall():
+                    source_latest_metadata[row.source_id] = row.check_metadata or {}
+                    source_latest_error[row.source_id] = row.error_message
         except Exception as inner_exc:
             logger.warning("Could not compute per-source metrics: %s", inner_exc)
 
@@ -220,6 +257,12 @@ async def api_scraper_source_performance():
             articles_7d = 0
             if source_name in source_breakdown_dict:
                 articles_7d = source_breakdown_dict[source_name].get("articles_count", 0)
+
+            latest_metadata = source_latest_metadata.get(source_id, {})
+            latest_collected = _metadata_int(latest_metadata, "articles_collected")
+            latest_saved = _metadata_int(latest_metadata, "articles_saved")
+            latest_filtered = _metadata_int(latest_metadata, "articles_filtered")
+            zero_yield = bool(latest_metadata.get("zero_yield", False))
 
             # Determine status
             last_success = getattr(source, "last_success", None)
@@ -250,9 +293,18 @@ async def api_scraper_source_performance():
                     "name": source_name,
                     "status": status,
                     "articles_7d": articles_7d,
+                    "collected_7d": source_collected_7d.get(source_id, 0),
+                    "saved_7d": source_saved_7d.get(source_id, 0) or articles_7d,
+                    "filtered_7d": source_filtered_7d.get(source_id, 0),
+                    "latest_collected": latest_collected,
+                    "latest_saved": latest_saved,
+                    "latest_filtered": latest_filtered,
+                    "zero_yield": zero_yield,
+                    "zero_yield_runs": source_zero_yield_runs.get(source_id, 0),
+                    "last_error": source_latest_error.get(source_id),
                     "last_success": last_success or "Never",
                     "error_rate": source_error_rates.get(source_id, 0.0),
-                    "avg_response": source_median_rt.get(source_id, 0),
+                    "median_response": source_median_rt.get(source_id, 0),
                 }
             )
 
@@ -506,7 +558,10 @@ async def api_hunt_source_performance():
             source_query = text("""
                 SELECT
                     s.name as source_name,
-                    ROUND(AVG((a.article_metadata->>'threat_hunting_score')::float)::numeric, 1) as avg_score
+                    ROUND(AVG((a.article_metadata->>'threat_hunting_score')::float)::numeric, 1) as avg_score,
+                    ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (
+                        ORDER BY (a.article_metadata->>'threat_hunting_score')::float
+                    )::numeric, 1) as median_score
                 FROM sources s
                 JOIN articles a ON s.id = a.source_id
                 WHERE (a.article_metadata->>'threat_hunting_score')::float > 0
@@ -520,11 +575,12 @@ async def api_hunt_source_performance():
 
             labels = [row.source_name for row in rows]
             values = [float(row.avg_score) for row in rows]
+            medians = [float(row.median_score) for row in rows]
 
-            return {"labels": labels, "values": values}
+            return {"labels": labels, "values": values, "medians": medians}
     except Exception as e:
         logger.error(f"Failed to get source performance: {e}")
-        return {"labels": [], "values": []}
+        return {"labels": [], "values": [], "medians": []}
 
 
 @router.get("/hunt/quality-distribution")

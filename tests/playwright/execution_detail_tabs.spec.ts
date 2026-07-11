@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import fs from 'fs';
 
 const BASE = process.env.CTI_SCRAPER_URL || 'http://localhost:8001';
 
@@ -137,6 +138,48 @@ test.describe('Execution Detail - Tabbed UI', () => {
   test('modal opens fullscreen by default', async ({ page }) => {
     const modalContent = page.locator('#executionModalContent');
     await expect(modalContent).toHaveClass(/modal-fullscreen/);
+  });
+
+  test('download trace button downloads selected execution trace JSON', async ({ page }) => {
+    const traceBundleRequests: string[] = [];
+    await page.route(`**/api/workflow/executions/99999/trace-bundle`, route => {
+      traceBundleRequests.push(route.request().url());
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: {
+          'content-disposition': 'attachment; filename=workflow_execution_trace_99999.json',
+        },
+        body: JSON.stringify({
+          schema_version: 'workflow_execution_trace_v1',
+          execution_id: 99999,
+          execution: { status: 'completed' },
+          eval_bundles: {},
+          eval_bundle_errors: {},
+          integrity: { bundle_sha256: 'abc123', warnings: [] },
+        }),
+      });
+    });
+
+    const downloadButton = page.locator('#downloadTraceBundleBtn');
+    await expect(downloadButton).toBeVisible();
+    await expect(downloadButton).toBeEnabled();
+    await expect(downloadButton).toHaveText('Download Trace');
+
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      downloadButton.click(),
+    ]);
+    const downloadPath = await download.path();
+    expect(download.suggestedFilename()).toBe('workflow_execution_trace_99999.json');
+    expect(downloadPath).toBeTruthy();
+
+    const payload = JSON.parse(fs.readFileSync(downloadPath!, 'utf8'));
+    expect(traceBundleRequests).toHaveLength(1);
+    expect(traceBundleRequests[0]).toContain('/api/workflow/executions/99999/trace-bundle');
+    expect(payload.schema_version).toBe('workflow_execution_trace_v1');
+    expect(payload.execution_id).toBe(99999);
+    expect(payload.integrity.bundle_sha256).toBeTruthy();
   });
 
   test('tab strip is visible with one tab per step', async ({ page }) => {

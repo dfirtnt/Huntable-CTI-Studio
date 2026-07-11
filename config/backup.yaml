@@ -6,15 +6,10 @@ backup:
 components:
   config: true
   database: true
-  docker_volumes: true
+  docker_volumes: false
   logs: true
   models: true
   outputs: true
-docker_volumes:
-  stop_containers: true
-  volumes:
-  - postgres_data
-  - redis_data
 environments:
   development:
     backup:

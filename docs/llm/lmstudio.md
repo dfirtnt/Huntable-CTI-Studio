@@ -139,7 +139,7 @@ The following features from [LM Studio 0.4.0](https://lmstudio.ai/blog/0.4.0) ar
 
 ## Test Endpoint
 
-Use `POST /api/test-lmstudio` from the web UI to validate LMStudio connectivity. This endpoint checks that the LMStudio server is reachable and the configured model is loaded and responding.
+Use `POST /api/test-lmstudio-connection` from the web UI to validate LMStudio connectivity. This endpoint checks that the LMStudio server is reachable and the configured model is loaded and responding.
 
 ---
 
@@ -159,5 +159,5 @@ python3 scripts/benchmark_llm_providers.py --quick
 
 Results are written to `logs/llm_benchmark_results_TIMESTAMP.json`.
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-07-05_
 _Last reviewed: 2026-05-23_

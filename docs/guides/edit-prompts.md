@@ -54,7 +54,7 @@ See `_normalize_traceability_item` in `src/services/llm_service.py`.
 
 ## Envelope shape
 
-All six extract sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract) and ExtractAgent use the standard 4-key envelope. Use this shape for all new and rewritten prompts:
+All seven extract sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract, NetworkIndicatorExtract) and ExtractAgent use the standard 4-key envelope. Use this shape for all new and rewritten prompts:
 
 | Key | Role |
 |-----|------|
@@ -65,7 +65,7 @@ All six extract sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract,
 
 **`role` is required.** If the parsed prompt config contains neither `role` nor `system`, `_validate_preprocess_invariants` in `src/services/llm_service.py` raises a `PreprocessInvariantError` and aborts the call before it reaches the model. This is classified as `infra_failed`, not a model failure, so it does not consume QA retries. The symptom is a silent extraction failure with no LLM response logged.
 
-**`user_template` is code-owned — do not store it in presets.** The user message scaffold (Title/URL/Content headers, traceability block, and instructions footer) is assembled at runtime from `_EXTRACT_BEHAVIORS_TEMPLATE` in `llm_service.py`. Preset authors control the system message content via the four keys above; the runtime controls how they are assembled into the user message. Any `user_template` key found in a saved prompt is ignored by the backend.
+**`user_template` is code-owned — do not store it in presets.** The user message scaffold (Title/URL/Content headers, traceability block, and instructions footer) is an inline f-string assembled at runtime in `run_extraction_agent()` (`src/services/llm_service.py`). Preset authors control the system message content via the four keys above; the runtime controls how they are assembled into the user message. Any `user_template` key found in a saved prompt is ignored by the backend.
 
 ## QA
 
@@ -113,12 +113,9 @@ See [Workflow Presets](../getting-started/configuration.md#workflow-presets) for
 
 - [Agents and Responsibilities](../concepts/agents.md) — which agents run in what order
 - [Extract Observables](extract-observables.md) — observable shape and downstream consumers
-- [Evaluate Models](evaluate-models.md) — measuring prompt changes against eval articles
+- [Agent Evals](../features/agent-evals.md) — measuring prompt changes against eval articles via the `/mlops/agent-evals` UI
 - [Agent Config Schema](../architecture/agent-config-schema.md) — Pydantic contract for the broader config
 - [Workflow Presets](../getting-started/configuration.md#workflow-presets) -- quickstart preset files and how to import/export configs
 - Contract test: `tests/config/test_subagent_traceability_contract.py` -- authoritative schema enforcement
 
-_Last updated: 2026-06-20_
-<!--stackedit_data:
-eyJoaXN0b3J5IjpbLTcxNTMzNjM4XX0=
--->
+_Last updated: 2026-07-05_

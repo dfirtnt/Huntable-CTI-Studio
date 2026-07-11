@@ -16,7 +16,7 @@
 | 3.9.6 | ✅ Supported | ML venv only (specific library requirements) |
 | 3.11.x | ✅ Supported | Docker standard, production |
 | 3.12.x | ✅ **Recommended** | Local development, testing |
-| 3.13.x | ⚠️ Not tested | May work but not validated |
+| 3.13.x | ✅ Supported | Confirmed working local dev venv (langfuse 4.3.1 imports cleanly) |
 | 3.14.x | ❌ Blocked | Langfuse/pydantic compatibility issues |
 
 ## Migration Notes

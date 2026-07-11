@@ -43,7 +43,7 @@ Results are persisted to PostgreSQL in JSONB format:
 
 ### Step 1: Sub-Agent Execution
 
-Each sub-agent (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract) runs and produces results:
+Each sub-agent (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract, NetworkIndicatorExtract) runs and produces results:
 
 ```python
 subresults = {
@@ -56,7 +56,8 @@ subresults = {
     "hunt_queries": {...},
     "registry_artifacts": {...},
     "windows_services": {...},
-    "scheduled_tasks": {...}
+    "scheduled_tasks": {...},
+    "network_indicators": {...}
 }
 ```
 
@@ -181,7 +182,29 @@ For extraction sub-agents specifically, the workflow keeps full `_llm_messages` 
 
 ### Step 4: SIGMA Agent Consumption
 
-The SIGMA node reads the in-memory `extraction_result` and picks the best content before calling the SigmaGenerationService:
+The SIGMA node reads the in-memory `extraction_result` and picks the best content before calling the SigmaGenerationService.
+
+#### Observable grouping
+
+Before the LLM is called, `_build_sigma_generation_groups()` partitions observables by
+`(platform, telemetry_category, logsource_hint)`. Each group gets its own LLM call so that
+mixed-platform articles never produce combined Windows/Linux rules. Linux groups receive extra
+guidance via `LINUX_SIGMA_GUIDANCE` (injected in `sigma_generation_service.py`).
+
+#### Intra-batch deduplication
+
+After all groups have generated their rules and before the rules are stored on the execution,
+`_deduplicate_batch_rules()` runs a Jaccard-overlap pass across the full batch. Two rules are
+considered duplicates when they share the same `(logsource.category, logsource.product)` and
+their `detection.selection` leaf-value sets overlap by ≥ 80%. The more specific rule (higher
+condition count) is retained; the less specific is dropped and logged at WARNING level.
+
+**Why this is necessary:** `similarity_search_node` (Step 5) compares each new rule against
+the *existing* rule library — it never sees sibling rules generated in the same batch. Without
+this pass, near-identical rules emitted by multiple generation groups (e.g., parent-vs-child
+perspective on the same execution chain) all score as "novel" and all get queued.
+
+
 
 ```python
 sigma_fallback_enabled = config_obj.sigma_fallback_enabled if config_obj and hasattr(config_obj, 'sigma_fallback_enabled') else False
@@ -456,10 +479,9 @@ User action / automated trigger
 - ⚠️ **Debugger friendly via Langfuse**: No embedded http debugger, lean on trace views
 
 **Code references:**
-- `src/services/workflow_trigger_service.py:120-165` (creates execution + dispatches Celery)
-- `src/worker/celery_app.py:637-679` (`trigger_agentic_workflow` task)
-- `src/web/routes/workflow_executions.py:1046-1105` (`/api/workflow/articles/{article_id}/trigger`)
-- `src/web/routes/workflow_executions.py:694-770` (`/api/workflow/executions/{execution_id}/retry`)
+- `src/services/workflow_trigger_service.py` — `WorkflowTriggerService.trigger_workflow()` (creates execution + dispatches Celery)
+- `src/worker/celery_app.py` — `trigger_agentic_workflow` task
+- `src/web/routes/workflow_executions.py` — `/api/workflow/articles/{article_id}/trigger` and `/api/workflow/executions/{execution_id}/retry` endpoints
 
 **Note:** The UI still appends `use_langgraph_server` query flags for compatibility, but the backend ignores that parameter—the LangGraph graph always executes inside the Celery task now. The standalone LangGraph server referenced in earlier docs no longer exists.
 
@@ -481,8 +503,8 @@ Test button → test_sub_agent() endpoint → llm_service.run_extraction_agent()
 - ⚠️ **No Langfuse traces**: Runs in-process, no background worker
 
 **Code references:**
-- `src/web/routes/workflow_config.py:579-680`
-- `src/web/templates/workflow.html:2051-2087`
+- `src/web/routes/workflow_config.py` — `test_sub_agent()` (`POST /config/test-subagent`)
+- `src/web/templates/workflow.html` — "Test with Article" handler
 
 ### Comparison Table
 
@@ -508,6 +530,7 @@ Test button → test_sub_agent() endpoint → llm_service.run_extraction_agent()
 - **Supervisor aggregation**: `src/workflows/agentic_workflow.py` — search `# --- Supervisor Aggregation ---`
 - **Database persistence**: `src/workflows/agentic_workflow.py` — search `execution.extraction_result = extraction_result`
 - **Sigma consumption**: `src/workflows/agentic_workflow.py` — search `sigma_fallback_enabled`
+- **Intra-batch dedup**: `src/workflows/agentic_workflow.py` — `_deduplicate_batch_rules()`
 - **Celery trigger task**: `src/worker/celery_app.py` — `trigger_agentic_workflow`
 - **Workflow trigger service**: `src/services/workflow_trigger_service.py`
 - **Retry execution trigger**: `src/web/routes/workflow_executions.py` — `/retry` endpoint
@@ -515,4 +538,4 @@ Test button → test_sub_agent() endpoint → llm_service.run_extraction_agent()
 - **Direct test trigger**: `src/web/routes/workflow_config.py` — `test_sub_agent()`
 - **Database model**: `src/database/models.py` — `AgenticWorkflowExecutionTable`
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-07-04_

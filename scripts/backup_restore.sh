@@ -214,7 +214,7 @@ case "$COMMAND" in
                 ;;
             "database")
                 echo "📊 Creating database-only backup..."
-                python3 scripts/backup_database.py --backup-dir "$BACKUP_DIR" $NO_COMPRESS
+                python3 scripts/backup_database_v3.py --backup-dir "$BACKUP_DIR" $NO_COMPRESS
                 ;;
             "files")
                 echo "📁 Creating files-only backup..."
@@ -245,7 +245,7 @@ case "$COMMAND" in
             python3 scripts/backup_system.py --list --backup-dir "$BACKUP_DIR"
             echo ""
             echo "📊 Database-only backups:"
-            python3 scripts/backup_database.py --list --backup-dir "$BACKUP_DIR"
+            python3 scripts/backup_database_v3.py --list --backup-dir "$BACKUP_DIR"
         else
             python3 scripts/backup_system.py --list --backup-dir "$BACKUP_DIR"
         fi
@@ -269,7 +269,7 @@ case "$COMMAND" in
     # Legacy database-only commands for backward compatibility
     "db-create")
         echo "📊 Creating database-only backup..."
-        python3 scripts/backup_database.py --backup-dir "$BACKUP_DIR" $NO_COMPRESS
+        python3 scripts/backup_database_v3.py --backup-dir "$BACKUP_DIR" $NO_COMPRESS
         ;;
     
     "db-restore")
@@ -284,7 +284,7 @@ case "$COMMAND" in
     
     "db-list")
         echo "📋 Listing database-only backups..."
-        python3 scripts/backup_database.py --list --backup-dir "$BACKUP_DIR"
+        python3 scripts/backup_database_v3.py --list --backup-dir "$BACKUP_DIR"
         ;;
     
     *)

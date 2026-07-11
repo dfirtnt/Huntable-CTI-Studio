@@ -627,6 +627,44 @@ def log_llm_completion(
             logger.error(f"Error logging LLM completion to LangFuse: {e}")
 
 
+def classify_llm_error(error: Exception) -> str:
+    """Best-effort failure-class bucket for an LLM call error.
+
+    Providers here (OpenAI/Anthropic/LMStudio HTTP paths) mostly raise generic
+    RuntimeError/httpx exceptions with the real failure class embedded in the
+    message text (status code, "rate limit", "timeout", ...) rather than typed
+    exception subclasses, so `type(error).__name__` alone can't distinguish a
+    timeout from an auth failure from a 500. Classification is message-based
+    on purpose -- keep it in sync with the phrasing used in llm_service.py's
+    provider request paths if that phrasing changes.
+    """
+    type_name = type(error).__name__.lower()
+    message = str(error).lower()
+
+    if "timeout" in type_name or "timeout" in message or "timed out" in message:
+        return "timeout"
+    if "connect" in type_name or "connection" in message:
+        return "connection"
+    if "rate limit" in message or "rate_limit" in message or "(429)" in message or " 429" in message:
+        return "rate_limit"
+    if (
+        "unauthorized" in message
+        or "invalid api key" in message
+        or "authentication" in message
+        or "(401)" in message
+        or "(403)" in message
+        or "forbidden" in message
+    ):
+        return "auth"
+    if any(f"({code})" in message for code in (500, 502, 503, 504)) or "server error" in message:
+        return "server_error"
+    if "empty response" in message or "could not parse" in message or "no valid" in message:
+        return "invalid_response"
+    if any(f"({code})" in message for code in (400, 404, 422)):
+        return "client_error"
+    return "unknown"
+
+
 def log_llm_error(generation, error: Exception, metadata: dict[str, Any] | None = None):
     """Log LLM error to LangFuse generation."""
     if not generation:
@@ -636,7 +674,13 @@ def log_llm_error(generation, error: Exception, metadata: dict[str, Any] | None 
         # Update generation with error info, but don't end it here
         # Let the context manager in trace_llm_call handle ending to avoid generator protocol issues
         generation.update(
-            level="ERROR", status_message=str(error), metadata={**(metadata or {}), "error_type": type(error).__name__}
+            level="ERROR",
+            status_message=str(error),
+            metadata={
+                **(metadata or {}),
+                "error_type": type(error).__name__,
+                "error_category": classify_llm_error(error),
+            },
         )
         # Mark as ended using a custom attribute to prevent double-ending
         if not hasattr(generation, "_langfuse_ended"):

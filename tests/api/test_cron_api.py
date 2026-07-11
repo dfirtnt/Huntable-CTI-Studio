@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import inspect
-
 import pytest
 
 from src.services.backup_cron_service import CronUnavailableError
@@ -92,18 +90,32 @@ def test_replace_cron_returns_success_when_cron_unavailable(monkeypatch):
     assert result["jobs"] == []
 
 
-def test_cron_endpoints_require_no_admin_auth():
-    """Regression: cron endpoints must not have FastAPI Depends() defaults.
+def test_cron_replace_is_operator_classified_in_manifest():
+    """Enterprise contract (replaces the legacy 'no Depends() allowed' rule).
 
-    The Settings page sends no X-API-Key header. If either cron handler
-    grows a Depends(...) default the endpoint will silently return 401
-    and break the cron editor save.
+    PUT /api/cron is operator/admin-only and mandatorily audited. Authorization
+    is enforced centrally by the route manifest + AuthorizationMiddleware (see
+    tests/api/test_route_family_authorization.py for the live 401/403 behavior),
+    not per-handler Depends(). The Settings page keeps working: in production the
+    operator is authenticated by the upstream proxy; in local AUTH_MODE=disabled
+    the synthetic local-dev admin identity satisfies the role.
     """
-    from fastapi.params import Depends
+    from fastapi import FastAPI
 
-    for handler in (cron_routes.api_get_cron, cron_routes.api_replace_cron):
-        sig = inspect.signature(handler)
-        for param in sig.parameters.values():
-            assert not isinstance(param.default, Depends), (
-                f"{handler.__name__} must not use FastAPI Depends() -- the Settings page does not authenticate"
-            )
+    from src.web.routes import register_routes
+    from src.web.security.route_manifest import (
+        AuditRequirement,
+        RouteClassification,
+        build_route_manifest,
+        find_manifest_entry,
+    )
+
+    app = FastAPI()
+    register_routes(app)
+    manifest = build_route_manifest(app)
+
+    entry = find_manifest_entry(manifest, "PUT", "/api/cron")
+    assert entry is not None, "PUT /api/cron missing from route manifest"
+    assert entry.classification is RouteClassification.ROLES
+    assert entry.roles == ("operator", "admin")
+    assert entry.audit_requirement is AuditRequirement.MANDATORY

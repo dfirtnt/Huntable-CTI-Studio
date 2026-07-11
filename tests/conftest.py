@@ -577,16 +577,26 @@ def browser_type_launch_args():
     }
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="class")
 def _playwright_sync():
-    """Sync Playwright instance for session-scoped browser (used by sync UI tests)."""
+    """Sync Playwright instance for class-scoped browser (used by sync UI tests).
+
+    Class-scoped (not session-scoped): Playwright's sync API drives its dispatcher
+    via a greenlet sharing this OS thread with pytest-asyncio's session-scoped event
+    loop. That dispatcher's run_forever() call never returns for as long as this
+    fixture is alive, permanently marking asyncio's thread-local "running loop" flag
+    as busy and breaking any pytest-asyncio test that runs afterward in the same
+    process ("RuntimeError: Runner.run() cannot be called from a running event
+    loop"). Class scope bounds that window to one test class instead of the whole
+    session, so stop_sync() reliably clears the flag before other tests run.
+    """
     with sync_playwright() as p:
         yield p
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="class")
 def browser(_playwright_sync, browser_type_launch_args):
-    """Browser instance for session-scoped tests (sync API for playwright.sync_api tests)."""
+    """Browser instance for class-scoped tests (sync API for playwright.sync_api tests)."""
     try:
         b = _playwright_sync.chromium.launch(**browser_type_launch_args)
         yield b
@@ -598,9 +608,9 @@ def browser(_playwright_sync, browser_type_launch_args):
         raise
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="class")
 def context(browser, browser_context_args):
-    """Browser context for session-scoped tests (sync API)."""
+    """Browser context for class-scoped tests (sync API)."""
     ctx = browser.new_context(**browser_context_args)
     yield ctx
     ctx.close()

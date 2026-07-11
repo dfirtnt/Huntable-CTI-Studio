@@ -6855,7 +6855,7 @@ Please provide a detailed analysis based on the article content and the user's s
             resultModal.innerHTML = `
                 <div class="mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
                     <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-medium text-gray-900"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 7.5h10.5v9H6.75v-9z"/></svg> OS Detection Result</h3>
+                        <h3 class="text-lg font-medium text-gray-900"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 7.5h10.5v9H6.75v-9z"/></svg> Platform Detection Result</h3>
                         <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -6898,7 +6898,7 @@ Please provide a detailed analysis based on the article content and the user's s
                         
                         ${maxSimilarity ? `
                         <div>
-                            <div class="text-sm font-medium text-gray-700">Max Similarity:</div>
+                            <div class="text-sm font-medium text-gray-700">Top Platform Score:</div>
                             <div class="text-sm text-gray-600 mt-1">${maxSimilarity}%</div>
                         </div>
                         ` : ''}
@@ -6945,7 +6945,7 @@ Please provide a detailed analysis based on the article content and the user's s
             errorModal.innerHTML = `
                 <div class="mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
                     <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-medium text-red-600">❌ OS Detection Error</h3>
+                        <h3 class="text-lg font-medium text-red-600">Platform Detection Error</h3>
                         <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>

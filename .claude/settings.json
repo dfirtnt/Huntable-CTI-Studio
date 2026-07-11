@@ -1,0 +1,30 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in *config/eval_articles_data/*) printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"ask\",\"permissionDecisionReason\":\"config/eval_articles_data is eval ground truth - edits require explicit operator approval. GT is never changed to chase a pipeline bug.\"}}';; esac",
+            "timeout": 10,
+            "statusMessage": "eval-fixture guard"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in *.py) \"$CLAUDE_PROJECT_DIR\"/.venv/bin/ruff check --fix --force-exclude \"$f\" >/dev/null 2>&1; \"$CLAUDE_PROJECT_DIR\"/.venv/bin/ruff format --force-exclude \"$f\" >/dev/null 2>&1;; esac; exit 0",
+            "timeout": 30,
+            "statusMessage": "ruff fix+format"
+          }
+        ]
+      }
+    ]
+  }
+}

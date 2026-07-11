@@ -8,10 +8,10 @@ This reflects the current `docker-compose.yml` and `docker-compose.override.yml`
 |--------|----------------|---------|
 | **postgres** | `pgvector/pgvector:pg15` | Primary DB; pgvector extension. Container: `cti_postgres`. |
 | **redis** | `redis:7-alpine` | Cache and Celery broker. Appendonly + `maxmemory` / `allkeys-lru`. Container: `cti_redis`. |
-| **web** | `Dockerfile` | FastAPI app: `uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8001 --reload`. Ports: 8001 (API/UI), 8888. |
+| **web** | `Dockerfile` | FastAPI app: `uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8001 --reload`. Port: 8001 (API/UI). |
 | **worker** | `Dockerfile` | Celery worker queues: `collection_immediate` (user Collect Now), `default`, `source_checks`, `maintenance`, `reports`, `connectivity`, `collection`. |
 | **workflow_worker** | `Dockerfile` | Celery worker for `workflows` queue (agentic/LangGraph tasks). |
-| **scheduler** | `Dockerfile` | Celery beat: `celery -A src.worker.celery_app beat --loglevel=debug`. |
+| **scheduler** | `Dockerfile` | Celery beat: `celery -A src.worker.celery_app beat --loglevel=${CELERY_LOG_LEVEL:-info}`. |
 | **cli** | `Dockerfile` | Profile `tools`. Command: `python -m src.cli.main`. Same Postgres/Redis as app. |
 
 ## Key environment
@@ -48,7 +48,7 @@ This reflects the current `docker-compose.yml` and `docker-compose.override.yml`
 ## Networking
 
 - Single bridge network: `cti_network`. Services resolve by name (`postgres`, `redis`, `web`, etc.).
-- Exposed ports: 5432 (postgres), 6379 (redis), 8001 and 8888 (web). Use 8001 for API/UI from the host.
+- Exposed ports: 5432 (postgres), 6379 (redis), 8001 (web).
 
 ## CLI alignment
 
@@ -59,4 +59,4 @@ This reflects the current `docker-compose.yml` and `docker-compose.override.yml`
 - **Dockerfile:** Python 3.11-slim; system deps (Postgres client, Playwright/Chromium, Docker CLI); `requirements.txt` + `requirements-test.txt`; non-root user; used by compose for web, worker, workflow_worker, scheduler, cli.
 - **Dockerfile.prod:** Multi-stage build; slimmer runtime (no Playwright/test deps); for production-style images.
 
-_Last updated: 2026-06-20_
+_Last updated: 2026-07-05_

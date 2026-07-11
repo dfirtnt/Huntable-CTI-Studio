@@ -648,18 +648,6 @@ class LLMService:
         return converted
 
     @staticmethod
-    def _read_file_sync(file_path: str) -> str:
-        """Synchronous file read helper (to be run in thread)."""
-        with open(file_path, encoding="utf-8") as f:
-            return f.read()
-
-    @staticmethod
-    def _read_json_file_sync(file_path: str) -> dict:
-        """Synchronous JSON file read helper (to be run in thread)."""
-        with open(file_path, encoding="utf-8") as f:
-            return json.load(f)
-
-    @staticmethod
     def _estimate_tokens(text: str) -> int:
         """Rough estimate: ~4 characters per token."""
         return len(text) // 4
@@ -673,9 +661,6 @@ class LLMService:
         if canonical == "lmstudio":
             return self.assumed_lmstudio_context_tokens
         return self.assumed_cloud_context_tokens
-
-    def _get_context_limit_for_provider(self, provider: str | None) -> int:
-        return self._get_context_limit(provider, model_name=None)
 
     @staticmethod
     def _truncate_content(
@@ -1944,6 +1929,7 @@ class LLMService:
         logger.info(f"Ranking request: max_tokens={max_output_tokens} (reasoning_model={is_reasoning_model})")
 
         ranking_metadata = {
+            "agent_name": "rank_article",
             "prompt_length": len(prompt_text),
             "max_tokens": max_output_tokens,
             "title": title,
