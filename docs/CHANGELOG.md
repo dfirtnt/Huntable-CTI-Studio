@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [7.6.0 "Europa"] - 2026-07-10
 ### Fixed
 - **Enterprise SSO flagged as beta** (2026-07-09): `setup.sh`/`config.sh sso` and `deploy/sso/README.md` now state up front that only login has been verified across all three providers (GitHub/Google/Entra) -- IdP group-to-role mapping has been validated with only one provider, and Google groups (service account + domain-wide delegation) and Entra groups (object GUIDs, not names) need extra provider-side setup the scaffold does not generate. No behavior change.
 - **Settings backup list shows available backups again** (2026-07-06): `/api/backup/list` screen-scrapes `prune_backups.py --stats` output and matched the section heading case-sensitively ("Recent Backups"); the restored script prints "Recent backups:", so the Settings page showed "No backups found." despite backups on disk. Parsing extracted into `_parse_backup_list()` with a case-insensitive heading match and regression tests pinned to the script's real output.

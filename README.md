@@ -10,7 +10,7 @@ For hardened deployments, an optional enterprise boundary is available: SSO thro
 Even when hardened, the phase-one audit log is database-backed and mutable by database administrators (forward exports to a SIEM for higher assurance), and the app is not intended to store classified or proprietary threat intelligence at this time.
 ##
 
-**Huntable CTI Studio v7.5.0 "Europa"** - A Cyber Threat Intelligence ML/AI workbench that automates collection, extraction, and detection rule generation from 38 seeded OSINT sources (see `config/sources.yaml`; runtime may add or replace rows after DB sync).
+**Huntable CTI Studio v7.6.0 "Europa"** - A Cyber Threat Intelligence ML/AI workbench that automates collection, extraction, and detection rule generation from 38 seeded OSINT sources (see `config/sources.yaml`; runtime may add or replace rows after DB sync).
 
 ## Purpose
 
