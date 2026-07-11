@@ -221,8 +221,13 @@ class ContentCleaner:
         text = re.sub(r"[^\S\n]+", " ", text)
         # Drop spaces hugging newlines, then cap consecutive blank lines at one
         # (two single-quantifier passes, not one combined " *\n *" pattern --
-        # that shape backtracks quadratically on long runs of spaces with no newline)
-        text = re.sub(r" +\n", "\n", text)
+        # that shape backtracks quadratically on long runs of spaces with no
+        # newline). The line above already collapsed every horizontal-whitespace
+        # run to a single space, so at most one space can ever precede a
+        # newline here; the quantifier is still explicitly bounded (rather than
+        # left unbounded) so this is not a polynomial-regex shape regardless of
+        # that upstream invariant.
+        text = re.sub(r" {1,64}\n", "\n", text)
         text = re.sub(r"\n +", "\n", text)
         text = re.sub(r"\n{3,}", "\n\n", text)
         return text.strip()
