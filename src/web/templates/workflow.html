@@ -10601,8 +10601,8 @@ if (workflowConfigForm) {
     promptsSource.ExtractAgentSettings = extractSettings;
     formData.agent_prompts = promptsSource;
     
-    // Validate RankAgent model is set
-    if (!formData.agent_models.RankAgent) {
+    // Validate RankAgent model is set (only required when Rank Agent is enabled)
+    if (formData.rank_agent_enabled && !formData.agent_models.RankAgent) {
         showNotification('Rank Agent model is required. Please select a model from the dropdown.', 'error');
         document.getElementById('rankagent-model-2')?.focus();
         return;
