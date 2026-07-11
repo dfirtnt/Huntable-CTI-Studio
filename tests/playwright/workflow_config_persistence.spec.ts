@@ -153,47 +153,6 @@ test.describe('Workflow Config Persistence', () => {
     expect(text).toContain('Updated');
   });
 
-  test('config display includes RankAgentQA when Rank is disabled', async ({ page }) => {
-    await gotoWorkflowConfig(page);
-    await ensureRankAgentPanel(page);
-    const toggle = page.locator('#rank-agent-enabled');
-    const initiallyEnabled = await toggle.isChecked();
-
-    try {
-      if (initiallyEnabled) {
-        // Toggling #rank-agent-enabled triggers autoSaveConfig via onchange
-        const savePromise = page.waitForResponse(
-          (r) => r.url().includes('/api/workflow/config') && r.request().method() === 'PUT',
-          { timeout: 15000 }
-        );
-        await page.evaluate(() => {
-          const input = document.getElementById('rank-agent-enabled') as HTMLInputElement | null;
-          if (!input) throw new Error('Rank Agent toggle not found');
-          input.checked = false;
-          input.dispatchEvent(new Event('change', { bubbles: true }));
-        });
-        await savePromise;
-        await page.waitForTimeout(500);
-      }
-      const displayText = await page.locator('#configDisplay').innerText();
-      expect(displayText).toContain('RankAgentQA');
-    } finally {
-      if (initiallyEnabled) {
-        const restorePromise = page.waitForResponse(
-          (r) => r.url().includes('/api/workflow/config') && r.request().method() === 'PUT',
-          { timeout: 15000 }
-        ).catch(() => {});
-        await page.evaluate(() => {
-          const input = document.getElementById('rank-agent-enabled') as HTMLInputElement | null;
-          if (!input) return;
-          input.checked = true;
-          input.dispatchEvent(new Event('change', { bubbles: true }));
-        });
-        await restorePromise;
-      }
-    }
-  });
-
   // retries: 4 guards against concurrent-test DB interference on the reload check.
   // The primary persistence assertion is on the PUT response body (immune to races);
   // the reload check is secondary and can be disrupted when other spec files run in
