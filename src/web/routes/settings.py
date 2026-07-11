@@ -18,6 +18,7 @@ from src.services.audit_service import (
     AsyncAuditService,
     AuditEvent,
     build_actor_context,
+    is_sensitive_audit_key,
     redacted_secret_change,
 )
 
@@ -59,8 +60,11 @@ _SENSITIVE_KEYS = frozenset(
 
 
 def _is_sensitive_setting(key: str) -> bool:
+    # Delegates to audit_service's broader definition (covers PASSWORD/CREDENTIAL/etc,
+    # not just TOKEN/SECRET/API_KEY) so this module can't silently under-redact a
+    # setting key that audit_service itself would treat as sensitive.
     normalized = key.upper()
-    return normalized in _SENSITIVE_KEYS or "TOKEN" in normalized or "SECRET" in normalized or "API_KEY" in normalized
+    return normalized in _SENSITIVE_KEYS or is_sensitive_audit_key(key)
 
 
 def _setting_audit_event(

@@ -314,6 +314,18 @@ SAFE_ROUTE_RULES: tuple[RouteRule, ...] = (
     RouteRule("/api/capabilities", RouteClassification.ROLES, _OPERATOR_ADMIN),
     RouteRule("/api/audit/*", RouteClassification.ROLES, _ADMIN),
     RouteRule("/api/debug/*", RouteClassification.ROLES, _ADMIN),
+    # Reads of credential-bearing or admin-scoped surfaces must match their write-side
+    # role gate -- per docs/guides/authentication.md, `admin` owns "settings,
+    # credentials, ... backup/restore, model management". Without an explicit entry
+    # here, GET falls through to the AUTHENTICATED default (any logged-in user, no
+    # role check), which previously let any authenticated-but-unprivileged identity
+    # read live secret values via GET /api/settings*. See UNSAFE_ROUTE_RULES above
+    # for the matching write-side rule each of these mirrors.
+    RouteRule("/api/settings*", RouteClassification.ROLES, _ADMIN),
+    RouteRule("/api/backup/*", RouteClassification.ROLES, _ADMIN),
+    RouteRule("/api/model/*", RouteClassification.ROLES, _ADMIN),
+    RouteRule("/api/observables/training/*", RouteClassification.ROLES, _ADMIN),
+    RouteRule("/api/sigma-queue/*", RouteClassification.ROLES, _RULE_REVIEWER_ADMIN),
 )
 
 

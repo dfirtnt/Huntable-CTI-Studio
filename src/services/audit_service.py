@@ -125,6 +125,12 @@ class AuditEvent:
     error_code: str | None = None
 
 
+def is_sensitive_audit_key(key: str) -> bool:
+    """Public wrapper so other modules share this module's sensitive-key definition
+    instead of maintaining their own narrower copy (see _SENSITIVE_KEY_PARTS)."""
+    return _is_sensitive_key(key)
+
+
 def _is_sensitive_key(key: str) -> bool:
     normalized = key.strip().lower().replace("-", "_")
     return any(part in normalized for part in _SENSITIVE_KEY_PARTS)

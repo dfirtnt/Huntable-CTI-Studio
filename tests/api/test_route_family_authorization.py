@@ -97,3 +97,54 @@ async def test_detailed_health_is_not_public():
 
     assert response.status_code == 401
     assert response.json()["detail"] == "Authentication required"
+
+
+# Regression coverage for the pre-release security-review finding: SAFE_ROUTE_RULES
+# (GET requests) had no entries for /api/settings*, /api/backup/*, /api/model/*,
+# /api/observables/training/*, or /api/sigma-queue/*, so those reads fell through to
+# the bare AUTHENTICATED default -- any authenticated user with zero app role could
+# read live secrets via GET /api/settings. UNSAFE_ROUTE_RULES already gated the write
+# side of each of these to admin/rule_reviewer; the read side must match.
+@pytest.mark.asyncio
+async def test_settings_read_requires_admin():
+    async with await _client() as client:
+        response = await client.get("/api/settings", headers=_headers("huntable-analysts"))
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Insufficient role"
+
+
+@pytest.mark.asyncio
+async def test_settings_read_rejects_unauthenticated_request():
+    async with await _client() as client:
+        response = await client.get("/api/settings")
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Authentication required"
+
+
+@pytest.mark.asyncio
+async def test_backup_list_read_requires_admin():
+    async with await _client() as client:
+        response = await client.get("/api/backup/list", headers=_headers("huntable-operators"))
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Insufficient role"
+
+
+@pytest.mark.asyncio
+async def test_model_versions_read_requires_admin():
+    async with await _client() as client:
+        response = await client.get("/api/model/versions", headers=_headers("huntable-operators"))
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Insufficient role"
+
+
+@pytest.mark.asyncio
+async def test_sigma_queue_list_read_requires_rule_reviewer_or_admin():
+    async with await _client() as client:
+        response = await client.get("/api/sigma-queue/list", headers=_headers("huntable-operators"))
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Insufficient role"
