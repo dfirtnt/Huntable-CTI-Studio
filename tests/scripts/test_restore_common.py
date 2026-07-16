@@ -9,7 +9,29 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "scripts"))
 
-from _restore_common import filter_dump_lines, rewrite_fk_to_not_valid  # noqa: E402
+from _restore_common import extract_psql_errors, filter_dump_lines, rewrite_fk_to_not_valid  # noqa: E402
+
+# ---------------------------------------------------------------------------
+# extract_psql_errors
+# ---------------------------------------------------------------------------
+
+
+def test_extract_psql_errors_finds_statement_errors():
+    stderr = (
+        "psql:/tmp/restore.sql:9231: ERROR:  could not resize shared memory segment to 63999680 bytes: "
+        "No space left on device\n"
+        "psql:/tmp/restore.sql:9232: STATEMENT:  CREATE INDEX ix_articles_embedding_hnsw "
+        "ON public.articles USING hnsw (embedding vector_cosine_ops);\n"
+    )
+    errors = extract_psql_errors(stderr)
+    assert len(errors) == 1
+    assert "could not resize shared memory segment" in errors[0]
+
+
+def test_extract_psql_errors_ignores_warnings_and_notices():
+    stderr = 'NOTICE:  extension "vector" already exists, skipping\nWARNING:  there is no transaction in progress\n'
+    assert extract_psql_errors(stderr) == []
+
 
 # ---------------------------------------------------------------------------
 # rewrite_fk_to_not_valid

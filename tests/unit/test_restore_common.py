@@ -254,6 +254,51 @@ def test_extract_psql_errors_ignores_warnings_and_notices():
     assert extract_psql_errors(stderr) == []
 
 
+def test_extract_psql_errors_detects_fatal_and_panic():
+    stderr = (
+        "psql:/tmp/restore.sql:12: FATAL:  connection to server was lost\n"
+        "psql:/tmp/restore.sql:40: PANIC:  could not write to file\n"
+    )
+    errors = extract_psql_errors(stderr)
+    assert len(errors) == 2
+    assert "FATAL" in errors[0]
+    assert "PANIC" in errors[1]
+
+
+def test_extract_psql_errors_finds_multiple_errors():
+    stderr = (
+        "psql:/tmp/restore.sql:5: ERROR:  duplicate key value violates unique constraint\n"
+        "psql:/tmp/restore.sql:5: STATEMENT:  INSERT INTO articles ...\n"
+        "psql:/tmp/restore.sql:9231: ERROR:  could not resize shared memory segment\n"
+    )
+    errors = extract_psql_errors(stderr)
+    assert len(errors) == 2
+    assert "duplicate key value" in errors[0]
+    assert "shared memory segment" in errors[1]
+
+
+def test_extract_psql_errors_ignores_midline_error_substring():
+    """A line that merely mentions ERROR/FATAL mid-sentence (not a psql error record) must not match.
+
+    extract_psql_errors anchors on the start of the (stripped) line so restore
+    output that echoes SQL text containing these words does not trip a false
+    restore failure.
+    """
+    stderr = "psql:/tmp/restore.sql:3: NOTICE:  see the ERROR log table for FATAL crash history\n"
+    assert extract_psql_errors(stderr) == []
+
+
+def test_extract_psql_errors_case_insensitive():
+    stderr = "psql:/tmp/restore.sql:7: error:  lowercase server message\n"
+    errors = extract_psql_errors(stderr)
+    assert len(errors) == 1
+    assert "lowercase server message" in errors[0]
+
+
+def test_extract_psql_errors_empty_stderr_returns_empty_list():
+    assert extract_psql_errors("") == []
+
+
 # ---------------------------------------------------------------------------
 # Cross-script consistency: all restore callers must pass skip_unsupported_sets
 # ---------------------------------------------------------------------------

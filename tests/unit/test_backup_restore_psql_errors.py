@@ -77,6 +77,35 @@ def test_verify_backup_test_restore_fails_on_psql_statement_error(tmp_path):
     assert "-v ON_ERROR_STOP=1" in restore_calls[0]
 
 
+def test_restore_system_database_restore_succeeds_with_normal_notice_noise(tmp_path):
+    """A clean restore must not be flagged by the new error-detection gate.
+
+    Real pg_dump restores routinely emit harmless NOTICE/WARNING chatter on
+    stderr (e.g. "extension already exists, skipping") even on success. If
+    extract_psql_errors over-matched this benign output, every restore would
+    be reported as failed -- the false-positive counterpart to the two
+    failure-path tests above.
+    """
+    backup_file = tmp_path / "database.sql"
+    backup_file.write_text("SELECT 1;\n", encoding="utf-8")
+    metadata = {"components": {"database": {"filename": backup_file.name}}}
+    benign_noise = (
+        'NOTICE:  extension "vector" already exists, skipping\nWARNING:  there is no transaction in progress\n'
+    )
+
+    def run_side_effect(cmd, **_kwargs):
+        flat = " ".join(str(part) for part in cmd)
+        if "-f /tmp/restore.sql" in flat:
+            return _result(returncode=0, stderr=benign_noise)
+        return _result()
+
+    with patch("restore_system.check_docker_container", return_value=True):
+        with patch("subprocess.run", side_effect=run_side_effect):
+            result = restore_system.restore_database(tmp_path, metadata, create_snapshot=False, force=True)
+
+    assert result is True
+
+
 def test_restore_system_database_restore_fails_on_psql_statement_error(tmp_path):
     backup_file = tmp_path / "database.sql"
     backup_file.write_text("SELECT 1;\n", encoding="utf-8")
