@@ -2,10 +2,14 @@
 
 The threat hunting scorer assigns a 0-100 numeric score to each ingested article
 based on keyword pattern matching. Scores drive filtering, sorting, and workflow
-auto-triggering: an article must clear the configurable
-`auto_trigger_hunt_score_threshold` (default 60) for ingestion to auto-trigger
-the agentic workflow. (The separate `ranking_threshold`, default 6.0, applies to
-the LLM RankAgent's 0-10 score inside the workflow, not to this keyword score.)
+auto-triggering: an article's score must be strictly **above** the configurable
+`auto_trigger_hunt_score_threshold` for ingestion to auto-trigger the agentic
+workflow. The default is **100**, which sits above the 99.9 score ceiling (see
+[Scoring Formula](#scoring-formula)), so **nothing auto-processes by default** —
+auto-triggering is opt-in, activated only when a user consciously lowers the
+threshold in Settings → Workflow. (The separate `ranking_threshold`, default 6.0,
+applies to the LLM RankAgent's 0-10 score inside the workflow, not to this keyword
+score.)
 
 Scores are derived from a keyword model trained on 319 labeled articles
 (97 high-signal, 222 low-signal). The scorer runs automatically at ingestion

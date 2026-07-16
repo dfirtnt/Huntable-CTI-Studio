@@ -140,7 +140,7 @@ class WorkflowConfigResponse(BaseModel):
     rank_agent_enabled: bool = True
     cmdline_attention_preprocessor_enabled: bool = True
     proc_tree_attention_preprocessor_enabled: bool = True
-    auto_trigger_hunt_score_threshold: float = 60.0
+    auto_trigger_hunt_score_threshold: float = 100.0
     created_at: str
     updated_at: str
 
@@ -278,6 +278,7 @@ def get_workflow_config(request: Request):
                     ranking_threshold=6.0,
                     similarity_threshold=0.5,
                     junk_filter_threshold=0.8,
+                    auto_trigger_hunt_score_threshold=100.0,
                     version=new_version,
                     is_active=True,
                     description="Default configuration",
@@ -314,8 +315,8 @@ def get_workflow_config(request: Request):
             settings_threshold = _get_threshold_from_settings(db_session)
             if settings_threshold is None:
                 # Lazy migration: seed AppSettingsTable from config row so subsequent
-                # PUT autosaves never fall back to the column default of 60.0.
-                config_threshold = getattr(config, "auto_trigger_hunt_score_threshold", 60.0)
+                # PUT autosaves never fall back to the column default of 100.0.
+                config_threshold = getattr(config, "auto_trigger_hunt_score_threshold", 100.0)
                 _save_threshold_to_settings(db_session, config_threshold)
                 db_session.commit()
                 settings_threshold = config_threshold
@@ -480,7 +481,7 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
             final_auto_trigger_hunt_score_threshold = (
                 _settings_threshold
                 if _settings_threshold is not None
-                else (getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0) if current_config else 60.0)
+                else (getattr(current_config, "auto_trigger_hunt_score_threshold", 100.0) if current_config else 100.0)
             )
 
             # Validate all agent prompts are valid JSON (for extraction agents that use JSON prompts)
@@ -566,7 +567,7 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                         auto_trigger_hunt_score_threshold=(
                             _settings_threshold
                             if _settings_threshold is not None
-                            else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
+                            else getattr(current_config, "auto_trigger_hunt_score_threshold", 100.0)
                         ),
                         created_at=current_config.created_at.isoformat(),
                         updated_at=current_config.updated_at.isoformat(),
@@ -615,7 +616,7 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                 proc_tree_attention_preprocessor_enabled=getattr(
                     new_config, "proc_tree_attention_preprocessor_enabled", True
                 ),
-                auto_trigger_hunt_score_threshold=getattr(new_config, "auto_trigger_hunt_score_threshold", 60.0),
+                auto_trigger_hunt_score_threshold=getattr(new_config, "auto_trigger_hunt_score_threshold", 100.0),
                 created_at=new_config.created_at.isoformat(),
                 updated_at=new_config.updated_at.isoformat(),
             )
@@ -1318,7 +1319,7 @@ def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdate):
                     current_config, "proc_tree_attention_preprocessor_enabled", True
                 ),
                 auto_trigger_hunt_score_threshold=(
-                    _thr if _thr is not None else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
+                    _thr if _thr is not None else getattr(current_config, "auto_trigger_hunt_score_threshold", 100.0)
                 ),
             )
 
@@ -1433,7 +1434,7 @@ def delete_agent_prompt(request: Request, agent_name: str):
                     current_config, "proc_tree_attention_preprocessor_enabled", True
                 ),
                 auto_trigger_hunt_score_threshold=(
-                    _thr if _thr is not None else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
+                    _thr if _thr is not None else getattr(current_config, "auto_trigger_hunt_score_threshold", 100.0)
                 ),
             )
 
@@ -1657,7 +1658,7 @@ def rollback_agent_prompt(request: Request, agent_name: str, rollback_request: R
                     current_config, "proc_tree_attention_preprocessor_enabled", True
                 ),
                 auto_trigger_hunt_score_threshold=(
-                    _thr if _thr is not None else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
+                    _thr if _thr is not None else getattr(current_config, "auto_trigger_hunt_score_threshold", 100.0)
                 ),
             )
 
@@ -1925,7 +1926,7 @@ def bootstrap_prompts_from_files(request: Request):
                     current_config, "proc_tree_attention_preprocessor_enabled", True
                 ),
                 auto_trigger_hunt_score_threshold=(
-                    _thr if _thr is not None else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
+                    _thr if _thr is not None else getattr(current_config, "auto_trigger_hunt_score_threshold", 100.0)
                 ),
             )
 
@@ -2015,7 +2016,7 @@ def reset_prompts_to_defaults(request: Request, reset_request: ResetPromptsToDef
                     current_config, "proc_tree_attention_preprocessor_enabled", True
                 ),
                 auto_trigger_hunt_score_threshold=(
-                    _thr if _thr is not None else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
+                    _thr if _thr is not None else getattr(current_config, "auto_trigger_hunt_score_threshold", 100.0)
                 ),
             )
 

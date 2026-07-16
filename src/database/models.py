@@ -564,8 +564,9 @@ class AgenticWorkflowConfigTable(Base):
     similarity_threshold = Column(Float, nullable=False, default=0.5)
     junk_filter_threshold = Column(Float, nullable=False, default=0.8)  # min_confidence for junk filter (0.0-1.0)
     auto_trigger_hunt_score_threshold = Column(
-        Float, nullable=False, default=60.0
-    )  # RegexHuntScore threshold for auto-triggering workflows
+        Float, nullable=False, default=100.0
+    )  # RegexHuntScore threshold for auto-triggering workflows. Defaults to 100 (above the
+    # 99.9 score ceiling) so nothing auto-processes until a user consciously lowers it (opt-in).
 
     # Versioning and audit
     version = Column(Integer, nullable=False, default=1)

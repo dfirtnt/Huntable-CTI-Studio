@@ -62,16 +62,20 @@ check that terminates or filters anything.
 The value that actually gates whether an ingested article auto-triggers the
 agentic workflow is a **different, separate field**:
 `AgenticWorkflowConfigTable.auto_trigger_hunt_score_threshold`
-(`src/services/workflow_trigger_service.py:50,89-93`), editable via its own
-endpoint (`PATCH /api/workflow/config/auto-trigger-threshold`).
+(`src/services/workflow_trigger_service.py:89-97`), editable via its own
+endpoint (`PATCH /api/workflow/config/auto-trigger-threshold`). An article
+auto-triggers only when its keyword hunt score is strictly **above** this
+threshold.
 
-Note there is also a discrepancy between that field's code default (100.0 in
-`workflow_trigger_service.py:50`) and the value cited in
-[`docs/architecture/scoring.md`](architecture/scoring.md) (default 60) — that
-doc describes a keyword-based ingestion-time score on a different scale than
-`MinHuntScore`. This wasn't investigated further here since it's outside this
-doc's scope (SIGMA workflow thresholds); worth a separate look if auto-trigger
-behavior seems off.
+Its default is **100.0**, which sits above the 99.9 hunt-score ceiling — so **by
+default nothing auto-processes**; auto-triggering is opt-in and only happens once
+a user consciously lowers the threshold. This default is set consistently across
+the DB model (`src/database/models.py` column default), the two create-default
+paths (`workflow_config.py` and `workflow_trigger_service.py:50`), and every
+fallback in `workflow_config.py`; the runtime value is read from `AppSettingsTable`
+(seeded from the column default on first access). See
+[`docs/architecture/scoring.md`](architecture/scoring.md) for the scoring formula
+and the 99.9 ceiling.
 
 Independently, several services accept their own `min_hunt_score` filter
 parameter with their own local defaults, unrelated to the workflow config value:
