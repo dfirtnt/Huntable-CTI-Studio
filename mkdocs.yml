@@ -92,6 +92,7 @@ nav:
       - Scoring: architecture/scoring.md
       - Chunking: architecture/chunking.md
       - QA Loops: architecture/qa-loops.md
+      - Workflow Threshold Tuning: tuning.md
   - Features:
       - Sigma Detection Rules: features/sigma-rules.md
       - Content Filtering: features/content-filtering.md

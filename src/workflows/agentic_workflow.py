@@ -2089,20 +2089,12 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Check if this is a subagent eval run - if so, only run the specified agent
             # Re-read subagent_eval directly from execution to ensure we have the correct value
             # (config_snapshot was redefined at line 858, so we need to read from execution again)
-            logger.info(
-                f"[Workflow {state['execution_id']}] 🔍 DEBUG: About to check subagent_eval. execution is None: {execution is None}, "
-                f"config_snapshot keys: {list(config_snapshot.keys()) if config_snapshot else 'None'}"
-            )
-
             if execution:
                 config_snapshot_for_filter = execution.config_snapshot if execution.config_snapshot else {}
-                logger.info(
-                    f"[Workflow {state['execution_id']}] 🔍 DEBUG: execution.config_snapshot keys: {list(config_snapshot_for_filter.keys()) if config_snapshot_for_filter else 'None'}"
-                )
             else:
                 config_snapshot_for_filter = config_snapshot
                 logger.warning(
-                    f"[Workflow {state['execution_id']}] ⚠️ execution is None, using config_snapshot from state"
+                    f"[Workflow {state['execution_id']}] execution is None, using config_snapshot from state"
                 )
             state_config_for_filter = state.get("config", {})
             raw_subagent_eval = config_snapshot_for_filter.get("subagent_eval") or state_config_for_filter.get(
@@ -2118,11 +2110,9 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             if subagent_eval and subagent_eval not in eval_lookup_values:
                 eval_lookup_values.add(subagent_eval)
 
-            # Log for debugging
-            logger.info(
-                f"[Workflow {state['execution_id']}] 🔍 Filtering check - subagent_eval from execution: '{raw_subagent_eval}' "
-                f"(normalized: '{subagent_eval}'), lookup_values={sorted(eval_lookup_values)}, "
-                f"type={type(raw_subagent_eval)}, execution is None: {execution is None}"
+            logger.debug(
+                f"[Workflow {state['execution_id']}] Filtering check - subagent_eval from execution: '{raw_subagent_eval}' "
+                f"(normalized: '{subagent_eval}'), lookup_values={sorted(eval_lookup_values)}"
             )
 
             if eval_lookup_values:
@@ -2130,23 +2120,11 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 # subagent_eval is the subagent name (e.g., "process_lineage"), so compare with alias and agent name
                 original_sub_agents = sub_agents
 
-                # Debug: log what we're comparing
-                logger.info(
-                    f"[Workflow {state['execution_id']}] 🔍 BEFORE FILTERING - subagent_eval='{subagent_eval}' "
-                    f"(lookup_values={sorted(eval_lookup_values)}), sub_agents list: "
-                    f"{[(name, subagent, f'match={subagent.lower() in eval_lookup_values or name.lower() in eval_lookup_values}') for name, subagent in original_sub_agents]}"
-                )
-
-                # Filter with explicit comparison logging
                 filtered_agents = []
                 for agent in sub_agents:
                     agent_subagent = agent[1].lower() if len(agent) > 1 else ""
                     agent_name = agent[0].lower() if len(agent) > 0 else ""
                     matches = agent_subagent in eval_lookup_values or agent_name in eval_lookup_values
-                    logger.info(
-                        f"[Workflow {state['execution_id']}] 🔍 Comparing: agent[0]='{agent[0]}' -> lower()='{agent_name}', "
-                        f"agent[1]='{agent[1]}' -> lower()='{agent_subagent}' vs lookup_values={sorted(eval_lookup_values)} -> {matches}"
-                    )
                     if matches:
                         filtered_agents.append(agent)
 
@@ -2162,25 +2140,22 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 # CRITICAL: Verify filtering worked
                 if len(sub_agents) != 1:
                     logger.error(
-                        f"[Workflow {state['execution_id']}] 🚫 CRITICAL FILTERING ERROR: Expected 1 agent, got {len(sub_agents)}. "
+                        f"[Workflow {state['execution_id']}] CRITICAL FILTERING ERROR: Expected 1 agent, got {len(sub_agents)}. "
                         f"Filtered agents: {[(name, subagent) for name, subagent in sub_agents]}. "
                         f"This will cause incorrect agent execution!"
                     )
 
                 if not sub_agents:
+                    # DO NOT reset to original - this is a critical error.
+                    # Keep the empty list so no agents run.
                     logger.error(
-                        f"[Workflow {state['execution_id']}] ⚠️ subagent_eval='{subagent_eval}' not found in sub_agents list. "
-                        f"Available subagents: {[subagent for _, subagent in original_sub_agents]}. "
-                        f"CRITICAL: This should not happen - filtering failed!"
-                    )
-                    # DO NOT reset to original - this is a critical error
-                    # Instead, keep the empty list so no agents run
-                    logger.error(
-                        f"[Workflow {state['execution_id']}] 🚫 CRITICAL: Filtering failed, keeping empty sub_agents list to prevent all agents from running"
+                        f"[Workflow {state['execution_id']}] CRITICAL: subagent_eval='{subagent_eval}' not found in sub_agents list "
+                        f"(available: {[subagent for _, subagent in original_sub_agents]}); filtering failed, "
+                        f"keeping empty sub_agents list to prevent all agents from running"
                     )
                 else:
                     logger.info(
-                        f"[Workflow {state['execution_id']}] 🔬 Eval mode: Only running {subagent_eval}. "
+                        f"[Workflow {state['execution_id']}] Eval mode: Only running {subagent_eval}. "
                         f"Filtered sub_agents: {[name for name, _ in sub_agents]}. "
                         f"Other agents will be skipped."
                     )
@@ -2193,13 +2168,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                                 {"agent": agent_name, "items_count": 0, "result": {"status": "skipped_for_eval"}}
                             )
                             logger.info(
-                                f"[Workflow {state['execution_id']}] ⏭️ {agent_name} skipped (eval mode: only {subagent_eval} running)"
+                                f"[Workflow {state['execution_id']}] {agent_name} skipped (eval mode: only {subagent_eval} running)"
                             )
-
-            logger.info(
-                f"[Workflow {state['execution_id']}] 🔍 FINAL CHECK - Sub-agents to process: {[name for name, _ in sub_agents]}, "
-                f"subagent_eval='{subagent_eval}', count={len(sub_agents)}"
-            )
 
             # Final safety check: if subagent_eval is set, ensure we only process the evaluated agent
             if subagent_eval:
@@ -2209,11 +2179,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         f"[Workflow {state['execution_id']}] CRITICAL: subagent_eval={subagent_eval} not in filtered sub_agents! "
                         f"Filtered agents: {evaluated_subagent_names}. This should not happen."
                     )
-
-            logger.info(
-                f"[Workflow {state['execution_id']}] 🔍 ABOUT TO LOOP - sub_agents count: {len(sub_agents)}, "
-                f"agents: {[(name, subagent) for name, subagent in sub_agents]}, subagent_eval='{subagent_eval}'"
-            )
 
             for agent_name, result_key in sub_agents:
                 if not _agent_supported_for_platforms(agent_name, article_platforms):

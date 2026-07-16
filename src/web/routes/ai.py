@@ -452,11 +452,7 @@ async def api_test_openai_key(request: Request):
                 detail="API key appears to be truncated or invalid (too short)",
             )
 
-        # Log key info for debugging (masked)
-        logger.info(  # codeql[py/clear-text-logging-sensitive-data] false positive: intentionally masked partial key (first 8 + last 4 chars only)
-            f"🔑 Testing OpenAI API key: length={len(api_key)}, "
-            f"starts_with={api_key[:8]}..., ends_with=...{api_key[-4:]}"
-        )
+        logger.info(f"Testing OpenAI API key: present=yes, source=request, length={len(api_key)}")
 
         # Test the API key with a simple request
         async with httpx.AsyncClient() as client:
@@ -570,10 +566,7 @@ async def api_test_hf_key(request: Request):
                 detail="Hugging Face tokens typically start with 'hf_'",
             )
 
-        masked = f"{token[:6]}...{token[-4:]}" if len(token) > 12 else "***"
-        logger.info(
-            f"🔑 Testing Hugging Face token (masked): {masked}"
-        )  # codeql[py/clear-text-logging-sensitive-data] false positive: token already masked before logging
+        logger.info(f"Testing Hugging Face token: present=yes, length={len(token)}")
 
         async with httpx.AsyncClient() as client:
             response = await client.get(
@@ -1885,11 +1878,7 @@ async def api_generate_sigma(article_id: int, request: Request):
         force_regenerate = body.get("force_regenerate", False)
         skip_matching = body.get("skip_matching", False)  # Option to skip matching phase
 
-        # Log the received AI model for debugging (mask API key for security)
-        api_key_preview = f"{api_key[:8]}...{api_key[-4:]}" if api_key and len(api_key) > 12 else "None"
-        logger.info(
-            f"🤖 SIGMA generation requested with ai_model='{ai_model}', api_key provided: {bool(api_key)}, api_key preview: {api_key_preview}"
-        )
+        logger.info(f"SIGMA generation requested with ai_model='{ai_model}', api_key present: {bool(api_key)}")
 
         # Only require API key for ChatGPT
         if ai_model == "chatgpt" and not api_key:

@@ -46,18 +46,12 @@ async def api_articles_list(
     processing_status: str | None = None,
 ):
     """API endpoint for listing articles with sorting and filtering."""
-    logger.debug("=" * 50)
-    logger.debug("API ARTICLES ENDPOINT CALLED!")
-    logger.debug("=" * 50)
-    logger.debug("Function parameters: sort_by=%s, sort_order=%s", sort_by, sort_order)
     # Validate sort parameters against allowlist
     if sort_by not in _ALLOWED_SORT_COLUMNS:
         sort_by = "published_at"
     if sort_order not in _ALLOWED_SORT_ORDERS:
         sort_order = "desc"
     try:
-        logger.debug("DEBUG: API called with sort_by=%s, sort_order=%s", sort_by, sort_order)
-        logger.info("DEBUG: API called with sort_by=%s, sort_order=%s", sort_by, sort_order)
         try:
             article_filter = SimpleFilter(
                 limit=limit,
@@ -66,17 +60,11 @@ async def api_articles_list(
                 source_id=source_id,
                 processing_status=processing_status,
             )
-            logger.info(
-                "DEBUG: Created filter with sort_by=%s, sort_order=%s",
-                article_filter.sort_by,
-                article_filter.sort_order,
-            )
         except Exception as exc:  # noqa: BLE001
-            logger.error("DEBUG: Error creating filter: %s", exc)
+            logger.error("Error creating article filter: %s", exc)
             article_filter = None
 
         articles = await async_db_manager.list_articles(article_filter=article_filter)
-        logger.info("DEBUG: Retrieved %s articles", len(articles))
 
         total_count = await async_db_manager.get_articles_count(
             source_id=source_id,
