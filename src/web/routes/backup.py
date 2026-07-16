@@ -301,16 +301,13 @@ async def api_backup_status():
                             total_size_gb = float(size_str.split()[0].replace("MB", "")) / 1024
                     except (ValueError, IndexError):
                         total_size_gb = 0.0
-            if "Recent Backups" in line:
-                # Find the first backup entry (starts with number and dot, may have leading spaces)
-                for next_line in lines[lines.index(line) + 1 :]:
-                    stripped = next_line.strip()
-                    # Match lines like " 1. backup_name" or "1. backup_name"
-                    if stripped and re.match(r"^\d+\.", stripped):
-                        parts = stripped.split(".", 1)
-                        if len(parts) >= 2:
-                            last_backup = parts[1].strip()
-                        break
+
+        # Reuse the shared parser so the status endpoint and the list endpoint stay
+        # in lockstep with the prune script's heading format ("Recent backups:").
+        # A case-sensitive inline match here previously left last_backup null.
+        parsed_backups = _parse_backup_list(lines)
+        if parsed_backups:
+            last_backup = parsed_backups[0]["name"]
 
         return {
             "automated": cron_state["automated"],
