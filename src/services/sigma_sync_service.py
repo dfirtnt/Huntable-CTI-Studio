@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from sqlalchemy.exc import SQLAlchemyError
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,7 @@ class SigmaSyncService:
                 )
 
                 if result.returncode != 0:
-                    raise Exception(f"Git pull failed: {result.stderr}")
+                    raise RuntimeError(f"Git pull failed: {result.stderr}")
 
                 logger.info("Successfully pulled latest Sigma rules")
                 return {"success": True, "action": "pulled", "message": "Repository updated successfully"}
@@ -73,15 +74,15 @@ class SigmaSyncService:
             )
 
             if result.returncode != 0:
-                raise Exception(f"Git clone failed: {result.stderr}")
+                raise RuntimeError(f"Git clone failed: {result.stderr}")
 
             logger.info("Successfully cloned Sigma repository")
             return {"success": True, "action": "cloned", "message": "Repository cloned successfully"}
 
         except subprocess.TimeoutExpired as e:
             logger.error("Git operation timed out")
-            raise Exception("Git operation timed out") from e
-        except Exception as e:
+            raise RuntimeError("Git operation timed out") from e
+        except (RuntimeError, subprocess.SubprocessError, OSError) as e:
             logger.error(f"Failed to sync Sigma repository: {e}")
             return {"success": False, "error": str(e)}
 
@@ -96,7 +97,7 @@ class SigmaSyncService:
             if result.returncode == 0:
                 return result.stdout.strip()
             return None
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError) as e:
             logger.error(f"Failed to get commit SHA: {e}")
             return None
 
@@ -192,7 +193,7 @@ class SigmaSyncService:
         except yaml.YAMLError as e:
             logger.error(f"Failed to parse YAML file {file_path}: {e}")
             return None
-        except Exception as e:
+        except (OSError, ValueError) as e:
             logger.error(f"Error parsing rule file {file_path}: {e}")
             return None
 
@@ -443,7 +444,7 @@ class SigmaSyncService:
                 q = q.filter(SigmaRuleTable.rule_id.startswith(rule_id_prefix))
             existing_rules = q.all()
             return {rule[0] for rule in existing_rules}
-        except Exception as e:
+        except SQLAlchemyError as e:
             logger.error(f"Error getting existing rule IDs: {e}")
             return set()
 
@@ -516,7 +517,7 @@ class SigmaSyncService:
             from src.services.sigma_novelty_service import SigmaNoveltyService
 
             novelty_service = SigmaNoveltyService(db_session=db_session)
-        except Exception as e:
+        except ImportError as e:
             logger.warning(f"Failed to initialize SigmaNoveltyService; canonical fields will be skipped: {e}")
 
         # Parse and index rules
@@ -720,7 +721,7 @@ class SigmaSyncService:
             from src.services.embedding_service import EmbeddingService
 
             embedding_service = EmbeddingService(model_name="intfloat/e5-base-v2")
-        except Exception as e:
+        except (ImportError, RuntimeError) as e:
             logger.error(f"Failed to initialize embedding service: {e}")
             return {
                 "embeddings_indexed": 0,
@@ -761,7 +762,7 @@ class SigmaSyncService:
                 flat_texts = [t for _, texts in chunk_payloads for t in texts]
                 try:
                     all_embeddings = embedding_service.generate_embeddings_batch(flat_texts, batch_size=encoder_batch)
-                except Exception as e:
+                except RuntimeError as e:
                     logger.error(f"Encoder batch failed: {e}")
                     error_count += len(chunk_payloads)
                     if progress_callback:

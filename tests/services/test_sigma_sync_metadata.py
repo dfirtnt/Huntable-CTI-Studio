@@ -1,9 +1,11 @@
 """Tests for SigmaSyncService.index_metadata() — metadata phase only, no embeddings."""
 
+import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from sqlalchemy.exc import SQLAlchemyError
 
 from src.services.sigma_sync_service import SigmaSyncService
 
@@ -337,3 +339,58 @@ class TestFindRuleFilesMultiDir:
 
         assert len(files) == 1
         assert files[0].name == "only.yml"
+
+
+class TestNarrowedExceptionContract:
+    """Pin the narrowed except clauses: intended failures degrade, unexpected ones propagate."""
+
+    def test_parse_rule_file_returns_none_for_missing_file(self, sync_service):
+        """OSError (file not found) is part of the handled surface — returns None."""
+        missing = sync_service.repo_path / "rules" / "does_not_exist.yml"
+        assert sync_service.parse_rule_file(missing) is None
+
+    def test_parse_rule_file_returns_none_for_file_outside_repo(self, sync_service, tmp_path_factory):
+        """ValueError from relative_to() (file outside repo root) degrades to None."""
+        outside = tmp_path_factory.mktemp("outside_repo") / "rule.yml"
+        outside.write_text("title: Outside\nid: aaaaaaaa-0000-0000-0000-00000000ffff\n")
+        assert sync_service.parse_rule_file(outside) is None
+
+    def test_get_existing_rule_ids_returns_empty_set_on_sqlalchemy_error(self, sync_service):
+        session = MagicMock()
+        session.query.side_effect = SQLAlchemyError("db down")
+        assert sync_service.get_existing_rule_ids(session) == set()
+
+    def test_get_existing_rule_ids_propagates_unexpected_error(self, sync_service):
+        session = MagicMock()
+        session.query.side_effect = TypeError("programming bug")
+        with pytest.raises(TypeError, match="programming bug"):
+            sync_service.get_existing_rule_ids(session)
+
+    def test_clone_or_pull_returns_error_dict_on_git_failure(self, sync_service):
+        """Nonzero git exit raises RuntimeError internally; caught and returned as error dict."""
+        (sync_service.repo_path / ".git").mkdir()
+        failed = MagicMock(returncode=1, stderr="fatal: not a git repository", stdout="")
+        with patch("subprocess.run", return_value=failed):
+            result = sync_service.clone_or_pull_repository()
+        assert result["success"] is False
+        assert "Git pull failed" in result["error"]
+
+    def test_clone_or_pull_returns_error_dict_when_git_binary_missing(self, sync_service):
+        """FileNotFoundError (OSError) from subprocess is handled — error dict, no raise."""
+        (sync_service.repo_path / ".git").mkdir()
+        with patch("subprocess.run", side_effect=FileNotFoundError("git not on PATH")):
+            result = sync_service.clone_or_pull_repository()
+        assert result["success"] is False
+
+    def test_clone_or_pull_timeout_raises_runtime_error(self, sync_service):
+        """Timeout deliberately propagates (as RuntimeError, no longer bare Exception)."""
+        (sync_service.repo_path / ".git").mkdir()
+        with (
+            patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="git pull", timeout=300)),
+            pytest.raises(RuntimeError, match="timed out"),
+        ):
+            sync_service.clone_or_pull_repository()
+
+    def test_get_repo_commit_sha_returns_none_when_git_binary_missing(self, sync_service):
+        with patch("subprocess.run", side_effect=FileNotFoundError("git not on PATH")):
+            assert sync_service.get_repo_commit_sha() is None

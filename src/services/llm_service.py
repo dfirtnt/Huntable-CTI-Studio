@@ -18,6 +18,7 @@ from email.utils import parsedate_to_datetime
 from typing import Any
 
 import httpx
+from sqlalchemy.exc import SQLAlchemyError
 
 from src.database.manager import DatabaseManager
 from src.database.models import AppSettingsTable
@@ -552,7 +553,7 @@ class LLMService:
                     "Workflow provider settings empty from AppSettings; "
                     "ensure API keys are saved in Settings (click Save) or set in .env"
                 )
-        except Exception as exc:
+        except SQLAlchemyError as exc:
             logger.warning(
                 "Unable to load workflow provider settings from AppSettings: %s. "
                 "Workers read keys from DB; ensure Settings are saved.",
@@ -576,7 +577,7 @@ class LLMService:
             for row in db_session.query(AppSettingsTable).filter(AppSettingsTable.key.in_(LMSTUDIO_APPSETTING_KEYS)):
                 if row.value is not None and row.value.strip():
                     settings[row.key] = row.value.strip()
-        except Exception as exc:
+        except SQLAlchemyError as exc:
             logger.warning("Unable to load LM Studio settings from AppSettings: %s", exc)
         finally:
             if db_session:
@@ -888,7 +889,7 @@ class LLMService:
                             "model_name": model_name,
                             "method": "lms_ps",
                         }
-        except Exception as exc:
+        except (subprocess.SubprocessError, OSError) as exc:
             logger.debug("LMStudio CLI context probe failed for %s: %s", model_name, exc)
 
         lmstudio_urls = self._lmstudio_url_candidates()
@@ -1401,7 +1402,7 @@ class LLMService:
                         last_exception = exc
                         continue
                     raise RuntimeError("Anthropic API timeout") from exc
-                except Exception as exc:
+                except httpx.HTTPError as exc:
                     delay = min(base_delay * (2**attempt), max_delay)
                     if attempt < max_retries - 1:
                         logger.warning(f"Anthropic API error: {exc}. Retrying after {delay:.1f}s.")
@@ -1643,7 +1644,7 @@ class LLMService:
                                         result["_provider_url"] = f"{lmstudio_url}/chat/completions"
                                         return result
                                     logger.debug(f"Retry {retry_type} failed: {response_retry.status_code}")
-                                except Exception as retry_exc:
+                                except (httpx.HTTPError, ValueError) as retry_exc:
                                     logger.debug(f"Retry {retry_type} failed: {retry_exc}")
 
                         # Close client before raising
