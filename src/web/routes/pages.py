@@ -20,22 +20,6 @@ from src.web.routes.articles import SimpleFilter
 router = APIRouter()
 
 
-def _compact_unique(values: list | None, limit: int = 6) -> list[str]:
-    seen: set[str] = set()
-    items: list[str] = []
-    for value in values or []:
-        if value is None:
-            continue
-        text = str(value).strip()
-        if not text or text in seen:
-            continue
-        seen.add(text)
-        items.append(text)
-        if len(items) >= limit:
-            break
-    return items
-
-
 @router.get("/", response_class=HTMLResponse)
 @router.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):
