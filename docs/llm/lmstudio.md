@@ -49,9 +49,9 @@ In the web interface, select `lmstudio` as the LLM provider in chat settings.
 The LM Studio server URL can change (e.g. different machine or IP). Set it in two places:
 
 1. **Setup**: When you run `./setup.sh` and choose to use LM Studio, you can optionally enter the server URL (e.g. `http://192.168.1.65:1234`). Leave blank for the default `host.docker.internal:1234`.
-2. **Settings UI**: In **Settings -> Agentic Workflow Configuration**, enable "Use LM Studio" and use the **LM Studio server URL (base)** and **LM Studio embedding URL** fields. These override `.env` and take effect after save (and on next app startup).
+2. **Settings UI**: In **Settings -> Agentic Workflow Configuration**, enable "Use LM Studio" and use the **LM Studio server URL (base)** field. This overrides `.env` and takes effect after save (and on next app startup). <!-- AUDIT: Accuracy -- the "LM Studio embedding URL" Settings UI field was removed (commit fc0022c3); LMStudio is not used for embeddings, see the LMSTUDIO_EMBEDDING_URL note below. -->
 
-If the configured URL is unreachable, the app tries fallback hosts (e.g. localhost, host.docker.internal) automatically for embedding requests.
+If the configured URL is unreachable, the app tries fallback hosts (e.g. localhost, host.docker.internal) automatically for LLM requests.
 
 ## Environment Variables
 
@@ -59,7 +59,7 @@ If the configured URL is unreachable, the app tries fallback hosts (e.g. localho
 - `LMSTUDIO_API_URL`: LMStudio API endpoint (default: `http://host.docker.internal:1234/v1`). Can also be set in Settings UI.
 - `LMSTUDIO_MODEL`: Model name in LMStudio (default: `deepseek/deepseek-r1-0528-qwen3-8b`)
 
-- `LMSTUDIO_EMBEDDING_URL`: Embedding API endpoint (default: `http://host.docker.internal:1234/v1/embeddings`). Used for Sigma rule embeddings (e.g. `sigma index`). Can also be set in Settings UI. The app tries fallback URLs if the primary is unreachable.
+- `LMSTUDIO_EMBEDDING_URL`: Still present in `docker-compose.yml` (default: `http://host.docker.internal:1234/v1/embeddings`), but the LMStudio embedding client was removed (commit fc0022c3) and the Settings UI field for it is gone. Sigma rule embeddings (e.g. `sigma index`) run via `EmbeddingService` (Sentence Transformers), not LMStudio. <!-- AUDIT: Accuracy -- was previously described as active with a Settings UI field and fallback-URL behavior; neither is true. -->
 
 ### Per-Agent Model Overrides
 - `LMSTUDIO_MODEL_RANK`: Model for ranking agent (default: `qwen/qwen3-4b-2507`)

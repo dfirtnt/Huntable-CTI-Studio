@@ -19,6 +19,10 @@ Source: docs.anthropic.com (2026-06-02). All models support `max_tokens` + `temp
 
 Older Claude 3.x / 4.0-4.5 models cap at 200K by default; they can be extended to 1M via the `context-1m-2025-08-07` beta header. Opus 4.6+ and Sonnet 4.6+ no longer require it.
 
+<!-- TODO: verify: config/provider_model_catalog.json["anthropic"] also lists claude-fable-5
+     and claude-sonnet-5, neither of which appears in this table. Add rows with verified
+     context window / max output token values once confirmed against provider docs. -->
+
 ---
 
 ## OpenAI Chat Models
@@ -65,6 +69,10 @@ Source: platform.openai.com/docs/models (Jan 2025)
 | gpt-4-turbo | 128,000 | 4,096 | `max_tokens`, `temperature` |
 | gpt-4 | 8,192 | 4,096 | `max_tokens`, `temperature` |
 | gpt-3.5-turbo | 16,385 | 4,096 | `max_tokens`, `temperature` |
+
+<!-- TODO: verify: config/provider_model_catalog.json["openai"] also lists gpt-5.6-luna,
+     gpt-5.6-sol, and gpt-5.6-terra, none of which appear in this table. Add rows with
+     verified context window / max output token values once confirmed against provider docs. -->
 
 ### API Parameter Rules
 
