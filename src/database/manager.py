@@ -428,14 +428,25 @@ class DatabaseManager:
                             word_count=word_count,
                         )
 
-                        session.add(db_article)
-                        session.flush()  # Get ID without committing
+                        # Isolate the insert in a savepoint so a canonical_url
+                        # conflict only rolls back this row, not the whole batch.
+                        try:
+                            with session.begin_nested():
+                                session.add(db_article)
+                                session.flush()  # Get ID without committing
 
-                        # Create content hash record
-                        content_hash_record = ContentHashTable(
-                            content_hash=article_data.content_hash, article_id=db_article.id
-                        )
-                        session.add(content_hash_record)
+                                # Create content hash record
+                                content_hash_record = ContentHashTable(
+                                    content_hash=article_data.content_hash, article_id=db_article.id
+                                )
+                                session.add(content_hash_record)
+                                session.flush()
+                        except IntegrityError as e:
+                            logger.warning(
+                                f"Skipping article with conflicting canonical_url: {article_data.title[:50]}... ({e})"
+                            )
+                            errors.append(f"Duplicate canonical_url: {article_data.title[:50]}...")
+                            continue
 
                         # Convert to model
                         article = self._db_article_to_model(db_article)
