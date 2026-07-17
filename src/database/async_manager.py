@@ -43,6 +43,7 @@ from src.database.statements import (
     build_article_by_id_stmt,
     build_article_count_stmt,
     build_article_list_stmt,
+    build_existing_content_hashes_stmt,
     build_existing_urls_stmt,
     build_source_by_id_stmt,
     build_source_list_stmt,
@@ -1135,9 +1136,7 @@ class AsyncDatabaseManager:
         """Get existing content hashes for deduplication."""
         try:
             async with self.get_session() as session:
-                result = await session.execute(
-                    select(ArticleTable.content_hash).where(ArticleTable.archived == False).limit(limit)
-                )
+                result = await session.execute(build_existing_content_hashes_stmt(limit))
                 hashes = result.scalars().all()
                 return set(hashes)
 

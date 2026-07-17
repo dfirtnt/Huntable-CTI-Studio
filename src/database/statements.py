@@ -177,6 +177,18 @@ def build_existing_urls_stmt(limit: int = 10000) -> Select:
     return select(ArticleTable.canonical_url).where(ArticleTable.archived == False).limit(limit)  # noqa: E712
 
 
+def build_existing_content_hashes_stmt(limit: int = 10000) -> Select:
+    """Content hashes of non-archived articles, for ingestion deduplication.
+
+    Canonicalized on the articles table (operator decision 2026-07-17): the
+    legacy content_hashes ledger was only ever written by the sync bulk-create
+    path, so it held ~5% of the corpus and the sync manager deduped against
+    almost nothing. Reading articles.content_hash gives both managers the full
+    live corpus; archiving an article intentionally allows re-ingest.
+    """
+    return select(ArticleTable.content_hash).where(ArticleTable.archived == False).limit(limit)  # noqa: E712
+
+
 def build_update_article_embedding_stmt(
     article_id: int,
     embedding: list[float],

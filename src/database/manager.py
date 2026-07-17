@@ -14,6 +14,7 @@ from src.database.models import ArticleTable, Base, ContentHashTable, SourceChec
 from src.database.statements import (
     build_article_by_id_stmt,
     build_article_list_stmt,
+    build_existing_content_hashes_stmt,
     build_existing_urls_stmt,
     build_source_by_id_stmt,
     build_source_by_identifier_stmt,
@@ -622,8 +623,8 @@ class DatabaseManager:
     def get_existing_content_hashes(self, limit: int = 10000) -> set[str]:
         """Get set of existing content hashes for deduplication."""
         with self.get_session() as session:
-            hashes = session.query(ContentHashTable.content_hash).limit(limit).all()
-            return {hash_tuple[0] for hash_tuple in hashes}
+            hashes = session.execute(build_existing_content_hashes_stmt(limit)).scalars().all()
+            return set(hashes)
 
     # Source check tracking
 

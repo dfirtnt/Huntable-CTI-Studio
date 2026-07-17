@@ -154,6 +154,24 @@ async def test_get_existing_urls_produces_identical_sql():
 
 @pytest.mark.unit
 @pytest.mark.asyncio
+async def test_get_existing_content_hashes_produces_identical_sql():
+    """Regression: the sync manager used to read the content_hashes ledger
+    (written only by the sync bulk path -- ~5% of the corpus) while async read
+    articles.content_hash. Canonicalized on the articles table."""
+    sync_stmts: list = []
+    _make_sync_manager(sync_stmts).get_existing_content_hashes(limit=1234)
+
+    async_stmts: list = []
+    await _make_async_manager(async_stmts).get_existing_content_hashes(limit=1234)
+
+    sync_sql = _sql(sync_stmts[0])
+    assert sync_sql == _sql(async_stmts[0])
+    assert "articles.content_hash" in sync_sql
+    assert "content_hashes" not in sync_sql
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_get_article_archived_divergence_is_manager_level():
     """Sync get_article excludes archived rows; async includes them (web article
     detail must render archived articles). Pinned at the manager level so a

@@ -218,6 +218,15 @@ class TestOtherStmts:
         assert "archived = false" in sql
         assert 500 in params.values()
 
+    def test_existing_content_hashes_reads_articles_table(self):
+        from src.database.statements import build_existing_content_hashes_stmt
+
+        sql, params = _compiled(build_existing_content_hashes_stmt(500))
+        assert "articles.content_hash" in sql
+        assert "content_hashes" not in sql, "must not read the legacy ledger table"
+        assert "archived = false" in sql
+        assert 500 in params.values()
+
     def test_update_article_embedding_sets_all_three_columns(self):
         stmt = build_update_article_embedding_stmt(1, [0.1, 0.2], "all-mpnet-base-v2")
         sql = str(stmt)
