@@ -78,6 +78,24 @@ class TestWorkflowTriggerService:
         mock_db_session.add.assert_called_once()
         mock_db_session.commit.assert_called_once()
 
+    def test_get_active_config_create_default_auto_trigger_threshold_is_100(self, service, mock_db_session):
+        """Auto-trigger threshold must default to 100 (opt-in) so nothing auto-processes
+        until a user consciously lowers it -- the keyword hunt score caps at 99.9, so a
+        threshold of 100 is unreachable until deliberately changed.
+
+        This guards against reintroducing the old 60.0 default, which auto-triggered the
+        agentic workflow on any article scoring above 60 with no user action required.
+        """
+        mock_query = Mock()
+        mock_query.filter.return_value.order_by.return_value.first.return_value = None
+        mock_db_session.query.return_value = mock_query
+
+        config = service.get_active_config()
+
+        created_config = mock_db_session.add.call_args[0][0]
+        assert created_config is config
+        assert created_config.auto_trigger_hunt_score_threshold == 100.0
+
     def test_should_trigger_workflow_high_score(self, service, mock_db_session, sample_article, sample_config):
         """Test workflow trigger for article with high hunt score."""
         # Mock config query
