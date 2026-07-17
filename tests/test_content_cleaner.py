@@ -719,3 +719,82 @@ def test_find_main_content_node_falls_through_to_next_selector():
     ContentCleaner.prepare_soup_for_selection(soup)
     node = ContentCleaner.find_main_content_node(soup)
     assert node is not None and "content" in (node.get("class") or [])
+
+
+# ---------------------------------------------------------------------------
+# Regression: unwanted-pattern matching must use WHOLE class/id tokens, not
+# substrings. 'ad' is a substring of 'advanced'/'gradient'/'shadow'/'leading'
+# and previously guillotined real article bodies (see Todoist 6h67xcVVGGVfM65V).
+# ---------------------------------------------------------------------------
+
+
+def test_clean_html_preserves_google_ti_style_advanced_class():
+    """Google Cloud TI wraps body paragraphs in class="block-paragraph_advanced".
+
+    'ad' is a substring of 'advanced', so the old substring match decomposed
+    every paragraph, gutting a 34,834-char article down to 589 chars in
+    production (source id 6).
+    """
+    body_text = "Real Google TI article body text. " * 80
+    html = f'<div class="block-paragraph_advanced"><p>{body_text}</p></div>'
+
+    cleaned = ContentCleaner.html_to_text(ContentCleaner.clean_html(html))
+
+    assert "Real Google TI article body text." in cleaned
+    assert len(cleaned.strip()) > len(body_text) * 0.9
+
+
+def test_clean_html_preserves_tailwind_utility_classes():
+    """NCSC UK is Tailwind-built; gradient/shadow/leading classes contain 'ad'.
+
+    bg-gradient-to-b (gr-AD-ient), shadow-xl (sh-AD-ow), and leading-tight
+    (le-AD-ing) all matched the old substring pattern and gutted a real
+    <main> body from 5,370 chars to 278 chars in production (source id 31).
+    """
+    body_text = "Real NCSC advisory body text. " * 80
+    html = f'<main><div class="bg-gradient-to-b shadow-xl leading-tight"><p>{body_text}</p></div></main>'
+
+    cleaned = ContentCleaner.html_to_text(ContentCleaner.clean_html(html))
+
+    assert "Real NCSC advisory body text." in cleaned
+    assert len(cleaned.strip()) > len(body_text) * 0.9
+
+
+@pytest.mark.parametrize(
+    "html_fragment",
+    [
+        '<div class="ad-banner">unwanted</div>',
+        '<div class="social-share">unwanted</div>',
+        '<div class="sidebar-widget">unwanted</div>',
+        '<div id="sidebar">unwanted</div>',
+    ],
+)
+def test_prepare_soup_for_selection_still_decomposes_genuine_unwanted_containers(html_fragment):
+    """Whole-token matching must not regress removal of real ad/social/nav elements."""
+    kept_text = "Kept article body text. " * 10
+    soup = BeautifulSoup(f"<body>{html_fragment}<article><p>{kept_text}</p></article></body>", "lxml")
+
+    ContentCleaner.prepare_soup_for_selection(soup)
+
+    assert "unwanted" not in str(soup)
+    assert "Kept article body text." in str(soup)
+
+
+@pytest.mark.parametrize(
+    "class_name",
+    [
+        "block-paragraph_advanced",
+        "download-link",
+        "bg-gradient-to-b",
+        "shadow-xl",
+        "leading-tight",
+    ],
+)
+def test_prepare_soup_for_selection_does_not_decompose_substring_false_positives(class_name):
+    """'ad' (and other short unwanted_patterns) must never match mid-word."""
+    kept_text = "Kept article body text. " * 10
+    soup = BeautifulSoup(f'<body><div class="{class_name}"><p>{kept_text}</p></div></body>', "lxml")
+
+    ContentCleaner.prepare_soup_for_selection(soup)
+
+    assert "Kept article body text." in str(soup)

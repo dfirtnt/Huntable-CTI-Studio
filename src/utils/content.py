@@ -33,6 +33,11 @@ class ContentCleaner:
         "#content",
     )
 
+    # Splits a class/id value into whole tokens on whitespace (multi-class
+    # attrs) and '-'/'_' (compound tokens), so unwanted-pattern matching never
+    # matches a short pattern like 'ad' as a substring of 'advanced'/'gradient'.
+    _CLASS_ID_TOKEN_SPLIT_RE = re.compile(r"[\s\-_]+")
+
     @staticmethod
     def prepare_soup_for_selection(soup: BeautifulSoup) -> None:
         """In-place prune of unwanted tags and class/id-pattern elements.
@@ -105,13 +110,22 @@ class ContentCleaner:
             "comments",
         ]
 
-        for element in soup.find_all(
-            attrs={"class": lambda x: x and any(p.lower() in str(x).lower() for p in unwanted_patterns)}
-        ):
+        def _has_unwanted_token(value: str | None) -> bool:
+            """Match a class/id value against unwanted_patterns as WHOLE tokens.
+
+            Splits on whitespace (multi-class attrs) and '-'/'_' (compound
+            tokens like 'block-paragraph_advanced' or 'bg-gradient-to-b') so a
+            short pattern like 'ad' only matches an actual 'ad' token, never a
+            substring of 'advanced', 'gradient', 'shadow', 'leading', etc.
+            """
+            if not value:
+                return False
+            tokens = ContentCleaner._CLASS_ID_TOKEN_SPLIT_RE.split(value.lower())
+            return any(token in unwanted_patterns for token in tokens)
+
+        for element in soup.find_all(attrs={"class": _has_unwanted_token}):
             element.decompose()
-        for element in soup.find_all(
-            attrs={"id": lambda x: x and any(p.lower() in str(x).lower() for p in unwanted_patterns)}
-        ):
+        for element in soup.find_all(attrs={"id": _has_unwanted_token}):
             element.decompose()
 
     @staticmethod
