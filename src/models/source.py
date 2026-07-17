@@ -79,6 +79,21 @@ class Source(BaseModel):
 
     model_config = {"from_attributes": True}
 
+    def should_check(self) -> bool:
+        """Return True when this source is active and due for its next check.
+
+        Consumed by SourceManager.get_sources_due_for_check and the ``collect``
+        CLI command to gate scheduled ingestion. ``last_check`` is written by the
+        DB layer with ``datetime.now()`` (naive local time), so the elapsed-time
+        comparison uses the same clock to stay consistent.
+        """
+        if not self.active:
+            return False
+        if self.last_check is None:
+            return True
+        time_since_check = (datetime.now() - self.last_check).total_seconds()
+        return time_since_check >= self.check_frequency
+
 
 class SourceHealth(BaseModel):
     """Source health status model."""
