@@ -202,3 +202,50 @@ def test_restore_restarts_containers_after_failure(restore, tmp_path):
 
     # Even though restore failed, containers should have been restarted
     assert len(started) > 0, "Containers were not restarted after restore failure"
+
+
+# ---------------------------------------------------------------------------
+# Silent psql statement-error detection (regression for Todoist 6h682J4fPgRR39X3)
+# ---------------------------------------------------------------------------
+
+
+def test_restore_database_v2_fails_on_psql_statement_error(restore, tmp_path):
+    """psql exits 0 even when individual statements fail; returncode alone is unreliable.
+
+    Mirrors the fix already shipped in restore_system.py and restore_database.py
+    (the legacy v1 script) -- extract_psql_errors must catch what -v
+    ON_ERROR_STOP=1 alone would still report as success via returncode.
+    """
+    import gzip
+
+    sql_gz = tmp_path / "backup.sql.gz"
+    with gzip.open(sql_gz, "wt") as f:
+        f.write("-- PostgreSQL database dump\nSELECT 1;\n")
+
+    hnsw_error = (
+        "psql:/tmp/restore.sql:25: ERROR:  could not resize shared memory segment to 63999680 bytes: "
+        "No space left on device\n"
+    )
+    calls = []
+
+    def track(cmd, **kwargs):
+        calls.append(cmd)
+        m = MagicMock()
+        flat = " ".join(str(x) for x in cmd)
+        if "-f" in cmd and "/tmp/restore.sql" in cmd:
+            m.returncode = 0
+            m.stdout = ""
+            m.stderr = hnsw_error
+        else:
+            m.returncode = 0
+            m.stdout = ""
+            m.stderr = ""
+        return m
+
+    with patch("subprocess.run", side_effect=track):
+        result = restore.restore_database(sql_gz, force=True)
+
+    assert result is False
+    restore_calls = [c for c in calls if "-f" in c and "/tmp/restore.sql" in c]
+    assert restore_calls
+    assert "ON_ERROR_STOP=1" in restore_calls[0]
