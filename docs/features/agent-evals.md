@@ -225,10 +225,10 @@ investigated offline or fed to the AI Diagnosis feature.
 | `system_prompt` | System prompt the agent received |
 | `llm_request` | Full request payload sent to the LLM (see "Forensic fields on `llm_request`" below) |
 | `llm_response` | Raw LLM response |
-| `extraction_results` | Parsed extraction output |
+| `extraction_context` | Parsed extraction output (extractor agents only) |
 | `expected_count` | Expected number of extractions from the eval config |
 | `actual_count` | How many the agent actually returned |
-| `eval_score` | Score (pass/fail/partial) assigned by QA |
+| `evaluation_score` | Delta (`actual_count - expected_count`; `0` = perfect match) from the ground-truth comparison |
 | `integrity` | SHA256 + any warnings flagged at export time |
 
 #### Forensic fields on `llm_request`
