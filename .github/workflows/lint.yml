@@ -17,15 +17,15 @@ jobs:
     timeout-minutes: 3
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
 
       - name: Ruff check
-        uses: astral-sh/ruff-action@v3
+        uses: astral-sh/ruff-action@4919ec5cf1f49eff0871dbcea0da843445b837e6  # v3
         with:
           args: check
 
       - name: Ruff format check
-        uses: astral-sh/ruff-action@v3
+        uses: astral-sh/ruff-action@4919ec5cf1f49eff0871dbcea0da843445b837e6  # v3
         with:
           args: format --check
 
@@ -35,7 +35,7 @@ jobs:
     timeout-minutes: 2
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
 
       - name: Check for unpinned Python versions
         run: |
@@ -71,21 +71,54 @@ jobs:
           fi
           echo "✓ All Node dependencies pinned with exact versions"
 
+      - name: Check for unpinned GitHub Actions
+        run: |
+          python3 - <<'PYEOF'
+          import re, sys, pathlib
+          # GitHub Actions must be pinned to a full 40-char commit SHA, not a
+          # mutable tag/branch (tags can be silently repointed by the action
+          # owner -- see the tj-actions/changed-files and reviewdog-style
+          # supply-chain compromises). Keep a `# vX` comment alongside the SHA
+          # so Dependabot's github-actions ecosystem can still open version-bump
+          # PRs against the pinned commit.
+          # Anchor on the stripped line starting with "uses:" (a real YAML key),
+          # not a substring match -- this file's own embedded script mentions
+          # "uses:" in comments/regex text, which a substring check would flag.
+          sha_pattern = re.compile(r"^uses:\s*[\w.-]+/[\w./-]+@([0-9a-f]+)\s*(#.*)?$")
+          unpinned = []
+          for path in sorted(pathlib.Path(".github/workflows").glob("*.yml")):
+            for lineno, line in enumerate(path.read_text().splitlines(), start=1):
+              stripped = line.strip()
+              if stripped.startswith("- "):
+                stripped = stripped[2:]
+              if not stripped.startswith("uses:"):
+                continue
+              match = sha_pattern.match(stripped)
+              if not match or len(match.group(1)) != 40:
+                unpinned.append(f"{path}:{lineno}: {line.strip()}")
+          if unpinned:
+            print("ERROR: Found GitHub Actions not pinned to a full 40-char commit SHA:")
+            for u in unpinned:
+              print(" ", u)
+            sys.exit(1)
+          print("All GitHub Actions pinned to a commit SHA")
+          PYEOF
+
   vulture:
     name: Dead Code Detection
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6
         with:
           python-version: '3.12'
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78  # v7
         with:
           enable-cache: true
 

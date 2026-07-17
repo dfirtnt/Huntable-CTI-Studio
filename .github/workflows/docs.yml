@@ -38,15 +38,15 @@ jobs:
     steps:
       # Triggering ref — provides pyproject/uv.lock for the build environment.
       - name: Checkout (build env)
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6
         with:
           python-version: '3.12'
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78  # v7
         with:
           enable-cache: true
 
@@ -64,14 +64,14 @@ jobs:
       # regardless of which branch triggered the run.
       - name: Checkout main docs
         if: github.event_name != 'pull_request'
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
         with:
           ref: main
           path: docs-src/main
 
       - name: Checkout europa-dev docs
         if: github.event_name != 'pull_request'
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
         with:
           ref: europa-dev
           path: docs-src/europa
@@ -86,7 +86,7 @@ jobs:
 
       - name: Upload pages artifact
         if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/europa-dev'))
-        uses: actions/upload-pages-artifact@v5
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9  # v5
         with:
           path: _site
 
@@ -102,4 +102,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e  # v4
