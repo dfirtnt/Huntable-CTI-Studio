@@ -153,6 +153,88 @@ async def test_get_existing_urls_produces_identical_sql():
 
 
 @pytest.mark.unit
+@pytest.mark.asyncio
+async def test_get_article_archived_divergence_is_manager_level():
+    """Sync get_article excludes archived rows; async includes them (web article
+    detail must render archived articles). Pinned at the manager level so a
+    silent flag flip in either manager fails here, not just in builder tests."""
+    sync_stmts: list = []
+    _make_sync_manager(sync_stmts).get_article(7)
+    assert "archived = false" in _sql(sync_stmts[0])
+
+    sync_stmts_incl: list = []
+    _make_sync_manager(sync_stmts_incl).get_article_including_archived(7)
+    assert "archived = false" not in _sql(sync_stmts_incl[0])
+
+    async_stmts: list = []
+    await _make_async_manager(async_stmts).get_article(7)
+    assert "archived = false" not in _sql(async_stmts[0])
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_get_articles_count_uses_shared_filter_logic():
+    """Count and list share _apply_article_filters, so pagination totals can
+    never disagree with page contents about what a filter means."""
+    async_stmts: list = []
+    await _make_async_manager(async_stmts).get_articles_count(source_id=5, processing_status="pending")
+
+    sql = _sql(async_stmts[0])
+    assert "count" in sql
+    assert "articles.source_id" in sql and "articles.processing_status" in sql
+    assert sql.count("archived = false") == 1
+
+
+class _RowcountSyncSession(_RecordingSyncSession):
+    def __init__(self, captured: list, rowcount: int):
+        super().__init__(captured)
+        self._rowcount = rowcount
+
+    def execute(self, stmt):
+        self._captured.append(stmt)
+        result = _FakeResult()
+        result.rowcount = self._rowcount
+        return result
+
+    def commit(self):
+        pass
+
+
+@pytest.mark.unit
+def test_sync_update_article_embedding_returns_rowcount_truth():
+    """Sync semantics: True only when a row was actually updated."""
+    hit = DatabaseManager.__new__(DatabaseManager)
+    hit.get_session = lambda: _RowcountSyncSession([], rowcount=1)
+    assert hit.update_article_embedding(1, [0.1], "m") is True
+
+    miss = DatabaseManager.__new__(DatabaseManager)
+    miss.get_session = lambda: _RowcountSyncSession([], rowcount=0)
+    assert miss.update_article_embedding(999999, [0.1], "m") is False
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_async_update_article_embedding_returns_true_on_success():
+    """Async semantics preserved: True on successful execute+commit regardless
+    of row match (legacy behavior the embedding worker relies on)."""
+    captured: list = []
+    mgr = AsyncDatabaseManager.__new__(AsyncDatabaseManager)
+
+    class _CommittingAsyncSession(_RecordingAsyncSession):
+        async def commit(self):
+            pass
+
+    @asynccontextmanager
+    async def _fake_get_session():
+        yield _CommittingAsyncSession(captured)
+
+    mgr.get_session = _fake_get_session
+
+    assert await mgr.update_article_embedding(1, [0.1], "m") is True
+    assert "UPDATE articles" in _sql(captured[0])
+
+
+@pytest.mark.unit
 def test_sync_list_articles_accepts_pydantic_filter_with_limit():
     """Regression: ArticleListFilter previously lacked limit/offset/author/tag,
     so the sync manager raised AttributeError for every CLI-built filter

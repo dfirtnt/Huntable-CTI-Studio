@@ -91,6 +91,17 @@ class TestArticleListStmt:
         sql, _ = _compiled(build_article_list_stmt(ArticleListFilter(sort_by="annotation_count")))
         assert "article_metadata" in sql.split("ORDER BY")[1]
 
+    def test_hunt_score_sort_uses_astext_not_json_cast(self):
+        """The score sort must extract via ->> (astext): CAST(json AS VARCHAR)
+        yields 'null' for JSON null and keeps quotes on JSON strings, and both
+        crash CAST AS NUMERIC on the first bad metadata row. ->> unquotes and
+        maps JSON null to SQL NULL so the coalesce('0') applies (verified on
+        Postgres: null/'\"85\"'/92.5/missing -> 0/85/92.5/0)."""
+        sql, _ = _compiled(build_article_list_stmt(ArticleListFilter(sort_by="threat_hunting_score")))
+        order_clause = sql.split("ORDER BY")[1]
+        assert "->>" in order_clause
+        assert "-> %" not in order_clause
+
     def test_unknown_sort_column_falls_back_to_hunt_score_only(self):
         sql, _ = _compiled(build_article_list_stmt(ArticleListFilter(sort_by="hunt_score")))
         order_clause = sql.split("ORDER BY")[1]
@@ -101,6 +112,18 @@ class TestArticleListStmt:
         sql, _ = _compiled(build_article_list_stmt(ArticleListFilter(offset=0, limit=0)))
         assert "OFFSET" not in sql
         assert "LIMIT" not in sql
+
+    def test_published_date_range_filters(self):
+        from datetime import datetime
+
+        after = datetime(2026, 6, 1)
+        before = datetime(2026, 7, 1)
+        sql, params = _compiled(
+            build_article_list_stmt(ArticleListFilter(published_after=after, published_before=before))
+        )
+        assert "articles.published_at >=" in sql
+        assert "articles.published_at <=" in sql
+        assert after in params.values() and before in params.values()
 
     def test_duck_typed_filter_without_optional_fields(self):
         """Web-route SimpleFilter-like objects need not carry every field."""
@@ -174,6 +197,17 @@ class TestSourceStmts:
 
         sql_ident, params_ident = _compiled(build_source_by_identifier_stmt("msrc"))
         assert "LIMIT" in sql_ident and "msrc" in params_ident.values()
+
+    def test_source_pagination_applies_when_present(self):
+        """Source pagination keeps the legacy sync semantics: offset/limit apply
+        whenever set (including 0) -- unlike article filters, which guard on >0.
+        Pinned so the asymmetry is a documented choice, not an accident."""
+        stmt = build_source_list_stmt(SimpleNamespace(offset=0, limit=0))
+        sql, _ = _compiled(stmt)
+        assert "OFFSET" in sql and "LIMIT" in sql
+
+        sql_none, _ = _compiled(build_source_list_stmt(SimpleNamespace(active=True)))
+        assert "OFFSET" not in sql_none and "LIMIT" not in sql_none
 
 
 @pytest.mark.unit

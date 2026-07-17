@@ -23,9 +23,10 @@ Rules for this module:
   injection, ORM-to-Pydantic conversion) stays in each manager on purpose.
 """
 
+from types import SimpleNamespace
 from typing import Any
 
-from sqlalchemy import Numeric, Select, String, Update, cast, desc, func, select, update
+from sqlalchemy import Numeric, Select, Update, cast, desc, func, select, update
 from sqlalchemy.dialects.postgresql import JSONB
 
 from src.database.models import ArticleTable, SourceTable
@@ -38,12 +39,15 @@ _METADATA_SORT_KEYS = ("threat_hunting_score", "annotation_count")
 
 
 def _threat_score_expr() -> Any:
-    """Numeric sort expression for the JSON-stored threat hunting score."""
+    """Numeric sort expression for the JSON-stored threat hunting score.
+
+    Must use ->> (astext), not -> with a VARCHAR cast: ->> unquotes JSON
+    strings and turns JSON null into SQL NULL (so the coalesce applies),
+    whereas CAST(json AS VARCHAR) yields 'null' or a quoted string -- both
+    crash CAST AS NUMERIC on the first row with a non-numeric score.
+    """
     return func.cast(
-        func.coalesce(
-            func.cast(ArticleTable.article_metadata["threat_hunting_score"], String),
-            "0",
-        ),
+        func.coalesce(ArticleTable.article_metadata["threat_hunting_score"].as_string(), "0"),
         Numeric,
     )
 
@@ -145,13 +149,13 @@ def build_article_count_stmt(
     source_id: int | None = None,
     processing_status: str | None = None,
 ) -> Select:
-    """COUNT twin of build_article_list_stmt -- same WHERE shape, no sort."""
+    """COUNT twin of build_article_list_stmt -- same WHERE logic, no sort.
+
+    Routed through _apply_article_filters so list and count can never disagree
+    about what a filter means (pagination totals stay consistent with pages).
+    """
     stmt = select(func.count(ArticleTable.id)).where(ArticleTable.archived == False)  # noqa: E712
-    if source_id is not None:
-        stmt = stmt.where(ArticleTable.source_id == source_id)
-    if processing_status is not None:
-        stmt = stmt.where(ArticleTable.processing_status == processing_status)
-    return stmt
+    return _apply_article_filters(stmt, SimpleNamespace(source_id=source_id, processing_status=processing_status))
 
 
 def build_article_by_id_stmt(article_id: int, *, include_archived: bool) -> Select:
