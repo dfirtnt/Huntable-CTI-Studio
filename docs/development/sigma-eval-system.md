@@ -1,8 +1,11 @@
 # End-to-End Sigma Rule Eval System
 
 Status: **Phases 1-3 landed** (scorer + fixtures + persistence + full-pipeline
-workflow wiring + run/results APIs + standalone MLOps UI). Live browser
-verification of the UI is pending (requires the Docker stack).
+workflow wiring + run/results APIs + standalone MLOps UI). The UI has since
+been exercised live in production (e.g. commit `1a8e2903`, 2026-06-16, fixed a
+perpetual-PENDING-row bug found via `/mlops/sigma-evals`) and gained a
+combined-F1 headline metric and a config-version comparison panel not
+described below (see `src/web/templates/sigma_evals.html`).
 
 ## Why
 
@@ -57,8 +60,14 @@ actual_rules, expected_rule_count=None) -> SigmaEvalResult`.
 - `config/eval_articles_data/sigma/ground_truth.json` -- per-article expected
   rules (`logsource` + `detection` fragments). See that directory's `README.md`
   for the schema.
-- Article content is reused from the extractor `articles.json` snapshots (URLs
-  must overlap), so no new article fetching is needed.
+- `config/eval_articles_data/sigma/articles.json` -- Sigma eval's own
+  self-contained article content snapshot (added 2026-06-18, commit
+  `80efcc07`). Content is copied verbatim from the cmdline extractor snapshot
+  at authoring time, but the fixture no longer depends on its ground-truth
+  URLs incidentally overlapping another subagent's snapshot; `expected_count`
+  mirrors `ground_truth.json`'s `expected_rule_count`. Seeded to the DB via
+  `seed_eval_articles` (globs `*/articles.json`), same as the extractor
+  fixtures.
 
 ### Authoring strategy
 
@@ -110,13 +119,13 @@ changes, so zero risk to the running pipeline.
 - Tests: `tests/services/test_sigma_eval_service.py` (loader + build_eval_values
   + column contract).
 
-### Phase 3 -- UI (DONE; live browser verification pending)
+### Phase 3 -- UI (DONE; since exercised live and extended)
 
 - Standalone page `src/web/templates/sigma_evals.html` at route
   `/mlops/sigma-evals` (`src/web/routes/pages.py`). A standalone page was chosen
   over threading into the 3622-line `agent_evals.html` to avoid risking that
-  central template -- especially since the environment has no Docker stack for
-  the contract-required browser verification.
+  central template -- especially since the environment had no Docker stack at
+  authoring time for the contract-required browser verification.
 - Built on the documented UI components (`.card` / `.card-elevated`, theme
   tokens, `modal-manager.js`, `window.showNotification`, inline SVG icons, locked
   font scale) rather than copying the bespoke `eval-*` CSS.
@@ -129,9 +138,22 @@ changes, so zero risk to the running pipeline.
 - Static verification: `tests/unit/test_sigma_evals_page.py` (template compiles,
   route registered, DOM hooks + endpoint calls present, ASCII, ModalManager use).
 
-**Pending operator step:** live browser verification on the Docker stack --
-start the app, open `/mlops/sigma-evals`, run the eval, confirm results render
-and the detail modal opens.
+<!-- TODO: verify and document: since this Phase 3 landed, the UI gained a
+combined-F1 headline metric (harmonic mean of logsource F1 and atom F1) and
+a config-version comparison panel (`configVersionSelect`, `compareVersionA`
+/ `compareVersionB`) not described in this section -- see
+`src/web/templates/sigma_evals.html` and commits `29dc9a61`, `6fbea9b5`,
+`2d3449fe`, `e645b090` (2026-06-17). -->
+
+- A `has_error`-completion reconciliation gap (executions that finished
+  `ainvoke()` with an error in state but no raised exception stranded their
+  `SigmaEvaluation` row in `pending` forever) was found via live use of
+  `/mlops/sigma-evals` and fixed in `1a8e2903` (2026-06-16).
+
+**Operator step (since completed):** live browser verification on the Docker
+stack -- the `1a8e2903` bug (found by an operator observing a stuck PENDING
+row on the live `/mlops/sigma-evals` page) is direct evidence this happened
+after the note above was written.
 
 ### Future -- bundle/diagnosis reuse
 
@@ -150,6 +172,6 @@ and the detail modal opens.
 - `src/services/sigma_generation_service.py` -- rule output contract
   (`rules`: list of `{title, logsource, detection, ...}`).
 - `src/workflows/agentic_workflow.py` -- `generate_sigma` node; eval routing and
-  `_update_single_eval_record` (line ~428) as the wiring template.
+  `_update_single_eval_record` (line ~966) as the wiring template.
 - `src/services/sigma_novelty_service.py` -- canonical_class resolution.
 - `docs/features/agent-evals.md` -- the existing extractor eval surface to mirror.

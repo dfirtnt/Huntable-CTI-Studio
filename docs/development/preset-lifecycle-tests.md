@@ -5,7 +5,7 @@
 These tests validate the complete preset lifecycle including save/restore, import/export, and proper cleanup to prevent permanent changes to production configuration.
 
 **File:** `tests/api/test_workflow_preset_lifecycle.py`
-**Tests:** 8
+**Tests:** 9
 **Markers:** `@pytest.mark.api`, `@pytest.mark.integration_full`
 
 ---
@@ -200,6 +200,23 @@ User Action: Import Quickstart-LMStudio-Qwen3.json
 - Message indicates "Preset updated" not "Preset saved"
 - Values properly updated
 - `created_at` unchanged, `updated_at` changed
+
+---
+
+### Test: RankAgent Model Key on Legacy Conversion
+
+<!-- AUDIT: Accuracy -- test_to_legacy_returns_rankagent_model_key (tests/api/test_workflow_preset_lifecycle.py:331) was not previously documented here; added to bring the count in line with the file's actual 9 tests. -->
+
+**Function:** `test_to_legacy_returns_rankagent_model_key`
+
+**Purpose:** Regression test -- a V2 preset with `RankAgent` configured must convert to legacy
+format with `agent_models['RankAgent']` set to the bare model name (not `RankAgent_model`),
+since the frontend `applyPreset()` reads that exact key for the model dropdown.
+
+**Validates:**
+- `POST /api/workflow/config/preset/to-legacy` returns 200
+- `legacy["agent_models"]["RankAgent"]` equals the configured model name
+- `legacy["agent_models"]["RankAgent_provider"]` equals the configured provider
 
 ---
 

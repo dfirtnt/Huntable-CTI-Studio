@@ -2,6 +2,16 @@
 
 _Last updated: 2026-07-03_
 
+> **Historical — implemented.** Despite the `Status: Proposed` line below, this spec has
+> shipped: `run_tests.py` is now a ~140-line re-exec shim, and the runner lives in the
+> `tests_runner/` package (`cli.py`, `config.py`, `env.py`, `runner.py`, `tui.py`) per the
+> T3.2 split. T1.4 (`--no-teardown`), T2.2 (`--dry-run`), T2.3 (default `progress` no longer
+> forces `-v`), T3.1 (`rich` Live TUI), T3.3 (`--cov-fail-under` / `CTI_COVERAGE_FAIL_UNDER`),
+> and T3.4 (single `docker compose ps --format json` call) are all present in
+> `tests_runner/runner.py` and `tests_runner/cli.py`. Retained as the design record; treat
+> the body below as historical rationale, not a live proposal or an accurate description of
+> the current file layout.
+
 Status: Proposed
 Owner: Andrew
 Source: review + QA pass on `run_tests.py` (commit at HEAD when this spec was written)
