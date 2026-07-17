@@ -6,9 +6,13 @@ from typing import Any
 
 from pydantic import BaseModel
 
+# The synthetic feed that holds ground-truth evaluation articles. Its rows are
+# protected against deletion and mutation (see is_eval_source / delete guards).
+EVAL_SOURCE_IDENTIFIER: str = "eval_articles"
+
 # Synthetic/internal feeds that are not real ingestion sources. Excluded from
 # every source count so the dashboard and Sources page report the same numbers.
-INTERNAL_SOURCE_IDENTIFIERS: tuple[str, ...] = ("manual", "eval_articles")
+INTERNAL_SOURCE_IDENTIFIERS: tuple[str, ...] = ("manual", EVAL_SOURCE_IDENTIFIER)
 
 
 class SourceConfig(BaseModel):
@@ -111,6 +115,11 @@ def _attr(source: Any, key: str, default: Any = None) -> Any:
 def is_internal_source(source: Any) -> bool:
     """True for synthetic feeds (``manual``, ``eval_articles``) by identifier."""
     return (_attr(source, "identifier", "") or "") in INTERNAL_SOURCE_IDENTIFIERS
+
+
+def is_eval_source(source: Any) -> bool:
+    """True only for the protected ground-truth eval feed (``eval_articles``)."""
+    return (_attr(source, "identifier", "") or "") == EVAL_SOURCE_IDENTIFIER
 
 
 def summarize_sources(sources: Iterable[Any] | None) -> SourceCounts:

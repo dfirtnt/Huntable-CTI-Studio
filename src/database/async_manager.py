@@ -51,7 +51,7 @@ from src.models.article import Article, ArticleCreate, ArticleListFilter, Articl
 from src.models.source import (
     INTERNAL_SOURCE_IDENTIFIERS as _INTERNAL_SOURCE_IDENTIFIERS,
 )
-from src.models.source import Source, SourceCreate, SourceFilter, SourceUpdate
+from src.models.source import Source, SourceCreate, SourceFilter, SourceUpdate, is_eval_source
 from src.services.deduplication import AsyncDeduplicationService
 
 logger = logging.getLogger(__name__)
@@ -1180,6 +1180,26 @@ class AsyncDatabaseManager:
         except Exception as e:
             logger.error(f"Failed to update article {article_id}: {e}")
             return None
+
+    async def is_eval_article(self, article_id: int) -> bool:
+        """True if the article belongs to the protected eval-articles source.
+
+        Used by the article delete routes to refuse removal of ground-truth
+        evaluation rows. Returns False for unknown ids and on lookup errors; the
+        routes treat only an explicit True as protected.
+        """
+        try:
+            async with self.get_session() as session:
+                result = await session.execute(
+                    select(SourceTable.identifier)
+                    .join(ArticleTable, ArticleTable.source_id == SourceTable.id)
+                    .where(ArticleTable.id == article_id)
+                )
+                identifier = result.scalars().first()
+                return is_eval_source({"identifier": identifier})
+        except Exception as e:
+            logger.error(f"Failed to check eval status for article {article_id}: {e}")
+            return False
 
     async def delete_article(self, article_id: int) -> bool:
         """Delete an article and all related records."""

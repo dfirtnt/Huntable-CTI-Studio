@@ -230,10 +230,14 @@ async def api_bulk_action(request: Request):
             raise HTTPException(status_code=400, detail="Only 'delete' bulk action is supported")
 
         processed_count = 0
+        protected_count = 0
         errors: list[str] = []
 
         for article_id in article_ids:
             try:
+                if await async_db_manager.is_eval_article(article_id):
+                    protected_count += 1
+                    continue
                 await async_db_manager.delete_article(article_id)
                 processed_count += 1
 
@@ -244,6 +248,7 @@ async def api_bulk_action(request: Request):
         return {
             "success": True,
             "processed_count": processed_count,
+            "protected_count": protected_count,
             "total_requested": len(article_ids),
             "errors": errors,
         }
@@ -262,6 +267,9 @@ async def delete_article(article_id: int):
         article = await async_db_manager.get_article(article_id)
         if not article:
             raise HTTPException(status_code=404, detail="Article not found")
+
+        if await async_db_manager.is_eval_article(article_id):
+            raise HTTPException(status_code=403, detail="Eval articles are protected and cannot be deleted.")
 
         success = await async_db_manager.delete_article(article_id)
         if not success:
