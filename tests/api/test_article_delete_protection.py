@@ -73,6 +73,19 @@ async def test_bulk_delete_skips_eval_and_reports_protected_count():
     assert deleted_ids == [1, 3]
 
 
+@pytest.mark.api
+async def test_bulk_delete_all_eval_processes_none():
+    """A selection made entirely of eval articles deletes nothing, protects all."""
+    mgr = _manager(is_eval=True)
+    with patch("src.web.routes.articles.async_db_manager", mgr):
+        result = await api_bulk_action(_FakeRequest({"action": "delete", "article_ids": [10, 20]}))
+
+    assert result["processed_count"] == 0
+    assert result["protected_count"] == 2
+    assert result["errors"] == []
+    mgr.delete_article.assert_not_awaited()
+
+
 # ---------------------------------------------------------------------------
 # Discriminator against a real database (proves the article->source join)
 # ---------------------------------------------------------------------------
@@ -147,3 +160,40 @@ async def test_is_eval_article_resolves_source_identifier(test_database_session)
         for obj in reversed(created):
             await session.delete(obj)
         await session.commit()
+
+
+# ---------------------------------------------------------------------------
+# Fail-open contract: a lookup error must not be mistaken for protection
+# ---------------------------------------------------------------------------
+
+
+class _RaisingSession:
+    async def __aenter__(self):
+        raise RuntimeError("simulated database error")
+
+    async def __aexit__(self, *exc_info):
+        return False
+
+
+class _ManagerWithBrokenSession:
+    """Duck-typed stand-in exposing only what is_eval_article touches on self."""
+
+    def get_session(self):
+        return _RaisingSession()
+
+
+@pytest.mark.unit
+async def test_is_eval_article_fails_open_on_session_error():
+    """A DB error while checking eval status must return False, not raise.
+
+    is_eval_article is documented to fail open: only an explicit True protects
+    an article. If a lookup error were instead treated as protected, normal
+    articles could become permanently undeletable during a transient DB issue;
+    if it silently swallowed the distinction the other way, a broken check
+    could accidentally unprotect eval articles. Locking in "error -> False"
+    also means the route's guard is the only place eval protection can widen.
+    """
+    from src.database.async_manager import AsyncDatabaseManager
+
+    result = await AsyncDatabaseManager.is_eval_article(_ManagerWithBrokenSession(), 1)
+    assert result is False
