@@ -424,6 +424,38 @@ class TestDeduplicationService:
         # Verify session.add was called
         mock_session.add.assert_called_once()
 
+    def test_create_article_with_deduplication_sets_word_count(self, deduplication_service, mock_session):
+        """word_count from article_metadata must propagate to the ArticleTable column.
+
+        Regression test: create_article_with_deduplication built ArticleTable kwargs
+        without a word_count key, so the column silently fell back to its default of 0
+        even though processor.py had already computed the real count into
+        article_metadata["word_count"].
+        """
+        article_with_word_count = ArticleCreate(
+            source_id=1,
+            canonical_url="https://example.com/article-wc",
+            title="Test Article",
+            published_at=datetime.now(),
+            content="This is a test article about threat hunting.",
+            summary="Test summary",
+            authors=["Test Author"],
+            tags=["security"],
+            article_metadata={"word_count": 42},
+            content_hash="test_hash_wc",
+        )
+
+        with patch.object(deduplication_service, "check_exact_duplicates", return_value=(False, None)):
+            with patch.object(deduplication_service, "check_near_duplicates", return_value=[]):
+                with patch("src.services.deduplication.compute_article_simhash", return_value=(12345, 0)):
+                    mock_session.flush = Mock()
+                    created, article, similar = deduplication_service.create_article_with_deduplication(
+                        article_with_word_count
+                    )
+
+        assert created is True
+        assert article.word_count == 42
+
 
 class TestAsyncDeduplicationService:
     """Test AsyncDeduplicationService functionality."""
@@ -620,6 +652,41 @@ class TestAsyncDeduplicationService:
         # Verify session methods were called
         mock_async_session.add.assert_called_once()
         mock_async_session.flush.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_create_article_with_deduplication_sets_word_count(
+        self, async_deduplication_service, mock_async_session
+    ):
+        """word_count from article_metadata must propagate to the ArticleTable column.
+
+        Regression test: this is the async path used by the real Celery ingestion tasks
+        (check_all_sources / check_source -> db.create_article). It built ArticleTable
+        kwargs without a word_count key, so the column silently fell back to its default
+        of 0 even though processor.py had already computed the real count into
+        article_metadata["word_count"].
+        """
+        article_with_word_count = ArticleCreate(
+            source_id=1,
+            canonical_url="https://example.com/article-wc",
+            title="Test Article",
+            published_at=datetime.now(),
+            content="This is a test article about threat hunting.",
+            summary="Test summary",
+            authors=["Test Author"],
+            tags=["security"],
+            article_metadata={"word_count": 42},
+            content_hash="test_hash_wc",
+        )
+
+        with patch.object(async_deduplication_service, "check_exact_duplicates", return_value=(False, None)):
+            with patch.object(async_deduplication_service, "check_near_duplicates", return_value=[]):
+                with patch("src.services.deduplication.compute_article_simhash", return_value=(12345, 0)):
+                    created, article, similar = await async_deduplication_service.create_article_with_deduplication(
+                        article_with_word_count
+                    )
+
+        assert created is True
+        assert article.word_count == 42
 
     @pytest.mark.asyncio
     async def test_create_article_with_deduplication_timezone_handling(
