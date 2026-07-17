@@ -69,6 +69,28 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - ENVIRONMENT=development
       - LOG_LEVEL=DEBUG
+      # Security config (src/web/security/config.py) -- gated on APP_ENV=production.
+      # Defaults below mirror .env.example's dev-safe values; set the real values in
+      # .env to harden a deployment (see docs/guides/enterprise-sso.md).
+      - APP_ENV=${APP_ENV:-development}
+      - AUTH_MODE=${AUTH_MODE:-disabled}
+      - ALLOW_INSECURE_PRODUCTION_AUTH_DISABLED=${ALLOW_INSECURE_PRODUCTION_AUTH_DISABLED:-false}
+      - TRUSTED_HOSTS=${TRUSTED_HOSTS:-localhost,127.0.0.1}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:8001}
+      - AUTH_TRUSTED_PROXY_HEADER=${AUTH_TRUSTED_PROXY_HEADER:-X-Huntable-Verified}
+      - AUTH_TRUSTED_PROXY_VALUE=${AUTH_TRUSTED_PROXY_VALUE:-true}
+      - AUTH_TRUSTED_PROXY_IPS=${AUTH_TRUSTED_PROXY_IPS:-}
+      - ALLOW_INSECURE_PRODUCTION_TRUSTED_PROXY_OPEN=${ALLOW_INSECURE_PRODUCTION_TRUSTED_PROXY_OPEN:-false}
+      - AUTH_USER_ID_HEADER=${AUTH_USER_ID_HEADER:-X-Huntable-User-Id}
+      - AUTH_EMAIL_HEADER=${AUTH_EMAIL_HEADER:-X-Huntable-Email}
+      - AUTH_NAME_HEADER=${AUTH_NAME_HEADER:-X-Huntable-Name}
+      - AUTH_GROUPS_HEADER=${AUTH_GROUPS_HEADER:-X-Huntable-Groups}
+      - AUTH_ADMIN_GROUPS=${AUTH_ADMIN_GROUPS:-}
+      - AUTH_OPERATOR_GROUPS=${AUTH_OPERATOR_GROUPS:-}
+      - AUTH_REVIEWER_GROUPS=${AUTH_REVIEWER_GROUPS:-}
+      - AUTH_ANALYST_GROUPS=${AUTH_ANALYST_GROUPS:-}
+      - SECRET_KEY=${SECRET_KEY:-}
+      - CSRF_ENABLED=${CSRF_ENABLED:-auto}
       - LLM_TEMPERATURE=0.3
       - LLM_MAX_TOKENS=2048
       - CHATGPT_CONTENT_LIMIT=1000000
