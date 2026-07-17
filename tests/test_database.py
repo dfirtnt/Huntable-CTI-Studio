@@ -125,25 +125,34 @@ class TestDatabaseManager:
         assert article.canonical_url == "https://example.com/article"
 
     def test_get_source_applies_limit_one(self):
-        """get_source() must call .limit(1) before .first() to prevent non-deterministic row selection."""
+        """get_source() must emit LIMIT 1 to prevent non-deterministic row selection.
+
+        The statement now comes from the shared builder (src/database/statements.py),
+        so the assertion checks the executed statement's compiled SQL.
+        """
         with patch.object(DatabaseManager, "create_tables"):
             manager = DatabaseManager(database_url="sqlite:///:memory:")
+
+        captured = []
 
         mock_session = Mock()
         mock_session.__enter__ = Mock(return_value=mock_session)
         mock_session.__exit__ = Mock(return_value=False)
 
-        # Build the query chain mock so we can assert .limit(1) was called
-        mock_chain = mock_session.query.return_value
-        mock_chain.filter.return_value = mock_chain
-        mock_chain.limit.return_value = mock_chain
-        mock_chain.first.return_value = None
+        def _execute(stmt):
+            captured.append(stmt)
+            result = Mock()
+            result.scalars.return_value.first.return_value = None
+            return result
+
+        mock_session.execute = _execute
 
         with patch.object(manager, "get_session", return_value=mock_session):
             result = manager.get_source(42)
 
-        mock_chain.limit.assert_called_once_with(1)
         assert result is None
+        assert len(captured) == 1
+        assert "LIMIT" in str(captured[0])
 
     def test_create_tables_bounds_ddl_with_lock_timeout(self):
         """create_tables() must set a lock_timeout before the idempotent schema-ensure DDL.

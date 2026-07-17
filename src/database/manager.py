@@ -5,12 +5,21 @@ import os
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import create_engine, desc, func
+from sqlalchemy import create_engine, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from src.database.audit_schema import AUDIT_INDEX_DDLS, missing_audit_schema_objects
 from src.database.models import ArticleTable, Base, ContentHashTable, SourceCheckTable, SourceTable, URLTrackingTable
+from src.database.statements import (
+    build_article_by_id_stmt,
+    build_article_list_stmt,
+    build_existing_urls_stmt,
+    build_source_by_id_stmt,
+    build_source_by_identifier_stmt,
+    build_source_list_stmt,
+    build_update_article_embedding_stmt,
+)
 from src.models.article import Article, ArticleCreate, ArticleFilter
 from src.models.source import Source, SourceCreate, SourceFilter, SourceUpdate
 
@@ -267,63 +276,26 @@ class DatabaseManager:
     def get_source(self, source_id: int) -> Source | None:
         """Get source by ID."""
         with self.get_session() as session:
-            db_source = session.query(SourceTable).filter(SourceTable.id == source_id).limit(1).first()
+            db_source = session.execute(build_source_by_id_stmt(source_id)).scalars().first()
             return self._db_source_to_model(db_source) if db_source else None
 
     def get_source_by_identifier(self, identifier: str) -> Source | None:
         """Get source by identifier."""
         with self.get_session() as session:
-            db_source = session.query(SourceTable).filter(SourceTable.identifier == identifier).first()
+            db_source = session.execute(build_source_by_identifier_stmt(identifier)).scalars().first()
             return self._db_source_to_model(db_source) if db_source else None
 
     def list_sources(self, filter_params: SourceFilter | None = None) -> list[Source]:
-        """List sources with optional filtering."""
+        """List sources with optional filtering, ordered by name."""
         with self.get_session() as session:
-            query = session.query(SourceTable)
-
-            if filter_params:
-                active = getattr(filter_params, "active", None)
-                if active is not None:
-                    query = query.filter(SourceTable.active == active)
-
-                # Prefer current field name `identifier`.
-                identifier = getattr(filter_params, "identifier", None)
-                if identifier:
-                    query = query.filter(SourceTable.identifier.contains(identifier))
-
-                # Backward-compatible legacy aliases (if present).
-                identifier_contains = getattr(filter_params, "identifier_contains", None)
-                if identifier_contains:
-                    query = query.filter(SourceTable.identifier.contains(identifier_contains))
-
-                name_contains = getattr(filter_params, "name_contains", None)
-                if name_contains:
-                    query = query.filter(SourceTable.name.contains(name_contains))
-
-                consecutive_failures_gte = getattr(filter_params, "consecutive_failures_gte", None)
-                if consecutive_failures_gte is not None:
-                    query = query.filter(SourceTable.consecutive_failures >= consecutive_failures_gte)
-
-                last_check_before = getattr(filter_params, "last_check_before", None)
-                if last_check_before:
-                    query = query.filter(SourceTable.last_check < last_check_before)
-
-                # Apply pagination only if those fields exist on the filter object.
-                offset = getattr(filter_params, "offset", None)
-                limit = getattr(filter_params, "limit", None)
-                if offset is not None:
-                    query = query.offset(offset)
-                if limit is not None:
-                    query = query.limit(limit)
-
-            db_sources = query.all()
+            db_sources = session.execute(build_source_list_stmt(filter_params)).scalars().all()
             return [self._db_source_to_model(db_source) for db_source in db_sources]
 
     def update_source(self, source_id: int, update_data: SourceUpdate) -> Source | None:
         """Update source."""
         with self.get_session() as session:
             try:
-                db_source = session.query(SourceTable).filter(SourceTable.id == source_id).first()
+                db_source = session.execute(build_source_by_id_stmt(source_id)).scalars().first()
 
                 if not db_source:
                     return None
@@ -351,7 +323,7 @@ class DatabaseManager:
         """Delete source and all associated data."""
         with self.get_session() as session:
             try:
-                db_source = session.query(SourceTable).filter(SourceTable.id == source_id).first()
+                db_source = session.execute(build_source_by_id_stmt(source_id)).scalars().first()
 
                 if not db_source:
                     return False
@@ -371,7 +343,7 @@ class DatabaseManager:
         """Update source health metrics."""
         with self.get_session() as session:
             try:
-                db_source = session.query(SourceTable).filter(SourceTable.id == source_id).first()
+                db_source = session.execute(build_source_by_id_stmt(source_id)).scalars().first()
 
                 if not db_source:
                     return
@@ -516,18 +488,13 @@ class DatabaseManager:
     def get_article(self, article_id: int) -> Article | None:
         """Get article by ID."""
         with self.get_session() as session:
-            db_article = (
-                session.query(ArticleTable)
-                .filter(ArticleTable.archived == False)
-                .filter(ArticleTable.id == article_id)
-                .first()
-            )
+            db_article = session.execute(build_article_by_id_stmt(article_id, include_archived=False)).scalars().first()
             return self._db_article_to_model(db_article) if db_article else None
 
     def get_article_including_archived(self, article_id: int) -> Article | None:
         """Get article by ID, including archived articles."""
         with self.get_session() as session:
-            db_article = session.query(ArticleTable).filter(ArticleTable.id == article_id).first()
+            db_article = session.execute(build_article_by_id_stmt(article_id, include_archived=True)).scalars().first()
             return self._db_article_to_model(db_article) if db_article else None
 
     def update_article(self, article_id: int, article: Article) -> Article | None:
@@ -535,10 +502,7 @@ class DatabaseManager:
         with self.get_session() as session:
             try:
                 db_article = (
-                    session.query(ArticleTable)
-                    .filter(ArticleTable.archived == False)
-                    .filter(ArticleTable.id == article_id)
-                    .first()
+                    session.execute(build_article_by_id_stmt(article_id, include_archived=False)).scalars().first()
                 )
                 if not db_article:
                     return None
@@ -566,7 +530,9 @@ class DatabaseManager:
         """Update article by ID, including archived articles."""
         with self.get_session() as session:
             try:
-                db_article = session.query(ArticleTable).filter(ArticleTable.id == article_id).first()
+                db_article = (
+                    session.execute(build_article_by_id_stmt(article_id, include_archived=True)).scalars().first()
+                )
                 if not db_article:
                     return None
 
@@ -592,49 +558,19 @@ class DatabaseManager:
     def list_articles_including_archived(self) -> list[Article]:
         """List all articles including archived ones."""
         with self.get_session() as session:
-            query = session.query(ArticleTable)
-            query = query.order_by(desc(ArticleTable.published_at))
-            db_articles = query.all()
+            stmt = build_article_list_stmt(include_archived=True)
+            db_articles = session.execute(stmt).scalars().all()
             return [self._db_article_to_model(db_article) for db_article in db_articles]
 
     def list_articles(self, filter_params: ArticleFilter | None = None) -> list[Article]:
-        """List articles with optional filtering."""
+        """List articles with optional filtering and sorting.
+
+        Statement construction is shared with AsyncDatabaseManager.list_articles
+        (src/database/statements.py); the CLI default sort is published_at desc.
+        """
         with self.get_session() as session:
-            query = (
-                session.query(ArticleTable)
-                .filter(ArticleTable.archived == False)
-                .filter(ArticleTable.archived == False)
-            )
-
-            if filter_params:
-                if filter_params.source_id is not None:
-                    query = query.filter(ArticleTable.source_id == filter_params.source_id)
-
-                if filter_params.author:
-                    query = query.filter(ArticleTable.authors.contains([filter_params.author]))
-
-                if filter_params.tag:
-                    query = query.filter(ArticleTable.tags.contains([filter_params.tag]))
-
-                if filter_params.published_after:
-                    query = query.filter(ArticleTable.published_at >= filter_params.published_after)
-
-                if filter_params.published_before:
-                    query = query.filter(ArticleTable.published_at <= filter_params.published_before)
-
-                if filter_params.content_contains:
-                    query = query.filter(ArticleTable.content.contains(filter_params.content_contains))
-
-                if filter_params.processing_status:
-                    query = query.filter(ArticleTable.processing_status == filter_params.processing_status)
-
-                # Apply pagination
-                query = query.offset(filter_params.offset).limit(filter_params.limit)
-
-            # Order by publication date (newest first)
-            query = query.order_by(desc(ArticleTable.published_at))
-
-            db_articles = query.all()
+            stmt = build_article_list_stmt(filter_params, default_sort_field="published_at")
+            db_articles = session.execute(stmt).scalars().all()
             return [self._db_article_to_model(db_article) for db_article in db_articles]
 
     def get_articles_without_embeddings(self) -> list[dict[str, Any]]:
@@ -675,14 +611,9 @@ class DatabaseManager:
         """Update article with embedding."""
         try:
             with self.get_session() as session:
-                article = session.query(ArticleTable).filter(ArticleTable.id == article_id).first()
-                if article:
-                    article.embedding = embedding
-                    article.embedding_model = model_name
-                    article.embedded_at = func.now()
-                    session.commit()
-                    return True
-                return False
+                result = session.execute(build_update_article_embedding_stmt(article_id, embedding, model_name))
+                session.commit()
+                return result.rowcount > 0
 
         except Exception as e:
             logger.error(f"Failed to update article embedding: {e}")
@@ -699,8 +630,8 @@ class DatabaseManager:
     def get_existing_urls(self, limit: int = 10000) -> set[str]:
         """Get set of existing canonical URLs for deduplication."""
         with self.get_session() as session:
-            urls = session.query(ArticleTable.canonical_url).where(ArticleTable.archived == False).limit(limit).all()
-            return {url_tuple[0] for url_tuple in urls}
+            urls = session.execute(build_existing_urls_stmt(limit)).scalars().all()
+            return set(urls)
 
     def record_source_check(
         self,

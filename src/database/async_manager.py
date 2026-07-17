@@ -13,8 +13,6 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Optional
 
 from sqlalchemy import (
-    Numeric,
-    String,
     delete,
     desc,
     func,
@@ -40,6 +38,15 @@ from src.database.models import (
     SigmaRuleTable,
     SourceCheckTable,
     SourceTable,
+)
+from src.database.statements import (
+    build_article_by_id_stmt,
+    build_article_count_stmt,
+    build_article_list_stmt,
+    build_existing_urls_stmt,
+    build_source_by_id_stmt,
+    build_source_list_stmt,
+    build_update_article_embedding_stmt,
 )
 from src.models.annotation import (
     AnnotationStats,
@@ -373,32 +380,9 @@ class AsyncDatabaseManager:
             return {"corrupted_count": 0, "examples": [], "error": str(e)}
 
     async def list_sources(self, filter_params: SourceFilter | None = None) -> list[Source]:
-        """List all sources with optional filtering."""
+        """List all sources with optional filtering, ordered by name."""
         async with self.get_session() as session:
-            query = select(SourceTable)
-
-            if filter_params:
-                # SourceFilter is intentionally minimal in the current schema (active, identifier).
-                # Be defensive to avoid AttributeError when legacy/non-model filter objects are used.
-                active = getattr(filter_params, "active", None)
-                if active is not None:
-                    query = query.where(SourceTable.active == active)
-
-                # Prefer the current field name `identifier`.
-                identifier = getattr(filter_params, "identifier", None)
-                if identifier:
-                    query = query.where(SourceTable.identifier.contains(identifier))
-
-                # Backward-compatible legacy aliases (if present).
-                identifier_contains = getattr(filter_params, "identifier_contains", None)
-                if identifier_contains:
-                    query = query.where(SourceTable.identifier.contains(identifier_contains))
-
-                name_contains = getattr(filter_params, "name_contains", None)
-                if name_contains:
-                    query = query.where(SourceTable.name.contains(name_contains))
-
-            query = query.order_by(SourceTable.name)
+            query = build_source_list_stmt(filter_params)
             result = await session.execute(query)
             # SQLAlchemy 2.x: scalars().all() can return duplicate ORM objects when
             # relationships are loaded; unique() deduplicates by primary key.
@@ -496,7 +480,7 @@ class AsyncDatabaseManager:
         """Get a specific source by ID."""
         try:
             async with self.get_session() as session:
-                result = await session.execute(select(SourceTable).where(SourceTable.id == source_id).limit(1))
+                result = await session.execute(build_source_by_id_stmt(source_id))
                 db_source = result.scalar_one_or_none()
 
                 if db_source:
@@ -523,7 +507,7 @@ class AsyncDatabaseManager:
                 return out
 
         try:
-            result = await session.execute(select(SourceTable).where(SourceTable.id == source_id).limit(1))
+            result = await session.execute(build_source_by_id_stmt(source_id))
             db_source = result.scalar_one_or_none()
 
             if not db_source:
@@ -572,7 +556,7 @@ class AsyncDatabaseManager:
                 return out
 
         try:
-            result = await session.execute(select(SourceTable).where(SourceTable.id == source_id).limit(1))
+            result = await session.execute(build_source_by_id_stmt(source_id))
             db_source = result.scalar_one_or_none()
             if not db_source:
                 return None
@@ -621,7 +605,7 @@ class AsyncDatabaseManager:
 
         try:
             # Get the source
-            result = await session.execute(select(SourceTable).where(SourceTable.id == source_id).limit(1))
+            result = await session.execute(build_source_by_id_stmt(source_id))
             db_source = result.scalar_one_or_none()
 
             if not db_source:
@@ -704,7 +688,7 @@ class AsyncDatabaseManager:
                 return out
 
         try:
-            result = await session.execute(select(SourceTable).where(SourceTable.id == source_id).limit(1))
+            result = await session.execute(build_source_by_id_stmt(source_id))
             db_source = result.scalar_one_or_none()
 
             if not db_source:
@@ -733,7 +717,7 @@ class AsyncDatabaseManager:
         """Update source health metrics."""
         try:
             async with self.get_session() as session:
-                result = await session.execute(select(SourceTable).where(SourceTable.id == source_id).limit(1))
+                result = await session.execute(build_source_by_id_stmt(source_id))
                 db_source = result.scalar_one_or_none()
 
                 if not db_source:
@@ -825,114 +809,22 @@ class AsyncDatabaseManager:
         limit: int | None = None,
         load_content: bool = True,
     ) -> list[Article]:
-        """List articles with optional filtering and sorting."""
+        """List articles with optional filtering and sorting.
+
+        Statement construction is shared with DatabaseManager.list_articles
+        (src/database/statements.py); the web default sort is discovered_at desc.
+        Content deferral, batched annotation counts, and error handling below
+        are async-side execution behavior and stay here.
+        """
         try:
             async with self.get_session() as session:
-                query = select(ArticleTable).where(ArticleTable.archived == False)
+                query = build_article_list_stmt(article_filter, default_sort_field="discovered_at", limit=limit)
 
                 # When not loading content, defer it for performance but we'll calculate length separately
                 if not load_content:
                     query = query.options(defer(ArticleTable.content))
 
-                # Apply filters if provided
                 logger.info(f"Article filter received: {article_filter}")
-                if article_filter:
-                    if article_filter.source_id is not None:
-                        query = query.where(ArticleTable.source_id == article_filter.source_id)
-
-                    if article_filter.published_after is not None:
-                        query = query.where(ArticleTable.published_at >= article_filter.published_after)
-
-                    if article_filter.published_before is not None:
-                        query = query.where(ArticleTable.published_at <= article_filter.published_before)
-
-                    if article_filter.processing_status is not None:
-                        query = query.where(ArticleTable.processing_status == article_filter.processing_status)
-
-                    if article_filter.content_contains is not None:
-                        query = query.where(ArticleTable.content.contains(article_filter.content_contains))
-
-                    # Apply sorting
-                    logger.info(f"Sorting by: {article_filter.sort_by}, order: {article_filter.sort_order}")
-                    if article_filter.sort_by == "threat_hunting_score":
-                        # Special handling for threat_hunting_score which is stored in metadata
-                        # Handle null values by using COALESCE to provide a default value
-                        threat_score_expr = func.cast(
-                            func.coalesce(
-                                func.cast(
-                                    ArticleTable.article_metadata["threat_hunting_score"],
-                                    String,
-                                ),
-                                "0",
-                            ),
-                            Numeric,
-                        )
-                        if article_filter.sort_order == "desc":
-                            query = query.order_by(desc(threat_score_expr))
-                        else:
-                            query = query.order_by(threat_score_expr)
-                    elif article_filter.sort_by == "annotation_count":
-                        # Sort by annotation count (simplified - no annotation count available)
-                        # Default to threat_hunting_score sorting
-                        threat_score_expr = func.cast(
-                            func.coalesce(
-                                func.cast(
-                                    ArticleTable.article_metadata["threat_hunting_score"],
-                                    String,
-                                ),
-                                "0",
-                            ),
-                            Numeric,
-                        )
-                        if article_filter.sort_order == "desc":
-                            query = query.order_by(desc(threat_score_expr))
-                        else:
-                            query = query.order_by(threat_score_expr)
-                    else:
-                        sort_field = getattr(ArticleTable, article_filter.sort_by, None)
-                        if sort_field is not None:
-                            # Primary sort by custom field, secondary by threat_hunting_score
-                            threat_score_expr = func.cast(
-                                func.coalesce(
-                                    func.cast(
-                                        ArticleTable.article_metadata["threat_hunting_score"],
-                                        String,
-                                    ),
-                                    "0",
-                                ),
-                                Numeric,
-                            )
-                            if article_filter.sort_order == "desc":
-                                query = query.order_by(desc(sort_field), desc(threat_score_expr))
-                            else:
-                                query = query.order_by(sort_field, desc(threat_score_expr))
-                        else:
-                            # Fallback to threat_hunting_score only
-                            threat_score_expr = func.cast(
-                                func.coalesce(
-                                    func.cast(
-                                        ArticleTable.article_metadata["threat_hunting_score"],
-                                        String,
-                                    ),
-                                    "0",
-                                ),
-                                Numeric,
-                            )
-                            query = query.order_by(desc(threat_score_expr))
-
-                    # Apply pagination
-                    if article_filter.offset is not None and article_filter.offset > 0:
-                        query = query.offset(article_filter.offset)
-
-                    if article_filter.limit is not None and article_filter.limit > 0:
-                        query = query.limit(article_filter.limit)
-                else:
-                    # Default sorting by discovered_at desc
-                    query = query.order_by(desc(ArticleTable.discovered_at))
-
-                    if limit:
-                        query = query.limit(limit)
-
                 logger.info("Executing query...")
                 try:
                     result = await session.execute(query)
@@ -999,19 +891,7 @@ class AsyncDatabaseManager:
         """Get total count of articles with optional filtering."""
         try:
             async with self.get_session() as session:
-                query = (
-                    select(func.count(ArticleTable.id))
-                    .where(ArticleTable.archived == False)
-                    .where(ArticleTable.archived == False)
-                )
-
-                # Apply same filters as list_articles
-                if source_id is not None:
-                    query = query.where(ArticleTable.source_id == source_id)
-
-                if processing_status is not None:
-                    query = query.where(ArticleTable.processing_status == processing_status)
-
+                query = build_article_count_stmt(source_id=source_id, processing_status=processing_status)
                 result = await session.execute(query)
                 return result.scalar()
 
@@ -1020,10 +900,11 @@ class AsyncDatabaseManager:
             return 0
 
     async def get_article(self, article_id: int) -> Article | None:
-        """Get a specific article by ID."""
+        """Get a specific article by ID (archived included -- web detail pages
+        must still render archived articles; the sync manager excludes them)."""
         try:
             async with self.get_session() as session:
-                result = await session.execute(select(ArticleTable).where(ArticleTable.id == article_id))
+                result = await session.execute(build_article_by_id_stmt(article_id, include_archived=True))
                 db_article = result.scalar_one_or_none()
 
                 if db_article:
@@ -1268,9 +1149,7 @@ class AsyncDatabaseManager:
         """Get existing canonical URLs for deduplication."""
         try:
             async with self.get_session() as session:
-                result = await session.execute(
-                    select(ArticleTable.canonical_url).where(ArticleTable.archived == False).limit(limit)
-                )
+                result = await session.execute(build_existing_urls_stmt(limit))
                 urls = result.scalars().all()
                 return set(urls)
 
@@ -2219,15 +2098,7 @@ class AsyncDatabaseManager:
         """Update article with its embedding vector."""
         try:
             async with self.get_session() as session:
-                await session.execute(
-                    update(ArticleTable)
-                    .where(ArticleTable.id == article_id)
-                    .values(
-                        embedding=embedding,
-                        embedding_model=model_name,
-                        embedded_at=func.now(),
-                    )
-                )
+                await session.execute(build_update_article_embedding_stmt(article_id, embedding, model_name))
                 await session.commit()
                 logger.debug(f"Updated embedding for article {article_id}")
                 return True
