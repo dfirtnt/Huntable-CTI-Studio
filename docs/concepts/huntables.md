@@ -11,8 +11,12 @@ Out of the box, the application supports these:
 - **Command lines** — Literal command lines observable in an EDR, EventCode 4688 (security.evtx if configured), and/or EventCode 1 (Sysmon.evtx).
 - **Process trees** — Lineage information such as parent–child relationships.
 - **Hunt queries** — EDR, Splunk, SIEM, or Sigma queries found in intel articles.
+- **Network indicators** — Network indicators with platform/logsource hints when available.
+- **Registry artifacts** — Windows registry persistence keys, config changes, defense evasion.
+- **Windows services** — Service name, binary path, command line, start type.
+- **Scheduled tasks** — Task name, action, trigger, run-as user.
 
-In the workflow, these are emitted by the Extract Agent sub-agents as typed **observables** (`cmdline`, `process_lineage`, `hunt_queries`) and stored in `extraction_result`. See [Observables](observables.md) for the extraction schema and API.
+In the workflow, these are emitted by the Extract Agent sub-agents as typed **observables** (`cmdline`, `process_lineage`, `hunt_queries`, `network_indicators`, `registry_artifacts`, `windows_services`, `scheduled_tasks`) and stored in `extraction_result`. See [Observables](observables.md) for the extraction schema and API.
 
 **Where huntables are tracked:** Article metadata holds the regex-based `threat_hunting_score` (0–100); each workflow execution holds `discrete_huntables_count` and the observables in `extraction_result`. The ML-based `ml_hunt_score` aggregate was retired in v7.1.0 (2026-05-23).
 

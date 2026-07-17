@@ -50,9 +50,9 @@ Sigma generation and similarity matching.
     |  -----------------------------  |
     |  CmdlineExtract                 |
     |    Attention Preprocessor (opt) |
-    |  HuntQueriesExtract             |
     |  ProcTreeExtract                |
     |    Attention Preprocessor (opt) |
+    |  HuntQueriesExtract             |
     |  RegistryExtract    (Win-only)  |
     |  ServicesExtract     (Win-only) |
     |  ScheduledTasksExtract (Win-only)|
@@ -100,8 +100,8 @@ Sigma generation and similarity matching.
 2. LLM Ranking              -> Article scoring (continue if >= threshold)
 3. Extract Agent (sequential):
    +- CmdlineExtract        -> Attention preprocessor (optional) -> command-line observables
-   +- HuntQueriesExtract    -> Detection queries (EDR and Sigma)
    +- ProcTreeExtract       -> Attention preprocessor (optional) -> process lineage
+   +- HuntQueriesExtract    -> Detection queries (EDR and Sigma)
    +- RegistryExtract       -> Windows-only; skipped on non-Windows evidence
    +- ServicesExtract       -> Windows-only; skipped on non-Windows evidence
    +- ScheduledTasksExtract -> Windows-only; skipped on non-Windows evidence
