@@ -15,6 +15,7 @@ import httpx
 import pytest
 from fastapi import HTTPException
 
+from src.utils.safe_fetch import SafeFetchResult
 from src.web.routes.scrape import _scrape_single_url
 
 pytestmark = pytest.mark.api
@@ -48,25 +49,15 @@ def _make_ocr_db(existing_article):
     return db
 
 
-def _mock_async_client(response: httpx.Response) -> MagicMock:
-    """Build a MagicMock that mimics `async with httpx.AsyncClient() as c`."""
-    client = MagicMock()
-    client.get = AsyncMock(return_value=response)
-    async_cm = MagicMock()
-    async_cm.__aenter__ = AsyncMock(return_value=client)
-    async_cm.__aexit__ = AsyncMock(return_value=None)
-    factory = MagicMock(return_value=async_cm)
-    return factory
-
-
 @pytest.mark.asyncio
 async def test_scrape_url_upstream_4xx_returns_400_with_reason_phrase():
     """Upstream 404 must surface as a clean 400 using `reason_phrase`, not 500."""
     request = httpx.Request("GET", "https://example.test/missing")
-    upstream = httpx.Response(404, request=request, content=b"gone")
+    err_response = httpx.Response(404, request=request, content=b"gone")
+    upstream_error = httpx.HTTPStatusError("Not Found", request=request, response=err_response)
 
     with (
-        patch("src.web.routes.scrape.httpx.AsyncClient", _mock_async_client(upstream)),
+        patch("src.web.routes.scrape.safe_fetch_text", AsyncMock(side_effect=upstream_error)),
         patch("src.web.routes.scrape.validate_url_for_scraping", return_value="https://example.test/missing"),
     ):
         with pytest.raises(HTTPException) as exc_info:
@@ -92,8 +83,12 @@ async def test_scrape_url_happy_path_ingests_and_returns_success():
         b"<html><head><title>Advisory AA23-214A</title></head>"
         b"<body><p>Threat actors exploited CVE-2023-0669.</p></body></html>"
     )
-    request = httpx.Request("GET", "https://example.test/advisory")
-    upstream = httpx.Response(200, request=request, content=html)
+    fetch_result = SafeFetchResult(
+        status_code=200,
+        content=html,
+        final_url="https://example.test/advisory",
+        headers={},
+    )
 
     # Stub DB interactions used by _scrape_single_url so the test stays
     # in-process and deterministic.
@@ -110,7 +105,8 @@ async def test_scrape_url_happy_path_ingests_and_returns_success():
     fake_db.create_articles_bulk.return_value = ([created_article], [])
 
     with (
-        patch("src.web.routes.scrape.httpx.AsyncClient", _mock_async_client(upstream)),
+        patch("src.web.routes.scrape.safe_fetch_text", AsyncMock(return_value=fetch_result)),
+        patch("src.web.routes.scrape.validate_url_for_scraping", return_value="https://example.test/advisory"),
         patch("src.database.manager.DatabaseManager", return_value=fake_db),
         patch(
             "src.utils.simhash.compute_article_simhash",

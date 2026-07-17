@@ -13,6 +13,7 @@ from bs4 import BeautifulSoup
 from fastapi import APIRouter, HTTPException
 
 from src.utils.input_validation import ValidationError, validate_url_for_scraping
+from src.utils.safe_fetch import UnsafeURLError, safe_fetch_text
 from src.web.dependencies import logger
 
 router = APIRouter(tags=["Scrape"])
@@ -197,16 +198,16 @@ async def _scrape_single_url(
                     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
                 )
             }
-            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-                try:
-                    response = await client.get(
-                        url, headers=headers
-                    )  # codeql[py/full-ssrf] false positive: url validated by validate_url_for_scraping above (blocks private IPs, loopback, reserved ranges)
-                    response.raise_for_status()
-                    html_content = response.content.decode("utf-8", errors="replace")
-                except Exception:
-                    # If we can't fetch, use pre-scraped content and continue
-                    pass
+            try:
+                result = await safe_fetch_text(url, timeout=30.0, headers=headers)
+                html_content = result.content.decode("utf-8", errors="replace")
+            except UnsafeURLError as exc:
+                # SSRF redirect/rebind must not be silently swallowed even on the
+                # title-only fetch path -- refuse the request rather than risk it.
+                raise HTTPException(status_code=400, detail=f"Invalid URL: {exc}") from exc
+            except (httpx.HTTPStatusError, httpx.RequestError):
+                # Genuine upstream failure: fall back to the pre-scraped content.
+                pass
     else:
         # Scrape content using the working approach from test endpoint
         headers = {
@@ -216,31 +217,29 @@ async def _scrape_single_url(
             )
         }
 
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-            try:
-                response = await client.get(
-                    url, headers=headers
-                )  # codeql[py/full-ssrf] false positive: url validated by validate_url_for_scraping above (blocks private IPs, loopback, reserved ranges)
-                response.raise_for_status()  # Raise exception for 4xx/5xx status codes
-            except httpx.HTTPStatusError as exc:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"HTTP {exc.response.status_code} error fetching URL: {exc.response.reason_phrase}",
-                ) from exc
-            except httpx.RequestError as exc:
-                logger.warning(f"Failed to fetch URL {url}: {exc}")
-                raise HTTPException(status_code=400, detail="Failed to fetch URL") from exc
+        try:
+            result = await safe_fetch_text(url, timeout=30.0, headers=headers)
+        except UnsafeURLError as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid URL: {exc}") from exc
+        except httpx.HTTPStatusError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"HTTP {exc.response.status_code} error fetching URL: {exc.response.reason_phrase}",
+            ) from exc
+        except httpx.RequestError as exc:
+            logger.warning(f"Failed to fetch URL {url}: {exc}")
+            raise HTTPException(status_code=400, detail="Failed to fetch URL") from exc
 
-            html_content = response.content.decode("utf-8", errors="replace")
+        html_content = result.content.decode("utf-8", errors="replace")
 
-            soup = BeautifulSoup(html_content, "html.parser")
-            for script in soup(["script", "style", "meta", "noscript", "iframe"]):
-                script.decompose()
-            content_text = soup.get_text(separator=" ", strip=True)
+        soup = BeautifulSoup(html_content, "html.parser")
+        for script in soup(["script", "style", "meta", "noscript", "iframe"]):
+            script.decompose()
+        content_text = soup.get_text(separator=" ", strip=True)
 
-            # Conservative sanitization
-            sanitized_content = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", "", content_text)
-            sanitized_content = re.sub(r"\s+", " ", sanitized_content).strip()
+        # Conservative sanitization
+        sanitized_content = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", "", content_text)
+        sanitized_content = re.sub(r"\s+", " ", sanitized_content).strip()
 
     # Extract title
     extracted_title = title
