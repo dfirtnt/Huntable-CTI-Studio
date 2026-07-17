@@ -364,8 +364,8 @@ class SourceManager:
         # Map configs by identifier for quick access
         config_map = {config.identifier: config for config in source_configs}
 
-        # Existing sources from database
-        existing_sources = await self.db.list_sources()
+        # Existing sources from database (self.db is the sync DatabaseManager)
+        existing_sources = self.db.list_sources()
         existing_by_identifier = {src.identifier: src for src in existing_sources}
 
         # Create or update sources present in config
@@ -376,14 +376,14 @@ class SourceManager:
                 if existing_source:
                     from src.models.source import SourceUpdate
 
-                    updated_source = await self.db.update_source(
+                    updated_source = self.db.update_source(
                         existing_source.id,
                         SourceUpdate(
                             name=config.name,
                             url=config.url,
                             rss_url=config.rss_url,
-                            check_frequency=config.check_frequency,
-                            lookback_days=config.lookback_days,
+                            check_frequency=config.config.check_frequency if config.config else None,
+                            lookback_days=config.config.lookback_days if config.config else None,
                             active=config.active,
                             config=config.config.model_dump(exclude_none=True) if config.config else {},
                         ),
@@ -393,7 +393,7 @@ class SourceManager:
                         logger.info(f"Updated source: {identifier}")
 
                 else:
-                    new_source = await self.db.create_source(config)
+                    new_source = self.db.create_source(config)
                     if new_source:
                         synced_sources.append(new_source)
                         logger.info(f"Created source: {identifier}")
@@ -408,7 +408,7 @@ class SourceManager:
             for existing in existing_sources:
                 if existing.identifier not in config_identifiers:
                     try:
-                        await self.db.delete_source(existing.id)
+                        self.db.delete_source(existing.id)
                         logger.info(f"Removed source not in config: {existing.identifier}")
                     except Exception as e:
                         logger.error(f"Failed to remove source {existing.identifier}: {e}")
