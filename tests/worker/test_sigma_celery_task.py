@@ -36,7 +36,6 @@ def _import_celery_app():
         "celery": mock_celery,
         "celery.schedules": MagicMock(),
         "celery.signals": mock_signals,
-        "src.worker.tasks.annotation_embeddings": MagicMock(),
         "src.worker.tasks.observable_training": MagicMock(),
         "src.worker.tasks.test_agents": MagicMock(),
     }
