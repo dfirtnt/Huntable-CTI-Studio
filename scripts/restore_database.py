@@ -18,7 +18,7 @@ from typing import Any
 
 # Allow `python scripts/restore_database.py` to import sibling helpers.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _restore_common import filter_dump_lines  # noqa: E402
+from _restore_common import extract_psql_errors, filter_dump_lines  # noqa: E402
 
 # Database configuration - use environment variables
 DB_CONFIG = {
@@ -242,13 +242,16 @@ def restore_database(backup_path: Path, create_snapshot: bool = True, force: boo
         print("📥 Restoring data...")
         restore_cmd = get_docker_exec_cmd(
             "cti_postgres",
-            f"psql -h {DB_CONFIG['host']} -U {DB_CONFIG['user']} -d {DB_CONFIG['database']} -f /tmp/restore.sql",
+            f"psql -v ON_ERROR_STOP=1 -h {DB_CONFIG['host']} -U {DB_CONFIG['user']} "
+            f"-d {DB_CONFIG['database']} -f /tmp/restore.sql",
         )
 
         result = subprocess.run(restore_cmd, capture_output=True, text=True)
+        psql_errors = extract_psql_errors(result.stderr)
 
-        if result.returncode != 0:
-            print(f"❌ Restore failed: {result.stderr}")
+        if result.returncode != 0 or psql_errors:
+            error_output = "\n".join(psql_errors) if psql_errors else result.stderr
+            print(f"❌ Restore failed: {error_output}")
 
             # Try to restore from snapshot if available
             if snapshot_path and Path(snapshot_path).exists():
