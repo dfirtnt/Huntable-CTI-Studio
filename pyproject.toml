@@ -65,7 +65,7 @@ dependencies = [
     # defense-in-depth now that an upstream fix exists, not an urgent patch.
     # Still no macosx_x86_64 wheel (Intel Mac unsupported); the marker skips install there.
     # The Apple Silicon wheel now requires macOS >= 14 (was 11 on 2.11.0).
-    "torch==2.12.1; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+    "torch==2.13.0; sys_platform != 'darwin' or platform_machine != 'x86_64'",
     "transformers==5.11.0",
     "accelerate==1.13.0; sys_platform != 'darwin' or platform_machine != 'x86_64'",
     "openai==2.38.0",
