@@ -75,6 +75,7 @@ Thumbs.db
 # pytest
 .pytest_cache/
 .coverage
+coverage.xml
 htmlcov/
 .tox/
 .nox/
@@ -228,6 +229,8 @@ tramp
 .\#*
 
 # Project specific
+# Build/export artifacts (one-off reports, deduped exports, generated PDFs).
+output/
 # outputs/* instead of outputs/ so git still traverses subdirs — required for negation to work.
 # See: https://git-scm.com/docs/gitignore "It is not possible to re-include a file if a parent
 # directory of that file is excluded."
