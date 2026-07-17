@@ -3092,9 +3092,9 @@ async function exportEvalBundle(executionId, agentName) {
             
             // Show success message
             if (bundle.integrity?.warnings?.length > 0) {
-                alert(`✅ Bundle exported!\n\nWarnings: ${bundle.integrity.warnings.join(', ')}\n\nSHA256: ${bundle.integrity.bundle_sha256.substring(0, 16)}...`);
+                window.showNotification(`✅ Bundle exported!\n\nWarnings: ${bundle.integrity.warnings.join(', ')}\n\nSHA256: ${bundle.integrity.bundle_sha256.substring(0, 16)}...`, 'success');
             } else {
-                alert(`✅ Bundle exported!\n\nSHA256: ${bundle.integrity.bundle_sha256.substring(0, 16)}...`);
+                window.showNotification(`✅ Bundle exported!\n\nSHA256: ${bundle.integrity.bundle_sha256.substring(0, 16)}...`, 'success');
             }
         } else {
             const error = await response.json();

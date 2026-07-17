@@ -722,13 +722,7 @@ async function updateCeleryHealth() {
 }
 
 function showError(message) {
-    console.error(message);
-    const el = document.createElement('div');
-    el.className = 'fixed top-4 right-4 px-4 py-2 rounded-lg shadow-lg z-50';
-    el.style.cssText = 'background:var(--action-danger);color:var(--text-emphasis);';
-    el.textContent = message;
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 5000);
+    window.showNotification(message, 'error');
 }
 </script>
 {% endblock %}
