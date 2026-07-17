@@ -192,12 +192,12 @@ class SigmaPRService:
             result = subprocess.run(["git"] + cmd, cwd=self.repo_path, capture_output=True, text=True, timeout=60)
 
             if check and result.returncode != 0:
-                raise Exception(f"Git command failed: {' '.join(cmd)}\n{result.stderr}")
+                raise RuntimeError(f"Git command failed: {' '.join(cmd)}\n{result.stderr}")
 
             return result.returncode, result.stdout, result.stderr
         except subprocess.TimeoutExpired as e:
-            raise Exception(f"Git command timed out: {' '.join(cmd)}") from e
-        except Exception as e:
+            raise RuntimeError(f"Git command timed out: {' '.join(cmd)}") from e
+        except (RuntimeError, subprocess.SubprocessError, OSError) as e:
             logger.error(f"Git command error: {e}")
             raise
 
