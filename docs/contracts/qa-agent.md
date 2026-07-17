@@ -367,7 +367,7 @@ QA agents are verified via:
 - Integration tests: end-to-end evaluation loop with mock articles and agent outputs
 - Manual tests: test each QA agent with a real article and known base agent output
 
-Test location: `tests/services/test_qa_coverage_gaps.py`, `tests/config/test_extractor_qa_removal.py`
+Test location: `tests/services/test_qa_coverage_gaps.py`, `tests/config/test_qa_full_deprecation.py`
 
 ---
 

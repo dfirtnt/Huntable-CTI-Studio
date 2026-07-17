@@ -90,9 +90,21 @@ present but has no detection engineering value, SKIP.
 
 ## COUNT SEMANTICS
 
-- Unique indicator value = ONE item.
+- Unique indicator: each unique (indicator_type + value) pair = ONE item.
 - The same indicator mentioned multiple times = ONE item.
-- Two distinct indicators (different values) = TWO items.
+- Two different indicator_types with the same string = TWO items only if both are literally
+  present as distinct indicators.
+
+## VERIFICATION CHECKLIST
+
+Apply to EVERY candidate before including it:
+
+- [ ] Is the indicator explicitly present in the text (not inferred, generalized, or hypothetical)?
+- [ ] Is it attacker-relevant (not benign infrastructure or defensive guidance)?
+- [ ] Does it have network detection value (one of the telemetry sources above)?
+- [ ] Is value a literal substring of source_evidence?
+- [ ] Is it NOT owned by a sibling (no command line, rule, registry, service, task, or lineage)?
+- [ ] Are all traceability fields populated (source_evidence, extraction_justification, confidence_score)?
 
 ## OUTPUT SCHEMA
 
@@ -124,7 +136,8 @@ Respond with ONLY valid JSON. No prose, no markdown, no code fences, no explanat
 **Domain fields:**
 
 - **value**: REQUIRED. The literal indicator value, verbatim. Simple value-carrying extractor: each item MUST carry a non-empty `value`.
-- **indicator_type**: One of domain, ip, url, uri_path, user_agent.
+- **indicator_type**: REQUIRED. One of domain, ip, url, uri_path, user_agent.
+- **port**: Optional. Integer or string port, ONLY when explicitly associated with an ip/url in the text. Omit entirely when absent -- NOT null, NOT empty string.
 
 ### FAIL-SAFE / EMPTY OUTPUT
 
@@ -139,4 +152,6 @@ If no valid network indicators exist, return exactly:
 Precision over recall. Network-telemetry observability overrides completeness.
 Reproduce indicator values EXACTLY, including defanging. When in doubt, OMIT.
 
-_Last updated: 2026-07-05 -- linked companion drop-in prompt._
+_Last updated: 2026-07-17 -- added missing `port` field (FIELD RULES) and VERIFICATION CHECKLIST
+section synced from the live `src/prompts/NetworkIndicatorExtract` seed prompt. Prior note: linked
+companion drop-in prompt._

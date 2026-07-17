@@ -77,9 +77,11 @@ both `verdict` and a backward-compat `status` field:
 
 ## Owner
 
-`QAEvaluator` in `src/services/qa_evaluator.py` is the single implementation
-that owns the LLM call, the 6-strategy response parser, fail-closed default,
+`QAEvaluator` in `src/services/qa_evaluator.py` was the single implementation
+that owned the LLM call, the 6-strategy response parser, fail-closed default,
 and schema normalization.  All call sites (`qa_agent_service.py`,
-`run_extraction_agent` in `llm_service.py`) delegate to it.
+`run_extraction_agent` in `llm_service.py`) delegated to it. Both
+`qa_evaluator.py` and `qa_agent_service.py` were deleted as part of the
+2026-05-22 removal (see deprecation notice above).
 
 _Last updated: 2026-07-03_
