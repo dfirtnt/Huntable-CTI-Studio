@@ -678,12 +678,7 @@ class DatabaseManager:
             stats["sources_by_tier"] = {"tier_1": stats["total_sources"], "tier_2": 0, "tier_3": 0}
 
             # Article statistics
-            stats["total_articles"] = (
-                session.query(ArticleTable)
-                .filter(ArticleTable.archived == False)
-                .filter(ArticleTable.archived == False)
-                .count()
-            )
+            stats["total_articles"] = session.query(ArticleTable).filter(ArticleTable.archived == False).count()
 
             # Articles by date range
             now = datetime.now()
