@@ -12,7 +12,7 @@ The agentic workflow's `Thresholds` config block (`src/config/workflow_config_sc
 
 All three live in `AgenticWorkflowConfigTable` (`src/database/models.py:562-564`),
 are read at runtime from `state["config"]` inside `src/workflows/agentic_workflow.py`,
-and can be changed via `PUT /api/workflow/config` (`src/web/routes/workflow_config.py:335`)
+and can be changed via `PUT /api/workflow/config` (`src/web/routes/workflow_config.py:353`)
 or the workflow config UI.
 
 ## `RankingThreshold` (6.0)
