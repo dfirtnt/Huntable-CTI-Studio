@@ -123,6 +123,43 @@ def _deactivate_active_workflow_configs(db_session) -> None:
     db_session.flush()
 
 
+def ensure_default_workflow_config(db_session) -> AgenticWorkflowConfigTable:
+    """Seed a default active workflow config row if none exists.
+
+    Idempotent: returns the existing active config when one is present.
+    Called at application startup so GET /api/workflow/config stays read-only.
+    """
+    config = _active_workflow_config_query(db_session).first()
+    if not config:
+        new_version = _next_workflow_config_version(db_session)
+        default_prompts = get_default_agent_prompts()
+        config = AgenticWorkflowConfigTable(
+            min_hunt_score=97.0,
+            ranking_threshold=6.0,
+            similarity_threshold=0.5,
+            junk_filter_threshold=0.8,
+            auto_trigger_hunt_score_threshold=100.0,
+            version=new_version,
+            is_active=True,
+            description="Default configuration",
+            sigma_fallback_enabled=False,
+            agent_prompts=default_prompts if default_prompts else None,
+        )
+        db_session.add(config)
+        db_session.commit()
+        db_session.refresh(config)
+
+    # Seed AppSettingsTable threshold so subsequent PUT autosaves never fall back
+    # to the column default of 100.0.
+    settings_threshold = _get_threshold_from_settings(db_session)
+    if settings_threshold is None:
+        config_threshold = getattr(config, "auto_trigger_hunt_score_threshold", 100.0)
+        _save_threshold_to_settings(db_session, config_threshold)
+        db_session.commit()
+
+    return config
+
+
 class WorkflowConfigResponse(BaseModel):
     """Response model for workflow configuration."""
 
@@ -261,7 +298,7 @@ class SaveConfigPresetRequest(BaseModel):
 
 @router.get("/config", response_model=WorkflowConfigResponse)
 def get_workflow_config(request: Request):
-    """Get active workflow configuration."""
+    """Get active workflow configuration (read-only; seeding happens at startup)."""
     try:
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
@@ -270,31 +307,15 @@ def get_workflow_config(request: Request):
             config = _active_workflow_config_query(db_session).first()
 
             if not config:
-                new_version = _next_workflow_config_version(db_session)
-                # Create default config with prompts from src/prompts so agents ship with working defaults
-                default_prompts = get_default_agent_prompts()
-                config = AgenticWorkflowConfigTable(
-                    min_hunt_score=97.0,
-                    ranking_threshold=6.0,
-                    similarity_threshold=0.5,
-                    junk_filter_threshold=0.8,
-                    auto_trigger_hunt_score_threshold=100.0,
-                    version=new_version,
-                    is_active=True,
-                    description="Default configuration",
-                    sigma_fallback_enabled=False,
-                    agent_prompts=default_prompts if default_prompts else None,
+                raise HTTPException(
+                    status_code=404,
+                    detail="No active workflow configuration found. Restart the application to seed defaults.",
                 )
-                db_session.add(config)
-                db_session.commit()
-                db_session.refresh(config)
 
             # Fallback: if DB has no prompts, use defaults from src/prompts so UI and workflow get working prompts
             agent_prompts = config.agent_prompts if config.agent_prompts is not None else {}
             if not agent_prompts:
                 agent_prompts = get_default_agent_prompts()
-                if agent_prompts:
-                    config.agent_prompts = agent_prompts
 
             # Load via normalized schema (migrates v1 to v2, validates) and emit legacy response shape
             try:
@@ -312,14 +333,10 @@ def get_workflow_config(request: Request):
                 created_at=config.created_at.isoformat(),
                 updated_at=config.updated_at.isoformat(),
             )
+            # Read threshold from settings without writing; fall back to config column value.
             settings_threshold = _get_threshold_from_settings(db_session)
             if settings_threshold is None:
-                # Lazy migration: seed AppSettingsTable from config row so subsequent
-                # PUT autosaves never fall back to the column default of 100.0.
-                config_threshold = getattr(config, "auto_trigger_hunt_score_threshold", 100.0)
-                _save_threshold_to_settings(db_session, config_threshold)
-                db_session.commit()
-                settings_threshold = config_threshold
+                settings_threshold = getattr(config, "auto_trigger_hunt_score_threshold", 100.0)
             legacy_dict["auto_trigger_hunt_score_threshold"] = settings_threshold
             return WorkflowConfigResponse(**legacy_dict)
         finally:

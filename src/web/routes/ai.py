@@ -2250,7 +2250,7 @@ async def api_generate_sigma(article_id: int, request: Request):
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.get("/{article_id}/sigma-matches")
+@router.post("/{article_id}/sigma-matches")
 async def api_get_sigma_matches(article_id: int, force: bool = False):
     """
     Get Sigma rule matches by comparing generated SIGMA rules to SigmaHQ rules

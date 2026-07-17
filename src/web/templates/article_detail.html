@@ -7141,7 +7141,7 @@ Please provide a detailed analysis based on the article content and the user's s
             const llmProvider = settings.aiModel || 'chatgpt';
             
             const response = await fetch(`/api/articles/${articleId}/sigma-matches?llm_provider=${encodeURIComponent(llmProvider)}${force ? '&force=true' : ''}`, {
-                method: 'GET',
+                method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },

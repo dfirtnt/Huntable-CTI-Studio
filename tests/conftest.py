@@ -303,8 +303,19 @@ def _ensure_workflow_config_columns() -> None:
 
 @pytest.fixture(scope="session")
 def ensure_workflow_config_schema():
-    """Ensure test DB has agentic_workflow_config columns required by workflow/config routes."""
+    """Ensure test DB has agentic_workflow_config columns and a seeded default config row."""
     _ensure_workflow_config_columns()
+    # Seed default config row so GET /api/workflow/config is read-only (no lazy init).
+    if os.getenv("TEST_DATABASE_URL"):
+        try:
+            from src.database.manager import DatabaseManager
+            from src.web.routes.workflow_config import ensure_default_workflow_config
+
+            db = DatabaseManager()
+            with db.get_session() as session:
+                ensure_default_workflow_config(session)
+        except Exception as e:
+            logger.warning("Could not seed default workflow config: %s", e)
     return
 
 
