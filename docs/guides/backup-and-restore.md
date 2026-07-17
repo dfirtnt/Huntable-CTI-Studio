@@ -94,14 +94,14 @@ Comprehensive guide for Huntable CTI Studio backup and restore operations, inclu
 ### Backup Structure
 
 **Database-Only:**
-```
+```text
 backups/
 ├── cti_scraper_backup_20250907_134653.sql.gz
 └── cti_scraper_backup_20250907_134653.json
 ```
 
 **Full System:**
-```
+```text
 backups/system_backup_20251010_103000/
 ├── database.sql.gz
 ├── metadata.json
@@ -464,7 +464,7 @@ docker exec -it cti_postgres psql -U cti_user -d cti_scraper -c "SELECT COUNT(*)
 
 # Verify models
 ls -la models/
-python -c "import pickle; pickle.load(open('models/content_filter.pkl', 'rb'))"
+python3 -c "import pickle; pickle.load(open('models/content_filter.pkl', 'rb'))"
 
 # Verify config
 cat config/sources.yaml
@@ -532,7 +532,7 @@ print('Model loaded' if cf.load_model() else 'Model missing')
 >
 > ```bash
 > python3 scripts/seed_model.py
-> docker-compose restart web
+> docker compose restart web
 > ```
 >
 > Then annotate articles and retrain via MLOps → Retrain to incorporate your
@@ -614,8 +614,8 @@ rm -f backups/cti_scraper_backup_20250901_*.{sql.gz,json}
 # Check backup status
 ./scripts/backup_restore.sh list
 
-# Show backup statistics
-./scripts/backup_restore.sh stats
+# Show backup statistics (not a backup_restore.sh subcommand -- use the CLI)
+python3 -m src.cli.main backup stats
 
 # Verify latest backup
 LATEST_BACKUP=$(./scripts/backup_restore.sh list | grep "system_backup_" | head -1 | awk '{print $2}')

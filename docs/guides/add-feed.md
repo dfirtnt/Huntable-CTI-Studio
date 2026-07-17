@@ -41,7 +41,7 @@ Sources are defined in `config/sources.yaml`, seeded into PostgreSQL, and used b
 ## Notes
 - To reset the database to YAML defaults, rerun sync **without** `--no-remove` (overwrites DB rows not present in YAML).
 - Set `active: false` to keep a source defined but disabled; collectors skip inactive sources at runtime.
-- Scheduler cadence is controlled by `check_frequency` (seconds) and the Celery Beat schedule defined in `docker-compose.yml`. The default is 14400 (4 hours); add an explicit `check_frequency` in YAML only when a faster cadence is needed.
+- The Celery Beat periodic task `check-all-sources-every-30min` (fixed in `src/worker/celery_app.py`, not `docker-compose.yml`) sweeps **all** active sources every 30 minutes; it does not currently gate on each source's `check_frequency`. `check_frequency` (seconds, default 14400 / 4 hours) is stored per source and exposed via the API/UI, but is not read by the sweep task itself. <!-- TODO: verify: is check_frequency consumed anywhere else (e.g. a per-source scheduler) before treating it as fully vestigial -->
 - If a new source starts failing repeatedly, check the Sources page in the UI for error details and manually update the source config as needed.
 
 _Last updated: 2026-07-05_

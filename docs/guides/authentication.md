@@ -67,15 +67,16 @@ are not classified fail closed in auth-enabled modes, and any unsafe route that
 is only authenticated (no role) must be listed in an explicit allowlist
 (`AUTHENTICATED_UNSAFE_ALLOWLIST`) or it fails startup and tests.
 
-Initial roles:
+Initial roles (`AUTH_<ROLE>_GROUPS` in `src/web/security/config.py`):
 
-- `viewer`: authenticated reads
 - `analyst`: annotation and ingest-oriented analyst actions
 - `rule_reviewer`: Sigma queue review actions
 - `operator`: workflow/source/scheduled-job operations
 - `admin`: settings, credentials, audit, backup/restore, model management, and
   dangerous maintenance
 
+There is no separate `viewer` role. Routes classified `authenticated` (most
+reads) require only a verified identity, not any of the roles above.
 `admin` satisfies all role checks.
 
 ## CSRF protection

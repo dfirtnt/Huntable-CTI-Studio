@@ -121,9 +121,9 @@ The `/analytics/scraper-metrics` "Source Performance Details" table shows a stat
 |-------|---------|-----------|
 | `healthy` | Scraper reached and parsed the feed today | `last_success` is today |
 | `warning` | 1-2 days since the scraper successfully reached the feed | 1 <= days since `last_success` <= 2 |
-| `error`   | More than 2 days since a successful reach, or timestamp is missing/unparseable | days since `last_success` > 2 |
+| `error`   | More than 2 days since a successful reach, or the `last_success` timestamp fails to parse | days since `last_success` > 2 |
 
-Thresholds live in `src/web/routes/analytics.py` (see the `days_since_success` branches).
+Thresholds live in `src/web/routes/analytics.py` (see the `days_since_success` branches). Note: a source that has **never** had a successful check (`last_success` is `NULL`) defaults to `healthy` in this table's status calculation, since the status only changes from its `healthy` default when `last_success` is set.
 
 ### What counts as success
 

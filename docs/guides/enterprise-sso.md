@@ -17,7 +17,7 @@ app enforces, see [Authentication](authentication.md).
 
 ## How it works
 
-```
+```text
 Browser --TLS--> nginx --auth_request--> oauth2-proxy --> OAuth provider
                    |                                       (Google/GitHub/Entra)
                    '--> app (web:8001)

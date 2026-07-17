@@ -70,9 +70,9 @@ WORKER_MEMORY_RESERVATION=1G
 WORKFLOW_WORKER_MEMORY_LIMIT=4G
 WORKFLOW_WORKER_MEMORY_RESERVATION=1G
 
-# Web server (default: 1G limit, 256M reservation)
-WEB_MEMORY_LIMIT=2G
-WEB_MEMORY_RESERVATION=512M
+# Web server (default: 3G limit, 512M reservation)
+WEB_MEMORY_LIMIT=4G
+WEB_MEMORY_RESERVATION=1G
 
 # Redis (default: 512M limit, 128M reservation)
 REDIS_MEMORY_LIMIT=1G
@@ -99,7 +99,7 @@ WORKFLOW_WORKER_CONCURRENCY=6
 WORKER_MEMORY_LIMIT=8G
 WORKFLOW_WORKER_MEMORY_LIMIT=8G
 POSTGRES_MEMORY_LIMIT=4G
-WEB_MEMORY_LIMIT=2G
+WEB_MEMORY_LIMIT=4G
 REDIS_MEMORY_LIMIT=2G
 REDIS_MAXMEMORY=2gb
 CELERY_MAX_TASKS_PER_CHILD=200
@@ -123,12 +123,12 @@ If containers are consistently near their limits, increase them. If they're well
 |---------|-------------|-------------|
 | PostgreSQL | 2G | N/A |
 | Redis | 512M | N/A |
-| Web | 1G | N/A |
+| Web | 3G | N/A |
 | Main Worker | 2G | 2 |
 | Workflow Worker | 2G | 2 |
-| Scheduler | 256M | N/A |
+| Scheduler | 512M | N/A |
 
-**Total cap**: ~6.5GB (prevents system hangs)
+**Total cap**: ~10GB (prevents system hangs)
 
 ## Recommendations
 
