@@ -6,7 +6,7 @@ Run the full agentic pipeline against a real CTI article: Platform Detection →
 
 ## 0) Load a quickstart preset (recommended for first run)
 
-If you haven’t configured the workflow yet, load a preset so all LLM agents have prompts and models set. On the **Workflow** page, use **Import from file** and pick one of:
+If you haven’t configured the workflow yet, load a preset so all LLM agents have prompts and models set. On the **Workflow** page, use **Import Preset from file** and pick one of:
 
 - **Anthropic** — `config/presets/AgentConfigs/quickstart/Quickstart-anthropic-sonnet-4-6.json`
 - **OpenAI / ChatGPT** — `config/presets/AgentConfigs/quickstart/Quickstart-openai-gpt-4.1-mini.json`
@@ -33,7 +33,7 @@ EXECUTION_ID=$(echo "$TRIGGER" | jq -r '.execution_id')
 echo "Execution ID: ${EXECUTION_ID}"
 ```
 
-If an execution is already running for the article, the API returns an error. Wait for it to finish or clear the stuck run before retrying. Note that ingestion can also start a workflow automatically when an article's RegexHunt score exceeds the auto-trigger threshold (default 60, editable in Settings → Workflow), so a run may already exist before you trigger one manually.
+If an execution is already running for the article, the API returns an error. Wait for it to finish or clear the stuck run before retrying. Note that ingestion can also start a workflow automatically when an article's RegexHunt score exceeds the auto-trigger threshold (default 100 — above the maximum possible score, so auto-trigger is off until you lower it in Settings → Workflow), so a run may already exist before you trigger one manually if the threshold has been lowered.
 
 The same threshold gates manual triggers: if the API replies that the article's RegexHunt score is not above the auto-trigger threshold, re-run with `?force=true`:
 
@@ -88,7 +88,7 @@ The agentic workflow runs these stages in order:
 |---------|-------|-----|
 | `execution_id` is null | Article already has a running execution | Wait or check `/api/workflow/executions?article_id=X` |
 | Trigger refused: score not above threshold | Article's RegexHunt score <= auto-trigger threshold | Re-run the trigger with `?force=true`, or lower the threshold in Settings → Workflow |
-| Status stuck on `running` | Worker not processing tasks | Check `docker-compose logs workflow_worker` |
+| Status stuck on `running` | Worker not processing tasks | Check `docker compose logs workflow_worker` |
 | Empty extraction results | Article filtered as non-huntable | Check `termination_reason` in execution record |
 | No Sigma rules generated | Article had no extractable observables | Review extraction_result for empty observables |
 

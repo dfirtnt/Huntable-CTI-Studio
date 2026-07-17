@@ -41,8 +41,8 @@ services:
 
 After changing ports:
 ```bash
-docker-compose down
-docker-compose up -d
+docker compose down
+docker compose up -d
 ```
 
 For tests, set the matching base URL:
@@ -102,8 +102,8 @@ Auth, RBAC, and CSRF are configured entirely via environment variables (`AUTH_MO
 | `WORKFLOW_OPENAI_ENABLED` | Enable OpenAI in workflows | DB setting |
 | `WORKFLOW_ANTHROPIC_ENABLED` | Enable Anthropic in workflows | DB setting |
 | `WORKFLOW_LMSTUDIO_ENABLED` | Enable LM Studio in workflows | DB setting |
-| `WORKFLOW_OPENAI_MODEL` | OpenAI model for workflows | — |
-| `WORKFLOW_ANTHROPIC_MODEL` | Anthropic model for workflows | — |
+| `WORKFLOW_OPENAI_MODEL` | OpenAI model for workflows | `gpt-4o-mini` |
+| `WORKFLOW_ANTHROPIC_MODEL` | Anthropic model for workflows | `claude-sonnet-4-5` |
 
 ### LM Studio Configuration
 
@@ -146,10 +146,10 @@ All paths are relative to `config/presets/AgentConfigs/quickstart/`.
 **How to load a preset**
 
 1. Open the **Workflow** page in the web UI.
-2. In the workflow config panel, use **Import from file** and choose a JSON file from `config/presets/AgentConfigs/quickstart/`.
+2. In the workflow config panel, use **Import Preset from file** and choose a JSON file from `config/presets/AgentConfigs/quickstart/`.
 3. Confirm the import; the active workflow config (thresholds, agent models, and agent prompts) is replaced by the preset. Tweak individual prompt fields (role, task, instructions, schema) in the workflow config editor as needed.
 
-**Private presets**: To keep presets out of version control, put JSON files in `config/presets/private/`. That directory is gitignored (only `*.json` there); use **Import from file** to load from it.
+**Private presets**: To keep presets out of version control, put JSON files in `config/presets/private/`. That directory is gitignored (only `*.json` there); use **Import Preset from file** to load from it.
 
 To normalize key order in quickstart presets after a schema update, run from the repo root:
 
@@ -167,6 +167,8 @@ python3 scripts/build_baseline_presets.py
 | `CONTENT_FILTERING_CONFIDENCE` | Minimum confidence threshold | `0.7` |
 | `CHATGPT_CONTENT_LIMIT` | Max content chars for ChatGPT | `1000000` |
 | `ANTHROPIC_CONTENT_LIMIT` | Max content chars for Anthropic | `1000000` |
+
+**Note**: `CHATGPT_CONTENT_LIMIT` and `ANTHROPIC_CONTENT_LIMIT` are hardcoded to `1000000` in `docker-compose.yml` for the `web` service; `.env` values are not passed through to `web` (other services without this override still read `.env`).
 
 ## Langfuse Observability
 
@@ -260,13 +262,13 @@ After modifying configuration:
 
 1. **Environment variables only**: Restart affected services
    ```bash
-   docker-compose restart web worker
+   docker compose restart web worker
    ```
 
 2. **Port changes or docker-compose.yml**: Rebuild and restart
    ```bash
-   docker-compose down
-   docker-compose up -d --build
+   docker compose down
+   docker compose up -d --build
    ```
 
 3. **Source configuration**: Sync sources

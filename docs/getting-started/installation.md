@@ -24,7 +24,7 @@ cd Huntable-CTI-Studio
 The `start.sh` script will:
 - Reuse the pre-provisioned `.env` from setup (it will fail fast if missing or still templated)
 - Create necessary runtime directories (`logs/`, `backups/`, `models/`, `outputs/`, `data/`)
-- Run `docker-compose up --build -d`
+- Run `docker compose up --build -d`
 - Health-check PostgreSQL, Redis, and the web application
 - Sync SigmaHQ repo and optionally index rules (when LM Studio / embeddings are available)
 - Seed eval articles from config and refresh the **LLM provider model catalog** (OpenAI/Anthropic) so workflow model dropdowns show the current list without waiting for [the daily Celery run](../reports/scheduled-jobs-report.md#1-celery-beat-periodic-tasks)
@@ -123,7 +123,7 @@ Check that all services are running:
 
 ```bash
 # View container status
-docker-compose ps
+docker compose ps
 
 # Check application health
 curl http://localhost:8001/health
@@ -132,26 +132,26 @@ curl http://localhost:8001/health
 python3 run_tests.py smoke
 
 # View web application logs
-docker-compose logs -f web
+docker compose logs -f web
 
 # View all service logs
-docker-compose logs -f
+docker compose logs -f
 ```
 
 ## Common Operations
 
 ```bash
 # Restart a specific service
-docker-compose restart web
+docker compose restart web
 
 # Restart all services
-docker-compose restart
+docker compose restart
 
 # Stop the stack
-docker-compose down
+docker compose down
 
 # Stop and remove volumes (deletes data)
-docker-compose down -v
+docker compose down -v
 
 # View resource usage
 docker stats
@@ -172,7 +172,7 @@ See `configuration.md` for detailed port configuration.
 ### Database Authentication Errors
 - Ensure `POSTGRES_PASSWORD` is set in `.env`
 - Verify the password matches between `.env` and `docker-compose.yml`
-- Check PostgreSQL logs: `docker-compose logs postgres`
+- Check PostgreSQL logs: `docker compose logs postgres`
 
 ### AI/LLM Errors
 - Confirm API keys are set in `.env`
@@ -182,13 +182,13 @@ See `configuration.md` for detailed port configuration.
 ### CLI Command Errors
 - Use `./run_cli.sh --help` to see current commands
 - Arguments are passed directly to `python3 -m src.cli.main`
-- Check CLI logs: `docker-compose logs cli`
+- Check CLI logs: `docker compose logs cli`
 
 ### Container Won't Start
-- Review logs: `docker-compose logs [service_name]`
+- Review logs: `docker compose logs [service_name]`
 - Check disk space: `df -h`
 - Verify Docker daemon is running
-- Try rebuilding: `docker-compose up --build -d`
+- Try rebuilding: `docker compose up --build -d`
 
 ## ML Content Filter Model
 
