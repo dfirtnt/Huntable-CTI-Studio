@@ -2801,7 +2801,7 @@ Please provide a detailed analysis based on the article content and the user's s
                     <p class="text-sm text-gray-300 mb-4 break-words whitespace-pre-wrap">"${workingText.substring(0, 200)}${workingText.length > 200 ? '…' : ''}"</p>
                     <div class="flex space-x-3">
                         <button id="observable-save-btn" 
-                                class="flex-1 btn-manage text-white px-4 py-3 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                                class="flex-1 btn-manage text-white px-4 py-3 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation">
                             Save ${this.observableType}
                         </button>
                         <button id="observable-cancel-btn" 
@@ -2990,11 +2990,11 @@ Please provide a detailed analysis based on the article content and the user's s
                     
                     <div class="flex space-x-3">
                         <button id="huntable-btn" 
-                                class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-3 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                                class="flex-1 btn-execute text-white px-4 py-3 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation">🎯
                             🎯 Huntable
                         </button>
                         <button id="not-huntable-btn" 
-                                class="flex-1 bg-red-500 hover:bg-red-600 text-white px-4 py-3 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                                class="flex-1 btn-danger text-white px-4 py-3 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation">🎯
                             ❌ Not Huntable
                         </button>
                         <button id="cancel-btn" 
@@ -3349,11 +3349,11 @@ Please provide a detailed analysis based on the article content and the user's s
                     
                     <div class="flex space-x-3">
                         <button id="huntable-btn" 
-                                class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-3 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                                class="flex-1 btn-execute text-white px-4 py-3 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation">🎯
                             🎯 Huntable
                         </button>
                         <button id="not-huntable-btn" 
-                                class="flex-1 bg-red-500 hover:bg-red-600 text-white px-4 py-3 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                                class="flex-1 btn-danger text-white px-4 py-3 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation">🎯
                             ❌ Not Huntable
                         </button>
                         <button id="cancel-btn" 
@@ -3669,8 +3669,7 @@ Please provide a detailed analysis based on the article content and the user's s
                     </p>
                     <div class="flex space-x-3">
                         <button onclick="simpleTextManager.confirmRemoveAnnotation()" 
-                                class="flex-1 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900">
-                            Remove
+                                class="flex-1 btn-danger text-white px-4 py-2 rounded-lg">
                         </button>
                         <button onclick="simpleTextManager.closeModal()" 
                                 class="flex-1 px-4 py-2 border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
