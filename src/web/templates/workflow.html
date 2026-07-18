@@ -5771,7 +5771,7 @@ syncProviderVisibilityAndInputs();
 // REMOVED: Duplicate loadAgentPrompts function - using the one at line 5599 instead
 
 async function bootstrapPromptsFromFiles() {
-    if (!confirm('Import default prompts from files into database?\n\nThis will create a new config version with all default prompts loaded.')) {
+    if (!await ModalManager.confirm('Import default prompts from files into database? This will create a new config version with all default prompts loaded.', { title: 'Import Prompts', confirmText: 'Import', confirmClass: 'bg-purple-600 hover:bg-purple-700', cancelText: 'Cancel' })) {
         return;
     }
 
@@ -6679,7 +6679,7 @@ function closePromptHistoryModal() {
 }
 
 async function rollbackPrompt(agentName, versionId) {
-    if (!confirm(`Are you sure you want to rollback ${agentName} to this version?`)) {
+    if (!await ModalManager.confirm(`Are you sure you want to rollback ${agentName} to this version?`, { title: 'Rollback Prompt', confirmText: 'Rollback', confirmClass: 'bg-orange-600 hover:bg-orange-700', cancelText: 'Cancel' })) {
         return;
     }
     
@@ -7755,8 +7755,8 @@ async function pollTestStatus(taskId, agentName, articleId) {
     }, 5000); // Poll every 5 seconds
 }
 
-function promptForArticleId(defaultId = 2155) {
-    const articleId = prompt(`Enter article ID to test with:`, defaultId.toString());
+async function promptForArticleId(defaultId = 2155) {
+    const articleId = await ModalManager.prompt('Enter article ID to test with:', defaultId.toString(), { title: 'Test Article', confirmText: 'Test', placeholder: 'Article ID' });
     if (articleId === null) return null; // User cancelled
     const parsedId = parseInt(articleId, 10);
     if (isNaN(parsedId) || parsedId <= 0) {
@@ -9124,7 +9124,7 @@ async function exportPresetToFile() {
         const preset = getFullPresetState();
         
         // Prompt for preset name
-        const presetName = prompt('Enter a name for this preset:', `workflow-preset-${new Date().toISOString().split('T')[0]}`);
+        const presetName = await ModalManager.prompt('Enter a name for this preset:', `workflow-preset-${new Date().toISOString().split('T')[0]}`, { title: 'Export Preset', confirmText: 'Export', placeholder: 'Preset name' });
         if (!presetName) {
             return; // User cancelled
         }
@@ -9246,7 +9246,7 @@ async function importPresetFromFile(event) {
               `- Thresholds\n- Model selections\n- Temperature settings\n` +
               `- Extract agent toggles\n- Sigma fallback setting\n- Agent prompts\n\nClick OK to proceed or Cancel to abort.`;
 
-        if (!confirm(confirmMsg)) {
+        if (!await ModalManager.confirm(confirmMsg, { title: 'Load Preset', confirmText: 'Load', confirmClass: 'bg-blue-600 hover:bg-blue-700', cancelText: 'Cancel' })) {
             event.target.value = '';
             return;
         }
@@ -9521,9 +9521,9 @@ async function saveSubAgentPreset(scope) {
         const preset = getFullPresetState(scope);
         const map = SUBAGENT_SCOPE_MAP[scope];
         const defaultName = `${map.extract.toLowerCase()}-preset-${new Date().toISOString().split('T')[0]}`;
-        const name = prompt('Enter a name for this preset:', defaultName);
+        const name = await ModalManager.prompt('Enter a name for this preset:', defaultName, { title: 'Save Preset', confirmText: 'Save', placeholder: 'Preset name' });
         if (!name) return;
-        const description = prompt('Enter a description (optional):') || null;
+        const description = await ModalManager.prompt('Enter a description (optional):', '', { title: 'Description', confirmText: 'Save', placeholder: 'Optional description' }) || null;
         const response = await fetch('/api/workflow/config/preset/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -9550,9 +9550,9 @@ async function saveSubAgentPreset(scope) {
 async function saveConfigPreset() {
     try {
         const preset = getFullPresetState();
-        const name = prompt('Enter a name for this preset:', 'workflow-preset-' + new Date().toISOString().split('T')[0]);
+        const name = await ModalManager.prompt('Enter a name for this preset:', 'workflow-preset-' + new Date().toISOString().split('T')[0], { title: 'Save Preset', confirmText: 'Save', placeholder: 'Preset name' });
         if (!name) return;
-        const description = prompt('Enter a description (optional):') || null;
+        const description = await ModalManager.prompt('Enter a description (optional):', '', { title: 'Description', confirmText: 'Save', placeholder: 'Optional description' }) || null;
         const response = await fetch('/api/workflow/config/preset/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -9609,7 +9609,7 @@ async function deleteConfigPreset(presetId, name) {
     try {
         const id = parseInt(presetId, 10);
         if (isNaN(id)) throw new Error(`Invalid preset ID: ${presetId}`);
-        if (!confirm(`Delete preset "${name}"?`)) return;
+        if (!await ModalManager.confirm(`Delete preset "${name}"?`, { title: 'Delete Preset', confirmText: 'Delete', confirmClass: 'bg-red-600 hover:bg-red-700' })) return;
         const response = await fetch(`/api/workflow/config/preset/${id}`, { method: 'DELETE' });
         let data;
         try {
@@ -10117,7 +10117,7 @@ async function showGenerateCommandsModal() {
     }
     
     // Get context lengths from config or use defaults
-    const contextLength = prompt('Enter context length (tokens):', '16384');
+    const contextLength = await ModalManager.prompt('Enter context length (tokens):', '16384', { title: 'Context Length', confirmText: 'Generate', placeholder: 'e.g. 16384' });
     if (!contextLength || isNaN(contextLength)) {
         return;
     }
@@ -12263,7 +12263,7 @@ async function downloadExecutionTraceBundle(executionId = null, slim = false) {
 
 async function retryExecution(executionId, useLangGraphServer = false) {
     const mode = useLangGraphServer ? 'synchronously (wait for completion)' : 'asynchronously (background)';
-    if (!confirm(`Retry execution ${executionId} ${mode}?`)) return;
+    if (!await ModalManager.confirm(`Retry execution ${executionId}${mode ? ' ' + mode : ''}?`, { title: 'Retry Execution', confirmText: 'Retry', confirmClass: 'bg-purple-600 hover:bg-purple-700', cancelText: 'Cancel' })) return;
     
     try {
         const url = `/api/workflow/executions/${executionId}/retry?use_langgraph_server=${useLangGraphServer}`;
@@ -12309,9 +12309,10 @@ async function debugInAgentChat(executionId) {
                 // Check if Langfuse is configured
                 if (!info.uses_langfuse && info.instructions && info.instructions.includes('not configured')) {
                     // Show warning but still open trace URL
-                    const proceed = confirm(
+                    const proceed = await ModalManager.confirm(
                         'Langfuse keys are not configured. Trace results will only exist if the execution ran with Langfuse tracing enabled.\n\n' +
-                        'Would you like to open the trace URL anyway?'
+                        'Would you like to open the trace URL anyway?',
+                        { title: 'Langfuse Not Configured', confirmText: 'Open URL', confirmClass: 'bg-blue-600 hover:bg-blue-700' }
                     );
                     if (!proceed) {
                         return;
@@ -12707,7 +12708,7 @@ async function triggerStuckExecutions() {
     const btn = document.getElementById('triggerStuckBtn');
     const originalText = btn.textContent;
     
-    if (!confirm('Trigger all stuck pending executions? This will bypass Celery and run them directly.')) {
+    if (!await ModalManager.confirm('Trigger all stuck pending executions? This will bypass Celery and run them directly.', { title: 'Trigger Stuck', confirmText: 'Trigger All', confirmClass: 'bg-orange-600 hover:bg-orange-700', cancelText: 'Cancel' })) {
         return;
     }
     
@@ -12741,7 +12742,7 @@ async function triggerStuckExecutions() {
 }
 
 async function cleanupStaleExecutions() {
-    if (!confirm('Mark all running or pending executions older than 15 minutes as failed?')) {
+    if (!await ModalManager.confirm('Mark all running or pending executions older than 15 minutes as failed?', { title: 'Cleanup Stale', confirmText: 'Mark Failed', confirmClass: 'bg-orange-600 hover:bg-orange-700', cancelText: 'Cancel' })) {
         return;
     }
     
@@ -12774,7 +12775,7 @@ async function cleanupStaleExecutions() {
 }
 
 async function cancelAllRunningExecutions() {
-    if (!confirm('Cancel all running or pending executions? This will mark them as failed.')) {
+    if (!await ModalManager.confirm('Cancel all running or pending executions? This will mark them as failed.', { title: 'Cancel All', confirmText: 'Cancel All', confirmClass: 'bg-red-600 hover:bg-red-700', cancelText: 'Cancel' })) {
         return;
     }
     
@@ -12866,14 +12867,14 @@ function clearQueueSelection() {
 async function bulkApprove() {
     const ids = [...queueSelectedIds];
     if (!ids.length) return;
-    if (!confirm('Approve ' + ids.length + ' rule(s)?')) return;
+    if (!await ModalManager.confirm('Approve ' + ids.length + ' rule(s)?', { title: 'Approve Rules', confirmText: 'Approve', confirmClass: 'bg-emerald-600 hover:bg-emerald-700', cancelText: 'Cancel' })) return;
     await _sendQueueBulkAction({ ids, action: 'approve' });
 }
 
 async function bulkReject() {
     const ids = [...queueSelectedIds];
     if (!ids.length) return;
-    const notes = prompt('Rejection reason for ' + ids.length + ' rule(s) (optional):');
+    const notes = await ModalManager.prompt('Rejection reason for ' + ids.length + ' rule(s) (optional):', '', { title: 'Reject Rules', confirmText: 'Reject', confirmClass: 'bg-red-600 hover:bg-red-700', cancelText: 'Cancel', placeholder: 'Optional rejection reason' });
     if (notes === null) return;
     await _sendQueueBulkAction({ ids, action: 'reject', review_notes: notes || null });
 }
@@ -12881,7 +12882,7 @@ async function bulkReject() {
 async function bulkDelete() {
     const ids = [...queueSelectedIds];
     if (!ids.length) return;
-    if (!confirm('Permanently delete ' + ids.length + ' rule(s)? This cannot be undone.')) return;
+    if (!await ModalManager.confirm('Permanently delete ' + ids.length + ' rule(s)? This cannot be undone.', { title: 'Delete Rules', confirmText: 'Delete', confirmClass: 'bg-red-600 hover:bg-red-700', cancelText: 'Cancel' })) return;
     await _sendQueueBulkAction({ ids, action: 'delete' });
 }
 
@@ -12908,7 +12909,7 @@ async function _sendQueueBulkAction(payload) {
 }
 
 async function deleteQueueRule(ruleId) {
-    if (!confirm('Delete this rule? This cannot be undone.')) return;
+    if (!await ModalManager.confirm('Delete this rule? This cannot be undone.', { title: 'Delete Rule', confirmText: 'Delete', confirmClass: 'bg-red-600 hover:bg-red-700', cancelText: 'Cancel' })) return;
     try {
         const res = await fetch('/api/sigma-queue/' + ruleId, { method: 'DELETE' });
         if (res.ok) {
@@ -13533,8 +13534,8 @@ function escapeHtml(text) {
 }
 
 async function approveRule(ruleId) {
-    if (!confirm('Approve this rule for PR submission?')) return;
-    
+    if (!await ModalManager.confirm('Approve this rule for PR submission?', { title: 'Approve Rule', confirmText: 'Approve', confirmClass: 'bg-emerald-600 hover:bg-emerald-700', cancelText: 'Cancel' })) return;
+    await _sendRuleAction(ruleId, 'approve');
     try {
         // Save any pending edits first
         if (isEditMode) {
@@ -13568,7 +13569,7 @@ async function approveRule(ruleId) {
 }
 
 async function rejectRule(ruleId) {
-    const notes = prompt('Rejection reason (optional):');
+    const notes = await ModalManager.prompt('Rejection reason (optional):', '', { title: 'Reject Rule', confirmText: 'Reject', confirmClass: 'bg-red-600 hover:bg-red-700', cancelText: 'Cancel', placeholder: 'Optional rejection reason' });
     
     try {
         // Save any pending edits first
@@ -13613,11 +13614,9 @@ async function submitPR() {
         return;
     }
     
-    if (!confirm(`Submit ${approvedCount} approved rule(s) as a GitHub PR?`)) {
+    if (!await ModalManager.confirm(`Submit ${approvedCount} approved rule(s) as a GitHub PR?`, { title: 'Submit PR', confirmText: 'Submit', confirmClass: 'bg-purple-600 hover:bg-purple-700', cancelText: 'Cancel' })) {
         return;
     }
-    
-    // Disable button and show loading state
     btn.disabled = true;
     const originalText = btn.textContent;
     btn.textContent = '⏳ Submitting...';
@@ -14124,7 +14123,7 @@ async function applyValidatedRuleFromModal() {
         return;
     }
     
-    if (!confirm('Apply the validated rule? This will update the rule YAML.')) return;
+    if (!await ModalManager.confirm('Apply the validated rule? This will update the rule YAML.', { title: 'Apply Rule', confirmText: 'Apply', confirmClass: 'bg-purple-600 hover:bg-purple-700', cancelText: 'Cancel' })) return;
     
     try {
         const response = await fetch(`/api/sigma-queue/${currentRuleId}/yaml`, {
@@ -14171,7 +14170,7 @@ async function applyValidatedRule() {
         return;
     }
     
-    if (!confirm('Apply the validated rule? This will update the rule YAML.')) return;
+    if (!await ModalManager.confirm('Apply the validated rule? This will update the rule YAML.', { title: 'Apply Rule', confirmText: 'Apply', confirmClass: 'bg-purple-600 hover:bg-purple-700', cancelText: 'Cancel' })) return;
     
     try {
         const response = await fetch(`/api/sigma-queue/${currentRuleId}/yaml`, {
@@ -14774,7 +14773,7 @@ async function saveEnrichmentPrompt() {
     }
     
     // Prompt for optional change description
-    const changeDescription = prompt('Enter a description for this version (optional):') || null;
+    const changeDescription = await ModalManager.prompt('Enter a description for this version (optional):', '', { title: 'Save Prompt', confirmText: 'Save', placeholder: 'Optional description' }) || null;
     
     try {
         const response = await fetch('/api/sigma-queue/prompt/save', {
@@ -14981,12 +14980,12 @@ async function saveEnrichmentPreset() {
     // Prompt for preset name and description. When a preset is already loaded,
     // default to its name so the save updates it in place (the backend upserts
     // by name); clearing the name and entering a new one saves-as-new.
-    const name = prompt('Enter a name for this preset:', enrichLoadedPreset ? enrichLoadedPreset.name : '');
+    const name = await ModalManager.prompt('Enter a name for this preset:', enrichLoadedPreset ? enrichLoadedPreset.name : '', { title: 'Save Preset', confirmText: 'Save', placeholder: 'Preset name' });
     if (!name || !name.trim()) {
         return; // User cancelled
     }
 
-    const description = prompt('Enter a description (optional):') || null;
+    const description = await ModalManager.prompt('Enter a description (optional):', '', { title: 'Description', confirmText: 'Save', placeholder: 'Optional description' }) || null;
     
     try {
         const response = await fetch('/api/sigma-queue/preset/save', {
@@ -15159,7 +15158,7 @@ async function loadPresetById(presetId, opts = {}) {
 }
 
 async function deletePreset(presetId, presetName) {
-    if (!confirm(`Are you sure you want to delete preset "${presetName}"?`)) {
+    if (!await ModalManager.confirm(`Are you sure you want to delete preset "${presetName}"?`, { title: 'Delete Preset', confirmText: 'Delete', confirmClass: 'bg-red-600 hover:bg-red-700' })) {
         return;
     }
     
@@ -15579,7 +15578,7 @@ async function applyEnrichedRule() {
         return;
     }
     
-    if (!confirm('Apply the enriched rule? This will update the rule YAML.')) return;
+    if (!await ModalManager.confirm('Apply the enriched rule? This will update the rule YAML.', { title: 'Apply Enriched Rule', confirmText: 'Apply', confirmClass: 'bg-purple-600 hover:bg-purple-700' })) return;
     
     try {
         const response = await fetch(`/api/sigma-queue/${currentRuleId}/yaml`, {
@@ -15679,7 +15678,7 @@ async function enrichRuleFurther() {
     }
     
     // Prompt for new instruction
-    const newInstruction = prompt('Enter additional enrichment instructions (or leave empty for default):\n\nThis will enrich the already-enriched rule further.');
+    const newInstruction = await ModalManager.prompt('Enter additional enrichment instructions (or leave empty for default):\n\nThis will enrich the already-enriched rule further.', '', { title: 'Enrich Rule', confirmText: 'Enrich', placeholder: 'Additional instructions' });
     
     if (newInstruction === null) return; // User cancelled
     
