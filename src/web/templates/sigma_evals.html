@@ -123,35 +123,7 @@
         border-radius: 4px;
         border: 1px solid rgba(16, 185, 129, 0.15);
     }
-    .eval-btn {
-        font-family: 'Inter', system-ui, sans-serif;
-        font-weight: 600;
-        font-size: 0.75rem;
-        border-radius: 8px;
-        padding: 0.5rem 1rem;
-        border: none;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        display: inline-flex;
-        align-items: center;
-        gap: 0.4rem;
-        white-space: nowrap;
-    }
-    .eval-btn:active { transform: scale(0.97); }
-    .eval-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
-    .eval-btn--secondary {
-        background: var(--panel-bg-5);
-        color: var(--text-secondary);
-        border: 1px solid rgba(139, 92, 246, 0.12);
-    }
-    .eval-btn--secondary:hover { background: var(--panel-bg-6); color: var(--text-primary); }
-    .eval-btn--accent {
-        background: rgba(59, 130, 246, 0.12);
-        color: var(--action-info);
-        border: 1px solid rgba(59, 130, 246, 0.2);
-    }
-    .eval-btn--accent:hover { background: rgba(59, 130, 246, 0.2); }
-    .eval-btn--sm { font-size: 0.75rem; padding: 0.35rem 0.75rem; border-radius: 6px; }
+    /* -- Buttons -- using global .btn-* classes from theme-variables.css -- */
     .eval-run-btn {
         font-family: 'JetBrains Mono', monospace;
         font-size: 0.875rem;
@@ -366,8 +338,8 @@
                     <h2 class="eval-section-title">Evaluation Articles</h2>
                 </div>
                 <div class="flex gap-2">
-                    <button id="selectAllBtn" type="button" class="eval-btn eval-btn--secondary eval-btn--sm">Select All</button>
-                    <button id="deselectAllBtn" type="button" class="eval-btn eval-btn--secondary eval-btn--sm">Deselect All</button>
+                    <button id="selectAllBtn" type="button" class="btn-secondary btn-sm">Select All</button>
+                    <button id="deselectAllBtn" type="button" class="btn-secondary btn-sm">Deselect All</button>
                 </div>
             </div>
             <div class="eval-panel-body flex-1">
@@ -396,7 +368,7 @@
         <div class="card-elevated p-0 max-w-5xl w-full mx-4 max-h-[85vh] flex flex-col overflow-hidden">
             <div class="flex justify-between items-center p-6" style="border-bottom: 1px solid rgba(139, 92, 246, 0.08);">
                 <h3 id="sigmaDetailTitle" class="eval-section-title">Sigma Eval Detail</h3>
-                <button id="closeSigmaDetail" type="button" class="eval-btn eval-btn--secondary eval-btn--sm" style="padding: 0.4rem;" aria-label="Close detail modal">
+                <button id="closeSigmaDetail" type="button" class="btn-secondary btn-sm" style="padding: 0.4rem;" aria-label="Close detail modal">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
@@ -415,7 +387,7 @@
             <div class="flex items-center gap-3 flex-wrap">
                 <label id="configVersionLabel" class="eval-section-label hidden" for="configVersionSelect">VERSION</label>
                 <select id="configVersionSelect" class="eval-select hidden" title="View Sigma results for a specific config version"></select>
-                <button id="refreshBtn" type="button" class="eval-btn eval-btn--secondary eval-btn--sm">
+                <button id="refreshBtn" type="button" class="btn-secondary btn-sm">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
                     </svg>
@@ -452,7 +424,7 @@
                             <label class="block eval-section-label mb-1" for="compareVersionB">Candidate</label>
                             <select id="compareVersionB" class="eval-select" title="Candidate config version"></select>
                         </div>
-                        <button id="runCompareBtn" type="button" class="eval-btn eval-btn--accent eval-btn--sm">Compare</button>
+                        <button id="runCompareBtn" type="button" class="btn-analyze btn-sm">Compare</button>
                     </div>
                 </div>
                 <div id="compareResult" class="hidden"></div>
@@ -1157,7 +1129,7 @@
                 '<td class="eval-mono text-xs" style="color: var(--text-secondary);">' + esc(rules) + "</td>" +
                 "<td>" + scoreBadge(result.logsource_precision) + ' <span class="eval-mono text-xs" style="color: var(--text-muted-slate);">/</span> ' + scoreBadge(result.logsource_recall) + "</td>" +
                 "<td>" + scoreBadge(result.atom_precision) + ' <span class="eval-mono text-xs" style="color: var(--text-muted-slate);">/</span> ' + scoreBadge(result.atom_recall) + "</td>" +
-                '<td><button type="button" class="detail-btn eval-btn eval-btn--secondary eval-btn--sm" data-idx="' + idx + '">Details</button></td>' +
+                '<td><button type="button" class="detail-btn btn-secondary btn-sm" data-idx="' + idx + '">Details</button></td>' +
                 "</tr>"
             );
         }).join("");
