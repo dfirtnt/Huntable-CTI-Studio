@@ -193,21 +193,6 @@ async def hunt_metrics_page(request: Request):
         )
 
 
-@router.get("/analytics/hunt-metrics-demo", response_class=HTMLResponse)
-async def hunt_metrics_demo_page(request: Request):
-    """Advanced hunt scoring metrics demo page with multidimensional visualizations."""
-    try:
-        return templates.TemplateResponse(request, "hunt_metrics_demo.html", {"environment": ENVIRONMENT})
-    except Exception as exc:
-        logger.error("Hunt metrics demo page error: %s", exc)
-        return templates.TemplateResponse(
-            request,
-            "error.html",
-            {"error": "An unexpected error occurred"},
-            status_code=500,
-        )
-
-
 @router.get("/sources", response_class=HTMLResponse)
 async def sources_list(request: Request):
     """Sources management page."""
