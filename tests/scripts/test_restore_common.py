@@ -197,3 +197,32 @@ def test_restore_script_passes_skip_unsupported_sets(script_name: str) -> None:
         f"{script_name} calls filter_dump_lines without skip_unsupported_sets=True. "
         "Add skip_unsupported_sets=True to the filter_dump_lines call in that script."
     )
+
+
+# ---------------------------------------------------------------------------
+# Cross-script consistency: every restore script must detect psql stderr errors
+# ---------------------------------------------------------------------------
+
+_RESTORE_SCRIPTS_NEEDING_ERROR_DETECTION = [
+    "restore_database.py",
+    "restore_database_v2.py",
+    "restore_system.py",
+    "verify_backup.py",
+    # restore_database_v3.py deliberately excluded: uses --single-transaction +
+    # ON_ERROR_STOP=on with a direct argv psql invocation (no shell), so its
+    # returncode is already reliable without extract_psql_errors.
+]
+
+
+@pytest.mark.parametrize("script_name", _RESTORE_SCRIPTS_NEEDING_ERROR_DETECTION)
+def test_restore_script_calls_extract_psql_errors(script_name: str) -> None:
+    """Every restore/verify script must check extract_psql_errors(stderr) in
+    addition to returncode, since psql exits 0 even when individual statements
+    fail (bad COPY, index build, constraint) -- a returncode-only check reports
+    partial restores as successful.
+    """
+    source = (_SCRIPTS_ROOT / script_name).read_text()
+    assert "extract_psql_errors(" in source, (
+        f"{script_name} does not call extract_psql_errors on its restore psql invocation. "
+        "See scripts/_restore_common.py and the fix pattern in commits 69c219d5 / 3dd68bb0."
+    )
