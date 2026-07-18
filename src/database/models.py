@@ -68,10 +68,17 @@ class ArticleTable(Base):
     """Database table for articles with enhanced deduplication."""
 
     __tablename__ = "articles"
+    __table_args__ = (
+        # Match production's index name exactly: prod enforces a single UNIQUE btree
+        # named uq_articles_canonical_url (no separate plain index). Keeping the same
+        # name lets the idempotent CREATE UNIQUE INDEX IF NOT EXISTS in
+        # DatabaseManager.create_tables() converge instead of adding a duplicate.
+        Index("uq_articles_canonical_url", "canonical_url", unique=True),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     source_id = Column(Integer, ForeignKey("sources.id"), nullable=False, index=True)
-    canonical_url = Column(Text, nullable=False, index=True)
+    canonical_url = Column(Text, nullable=False)
     title = Column(Text, nullable=False)
     published_at = Column(DateTime, nullable=False, index=True)
     modified_at = Column(DateTime, nullable=True)

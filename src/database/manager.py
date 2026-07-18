@@ -141,6 +141,11 @@ class DatabaseManager:
                 "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS tags_embedding",
                 "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS detection_structure_embedding",
                 "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS detection_fields_embedding",
+                # Converge existing DBs onto the canonical_url uniqueness contract. Prod
+                # already has uq_articles_canonical_url; the test DB now gets it via the
+                # ORM __table_args__, so this is a no-op on both. Plain (not CONCURRENTLY)
+                # because this block runs inside a transaction; safe as a no-op here.
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_articles_canonical_url ON articles (canonical_url)",
                 *AUDIT_INDEX_DDLS,
             ]
             # Add primary keys to tables that pre-date PK enforcement. Each is a no-op if

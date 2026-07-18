@@ -8,13 +8,16 @@ content_hash. Because create_articles_bulk flushed each row on the same
 session, that one flush failure poisoned the transaction and aborted the
 entire batch -- genuinely-new articles in the same call were lost too.
 
-Note: uq_articles_canonical_url exists on the live production DB but is not
-declared in src/database/models.py (canonical_url has no unique=True), so it
-is absent from this test DB's schema (built via Base.metadata.create_all()).
-This test creates a partial unique index scoped to its own throwaway source
-so it reproduces the same UniqueViolation Postgres raises in production,
-without risking a table-wide unique index against a shared test DB that may
-already hold duplicate canonical_urls from other tests.
+Note: uq_articles_canonical_url is now declared in src/database/models.py
+(ArticleTable.__table_args__), so fresh deployments and a freshly-built test
+schema enforce it table-wide. This shared test DB, however, is persistent and
+never reset between runs, and has accumulated duplicate canonical_urls from
+other tests -- so the idempotent schema-ensure DDL in create_tables() cannot
+add the table-wide unique index here (it fails on the existing duplicates and
+is skipped). This test therefore keeps a partial unique index scoped to its
+own throwaway source: it reproduces the exact UniqueViolation Postgres raises
+in production without depending on a table-wide index the shared test DB
+cannot host.
 """
 
 import os
