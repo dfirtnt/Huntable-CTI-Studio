@@ -225,41 +225,7 @@
     background: var(--color-warning-hover, #c2410c);
 }
 
-/* ── Button refinement ───────────────────────────────────── */
-.mlops-btn-primary {
-    background: var(--purple-primary);
-    color: var(--text-emphasis);
-    border: none;
-    padding: 0.5rem 1.25rem;
-    border-radius: 0.5rem;
-    font-weight: 600;
-    font-size: 0.875rem;
-    cursor: pointer;
-    transition: background 0.2s ease, box-shadow 0.2s ease;
-}
-.mlops-btn-primary:hover {
-    background: var(--purple-hover);
-    box-shadow: 0 0 16px var(--purple-shadow-15);
-}
-.mlops-btn-primary:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-}
-.mlops-btn-secondary {
-    background: var(--panel-bg-3);
-    color: var(--text-secondary);
-    border: 1px solid var(--border-muted);
-    padding: 0.5rem 1.25rem;
-    border-radius: 0.5rem;
-    font-weight: 500;
-    font-size: 0.875rem;
-    cursor: pointer;
-    transition: background 0.2s ease, border-color 0.2s ease;
-}
-.mlops-btn-secondary:hover {
-    background: var(--panel-bg-4);
-    border-color: var(--border-subtle);
-}
+/* ── Button refinement — using global .btn-* classes from theme-variables.css ── */
 
 /* ── Page header ─────────────────────────────────────────── */
 .mlops-page-header {
@@ -393,8 +359,8 @@
                     </div>
                 </div>
                 <div class="flex gap-2 flex-shrink-0">
-                    <button id="retrainModelBtn" class="mlops-btn-primary">Retrain Model</button>
-                    <button id="refreshRetrainBtn" class="mlops-btn-secondary">Refresh</button>
+                    <button id="retrainModelBtn" class="btn-manage">Retrain Model</button>
+                    <button id="refreshRetrainBtn" class="btn-secondary">Refresh</button>
                 </div>
             </div>
 

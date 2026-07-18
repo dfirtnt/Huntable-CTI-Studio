@@ -1104,12 +1104,6 @@ class AsyncDatabaseManager:
                     {"article_id": article_id},
                 )
 
-                # Delete from content_hashes table
-                await session.execute(
-                    text("DELETE FROM content_hashes WHERE article_id = :article_id"),
-                    {"article_id": article_id},
-                )
-
                 # Delete from simhash_buckets table
                 await session.execute(
                     text("DELETE FROM simhash_buckets WHERE article_id = :article_id"),

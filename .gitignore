@@ -97,6 +97,7 @@ log/
 backups/
 *.sql
 !init.sql/migrations/*.sql
+!scripts/maintenance/dedup_articles.sql
 *.dump
 
 # Temporary files

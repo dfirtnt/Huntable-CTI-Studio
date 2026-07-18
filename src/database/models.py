@@ -195,20 +195,6 @@ def _prevent_annotation_usage_change(_mapper, connection, target):
             raise ValueError("Annotation usage cannot be modified once set.")
 
 
-class ContentHashTable(Base):
-    """Database table for content hash tracking (for efficient deduplication)."""
-
-    __tablename__ = "content_hashes"
-
-    id = Column(Integer, primary_key=True, index=True)
-    content_hash = Column(String(64), nullable=False, unique=True, index=True)
-    article_id = Column(Integer, ForeignKey("articles.id"), nullable=False)
-    first_seen = Column(DateTime, nullable=False, default=func.now())
-
-    def __repr__(self):
-        return f"<ContentHash(hash='{self.content_hash[:8]}...', article_id={self.article_id})>"
-
-
 class SimHashBucketTable(Base):
     """Database table for SimHash bucket tracking (for near-duplicate detection)."""
 

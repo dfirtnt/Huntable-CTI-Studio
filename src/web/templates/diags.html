@@ -21,27 +21,13 @@
 .diag-stat-chip.neutral { background:rgba(71,85,105,0.4);   color:var(--text-muted-slate); border-color:var(--border-subtle); }
 .diag-stat-dot { width:7px; height:7px; border-radius:50%; display:inline-block; flex-shrink:0; }
 
-/* Action bar (sources filter-bar pattern) */
+/* Action bar (sources filter-bar pattern) — buttons use global .btn-* classes */
 .diag-action-bar {
   display:flex; gap:0.625rem; align-items:center; flex-wrap:wrap;
   margin-bottom:1.25rem; padding:0.75rem 1rem;
   background:var(--panel-bg-3); border:1px solid var(--mlops-card-border);
   border-radius:10px;
 }
-.diag-action-bar .btn-primary {
-  display:inline-flex; align-items:center; gap:0.3rem;
-  padding:0.4rem 0.9rem; background:var(--purple-primary); color:#fff;
-  border:none; border-radius:6px; font-size: 0.75rem; font-weight:600;
-  cursor:pointer; font-family:'DM Sans',sans-serif; transition:background 0.15s;
-}
-.diag-action-bar .btn-primary:hover { background:var(--purple-hover); }
-.diag-action-bar .btn-secondary {
-  display:inline-flex; align-items:center; gap:0.3rem;
-  padding:0.4rem 0.9rem; background:var(--panel-bg-4); color:var(--text-primary);
-  border:1px solid var(--border-muted); border-radius:6px; font-size: 0.75rem; font-weight:500;
-  cursor:pointer; font-family:'DM Sans',sans-serif; transition:border-color 0.15s, background 0.15s;
-}
-.diag-action-bar .btn-secondary:hover { background:var(--panel-bg-5); border-color:var(--border-subtle); }
 .diag-action-bar .last-updated {
   font-family:'JetBrains Mono',monospace; font-size: 0.75rem; color:var(--text-muted-slate);
   margin-left:auto;
@@ -174,10 +160,10 @@
     <!-- Action bar (Quick Actions) -->
     <div class="diag-action-bar" data-testid="quick-actions">
         <span class="text-sm font-medium" style="color:var(--text-secondary);"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg> Quick Actions</span>
-        <button id="runAllHealthChecks" type="button" class="btn-primary">
+        <button id="runAllHealthChecks" type="button" class="btn-manage inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-semibold">
             Run All Health Checks
         </button>
-        <button id="refreshJobData" type="button" class="btn-secondary">
+        <button id="refreshJobData" type="button" class="btn-secondary inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium">
             Refresh Job Data
         </button>
         <label class="checkbox-wrap">

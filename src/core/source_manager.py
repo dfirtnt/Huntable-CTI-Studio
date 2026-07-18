@@ -270,19 +270,21 @@ class SourceManager:
         self._sources = {}
         self._source_configs = {}
 
-    async def load_sources_from_config(
-        self, config_path: str, sync_to_db: bool = True, validate_feeds: bool = True, remove_missing: bool = True
-    ) -> list[Source]:
+    async def load_sources_from_config(self, config_path: str, validate_feeds: bool = True) -> list[SourceCreate]:
         """
-        Load sources from configuration file and optionally sync to database.
+        Load and validate source configurations from a YAML file or directory.
+
+        Does not write to the database -- callers that need to persist the result
+        use SourceSyncService (src/services/source_sync.py), the single
+        implementation of source-to-DB synchronization shared by the `cti init`
+        and `cti sync-sources` CLI commands.
 
         Args:
             config_path: Path to configuration file or directory
-            sync_to_db: Whether to synchronize with database
             validate_feeds: Whether to validate RSS feeds
 
         Returns:
-            List of Source objects
+            List of loaded SourceCreate objects (feed-validated, robots-configured)
         """
         logger.info(f"Loading sources from: {config_path}")
 
@@ -301,13 +303,7 @@ class SourceManager:
         # Configure robots.txt settings for each source
         await self._configure_robots_settings(source_configs)
 
-        # Sync to database if requested
-        if sync_to_db:
-            return await self._sync_sources_to_db(source_configs, remove_missing=remove_missing)
-        # Convert to Source objects (without IDs)
-        sources = [config.to_source() for config in source_configs]
-        await self._configure_robots_settings(source_configs)
-        return sources
+        return source_configs
 
     async def _validate_source_feeds(self, source_configs: list[SourceCreate]) -> list[SourceCreate]:
         """Validate RSS feeds for sources that have them."""
@@ -352,69 +348,6 @@ class SourceManager:
                 robots_payload = robots_config.model_dump(exclude_none=True)
                 self.http_client.configure_source_robots(config.identifier, robots_payload)
                 logger.debug(f"Configured robots.txt settings for {config.identifier}")
-
-    async def _sync_sources_to_db(
-        self, source_configs: list[SourceCreate], remove_missing: bool = True
-    ) -> list[Source]:
-        """Synchronize source configurations with database."""
-        logger.info(f"Synchronizing {len(source_configs)} sources to database")
-
-        synced_sources = []
-
-        # Map configs by identifier for quick access
-        config_map = {config.identifier: config for config in source_configs}
-
-        # Existing sources from database (self.db is the sync DatabaseManager)
-        existing_sources = self.db.list_sources()
-        existing_by_identifier = {src.identifier: src for src in existing_sources}
-
-        # Create or update sources present in config
-        for identifier, config in config_map.items():
-            try:
-                existing_source = existing_by_identifier.get(identifier)
-
-                if existing_source:
-                    from src.models.source import SourceUpdate
-
-                    updated_source = self.db.update_source(
-                        existing_source.id,
-                        SourceUpdate(
-                            name=config.name,
-                            url=config.url,
-                            rss_url=config.rss_url,
-                            check_frequency=config.config.check_frequency if config.config else None,
-                            lookback_days=config.config.lookback_days if config.config else None,
-                            active=config.active,
-                            config=config.config.model_dump(exclude_none=True) if config.config else {},
-                        ),
-                    )
-                    if updated_source:
-                        synced_sources.append(updated_source)
-                        logger.info(f"Updated source: {identifier}")
-
-                else:
-                    new_source = self.db.create_source(config)
-                    if new_source:
-                        synced_sources.append(new_source)
-                        logger.info(f"Created source: {identifier}")
-
-            except Exception as e:
-                logger.error(f"Failed to sync source {identifier}: {e}")
-                continue
-
-        # Remove sources missing from configuration
-        if remove_missing:
-            config_identifiers = set(config_map.keys())
-            for existing in existing_sources:
-                if existing.identifier not in config_identifiers:
-                    try:
-                        self.db.delete_source(existing.id)
-                        logger.info(f"Removed source not in config: {existing.identifier}")
-                    except Exception as e:
-                        logger.error(f"Failed to remove source {existing.identifier}: {e}")
-
-        logger.info(f"Synchronized {len(synced_sources)} sources to database")
-        return synced_sources
 
     def get_sources_due_for_check(self, force_all: bool = False) -> list[Source]:
         """Get sources that are due for checking."""

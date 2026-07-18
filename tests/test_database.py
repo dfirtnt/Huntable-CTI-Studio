@@ -215,8 +215,8 @@ class TestDatabaseManager:
         assert "ADD PRIMARY KEY" in executed_sql
         assert manager is not None
 
-    def test_create_tables_executes_pk_ddl_for_three_tables(self):
-        """create_tables() must execute idempotent ADD PRIMARY KEY DDL for sources, subagent_evaluations, content_hashes."""
+    def test_create_tables_executes_pk_ddl_for_two_tables(self):
+        """create_tables() must execute idempotent ADD PRIMARY KEY DDL for sources, subagent_evaluations."""
         mock_conn = Mock()
         mock_conn.__enter__ = Mock(return_value=mock_conn)
         mock_conn.__exit__ = Mock(return_value=False)
@@ -237,7 +237,7 @@ class TestDatabaseManager:
 
         assert "sources" in executed_sql
         assert "subagent_evaluations" in executed_sql
-        assert "content_hashes" in executed_sql
+        assert "content_hashes" not in executed_sql
         assert "ADD PRIMARY KEY" in executed_sql
 
 

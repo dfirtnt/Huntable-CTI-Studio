@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from src.database.audit_schema import AUDIT_INDEX_DDLS, missing_audit_schema_objects
-from src.database.models import ArticleTable, Base, ContentHashTable, SourceCheckTable, SourceTable, URLTrackingTable
+from src.database.models import ArticleTable, Base, SourceCheckTable, SourceTable, URLTrackingTable
 from src.database.statements import (
     build_article_by_id_stmt,
     build_article_list_stmt,
@@ -171,17 +171,6 @@ class DatabaseManager:
                     AND table_schema = 'public'
                   ) THEN
                     ALTER TABLE subagent_evaluations ADD PRIMARY KEY (id);
-                  END IF;
-                END $$
-                """,
-                """
-                DO $$ BEGIN
-                  IF NOT EXISTS (
-                    SELECT 1 FROM information_schema.table_constraints
-                    WHERE table_name = 'content_hashes' AND constraint_type = 'PRIMARY KEY'
-                    AND table_schema = 'public'
-                  ) THEN
-                    ALTER TABLE content_hashes ADD PRIMARY KEY (id);
                   END IF;
                 END $$
                 """,
@@ -439,13 +428,6 @@ class DatabaseManager:
                             with session.begin_nested():
                                 session.add(db_article)
                                 session.flush()  # Get ID without committing
-
-                                # Create content hash record
-                                content_hash_record = ContentHashTable(
-                                    content_hash=article_data.content_hash, article_id=db_article.id
-                                )
-                                session.add(content_hash_record)
-                                session.flush()
                         except IntegrityError as e:
                             logger.warning(
                                 f"Skipping article with conflicting canonical_url: {article_data.title[:50]}... ({e})"

@@ -13,7 +13,7 @@ Step 4 tests (factored-function integration, no real DB needed):
     test_compute_article_update_basis_unknown_skips
     test_compute_article_update_collision_skips
     test_compute_article_update_idempotent_no_double_append
-    test_compute_article_update_upsert_flag_true
+    test_compute_article_update_sync_basis
     test_compute_article_update_no_simhash_buckets_write
     test_compute_article_update_metadata_keys
     test_existing_basis_in_metadata_cached
@@ -55,17 +55,15 @@ def test_detect_basis_unknown_returns_none():
 
 
 def test_basis_stable_across_retry():
-    """Detection is by stored-hash comparison, NOT content_hashes-row existence.
-    Simulate a retry by calling detect_hash_basis a second time after what would
-    be the upsert (content_hashes row now exists for an async article).  The
-    function must still return 'async_raw', not flip to 'sync' or None.
+    """Detection is by stored-hash comparison, NOT by any side-table row's existence.
+    Simulate a retry by calling detect_hash_basis a second time with identical
+    inputs. The function must still return 'async_raw', not flip to 'sync' or None.
     """
     content, title = "body text", "Title"
     stored = hashlib.sha256(content.encode()).hexdigest()
-    # First call (pre-upsert)
+    # First call
     assert detect_hash_basis(stored, title, content) == "async_raw"
-    # Second call (post-upsert — function has no visibility of the DB row, which
-    # is the whole point: it must not rely on row-existence)
+    # Second call (retry) — function is pure and stateless, so it must be idempotent
     assert detect_hash_basis(stored, title, content) == "async_raw"
 
 
@@ -109,7 +107,7 @@ def _make_sync_row(content="article body text", title="A Title"):
 
 def test_compute_article_update_no_blocks_basis_async():
     """No OCR blocks → content unchanged but hash recomputed on async_raw basis,
-    upsert_content_hash is True, simhash computed."""
+    simhash computed."""
     stored_hash, content, title = _make_async_row()
     intent = compute_article_update(
         article_id=1,
@@ -129,7 +127,6 @@ def test_compute_article_update_no_blocks_basis_async():
     assert intent.basis == "async_raw"
     # With no blocks the content is unchanged, so the hash should stay the same
     assert intent.new_content_hash == stored_hash
-    assert intent.upsert_content_hash is True
     assert intent.new_simhash_bucket >= 0  # computed (not 0 from skip path)
     assert "ocr_status" in intent.new_metadata
     assert intent.new_metadata["ocr_content_hash_basis"] == "async_raw"
@@ -210,9 +207,9 @@ def test_compute_article_update_idempotent_no_double_append():
     assert intent.new_content.count(marker) == 1
 
 
-def test_compute_article_update_upsert_flag_true():
-    """upsert_content_hash must be True whenever the update is not skipped,
-    so that both async (no CH row) and sync (existing CH row) articles are handled."""
+def test_compute_article_update_sync_basis():
+    """A sync-basis row (hash matches ContentCleaner's cleaned-content hash, not the
+    raw sha256) must be recognized and processed like any other basis."""
     stored_hash, content, title = _make_sync_row()
     intent = compute_article_update(
         article_id=3,
@@ -229,7 +226,6 @@ def test_compute_article_update_upsert_flag_true():
         collision_content_hash=None,
     )
     assert not intent.skipped
-    assert intent.upsert_content_hash is True
     assert intent.basis == "sync"
 
 

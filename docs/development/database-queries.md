@@ -300,12 +300,6 @@ ORDER BY SIMILARITY(a1.title, a2.title) DESC;
 
 ### Additional Tables
 
-#### `content_hashes`
-- Legacy ledger table; write-only as of 2026-07-17 (both `DatabaseManager` and
-  `AsyncDatabaseManager` now dedup against `articles.content_hash` instead).
-  Scheduled for retirement -- see Todoist `6h6H639XMQHCfhCV`.
-- Links to articles via `article_id`
-
 #### `simhash_buckets`
 - Stores simhash buckets for similarity detection
 - Links to articles via `article_id`

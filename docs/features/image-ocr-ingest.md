@@ -105,9 +105,8 @@ states are retryable and are exactly what the backfill script re-selects.
 - `--allow-refetch` re-fetches `canonical_url` to discover images when
   `original_img_urls` metadata is absent
 - Retry-stable by design: the content-hash basis is recovered by comparing the stored
-  hash against current content (never by `content_hashes`-row existence), and
-  already-injected `[Image OCR:]` URLs are parsed out of content so reruns never
-  duplicate blocks
+  hash against current content, and already-injected `[Image OCR:]` URLs are parsed
+  out of content so reruns never duplicate blocks
 
 ## Health check
 

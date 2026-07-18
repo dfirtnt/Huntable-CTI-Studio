@@ -290,3 +290,29 @@
 .btn-workflow:hover {
   background-color: var(--purple-hover);
 }
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.9rem;
+  background: var(--panel-bg-4);
+  color: var(--text-primary);
+  border: 1px solid var(--border-muted);
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: border-color 0.15s, background 0.15s;
+}
+.btn-secondary:hover {
+  background: var(--panel-bg-5);
+  border-color: var(--border-subtle);
+}
+
+.btn-sm {
+  font-size: 0.75rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+}

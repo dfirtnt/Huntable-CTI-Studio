@@ -418,7 +418,7 @@
                     <button onclick="triggerWorkflowForArticle({{ article.id|default(0)|int }})"
                             id="triggerWorkflowBtn"
                             title="Send to Workflow: runs this article through the current agent config for the first time."
-                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-purple-500 hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white btn-manage focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
                         <span class="mr-2"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg></span>
                         <span id="triggerWorkflowBtnText">Send to Workflow</span>
                     </button>
@@ -429,7 +429,7 @@
                     </a>
 
                     <button onclick="showChunkDebugModal()" 
-                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-purple-500 hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white btn-manage focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
                         <span class="mr-2"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg></span>
                         Junk Filter Tuning
                     </button>
@@ -1068,7 +1068,7 @@ Generate all applicable SIGMA rules from the threat intelligence above.`;
                     <button onclick="closeHelpModal()" class="px-5 py-2.5 border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
                         Cancel
                     </button>
-                    <button onclick="saveSigmaPrompts()" class="px-5 py-2.5 bg-blue-600 dark:bg-blue-500 text-white rounded-md text-sm font-medium hover:bg-blue-700 dark:hover:bg-blue-600 shadow-sm hover:shadow transition-all">
+                    <button onclick="saveSigmaPrompts()" class="px-5 py-2.5 btn-analyze text-white rounded-md text-sm font-medium shadow-sm hover:shadow transition-all">
                         Save Prompts
                     </button>
                 </div>
@@ -2797,7 +2797,7 @@ Please provide a detailed analysis based on the article content and the user's s
                     <p class="text-sm text-gray-300 mb-4 break-words whitespace-pre-wrap">"${workingText.substring(0, 200)}${workingText.length > 200 ? '…' : ''}"</p>
                     <div class="flex space-x-3">
                         <button id="observable-save-btn" 
-                                class="flex-1 bg-purple-500 hover:bg-purple-600 text-white px-4 py-3 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                                class="flex-1 btn-manage text-white px-4 py-3 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900">
                             Save ${this.observableType}
                         </button>
                         <button id="observable-cancel-btn" 
@@ -5320,7 +5320,7 @@ Please provide a detailed analysis based on the article content and the user's s
                         <button id="cancelBtn" class="px-4 py-2 border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
                             Cancel
                         </button>
-                        <button id="confirmBtn" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                        <button id="confirmBtn" class="px-4 py-2 btn-analyze text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
                             Analyze
                         </button>
                     </div>
@@ -5422,7 +5422,7 @@ Please provide a detailed analysis based on the article content and the user's s
                 </div>
                 
                 <div class="mt-6 flex justify-end">
-                    <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                    <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 btn-analyze text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
                         Close
                     </button>
                 </div>
@@ -5536,7 +5536,7 @@ Please provide a detailed analysis based on the article content and the user's s
                             Cancel
                         </button>
                         <button onclick="generateCustomPrompt()" 
-                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-purple-500 hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
+                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white btn-manage focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
                             <span class="mr-2"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 7.5h10.5v9H6.75v-9z"/></svg></span>
                             Generate Response
                         </button>
@@ -7039,7 +7039,7 @@ Please provide a detailed analysis based on the article content and the user's s
                 
                 <div class="mt-6 flex justify-between">
                     <button onclick="regenerateGPT4oRanking()" 
-                            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors">
+                            class="px-4 py-2 btn-analyze text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors">
                         🔄 Regenerate Analysis
                     </button>
                     <button onclick="closeGPT4oRankingModal()" 
@@ -7852,7 +7852,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
                 
                 <div class="mt-6 flex justify-end space-x-3">
                     <button onclick="openSimilarityTest('${rule.rule_id}')" 
-                            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                            class="px-4 py-2 btn-analyze text-white rounded-md transition-colors">
                         🔍 Test Similarity
                     </button>
                     <button onclick="closeSigmaRuleDetailsModal()" 
@@ -8516,7 +8516,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
             <div class="mt-3">
                 <button id="chunkFinishAnalysisButton"
                         onclick="runFullChunkAnalysis()"
-                        class="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
+                        class="inline-flex items-center gap-2 px-4 py-2 btn-analyze text-white text-xs font-semibold rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
                     <span class="finish-text">Finish Full Analysis</span>
                     <svg class="finish-spinner hidden animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -8784,7 +8784,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
                 <div class="mb-6">
                     <h4 class="text-lg font-semibold text-gray-50 mb-3"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75"/></svg> Filter Controls</h4>
                     <div class="flex flex-wrap gap-4">
-                        <button onclick="filterChunks('all')" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
+                        <button onclick="filterChunks('all')" class="px-4 py-2 btn-analyze text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
                             Show All Chunks
                         </button>
                         <button onclick="filterChunks('kept')" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
@@ -8796,10 +8796,10 @@ ${JSON.stringify(rule.logsource, null, 2)}
                         <button onclick="filterChunks('threat')" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
                             Show Threat Keywords
                         </button>
-                        <button onclick="filterChunks('perfect')" class="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
+                        <button onclick="filterChunks('perfect')" class="px-4 py-2 btn-manage text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
                             Show Perfect Discriminators
                         </button>
-                        <button onclick="filterChunks('ml')" class="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
+                        <button onclick="filterChunks('ml')" class="px-4 py-2 btn-manage text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
                             Show ML Predictions
                         </button>
                         <button onclick="filterChunks('confidenceBand')" class="px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors" title="Show chunks with confidence between 40% and 60%">
@@ -9762,7 +9762,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
                         <button onclick="closeComparisonModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
                             Close
                         </button>
-                        <button onclick="reloadWithNewModel()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                        <button onclick="reloadWithNewModel()" class="px-4 py-2 btn-analyze text-white rounded">
                             Reload Page with New Model
                         </button>
                     </div>

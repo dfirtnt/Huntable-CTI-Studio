@@ -1,135 +1,13 @@
 """Tests for source manager functionality."""
 
-import asyncio
 import json
-from datetime import datetime
 from unittest.mock import mock_open, patch
 
 import pytest
 
 from src.core.source_manager import SourceConfig, SourceConfigLoader, SourceManager
-from src.models.source import Source, SourceCreate
-from src.models.source import SourceConfig as ModelSourceConfig
 
 pytestmark = pytest.mark.unit
-
-
-def _make_source(source_id, identifier, name="Src", check_frequency=14400, lookback_days=180):
-    """Build a complete Source model as the sync DatabaseManager would return."""
-    now = datetime(2026, 1, 1, 0, 0, 0)
-    return Source(
-        id=source_id,
-        identifier=identifier,
-        name=name,
-        url=f"https://{identifier}.test",
-        rss_url=None,
-        check_frequency=check_frequency,
-        lookback_days=lookback_days,
-        active=True,
-        config={},
-        consecutive_failures=0,
-        total_articles=0,
-        average_response_time=0.0,
-        created_at=now,
-        updated_at=now,
-    )
-
-
-def _make_config(identifier, name, check_frequency=14400, lookback_days=180):
-    """Build a SourceCreate exactly as SourceConfigLoader produces it.
-
-    The loader passes check_frequency/lookback_days as top-level kwargs, but
-    SourceCreate silently drops them (they are not model fields); the real
-    values live only on the inner SourceConfig.
-    """
-    return SourceCreate(
-        identifier=identifier,
-        name=name,
-        url=f"https://{identifier}.test",
-        rss_url=None,
-        check_frequency=check_frequency,
-        lookback_days=lookback_days,
-        active=True,
-        config=ModelSourceConfig(check_frequency=check_frequency, lookback_days=lookback_days, config={}),
-    )
-
-
-class _FakeSyncDB:
-    """Synchronous stand-in for DatabaseManager.
-
-    All source methods return plain values (never coroutines), exactly like the
-    real sync DatabaseManager wired in via get_managers().
-    """
-
-    def __init__(self, existing):
-        self._existing = list(existing)
-        self.created = []
-        self.updated = []
-        self.deleted = []
-        self._next_id = 1000
-
-    def list_sources(self, filter_params=None):
-        return list(self._existing)
-
-    def create_source(self, source_data):
-        created = _make_source(self._next_id, source_data.identifier, source_data.name)
-        self._next_id += 1
-        self.created.append(source_data)
-        return created
-
-    def update_source(self, source_id, update_data):
-        self.updated.append((source_id, update_data))
-        return _make_source(source_id, update_data.identifier or "src", update_data.name or "Src")
-
-    def delete_source(self, source_id):
-        self.deleted.append(source_id)
-        return True
-
-
-class TestSourceManagerSyncToDb:
-    """SourceManager._sync_sources_to_db must drive the SYNC DatabaseManager correctly."""
-
-    def test_create_new_sources_without_awaiting_sync_db(self):
-        """New sources sync without a TypeError from awaiting sync DB methods."""
-        db = _FakeSyncDB(existing=[])
-        manager = SourceManager(database_manager=db)
-
-        configs = [_make_config("newco", "NewCo")]
-
-        synced = asyncio.run(manager._sync_sources_to_db(configs, remove_missing=True))
-
-        assert len(synced) == 1
-        assert len(db.created) == 1
-        assert db.created[0].identifier == "newco"
-
-    def test_update_existing_source_uses_inner_config_frequency(self):
-        """Updating an existing source pulls check_frequency/lookback_days from the inner config."""
-        existing = [_make_source(42, "acme", "Acme Old")]
-        db = _FakeSyncDB(existing=existing)
-        manager = SourceManager(database_manager=db)
-
-        configs = [_make_config("acme", "Acme New", check_frequency=7200, lookback_days=30)]
-
-        synced = asyncio.run(manager._sync_sources_to_db(configs, remove_missing=True))
-
-        assert len(synced) == 1
-        assert len(db.updated) == 1
-        updated_id, update_data = db.updated[0]
-        assert updated_id == 42
-        assert update_data.check_frequency == 7200
-        assert update_data.lookback_days == 30
-
-    def test_remove_sources_missing_from_config(self):
-        """Sources present in the DB but absent from config are deleted when remove_missing=True."""
-        existing = [_make_source(1, "keep", "Keep"), _make_source(2, "drop", "Drop")]
-        db = _FakeSyncDB(existing=existing)
-        manager = SourceManager(database_manager=db)
-
-        configs = [_make_config("keep", "Keep")]
-
-        asyncio.run(manager._sync_sources_to_db(configs, remove_missing=True))
-
-        assert db.deleted == [2]
 
 
 class TestSourceConfig:
