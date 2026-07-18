@@ -199,7 +199,7 @@ jobs:
             --cov=src.services \
             --cov=src.utils \
             --cov-report=term-missing \
-            --cov-fail-under=39
+            --cov-fail-under=60
 
           # Package-specific gates to prevent regressions from being hidden by aggregate numbers.
           uv run python -m coverage erase
@@ -207,7 +207,7 @@ jobs:
             -m "not integration" \
             --cov=src.services \
             --cov-report=term \
-            --cov-fail-under=45
+            --cov-fail-under=68
 
           uv run python -m coverage erase
           uv run python -m pytest tests/services/ tests/utils/ \
