@@ -1562,7 +1562,10 @@ async function backfillEvalRecords() {
 
 async function clearPendingRecords() {
     const subagentVal = document.getElementById('subagentSelect').value;
-    if (!confirm('Delete all pending evaluation records for ' + subagentVal + '? This cannot be undone.')) return;
+    if (!await ModalManager.confirm(
+        'Delete all pending evaluation records for ' + subagentVal + '? This cannot be undone.',
+        { title: 'Clear Records', confirmText: 'Delete', confirmClass: 'bg-red-600 hover:bg-red-700', cancelText: 'Cancel' }
+    )) return;
     const resultsEl = document.getElementById('resultsTable');
     while (resultsEl.firstChild) resultsEl.removeChild(resultsEl.firstChild);
     const p = document.createElement('p');

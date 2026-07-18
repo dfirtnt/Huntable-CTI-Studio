@@ -883,7 +883,10 @@
         
         // Confirmation for destructive actions
         if (action === 'delete') {
-            const confirmed = confirm(`Are you sure you want to delete ${articleIds.length} article(s)? This action cannot be undone.`);
+            const confirmed = await ModalManager.confirm(
+                `Are you sure you want to delete ${articleIds.length} article(s)? This action cannot be undone.`,
+                { title: 'Delete Articles', confirmText: 'Delete', confirmClass: 'bg-red-600 hover:bg-red-700', cancelText: 'Cancel' }
+            );
             if (!confirmed) return;
         }
         

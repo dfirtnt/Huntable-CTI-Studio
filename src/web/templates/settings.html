@@ -2656,7 +2656,10 @@
         const restoreForce = document.getElementById('restoreForce');
         
         // Confirm action
-        const confirmed = confirm('⚠️ WARNING: This will restore the system from backup. This action may overwrite current data.\n\nAre you sure you want to continue?');
+        const confirmed = await ModalManager.confirm(
+            'This will restore the system from backup. This action may overwrite current data. Are you sure you want to continue?',
+            { title: 'Restore Backup', confirmText: 'Restore', confirmClass: 'bg-orange-600 hover:bg-orange-700', cancelText: 'Cancel' }
+        );
         if (!confirmed) {
             return;
         }
@@ -2709,7 +2712,10 @@
             showNotification('Please select a backup file', 'error');
             return;
         }
-        var confirmed = confirm('⚠️ WARNING: This will restore the database from the selected file. Current data may be overwritten.\n\nAre you sure you want to continue?');
+        var confirmed = await ModalManager.confirm(
+            'This will restore the database from the selected file. Current data may be overwritten. Are you sure you want to continue?',
+            { title: 'Restore Database', confirmText: 'Restore', confirmClass: 'bg-orange-600 hover:bg-orange-700', cancelText: 'Cancel' }
+        );
         if (!confirmed) return;
 
         errorEl.classList.add('hidden');

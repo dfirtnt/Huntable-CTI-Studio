@@ -11,6 +11,14 @@
 (function() {
     'use strict';
 
+    // Local HTML-escape helper
+    function escapeHtml(text) {
+        if (typeof text !== 'string') return '';
+        var div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
     // Global modal stack
     const modalStack = [];
     const modalRegistry = new Map(); // modalId -> { element, submitButton, isDynamic }
@@ -451,7 +459,135 @@
         close: closeModal,
         closeTop: closeTopModal,
         isOpen: isAnyModalOpen,
-        getStack: getModalStack
+        getStack: getModalStack,
+        /**
+         * Show a confirmation dialog. Returns a Promise that resolves to true (confirmed) or false (canceled).
+         * @param {string} message - Confirmation message text
+         * @param {Object} [options]
+         * @param {string} [options.title='Confirm'] - Modal title
+         * @param {string} [options.confirmText='OK'] - Confirm button label
+         * @param {string} [options.cancelText='Cancel'] - Cancel button label
+         * @param {string} [options.confirmClass] - Additional CSS class for confirm button
+         * @param {string} [options.infoBox] - Optional extra info text rendered below the message
+         * @returns {Promise<boolean>}
+         */
+        confirm: function confirmModal(message, options) {
+            options = options || {};
+            return new Promise(function (resolve) {
+                var id = '_confirm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+                var title = options.title || 'Confirm';
+                var confirmText = options.confirmText || 'OK';
+                var cancelText = options.cancelText || 'Cancel';
+                var infoHtml = options.infoBox ? '<div class="rounded-md p-2.5 mt-2 text-xs" style="background: var(--panel-bg-4); color: var(--text-muted-slate);">' + escapeHtml(options.infoBox) + '</div>' : '';
+                var confirmBtnClass = 'px-3 py-1.5 text-xs text-white rounded-md transition-colors font-semibold ' + (options.confirmClass || 'bg-purple-600 hover:bg-purple-700');
+
+                var modal = document.createElement('div');
+                modal.id = id;
+                modal.className = 'hidden fixed inset-0 flex items-center justify-center z-50';
+                modal.style.background = 'rgba(0,0,0,0.6)';
+                modal.style.backdropFilter = 'blur(4px)';
+                modal.innerHTML =
+                    '<div class="w-full max-w-sm mx-4 rounded-xl overflow-hidden" style="background: var(--panel-bg-2); border: 1px solid var(--border-subtle); box-shadow: 0 24px 80px rgba(0,0,0,0.5);">' +
+                        '<div class="px-5 pt-5 pb-4">' +
+                            '<h3 class="text-sm font-bold mb-2" style="font-family: Inter, system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-primary);">' + escapeHtml(title) + '</h3>' +
+                            '<p class="text-xs" style="color: var(--text-secondary);">' + escapeHtml(message) + '</p>' +
+                            infoHtml +
+                        '</div>' +
+                        '<div class="flex justify-end gap-2 px-5 py-3" style="border-top: 1px solid var(--border-muted);">' +
+                            '<button class="cancel-btn px-3 py-1.5 text-xs border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg">' + escapeHtml(cancelText) + '</button>' +
+                            '<button class="confirm-btn ' + confirmBtnClass + '">' + escapeHtml(confirmText) + '</button>' +
+                        '</div>' +
+                    '</div>';
+
+                document.body.appendChild(modal);
+
+                function cleanup(result) {
+                    var el = document.getElementById(id);
+                    if (el) { ModalManager.close(id); el.remove(); }
+                    resolve(result);
+                }
+
+                modal.querySelector('.cancel-btn').addEventListener('click', function () { cleanup(false); });
+                modal.querySelector('.confirm-btn').addEventListener('click', function () { cleanup(true); });
+
+                // Handle Escape via ModalManager's global handler — register then open
+                ModalManager.register(id, { submitButton: '.confirm-btn', isDynamic: true, hasInput: false });
+                ModalManager.open(id);
+            });
+        },
+
+        /**
+         * Show a prompt dialog. Returns a Promise resolving to the entered string, or null if canceled.
+         * @param {string} message - Prompt text
+         * @param {string} [defaultValue] - Default input value
+         * @param {Object} [options]
+         * @param {string} [options.title='Input'] - Modal title
+         * @param {string} [options.confirmText='OK'] - Confirm button label
+         * @param {string} [options.cancelText='Cancel'] - Cancel button label
+         * @param {string} [options.placeholder] - Input placeholder text
+         * @param {boolean} [options.required=false] - If true, OK does nothing when input is empty
+         * @returns {Promise<string|null>}
+         */
+        prompt: function promptModal(message, defaultValue, options) {
+            options = options || {};
+            defaultValue = defaultValue || '';
+            return new Promise(function (resolve) {
+                var id = '_prompt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+                var title = options.title || 'Input';
+                var confirmText = options.confirmText || 'OK';
+                var cancelText = options.cancelText || 'Cancel';
+                var placeholder = options.placeholder || '';
+
+                var modal = document.createElement('div');
+                modal.id = id;
+                modal.className = 'hidden fixed inset-0 flex items-center justify-center z-50';
+                modal.style.background = 'rgba(0,0,0,0.6)';
+                modal.style.backdropFilter = 'blur(4px)';
+                modal.innerHTML =
+                    '<div class="w-full max-w-sm mx-4 rounded-xl overflow-hidden" style="background: var(--panel-bg-2); border: 1px solid var(--border-subtle); box-shadow: 0 24px 80px rgba(0,0,0,0.5);">' +
+                        '<div class="px-5 pt-5 pb-4">' +
+                            '<h3 class="text-sm font-bold mb-2" style="font-family: Inter, system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-primary);">' + escapeHtml(title) + '</h3>' +
+                            '<p class="text-xs mb-3" style="color: var(--text-secondary);">' + escapeHtml(message) + '</p>' +
+                            '<input type="text" class="prompt-input w-full px-2.5 py-1.5 text-xs rounded-md border focus:outline-none" style="background: var(--input-bg, #1e1e2e); color: var(--text-primary); border-color: var(--border-subtle, #3a3a4a);" value="' + escapeHtml(defaultValue) + '" placeholder="' + escapeHtml(placeholder) + '">' +
+                        '</div>' +
+                        '<div class="flex justify-end gap-2 px-5 py-3" style="border-top: 1px solid var(--border-muted);">' +
+                            '<button class="cancel-btn px-3 py-1.5 text-xs border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg">' + escapeHtml(cancelText) + '</button>' +
+                            '<button class="confirm-btn px-3 py-1.5 text-xs text-white rounded-md transition-colors font-semibold bg-purple-600 hover:bg-purple-700">' + escapeHtml(confirmText) + '</button>' +
+                        '</div>' +
+                    '</div>';
+
+                document.body.appendChild(modal);
+
+                var input = modal.querySelector('.prompt-input');
+
+                function cleanup(result) {
+                    var el = document.getElementById(id);
+                    if (el) { ModalManager.close(id); el.remove(); }
+                    resolve(result);
+                }
+
+                modal.querySelector('.cancel-btn').addEventListener('click', function () { cleanup(null); });
+                modal.querySelector('.confirm-btn').addEventListener('click', function () {
+                    if (options.required && input.value.trim() === '') return;
+                    cleanup(input.value);
+                });
+
+                // Enter in input triggers confirm
+                input.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (options.required && input.value.trim() === '') return;
+                        cleanup(input.value);
+                    }
+                });
+
+                ModalManager.register(id, { submitButton: '.confirm-btn', isDynamic: true, hasInput: true });
+                ModalManager.open(id);
+
+                // Focus input after modal opens
+                setTimeout(function () { input.focus(); input.select(); }, 150);
+            });
+        }
     };
 
     // Helper function to register a modal
