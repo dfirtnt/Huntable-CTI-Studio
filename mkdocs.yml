@@ -142,6 +142,7 @@ nav:
       - ML Model Runbook: operations/ml-model-runbook.md
       - ML Versions Backup Verification: operations/verify-ml-versions-backup.md
   - Contracts:
+      - UX Contract (UI Designer): contracts/ui-designer.md
       - Extractor Standard: contracts/extractor-standard.md
       - CmdLineExtract: contracts/cmdline-extract.md
       - ProcTreeExtract: contracts/proctree-extract.md

@@ -33,7 +33,7 @@ MCP server: `.mcp.json` at project root auto-wires `scripts/run_mcp_server.sh` f
 
 | Change type | Read first | Verify with |
 |---|---|---|
-| UI or page behavior | `.cursor/agents/ui-designer.md` (UX contract), templates, routes | `python3 run_tests.py ui` or `python3 run_tests.py e2e` |
+| UI or page behavior | `docs/contracts/ui-designer.md` (UX contract), templates, routes | `python3 run_tests.py ui` or `python3 run_tests.py e2e` |
 | API behavior | route module, `src/database/models.py`, `docs/reference/api.md` | `python3 run_tests.py api` |
 | Workflow execution | `agentic_workflow.py`, `workflow_trigger_service.py`, `celery_app.py` | `python3 run_tests.py integration` (+ browser if UI) |
 | Workflow config / presets / prompts | `workflow_config_schema.py`, `workflow_config_loader.py`, `config/presets/AgentConfigs/README.md` | config/unit/integration tests (+ UI if edited via UI) |
@@ -111,7 +111,7 @@ no separate "served from main" deployment).
 - **Startup side effects**: source seeding, eval article seeding, settings normalization --
   consider these when debugging startup.
 - **UI changes require browser verification** (API/unit tests alone are insufficient).
-  Must read `.cursor/agents/ui-designer.md` first -- no exceptions. Card containers use
+  Must read `docs/contracts/ui-designer.md` first -- no exceptions. Card containers use
   `.card` / `.card-elevated` / `.card-interactive`, not raw Tailwind utilities.
 - **Sigma deduplication does NOT use pgvector**. Article->Sigma matching (RAG) does.
   Sigma->Sigma dedup uses plain SQL `WHERE canonical_class = ?` + deterministic

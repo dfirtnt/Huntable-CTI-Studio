@@ -6,9 +6,10 @@ alwaysApply: false
 
 # UI Designer Rules (Color & Theme)
 
+**Authoritative source:** `docs/contracts/ui-designer.md` (the full UX contract). This file covers `theme-variables.css` authoring/maintenance specifically -- template/component usage rules (cards, typography, modals, a11y) live in the canonical doc; don't restate them here.
+
 ## 1. Where colors live
-- **Single source of truth:** `src/web/static/css/theme-variables.css`.
-- **Do not** add new literal hex or `rgb()`/`rgba()` in app templates, JS, or component CSS. New colors go in the theme file as variables; UI code uses `var(--...)` or `getThemeColor('--...')` in JS (e.g. Chart.js).
+- **Single source of truth:** `src/web/static/css/theme-variables.css`. No literal hex/`rgb()`/`rgba()` in app templates, JS, or component CSS -- see the canonical doc's "Colors -- CSS variables only" rule.
 - **Exception:** Browser extension may keep literal hex; it is exempt from var() enforcement but must remain palette-aligned.
 
 ## 2. Theme file structure

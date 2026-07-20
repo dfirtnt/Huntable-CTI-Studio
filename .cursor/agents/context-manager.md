@@ -35,7 +35,7 @@ Reply with a concise bundle. Example structure:
 - Cards: .card, .card-hover
 - Quality/priority: .quality-excellent|good|fair|limited, .priority-high|medium|low
 - Collapsibles: data-collapsible-panel="id", id="id-content", id="id-toggle"; initCollapsiblePanels()
-- Modals: modal-manager.js — **Modal UX contract**: (1) Escape closes topmost, restores stack or base; (2) Click away closes topmost, resolve target via elementFromPoint, pass to closeModal(id, clickedElement); (3) Stack: register with ModalManager.register(id, { submitButton?, hasInput?, ... }), open with ModalManager.open(id, hidePrevious); (4) Modals with inputs MUST support Ctrl+Enter / Cmd+Enter for primary action; plain Enter in textareas must not submit. Tests: tests/ui/test_modal_interactions.py
+- Modals: modal-manager.js — full contract: `docs/contracts/ui-designer.md` Section 6 (Escape/click-away/stack/Ctrl+Enter). Tests: tests/ui/test_modal_interactions.py
 
 ### Stack constraints
 - Tailwind (CDN), Jinja2, HTMX 1.9.6, React 18 (CDN) for RAGChat/chat only, Chart.js, vanilla JS

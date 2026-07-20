@@ -6,12 +6,9 @@ alwaysApply: false
 
 # Modal UX Contract
 
-When adding or changing modals, follow the behavior implemented in `src/web/static/js/modal-manager.js`:
+**Authoritative source:** `docs/contracts/ui-designer.md` Section 6. This file is a condensed mirror kept only so Cursor auto-attaches it when `modal-manager.js` or templates are open -- edit the canonical doc first, then sync this excerpt; don't let them diverge.
 
-1. **Escape** — Closes the topmost modal. If a previous modal is in the stack, show it; otherwise base page.
-2. **Click away** — Close the topmost modal. If the click target is a previous modal, show that modal; if base page, stay on base page. Use backdrop click + `elementFromPoint` to resolve the target; pass it into `closeModal(modalId, clickedElement)`.
-3. **Stack** — Opening a modal pushes it onto the stack; closing pops and restores the previous. Register with `ModalManager.register(id, { submitButton?, hasInput?, ... })` and open with `ModalManager.open(id, hidePrevious)`.
-4. **Submit shortcut** — Modals with inputs MUST support **Ctrl+Enter (Windows) / Cmd+Enter (macOS)** to trigger the primary action (OK/Save/Submit). Plain Enter in textareas must not submit; only Mod+Enter. Set `hasInput: true` and optionally `submitButton` when registering.
+Quick reference (see Section 6 for full rules): Escape closes the topmost modal only, restoring the previous stack entry or the base page; click-away behaves the same via `elementFromPoint` + `closeModal(modalId, clickedElement)`; opening pushes onto the stack via `ModalManager.register`/`ModalManager.open(id, hidePrevious)`; any modal with inputs MUST support Ctrl+Enter/Cmd+Enter for its primary action (plain Enter in textareas must not submit).
 
 **Implementation reference:** `src/web/static/js/modal-manager.js` (header and `closeModal` / `setupClickAwayHandler` / `setupKeyboardShortcuts`).
 

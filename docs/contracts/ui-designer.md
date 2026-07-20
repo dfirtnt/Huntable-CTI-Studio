@@ -154,6 +154,7 @@ UI change completed.
 ### Consistency
 - Do NOT duplicate labels (if a JS-rendered card has a title, the parent h4 is redundant)
 - Do NOT create a new CSS class without first grepping for existing uses of that name across `templates/` and `theme-variables.css`
+- Do NOT bundle a UI-contract migration (class-name swaps, card/modal migrations, color-token sweeps) into the same commit as an unrelated backend/refactor change. Keep it in its own commit so it can be reviewed, tested, and reverted independently of the backend work.
 
 ---
 
@@ -381,7 +382,7 @@ If you add a new collapsible panel, you ONLY need: (1) `data-collapsible-panel="
 
 ### 5.0.3 Emoji Exceptions (When Emoji Are Allowed)
 
-Section 10 forbids emoji "as icons." That means emoji in UI chrome (buttons, headings, tab labels, badges). The following usages are acceptable:
+The Anti-Patterns section above forbids emoji "as icons." That means emoji in UI chrome (buttons, headings, tab labels, badges). The following usages are acceptable:
 
 | Allowed | Example | Why |
 |---------|---------|-----|

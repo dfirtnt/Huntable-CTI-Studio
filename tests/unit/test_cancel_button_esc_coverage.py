@@ -18,7 +18,7 @@ What counts as a dismiss Cancel button:
 
 Failure means: a user clicking the visible Cancel button cannot invoke the
 same action by pressing Escape -- violating the UX contract in
-.cursor/agents/ui-designer.md Section 6.1.
+docs/contracts/ui-designer.md Section 6.1.
 """
 
 import re

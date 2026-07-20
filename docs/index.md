@@ -49,6 +49,7 @@ If prompted, you can run the MkDocs docs server in the background; logs go to `l
 - **Understand the architecture** → [Architecture Overview](architecture/overview.md) | [Scoring](architecture/scoring.md)
 - **Configure workflow models and prompts** → [Configuration](getting-started/configuration.md) | [Schemas](reference/schemas.md)
 - **Develop or debug the app** → [Agent Orientation](development/agent-orientation.md) | [Development Setup](development/setup.md) | [Testing](development/testing.md) | [UI Test Tiers](development/ui-test-tiers.md)
+- **Make a UI change** → [UX Contract](contracts/ui-designer.md) -- authoritative for cards, colors, typography, modals, and accessibility
 - **Integrate with the API** → [API Reference](reference/api.md) | [CLI Reference](reference/cli.md) | [MCP tools](reference/mcp-tools.md)
 - **Deploy with SSO and auditing** → [Authentication](guides/authentication.md) | [Enterprise SSO Setup](guides/enterprise-sso.md)
 
