@@ -108,7 +108,7 @@
                 <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Export training dataset and train a model using unused 'train' annotations (excludes gold/eval).</p>
             </div>
             <div class="flex gap-3">
-                <button id="trainObservableBtn" class="px-4 py-2 btn-manage text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">Retrain Extractor</button>
+                <button id="trainObservableBtn" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">Retrain Extractor</button>
                 <button id="refreshSummaryBtn" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500">Refresh Summary</button>
             </div>
         </div>
@@ -190,7 +190,7 @@
         <div class="flex items-center justify-between mb-4">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-white"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9.75a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5zM12 6.75a5.25 5.25 0 100 10.5 5.25 5.25 0 000-10.5zM12 3.75a8.25 8.25 0 100 16.5 8.25 8.25 0 000-16.5z"/></svg> Observable Extraction Evaluation</h2>
             <button id="runObservableEvaluationBtn" 
-                    class="px-4 py-2 btn-analyze text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 Run Evaluation
             </button>
         </div>
@@ -559,7 +559,7 @@
                     </div>
                     <div class="flex justify-end gap-3">
                         <button type="button" onclick="this.closest('.fixed').remove(); editingAnnotationId = null;" class="px-4 py-2 border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg">Cancel</button>
-                        <button type="submit" class="btn-execute text-white px-4 py-2 rounded-lg">Save</button>
+                        <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Save</button>
                     </div>
                 </form>
             </div>
