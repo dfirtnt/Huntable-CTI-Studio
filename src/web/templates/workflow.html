@@ -13535,7 +13535,6 @@ function escapeHtml(text) {
 
 async function approveRule(ruleId) {
     if (!await ModalManager.confirm('Approve this rule for PR submission?', { title: 'Approve Rule', confirmText: 'Approve', confirmClass: 'bg-emerald-600 hover:bg-emerald-700', cancelText: 'Cancel' })) return;
-    await _sendRuleAction(ruleId, 'approve');
     try {
         // Save any pending edits first
         if (isEditMode) {

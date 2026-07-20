@@ -243,14 +243,12 @@ test.describe('Sigma enrich modal — no duplicate Original Rule', () => {
     await expect(page.locator('#enrichResult')).toBeVisible();
     await expect(page.locator('#enrichOriginalSection')).toBeHidden();
 
-    // enrichRuleFurther() opens a window.prompt() for extra instructions;
-    // a real user types here. Playwright auto-dismisses dialogs (returns
-    // null, which aborts the flow), so accept it with instruction text.
-    page.once('dialog', (dialog) => dialog.accept('add MITRE technique mapping'));
-
     // Iterative enrichment goes through the separate enrichRuleFurther()
     // success path, which must also leave the standalone block hidden.
     await page.locator('#enrichFurtherBtn').click();
+    await expect(page.getByRole('heading', { name: 'Enrich Rule' })).toBeVisible();
+    await page.locator('.prompt-input').fill('add MITRE technique mapping');
+    await page.getByRole('button', { name: 'Enrich' }).click();
     await expect(page.locator('#enrichIterationInfo')).toContainText(
       'iteration #2',
     );

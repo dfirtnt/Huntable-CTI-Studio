@@ -599,7 +599,7 @@
                         </svg>
                     </button>
                 </div>
-                <div id="article-content" class="whitespace-pre-wrap text-base text-gray-900 dark:text-gray-100 font-mono leading-relaxed select-text bg-stone-100 dark:bg-gray-800 px-6 pt-20 pb-6 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-inner" style="color: var(--text-body-dark);">{{ article.content|highlight_keywords(keyword_resolution.matches)|safe }}</div>
+                <div id="article-content" class="whitespace-pre-wrap text-base text-gray-900 dark:text-gray-100 font-mono leading-relaxed select-text bg-stone-100 dark:bg-gray-800 px-6 pt-20 pb-6 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-inner" style="color: var(--text-body-dark); background-color: var(--surface-plain-bg);">{{ article.content|highlight_keywords(keyword_resolution.matches)|safe }}</div>
                 <div id="article-content-plain" class="hidden whitespace-pre-wrap text-base text-gray-900 dark:text-gray-100 font-mono leading-relaxed select-text bg-stone-100 dark:bg-gray-800 px-6 pt-20 pb-6 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-inner" style="color: var(--text-print); background-color: var(--surface-plain-bg); border: 1px solid var(--border-warning); box-shadow: 0px 0px 0px 0px rgba(0, 0, 0, 0), 0px 0px 0px 0px rgba(0, 0, 0, 0), inset 0px 2px 4px 0px rgba(0, 0, 0, 0.05);">{{ article.content|e }}</div>
             </div>
         </div>
@@ -771,6 +771,67 @@
         }
     }
     window.copyArticleContentToClipboard = copyArticleContentToClipboard;
+
+    function ensureModalConfirmAvailable() {
+        if (!window.ModalManager || typeof window.ModalManager.confirm === 'function') return;
+
+        window.ModalManager.confirm = function confirmModal(message, options) {
+            options = options || {};
+            return new Promise(function(resolve) {
+                const id = '_article_confirm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+                const modal = document.createElement('div');
+                modal.id = id;
+                modal.className = 'hidden fixed inset-0 flex items-center justify-center z-50';
+                modal.style.background = 'rgba(0,0,0,0.6)';
+                modal.style.backdropFilter = 'blur(4px)';
+
+                const title = options.title || 'Confirm';
+                const confirmText = options.confirmText || 'OK';
+                const cancelText = options.cancelText || 'Cancel';
+                const confirmClass = options.confirmClass || 'bg-purple-600 hover:bg-purple-700';
+                const escapeHtml = function(text) {
+                    const div = document.createElement('div');
+                    div.textContent = text == null ? '' : String(text);
+                    return div.innerHTML;
+                };
+
+                modal.innerHTML =
+                    '<div class="w-full max-w-sm mx-4 rounded-xl overflow-hidden" style="background: var(--panel-bg-2); border: 1px solid var(--border-subtle); box-shadow: 0 24px 80px rgba(0,0,0,0.5);">' +
+                        '<div class="px-5 pt-5 pb-4">' +
+                            '<h3 class="text-sm font-bold mb-2" style="font-family: Inter, system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-primary);">' + escapeHtml(title) + '</h3>' +
+                            '<p class="text-xs" style="color: var(--text-secondary);">' + escapeHtml(message) + '</p>' +
+                        '</div>' +
+                        '<div class="flex justify-end gap-2 px-5 py-3" style="border-top: 1px solid var(--border-muted);">' +
+                            '<button class="cancel-btn px-3 py-1.5 text-xs border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg">' + escapeHtml(cancelText) + '</button>' +
+                            '<button class="confirm-btn px-3 py-1.5 text-xs text-white rounded-md transition-colors font-semibold ' + confirmClass + '">' + escapeHtml(confirmText) + '</button>' +
+                        '</div>' +
+                    '</div>';
+
+                document.body.appendChild(modal);
+
+                function cleanup(result) {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        window.ModalManager.close(id);
+                        el.remove();
+                    }
+                    resolve(result);
+                }
+
+                modal.querySelector('.cancel-btn').addEventListener('click', function() { cleanup(false); });
+                modal.querySelector('.confirm-btn').addEventListener('click', function() { cleanup(true); });
+                window.ModalManager.register(id, { submitButton: '.confirm-btn', isDynamic: true, hasInput: false });
+                window.ModalManager.open(id);
+            });
+        };
+    }
+    window.ensureModalConfirmAvailable = ensureModalConfirmAvailable;
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', ensureModalConfirmAvailable);
+    } else {
+        ensureModalConfirmAvailable();
+    }
 </script>
 
 <!-- Main script block - rest of the application code -->
@@ -3981,6 +4042,7 @@ Please provide a detailed analysis based on the article content and the user's s
             simpleTextManager.enableAnnotations();
         }
     }
+    window.toggleAnnotationSystem = toggleAnnotationSystem;
     
     function setAnnotationMode(mode) {
         try {
@@ -4767,6 +4829,7 @@ Please provide a detailed analysis based on the article content and the user's s
             showNotification('Failed to generate PDF: ' + error.message, 'error');
         }
     }
+    window.exportArticleToPDF = exportArticleToPDF;
     
     function markOperationComplete(operationId, status = 'completed') {
         console.log('markOperationComplete called with:', operationId, status);
@@ -7964,7 +8027,6 @@ ${JSON.stringify(rule.logsource, null, 2)}
                 console.error('Error:', error);
                 showNotification('Failed to delete article: ' + error.message, 'error');
             });
-        }
     }
     
     // Explicitly attach to window for inline onclick handlers
@@ -8495,6 +8557,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
             }
         }
     }
+    window.showChunkDebugModal = showChunkDebugModal;
     function generateProcessingSummary(summary) {
         if (!summary) {
             return '';

@@ -1,17 +1,22 @@
-"""Unit tests for src.services.sigma_eval_service (DB-free parts).
+"""Unit tests for src.services.sigma_eval_service.
 
-Covers ground-truth loading and the pure scoring-to-column mapping
-(build_eval_values). The DB persistence path (score_and_persist_execution) is
-exercised by integration tests; here we lock down the file loading and the
-contract that build_eval_values returns exactly the SigmaEvaluationTable columns.
+Covers ground-truth loading, the pure scoring-to-column mapping (build_eval_values),
+and the mocked-DB persistence path (score_and_persist_execution).
 """
 
 import json
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from src.services.sigma_atom_precompute import is_sigma_similarity_available
-from src.services.sigma_eval_service import build_eval_values, load_sigma_ground_truth
+from src.services.sigma_eval_service import (
+    build_eval_values,
+    is_sigma_eval_execution,
+    load_sigma_ground_truth,
+    score_and_persist_execution,
+)
 
 requires_sigma_similarity = pytest.mark.skipif(
     not is_sigma_similarity_available(),
@@ -65,6 +70,14 @@ def test_load_ground_truth_defaults_count_from_rules(tmp_path):
     assert gt["https://x.test/a"]["expected_rule_count"] == 2
 
 
+@pytest.mark.unit
+def test_load_ground_truth_skips_non_dict_entries(tmp_path):
+    f = tmp_path / "ground_truth.json"
+    f.write_text(json.dumps(["not-a-dict", {"url": "https://x.test/b", "expected_rules": [_RUNDLL32]}]))
+    gt = load_sigma_ground_truth(f)
+    assert list(gt) == ["https://x.test/b"]
+
+
 # ---------------------------------------------------------------------------
 # build_eval_values
 # ---------------------------------------------------------------------------
@@ -102,3 +115,137 @@ def test_build_eval_values_empty_generation():
     assert values["atom_recall"] == 0.0
     assert len(values["missed_atoms"]) == 2  # both expected atoms missed
     assert values["matched_atoms"] == []
+
+
+# ---------------------------------------------------------------------------
+# is_sigma_eval_execution / score_and_persist_execution (mocked DB)
+# ---------------------------------------------------------------------------
+
+
+def _eval_query_returning(eval_record):
+    query = MagicMock()
+    filtered = MagicMock()
+    filtered.first.return_value = eval_record
+    query.filter.return_value = filtered
+    return query
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "snapshot,expected",
+    [
+        ({"sigma_eval": True}, True),
+        ({"sigma_eval": False}, False),
+        ({}, False),
+        (None, False),
+    ],
+)
+def test_is_sigma_eval_execution(snapshot, expected):
+    execution = SimpleNamespace(config_snapshot=snapshot)
+    assert is_sigma_eval_execution(execution) is expected
+
+
+@pytest.mark.unit
+def test_score_and_persist_non_sigma_eval_is_noop():
+    execution = SimpleNamespace(id=1, config_snapshot={}, sigma_rules=[])
+    db_session = MagicMock()
+    assert score_and_persist_execution(execution, db_session) is None
+    db_session.query.assert_not_called()
+
+
+@pytest.mark.unit
+def test_score_and_persist_missing_eval_row_returns_none():
+    execution = SimpleNamespace(id=7, config_snapshot={"sigma_eval": True}, sigma_rules=[])
+    db_session = MagicMock()
+    db_session.query.return_value = _eval_query_returning(None)
+    assert score_and_persist_execution(execution, db_session) is None
+    db_session.commit.assert_not_called()
+
+
+@pytest.mark.unit
+@requires_sigma_similarity
+def test_score_and_persist_scores_and_commits():
+    eval_record = SimpleNamespace(
+        id=99,
+        article_url="https://x.test/a",
+        expected_rule_count=1,
+        expected_rules=[_RUNDLL32],
+        status="pending",
+        completed_at=None,
+    )
+    execution = SimpleNamespace(
+        id=7,
+        config_snapshot={"sigma_eval": True},
+        sigma_rules=[_RUNDLL32],
+    )
+    db_session = MagicMock()
+    db_session.query.return_value = _eval_query_returning(eval_record)
+
+    with patch(
+        "src.services.sigma_eval_service.load_sigma_ground_truth",
+        return_value={"https://x.test/a": {"expected_rule_count": 1, "expected_rules": [_RUNDLL32]}},
+    ):
+        result = score_and_persist_execution(execution, db_session)
+
+    assert result is eval_record
+    assert eval_record.status == "completed"
+    assert eval_record.completed_at is not None
+    assert eval_record.actual_rule_count == 1
+    db_session.commit.assert_called_once()
+
+
+@pytest.mark.unit
+@requires_sigma_similarity
+def test_score_and_persist_falls_back_to_row_expected_rules():
+    eval_record = SimpleNamespace(
+        id=99,
+        article_url="https://unknown.test/a",
+        expected_rule_count=1,
+        expected_rules=[_RUNDLL32],
+        status="pending",
+        completed_at=None,
+    )
+    execution = SimpleNamespace(
+        id=7,
+        config_snapshot={"sigma_eval": True},
+        sigma_rules=[_RUNDLL32],
+    )
+    db_session = MagicMock()
+    db_session.query.return_value = _eval_query_returning(eval_record)
+
+    with patch("src.services.sigma_eval_service.load_sigma_ground_truth", return_value={}):
+        result = score_and_persist_execution(execution, db_session)
+
+    assert result is eval_record
+    assert eval_record.status == "completed"
+    assert eval_record.atom_recall == 1.0
+
+
+@pytest.mark.unit
+def test_score_and_persist_marks_failed_on_scoring_error():
+    eval_record = SimpleNamespace(
+        id=99,
+        article_url="https://x.test/a",
+        expected_rule_count=1,
+        expected_rules=[],
+        status="pending",
+        completed_at=None,
+    )
+    execution = SimpleNamespace(
+        id=7,
+        config_snapshot={"sigma_eval": True},
+        sigma_rules="not-a-list",
+    )
+    db_session = MagicMock()
+    db_session.query.return_value = _eval_query_returning(eval_record)
+
+    with patch(
+        "src.services.sigma_eval_service.build_eval_values",
+        side_effect=RuntimeError("scoring blew up"),
+    ):
+        result = score_and_persist_execution(execution, db_session)
+
+    assert result is None
+    assert eval_record.status == "failed"
+    db_session.rollback.assert_called_once()
+    db_session.commit.assert_called_once()
