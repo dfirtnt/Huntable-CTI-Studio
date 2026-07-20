@@ -1,18 +1,15 @@
 """Raw provider client helpers for LLMService."""
 
 import asyncio
-import contextlib
-import json
 import logging
 import os
 import re
-from datetime import datetime
-from email.utils import parsedate_to_datetime
 from typing import Any
 
 import httpx
 
 from src.services.llm_prompting import PreprocessInvariantError
+from src.services.llm_provider_clients import LMStudioChatClient, parse_retry_after, post_anthropic_with_retry
 from src.utils.model_validation import clamp_temperature_for_provider, model_supports_variable_temperature
 
 logger = logging.getLogger(__name__)
@@ -298,87 +295,18 @@ class LLMClientMixin:
         max_delay: float = 60.0,
         timeout: float = 60.0,
     ) -> httpx.Response:
-        headers = {
-            "x-api-key": api_key,
-            "Content-Type": "application/json",
-            "anthropic-version": "2023-06-01",
-        }
-
-        last_exception = None
-
-        for attempt in range(max_retries):
-            async with httpx.AsyncClient(timeout=httpx.Timeout(timeout, connect=30.0, read=timeout)) as client:
-                try:
-                    response = await client.post(
-                        anthropic_api_url,
-                        headers=headers,
-                        json=payload,
-                    )
-
-                    if response.status_code == 200:
-                        return response
-
-                    if response.status_code == 429:
-                        delay = max(
-                            self._parse_retry_after(response.headers.get("retry-after")), base_delay * (2**attempt)
-                        )
-                        delay = min(delay, max_delay)
-                        if attempt < max_retries - 1:
-                            logger.warning(
-                                f"Anthropic API rate limited (429). "
-                                f"Retry {attempt + 1}/{max_retries} after {delay:.1f}s."
-                            )
-                            await asyncio.sleep(delay)
-                            continue
-                        raise RuntimeError(f"Anthropic API rate limit exceeded: {response.text}")
-
-                    if 500 <= response.status_code < 600:
-                        delay = min(base_delay * (2**attempt), max_delay)
-                        if attempt < max_retries - 1:
-                            logger.warning(
-                                f"Anthropic API server error ({response.status_code}). Retrying after {delay:.1f}s."
-                            )
-                            await asyncio.sleep(delay)
-                            continue
-
-                    if response.status_code >= 400:
-                        raise RuntimeError(f"Anthropic API error ({response.status_code}): {response.text}")
-
-                except httpx.TimeoutException as exc:
-                    delay = min(base_delay * (2**attempt), max_delay)
-                    if attempt < max_retries - 1:
-                        logger.warning(f"Anthropic API timeout. Retry {attempt + 1}/{max_retries} after {delay:.1f}s.")
-                        await asyncio.sleep(delay)
-                        last_exception = exc
-                        continue
-                    raise RuntimeError("Anthropic API timeout") from exc
-                except httpx.HTTPError as exc:
-                    delay = min(base_delay * (2**attempt), max_delay)
-                    if attempt < max_retries - 1:
-                        logger.warning(f"Anthropic API error: {exc}. Retrying after {delay:.1f}s.")
-                        await asyncio.sleep(delay)
-                        last_exception = exc
-                        continue
-                    raise RuntimeError(f"Anthropic API error: {exc}") from exc
-
-        if last_exception:
-            raise RuntimeError("Anthropic API failed after retries") from last_exception
-        raise RuntimeError("Anthropic API failed after retries")
+        return await post_anthropic_with_retry(
+            api_key=api_key,
+            payload=payload,
+            anthropic_api_url=anthropic_api_url,
+            max_retries=max_retries,
+            base_delay=base_delay,
+            max_delay=max_delay,
+            timeout=timeout,
+        )
 
     def _parse_retry_after(self, header_value: str | None) -> float:
-        if not header_value:
-            return 30.0
-        try:
-            return float(header_value.strip())
-        except ValueError:
-            try:
-                retry_date = parsedate_to_datetime(header_value)
-                now = datetime.now(retry_date.tzinfo) if retry_date.tzinfo else datetime.now()
-                delta = retry_date - now
-                return max(0.0, delta.total_seconds())
-            except (TypeError, ValueError):
-                logger.warning(f"Could not parse retry-after header: {header_value}")
-                return 30.0
+        return parse_retry_after(header_value)
 
     async def _post_lmstudio_chat(
         self,
@@ -405,271 +333,11 @@ class LLMClientMixin:
             RuntimeError: If all LMStudio URL candidates fail
             httpx.TimeoutException: If request times out
         """
-        # Defense-in-depth: circuit breaker at HTTP boundary
-        payload_messages = payload.get("messages", []) if isinstance(payload, dict) else []
-        if not payload_messages or (isinstance(payload_messages, list) and len(payload_messages) == 0):
-            raise PreprocessInvariantError(
-                f"LLM invoked with empty messages (LMStudio path, failure_context={failure_context})"
-            )
-
-        lmstudio_urls = self._lmstudio_url_candidates()
-        last_error_detail = ""
-
-        logger.info(f"LMStudio URL candidates for {failure_context}: {lmstudio_urls}")
-
-        # Check for cancellation before starting
-        if cancellation_event and cancellation_event.is_set():
-            raise asyncio.CancelledError("Request cancelled by client")
-
-        async def make_request(client: httpx.AsyncClient, url: str, request_payload: dict) -> httpx.Response:
-            """Make the HTTP request as a cancellable task."""
-            # For LM Studio, read timeout must be long enough to allow prompt processing
-            # before any response data is sent.
-            read_timeout = 600.0
-            return await client.post(
-                f"{url}/chat/completions",
-                headers={"Content-Type": "application/json"},
-                json=request_payload,
-                timeout=httpx.Timeout(timeout, connect=30.0, read=read_timeout),
-            )
-
-        # Use longer connect timeout to allow DNS resolution and connection establishment
-        connect_timeout = 30.0  # Increased from 10.0 to handle Docker networking
-        client = httpx.AsyncClient(timeout=httpx.Timeout(timeout, connect=connect_timeout))
-        try:
-            for idx, lmstudio_url in enumerate(lmstudio_urls):
-                # Check for cancellation before each attempt
-                if cancellation_event and cancellation_event.is_set():
-                    raise asyncio.CancelledError("Request cancelled by client")
-
-                logger.info(
-                    f"Attempting LMStudio at {lmstudio_url} with model {model_name} "
-                    f"({failure_context}) attempt {idx + 1}/{len(lmstudio_urls)}"
-                )
-                logger.debug(
-                    f"Request payload preview: model={payload.get('model')}, "
-                    f"messages_count={len(payload.get('messages', []))}, "
-                    f"max_tokens={payload.get('max_tokens')}, "
-                    f"temperature={payload.get('temperature')}, top_p={payload.get('top_p')}"
-                )
-
-                # Log full payload for debugging (truncate long content)
-                if logger.isEnabledFor(logging.DEBUG):
-                    payload_copy = payload.copy()
-                    if "messages" in payload_copy:
-                        messages_copy = []
-                        for msg in payload_copy["messages"]:
-                            msg_copy = msg.copy()
-                            if "content" in msg_copy and len(msg_copy["content"]) > 500:
-                                msg_copy["content"] = (
-                                    msg_copy["content"][:500] + f"... [truncated, total length: {len(msg['content'])}]"
-                                )
-                            messages_copy.append(msg_copy)
-                        payload_copy["messages"] = messages_copy
-                    logger.debug(f"Full LMStudio request payload: {json.dumps(payload_copy, indent=2)}")
-
-                try:
-                    # Make request
-                    request_task = asyncio.create_task(make_request(client, lmstudio_url, payload))
-
-                    # Monitor for cancellation while waiting for response
-                    if cancellation_event:
-                        # Create a task that waits for cancellation
-                        async def wait_for_cancellation():
-                            if cancellation_event:
-                                await cancellation_event.wait()
-
-                        cancellation_task = asyncio.create_task(wait_for_cancellation())
-
-                        # Wait for either request completion or cancellation
-                        done, pending = await asyncio.wait(
-                            [request_task, cancellation_task], return_when=asyncio.FIRST_COMPLETED
-                        )
-
-                        # Cancel pending tasks
-                        for task in pending:
-                            task.cancel()
-                            with contextlib.suppress(asyncio.CancelledError):
-                                await task
-
-                        # Check if cancellation occurred
-                        if cancellation_event.is_set():
-                            # Cancel the request task and close the client to stop the HTTP request
-                            if not request_task.done():
-                                request_task.cancel()
-                                # Explicitly close the client connection to stop the underlying HTTP request
-                                with contextlib.suppress(Exception):
-                                    await client.aclose()
-                                with contextlib.suppress(
-                                    asyncio.CancelledError, httpx.RequestError, httpx.ConnectError
-                                ):
-                                    await request_task
-                            raise asyncio.CancelledError("Request cancelled by client")
-
-                        # Get the response
-                        response = await request_task
-                    else:
-                        # No cancellation support, just await the request
-                        response = await request_task
-
-                    if response.status_code == 200:
-                        result = response.json()
-                        # Log successful response for debugging
-                        logger.info(f"LMStudio response received: status=200, model={result.get('model', 'unknown')}")
-                        if "choices" in result and len(result["choices"]) > 0:
-                            content = result["choices"][0].get("message", {}).get("content", "")
-                            logger.debug(f"LMStudio response content length: {len(content)} chars")
-                            logger.debug(f"LMStudio response content preview: {content[:500]}")
-                        if "usage" in result:
-                            logger.info(f"LMStudio token usage: {result['usage']}")
-                        # Forensic instrumentation: capture the payload that returned 200
-                        result["_provider_payload"] = payload
-                        result["_provider_url"] = f"{lmstudio_url}/chat/completions"
-                        return result
-                    # Extract error message from response
-                    error_text = response.text
-                    try:
-                        error_json = response.json()
-                        error_message = (
-                            error_json.get("error", {}).get("message", error_text)
-                            if isinstance(error_json.get("error"), dict)
-                            else error_text
-                        )
-                    except (ValueError, KeyError, AttributeError):
-                        error_message = error_text[:500]  # Limit length
-
-                    last_error_detail = f"Status {response.status_code}: {error_message}"
-                    logger.error(f"LMStudio at {lmstudio_url} returned {response.status_code}: {error_message}")
-
-                    # 5xx: surface Channel Error and similar inference failures immediately
-                    if response.status_code >= 500:
-                        error_lower_5xx = error_message.lower()
-                        if "channel error" in error_lower_5xx:
-                            with contextlib.suppress(Exception):
-                                await client.aclose()
-                            raise RuntimeError(
-                                f"{failure_context}: LMStudio inference failed with Channel Error for model "
-                                f"'{model_name}'. This usually means the model crashed mid-inference, ran out "
-                                f"of VRAM, or the configured context window was too small. "
-                                f"Check the LMStudio Developer console and try reducing input size or "
-                                f"increasing the context window."
-                            )
-                        if idx < len(lmstudio_urls) - 1:
-                            continue
-
-                    # For 400 errors, check if it's a model name issue and retry with different format
-                    if response.status_code == 400:
-                        error_lower = error_message.lower()
-                        current_model_in_payload = payload.get("model", "")
-
-                        # Check if it's a model identifier error - try with/without prefix
-                        if "invalid model identifier" in error_lower or (
-                            "model" in error_lower and ("not found" in error_lower or "not loaded" in error_lower)
-                        ):
-                            # Try both directions: with prefix (if model_name has it) and without prefix
-                            retry_attempts = []
-
-                            # If model_name has a prefix but payload doesn't, try with prefix
-                            if "/" in model_name and "/" not in current_model_in_payload:
-                                retry_attempts.append(("with prefix", model_name))
-
-                            # If model_name has a prefix, also try without prefix
-                            if "/" in model_name:
-                                model_without_prefix = model_name.split("/")[-1]
-                                if model_without_prefix != current_model_in_payload:
-                                    retry_attempts.append(("without prefix", model_without_prefix))
-
-                            # Try each retry attempt
-                            for retry_type, retry_model in retry_attempts:
-                                logger.info(f"Retrying {retry_type}: {retry_model}")
-                                payload_retry = payload.copy()
-                                payload_retry["model"] = retry_model
-                                try:
-                                    response_retry = await make_request(client, lmstudio_url, payload_retry)
-                                    if response_retry.status_code == 200:
-                                        result = response_retry.json()
-                                        logger.info(f"LMStudio accepted model {retry_type}: {retry_model}")
-                                        # Forensic instrumentation: record the payload actually POSTed.
-                                        result["_provider_payload"] = payload_retry
-                                        result["_provider_url"] = f"{lmstudio_url}/chat/completions"
-                                        return result
-                                    logger.debug(f"Retry {retry_type} failed: {response_retry.status_code}")
-                                except (httpx.HTTPError, ValueError) as retry_exc:
-                                    logger.debug(f"Retry {retry_type} failed: {retry_exc}")
-
-                        # Close client before raising
-                        with contextlib.suppress(Exception):
-                            await client.aclose()
-
-                        # Context window exceeded -- model is ready but request is too large
-                        if "context length" in error_lower or "context window" in error_lower:
-                            raise RuntimeError(
-                                f"{failure_context}: Context window exceeded for model '{model_name}'. "
-                                f"The request is too large for the configured context length. "
-                                f"Increase the context window in LMStudio or reduce input size."
-                            )
-
-                        # Model not loaded
-                        if (
-                            "model" in error_lower
-                            and "not loaded" in error_lower
-                            and "invalid model identifier" not in error_lower
-                        ) or "no model" in error_lower:
-                            raise RuntimeError(
-                                f"{failure_context}: LMStudio model '{model_name}' is not loaded. "
-                                f"Please ensure the model is loaded in LMStudio."
-                            )
-
-                        raise RuntimeError(
-                            f"{failure_context}: Invalid request to LMStudio. "
-                            f"Status {response.status_code}: {error_message}. "
-                            f"This usually means the model '{model_name}' is not loaded, "
-                            f"the request format is invalid, or the context window is too small."
-                        )
-
-                except RuntimeError:
-                    # Re-raise RuntimeErrors (like 400 errors) immediately without trying other URLs
-                    with contextlib.suppress(Exception):
-                        await client.aclose()
-                    raise
-
-                except httpx.TimeoutException as e:
-                    last_error_detail = f"Request timeout after {timeout}s"
-                    logger.warning(f"LMStudio at {lmstudio_url} timed out: {e}")
-                    # Don't retry if this is the last URL - fail fast
-                    if idx == len(lmstudio_urls) - 1:
-                        raise RuntimeError(
-                            f"{failure_context}: Request timeout after {timeout}s - "
-                            f"LMStudio service may be down, slow, or overloaded. "
-                            f"Check if LMStudio is running at {lmstudio_url}"
-                        ) from e
-                    # Continue to next URL candidate
-                    continue
-
-                except httpx.ConnectError as e:
-                    last_error_detail = f"Connection error: {str(e)}"
-                    logger.error(f"LMStudio at {lmstudio_url} connection failed: {type(e).__name__}: {e}")
-                    # Don't retry on connection errors - try next URL immediately
-                    if idx == len(lmstudio_urls) - 1:
-                        raise RuntimeError(
-                            f"{failure_context}: Cannot connect to LMStudio service. "
-                            f"Tried URLs: {lmstudio_urls}. Last error: {str(e)}. "
-                            f"Verify LMStudio is running and accessible at {lmstudio_url}"
-                        ) from e
-                    # Continue to next URL candidate
-                    continue
-
-                except asyncio.CancelledError:
-                    # Re-raise cancellation errors
-                    raise
-                except Exception as e:
-                    last_error_detail = str(e)
-                    logger.error(f"LMStudio API request failed at {lmstudio_url}: {e}")
-                    if idx == len(lmstudio_urls) - 1:
-                        raise RuntimeError(f"{failure_context}: {str(e)}") from e
-        finally:
-            # Ensure client is closed
-            with contextlib.suppress(Exception):
-                await client.aclose()
-
-        raise RuntimeError(f"{failure_context}: All LMStudio URLs failed. Last error: {last_error_detail}")
+        client = LMStudioChatClient(url_candidates=self._lmstudio_url_candidates())
+        return await client.post_chat(
+            payload,
+            model_name=model_name,
+            timeout=timeout,
+            failure_context=failure_context,
+            cancellation_event=cancellation_event,
+        )

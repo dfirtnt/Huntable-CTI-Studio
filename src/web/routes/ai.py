@@ -8,13 +8,19 @@ import asyncio
 import os
 import re
 from datetime import datetime
-from email.utils import parsedate_to_datetime
 from typing import Any
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request
 
 from src.database.async_manager import async_db_manager
+from src.services.llm_provider_clients import (
+    AnthropicProviderError,
+    LMStudioChatClient,
+    LMStudioChatError,
+    lmstudio_chat_url_candidates,
+    post_anthropic_with_retry,
+)
 from src.services.provider_model_catalog import load_catalog, update_provider_models
 from src.utils.model_validation import (
     filter_anthropic_models_latest_only,
@@ -138,108 +144,24 @@ async def _call_anthropic_with_retry(
     Raises:
         HTTPException: If all retries exhausted or non-retryable error
     """
-    headers = {
-        "x-api-key": api_key,
-        "Content-Type": "application/json",
-        "anthropic-version": "2023-06-01",
-    }
-
-    def _parse_retry_after(retry_after_header: str | None) -> float:
-        """Parse retry-after header (seconds or HTTP date)."""
-        if not retry_after_header:
-            return 30.0
-        try:
-            return float(retry_after_header.strip())
-        except ValueError:
-            try:
-                retry_date = parsedate_to_datetime(retry_after_header)
-                now = datetime.now(retry_date.tzinfo) if retry_date.tzinfo else datetime.now()
-                delta = retry_date - now
-                return max(0.0, delta.total_seconds())
-            except (ValueError, TypeError):
-                logger.warning(f"Could not parse retry-after header: {retry_after_header}, using 30s default")
-                return 30.0
-
-    last_exception = None
-
-    for attempt in range(max_retries):
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.post(anthropic_api_url, headers=headers, json=payload, timeout=timeout)
-
-                # Success
-                if response.status_code == 200:
-                    return response
-
-                # Rate limit (429) - retry with exponential backoff
-                if response.status_code == 429:
-                    retry_after = _parse_retry_after(response.headers.get("retry-after"))
-                    delay = max(retry_after, base_delay * (2**attempt))
-                    delay = min(delay, max_delay)
-
-                    if attempt < max_retries - 1:
-                        logger.warning(
-                            f"Anthropic API rate limited (429). "
-                            f"Retry {attempt + 1}/{max_retries} after {delay:.1f}s. "
-                            f"Retry-After header: {retry_after}s"
-                        )
-                        await asyncio.sleep(delay)
-                        continue
-                    error_detail = response.text
-                    logger.error(f"Anthropic API rate limit exceeded after {max_retries} attempts: {error_detail}")
-                    raise HTTPException(
-                        status_code=429,
-                        detail=f"Anthropic API rate limit exceeded: {error_detail}",
-                    )
-
-                # Other errors - retry with exponential backoff for 5xx, fail fast for 4xx
-                if 500 <= response.status_code < 600:
-                    delay = min(base_delay * (2**attempt), max_delay)
-                    if attempt < max_retries - 1:
-                        error_detail = response.text
-                        logger.warning(
-                            f"Anthropic API server error ({response.status_code}). "
-                            f"Retry {attempt + 1}/{max_retries} after {delay:.1f}s: {error_detail}"
-                        )
-                        await asyncio.sleep(delay)
-                        continue
-
-                # Client errors (4xx) - don't retry
-                error_detail = response.text
-                logger.error(f"Anthropic API client error ({response.status_code}): {error_detail}")
-                raise HTTPException(
-                    status_code=response.status_code,
-                    detail=f"Anthropic API error: {error_detail}",
-                )
-
-            except httpx.TimeoutException as e:
-                delay = min(base_delay * (2**attempt), max_delay)
-                if attempt < max_retries - 1:
-                    logger.warning(f"Anthropic API timeout. Retry {attempt + 1}/{max_retries} after {delay:.1f}s")
-                    await asyncio.sleep(delay)
-                    last_exception = e
-                    continue
-                raise HTTPException(
-                    status_code=504,
-                    detail=f"Anthropic API timeout after {max_retries} attempts",
-                ) from e
-
-            except Exception as e:
-                delay = min(base_delay * (2**attempt), max_delay)
-                if attempt < max_retries - 1:
-                    logger.warning(f"Anthropic API error: {e}. Retry {attempt + 1}/{max_retries} after {delay:.1f}s")
-                    await asyncio.sleep(delay)
-                    last_exception = e
-                    continue
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Anthropic API error after {max_retries} attempts",
-                ) from e
-
-    # Should not reach here, but handle edge case
-    if last_exception:
-        raise HTTPException(status_code=500, detail="Internal server error")
-    raise HTTPException(status_code=500, detail="Internal server error")
+    try:
+        return await post_anthropic_with_retry(
+            api_key=api_key,
+            payload=payload,
+            anthropic_api_url=anthropic_api_url,
+            max_retries=max_retries,
+            base_delay=base_delay,
+            max_delay=max_delay,
+            timeout=timeout,
+        )
+    except AnthropicProviderError as exc:
+        status_code = exc.status_code or 500
+        detail = str(exc)
+        if status_code == 429:
+            detail = detail.replace("Anthropic API rate limit exceeded:", "Anthropic API rate limit exceeded:")
+        elif status_code == 504:
+            detail = f"Anthropic API timeout after {max_retries} attempts"
+        raise HTTPException(status_code=status_code, detail=detail) from exc
 
 
 def _get_lmstudio_settings() -> dict[str, Any]:
@@ -266,32 +188,7 @@ def _lmstudio_url_candidates() -> list[str]:
     Generate ordered LMStudio base URL candidates.
     All candidates end with /v1 (required by LM Studio for /chat/completions).
     """
-    from src.utils.lmstudio_url import get_lmstudio_base_url
-
-    normalized = get_lmstudio_base_url("http://host.docker.internal:1234/v1")
-    candidates: list[str] = [normalized]
-
-    # If URL contains localhost, also try host.docker.internal (for Docker containers)
-    if "localhost" in normalized.lower() or "127.0.0.1" in normalized:
-        docker_url = normalized.replace("localhost", "host.docker.internal").replace(
-            "127.0.0.1", "host.docker.internal"
-        )
-        if docker_url not in candidates:
-            candidates.append(docker_url)
-        # Also try with /v1 if not already there
-        if not docker_url.lower().endswith("/v1"):
-            docker_url_v1 = f"{docker_url}/v1"
-            if docker_url_v1 not in candidates:
-                candidates.append(docker_url_v1)
-
-    # Preserve order while removing duplicates
-    seen = set()
-    unique_candidates = []
-    for candidate in candidates:
-        if candidate not in seen:
-            unique_candidates.append(candidate)
-            seen.add(candidate)
-    return unique_candidates
+    return lmstudio_chat_url_candidates("http://host.docker.internal:1234/v1")
 
 
 async def _post_lmstudio_chat(
@@ -313,115 +210,15 @@ async def _post_lmstudio_chat(
     Returns:
         Parsed JSON response from LMStudio.
     """
-    lmstudio_urls = _lmstudio_url_candidates()
-    last_error_detail = ""
-
-    async with httpx.AsyncClient() as client:
-        for idx, lmstudio_url in enumerate(lmstudio_urls):
-            logger.info(
-                f"Attempting LMStudio at {lmstudio_url} with model {model_name} "
-                f"({failure_context}) attempt {idx + 1}/{len(lmstudio_urls)}"
-            )
-            try:
-                # For LM Studio, read timeout must be long enough to allow prompt processing
-                # before any response data is sent.
-                read_timeout = 600.0
-                response = await client.post(
-                    f"{lmstudio_url}/chat/completions",
-                    headers={"Content-Type": "application/json"},
-                    json=payload,
-                    timeout=httpx.Timeout(timeout, connect=30.0, read=read_timeout),
-                )
-            except httpx.TimeoutException as e:
-                last_error_detail = f"Timeout connecting to {lmstudio_url}"
-                if idx == len(lmstudio_urls) - 1:
-                    # Last URL, raise timeout error
-                    raise HTTPException(
-                        status_code=408,
-                        detail="LMStudio request timeout - the model may be slow or overloaded",
-                    ) from e
-                # Try next URL
-                logger.warning(f"LMStudio timeout at {lmstudio_url}, trying next URL...")
-                continue
-            except httpx.ConnectError as e:
-                last_error_detail = f"Cannot connect to {lmstudio_url}"
-                logger.warning(f"LMStudio connection error at {lmstudio_url}: {e}")
-                if idx == len(lmstudio_urls) - 1:
-                    # Last URL, raise connection error
-                    urls_tried = ", ".join(lmstudio_urls)
-                    raise HTTPException(
-                        status_code=503,
-                        detail=(
-                            f"Cannot connect to LMStudio service. Please ensure LMStudio is "
-                            f"running and accessible. Tried: {urls_tried}"
-                        ),
-                    ) from e
-                # Try next URL
-                logger.warning(f"LMStudio connection failed at {lmstudio_url}, trying next URL...")
-                continue
-            except Exception as e:  # pragma: no cover - defensive logging
-                last_error_detail = f"Error at {lmstudio_url}"
-                logger.error(f"LMStudio API request failed at {lmstudio_url}: {e}")
-                if idx == len(lmstudio_urls) - 1:
-                    raise HTTPException(
-                        status_code=500,
-                        detail=failure_context,
-                    ) from e
-                # Try next URL
-                continue
-
-            if response.status_code == 200:
-                if idx > 0:
-                    logger.info(f"LMStudio request succeeded using fallback URL {lmstudio_url}")
-                return response.json()
-
-            # Improved error detail extraction
-            error_text = response.text
-            try:
-                error_json = response.json()
-                error_message = (
-                    error_json.get("error", {}).get("message", error_text)
-                    if isinstance(error_json.get("error"), dict)
-                    else error_text
-                )
-            except Exception:
-                error_message = error_text
-
-            last_error_detail = f"{response.status_code} - {error_message}"
-            logger.error(f"LMStudio API error ({failure_context}) at {lmstudio_url}: {last_error_detail}")
-            logger.error(f"Full response body: {error_text}")
-
-            if response.status_code == 404 and idx < len(lmstudio_urls) - 1:
-                logger.warning(
-                    "LMStudio endpoint returned 404. "
-                    "This often means LMSTUDIO_API_URL is missing the '/v1' suffix. "
-                    "Retrying with fallback URL."
-                )
-                continue
-
-            # Check for common errors that indicate LMStudio isn't ready
-            error_lower = error_message.lower()
-            if response.status_code == 400 and (
-                "context length" in error_lower
-                or "model" in error_lower
-                and "not loaded" in error_lower
-                or "no model" in error_lower
-            ):
-                raise HTTPException(
-                    status_code=500,
-                    detail="LMStudio is not ready. Please ensure LMStudio is running and a model is loaded.",
-                )
-
-            # Include the actual error message in the exception
-            raise HTTPException(
-                status_code=500,
-                detail=f"{failure_context}: {response.status_code} - {error_message[:200]}",
-            )
-
-    raise HTTPException(
-        status_code=500,
-        detail=f"{failure_context}: {last_error_detail or 'Unknown LMStudio error'}",
-    )
+    try:
+        return await LMStudioChatClient(url_candidates=_lmstudio_url_candidates()).post_chat(
+            payload,
+            model_name=model_name,
+            timeout=timeout,
+            failure_context=failure_context,
+        )
+    except LMStudioChatError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
 
 @test_router.post("/test-openai-key")

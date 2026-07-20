@@ -12,9 +12,12 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from src.database.manager import DatabaseManager
 from src.database.models import AppSettingsTable
+from src.services.llm_provider_clients import WORKFLOW_PROVIDER_APPSETTING_KEYS, load_workflow_provider_settings
 from src.services.provider_model_catalog import get_model_context_tokens
 
 logger = logging.getLogger(__name__)
+
+__all__ = ["LLMRoutingMixin", "LMSTUDIO_APPSETTING_KEYS", "WORKFLOW_PROVIDER_APPSETTING_KEYS"]
 
 # LM Studio context limits (default to 32768 for reasoning models, 4096 for others)
 # Reasoning models need large context windows for both reasoning and output
@@ -23,14 +26,6 @@ PROMPT_OVERHEAD_TOKENS = 500  # Reserve for prompt templates, system messages, e
 
 # Minimum context length threshold for workflow (configurable)
 MIN_CONTEXT_LENGTH_THRESHOLD = int(os.getenv("LMSTUDIO_MIN_CONTEXT_THRESHOLD", "16384"))
-
-WORKFLOW_PROVIDER_APPSETTING_KEYS = {
-    "openai_enabled": "WORKFLOW_OPENAI_ENABLED",
-    "openai_api_key": "WORKFLOW_OPENAI_API_KEY",
-    "anthropic_enabled": "WORKFLOW_ANTHROPIC_ENABLED",
-    "anthropic_api_key": "WORKFLOW_ANTHROPIC_API_KEY",
-    "lmstudio_enabled": "WORKFLOW_LMSTUDIO_ENABLED",
-}
 
 LMSTUDIO_APPSETTING_KEYS = (
     "LMSTUDIO_MODEL",
@@ -100,11 +95,7 @@ class LLMRoutingMixin:
         try:
             db_manager = self._database_manager_cls()()
             db_session = db_manager.get_session()
-            query = db_session.query(AppSettingsTable).filter(
-                AppSettingsTable.key.in_(WORKFLOW_PROVIDER_APPSETTING_KEYS.values())
-            )
-            for row in query:
-                settings[row.key] = row.value
+            settings = load_workflow_provider_settings(db_session)
             if not settings:
                 logger.debug(
                     "Workflow provider settings empty from AppSettings; "
