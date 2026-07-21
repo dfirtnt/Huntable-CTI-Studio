@@ -1478,8 +1478,41 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             if not article.content or len(article.content.strip()) == 0:
                 raise ValueError(f"Article {article.id} has no content to filter")
 
-            # Get junk filter threshold from config
+            # Evals exercise the extraction agent against the complete article. They
+            # must not inherit the production junk-filter threshold or terminate
+            # before extraction when the filter rejects an article.
             config = state.get("config")
+            if isinstance(config, dict) and config.get("eval_run"):
+                execution = (
+                    db_session.query(AgenticWorkflowExecutionTable)
+                    .filter(AgenticWorkflowExecutionTable.id == state["execution_id"])
+                    .first()
+                )
+                junk_filter_result = {
+                    "bypassed": True,
+                    "reason": "eval_run_uses_full_article_content",
+                    "filtered_length": len(article.content),
+                    "original_length": len(article.content),
+                    "chunks_kept": (len(article.content) // 1000) + 1,
+                    "chunks_removed": 0,
+                    "is_huntable": True,
+                    "confidence": None,
+                }
+                if execution:
+                    execution.current_step = "junk_filter"
+                    execution.junk_filter_result = junk_filter_result
+                    db_session.commit()
+                return {
+                    **state,
+                    "filtered_content": article.content,
+                    "junk_filter_result": junk_filter_result,
+                    "current_step": "junk_filter",
+                    "status": state.get("status", "running"),
+                    "termination_reason": state.get("termination_reason"),
+                    "termination_details": state.get("termination_details"),
+                }
+
+            # Get junk filter threshold from config
             junk_filter_threshold = (
                 config.get("junk_filter_threshold", 0.8) if config and isinstance(config, dict) else 0.8
             )

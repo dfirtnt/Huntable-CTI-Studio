@@ -165,7 +165,7 @@ After fine-tuning, aim for:
 
 ## Notes
 
-- Evaluation uses **filtered content** (junk filter applied) to match workflow behavior
+- Evaluation uses the **complete article content**. The junk filter is skipped so extraction is evaluated against every article chunk.
 - Test dataset should be **representative** of production articles
 - Run evaluation **multiple times** to check consistency
 - Save results for **historical comparison**

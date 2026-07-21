@@ -211,6 +211,17 @@ class TestJunkFilterNode:
         assert result["current_step"] == "junk_filter"
         assert result["status"] == "running"
 
+    def test_eval_bypasses_junk_filter_and_uses_complete_article_content(self, article, execution, config_obj):
+        db_session = _make_db_session(article, execution)
+        nodes = _capture_nodes(db_session)
+
+        result = nodes["junk_filter"](_default_state(config={"eval_run": True, "junk_filter_threshold": 0.8}))
+
+        assert result["filtered_content"] == article.content
+        assert result["junk_filter_result"]["bypassed"] is True
+        assert result["junk_filter_result"]["chunks_removed"] == 0
+        assert execution.junk_filter_result["reason"] == "eval_run_uses_full_article_content"
+
     def test_junk_filter_marks_failed_on_empty_content(self, article, execution, config_obj):
         """Junk filter sets status=failed when article has no content."""
         article.content = ""

@@ -286,7 +286,7 @@ _SUBAGENT_KEY_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 def _load_static_eval_articles(subagent_key: str) -> dict[str, dict]:
     """Load static eval article snapshots for a subagent.
 
-    Returns dict url -> {url, title, content, filtered_content?, expected_count,
+    Returns dict url -> {url, title, content, expected_count,
     expected_items?}.  expected_items comes from the separate ground_truth.json
     file (if present) and is never stored in articles.json.
     """
@@ -315,7 +315,6 @@ def _load_static_eval_articles(subagent_key: str) -> dict[str, dict]:
                     "url": url,
                     "title": entry.get("title", ""),
                     "content": entry.get("content", ""),
-                    "filtered_content": entry.get("filtered_content") or entry.get("content", ""),
                     "expected_count": entry.get("expected_count", 0),
                     "expected_items": None,
                 }
@@ -649,7 +648,6 @@ async def run_evaluation(request: Request, eval_request: EvaluationRunRequest):
                             "min_hunt_score": config.min_hunt_score,
                             "ranking_threshold": config.ranking_threshold,
                             "similarity_threshold": config.similarity_threshold,
-                            "junk_filter_threshold": config.junk_filter_threshold,
                             "agent_models": config.agent_models or {},
                             "agent_prompts": config.agent_prompts or {},
                             "rank_agent_enabled": config.rank_agent_enabled
@@ -1205,7 +1203,7 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                                 raise ValueError(f"No prompt for {agent_name}")
                             agent_models = active_config.agent_models or {}
                             llm_service = LLMService(config_models=agent_models)
-                            content = static_entry.get("filtered_content") or static_entry.get("content", "")
+                            content = static_entry.get("content", "")
                             agent_result = await llm_service.run_extraction_agent(
                                 agent_name=agent_name,
                                 content=content,
@@ -1286,7 +1284,6 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                         "min_hunt_score": active_config.min_hunt_score,
                         "ranking_threshold": active_config.ranking_threshold,
                         "similarity_threshold": active_config.similarity_threshold,
-                        "junk_filter_threshold": active_config.junk_filter_threshold,
                         "agent_models": active_config.agent_models or {},
                         "agent_prompts": active_config.agent_prompts or {},
                         "config_id": active_config.id,
@@ -1382,7 +1379,6 @@ def _sigma_eval_config_snapshot(active_config: AgenticWorkflowConfigTable) -> di
         "min_hunt_score": active_config.min_hunt_score,
         "ranking_threshold": active_config.ranking_threshold,
         "similarity_threshold": active_config.similarity_threshold,
-        "junk_filter_threshold": active_config.junk_filter_threshold,
         "agent_models": active_config.agent_models or {},
         "agent_prompts": active_config.agent_prompts or {},
         "config_id": active_config.id,

@@ -115,7 +115,6 @@ async def process_subagent(
                         "url": url,
                         "title": title,
                         "content": content,
-                        "filtered_content": content,
                         "expected_count": expected_count,
                     }
                 )

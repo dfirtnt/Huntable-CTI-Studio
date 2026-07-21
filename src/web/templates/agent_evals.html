@@ -460,7 +460,7 @@
             <h1>Agent Evaluations</h1>
             <p class="eval-hero-desc">
                 Run evaluation articles through workflows with different presets and compare results.
-                Evals use the <code>0.8</code> confidence (conservative) threshold for content filtering.
+                Evals skip junk filtering and give the selected extractor the complete article content.
             </p>
         </div>
     </div>
@@ -1155,6 +1155,7 @@ function showHelp(fieldName) {
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>Rank agent is skipped in eval runs.</li>
                           <li>OS detection is skipped in eval runs.</li>
+                          <li>Junk filtering is skipped; extraction receives the complete article content.</li>
                           <li>SIGMA rule generation is skipped (no rules created).</li>
                           <li>Each eval runs a single extraction subagent (the selected one).</li>
                       </ul>

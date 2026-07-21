@@ -4,21 +4,18 @@ Dump eval article snapshots from the database into static JSON files.
 
 Reads config/eval_articles.yaml, resolves each URL to an article in the DB,
 and writes config/eval_articles_data/{subagent}/articles.json with
-url, title, content, optional filtered_content, and expected_count.
+url, title, content, and expected_count.
 
 Run when the DB contains the eval articles (e.g. before rehydration); then
 commit the generated JSON files so evals work after rehydration.
 
 Usage:
-    python3 scripts/dump_eval_articles_static.py [--no-filter]
+    python3 scripts/dump_eval_articles_static.py
     # With venv:
     .venv/bin/python scripts/dump_eval_articles_static.py
 
-Options:
-    --no-filter    Do not compute filtered_content (faster; evals can use content).
 """
 
-import argparse
 import json
 import logging
 import re
@@ -91,25 +88,7 @@ def _resolve_articles_by_urls(db_session, urls: list[str]) -> dict[str, int]:
     return result
 
 
-def get_filtered_content(article: ArticleTable, junk_filter_threshold: float = 0.8) -> str:
-    """Apply junk filter to article content."""
-    from src.utils.content_filter import ContentFilter
-
-    content_filter = ContentFilter()
-    hunt_score = article.article_metadata.get("threat_hunting_score", 0) if article.article_metadata else 0
-    filter_result = content_filter.filter_content(
-        article.content, min_confidence=junk_filter_threshold, hunt_score=hunt_score, article_id=article.id
-    )
-    return filter_result.filtered_content or article.content
-
-
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Dump eval articles from DB to static JSON for rehydration-safe evals."
-    )
-    parser.add_argument("--no-filter", action="store_true", help="Do not compute filtered_content")
-    args = parser.parse_args()
-
     if not CONFIG_EVAL_ARTICLES.exists():
         logger.error("Config not found: %s", CONFIG_EVAL_ARTICLES)
         sys.exit(1)
@@ -148,12 +127,6 @@ def main() -> None:
                     "content": article.content or "",
                     "expected_count": url_to_expected.get(url, 0),
                 }
-                if not args.no_filter:
-                    try:
-                        entry["filtered_content"] = get_filtered_content(article)
-                    except Exception as e:
-                        logger.warning("Filter failed for article %s: %s", article_id, e)
-                        entry["filtered_content"] = article.content or ""
                 out_articles.append(entry)
 
             subdir = DATA_DIR / subagent_key

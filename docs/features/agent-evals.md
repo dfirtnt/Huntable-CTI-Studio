@@ -152,7 +152,7 @@ A contract test (`tests/quality/test_eval_articles_sync.py`) enforces the sync a
    python3 scripts/dump_eval_articles_static.py
    ```
 
-   This writes (or overwrites) `config/eval_articles_data/{subagent}/articles.json` from the DB. It applies the junk filter so the snapshot matches what the extractor actually sees.
+   This writes (or overwrites) `config/eval_articles_data/{subagent}/articles.json` from the DB with the full article content used by evals.
 
 3. **Add the URL to `config/eval_articles.yaml`** under the correct subagent with an initial `expected_count`. If you don't know the right count yet, set it to `0` and update it after running evals.
 
