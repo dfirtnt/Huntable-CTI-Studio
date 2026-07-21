@@ -9,15 +9,16 @@ The canonical spreadsheet lives on OneDrive and is often open in Excel. Excel
 holds its own in-memory copy; when it autosaves (or OneDrive syncs Excel's
 buffer), it overwrites whatever you wrote to disk — last-writer-wins, silently.
 During the cmdline audit this erased two separate rounds of corrected values.
+It is the operator's canonical worksheet, but the eval runtime does not read it.
 
 - Before any xlsx write, ask the operator to CLOSE the workbook in Excel and
   confirm.
 - Back up first: `shutil.copy2(src, src + '.bak-YYYY-MM-DD-<scope>')`.
 - After writing, copy the file to /tmp and re-verify with
   `openpyxl.load_workbook(..., data_only=True)`.
-- The other four sinks (yaml, articles.json, ground_truth.json, DB) are never
-  at risk — Excel doesn't touch them. If the xlsx later looks reverted, check
-  those four before assuming data loss.
+- The three repo fixture sinks (yaml, articles.json, ground_truth.json) are never
+  at risk - Excel does not touch them. If the xlsx later looks reverted, check
+  those three before assuming data loss.
 
 ## xlsx GroundTruth format: flat array, not extractor output
 
@@ -75,10 +76,14 @@ Guardrails:
 
 ## Curated-truth DB rows must not stamp config provenance
 
-When a fixture correction expands an eval set (new articles) or replaces stale
-DB expected values, the operator may direct an INSERT/UPDATE into
-`subagent_evaluations`. Those rows are **operator-curated truth**, not eval-run
-results. They differ from eval-run rows by what's NULL:
+As of 2026-07-21, curated DB writes are obsolete entirely: fixture-first evals read
+expected values from repo fixtures at run time, and `subagent_evaluations` rows are
+derived run output. The historical context below applies only when interpreting old
+rows.
+
+Historically, before fixture-first evals, curated rows were sometimes written to
+`subagent_evaluations` during fixture corrections. Those rows were not eval-run
+results. They differed from eval-run rows by what was NULL:
 
 |                              | eval-run row | curated-truth row |
 |------------------------------|--------------|-------------------|
@@ -88,18 +93,15 @@ results. They differ from eval-run rows by what's NULL:
 | `workflow_config_id`,        | populated    | **NULL**          |
 | `workflow_config_version`    | (legit prov.) | (no prov. to claim) |
 
-Stamping curated rows with the currently-active `workflow_config_id`/`_version`
-out of habit creates **false provenance** — the row reads as "produced by an
-eval run against config vX" when it was never run by any config. The next eval
-reads `expected_count`/`expected_items` from the latest row per URL via
-`DISTINCT ON ... ORDER BY created_at DESC`; nothing in that path needs the
-config columns, so leaving them NULL is correct and honest.
+Historically, stamping a curated row with the currently active
+`workflow_config_id`/`_version` created **false provenance** - the row read as
+"produced by an eval run against config vX" when it was never run by any config.
+Fixture-first evals do not read expected values from this table.
 
-Detection: a curated insert has `COUNT(actual_count) = 0` across its latest
-rows. A real eval run has all of `actual_count`, `score`, and
-`workflow_execution_id` populated. The first sign someone confused the two is
-usually a `created_at` cluster of identical timestamps (curated batches) sharing
-one `workflow_config_version` (the active one when the operator ran the audit).
+Historical detection: a curated insert has `COUNT(actual_count) = 0` across its
+latest rows. A real eval run has all of `actual_count`, `score`, and
+`workflow_execution_id` populated. A `created_at` cluster of identical timestamps
+sharing one `workflow_config_version` is a clue that old rows were curated.
 
 ## Placeholders are intentional
 
