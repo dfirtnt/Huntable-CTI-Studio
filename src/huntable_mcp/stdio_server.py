@@ -14,7 +14,7 @@ from mcp.server.fastmcp import FastMCP
 
 from src.database.async_manager import AsyncDatabaseManager
 from src.huntable_mcp import resources
-from src.huntable_mcp.tools import articles, query, sigma, sources, workflow
+from src.huntable_mcp.tools import articles, evals, query, sigma, sources, workflow
 from src.services.rag_service import RAGService
 
 # .env is the single source of truth for credentials. override=True ensures .env
@@ -97,6 +97,7 @@ sigma.register(mcp, _rag_svc, _db_svc)
 sources.register(mcp, _db_svc)
 workflow.register(mcp, _db_svc)
 query.register(mcp, _db_svc)
+evals.register(mcp, _db_svc)
 resources.register(mcp, _db_svc)
 
 logger.info("Huntable CTI Studio MCP server ready.")

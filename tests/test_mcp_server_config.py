@@ -96,3 +96,21 @@ def test_mcp_server_registers_ambient_context_resources(monkeypatch):
     assert "huntable://sigma-queue/status" in uris
     assert "huntable://sigma-queue/recent-rules" in uris
     assert "huntable://workflow/active-config" in uris
+
+
+@pytest.mark.unit
+def test_mcp_server_registers_eval_diagnosis_tools(monkeypatch):
+    """The exported stdio MCP server should expose eval bundle and diagnosis tools."""
+    monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://cti_user:explicit@localhost:5432/db")
+    monkeypatch.setenv("POSTGRES_PASSWORD", "pw123")
+
+    mod = import_module("src.huntable_mcp.stdio_server")
+    with _no_dotenv:
+        reload(mod)
+
+    tool_names = {tool.name for tool in mod.mcp._tool_manager.list_tools()}
+
+    assert "get_eval_bundle" in tool_names
+    assert "diagnose_eval_bundle" in tool_names
+    assert "list_eval_diagnoses" in tool_names
+    assert "export_diagnosed_eval_bundles" in tool_names
