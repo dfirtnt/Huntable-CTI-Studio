@@ -102,12 +102,38 @@ def _validate_content_length(content: str, existing_content: str | None = None) 
         )
 
 
+def _validate_ground_truth_retention(
+    content: str,
+    existing_content: str | None,
+    expected_items: list[str],
+) -> None:
+    """Reject a refresh that removes a ground-truth item the fixture previously supported."""
+    if not existing_content or not expected_items:
+        return
+
+    existing_normalized = _normalize_ground_truth_text(existing_content)
+    refreshed_normalized = _normalize_ground_truth_text(content)
+    lost_items = [
+        item
+        for item in expected_items
+        if _normalize_ground_truth_text(item) in existing_normalized
+        and _normalize_ground_truth_text(item) not in refreshed_normalized
+    ]
+    if lost_items:
+        raise ValueError(f"refresh lost {len(lost_items)} previously supported ground-truth item(s): {lost_items[0]!r}")
+
+
+def _normalize_ground_truth_text(value: str) -> str:
+    return re.sub(r"\s+", " ", value.lower()).strip()
+
+
 async def process_subagent(
     subagent_key: str,
     articles_def: list[dict],
     sem: asyncio.Semaphore,
     fetched_by_url: dict[str, tuple[str, str]],
     existing_by_url: dict[str, str],
+    expected_by_url: dict[str, list[str]],
 ) -> list[dict]:
     """Fetch all external URLs for a subagent and return list of article dicts."""
     if not isinstance(articles_def, list) or not articles_def:
@@ -127,6 +153,7 @@ async def process_subagent(
                     fetched_by_url[url] = await fetch_article(url)
             title, content = fetched_by_url[url]
             _validate_content_length(content, existing_by_url.get(url))
+            _validate_ground_truth_retention(content, existing_by_url.get(url), expected_by_url.get(url, []))
             out.append(
                 {
                     "url": url,
@@ -176,7 +203,25 @@ async def main_async() -> None:
                     for article in json.load(f)
                     if isinstance(article, dict) and article.get("url")
                 }
-        out_articles = await process_subagent(subagent_key, articles_def, sem, fetched_by_url, existing_by_url)
+        expected_by_url: dict[str, list[str]] = {}
+        ground_truth_path = DATA_DIR / subagent_key / "ground_truth.json"
+        if ground_truth_path.exists():
+            with open(ground_truth_path) as f:
+                expected_by_url = {
+                    article["url"]: article["expected_items"]
+                    for article in json.load(f)
+                    if isinstance(article, dict)
+                    and article.get("url")
+                    and isinstance(article.get("expected_items"), list)
+                }
+        out_articles = await process_subagent(
+            subagent_key,
+            articles_def,
+            sem,
+            fetched_by_url,
+            existing_by_url,
+            expected_by_url,
+        )
         if not out_articles:
             print(f"  No articles fetched for {subagent_key}.")
             continue

@@ -51,7 +51,7 @@
       "nltest /dclist:",
       "net group \"Domain Admins\" /domain",
       "\"C:\\Program Files\\WinRAR\\WinRAR.exe\" a -ep1 -scul -r0 -iext -imon1 -- . F:\\Shares\\REDACTED\\REDACTED",
-      "\"C:\\Program Files\\WinRAR\\WinRAR.exe\" x -iext -ow -ver -imon1   \"F:\\Shares\\<redacted>\\<redacted>\\<redacted>.zip\" F:\\Shares\\<redacted>\\<redacted>\\<redacted>\\"
+      "\"C:\\Program Files\\WinRAR\\WinRAR.exe\" x -iext -ow -ver -imon1 \u2013 \"F:\\Shares\\<redacted>\\<redacted>\\<redacted>.zip\" F:\\Shares\\<redacted>\\<redacted>\\<redacted>\\"
     ]
   },
   {

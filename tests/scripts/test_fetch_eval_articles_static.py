@@ -24,3 +24,18 @@ def test_rejects_major_regression_against_committed_fixture():
 
 def test_allows_substantial_first_fetch_without_prior_fixture():
     fetch_eval_articles_static._validate_content_length("x" * 500)
+
+
+def test_rejects_refresh_that_loses_previously_supported_ground_truth_item():
+    with pytest.raises(ValueError, match="lost 1 previously supported"):
+        fetch_eval_articles_static._validate_ground_truth_retention(
+            "unrelated refreshed body",
+            "prior body with reg save HKLM\\SYSTEM C:\\temp\\system.hive",
+            ["reg save HKLM\\SYSTEM C:\\temp\\system.hive"],
+        )
+
+
+def test_allows_preexisting_ground_truth_gap():
+    fetch_eval_articles_static._validate_ground_truth_retention(
+        "refreshed body", "prior body", ["missing in both bodies"]
+    )
