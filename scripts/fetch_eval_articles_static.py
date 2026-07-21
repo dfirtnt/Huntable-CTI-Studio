@@ -60,6 +60,8 @@ USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 )
+MIN_EVAL_ARTICLE_CHARS = 500
+MIN_EXISTING_CONTENT_RATIO = 0.5
 
 
 def _is_localhost_url(url: str) -> bool:
@@ -80,11 +82,24 @@ async def fetch_article(url: str) -> tuple[str, str]:
         html = response.content.decode("utf-8", errors="replace")
 
     content = ContentCleaner.clean_html(html)
-    if not content.strip():
-        raise ValueError("cleaned article content is empty")
+    _validate_content_length(content)
     title_match = re.search(r"<title[^>]*>(.*?)</title>", html, flags=re.IGNORECASE | re.DOTALL)
     title = ContentCleaner.html_to_text(title_match.group(1)) if title_match else "Untitled Article"
     return title or "Untitled Article", content
+
+
+def _validate_content_length(content: str, existing_content: str | None = None) -> None:
+    """Reject bot-wall shells and unexpectedly truncated refreshes."""
+    content_length = len(content.strip())
+    if content_length < MIN_EVAL_ARTICLE_CHARS:
+        raise ValueError(
+            f"cleaned article content is too short ({content_length} chars; "
+            f"minimum {MIN_EVAL_ARTICLE_CHARS})"
+        )
+    if existing_content and content_length < len(existing_content.strip()) * MIN_EXISTING_CONTENT_RATIO:
+        raise ValueError(
+            f"cleaned article content regressed from {len(existing_content.strip())} to {content_length} chars"
+        )
 
 
 async def process_subagent(
@@ -92,6 +107,7 @@ async def process_subagent(
     articles_def: list[dict],
     sem: asyncio.Semaphore,
     fetched_by_url: dict[str, tuple[str, str]],
+    existing_by_url: dict[str, str],
 ) -> list[dict]:
     """Fetch all external URLs for a subagent and return list of article dicts."""
     if not isinstance(articles_def, list) or not articles_def:
@@ -110,6 +126,7 @@ async def process_subagent(
                 async with sem:
                     fetched_by_url[url] = await fetch_article(url)
             title, content = fetched_by_url[url]
+            _validate_content_length(content, existing_by_url.get(url))
             out.append(
                 {
                     "url": url,
@@ -150,7 +167,16 @@ async def main_async() -> None:
             print(f"{subagent_key}: no external URLs to fetch (only localhost or empty).")
             continue
         print(f"{subagent_key}: fetching {len(external)} URL(s)...")
-        out_articles = await process_subagent(subagent_key, articles_def, sem, fetched_by_url)
+        out_path = DATA_DIR / subagent_key / "articles.json"
+        existing_by_url: dict[str, str] = {}
+        if out_path.exists():
+            with open(out_path) as f:
+                existing_by_url = {
+                    article["url"]: article.get("content", "")
+                    for article in json.load(f)
+                    if isinstance(article, dict) and article.get("url")
+                }
+        out_articles = await process_subagent(subagent_key, articles_def, sem, fetched_by_url, existing_by_url)
         if not out_articles:
             print(f"  No articles fetched for {subagent_key}.")
             continue
