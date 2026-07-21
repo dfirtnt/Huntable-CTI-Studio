@@ -72,7 +72,7 @@ A command is VALID only if ALL conditions are met:
 
 - Executable file: *.exe, *.bat, *.cmd, *.vbs, *.js, *.ps1, *.wsf, *.hta.
 - Shell: cmd.exe, powershell.exe, pwsh.exe.
-- Built-in: dir, cd, copy, move, echo, mkdir, ren, type, del, md, rd, set, etc.
+- Built-in: dir, copy, move, echo, mkdir, ren, type, del, md, rd, set, etc.
 - LOLBin / utility (illustrative, not exhaustive): net, nltest, reg, wmic, schtasks, whoami,
   ipconfig, systeminfo, certutil, bitsadmin, mshta, regsvr32, rundll32, wscript, cscript,
   msiexec, sc, taskkill, psexec, adfind, vssadmin, wevtutil, netsh, route, arp, nslookup,
@@ -114,8 +114,13 @@ Do NOT extract:
 - Bare commands with no arguments/syntax: whoami, ipconfig, hostname.
 - Chains with zero non-trivial components: whoami & hostname.
 - Single-token commands (no spaces).
-- Multi-line commands, visually wrapped commands, commands using continuation chars (^, PowerShell backtick).
+- Multi-line commands, visually wrapped commands, or commands with a continuation character at the END of
+  a physical line (^ in cmd, PowerShell backtick).
 - Commands that require reconstruction from multiple lines or fields.
+- `cd <path>`: SKIP. A standalone `cd` changes process-local shell state only and leaves no observable
+  artifact in any telemetry channel. Built-ins remain valid when their invocation produces an observable
+  effect, such as a file being created, written, deleted, or renamed (`dir > x`, `del`, `copy`, `ren`,
+  and `mkdir`).
 - Behavioral descriptions, summaries, hypotheticals ("attackers could run...", "a possible command...").
 - Commands inside malware source code (C, C++, Python, Go, Rust, .NET, VB).
 - Command FRAGMENTS matched inside detection logic — a `CommandLine|contains:`, `|re:`, `|startswith:`,
@@ -206,7 +211,9 @@ observability, not interestingness.
 
 - Commands are single-line only.
 - If a command is split across multiple physical lines -> SKIP.
-- Continuation characters (^ in cmd, backtick in PowerShell) -> SKIP.
+- A continuation character at the END of a physical line (^ in cmd, backtick in PowerShell) -> SKIP.
+  A mid-token caret on a single line (`c^ur^l`, `p^rin^ce`) is cmd escape-character obfuscation: preserve
+  it verbatim per FIDELITY, and extract the command when it otherwise qualifies.
 - Do NOT concatenate lines to form a command.
 
 ## COUNT SEMANTICS
@@ -327,4 +334,4 @@ COMPLETE-ARTIFACT RULE — a full literal command inside a rule/query is extract
 fragment is not.
 When in doubt, OMIT.
 
-_Last updated: 2026-07-21 -- FIDELITY: strip enclosing `< >` from defanged URLs inside a command line (rendering artifact, not typed input); defanging itself still preserved verbatim._
+_Last updated: 2026-07-21 -- FIDELITY: strip enclosing `< >` from defanged URLs inside a command line (rendering artifact, not typed input); defanging itself still preserved verbatim. Clarified `cd` exclusion and continuation-character line-ending scope._
