@@ -35,7 +35,6 @@ if _venv_python.exists():
 try:
     import httpx
     import yaml
-    from bs4 import BeautifulSoup
 except ModuleNotFoundError as e:
     print(
         "Missing dependency:",
@@ -51,6 +50,8 @@ except ModuleNotFoundError as e:
 
 project_root = _project_root
 sys.path.insert(0, str(project_root))
+
+from src.utils.content import ContentCleaner  # noqa: E402
 
 CONFIG_EVAL_ARTICLES = project_root / "config" / "eval_articles.yaml"
 DATA_DIR = project_root / "config" / "eval_articles_data"
@@ -78,22 +79,19 @@ async def fetch_article(url: str) -> tuple[str, str]:
         response.raise_for_status()
         html = response.content.decode("utf-8", errors="replace")
 
-    soup = BeautifulSoup(html, "html.parser")
-    for tag in soup(["script", "style", "meta", "noscript", "iframe"]):
-        tag.decompose()
-    content_text = soup.get_text(separator=" ", strip=True)
-    sanitized = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", "", content_text)
-    sanitized = re.sub(r"\s+", " ", sanitized).strip()
-
-    title_tag = soup.find("title")
-    title = (title_tag.get_text().strip() if title_tag else "") or "Untitled Article"
-    return title, sanitized
+    content = ContentCleaner.clean_html(html)
+    if not content.strip():
+        raise ValueError("cleaned article content is empty")
+    title_match = re.search(r"<title[^>]*>(.*?)</title>", html, flags=re.IGNORECASE | re.DOTALL)
+    title = ContentCleaner.html_to_text(title_match.group(1)) if title_match else "Untitled Article"
+    return title or "Untitled Article", content
 
 
 async def process_subagent(
     subagent_key: str,
     articles_def: list[dict],
     sem: asyncio.Semaphore,
+    fetched_by_url: dict[str, tuple[str, str]],
 ) -> list[dict]:
     """Fetch all external URLs for a subagent and return list of article dicts."""
     if not isinstance(articles_def, list) or not articles_def:
@@ -107,20 +105,23 @@ async def process_subagent(
             print(f"  Skip (localhost): {url[:60]}...")
             continue
         expected_count = article_def.get("expected_count", 0)
-        async with sem:
-            try:
-                title, content = await fetch_article(url)
-                out.append(
-                    {
-                        "url": url,
-                        "title": title,
-                        "content": content,
-                        "expected_count": expected_count,
-                    }
-                )
-                print(f"  OK: {url[:55]}... ({len(content)} chars)")
-            except Exception as e:
-                print(f"  FAIL: {url[:55]}... {e}")
+        try:
+            if url not in fetched_by_url:
+                async with sem:
+                    fetched_by_url[url] = await fetch_article(url)
+            title, content = fetched_by_url[url]
+            out.append(
+                {
+                    "url": url,
+                    "title": title,
+                    "content": content,
+                    "expected_count": expected_count,
+                }
+            )
+            print(f"  OK: {url[:55]}... ({len(content)} chars)")
+        except Exception as e:
+            print(f"  FAIL: {url[:55]}... {e}")
+            return []
     return out
 
 
@@ -138,6 +139,7 @@ async def main_async() -> None:
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     sem = asyncio.Semaphore(3)  # limit concurrent fetches
+    fetched_by_url: dict[str, tuple[str, str]] = {}
 
     for subagent_key, articles_def in subagents.items():
         if not isinstance(articles_def, list) or not articles_def:
@@ -148,7 +150,7 @@ async def main_async() -> None:
             print(f"{subagent_key}: no external URLs to fetch (only localhost or empty).")
             continue
         print(f"{subagent_key}: fetching {len(external)} URL(s)...")
-        out_articles = await process_subagent(subagent_key, articles_def, sem)
+        out_articles = await process_subagent(subagent_key, articles_def, sem, fetched_by_url)
         if not out_articles:
             print(f"  No articles fetched for {subagent_key}.")
             continue

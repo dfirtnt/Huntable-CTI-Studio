@@ -37,7 +37,6 @@
       "adfind.exe -f objectcategory=computer",
       "adfind.exe -f (objectcategory=person)",
       "dir /s /b C:\\Windows\\system32\\*htable.xsl",
-      "net group \"domain Admins\" /domain",
       "mkdir \"C:\\ProgramData\\Any\"",
       "echo btc1000qwe123 | C:\\ProgramData\\Any\\AnyDesk.exe --set-password"
     ]

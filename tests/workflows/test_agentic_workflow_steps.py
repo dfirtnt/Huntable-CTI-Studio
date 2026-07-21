@@ -211,16 +211,25 @@ class TestJunkFilterNode:
         assert result["current_step"] == "junk_filter"
         assert result["status"] == "running"
 
-    def test_eval_bypasses_junk_filter_and_uses_complete_article_content(self, article, execution, config_obj):
+    def test_eval_uses_committed_fixture_content(self, article, execution, config_obj):
         db_session = _make_db_session(article, execution)
         nodes = _capture_nodes(db_session)
+        fixture_content = "command one\ncommand two"
 
-        result = nodes["junk_filter"](_default_state(config={"eval_run": True, "junk_filter_threshold": 0.8}))
+        result = nodes["junk_filter"](
+            _default_state(
+                config={
+                    "eval_run": True,
+                    "junk_filter_threshold": 0.8,
+                    "eval_fixture_content": fixture_content,
+                }
+            )
+        )
 
-        assert result["filtered_content"] == article.content
+        assert result["filtered_content"] == fixture_content
         assert result["junk_filter_result"]["bypassed"] is True
         assert result["junk_filter_result"]["chunks_removed"] == 0
-        assert execution.junk_filter_result["reason"] == "eval_run_uses_full_article_content"
+        assert execution.junk_filter_result["reason"] == "eval_run_uses_committed_fixture_content"
 
     def test_junk_filter_marks_failed_on_empty_content(self, article, execution, config_obj):
         """Junk filter sets status=failed when article has no content."""
@@ -294,6 +303,46 @@ class TestJunkFilterNode:
 # ---------------------------------------------------------------------------
 # Rank Agent Bypass Node
 # ---------------------------------------------------------------------------
+
+
+class TestExtractAgentConfigSnapshot:
+    @pytest.mark.asyncio
+    async def test_extract_agent_uses_models_and_prompt_from_execution_snapshot(self, article, execution, config_obj):
+        """An eval keeps its saved provider/model/prompt after active config changes."""
+        active_prompt = json.dumps({"role": "active", "user_template": "active {content}"})
+        snapshot_prompt = json.dumps({"role": "snapshot", "user_template": "snapshot {content}"})
+        config_obj.agent_models = {
+            "CmdlineExtract_model": "active-model",
+            "CmdlineExtract_provider": "lmstudio",
+        }
+        config_obj.agent_prompts = {"CmdlineExtract": {"prompt": active_prompt}}
+        db_session = _make_db_session(article, execution)
+        nodes = _capture_nodes(db_session, trigger_service_config=config_obj)
+        snapshot_models = {
+            "CmdlineExtract_model": "snapshot-model",
+            "CmdlineExtract_provider": "openai",
+        }
+        snapshot_prompts = {"CmdlineExtract": {"prompt": snapshot_prompt}}
+
+        with patch("src.workflows.agentic_workflow.LLMService") as mock_llm_service:
+            mock_llm_service.return_value.run_extraction_agent = AsyncMock(return_value={"cmdline": []})
+            await nodes["extract_agent"](
+                _default_state(
+                    filtered_content="fixture command content",
+                    config={
+                        "eval_run": True,
+                        "subagent_eval": "cmdline",
+                        "agent_models": snapshot_models,
+                        "agent_prompts": snapshot_prompts,
+                    },
+                )
+            )
+
+        mock_llm_service.assert_called_once_with(config_models=snapshot_models)
+        call_kwargs = mock_llm_service.return_value.run_extraction_agent.await_args.kwargs
+        assert call_kwargs["model_name"] == "snapshot-model"
+        assert call_kwargs["provider"] == "openai"
+        assert call_kwargs["prompt_config"]["role"] == "snapshot"
 
 
 class TestRankAgentBypassNode:

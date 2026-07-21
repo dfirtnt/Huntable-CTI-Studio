@@ -46,6 +46,12 @@ class TestContentCleaner:
         assert "<head>" not in cleaned
         assert "<body>" not in cleaned
 
+    def test_clean_html_preserves_main_inside_footer_named_wrapper(self, content_cleaner):
+        """A footer-named layout wrapper must not erase a semantic article main."""
+        html = '<div class="footer-section"><main><p>DFIR article body with enough text to qualify as main content.</p></main></div>'
+
+        assert content_cleaner.clean_html(html) == "DFIR article body with enough text to qualify as main content."
+
     def test_clean_html_with_scripts(self, content_cleaner):
         """Test HTML cleaning with scripts and styles."""
         html = """

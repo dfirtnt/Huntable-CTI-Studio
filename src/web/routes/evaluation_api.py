@@ -2,6 +2,7 @@
 API routes for agent evaluation management.
 """
 
+import hashlib
 import io
 import json
 import logging
@@ -1170,9 +1171,18 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                 url = mapping["url"]
                 article_id = mapping["article_id"]
                 expected_count = expected_counts.get(url, 0)
+                static_entry = url_to_static.get(url)
+
+                # Eval article snapshots are versioned test inputs.  A live DB row
+                # supplies the workflow/article identity, but must never replace the
+                # committed content being scored.
+                if not static_entry or not static_entry.get("content"):
+                    raise HTTPException(
+                        status_code=422,
+                        detail=f"No committed eval fixture content for URL: {url}",
+                    )
 
                 if not article_id:
-                    static_entry = url_to_static.get(url)
                     if static_entry:
                         agent_name = _SUBAGENT_TO_AGENT.get(canonical_subagent_name)
                         if (
@@ -1293,6 +1303,10 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                         "skip_rank_agent": True,  # Bypass rank agent for evals
                         "skip_sigma_generation": True,  # Skip SIGMA generation for evals
                         "subagent_eval": canonical_subagent_name,
+                        "eval_fixture_content": static_entry["content"],
+                        "eval_fixture_content_sha256": hashlib.sha256(
+                            static_entry["content"].encode("utf-8")
+                        ).hexdigest(),
                         "cmdline_attention_preprocessor_enabled": getattr(
                             active_config, "cmdline_attention_preprocessor_enabled", True
                         ),

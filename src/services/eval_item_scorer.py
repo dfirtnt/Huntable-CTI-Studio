@@ -12,6 +12,7 @@ import re
 from dataclasses import dataclass
 
 AGENT_EVAL_FBETA_BETA = 0.5
+_CMD_WRAPPER_RE = re.compile(r"^(?:cmd(?:\.exe)?|%comspec%)\s+/[ck]\s+(.+)$", re.IGNORECASE)
 
 
 def calculate_f_beta(precision: float, recall: float, beta: float = AGENT_EVAL_FBETA_BETA) -> float:
@@ -25,12 +26,17 @@ def calculate_f_beta(precision: float, recall: float, beta: float = AGENT_EVAL_F
 def _normalize(s: str) -> str:
     """Normalize a command-line string for comparison.
 
+    - Strip a leading cmd /c or /k wrapper (cmd, cmd.exe, or %COMSPEC%)
     - Lowercase
     - Strip leading/trailing whitespace
     - Collapse internal whitespace runs to a single space
     - Defang IOC bracket notation: [.] -> .  [:]  -> :
     """
-    s = s.lower().strip()
+    s = s.strip()
+    wrapper_match = _CMD_WRAPPER_RE.match(s)
+    if wrapper_match:
+        s = wrapper_match.group(1).strip()
+    s = s.lower()
     s = re.sub(r"\[\.\]", ".", s)
     s = re.sub(r"\[:\]", ":", s)
     s = re.sub(r"\s+", " ", s)

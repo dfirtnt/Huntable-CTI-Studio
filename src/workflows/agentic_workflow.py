@@ -1474,14 +1474,19 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             if not article:
                 raise ValueError(f"Article {state['article_id']} not found in database")
 
-            # Validate article content
-            if not article.content or len(article.content.strip()) == 0:
+            config = state.get("config")
+            eval_fixture_content = (
+                config.get("eval_fixture_content") if isinstance(config, dict) and config.get("eval_run") else None
+            )
+            content = eval_fixture_content if isinstance(eval_fixture_content, str) else article.content
+
+            # Validate the selected source content.
+            if not content or len(content.strip()) == 0:
                 raise ValueError(f"Article {article.id} has no content to filter")
 
             # Evals exercise the extraction agent against the complete article. They
             # must not inherit the production junk-filter threshold or terminate
             # before extraction when the filter rejects an article.
-            config = state.get("config")
             if isinstance(config, dict) and config.get("eval_run"):
                 execution = (
                     db_session.query(AgenticWorkflowExecutionTable)
@@ -1490,10 +1495,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 )
                 junk_filter_result = {
                     "bypassed": True,
-                    "reason": "eval_run_uses_full_article_content",
-                    "filtered_length": len(article.content),
-                    "original_length": len(article.content),
-                    "chunks_kept": (len(article.content) // 1000) + 1,
+                    "reason": "eval_run_uses_committed_fixture_content",
+                    "filtered_length": len(content),
+                    "original_length": len(content),
+                    "chunks_kept": (len(content) // 1000) + 1,
                     "chunks_removed": 0,
                     "is_huntable": True,
                     "confidence": None,
@@ -1504,7 +1509,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     db_session.commit()
                 return {
                     **state,
-                    "filtered_content": article.content,
+                    "filtered_content": content,
                     "junk_filter_result": junk_filter_result,
                     "current_step": "junk_filter",
                     "status": state.get("status", "running"),
@@ -1520,7 +1525,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Use configured filter threshold
             try:
                 filter_result = content_filter.filter_content(
-                    article.content,
+                    content,
                     min_confidence=junk_filter_threshold,
                     hunt_score=article.article_metadata.get("threat_hunting_score", 0)
                     if article.article_metadata
@@ -1541,13 +1546,13 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             if execution:
                 execution.current_step = "junk_filter"
                 # Calculate chunks kept (total chunks - removed chunks)
-                total_chunks = (len(article.content) // 1000) + 1  # Rough estimate
+                total_chunks = (len(content) // 1000) + 1  # Rough estimate
                 chunks_removed = len(filter_result.removed_chunks) if filter_result.removed_chunks else 0
                 chunks_kept = total_chunks - chunks_removed if chunks_removed > 0 else total_chunks
 
                 execution.junk_filter_result = {
                     "filtered_length": len(filter_result.filtered_content) if filter_result.filtered_content else 0,
-                    "original_length": len(article.content),
+                    "original_length": len(content),
                     "chunks_kept": chunks_kept,
                     "chunks_removed": chunks_removed,
                     "is_huntable": filter_result.is_huntable,
@@ -1564,7 +1569,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 termination_details = {
                     "confidence": filter_result.confidence,
                     "threshold": junk_filter_threshold,
-                    "original_length": len(article.content),
+                    "original_length": len(content),
                 }
                 if execution:
                     mark_execution_completed(
@@ -1939,9 +1944,16 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             if not config_obj:
                 raise ValueError("No active workflow configuration found")
 
+            state_config = state.get("config", {}) if isinstance(state.get("config"), dict) else {}
+            configured_models = state_config.get("agent_models")
+            configured_prompts = state_config.get("agent_prompts")
+            agent_models_config = configured_models if isinstance(configured_models, dict) else (config_obj.agent_models or {})
+            agent_prompts_config = (
+                configured_prompts if isinstance(configured_prompts, dict) else (config_obj.agent_prompts or {})
+            )
+
             # Check if this is a subagent eval run
             config_snapshot = execution.config_snapshot if execution else {}
-            state_config = state.get("config", {})
             subagent_eval = normalize_subagent_name(
                 config_snapshot.get("subagent_eval") or state_config.get("subagent_eval")
             )
@@ -1975,7 +1987,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Get config models for LLMService
             # For eval runs, exclude SigmaAgent to avoid loading the SIGMA model unnecessarily
             # For subagent evals, only include models for the agent being evaluated
-            agent_models = config_obj.agent_models if config_obj else None
+            agent_models = agent_models_config.copy()
             max_extraction_retries = 5
             if agent_models:
                 # Check if this is an eval run (check both config_snapshot and state config)
@@ -2050,30 +2062,23 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             disabled_agents_cfg = set()
             extract_settings = {}
 
-            # Try to get disabled agents from config_obj.agent_prompts
-            if config_obj:
+            # The workflow state is the execution snapshot.  Fall back to active
+            # configuration only when a legacy execution lacks those fields.
+            if agent_prompts_config:
                 logger.info(
-                    f"[Workflow {state['execution_id']}] config_obj found. agent_prompts type: {type(config_obj.agent_prompts)}, is None: {config_obj.agent_prompts is None}"
+                    f"[Workflow {state['execution_id']}] using execution-snapshot agent prompts: "
+                    f"{list(agent_prompts_config.keys())}"
                 )
-                if config_obj.agent_prompts is not None:
-                    logger.info(
-                        f"[Workflow {state['execution_id']}] agent_prompts keys: {list(config_obj.agent_prompts.keys()) if isinstance(config_obj.agent_prompts, dict) else 'not a dict'}"
-                    )
-                if config_obj.agent_prompts and isinstance(config_obj.agent_prompts, dict):
-                    extract_settings = (
-                        config_obj.agent_prompts.get("ExtractAgentSettings")
-                        or config_obj.agent_prompts.get("ExtractAgent")
-                        or {}
-                    )
-                    logger.info(
-                        f"[Workflow {state['execution_id']}] Found extract_settings from agent_prompts: {extract_settings}"
-                    )
-                else:
-                    logger.warning(
-                        f"[Workflow {state['execution_id']}] agent_prompts not available or not a dict. agent_prompts type: {type(config_obj.agent_prompts)}, value: {config_obj.agent_prompts}"
-                    )
+                extract_settings = (
+                    agent_prompts_config.get("ExtractAgentSettings")
+                    or agent_prompts_config.get("ExtractAgent")
+                    or {}
+                )
+                logger.info(
+                    f"[Workflow {state['execution_id']}] Found extract_settings from agent prompts: {extract_settings}"
+                )
             else:
-                logger.warning(f"[Workflow {state['execution_id']}] config_obj is None - cannot read disabled agents")
+                logger.warning(f"[Workflow {state['execution_id']}] agent prompts unavailable - cannot read disabled agents")
 
             # Fallback to state config if extract_settings is still empty
             state_config = state.get("config", {}) if isinstance(state.get("config", {}), dict) else {}
@@ -2261,11 +2266,11 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     prompt_config = None
 
                     # Get prompt from config
-                    if not config_obj or not config_obj.agent_prompts or agent_name not in config_obj.agent_prompts:
+                    if agent_name not in agent_prompts_config:
                         logger.error(f"{agent_name} prompt not found in workflow config, skipping")
                         continue
 
-                    agent_prompt_data = config_obj.agent_prompts[agent_name]
+                    agent_prompt_data = agent_prompts_config[agent_name]
                     if not isinstance(agent_prompt_data.get("prompt"), str):
                         logger.error(f"{agent_name} prompt in config is not a string, skipping")
                         continue

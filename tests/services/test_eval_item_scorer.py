@@ -51,6 +51,22 @@ def test_ioc_defang_normalization():
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize("wrapper", ["cmd /c", "cmd.exe /k", "%COMSPEC% /c"])
+def test_cmd_execution_wrappers_match_unwrapped_ground_truth(wrapper):
+    """Only supported cmd execution wrappers compare as the contained command."""
+    result = score_items(["net group \"Domain Admins\" /domain"], [f"{wrapper} net group \"Domain Admins\" /domain"])
+    assert result.matched_count == 1
+    assert result.missed_count == 0
+    assert result.extra_count == 0
+
+
+@pytest.mark.unit
+def test_powershell_wrapper_is_not_stripped():
+    result = score_items(["whoami /groups"], ["powershell.exe /c whoami /groups"])
+    assert result.matched_count == 0
+
+
+@pytest.mark.unit
 def test_zero_extraction_against_nonempty_expected():
     """Critical case: model returned no items but ground truth has 9 items.
 

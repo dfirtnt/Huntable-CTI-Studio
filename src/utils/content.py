@@ -150,10 +150,23 @@ class ContentCleaner:
         if not html:
             return ""
         soup = BeautifulSoup(html, "lxml")
+        # Keep a semantic-content fallback before pruning. Some publishers place
+        # their article <main> inside a wrapper with a footer-like class; pruning
+        # that wrapper must not erase the article body.
+        original_candidates = [
+            node for selector in ContentCleaner._MAIN_CONTENT_SELECTORS if (node := soup.select_one(selector)) is not None
+        ]
+        original_main_content = max(original_candidates, key=lambda node: len(node.get_text(strip=True)), default=None)
+        original_main_html = str(original_main_content) if original_main_content else ""
+        original_main_text = ContentCleaner.html_to_text(original_main_html) if original_main_html else ""
         ContentCleaner.prepare_soup_for_selection(soup)
         main_content = ContentCleaner.find_main_content_node(soup)
         if main_content:
-            return ContentCleaner.html_to_text(str(main_content))
+            cleaned_main_text = ContentCleaner.html_to_text(str(main_content))
+            if not original_main_text or len(cleaned_main_text) >= len(original_main_text) * 0.5:
+                return cleaned_main_text
+        if original_main_html:
+            return original_main_text
         return ContentCleaner.html_to_text(str(soup))
 
     @staticmethod
