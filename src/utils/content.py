@@ -284,8 +284,10 @@ class ContentCleaner:
             cleaned = re.sub(r"‚Äö√Ñ√¥s", "'s", cleaned)
             cleaned = re.sub(r"‚Äö√Ñ√¥", "'", cleaned)
 
-            # Additional cleanup for other encoding issues
-            cleaned = re.sub(r"[^\x00-\x7F]+", " ", cleaned)  # Replace remaining non-ASCII with spaces
+            # Preserve non-ASCII detection signal. Unicode dashes, quotes, and
+            # non-Latin text can be literal telemetry or threat-report content;
+            # stripping them makes ground truth and detections unmatchable.
+            cleaned = cleaned.replace("\u00a0", " ")
 
             return cleaned
         except Exception as e:

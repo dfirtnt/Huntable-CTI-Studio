@@ -23,6 +23,33 @@ class TestContentCleaner:
         assert hasattr(content_cleaner, "enhanced_html_clean")
         assert hasattr(content_cleaner, "html_to_text")
 
+    def test_clean_text_characters_preserves_unicode_detection_signal(self, content_cleaner):
+        """Unicode punctuation and non-Latin text are valid observable content."""
+        assert content_cleaner.clean_text_characters("powershell \u2013enc SQBFAFgA") == "powershell \u2013enc SQBFAFgA"
+        assert (
+            content_cleaner.clean_text_characters("mklink /D \u201cC:\\ProgramData\\roming\u201d x")
+            == "mklink /D \u201cC:\\ProgramData\\roming\u201d x"
+        )
+        assert (
+            content_cleaner.clean_text_characters(
+                "\u0410\u0442\u0430\u043a\u0430 \u043d\u0430 \u0441\u0435\u0440\u0432\u0435\u0440"
+            )
+            == "\u0410\u0442\u0430\u043a\u0430 \u043d\u0430 \u0441\u0435\u0440\u0432\u0435\u0440"
+        )
+        assert (
+            content_cleaner.clean_text_characters("\u6076\u610f\u8f6f\u4ef6\u5206\u6790")
+            == "\u6076\u610f\u8f6f\u4ef6\u5206\u6790"
+        )
+
+    def test_clean_text_characters_keeps_existing_repairs(self, content_cleaner):
+        assert content_cleaner.clean_text_characters("It\u201a\u00c4\u00f6\u221a\u00d1\u221a\u00a5s bad") == "It's bad"
+        assert content_cleaner.clean_text_characters("a\x00b\x1fc") == "abc"
+        assert content_cleaner.clean_text_characters("x\ufffdy") == "xy"
+        assert (
+            content_cleaner.clean_text_characters('net\u00a0group "Domain Admins" /domain')
+            == 'net group "Domain Admins" /domain'
+        )
+
     def test_clean_html_basic(self, content_cleaner):
         """Test basic HTML cleaning."""
         html = """
