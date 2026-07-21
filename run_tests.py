@@ -30,8 +30,11 @@ Test Infrastructure:
   * Requires APP_ENV=test and TEST_DATABASE_URL (auto-set by wrapper)
   * Blocks cloud LLM API keys by default (set ALLOW_CLOUD_LLM_IN_TESTS=true to allow)
 - Test containers auto-started for stateful tests (api, ui, integration, e2e, all)
-  * Postgres:5433, Redis:6380, Web:8002 (isolated from production ports)
+  * Postgres:5433, Redis:6380 (isolated from production ports)
   * Ephemeral containers (no named volumes, data destroyed on removal)
+  * There is no test web container: docker-compose.test.yml defines postgres_test
+    and redis_test only. Runs that collect tests/api/ get USE_ASGI_CLIENT=1 and
+    exercise the app in-process against TEST_DATABASE_URL instead.
 - Failure reports automatically generated (with timestamps to preserve history):
   * test-results/failures_pytest_YYYYMMDD_HHMMSS.log - Pytest failure summary
   * test-results/failures_playwright_YYYYMMDD_HHMMSS.log - Playwright failure summary

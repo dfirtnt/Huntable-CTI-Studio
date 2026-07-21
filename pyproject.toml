@@ -294,7 +294,7 @@ markers = [
     "quarantine: Quarantined tests that need fixes (tracked in SKIPPED_TESTS.md)",
     "ui_smoke: UI smoke tests (reclassified Playwright tests)",
     "sigma: SIGMA rule enrichment tests",
-    "agent_config_mutation: UI tests that mutate agent/workflow/settings config (run eval, save config, save settings)",
+    "agent_config_mutation: Tests that mutate agent/workflow/settings config (run eval, save config, save settings); refused against the dev app on :8001",
     "timeout: Per-test timeout in seconds (from pytest-timeout)",
     "lmstudio: Tests requiring a running LMStudio instance (skipped automatically when LMStudio is unreachable)",
     "docs: Documentation build and sanity tests",

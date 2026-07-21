@@ -7,10 +7,17 @@ preset management, and agent prompt endpoints.
 NOTE: These tests require a running application with database access.
 They use the ASGI client which connects to the real database.
 Set USE_ASGI_CLIENT=1 to run with in-process app.
+
+Every test here writes a real active workflow config version (PUT /config, the
+prompt endpoints, preset save/delete), so the module carries the
+``agent_config_mutation`` marker: the async_client fixture refuses to point these
+at the dev app on :8001, whose database holds the operator's live config.
 """
 
 import httpx
 import pytest
+
+pytestmark = pytest.mark.agent_config_mutation
 
 
 class TestWorkflowConfigCRUD:

@@ -172,22 +172,13 @@ except ImportError as e:
     print(f"Warning: Test environment guard not available: {e}")
     TEST_ENV_GUARD_AVAILABLE = False
 
-# Import test environment utilities (optional)
-try:
-    from tests.utils.async_debug_utils import AsyncDebugger
-    from tests.utils.performance_profiler import PerformanceProfiler
-    from tests.utils.test_environment import (
-        TestContext,
-        get_test_config,
-        validate_test_environment,
-    )
-
-    # Load test configuration
-    test_config = get_test_config()
-    ENVIRONMENT_UTILS_AVAILABLE = True
-except ImportError:
-    ENVIRONMENT_UTILS_AVAILABLE = False
-    test_config = None
+# Test environment utilities are not available: tests.utils.test_environment
+# exposes only assert_test_environment.  This used to be a try/except import of
+# TestContext / get_test_config / validate_test_environment, none of which exist,
+# so it always fell through to the except branch and left the flag False.  The
+# flag is kept (pinned) because fixtures below still branch on it.
+ENVIRONMENT_UTILS_AVAILABLE = False
+test_config = None
 
 # Optional: failure analyzer (missing module must not break conftest or teardown)
 try:
@@ -249,19 +240,50 @@ def test_environment_config():
 
 @pytest.fixture(scope="session")
 async def test_environment_validation():
-    """Validate test environment before running tests."""
-    if not ENVIRONMENT_UTILS_AVAILABLE:
-        # Skip validation if utilities not available - allows tests to run
-        return True
-    is_valid = await validate_test_environment()
-    if not is_valid:
-        pytest.exit("Test environment validation failed")
-    return is_valid
+    """Validate test environment before running tests.
+
+    No-op: the validator this used to call does not exist.  The real guard runs
+    at bootstrap in pytest_configure via assert_test_environment().
+    """
+    return True
 
 
 def _use_asgi_client() -> bool:
     """Use in-process ASGI client instead of live server (no server on 127.0.0.1 needed)."""
     return os.getenv("USE_ASGI_CLIENT", "").lower() in ("1", "true", "yes")
+
+
+# The dev app listens here and is backed by the dev database.  There is no test
+# web container -- docker-compose.test.yml defines postgres_test and redis_test
+# only -- so the live-server branch of async_client has nowhere safe to point by
+# default.  Read-only checks against the dev app are fine (that is what smoke
+# does); writes are not.
+DEV_APP_PORT = 8001
+
+
+def _live_server_blocked_reason(port: int, mutates_config: bool) -> str | None:
+    """Return why a live-server async_client must be refused, or None to allow it.
+
+    PUT /api/workflow/config and the prompt/preset endpoints create real active
+    config versions.  Aimed at the dev app they rewrite the operator's live
+    configuration, and the bootstrap guard does not catch it: assert_test_environment
+    only validates TEST_DATABASE_URL/DATABASE_URL and knows nothing about which
+    host the HTTP fixture talks to.
+    """
+    if not mutates_config or port != DEV_APP_PORT:
+        return None
+    if os.getenv("ALLOW_LIVE_DEV_SERVER") == "1":
+        return None
+    return (
+        f"Refusing to run a config-mutating test against the dev app on 127.0.0.1:{port}. "
+        "That app is backed by the dev database, so PUT /api/workflow/config (and the "
+        "prompt/preset endpoints) would write real active-config versions into your live "
+        "config.\n"
+        "  Fix: run via run_tests.py, or export USE_ASGI_CLIENT=1 to use the in-process "
+        "app bound to TEST_DATABASE_URL.\n"
+        "  Override: ALLOW_LIVE_DEV_SERVER=1, only if rewriting the dev config is what "
+        "you actually want."
+    )
 
 
 def _ensure_workflow_config_columns() -> None:
@@ -372,10 +394,13 @@ def seed_workflow_execution(ensure_workflow_config_schema):
 
 
 @pytest_asyncio.fixture
-async def async_client(
-    ensure_workflow_config_schema, test_environment_config
-) -> AsyncGenerator[httpx.AsyncClient, None]:
-    """Async HTTP client for API testing. With USE_ASGI_CLIENT=1 uses in-process app (no live server)."""
+async def async_client(request, ensure_workflow_config_schema) -> AsyncGenerator[httpx.AsyncClient, None]:
+    """Async HTTP client for API testing. With USE_ASGI_CLIENT=1 uses in-process app (no live server).
+
+    Without it the client targets a live server on TEST_PORT (default 8001, the dev
+    app).  Tests marked ``agent_config_mutation`` are refused on that path -- see
+    _live_server_blocked_reason.
+    """
     timeout = httpx.Timeout(60.0)  # Increased timeout for RAG operations
     if _use_asgi_client():
         from httpx import ASGITransport
@@ -385,11 +410,13 @@ async def async_client(
         transport = ASGITransport(app=app, raise_app_exceptions=False)
         client = httpx.AsyncClient(transport=transport, base_url="http://testserver", timeout=timeout)
     else:
-        port = (
-            int(os.getenv("TEST_PORT", "8001"))
-            if test_environment_config is None
-            else getattr(test_environment_config, "test_port", 8001)
+        port = int(os.getenv("TEST_PORT", str(DEV_APP_PORT)))
+        blocked = _live_server_blocked_reason(
+            port,
+            mutates_config=request.node.get_closest_marker("agent_config_mutation") is not None,
         )
+        if blocked:
+            pytest.fail(blocked, pytrace=False)
         base_url = f"http://127.0.0.1:{port}"
         client = httpx.AsyncClient(base_url=base_url, timeout=timeout)
     try:
@@ -696,18 +723,6 @@ def failure_reporter():
 
 
 @pytest.fixture
-def async_debugger():
-    """Provide async debugger."""
-    return AsyncDebugger()
-
-
-@pytest.fixture
-def performance_profiler():
-    """Provide performance profiler."""
-    return PerformanceProfiler()
-
-
-@pytest.fixture
 def test_output_formatter():
     """Provide test output formatter."""
     if OUTPUT_FORMATTER_AVAILABLE and TestOutputFormatter is not None:
@@ -768,6 +783,10 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "quarantine: Quarantined tests that need fixes (tracked in SKIPPED_TESTS.md)")
     config.addinivalue_line("markers", "ui_smoke: UI smoke tests (reclassified Playwright tests)")
     config.addinivalue_line("markers", "sources: Sources page tests")
+    config.addinivalue_line(
+        "markers",
+        "agent_config_mutation: Tests that mutate agent/workflow/settings config; refused against the dev app on :8001",
+    )
     config.addinivalue_line("markers", "regression: Regression tests for previously fixed behavior")
     config.addinivalue_line("markers", "contract: API/schema contract tests")
     config.addinivalue_line("markers", "security: Security hardening and abuse-case tests")
@@ -885,21 +904,7 @@ def pytest_runtest_logreport(report):
         logger.warning("Test skipped: %s", report.nodeid)
 
 
-# Environment-specific test skipping utilities
-# Note: These are utility functions, not pytest hooks
-def skip_on_ci(reason="Test skipped in CI environment"):
-    """Skip test in CI environment."""
-    if test_config.context == TestContext.CI:
-        pytest.skip(reason)
-
-
-def skip_on_docker(reason="Test skipped in Docker environment"):
-    """Skip test in Docker environment."""
-    if test_config.context == TestContext.DOCKER:
-        pytest.skip(reason)
-
-
-def skip_on_localhost(reason="Test skipped on localhost"):
-    """Skip test on localhost."""
-    if test_config.context == TestContext.LOCALHOST:
-        pytest.skip(reason)
+# Environment-specific skip helpers (skip_on_ci / skip_on_docker / skip_on_localhost)
+# were removed: they dereferenced test_config.context, and test_config has always
+# been None because tests.utils.test_environment never provided get_test_config.
+# Nothing called them. Use the `ci` / docker markers or an explicit env check.
