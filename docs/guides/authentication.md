@@ -43,6 +43,15 @@ only when direct network access to the app is blocked outside the application
 Requests presenting identity headers without the marker (or from an untrusted
 peer) are treated as impersonation attempts: ignored and logged.
 
+Successful authentication is audited at the upstream identity proxy / IdP
+boundary, not by Huntable. In `trusted_header` mode the app consumes a verified
+identity that has already passed the proxy login flow; it does not own login,
+logout, MFA, session refresh, or failed-login events. Preserve the
+`X-Request-ID` header in proxy logs so successful proxy-auth events can be
+correlated with Huntable authorization denials and application mutation audits.
+Forward proxy / IdP logs to the deployment SIEM or append-only log store for
+successful-auth evidence.
+
 ## Request IDs
 
 Every response carries `X-Request-ID` (echoed from the proxy if provided, else
@@ -127,6 +136,9 @@ mandatory-audit coverage:
 Authorization denials are recorded best-effort through the central auth
 middleware. Non-transactional side effects (Celery dispatch, subprocess restarts,
 external PRs) are audited with an explicit status rather than claimed atomic.
+Successful authentication is intentionally deferred to the upstream proxy / IdP
+audit trail; Huntable records authorization denials and application-side
+mutations once a verified identity reaches the app.
 
 Sensitive values are redacted recursively by key name, by connection-string
 shape, and by value-level scrubbing of embedded credentials (URL `user:pass@`,
