@@ -816,10 +816,12 @@ class SubagentEvaluationTable(Base):
 
     # Item-level ground truth and results (optional -- only populated when expected_items is set)
     expected_items = Column(JSONB, nullable=True)  # Ground truth item list from articles.json
+    acceptable_items = Column(JSONB, nullable=True)  # Justified alternate readings excluded from scoring
     actual_items = Column(JSONB, nullable=True)  # Items extracted by the agent
     matched_count = Column(Integer, nullable=True)
     missed_count = Column(Integer, nullable=True)
     extra_count = Column(Integer, nullable=True)
+    neutral_count = Column(Integer, nullable=True)
 
     # Workflow execution and config tracking
     workflow_execution_id = Column(Integer, ForeignKey("agentic_workflow_executions.id"), nullable=True, index=True)

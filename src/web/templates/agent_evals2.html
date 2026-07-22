@@ -1164,6 +1164,7 @@ function renderItemLevelTable(rows) {
         { text: 'Matched', cls: 'center', style: 'min-width: 60px;', title: 'Items in both expected and extracted' },
         { text: 'Missed', cls: 'center', style: 'min-width: 60px;', title: 'Expected but not extracted' },
         { text: 'Extra', cls: 'center', style: 'min-width: 60px;', title: 'Extracted but not expected' },
+        { text: 'Neutral', cls: 'center', style: 'min-width: 60px;', title: 'Justified alternate readings excluded from scoring' },
         { text: 'Status', cls: '', style: 'min-width: 100px;' },
     ];
     headers.forEach(function(h) {
@@ -1188,7 +1189,8 @@ function renderItemLevelTable(rows) {
         let precision = null;
         let recall = null;
         let f05 = null;
-        if (hasItemScoring && actual != null && actual > 0) precision = r.matched_count / actual;
+        const scoredActual = hasItemScoring ? r.matched_count + r.extra_count : actual;
+        if (hasItemScoring && scoredActual > 0) precision = r.matched_count / scoredActual;
         if (hasItemScoring && expected != null && expected > 0) recall = r.matched_count / expected;
         if (precision != null && recall != null) f05 = calculateFBeta(precision, recall, AGENT_EVAL_F_BETA);
 
@@ -1282,6 +1284,7 @@ function renderItemLevelTable(rows) {
         tr.appendChild(mkCountCell(hasItemScoring ? r.matched_count : null, 'count-matched'));
         tr.appendChild(mkCountCell(hasItemScoring ? r.missed_count : null, 'count-missed'));
         tr.appendChild(mkCountCell(hasItemScoring ? r.extra_count : null, 'count-extra'));
+        tr.appendChild(mkCountCell(hasItemScoring ? r.neutral_count : null, 'count-neutral'));
 
         // Status cell
         const tdStatus = document.createElement('td');
@@ -1359,7 +1362,7 @@ function renderAggregateSummary(rows) {
 
     let totalP = 0, totalR = 0, perfectRecall = 0;
     annotated.forEach(function(r) {
-        const p = (r.actual_count > 0) ? r.matched_count / r.actual_count : 1;
+        const p = ((r.matched_count + r.extra_count) > 0) ? r.matched_count / (r.matched_count + r.extra_count) : 1;
         const rc = (r.expected_count > 0) ? r.matched_count / r.expected_count : 1;
         totalP += p;
         totalR += rc;
@@ -1421,7 +1424,9 @@ function showItemDetail(row) {
     const matched = row.matched_count || 0;
     const missed = row.missed_count || 0;
     const extra = row.extra_count || 0;
-    const precision = actual > 0 ? matched / actual : 1;
+    const neutral = row.neutral_count || 0;
+    const scoredActual = matched + extra;
+    const precision = scoredActual > 0 ? matched / scoredActual : 1;
     const recall = expected > 0 ? matched / expected : 1;
     const f05 = calculateFBeta(precision, recall, AGENT_EVAL_F_BETA);
 
@@ -1450,7 +1455,7 @@ function showItemDetail(row) {
         return div;
     }
 
-    summaryGrid.appendChild(mkScoreCell('Precision', precision, matched + '/' + actual));
+    summaryGrid.appendChild(mkScoreCell('Precision', precision, matched + '/' + scoredActual));
     summaryGrid.appendChild(mkScoreCell('Recall', recall, matched + '/' + expected));
     summaryGrid.appendChild(mkScoreCell('F0.5', f05, '1.25*P*R/(0.25*P+R)'));
 

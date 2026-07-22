@@ -27,7 +27,7 @@ from src.database.models import (
     SubagentEvaluationTable,
 )
 from src.services.eval_bundle_service import EvalBundleService, compute_sha256_json
-from src.services.eval_item_scorer import calculate_f_beta
+from src.services.eval_item_scorer import calculate_f_beta, score_items
 from src.services.llm_service import LLMService
 from src.services.sigma_eval_service import load_sigma_ground_truth
 from src.utils.subagent_utils import build_subagent_lookup_values, normalize_subagent_name
@@ -258,6 +258,31 @@ def _actual_count_from_agent_result(subagent_name: str, agent_result: dict) -> i
     return len(items) if isinstance(items, list) else 0
 
 
+def _actual_items_from_agent_result(subagent_name: str, agent_result: dict) -> list[str]:
+    """Return the literal values from a direct static-eval agent result."""
+    item_keys = {
+        "cmdline": ("cmdline_items", "items"),
+        "hunt_queries": ("queries", "items"),
+        "process_lineage": ("items",),
+        "registry_artifacts": ("registry_artifacts", "items"),
+        "windows_services": ("windows_services", "items"),
+        "scheduled_tasks": ("scheduled_tasks", "items"),
+        "network_indicators": ("network_indicators", "items"),
+    }.get(subagent_name, ("items",))
+    raw_items = next((agent_result.get(key) for key in item_keys if isinstance(agent_result.get(key), list)), [])
+    values = []
+    for item in raw_items:
+        value = item
+        if isinstance(item, dict):
+            value = next(
+                (item.get(field) for field in ("cmdline", "command", "commandline", "value", "name", "query") if isinstance(item.get(field), str)),
+                None,
+            )
+        if isinstance(value, str):
+            values.append(value)
+    return values
+
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/evaluations", tags=["evaluations"])
@@ -318,6 +343,7 @@ def _load_static_eval_articles(subagent_key: str) -> dict[str, dict]:
                     "content": entry.get("content", ""),
                     "expected_count": entry.get("expected_count", 0),
                     "expected_items": None,
+                    "acceptable_items": None,
                 }
     except Exception as e:
         logger.warning("Failed to load static eval articles for %s: %s", subagent_key, e)
@@ -336,6 +362,9 @@ def _load_static_eval_articles(subagent_key: str) -> dict[str, dict]:
                     items = gt.get("expected_items")
                     if url and url in out and isinstance(items, list):
                         out[url]["expected_items"] = items
+                        acceptable_items = gt.get("acceptable_items")
+                        if isinstance(acceptable_items, list):
+                            out[url]["acceptable_items"] = acceptable_items
         except Exception as e:
             logger.warning("Failed to load ground_truth.json for %s: %s", subagent_key, e)
 
@@ -1063,9 +1092,11 @@ async def get_subagent_eval_articles(
             found = article_id is not None or from_static
             expected_count = article_def.get("expected_count", 0)
             expected_items = article_def.get("expected_items")
+            acceptable_items = article_def.get("acceptable_items")
             # Also pull expected_items from static snapshot when present
             if not expected_items and from_static and url in url_to_static:
                 expected_items = url_to_static[url].get("expected_items")
+                acceptable_items = url_to_static[url].get("acceptable_items")
             title = ""
             if from_static and url in url_to_static:
                 title = (url_to_static[url].get("title") or "").strip()
@@ -1077,6 +1108,7 @@ async def get_subagent_eval_articles(
                     "title": title or None,
                     "expected_count": expected_count,
                     "expected_items": expected_items,
+                    "acceptable_items": acceptable_items,
                     "article_id": article_id,
                     "found": found,
                     "from_static": from_static,
@@ -1159,10 +1191,14 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
 
             # Build expected_items map from static snapshots (optional, item-level scoring)
             url_to_expected_items: dict[str, list[str] | None] = {}
+            url_to_acceptable_items: dict[str, list[dict[str, str]] | None] = {}
             for _url, _entry in url_to_static.items():
                 items = _entry.get("expected_items")
                 if isinstance(items, list):
                     url_to_expected_items[_url] = items
+                acceptable_items = _entry.get("acceptable_items")
+                if isinstance(acceptable_items, list):
+                    url_to_acceptable_items[_url] = acceptable_items
 
             eval_records = []
             executions = []
@@ -1236,13 +1272,27 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                             if actual_count is None:
                                 actual_count = 0
                             score = actual_count - expected_count
+                            expected_items = url_to_expected_items.get(url)
+                            acceptable_items = url_to_acceptable_items.get(url)
+                            actual_items = _actual_items_from_agent_result(canonical_subagent_name, agent_result or {})
+                            item_score = (
+                                score_items(expected_items, actual_items, acceptable_items)
+                                if isinstance(expected_items, list)
+                                else None
+                            )
                             eval_record = SubagentEvaluationTable(
                                 subagent_name=canonical_subagent_name,
                                 article_url=url,
                                 article_id=None,
                                 expected_count=expected_count,
-                                expected_items=url_to_expected_items.get(url),
+                                expected_items=expected_items,
+                                acceptable_items=acceptable_items,
                                 actual_count=actual_count,
+                                actual_items=actual_items if item_score else None,
+                                matched_count=item_score.matched_count if item_score else None,
+                                missed_count=item_score.missed_count if item_score else None,
+                                extra_count=item_score.extra_count if item_score else None,
+                                neutral_count=item_score.neutral_count if item_score else None,
                                 score=score,
                                 workflow_config_id=active_config.id,
                                 workflow_config_version=active_config.version,
@@ -1325,6 +1375,7 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                     article_id=article_id,
                     expected_count=expected_count,
                     expected_items=url_to_expected_items.get(url),
+                    acceptable_items=url_to_acceptable_items.get(url),
                     workflow_execution_id=execution.id,
                     workflow_config_id=active_config.id,
                     workflow_config_version=active_config.version,
@@ -1785,10 +1836,12 @@ async def get_subagent_eval_results(
                         "quota_exceeded": quota_exceeded,
                         # Item-level fields (present when expected_items was set)
                         "expected_items": record.expected_items,
+                        "acceptable_items": record.acceptable_items,
                         "actual_items": record.actual_items,
                         "matched_count": record.matched_count,
                         "missed_count": record.missed_count,
                         "extra_count": record.extra_count,
+                        "neutral_count": record.neutral_count,
                     }
                 )
 

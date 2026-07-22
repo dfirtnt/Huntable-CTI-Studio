@@ -85,6 +85,26 @@ def test_ground_truth_entry_schema(subagent):
         for j, item in enumerate(entry["expected_items"]):
             assert isinstance(item, str), f"{subagent}[{i}].expected_items[{j}]: items must be strings"
             assert item.strip(), f"{subagent}[{i}].expected_items[{j}]: item is blank"
+        acceptable_items = entry.get("acceptable_items", [])
+        assert isinstance(acceptable_items, list), f"{subagent}[{i}]: acceptable_items must be a list"
+        expected_normalized = {_normalize(item) for item in entry["expected_items"]}
+        acceptable_normalized = set()
+        for j, acceptable in enumerate(acceptable_items):
+            assert isinstance(acceptable, dict), f"{subagent}[{i}].acceptable_items[{j}]: entry must be an object"
+            value = acceptable.get("value")
+            justification = acceptable.get("justification")
+            assert isinstance(value, str) and value.strip(), f"{subagent}[{i}].acceptable_items[{j}]: value must be non-blank"
+            assert isinstance(justification, str) and justification.strip(), (
+                f"{subagent}[{i}].acceptable_items[{j}]: justification must be non-blank"
+            )
+            normalized = _normalize(value)
+            assert normalized not in expected_normalized, (
+                f"{subagent}[{i}].acceptable_items[{j}]: must not duplicate expected_items"
+            )
+            assert normalized not in acceptable_normalized, (
+                f"{subagent}[{i}].acceptable_items[{j}]: duplicate acceptable item"
+            )
+            acceptable_normalized.add(normalized)
 
 
 @pytest.mark.parametrize("subagent", SUBAGENTS)

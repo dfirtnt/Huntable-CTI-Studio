@@ -22,11 +22,13 @@ def _make_eval_record(expected_items: list[str], subagent_name: str = "cmdline")
     rec.subagent_name = subagent_name
     rec.expected_count = len(expected_items)
     rec.expected_items = expected_items
+    rec.acceptable_items = None
     rec.actual_count = None
     rec.actual_items = None
     rec.matched_count = None
     rec.missed_count = None
     rec.extra_count = None
+    rec.neutral_count = None
     rec.score = None
     rec.status = "pending"
     rec.completed_at = None
@@ -87,6 +89,23 @@ def test_partial_match_populates_item_metrics():
     assert eval_record.matched_count == 1
     assert eval_record.missed_count == 2  # ipconfig /all + net user
     assert eval_record.extra_count == 1  # tasklist /svc
+
+
+@pytest.mark.unit
+def test_acceptable_item_is_persisted_separately_from_extra_items():
+    expected = ["whoami /groups"]
+    eval_record = _make_eval_record(expected)
+    eval_record.acceptable_items = [{"value": "tasklist /svc", "justification": "Equivalent supported reading."}]
+    extraction_result = {
+        "subresults": {"cmdline": {"items": [{"value": "whoami /groups"}, {"value": "tasklist /svc"}], "count": 2}}
+    }
+    db_session = MagicMock()
+
+    _update_single_eval_record(eval_record, _make_execution(extraction_result), db_session)
+
+    assert eval_record.matched_count == 1
+    assert eval_record.extra_count == 0
+    assert eval_record.neutral_count == 1
 
 
 @pytest.mark.unit

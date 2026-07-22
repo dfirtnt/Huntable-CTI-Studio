@@ -137,3 +137,25 @@ def test_returns_dataclass_with_lists():
     assert result.matched == ["a"]
     assert result.missed == ["b"]
     assert result.extra == ["z"]
+
+
+@pytest.mark.unit
+def test_acceptable_item_is_excluded_from_precision_denominator():
+    result = score_items(
+        ["whoami /groups"],
+        ["whoami /groups", "tasklist /svc", "hostname"],
+        [{"value": "tasklist /svc", "justification": "Equivalent supported reading."}],
+    )
+    assert result.matched_count == 1
+    assert result.neutral == ["tasklist /svc"]
+    assert result.neutral_count == 1
+    assert result.extra == ["hostname"]
+    assert result.precision == 0.5
+
+
+@pytest.mark.unit
+def test_acceptable_item_requires_justification_and_cannot_mask_expected_item():
+    with pytest.raises(ValueError, match="justification"):
+        score_items([], ["tasklist /svc"], [{"value": "tasklist /svc"}])
+    with pytest.raises(ValueError, match="must not duplicate expected"):
+        score_items(["tasklist /svc"], ["tasklist /svc"], [{"value": "tasklist /svc", "justification": "No."}])

@@ -157,10 +157,12 @@ class AsyncDatabaseManager:
             col_ddls = [
                 "ALTER TABLE ml_model_versions ADD COLUMN IF NOT EXISTS is_current BOOLEAN NOT NULL DEFAULT FALSE",
                 "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS expected_items JSONB",
+                "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS acceptable_items JSONB",
                 "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS actual_items JSONB",
                 "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS matched_count INTEGER",
                 "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS missed_count INTEGER",
                 "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS extra_count INTEGER",
+                "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS neutral_count INTEGER",
                 "ALTER TABLE sigma_rule_queue ADD COLUMN IF NOT EXISTS behavioral_matches_found INTEGER",
                 "ALTER TABLE sigma_rule_queue ADD COLUMN IF NOT EXISTS total_candidates_evaluated INTEGER",
                 # QA deprecation (2026-05-22): drop legacy columns no longer in the ORM

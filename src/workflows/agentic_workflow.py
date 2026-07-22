@@ -1011,11 +1011,12 @@ def _update_single_eval_record(
             actual_items = _extract_actual_items(eval_record.subagent_name, subresults)
             if actual_items is None:
                 actual_items = []
-            result = score_items(eval_record.expected_items, actual_items)
+            result = score_items(eval_record.expected_items, actual_items, eval_record.acceptable_items)
             eval_record.actual_items = actual_items
             eval_record.matched_count = result.matched_count
             eval_record.missed_count = result.missed_count
             eval_record.extra_count = result.extra_count
+            eval_record.neutral_count = result.neutral_count
 
         # Update eval record
         eval_record.actual_count = actual_count
