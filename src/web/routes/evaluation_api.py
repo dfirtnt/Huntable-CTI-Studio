@@ -371,6 +371,40 @@ def _load_static_eval_articles(subagent_key: str) -> dict[str, dict]:
     return out
 
 
+def _load_static_eval_fixture_by_url(article_url: str | None) -> str | None:
+    """Return committed eval text for an article URL when the corpus contains it."""
+    if not isinstance(article_url, str) or not article_url:
+        return None
+
+    for data_dir in _EVAL_ARTICLES_DATA_DIR.iterdir():
+        if not data_dir.is_dir():
+            continue
+        entries = _load_static_eval_articles(data_dir.name)
+        entry = entries.get(article_url)
+        content = entry.get("content") if entry else None
+        if isinstance(content, str) and content:
+            return content
+    return None
+
+
+def _workflow_config_snapshot(config: AgenticWorkflowConfigTable) -> dict:
+    """Capture every runtime workflow setting needed by an evaluation execution."""
+    return {
+        "min_hunt_score": config.min_hunt_score,
+        "ranking_threshold": config.ranking_threshold,
+        "similarity_threshold": config.similarity_threshold,
+        "junk_filter_threshold": config.junk_filter_threshold,
+        "sigma_fallback_enabled": config.sigma_fallback_enabled,
+        "agent_models": config.agent_models or {},
+        "agent_prompts": config.agent_prompts or {},
+        "rank_agent_enabled": config.rank_agent_enabled,
+        "cmdline_attention_preprocessor_enabled": config.cmdline_attention_preprocessor_enabled,
+        "proc_tree_attention_preprocessor_enabled": config.proc_tree_attention_preprocessor_enabled,
+        "config_id": config.id,
+        "config_version": config.version,
+    }
+
+
 def _load_preset_expected_by_url(subagent: str) -> dict[str, int]:
     """Load predetermined expected_count by article_url from eval_articles.yaml."""
     config_path = _ROOT / "config" / "eval_articles.yaml"
@@ -656,55 +690,37 @@ async def run_evaluation(request: Request, eval_request: EvaluationRunRequest):
                         logger.warning(f"Config {config_id} not found")
                         continue
 
-                    # Create execution with config snapshot
-                    # Note: Workflow uses active config, so we activate this config temporarily
-                    # For proper eval support, workflow should be modified to use config_snapshot when present
-                    original_active = (
-                        db_session.query(AgenticWorkflowConfigTable)
-                        .filter(AgenticWorkflowConfigTable.is_active.is_(True))
-                        .first()
+                    config_snapshot = _workflow_config_snapshot(config)
+                    config_snapshot.update(
+                        {
+                            "eval_run": True,
+                            "skip_rank_agent": True,
+                        }
                     )
-
-                    # Temporarily activate eval config
-                    if original_active and original_active.id != config.id:
-                        original_active.is_active = False
-                    config.is_active = True
-                    db_session.commit()
+                    fixture_content = _load_static_eval_fixture_by_url(article.canonical_url)
+                    if fixture_content is not None:
+                        config_snapshot["eval_fixture_content"] = fixture_content
+                        config_snapshot["eval_fixture_content_sha256"] = hashlib.sha256(
+                            fixture_content.encode("utf-8")
+                        ).hexdigest()
 
                     execution = AgenticWorkflowExecutionTable(
                         article_id=article_id,
                         status="pending",
-                        config_snapshot={
-                            "min_hunt_score": config.min_hunt_score,
-                            "ranking_threshold": config.ranking_threshold,
-                            "similarity_threshold": config.similarity_threshold,
-                            "agent_models": config.agent_models or {},
-                            "agent_prompts": config.agent_prompts or {},
-                            "rank_agent_enabled": config.rank_agent_enabled
-                            if hasattr(config, "rank_agent_enabled")
-                            else True,
-                            "config_id": config.id,
-                            "config_version": config.version,
-                            "eval_run": True,
-                            "skip_rank_agent": True,  # Bypass rank agent for evals
-                            "original_config_id": original_active.id if original_active else None,
-                        },
+                        config_snapshot=config_snapshot,
                     )
                     db_session.add(execution)
                     db_session.commit()
                     db_session.refresh(execution)
 
-                    # Trigger workflow via Celery (will use the now-active config).
-                    # Stagger submissions via broker countdown so concurrent workers
-                    # don't race on DB connections during os_detection.
+                    # Trigger workflow via Celery. The execution snapshot is the
+                    # complete configuration authority for this eval.
                     trigger_agentic_workflow.apply_async(
                         args=[article_id, execution.id],
                         countdown=stagger_idx * _EVAL_STAGGER_SECONDS,
                     )
                     stagger_idx += 1
 
-                    # Note: Config remains active - user should restore original manually
-                    # Or implement proper config restoration after workflow completes
                     logger.info(f"Eval execution {execution.id}: Using config {config.id} (v{config.version})")
 
                     executions.append(

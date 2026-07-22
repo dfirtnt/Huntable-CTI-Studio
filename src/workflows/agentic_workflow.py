@@ -1941,17 +1941,11 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 )
             article_platforms = [_normalize_platform_value(platform) for platform in article_platforms]
 
-            config_obj = trigger_service.get_active_config()
-            if not config_obj:
-                raise ValueError("No active workflow configuration found")
-
             state_config = state.get("config", {}) if isinstance(state.get("config"), dict) else {}
             configured_models = state_config.get("agent_models")
             configured_prompts = state_config.get("agent_prompts")
-            agent_models_config = configured_models if isinstance(configured_models, dict) else (config_obj.agent_models or {})
-            agent_prompts_config = (
-                configured_prompts if isinstance(configured_prompts, dict) else (config_obj.agent_prompts or {})
-            )
+            agent_models_config = configured_models if isinstance(configured_models, dict) else {}
+            agent_prompts_config = configured_prompts if isinstance(configured_prompts, dict) else {}
 
             # Check if this is a subagent eval run
             config_snapshot = execution.config_snapshot if execution else {}
@@ -3725,10 +3719,25 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                 f"Found existing execution {execution.id} for article {article_id}, status: {execution.status}, has config_snapshot: {execution.config_snapshot is not None}"
             )
 
-        # Get config
-        config_obj = trigger_service.get_active_config()
+        snapshot = execution.config_snapshot if isinstance(execution.config_snapshot, dict) else {}
+        snapshot_is_complete = all(
+            key in snapshot
+            for key in (
+                "min_hunt_score",
+                "ranking_threshold",
+                "similarity_threshold",
+                "junk_filter_threshold",
+                "agent_models",
+                "agent_prompts",
+                "config_id",
+                "config_version",
+            )
+        )
+        config_obj = None if snapshot_is_complete else trigger_service.get_active_config()
         config = (
-            {
+            dict(snapshot)
+            if snapshot_is_complete
+            else {
                 "min_hunt_score": config_obj.min_hunt_score if config_obj else 97.0,
                 "ranking_threshold": config_obj.ranking_threshold if config_obj else 6.0,
                 "similarity_threshold": config_obj.similarity_threshold if config_obj else 0.5,
@@ -3749,17 +3758,6 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                 )
                 if config_obj
                 else True,
-            }
-            if config_obj
-            else {
-                "min_hunt_score": 97.0,
-                "ranking_threshold": 6.0,
-                "similarity_threshold": 0.5,
-                "junk_filter_threshold": 0.8,
-                "agent_models": {},
-                "rank_agent_enabled": True,
-                "cmdline_attention_preprocessor_enabled": True,
-                "proc_tree_attention_preprocessor_enabled": True,
             }
         )
 
@@ -3882,8 +3880,7 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
         }
 
         # Get config models for context check (use config if available, otherwise env vars)
-        config_obj = trigger_service.get_active_config()
-        agent_models = config_obj.agent_models if config_obj else None
+        agent_models = config.get("agent_models") if isinstance(config.get("agent_models"), dict) else None
 
         # Set execution context for LLM service tracing
         llm_service = LLMService(config_models=agent_models)
