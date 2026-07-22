@@ -1979,7 +1979,7 @@ tr.q-row-selected td {
 
                     <!-- Test Button -->
                     <div>
-                      <button type="button" onclick="const id = promptForArticleId(2155); if (id) testRankAgent(id);" class="w-full px-4 py-2 btn-workflow text-white text-sm font-medium rounded-md transition-colors">
+                      <button type="button" onclick="promptAndTestRankAgent();" class="w-full px-4 py-2 btn-workflow text-white text-sm font-medium rounded-md transition-colors">
                         <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg> Test Rank Agent
                       </button>
                     </div>
@@ -2075,7 +2075,7 @@ tr.q-row-selected td {
                           </div>
                           <!-- Test + Preset buttons -->
                           <div class="flex gap-2 pt-1">
-                            <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('CmdlineExtract', id);" class="flex-1 px-3 py-2 btn-workflow text-white text-xs font-medium rounded-md transition-colors">&#x26A1; Test CmdlineExtract</button>
+                            <button type="button" onclick="promptAndTestSubAgent('CmdlineExtract');" class="flex-1 px-3 py-2 btn-workflow text-white text-xs font-medium rounded-md transition-colors">&#x26A1; Test CmdlineExtract</button>
                             <button type="button" onclick="saveSubAgentPreset('cmdline')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Save Preset</button>
                             <button type="button" onclick="showConfigPresetListForScope('cmdline')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Load Preset</button>
                           </div>
@@ -2119,7 +2119,7 @@ tr.q-row-selected td {
                             </label>
                           </div>
                           <div class="flex gap-2 pt-1">
-                            <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('ProcTreeExtract', id);" class="flex-1 px-3 py-2 btn-workflow text-white text-xs font-medium rounded-md transition-colors">&#x26A1; Test ProcTreeExtract</button>
+                            <button type="button" onclick="promptAndTestSubAgent('ProcTreeExtract');" class="flex-1 px-3 py-2 btn-workflow text-white text-xs font-medium rounded-md transition-colors">&#x26A1; Test ProcTreeExtract</button>
                             <button type="button" onclick="saveSubAgentPreset('proctree')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Save Preset</button>
                             <button type="button" onclick="showConfigPresetListForScope('proctree')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Load Preset</button>
                           </div>
@@ -2150,7 +2150,7 @@ tr.q-row-selected td {
                           {{ temperature_sliders('huntqueriesextract', 'HuntQueriesExtract') }}
                           <div id="huntqueriesextract-agent-prompt-container"></div>
                           <div class="flex gap-2 pt-1">
-                            <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('HuntQueriesExtract', id);" class="flex-1 px-3 py-2 btn-workflow text-white text-xs font-medium rounded-md transition-colors">&#x26A1; Test HuntQueriesExtract</button>
+                            <button type="button" onclick="promptAndTestSubAgent('HuntQueriesExtract');" class="flex-1 px-3 py-2 btn-workflow text-white text-xs font-medium rounded-md transition-colors">&#x26A1; Test HuntQueriesExtract</button>
                             <button type="button" onclick="saveSubAgentPreset('huntqueries')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Save Preset</button>
                             <button type="button" onclick="showConfigPresetListForScope('huntqueries')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Load Preset</button>
                           </div>
@@ -2183,7 +2183,7 @@ tr.q-row-selected td {
                           {{ temperature_sliders('registryextract', 'RegistryExtract') }}
                           <div id="registryextract-agent-prompt-container"></div>
                           <div class="flex gap-2 pt-1">
-                            <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('RegistryExtract', id);" class="flex-1 px-3 py-2 btn-workflow text-white text-xs font-medium rounded-md transition-colors">&#x26A1; Test RegistryExtract</button>
+                            <button type="button" onclick="promptAndTestSubAgent('RegistryExtract');" class="flex-1 px-3 py-2 btn-workflow text-white text-xs font-medium rounded-md transition-colors">&#x26A1; Test RegistryExtract</button>
                             <button type="button" onclick="saveSubAgentPreset('registry')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Save Preset</button>
                             <button type="button" onclick="showConfigPresetListForScope('registry')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Load Preset</button>
                           </div>
@@ -2216,7 +2216,7 @@ tr.q-row-selected td {
                           {{ temperature_sliders('servicesextract', 'ServicesExtract') }}
                           <div id="servicesextract-agent-prompt-container"></div>
                           <div class="flex gap-2 pt-1">
-                            <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('ServicesExtract', id);" class="flex-1 px-3 py-2 btn-workflow text-white text-xs font-medium rounded-md transition-colors">&#x26A1; Test ServicesExtract</button>
+                            <button type="button" onclick="promptAndTestSubAgent('ServicesExtract');" class="flex-1 px-3 py-2 btn-workflow text-white text-xs font-medium rounded-md transition-colors">&#x26A1; Test ServicesExtract</button>
                             <button type="button" onclick="saveSubAgentPreset('services')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Save Preset</button>
                             <button type="button" onclick="showConfigPresetListForScope('services')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Load Preset</button>
                           </div>
@@ -2249,7 +2249,7 @@ tr.q-row-selected td {
                           {{ temperature_sliders('scheduledtasksextract', 'ScheduledTasksExtract') }}
                           <div id="scheduledtasksextract-agent-prompt-container"></div>
                           <div class="flex gap-2 pt-1">
-                            <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('ScheduledTasksExtract', id);" class="flex-1 px-3 py-2 btn-workflow text-white text-xs font-medium rounded-md transition-colors">&#x26A1; Test ScheduledTasksExtract</button>
+                            <button type="button" onclick="promptAndTestSubAgent('ScheduledTasksExtract');" class="flex-1 px-3 py-2 btn-workflow text-white text-xs font-medium rounded-md transition-colors">&#x26A1; Test ScheduledTasksExtract</button>
                             <button type="button" onclick="saveSubAgentPreset('scheduledtasks')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Save Preset</button>
                             <button type="button" onclick="showConfigPresetListForScope('scheduledtasks')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Load Preset</button>
                           </div>
@@ -2282,7 +2282,7 @@ tr.q-row-selected td {
                           {{ temperature_sliders('networkindicatorextract', 'NetworkIndicatorExtract') }}
                           <div id="networkindicatorextract-agent-prompt-container"></div>
                           <div class="flex gap-2 pt-1">
-                            <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('NetworkIndicatorExtract', id);" class="flex-1 px-3 py-2 btn-workflow text-white text-xs font-medium rounded-md transition-colors">&#x26A1; Test NetworkIndicatorExtract</button>
+                            <button type="button" onclick="promptAndTestSubAgent('NetworkIndicatorExtract');" class="flex-1 px-3 py-2 btn-workflow text-white text-xs font-medium rounded-md transition-colors">&#x26A1; Test NetworkIndicatorExtract</button>
                             <button type="button" onclick="saveSubAgentPreset('networkindicator')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Save Preset</button>
                             <button type="button" onclick="showConfigPresetListForScope('networkindicator')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Load Preset</button>
                           </div>
@@ -2323,7 +2323,7 @@ tr.q-row-selected td {
                         <svg class="w-4 h-4 mt-0.5 text-gray-500 dark:text-gray-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
                         <p class="leading-snug">Test requests run directly on article content. In live workflow, SIGMA ingests observables from Extract Agents (unless full content enabled above).</p>
                       </div>
-                      <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSigmaAgent(id);" class="w-full px-4 py-2 btn-workflow text-white text-sm font-medium rounded-md transition-colors">
+                      <button type="button" onclick="promptAndTestSigmaAgent();" class="w-full px-4 py-2 btn-workflow text-white text-sm font-medium rounded-md transition-colors">
                         &#x26A1; Test SIGMA Agent
                       </button>
                     </div>
@@ -7764,6 +7764,27 @@ async function promptForArticleId(defaultId = 2155) {
         return null;
     }
     return parsedId;
+}
+
+async function promptAndTestSubAgent(agentName) {
+    const articleId = await promptForArticleId();
+    if (articleId !== null) {
+        await testSubAgent(agentName, articleId);
+    }
+}
+
+async function promptAndTestRankAgent() {
+    const articleId = await promptForArticleId();
+    if (articleId !== null) {
+        await testRankAgent(articleId);
+    }
+}
+
+async function promptAndTestSigmaAgent() {
+    const articleId = await promptForArticleId();
+    if (articleId !== null) {
+        await testSigmaAgent(articleId);
+    }
 }
 
 function getContentFilterSettings() {
