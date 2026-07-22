@@ -169,6 +169,23 @@ def test_fetch_failure_without_existing_entry_is_fatal(monkeypatch):
     assert outcome.failed == [("https://example.test/missing", "network unavailable")]
 
 
+def test_permanently_retained_url_is_not_fetched(monkeypatch):
+    url = next(iter(fetch_eval_articles_static.NEVER_REFRESH_URLS))
+
+    async def fetch_article(_url):
+        raise AssertionError("permanently retained URL must not be fetched")
+
+    outcome = _run_process_subagent(
+        monkeypatch,
+        [{"url": url, "expected_count": 13}],
+        {url: {"url": url, "title": "Existing", "content": "existing", "expected_count": 13}},
+        fetch_article,
+    )
+
+    assert outcome.refreshed == 0
+    assert outcome.kept_existing == [(url, "URL is permanently retained after ground-truth retention failure")]
+
+
 def test_shared_url_fetch_is_reused_with_byte_identical_content(monkeypatch):
     calls = 0
 

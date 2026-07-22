@@ -64,6 +64,11 @@ USER_AGENT = (
 )
 MIN_EVAL_ARTICLE_CHARS = 500
 MIN_EXISTING_CONTENT_RATIO = 0.5
+NEVER_REFRESH_URLS = frozenset(
+    {
+        "https://www.proofpoint.com/us/blog/threat-insight/bitter-end-unraveling-eight-years-espionage-antics-part-one",
+    }
+)
 
 
 def _is_localhost_url(url: str) -> bool:
@@ -164,6 +169,8 @@ async def process_subagent(
         expected_count = article_def.get("expected_count", 0)
         existing = existing_by_url.get(url)
         try:
+            if url in NEVER_REFRESH_URLS:
+                raise ValueError("URL is permanently retained after ground-truth retention failure")
             if url in rejected_by_url:
                 raise ValueError(rejected_by_url[url])
             if url in fetch_failures_by_url:
