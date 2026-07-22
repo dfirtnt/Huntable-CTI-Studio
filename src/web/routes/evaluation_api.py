@@ -1449,12 +1449,15 @@ class SigmaEvalRunRequest(BaseModel):
     concurrency_throttle_seconds: float = Field(default=5.0, ge=0.0, le=60.0)
 
 
-def _sigma_eval_config_snapshot(active_config: AgenticWorkflowConfigTable) -> dict:
+def _sigma_eval_config_snapshot(active_config: AgenticWorkflowConfigTable, fixture_content: str) -> dict:
     """Config snapshot for a Sigma eval execution.
 
     Runs the full pipeline through generate_sigma (skip_sigma_generation=False)
     while bypassing the OS-detection and ranking gates, and flags sigma_eval so
     the workflow scores the rules and skips queue promotion.
+
+    ``fixture_content`` is the committed eval article snapshot text (never the
+    live DB row) — see ``agentic_workflow.py``'s ``eval_fixture_content`` read.
     """
     return {
         "min_hunt_score": active_config.min_hunt_score,
@@ -1469,6 +1472,8 @@ def _sigma_eval_config_snapshot(active_config: AgenticWorkflowConfigTable) -> di
         "skip_os_detection": True,
         "skip_rank_agent": True,
         "skip_sigma_generation": False,
+        "eval_fixture_content": fixture_content,
+        "eval_fixture_content_sha256": hashlib.sha256(fixture_content.encode("utf-8")).hexdigest(),
         "cmdline_attention_preprocessor_enabled": getattr(
             active_config, "cmdline_attention_preprocessor_enabled", True
         ),
@@ -1522,6 +1527,7 @@ async def run_sigma_eval(request: Request, eval_request: SigmaEvalRunRequest):
             ground_truth = load_sigma_ground_truth()
             urls_list = list(eval_request.article_urls)
             url_to_id = resolve_articles_by_urls(urls_list)
+            url_to_static = _load_static_eval_articles("sigma")
 
             executions = []
             for url in urls_list:
@@ -1545,10 +1551,20 @@ async def run_sigma_eval(request: Request, eval_request: SigmaEvalRunRequest):
                     )
                     continue
 
+                # Eval article snapshots are versioned test inputs. A live DB row
+                # supplies the workflow/article identity, but must never replace the
+                # committed content being scored (mirrors run_subagent_eval).
+                static_entry = url_to_static.get(url)
+                if not static_entry or not static_entry.get("content"):
+                    raise HTTPException(
+                        status_code=422,
+                        detail=f"No committed eval fixture content for URL: {url}",
+                    )
+
                 execution = AgenticWorkflowExecutionTable(
                     article_id=article_id,
                     status="pending",
-                    config_snapshot=_sigma_eval_config_snapshot(active_config),
+                    config_snapshot=_sigma_eval_config_snapshot(active_config, static_entry["content"]),
                 )
                 db_session.add(execution)
                 db_session.flush()  # get execution.id
