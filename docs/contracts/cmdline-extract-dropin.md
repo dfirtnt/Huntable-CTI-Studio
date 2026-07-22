@@ -22,7 +22,10 @@ This extractor only covers single-line Windows command lines. It does NOT cover
 parent-child process trees, bare registry keys/values, service artifacts, scheduled-task
 artifacts, or the finished detection-logic artifact itself (the Sigma / KQL / SPL / EQL / XQL
 rule or query). A command line stated INSIDE a rule/query IS extractable — see the
-COMPLETE-ARTIFACT RULE. Other out-of-scope items should be ignored.
+COMPLETE-ARTIFACT RULE. It also does NOT extract standalone network indicators (domains, IPs,
+ports, URLs, URI paths, or User-Agent strings); NetworkIndicatorExtract owns those. Extract the
+FULL command line that contains one, and leave the embedded indicator value to NetworkIndicatorExtract.
+Other out-of-scope items should be ignored.
 
 ## INPUT (flexible)
 I will give you ONE of the following each turn:
@@ -120,7 +123,7 @@ never a predicate over the command. Two signals decide, in order:
 1. Matching operator (primary) — the operator discloses fidelity.
    - EXTRACTABLE (full value): Sigma default match or `|equals`; KQL `==` / `=~`; SPL exact match.
    - SKIP (fragment): `|contains`, `|contains|all`, `|startswith`, `|endswith`, `|re`;
-     KQL `contains` / `has` / `matches regex` / `startswith` / `endswith`; SPL `*wildcard*` / `like` / `rex`.
+     KQL `contains` / `has` / `hasprefix` / `matches regex` / `startswith` / `endswith`; SPL `*wildcard*` / `like` / `rex`.
 2. Value shape (fallback when the operator is ambiguous) — does the matched string, on its own,
    satisfy POSITIVE EXTRACTION SCOPE? If yes -> extract; if it is a keyword / substring / regex -> SKIP.
 
