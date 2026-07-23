@@ -438,6 +438,14 @@ ls backups/pre_restore_snapshot_*.sql
 python3 scripts/restore_database.py backups/pre_restore_snapshot_20250907_140201.sql --force
 ```
 
+### Legacy Restore Scripts
+
+Two legacy database restore scripts exist alongside the primary ``restore_database.py`` (v1) used by the UI and ``backup_restore.sh``:
+
+- **``restore_database_v2.py``** — Used by the Settings UI's restore-from-file upload endpoint (``POST /api/backup/restore-from-file``). Offers the same safety features as v1 (pre-restore snapshot, rollback, app-container pausing, ``extract_psql_errors`` guard) in a class-based implementation. Currently live in that one path.
+
+- **``restore_database_v3.py``** — NOT wired into any user-facing path. Uses direct ``psql`` with ``--single-transaction`` + ``ON_ERROR_STOP=on`` (no Docker shell wrapper, atomic restore, reliable exit codes). Its sole unique value is a post-restore ``check_source_attribution_integrity()`` check that warns if the restored database's article canonical_url / source-url mismatch count exceeds a known baseline. See the file header for a full gap analysis. If consolidation is ever pursued, extract that check into ``_restore_common.py`` and remove v3 entirely.
+
 ### Full System Restore
 
 #### Selective Component Restore
