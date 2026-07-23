@@ -1,7 +1,7 @@
 """
-Sigma Repository Sync Service
+Sigma Reference Repository Sync Service
 
-Syncs and indexes Sigma detection rules from the SigmaHQ repository.
+Syncs and indexes reference detection rules from the SigmaHQ repository.
 Parses YAML rules, generates embeddings, and stores in database for semantic search.
 """
 
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class SigmaSyncService:
-    """Service for syncing and indexing Sigma rules from SigmaHQ repository."""
+    """Service for syncing and indexing the SigmaHQ reference repository."""
 
     def __init__(self, repo_path: str = "./data/sigma-repo"):
         """

@@ -796,7 +796,7 @@
                            placeholder="sigma-repo"
                            class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        Path to your SIGMA rules repo (relative to app root). Default <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">sigma-repo</code>. Docker mounts <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">${HOME}/Huntable-SIGMA-Rules</code> there.
+                        Customer rules repo for Huntable-created rules and PR submission (relative to app root). Default <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">sigma-repo</code>. Docker mounts <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">${HOME}/Huntable-SIGMA-Rules</code> there. The upstream SigmaHQ reference cache is separate at <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">data/sigma-repo</code> and must not be used here.
                     </p>
                 </div>
 

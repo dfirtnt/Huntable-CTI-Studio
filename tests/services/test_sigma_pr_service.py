@@ -42,6 +42,43 @@ class TestSigmaPRServicePathResolution:
             svc = SigmaPRService(repo_path=None)
         assert svc.repo_path == (app_root / "sigma-repo").resolve()
 
+    def test_upstream_sigmahq_remote_is_rejected_for_pr_submission(self, tmp_path):
+        """The upstream reference clone cannot receive Huntable-created rules."""
+        svc = SigmaPRService(repo_path=str(tmp_path))
+        with patch.object(
+            svc,
+            "_run_git_command",
+            return_value=(0, "https://github.com/SigmaHQ/sigma.git\n", ""),
+        ):
+            result = svc._validate_pr_repository()
+
+        assert result["valid"] is False
+        assert "upstream SigmaHQ" in result["error"]
+
+    def test_non_sigmahq_remote_is_allowed_for_pr_submission(self, tmp_path):
+        """A customer repository remote remains eligible for PR submission."""
+        svc = SigmaPRService(repo_path=str(tmp_path))
+        with patch.object(
+            svc,
+            "_run_git_command",
+            return_value=(0, "git@github.com:example/Huntable-SIGMA-Rules.git\n", ""),
+        ):
+            result = svc._validate_pr_repository()
+
+        assert result == {"valid": True}
+
+    def test_submit_pr_rejects_upstream_before_repo_status_mutation(self, tmp_path):
+        """The upstream guard runs before status checks can stash or checkout."""
+        svc = SigmaPRService(repo_path=str(tmp_path))
+        with (
+            patch.object(svc, "_validate_pr_repository", return_value={"valid": False, "error": "blocked"}),
+            patch.object(svc, "_check_repo_status") as check_status,
+        ):
+            result = svc.submit_pr([{"id": "rule-1", "rule_yaml": "title: Test\n"}])
+
+        assert result == {"success": False, "error": "blocked"}
+        check_status.assert_not_called()
+
 
 class TestResolveDefaultBaseBranch:
     """Test _resolve_default_base_branch branch detection with local/remote fallback."""
