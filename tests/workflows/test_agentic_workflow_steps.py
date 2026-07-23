@@ -10,13 +10,15 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 import yaml
+from langgraph.graph import END, START, StateGraph
+from pydantic import ValidationError
 
 from src.database.models import (
     AgenticWorkflowConfigTable,
     AgenticWorkflowExecutionTable,
     ArticleTable,
 )
-from src.workflows.agentic_workflow import create_agentic_workflow
+from src.workflows.agentic_workflow import WorkflowState, create_agentic_workflow
 
 pytestmark = pytest.mark.unit
 
@@ -148,6 +150,40 @@ def _default_state(**overrides):
     }
     base.update(overrides)
     return base
+
+
+def _workflow_state_data(**overrides):
+    """Build a complete validated workflow state, applying overrides."""
+    base = _default_state(
+        eval_run=False,
+        skip_rank_agent=False,
+        platforms_detected=None,
+        cmdline_items=None,
+        count=None,
+    )
+    base.update(overrides)
+    return base
+
+
+class TestWorkflowStateValidation:
+    def test_rejects_missing_or_unknown_state_channels(self):
+        state = _workflow_state_data()
+
+        with pytest.raises(ValidationError, match="article_id"):
+            WorkflowState.model_validate({key: value for key, value in state.items() if key != "article_id"})
+        with pytest.raises(ValidationError, match="unexpected_channel"):
+            WorkflowState.model_validate({**state, "unexpected_channel": True})
+
+    def test_preserves_mapping_access_and_validates_langgraph_updates(self):
+        workflow = StateGraph(WorkflowState)
+        workflow.add_node("set_status", lambda state: {"status": "complete", "count": 1})
+        workflow.add_edge(START, "set_status")
+        workflow.add_edge("set_status", END)
+
+        result = workflow.compile().invoke(_workflow_state_data())
+
+        assert result["status"] == "complete"
+        assert result.get("count") == 1
 
 
 def _capture_nodes(db_session, **extra_patches):

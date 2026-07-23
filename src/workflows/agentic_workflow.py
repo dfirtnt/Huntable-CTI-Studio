@@ -16,10 +16,11 @@ import json
 import logging
 import re
 from datetime import datetime
-from typing import Any, TypedDict
+from typing import Any
 
 import yaml
 from langgraph.graph import END, StateGraph
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -721,8 +722,15 @@ def summarize_rule_novelty(match_result: dict, threshold: float = 0.5) -> dict:
     }
 
 
-class WorkflowState(TypedDict):
-    """State for the agentic workflow."""
+class WorkflowState(BaseModel):
+    """Validated state channels for the agentic workflow.
+
+    LangGraph validates this model whenever it builds state for a node.  The
+    mapping helpers preserve the existing node API while the workflow is
+    incrementally migrated to attribute access.
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid", validate_assignment=True)
 
     article_id: int
     execution_id: int
@@ -767,6 +775,26 @@ class WorkflowState(TypedDict):
     status: str | None
     termination_reason: str | None
     termination_details: dict[str, Any] | None
+
+    # CmdlineExtract publishes these intermediate values for downstream SIGMA
+    # generation. They must be explicit channels so assignment is validated.
+    cmdline_items: list[Any] | None
+    count: int | None
+
+    def __getitem__(self, key: str) -> Any:
+        return getattr(self, key)
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        setattr(self, key, value)
+
+    def __contains__(self, key: object) -> bool:
+        return isinstance(key, str) and key in self.__class__.model_fields
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return getattr(self, key, default)
+
+    def keys(self):
+        return self.model_dump(exclude_none=True).keys()
 
 
 def _mark_pending_subagent_evals_as_failed(
@@ -3861,6 +3889,7 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
             "skip_rank_agent": state_skip_rank_flag,
             "os_detection_result": None,
             "detected_os": None,
+            "platforms_detected": None,
             "filtered_content": None,
             "junk_filter_result": None,
             "ranking_score": None,
@@ -3877,6 +3906,8 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
             "status": "running",
             "termination_reason": None,
             "termination_details": None,
+            "cmdline_items": None,
+            "count": None,
         }
 
         # Get config models for context check (use config if available, otherwise env vars)
