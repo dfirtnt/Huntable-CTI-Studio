@@ -1225,6 +1225,7 @@ async def _maybe_adjudicate_platform(
     detected_os: Any,
     execution_id: int,
     os_detection_prompt: str | None = None,
+    article_id: int | None = None,
 ) -> tuple[dict[str, Any], Any]:
     """Phase B: LLM platform adjudication for the inconclusive (KB Unknown/low) tail.
 
@@ -1252,6 +1253,7 @@ async def _maybe_adjudicate_platform(
                 name="platform_adjudication",
                 model=model_name,
                 execution_id=execution_id,
+                article_id=article_id,
                 metadata={
                     "agent_name": "platform_adjudication",
                     "prompt_length": sum(len(m.get("content", "")) for m in messages),
@@ -1417,6 +1419,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         detected_os,
                         state["execution_id"],
                         os_detection_prompt=os_det_prompt,
+                        article_id=state["article_id"],
                     )
 
             similarities = os_result.get("similarities", {}) if os_result else {}

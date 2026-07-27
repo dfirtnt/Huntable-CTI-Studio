@@ -1,7 +1,6 @@
 # Enhanced GPT-4o ranking endpoint with content filtering
 from datetime import datetime
 
-import httpx
 from fastapi import APIRouter, HTTPException, Request
 
 # Import dependencies
@@ -239,27 +238,17 @@ Please analyze the following blog content:
             title=article.title, source=source_name, url=article.canonical_url, content=content_to_analyze
         )
 
-        # Call OpenAI API
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                json={
-                    "model": "gpt-4o",
-                    "messages": [{"role": "user", "content": full_prompt}],
-                    "max_tokens": 2000,
-                    "temperature": 0.3,
-                },
-                timeout=60.0,
-            )
+        from src.web.routes.ai import _call_openai_article_analysis
 
-            if response.status_code != 200:
-                error_detail = response.text
-                logger.error(f"OpenAI API error: {error_detail}")
-                raise HTTPException(status_code=500, detail="OpenAI API request failed")
-
-            result = response.json()
-            analysis = result["choices"][0]["message"]["content"]
+        analysis = await _call_openai_article_analysis(
+            article_id=article_id,
+            model="gpt-4o",
+            prompt=full_prompt,
+            api_key=api_key,
+            max_tokens=2000,
+            temperature=0.3,
+            name="rank_article_optimized",
+        )
 
         # Save the analysis to the article's metadata
         if article.metadata is None:

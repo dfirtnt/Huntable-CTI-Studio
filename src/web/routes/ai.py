@@ -22,6 +22,7 @@ from src.services.llm_provider_clients import (
     post_anthropic_with_retry,
 )
 from src.services.provider_model_catalog import load_catalog, update_provider_models
+from src.utils.langfuse_client import log_llm_completion, log_llm_error, trace_llm_call
 from src.utils.model_validation import (
     filter_anthropic_models_latest_only,
     filter_openai_models_latest_only,
@@ -41,6 +42,61 @@ OPENAI_MODEL_PATTERN = re.compile(
     r"^(gpt|o\d|o[1-9]|o-|o[a-z]|omni|text-davinci|davinci|curie|babbage|ada)",
     re.IGNORECASE,
 )
+
+
+async def _call_openai_article_analysis(
+    *,
+    article_id: int,
+    model: str,
+    prompt: str,
+    api_key: str,
+    max_tokens: int,
+    temperature: float,
+    name: str = "rank_article",
+) -> str:
+    """Call OpenAI for an article route and record a complete Langfuse generation."""
+    messages = [{"role": "user", "content": prompt}]
+    with trace_llm_call(
+        name=name,
+        model=model,
+        article_id=article_id,
+        metadata={"agent_name": name, "attempt": 1, "messages": messages, "route": "ai"},
+    ) as generation:
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": model,
+                        "messages": messages,
+                        "max_tokens": max_tokens,
+                        "temperature": temperature,
+                    },
+                    timeout=60.0,
+                )
+
+            if response.status_code != 200:
+                logger.error("OpenAI API error: %s", response.text)
+                raise HTTPException(status_code=500, detail="Internal server error")
+
+            result = response.json()
+            analysis = result["choices"][0]["message"]["content"]
+        except Exception as error:
+            log_llm_error(generation, error, metadata={"agent_name": name, "article_id": article_id})
+            raise
+
+        log_llm_completion(
+            generation,
+            input_messages=messages,
+            output=analysis,
+            usage=result.get("usage"),
+            metadata={"agent_name": name, "attempt": 1, "article_id": article_id},
+        )
+        return analysis
 
 
 def _filter_openai_models(model_ids: list[str]) -> list[str]:
@@ -251,23 +307,40 @@ async def api_test_openai_key(request: Request):
 
         logger.info(f"Testing OpenAI API key: present=yes, source=request, length={len(api_key)}")
 
-        # Test the API key with a simple request
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": "gpt-3.5-turbo",
-                    "messages": [{"role": "user", "content": "Hello"}],
-                    "max_tokens": 5,
-                },
-                timeout=10.0,
-            )
+        # Test the API key with a simple request; keep this tagged separately from production traces.
+        connection_messages = [{"role": "user", "content": "Hello"}]
+        with trace_llm_call(
+            name="connection_test_openai",
+            model="gpt-3.5-turbo",
+            metadata={"agent_name": "connection_test", "connection_test": True, "messages": connection_messages},
+        ) as generation:
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        "https://api.openai.com/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {api_key}",
+                            "Content-Type": "application/json",
+                        },
+                        json={
+                            "model": "gpt-3.5-turbo",
+                            "messages": connection_messages,
+                            "max_tokens": 5,
+                        },
+                        timeout=10.0,
+                    )
+            except Exception as error:
+                log_llm_error(generation, error, metadata={"connection_test": True})
+                raise
 
             if response.status_code == 200:
+                log_llm_completion(
+                    generation,
+                    input_messages=connection_messages,
+                    output="connection_test_success",
+                    usage=response.json().get("usage"),
+                    metadata={"agent_name": "connection_test", "connection_test": True},
+                )
                 refresh_result = await _refresh_provider_catalog("openai", api_key)
                 return {
                     "valid": True,
@@ -276,6 +349,11 @@ async def api_test_openai_key(request: Request):
                     "catalog": refresh_result.get("catalog"),
                 }
             if response.status_code == 401:
+                log_llm_error(
+                    generation,
+                    RuntimeError("OpenAI connection test returned HTTP 401"),
+                    metadata={"connection_test": True},
+                )
                 # Try to extract more details from the error
                 try:
                     error_json = response.json()
@@ -289,6 +367,11 @@ async def api_test_openai_key(request: Request):
                     logger.error(f"❌ OpenAI API key test failed with 401, response: {response.text}")
                     return {"valid": False, "message": "Invalid API key"}
             else:
+                log_llm_error(
+                    generation,
+                    RuntimeError(f"OpenAI connection test returned HTTP {response.status_code}"),
+                    metadata={"connection_test": True},
+                )
                 return {"valid": False, "message": f"API error: {response.status_code}"}
 
     except httpx.TimeoutException as e:
@@ -310,24 +393,42 @@ async def api_test_anthropic_key(request: Request):
         if not api_key:
             raise HTTPException(status_code=400, detail="API key is required")
 
-        # Test the API key with a simple request
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={
-                    "x-api-key": api_key,
-                    "Content-Type": "application/json",
-                    "anthropic-version": "2023-06-01",
-                },
-                json={
-                    "model": "claude-sonnet-4-5",
-                    "max_tokens": 5,
-                    "messages": [{"role": "user", "content": "Hello"}],
-                },
-                timeout=10.0,
-            )
+        # Test the API key with a simple request; keep this tagged separately from production traces.
+        connection_messages = [{"role": "user", "content": "Hello"}]
+        with trace_llm_call(
+            name="connection_test_anthropic",
+            model="claude-sonnet-4-5",
+            metadata={"agent_name": "connection_test", "connection_test": True, "messages": connection_messages},
+        ) as generation:
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        "https://api.anthropic.com/v1/messages",
+                        headers={
+                            "x-api-key": api_key,
+                            "Content-Type": "application/json",
+                            "anthropic-version": "2023-06-01",
+                        },
+                        json={
+                            "model": "claude-sonnet-4-5",
+                            "max_tokens": 5,
+                            "messages": connection_messages,
+                        },
+                        timeout=10.0,
+                    )
+            except Exception as error:
+                log_llm_error(generation, error, metadata={"connection_test": True})
+                raise
 
             if response.status_code == 200:
+                response_data = response.json()
+                log_llm_completion(
+                    generation,
+                    input_messages=connection_messages,
+                    output="connection_test_success",
+                    usage=response_data.get("usage"),
+                    metadata={"agent_name": "connection_test", "connection_test": True},
+                )
                 refresh_result = await _refresh_provider_catalog("anthropic", api_key)
                 return {
                     "valid": True,
@@ -336,7 +437,17 @@ async def api_test_anthropic_key(request: Request):
                     "catalog": refresh_result.get("catalog"),
                 }
             if response.status_code == 401:
+                log_llm_error(
+                    generation,
+                    RuntimeError("Anthropic connection test returned HTTP 401"),
+                    metadata={"connection_test": True},
+                )
                 return {"valid": False, "message": "Invalid API key"}
+            log_llm_error(
+                generation,
+                RuntimeError(f"Anthropic connection test returned HTTP {response.status_code}"),
+                metadata={"connection_test": True},
+            )
             return {"valid": False, "message": f"API error: {response.status_code}"}
 
     except httpx.TimeoutException as e:
@@ -723,14 +834,35 @@ async def api_test_lmstudio_connection(request: Request):
             "temperature": 0.1,
         }
 
-        result = await _post_lmstudio_chat(
-            payload,
-            model_name=lmstudio_model,
-            timeout=15.0,
-            failure_context="LMStudio connection test failed",
-        )
+        connection_messages = payload["messages"]
+        with trace_llm_call(
+            name="connection_test_lmstudio",
+            model=lmstudio_model,
+            metadata={
+                "agent_name": "connection_test",
+                "connection_test": True,
+                "messages": connection_messages,
+            },
+        ) as generation:
+            try:
+                result = await _post_lmstudio_chat(
+                    payload,
+                    model_name=lmstudio_model,
+                    timeout=15.0,
+                    failure_context="LMStudio connection test failed",
+                )
+            except Exception as error:
+                log_llm_error(generation, error, metadata={"connection_test": True})
+                raise
 
-        response_text = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+            response_text = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+            log_llm_completion(
+                generation,
+                input_messages=connection_messages,
+                output=response_text,
+                usage=result.get("usage"),
+                metadata={"agent_name": "connection_test", "connection_test": True},
+            )
         return {
             "valid": True,
             "message": f"LMStudio connection successful. Model '{lmstudio_model}' responded: '{response_text.strip()}'",
@@ -1285,30 +1417,14 @@ async def api_gpt4o_rank(article_id: int, request: Request):
             content=content_to_analyze,
         )
 
-        # Call OpenAI API
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": "gpt-4o",
-                    "messages": [{"role": "user", "content": full_prompt}],
-                    "max_tokens": 2000,
-                    "temperature": 0.3,
-                },
-                timeout=60.0,
-            )
-
-            if response.status_code != 200:
-                error_detail = response.text
-                logger.error(f"OpenAI API error: {error_detail}")
-                raise HTTPException(status_code=500, detail="Internal server error")
-
-            result = response.json()
-            analysis = result["choices"][0]["message"]["content"]
+        analysis = await _call_openai_article_analysis(
+            article_id=article_id,
+            model="gpt-4o",
+            prompt=full_prompt,
+            api_key=api_key,
+            max_tokens=2000,
+            temperature=0.3,
+        )
 
         # Save the analysis to the article's metadata
         if article.article_metadata is None:
@@ -1435,30 +1551,14 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
             content=content_to_analyze,
         )
 
-        # Call OpenAI API
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": "gpt-4o",
-                    "messages": [{"role": "user", "content": full_prompt}],
-                    "max_tokens": 2000,
-                    "temperature": 0.3,
-                },
-                timeout=60.0,
-            )
-
-            if response.status_code != 200:
-                error_detail = response.text
-                logger.error(f"OpenAI API error: {error_detail}")
-                raise HTTPException(status_code=500, detail="Internal server error")
-
-            result = response.json()
-            analysis = result["choices"][0]["message"]["content"]
+        analysis = await _call_openai_article_analysis(
+            article_id=article_id,
+            model="gpt-4o",
+            prompt=full_prompt,
+            api_key=api_key,
+            max_tokens=2000,
+            temperature=0.3,
+        )
 
         # Save the analysis to the article's metadata
         if article.article_metadata is None:

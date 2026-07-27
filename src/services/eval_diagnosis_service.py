@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from src.services.llm_service import LLMService
+from src.utils.langfuse_client import log_llm_completion, log_llm_error, trace_llm_call
 
 logger = logging.getLogger(__name__)
 
@@ -130,33 +131,63 @@ class EvalDiagnosisService:
             contract_text=agent_contract_text,
         )
 
+        workflow_meta = bundle.get("workflow", {})
+        execution_id = workflow_meta.get("execution_id")
+        article_id = workflow_meta.get("article_id") or bundle.get("article_id")
+        trace_metadata = {
+            "agent_name": f"eval_diagnosis:{agent_name}",
+            "attempt": 1,
+            "messages": messages,
+            "bundle_id": bundle.get("bundle_id"),
+        }
+
         logger.info(
             f"Diagnosing bundle for execution={bundle.get('workflow', {}).get('execution_id')} "
             f"agent={agent_name} via {provider}/{model_name or 'default'}"
         )
-        response = await self.llm_service.request_chat(
-            provider=provider,
-            model_name=model_name,
-            messages=messages,
-            max_tokens=3500,
-            temperature=temperature,
-            timeout=120.0,
-            failure_context=f"eval_diagnosis:{agent_name}",
-        )
+        with trace_llm_call(
+            name="eval_diagnosis",
+            model=model_name or "default",
+            execution_id=execution_id,
+            article_id=article_id,
+            metadata=trace_metadata,
+        ) as generation:
+            try:
+                response = await self.llm_service.request_chat(
+                    provider=provider,
+                    model_name=model_name,
+                    messages=messages,
+                    max_tokens=3500,
+                    temperature=temperature,
+                    timeout=120.0,
+                    failure_context=f"eval_diagnosis:{agent_name}",
+                )
+            except Exception as error:
+                log_llm_error(generation, error, metadata={"provider": provider, "agent_name": agent_name})
+                raise
 
-        raw_text = ""
-        finish_reason = "unknown"
-        choices = response.get("choices", [])
-        if choices:
-            raw_text = choices[0].get("message", {}).get("content", "")
-            finish_reason = choices[0].get("finish_reason", "unknown") or "unknown"
+            choices = response.get("choices", [])
+            raw_text = choices[0].get("message", {}).get("content", "") if choices else ""
+            finish_reason = choices[0].get("finish_reason", "unknown") if choices else "unknown"
+            log_llm_completion(
+                generation,
+                input_messages=messages,
+                output=raw_text,
+                usage=response.get("usage"),
+                metadata={
+                    "provider": provider,
+                    "agent_name": agent_name,
+                    "attempt": 1,
+                    "finish_reason": finish_reason or "unknown",
+                },
+            )
+
+        raw_text = raw_text or ""
+        finish_reason = finish_reason or "unknown"
 
         findings = self._parse_diagnosis_response(raw_text, finish_reason=finish_reason)
 
         diagnosis_id = str(uuid.uuid4())
-        execution_id = bundle.get("workflow", {}).get("execution_id")
-        workflow_meta = bundle.get("workflow", {})
-
         diagnosis = {
             "diagnosis_id": diagnosis_id,
             "created_at": datetime.now(UTC).isoformat(),

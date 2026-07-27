@@ -54,6 +54,7 @@ from src.services.sigma_pr_service import SigmaPRService
 from src.services.sigma_validator import validate_sigma_rule
 from src.services.similarity_serialization import serialize_similarity_match
 from src.utils.content_filter import ContentFilter
+from src.utils.langfuse_client import log_llm_completion, log_llm_error, trace_llm_call
 from src.utils.prompt_loader import format_prompt
 
 logger = logging.getLogger(__name__)
@@ -216,6 +217,7 @@ async def _call_lmstudio_sigma_text(
     messages: list[dict[str, str]],
     failure_context: str,
     timeout: float = 180.0,
+    response_metadata: dict[str, Any] | None = None,
 ) -> str:
     """Call LMStudio for Sigma queue routes and return non-empty message content."""
     try:
@@ -238,6 +240,8 @@ async def _call_lmstudio_sigma_text(
     if "choices" not in response_data or len(response_data["choices"]) == 0:
         logger.error("LMStudio response missing choices: %s", response_data)
         raise HTTPException(status_code=500, detail="LMStudio returned invalid response format")
+    if response_metadata is not None:
+        response_metadata.update({"model": response_data.get("model"), "usage": response_data.get("usage")})
     message = response_data["choices"][0].get("message", {})
     content = message.get("content", "")
     raw_response = content.strip() if content else ""
@@ -251,6 +255,95 @@ async def _call_lmstudio_sigma_text(
             ),
         )
     return raw_response
+
+
+async def _call_traced_sigma_provider(
+    *,
+    agent_name: str,
+    provider: str,
+    model: str,
+    api_key: str | None,
+    messages: list[dict[str, str]],
+    queue_id: int,
+    article_id: int | None,
+    attempt: int,
+    max_tokens: int,
+    temperature: float,
+    timeout: float,
+    failure_context: str,
+) -> str:
+    """Call a Sigma-route provider and record the complete LLM observation."""
+    response_metadata: dict[str, Any] = {}
+    with trace_llm_call(
+        name=agent_name,
+        model=model,
+        article_id=article_id,
+        metadata={
+            "agent_name": agent_name,
+            "attempt": attempt,
+            "provider": provider,
+            "queue_id": queue_id,
+            "messages": messages,
+        },
+    ) as generation:
+        try:
+            if provider == "openai":
+                from src.services.openai_chat_client import openai_chat_completions
+
+                raw_response = await openai_chat_completions(
+                    api_key=api_key or "",
+                    model_name=model,
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    timeout=timeout,
+                    response_metadata=response_metadata,
+                )
+            elif provider == "anthropic":
+                response = await post_anthropic_with_retry(
+                    api_key=api_key or "",
+                    anthropic_api_url="https://api.anthropic.com/v1/messages",
+                    timeout=timeout,
+                    payload={
+                        "model": model,
+                        "max_tokens": max_tokens,
+                        "temperature": temperature,
+                        "system": messages[0].get("content", "") if messages else "",
+                        "messages": messages[1:] if len(messages) > 1 else messages,
+                    },
+                )
+                response_data = response.json()
+                response_metadata.update({"model": response_data.get("model"), "usage": response_data.get("usage")})
+                content = response_data.get("content", [])
+                raw_response = content[0].get("text", "") if content else ""
+            elif provider == "lmstudio":
+                raw_response = await _call_lmstudio_sigma_text(
+                    model=model,
+                    messages=messages,
+                    failure_context=failure_context,
+                    timeout=timeout,
+                    response_metadata=response_metadata,
+                )
+            else:
+                raise ValueError(f"Unsupported Sigma provider: {provider}")
+        except Exception as error:
+            log_llm_error(generation, error, metadata={"provider": provider, "queue_id": queue_id})
+            raise
+
+        log_llm_completion(
+            generation,
+            input_messages=messages,
+            output=raw_response,
+            usage=response_metadata.get("usage"),
+            metadata={
+                "agent_name": agent_name,
+                "attempt": attempt,
+                "provider": provider,
+                "queue_id": queue_id,
+                "model": response_metadata.get("model") or model,
+            },
+        )
+        return raw_response
 
 
 class QueuedRuleResponse(BaseModel):
@@ -1094,6 +1187,7 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                 return {
                     "enrichment_prompt": enrichment_prompt,
                     "system_message": system_message,
+                    "article_id": rule.article_id,
                 }
             finally:
                 db_session.close()
@@ -1105,6 +1199,11 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
 
         enrichment_prompt = prep["enrichment_prompt"]
         system_message = prep["system_message"]
+        article_id = prep.get("article_id")
+        enrichment_messages = [
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": enrichment_prompt},
+        ]
 
         logger.info(
             f"Enriching rule {queue_id} provider={provider} model={model} "
@@ -1115,19 +1214,20 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
         async with httpx.AsyncClient() as client:
             try:
                 if provider == "openai":
-                    from src.services.openai_chat_client import openai_chat_completions
-
                     try:
-                        raw_response = await openai_chat_completions(
+                        raw_response = await _call_traced_sigma_provider(
+                            agent_name="sigma_enrichment",
+                            provider=provider,
+                            model=model,
                             api_key=api_key,
-                            model_name=model,
-                            messages=[
-                                {"role": "system", "content": system_message},
-                                {"role": "user", "content": enrichment_prompt},
-                            ],
+                            messages=enrichment_messages,
+                            queue_id=queue_id,
+                            article_id=article_id,
+                            attempt=1,
                             max_tokens=4000,
                             temperature=0.2,
                             timeout=120.0,
+                            failure_context=f"OpenAI API for rule {queue_id}",
                         )
                         raw_response = raw_response.strip()
                     except ValueError as e:
@@ -1151,17 +1251,19 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                         raise HTTPException(status_code=502, detail=err) from e
                 elif provider == "anthropic":
                     try:
-                        response = await post_anthropic_with_retry(
+                        raw_response = await _call_traced_sigma_provider(
+                            agent_name="sigma_enrichment",
+                            provider=provider,
+                            model=model,
                             api_key=api_key,
-                            anthropic_api_url="https://api.anthropic.com/v1/messages",
+                            messages=enrichment_messages,
+                            queue_id=queue_id,
+                            article_id=article_id,
+                            attempt=1,
+                            max_tokens=4000,
+                            temperature=0.2,
                             timeout=120.0,
-                            payload={
-                                "model": model,
-                                "max_tokens": 4000,
-                                "temperature": 0.2,
-                                "system": system_message,
-                                "messages": [{"role": "user", "content": enrichment_prompt}],
-                            },
+                            failure_context=f"Anthropic API for rule {queue_id}",
                         )
                     except AnthropicProviderError as e:
                         status_code = e.status_code or 502
@@ -1172,18 +1274,21 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                             error_detail = "Anthropic API rate limit exceeded. Please wait and try again."
                         logger.error("Anthropic API error: %s", e)
                         raise HTTPException(status_code=status_code, detail=error_detail) from e
-                    response_data = response.json()
-                    content = response_data.get("content", [])
-                    raw_response = content[0].get("text", "").strip() if content else ""
 
                 elif provider == "lmstudio":
                     logger.info(f"Calling LMStudio API for rule {queue_id} with model {model}")
-                    raw_response = await _call_lmstudio_sigma_text(
+                    raw_response = await _call_traced_sigma_provider(
+                        agent_name="sigma_enrichment",
+                        provider=provider,
                         model=model,
-                        messages=[
-                            {"role": "system", "content": system_message},
-                            {"role": "user", "content": enrichment_prompt},
-                        ],
+                        api_key=api_key,
+                        messages=enrichment_messages,
+                        queue_id=queue_id,
+                        article_id=article_id,
+                        attempt=1,
+                        max_tokens=4000,
+                        temperature=0.2,
+                        timeout=180.0,
                         failure_context=f"LMStudio API for rule {queue_id}",
                     )
 
@@ -1910,16 +2015,20 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                         error_occurred = None
 
                         if provider == "openai":
-                            from src.services.openai_chat_client import openai_chat_completions
-
                             try:
-                                raw_response = await openai_chat_completions(
+                                raw_response = await _call_traced_sigma_provider(
+                                    agent_name="sigma_validation",
+                                    provider=provider,
+                                    model=model,
                                     api_key=api_key,
-                                    model_name=model,
                                     messages=attempt_messages,
+                                    queue_id=queue_id,
+                                    article_id=rule.article_id,
+                                    attempt=attempt,
                                     max_tokens=4000,
                                     temperature=0.2,
                                     timeout=120.0,
+                                    failure_context=f"OpenAI validation API for rule {queue_id}",
                                 )
                                 raw_response = raw_response.strip()
                             except ValueError as e:
@@ -1945,17 +2054,19 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
 
                         elif provider == "anthropic":
                             try:
-                                response = await post_anthropic_with_retry(
+                                raw_response = await _call_traced_sigma_provider(
+                                    agent_name="sigma_validation",
+                                    provider=provider,
+                                    model=model,
                                     api_key=api_key,
-                                    anthropic_api_url="https://api.anthropic.com/v1/messages",
+                                    messages=attempt_messages,
+                                    queue_id=queue_id,
+                                    article_id=rule.article_id,
+                                    attempt=attempt,
+                                    max_tokens=4000,
+                                    temperature=0.2,
                                     timeout=120.0,
-                                    payload={
-                                        "model": model,
-                                        "max_tokens": 4000,
-                                        "temperature": 0.2,
-                                        "system": system_message,
-                                        "messages": [{"role": "user", "content": validation_prompt}],
-                                    },
+                                    failure_context=f"Anthropic validation API for rule {queue_id}",
                                 )
                             except AnthropicProviderError as e:
                                 status_code = e.status_code or 502
@@ -1968,14 +2079,20 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                                 error_occurred = error_detail
                                 raise HTTPException(status_code=status_code, detail=error_detail) from e
 
-                            response_data = response.json()
-                            content = response_data.get("content", [])
-                            raw_response = content[0].get("text", "").strip() if content else ""
 
                         elif provider == "lmstudio":
-                            raw_response = await _call_lmstudio_sigma_text(
+                            raw_response = await _call_traced_sigma_provider(
+                                agent_name="sigma_validation",
+                                provider=provider,
                                 model=model,
+                                api_key=api_key,
                                 messages=attempt_messages,
+                                queue_id=queue_id,
+                                article_id=rule.article_id,
+                                attempt=attempt,
+                                max_tokens=4000,
+                                temperature=0.2,
+                                timeout=180.0,
                                 failure_context=f"LMStudio repair API for rule {queue_id}",
                             )
                         else:

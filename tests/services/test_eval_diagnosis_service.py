@@ -1,7 +1,7 @@
 """Tests for EvalDiagnosisService."""
 
 import json
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
@@ -282,6 +282,43 @@ class TestDiagnoseBundle:
         assert call_kwargs["temperature"] == 0.1
         assert call_kwargs["max_tokens"] == 3500
         assert "eval_diagnosis" in call_kwargs["failure_context"]
+
+    @pytest.mark.asyncio
+    async def test_diagnose_records_langfuse_completion_metadata(self):
+        """Diagnosis calls include the full prompt, context, output, and usage."""
+        llm_service = Mock()
+        llm_service.request_chat = AsyncMock(
+            return_value={
+                **_make_llm_response(_sample_diagnosis_json()),
+                "usage": {"prompt_tokens": 12, "completion_tokens": 8, "total_tokens": 20},
+            }
+        )
+        generation = MagicMock()
+        trace_cm = MagicMock()
+        trace_cm.__enter__.return_value = generation
+        trace_cm.__exit__.return_value = False
+        service = EvalDiagnosisService(llm_service)
+
+        with (
+            patch("src.services.eval_diagnosis_service.trace_llm_call", return_value=trace_cm) as trace_call,
+            patch("src.services.eval_diagnosis_service.log_llm_completion") as log_completion,
+        ):
+            await service.diagnose_bundle(
+                bundle=_sample_bundle(),
+                agent_name="CmdlineExtract",
+                provider="openai",
+                model_name="gpt-4o",
+            )
+
+        trace_kwargs = trace_call.call_args.kwargs
+        assert trace_kwargs["name"] == "eval_diagnosis"
+        assert trace_kwargs["execution_id"] == 42
+        assert trace_kwargs["metadata"]["agent_name"] == "eval_diagnosis:CmdlineExtract"
+        assert trace_kwargs["metadata"]["messages"]
+        completion_kwargs = log_completion.call_args.kwargs
+        assert completion_kwargs["output"]
+        assert completion_kwargs["usage"]["total_tokens"] == 20
+        assert completion_kwargs["metadata"]["agent_name"] == "CmdlineExtract"
 
 
 class TestSaveDiagnosis:
