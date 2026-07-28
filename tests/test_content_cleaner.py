@@ -295,6 +295,88 @@ class TestContentCleaner:
 
         assert text == "net use Z: mapped"
 
+    def test_html_to_text_does_not_split_words_across_adjacent_inline_tags(self, content_cleaner):
+        """Adjacent inline elements must not gain a space between them.
+
+        Regression guard for the ``get_text(separator=" ")`` bug: publishers that
+        export from Google Docs (e.g. cloud.google.com) split words across
+        arbitrary ``<span>`` runs, and a text-node separator turned
+        ``<span>comman</span><span>d</span>`` into "comman d". HTML gives inline
+        elements no implicit whitespace -- real spacing lives in whitespace text
+        nodes, which ``strip=False`` already preserves.
+
+        Verbatim markup from the UNC1549 article's Figure 9 caption
+        (2026-07-27 Sigma eval-fixture corruption audit).
+        """
+        html = (
+            '<p><span style="vertical-align:baseline">Figure 9: Example of an UNC1549 reverse SSH comman</span>'
+            '<span style="vertical-align:baseline">d</span></p>'
+        )
+
+        text = content_cleaner.html_to_text(html).strip()
+
+        assert text == "Figure 9: Example of an UNC1549 reverse SSH command"
+
+    def test_html_to_text_preserves_detection_tokens_wrapped_in_inline_markup(self, content_cleaner):
+        """Process names and file paths broken by inline markup must stay intact.
+
+        These are exactly the tokens detection engineering keys on, so a stray
+        separator space silently destroys the observable.
+        """
+        assert content_cleaner.html_to_text("<p>Power<b>Shell</b> was used</p>").strip() == "PowerShell was used"
+        assert content_cleaner.html_to_text('<p>rund<a href="#">ll32</a>.exe</p>').strip() == "rundll32.exe"
+        assert (
+            content_cleaner.html_to_text("<p><span>Screen</span><span>Connect</span>.exe ran</p>").strip()
+            == "ScreenConnect.exe ran"
+        )
+
+    def test_html_to_text_keeps_real_whitespace_around_inline_markup(self, content_cleaner):
+        """Whitespace text nodes around inline tags must survive the fix."""
+        html = "<p>This is a paragraph with <strong>bold text</strong> and <em>italic text</em>.</p>"
+
+        text = content_cleaner.html_to_text(html).strip()
+
+        assert text == "This is a paragraph with bold text and italic text."
+
+    def test_html_to_text_separates_table_cells_without_source_whitespace(self, content_cleaner):
+        """Minified table markup must not glue adjacent cell values together.
+
+        Guard for the fix itself: dropping the text-node separator must not make
+        ``<td>a</td><td>b</td>`` collapse to "ab". IOC tables are ubiquitous in
+        CTI reporting and are frequently emitted without inter-tag whitespace.
+        """
+        html = (
+            "<table><tr><th>Indicator</th><th>Type</th></tr>"
+            "<tr><td>evil.example.com</td><td>domain</td></tr>"
+            "<tr><td>1.2.3.4</td><td>ip</td></tr></table>"
+        )
+
+        text = content_cleaner.html_to_text(html)
+        flat = " ".join(text.split())
+
+        assert "evil.example.com" in flat
+        assert "1.2.3.4" in flat
+        for glued in ("evil.example.comdomain", "1.2.3.4ip", "IndicatorType"):
+            assert glued not in flat, f"table cells glued together: {glued!r}"
+
+    def test_html_to_text_separates_a_block_from_text_that_precedes_it(self, content_cleaner):
+        """A block element must break from preceding inline text, not just following.
+
+        ``insert_after`` alone only breaks on the trailing side, so the first
+        block in a run glued onto whatever preceded it once the text-node
+        separator was removed (e.g. "Google Cloud BlogJump to Content",
+        "Solutions & technologyAI & Machine Learning" in real nav markup).
+        """
+        nested = "<a>Solutions &amp; technology</a><ul><li>AI &amp; Machine Learning</li></ul>"
+        flat = " ".join(content_cleaner.html_to_text(nested).split())
+        assert "technologyAI" not in flat
+        assert "Solutions & technology" in flat
+        assert "AI & Machine Learning" in flat
+
+        titled = "<title>Some Article | Blog</title><header><a>Jump to Content</a></header>"
+        flat2 = " ".join(content_cleaner.html_to_text(titled).split())
+        assert "BlogJump" not in flat2
+
     def test_normalize_whitespace_keeps_titles_single_line(self):
         """The shared normalize_whitespace stays single-line (used for titles/tags)."""
         assert ContentCleaner.normalize_whitespace("Title\nwith\r\nbreaks") == "Title with breaks"

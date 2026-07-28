@@ -17,6 +17,58 @@ from .sentence_splitter import split_sentences
 
 logger = logging.getLogger(__name__)
 
+# Marks a block-element boundary during html_to_text() so structural breaks stay
+# distinguishable from literal newlines in the source (e.g. inside <pre>) until
+# they are folded into real newlines. Never survives into returned text.
+_BLOCK_BREAK = "\x00"
+
+# Elements that imply a line break in extracted text. html_to_text() takes no
+# text-node separator, so this list is the sole source of block separation --
+# an element missing here glues to its neighbour. <td>/<th> are handled
+# separately because they separate horizontally within a row.
+_BLOCK_LEVEL_TAGS = [
+    "p",
+    "div",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "li",
+    "br",
+    "blockquote",
+    "pre",
+    "hr",
+    "address",
+    "figure",
+    "figcaption",
+    "section",
+    "article",
+    "header",
+    "footer",
+    "aside",
+    "nav",
+    "main",
+    "ul",
+    "ol",
+    "dl",
+    "dt",
+    "dd",
+    "table",
+    "thead",
+    "tbody",
+    "tfoot",
+    "tr",
+    "caption",
+    "form",
+    "fieldset",
+    "legend",
+    "details",
+    "summary",
+    "option",
+]
+
 
 class ContentCleaner:
     """Utility class for cleaning and normalizing content."""
@@ -154,7 +206,9 @@ class ContentCleaner:
         # their article <main> inside a wrapper with a footer-like class; pruning
         # that wrapper must not erase the article body.
         original_candidates = [
-            node for selector in ContentCleaner._MAIN_CONTENT_SELECTORS if (node := soup.select_one(selector)) is not None
+            node
+            for selector in ContentCleaner._MAIN_CONTENT_SELECTORS
+            if (node := soup.select_one(selector)) is not None
         ]
         original_main_content = max(original_candidates, key=lambda node: len(node.get_text(strip=True)), default=None)
         original_main_html = str(original_main_content) if original_main_content else ""
@@ -200,15 +254,37 @@ class ContentCleaner:
 
             soup = BeautifulSoup(html, "lxml")
 
-            # Add line breaks for block elements before extracting text
-            for tag in soup.find_all(["p", "div", "h1", "h2", "h3", "h4", "h5", "h6", "li", "br"]):
-                tag.insert_after("\n")
+            # Mark block boundaries. Because get_text() below uses no separator,
+            # _BLOCK_LEVEL_TAGS is the ONLY source of block separation. Mark BOTH
+            # sides: marking only the trailing side leaves the first block in a run
+            # glued to whatever inline text preceded it (real nav markup produced
+            # "Google Cloud BlogJump to Content").
+            for tag in soup.find_all(_BLOCK_LEVEL_TAGS):
+                tag.insert_before(_BLOCK_BREAK)
+                tag.insert_after(_BLOCK_BREAK)
 
-            # Extract text. strip=False is deliberate: the block-level "\n"
-            # inserted above are whitespace-only and would be dropped by
-            # strip=True. normalize_whitespace_keep_newlines() below collapses
-            # the resulting extra spaces while preserving the block newlines.
-            text = soup.get_text(separator=" ", strip=False)
+            # Table cells separate horizontally within their row, not vertically.
+            for tag in soup.find_all(["td", "th"]):
+                tag.insert_before(" ")
+                tag.insert_after(" ")
+
+            # Extract text. separator="" is deliberate: HTML gives inline elements
+            # no implicit whitespace, so a text-node separator invents spaces that
+            # are not in the document -- it split "<span>comman</span><span>d</span>"
+            # into "comman d" and detached trailing punctuation ("italic text ."),
+            # silently destroying process names and file paths that publishers wrap
+            # in mid-token markup (2026-07-27 Sigma eval-fixture corruption audit).
+            # Real word spacing lives in whitespace text nodes, which strip=False
+            # preserves; the block sentinels inserted above supply the rest.
+            text = soup.get_text(separator="", strip=False)
+
+            # Fold each cluster of block sentinels into exactly one newline. Two
+            # bounded passes (never one combined pattern) so neither shape can
+            # backtrack polynomially on long whitespace runs, matching the
+            # reasoning in normalize_whitespace_keep_newlines below. Literal
+            # newlines inside <pre> carry no sentinel and survive untouched.
+            text = re.sub(rf"[^\S\n]{{0,64}}{_BLOCK_BREAK}[^\S\n]{{0,64}}", _BLOCK_BREAK, text)
+            text = re.sub(rf"\n?{_BLOCK_BREAK}+\n?", "\n", text)
 
             # Clean up whitespace and normalize (preserve block newlines so
             # command-line / multi-line artifacts stay segmentable downstream)
