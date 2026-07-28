@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
+import logging
 import re
 from dataclasses import dataclass, field
 from typing import Any
 
 from src.database.models import AuditEventTable
 from src.web.security.identity import RequestIdentity
+
+logger = logging.getLogger(__name__)
 
 # Stable audit action vocabulary. Several names are reserved ahead of use by the
 # enterprise-auth auditability spec ("Initial stable action names",
@@ -44,6 +48,11 @@ ACTION_MCP_CONFIRMATION_REQUESTED = "mcp.confirmation_requested"
 ACTION_EXPORT_CREATED = "export.created"
 ACTION_BACKUP_CREATED = "backup.created"
 ACTION_BACKUP_RESTORED = "backup.restored"
+ACTION_BACKUP_CRON_UPDATED = "backup.cron_updated"
+ACTION_BACKUP_CRON_DELETED = "backup.cron_deleted"
+ACTION_MODEL_RETRAINED = "model.retrained"
+ACTION_MODEL_EVALUATED = "model.evaluated"
+ACTION_MODEL_ROLLED_BACK = "model.rolled_back"
 ACTION_DEBUG_ACTION_INVOKED = "debug.action_invoked"
 ACTION_AUDIT_EXPORTED = "audit.exported"
 ACTION_AUDIT_RETENTION_APPLIED = "audit.retention_applied"
@@ -51,6 +60,17 @@ ACTION_AUDIT_RETENTION_APPLIED = "audit.retention_applied"
 STATUS_SUCCESS = "success"
 STATUS_FAILURE = "failure"
 STATUS_DENIED = "denied"
+# Status-aware auditing for non-transactional side effects (subprocess, worker
+# thread, external call): the attempt is recorded before the side effect starts,
+# then a terminal success/failure row is recorded once the outcome is known.
+# A lone ``attempted`` row therefore means the operation was dispatched but never
+# reported back -- a crash, timeout, or hard kill mid-operation.
+STATUS_ATTEMPTED = "attempted"
+
+# Upper bound on an out-of-band audit write. These run inline in the request path
+# of privileged endpoints (backup restore, model rollback), so a database stall
+# must cost a missing audit row rather than a hung privileged request.
+OUT_OF_BAND_AUDIT_TIMEOUT = 5.0
 
 REDACTED = "[REDACTED]"
 
@@ -317,3 +337,54 @@ class AsyncAuditService:
         session.add(row)
         await session.commit()
         return row
+
+    @staticmethod
+    async def record_out_of_band(event: AuditEvent, *, timeout: float = OUT_OF_BAND_AUDIT_TIMEOUT) -> bool:
+        """Record an audit event on its own short-lived session and commit it.
+
+        For status-aware auditing of non-transactional side effects (subprocess
+        restore, background retrain thread, model rollback) where there is no
+        caller-owned transaction to join: the side effect cannot be rolled back,
+        so the audit row must not be tied to one.
+
+        Bounded by ``timeout`` because these calls sit in the request path of
+        privileged endpoints: a stalled database must degrade to a missing audit
+        row, never to a hung restore or rollback request.
+
+        Returns True when the row was committed. Never raises: the side effect has
+        already happened (or is about to), and losing the audit row must not turn a
+        completed operation into a 500. Failures are logged loudly instead.
+        """
+        # Local import by weight, not to dodge a cycle: this module is imported by
+        # the auth middleware on every request, and only this one method needs the
+        # DB manager.
+        from src.database.async_manager import async_db_manager
+
+        async def _write() -> None:
+            async with async_db_manager.get_session() as session:
+                session.add(_row_from_event(event))
+                await session.commit()
+
+        try:
+            await asyncio.wait_for(_write(), timeout=timeout)
+            return True
+        except TimeoutError:
+            logger.error(
+                "AUDIT WRITE TIMED OUT after %ss action=%s status=%s target=%s:%s",
+                timeout,
+                event.action,
+                event.status,
+                event.target_type,
+                event.target_id,
+            )
+            return False
+        except Exception as exc:  # noqa: BLE001
+            logger.error(
+                "AUDIT WRITE FAILED action=%s status=%s target=%s:%s error=%s",
+                event.action,
+                event.status,
+                event.target_type,
+                event.target_id,
+                exc,
+            )
+            return False

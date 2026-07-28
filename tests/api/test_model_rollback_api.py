@@ -14,6 +14,24 @@ from unittest.mock import AsyncMock, Mock, patch
 import httpx
 import pytest
 
+
+@pytest.fixture(autouse=True)
+def _no_real_audit_writes():
+    """Stub out the rollback route's audit sink for this module.
+
+    The rollback route emits status-aware audit events, which would otherwise be
+    the only real database access in these otherwise fully-mocked tests -- slow,
+    and it spawns a connection-pool thread that breaks the
+    `threading.Thread` assertions below. Audit emission itself is covered by
+    tests/unit/test_privileged_route_audit.py.
+    """
+    with patch(
+        "src.web.routes.models.AsyncAuditService.record_out_of_band",
+        new=AsyncMock(return_value=True),
+    ):
+        yield
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
