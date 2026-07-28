@@ -132,6 +132,8 @@ mandatory-audit coverage:
   originating human; service-originated triggers carry no `initiated_by`)
 - annotation create and delete
 - audit export and retention actions
+- clearing and backfilling subagent eval records (the audit row joins the same
+  transaction as the record delete/update)
 
 Authorization denials are recorded best-effort through the central auth
 middleware. Non-transactional side effects (Celery dispatch, subprocess restarts,
@@ -139,6 +141,32 @@ external PRs) are audited with an explicit status rather than claimed atomic.
 Successful authentication is intentionally deferred to the upstream proxy / IdP
 audit trail; Huntable records authorization denials and application-side
 mutations once a verified identity reaches the app.
+
+### Status-aware audit coverage
+
+Paths whose side effect is a subprocess, a Celery dispatch, or a background
+thread cannot offer the same-transaction guarantee: the side effect is not
+rollbackable. These record an `attempted` event before the side effect and a
+terminal `success` / `failure` event once the outcome is known, via
+`AsyncAuditService.record_out_of_band`, which uses its own short-lived session
+and is bounded by a timeout so a stalled database costs an audit row rather than
+hanging a privileged request. Covered:
+
+- backup create, restore, restore-from-file, and cron schedule add/remove
+- model retrain, evaluate, and rollback (retrain and rollback capture the actor
+  at the route boundary and hand it to the background thread, so the terminal
+  event keeps human attribution)
+- bulk embedding rebuild and per-article embedding generation (dispatch only:
+  the worker-side outcome is not observable from the route)
+- evaluation runs (workflow, subagent, Sigma), eval bundle export, and
+  LLM-powered bundle diagnosis
+- observable training and observable evaluation runs
+
+One consequence worth knowing: a full-database restore replaces `audit_events`
+along with every other table, so the pre-restore `attempted` row does not survive
+a *successful* restore -- the post-restore terminal row is what persists. The
+attempt row is what remains when a restore fails, times out, or is killed
+partway, which is the case where the record matters most.
 
 Sensitive values are redacted recursively by key name, by connection-string
 shape, and by value-level scrubbing of embedded credentials (URL `user:pass@`,

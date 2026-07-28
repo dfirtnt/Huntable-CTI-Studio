@@ -6,8 +6,16 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
+from src.services.audit_service import (
+    ACTION_OBSERVABLE_TRAINING_REQUESTED,
+    STATUS_FAILURE,
+    STATUS_SUCCESS,
+    AsyncAuditService,
+    AuditEvent,
+    build_actor_context,
+)
 from src.services.observable_training import (
     SUPPORTED_OBSERVABLE_TYPES,
     get_observable_training_summary,
@@ -35,7 +43,7 @@ async def api_observable_training_summary():
 
 
 @router.post("/run")
-async def api_run_cmd_training(body: dict[str, Any] | None = None):
+async def api_run_cmd_training(request: Request, body: dict[str, Any] | None = None):
     """
     Trigger observable extractor training (dataset export + model training).
 
@@ -49,9 +57,29 @@ async def api_run_cmd_training(body: dict[str, Any] | None = None):
     train_model = body.get("train_model", True)  # Default to training model
     if observable_type not in SUPPORTED_OBSERVABLE_TYPES:
         raise HTTPException(status_code=400, detail="Unsupported observable type")
+
+    async def _audit(summary: str, metadata: dict[str, Any], status: str = STATUS_SUCCESS) -> None:
+        await AsyncAuditService.record_out_of_band(
+            AuditEvent(
+                action=ACTION_OBSERVABLE_TRAINING_REQUESTED,
+                target_type="observable_training",
+                target_id=observable_type,
+                status=status,
+                summary=summary,
+                actor=build_actor_context(getattr(request.state, "identity", None), request),
+                metadata=metadata,
+            )
+        )
+
+    base_metadata = {"observable_type": observable_type, "train_model": train_model}
+
     try:
         if train_observable_extractor:
             task = train_observable_extractor.delay(observable_type=observable_type, train_model=train_model)
+            await _audit(
+                f"{observable_type} observable training dispatched to worker",
+                {**base_metadata, "mode": "async", "task_id": task.id},
+            )
             return {
                 "success": True,
                 "mode": "async",
@@ -66,6 +94,10 @@ async def api_run_cmd_training(body: dict[str, Any] | None = None):
     # Fallback to synchronous execution (useful for tests or environments without Celery)
     try:
         result = run_observable_training_job(observable_type, train_model=train_model)
+        await _audit(
+            f"{observable_type} observable training completed synchronously",
+            {**base_metadata, "mode": "sync"},
+        )
         return {
             "success": True,
             "mode": "sync",
@@ -75,4 +107,9 @@ async def api_run_cmd_training(body: dict[str, Any] | None = None):
         }
     except Exception as exc:  # noqa: BLE001
         logger.error("Observable training run failed: %s", exc)
+        await _audit(
+            f"{observable_type} observable training failed",
+            {**base_metadata, "mode": "sync", "error": str(exc)},
+            STATUS_FAILURE,
+        )
         raise HTTPException(status_code=500, detail="Internal server error") from exc

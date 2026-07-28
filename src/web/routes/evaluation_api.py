@@ -26,6 +26,17 @@ from src.database.models import (
     SigmaEvaluationTable,
     SubagentEvaluationTable,
 )
+from src.services.audit_service import (
+    ACTION_EVAL_BUNDLE_DIAGNOSED,
+    ACTION_EVAL_BUNDLE_EXPORTED,
+    ACTION_EVAL_RECORDS_BACKFILLED,
+    ACTION_EVAL_RECORDS_CLEARED,
+    ACTION_EVAL_RUN_REQUESTED,
+    STATUS_SUCCESS,
+    AuditEvent,
+    AuditService,
+    build_actor_context,
+)
 from src.services.eval_bundle_service import EvalBundleService, compute_sha256_json
 from src.services.eval_item_scorer import calculate_f_beta, score_items
 from src.services.llm_service import LLMService
@@ -58,6 +69,43 @@ def _is_throttle_string(text: str) -> bool:
     if _QUOTA_ERROR_PATTERNS.search(text):
         return False
     return bool(_THROTTLE_PATTERNS.search(text))
+
+
+def _audit_eval(
+    db_session,
+    request: Request,
+    action: str,
+    target_id: str | None,
+    summary: str,
+    metadata: dict | None = None,
+    *,
+    status: str = STATUS_SUCCESS,
+    mandatory: bool = False,
+) -> None:
+    """Record an evaluation audit event on the route's existing sync session.
+
+    These endpoints already own a sync session, so the event joins it rather than
+    opening its own. Pass ``mandatory=True`` when the route is about to commit a
+    DB mutation of its own (clearing or backfilling eval records): the event is
+    added to that same transaction so the mutation and its attribution commit or
+    roll back together. Dispatch-only routes use the best-effort commit.
+
+    Audit emission only: nothing here reads, re-scrapes, or mutates eval-article
+    rows or the config/eval_articles_data fixtures.
+    """
+    event = AuditEvent(
+        action=action,
+        target_type="evaluation",
+        target_id=target_id,
+        status=status,
+        summary=summary,
+        actor=build_actor_context(getattr(request.state, "identity", None), request),
+        metadata=metadata or {},
+    )
+    if mandatory:
+        AuditService.record_mandatory(db_session, event)
+    else:
+        AuditService.record_best_effort(db_session, event)
 
 
 # Matches LMStudio context-exceeded messages and the context_length_exceeded flag on raw subagent results.
@@ -275,7 +323,11 @@ def _actual_items_from_agent_result(subagent_name: str, agent_result: dict) -> l
         value = item
         if isinstance(item, dict):
             value = next(
-                (item.get(field) for field in ("cmdline", "command", "commandline", "value", "name", "query") if isinstance(item.get(field), str)),
+                (
+                    item.get(field)
+                    for field in ("cmdline", "command", "commandline", "value", "name", "query")
+                    if isinstance(item.get(field), str)
+                ),
                 None,
             )
         if isinstance(value, str):
@@ -738,6 +790,20 @@ async def run_evaluation(request: Request, eval_request: EvaluationRunRequest):
                     "executions": [],
                     "message": "No executions were created. Check that articles and configs exist.",
                 }
+
+            _audit_eval(
+                db_session,
+                request,
+                ACTION_EVAL_RUN_REQUESTED,
+                None,
+                f"Triggered {len(executions)} evaluation workflow executions",
+                {
+                    "eval_kind": "workflow",
+                    "executions_count": len(executions),
+                    "execution_ids": [e["execution_id"] for e in executions],
+                    "config_ids": sorted({e["config_id"] for e in executions}),
+                },
+            )
 
             return {
                 "success": True,
@@ -1425,6 +1491,21 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                     f"Triggered workflow execution {exec_info['execution_id']} for article {exec_info['article_id']}"
                 )
 
+            _audit_eval(
+                db_session,
+                request,
+                ACTION_EVAL_RUN_REQUESTED,
+                canonical_subagent_name,
+                f"Triggered {len(executions)} subagent eval executions for {canonical_subagent_name}",
+                {
+                    "eval_kind": "subagent",
+                    "subagent": canonical_subagent_name,
+                    "executions_count": len(executions),
+                    "total_articles": len(eval_request.article_urls),
+                    "found_articles": sum(1 for m in article_mappings if m["found"]),
+                },
+            )
+
             return {
                 "success": True,
                 "subagent": canonical_subagent_name,
@@ -1595,6 +1676,20 @@ async def run_sigma_eval(request: Request, eval_request: SigmaEvalRunRequest):
                     exec_info["execution_id"],
                     exec_info["article_id"],
                 )
+
+            _audit_eval(
+                db_session,
+                request,
+                ACTION_EVAL_RUN_REQUESTED,
+                None,
+                f"Triggered {len(executions)} Sigma eval executions",
+                {
+                    "eval_kind": "sigma",
+                    "executions_count": len(executions),
+                    "total_articles": len(urls_list),
+                    "config_version": active_config.version,
+                },
+            )
 
             return {
                 "success": True,
@@ -1983,6 +2078,22 @@ async def clear_pending_eval_records(request: Request, subagent: str = Query(...
             for record in pending_records:
                 db_session.delete(record)
 
+            # Same transaction as the deletes, so attribution cannot outlive or
+            # fall behind the mutation it describes.
+            _audit_eval(
+                db_session,
+                request,
+                ACTION_EVAL_RECORDS_CLEARED,
+                canonical_subagent,
+                f"Cleared {deleted_count} pending eval record(s) for {canonical_subagent}",
+                {
+                    "subagent": canonical_subagent,
+                    "deleted_count": deleted_count,
+                    "deleted_ids": [r.id for r in pending_records],
+                },
+                mandatory=True,
+            )
+
             db_session.commit()
 
             logger.info(f"Deleted {deleted_count} pending evaluation records for subagent {canonical_subagent}")
@@ -2050,6 +2161,21 @@ async def backfill_eval_records(request: Request, subagent: str = Query(..., des
                 except Exception as e:
                     logger.warning(f"Error updating eval record {eval_record.id}: {e}")
                     failed_count += 1
+
+            _audit_eval(
+                db_session,
+                request,
+                ACTION_EVAL_RECORDS_BACKFILLED,
+                canonical_subagent,
+                f"Backfilled {updated_count} eval record(s) for {canonical_subagent}",
+                {
+                    "subagent": canonical_subagent,
+                    "updated_count": updated_count,
+                    "failed_count": failed_count,
+                    "pending_considered": len(pending_evals),
+                },
+                mandatory=True,
+            )
 
             db_session.commit()
 
@@ -2750,6 +2876,21 @@ async def export_eval_bundle(request: Request, execution_id: int, export_request
             bundle_sha256 = compute_sha256_json(bundle_for_hash)
             bundle["integrity"]["bundle_sha256"] = bundle_sha256
 
+            _audit_eval(
+                db_session,
+                request,
+                ACTION_EVAL_BUNDLE_EXPORTED,
+                str(execution_id),
+                f"Exported eval bundle for execution {execution_id}",
+                {
+                    "execution_id": execution_id,
+                    "agent_name": export_request.agent_name,
+                    "attempt": export_request.attempt,
+                    "bundle_id": bundle.get("bundle_id"),
+                    "bundle_sha256": bundle_sha256,
+                },
+            )
+
             return bundle
         finally:
             db_session.close()
@@ -2912,6 +3053,22 @@ async def diagnose_eval_bundle(
             )
 
             diagnosis_service.save_diagnosis(diagnosis)
+
+            # Diagnosis calls a frontier model, so this event doubles as cost
+            # attribution. Record the provider/model used, never the diagnosis body.
+            _audit_eval(
+                db_session,
+                request,
+                ACTION_EVAL_BUNDLE_DIAGNOSED,
+                str(execution_id),
+                f"Diagnosed eval bundle for execution {execution_id} ({body.agent_name})",
+                {
+                    "execution_id": execution_id,
+                    "agent_name": body.agent_name,
+                    "provider": provider,
+                    "model_name": model_name,
+                },
+            )
 
             return diagnosis
 

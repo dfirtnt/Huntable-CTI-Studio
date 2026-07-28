@@ -8,7 +8,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException, Request
 
-from src.database.models import AgenticWorkflowConfigTable, ArticleTable
+from src.database.models import (
+    AgenticWorkflowConfigTable,
+    AgenticWorkflowExecutionTable,
+    ArticleTable,
+    AuditEventTable,
+)
 from src.web.routes.evaluation_api import EvaluationRunRequest, run_evaluation
 
 pytestmark = pytest.mark.api
@@ -65,13 +70,21 @@ async def test_full_eval_keeps_active_config_unchanged_and_snapshots_fixture_con
     assert result["success"] is True
     assert active_config.is_active is True
     assert eval_config.is_active is False
-    execution = session.add.call_args.args[0]
+    # Select the execution row by type: the route also adds an audit event, so
+    # the last session.add() is no longer necessarily the execution.
+    added = [call.args[0] for call in session.add.call_args_list]
+    executions_added = [obj for obj in added if isinstance(obj, AgenticWorkflowExecutionTable)]
+    assert len(executions_added) == 1
+    execution = executions_added[0]
     assert execution.config_snapshot["config_id"] == 20
     assert execution.config_snapshot["junk_filter_threshold"] == 0.7
     assert execution.config_snapshot["eval_fixture_content"] == "committed fixture"
     assert execution.config_snapshot["eval_fixture_content_sha256"] == hashlib.sha256(b"committed fixture").hexdigest()
     apply_async.assert_called_once_with(args=[100, 501], countdown=0.0)
-    assert session.commit.call_count == 1
+    # One commit for the execution row, one for the best-effort audit event that
+    # records who requested the run.
+    assert session.commit.call_count == 2
+    assert any(isinstance(obj, AuditEventTable) for obj in added)
 
 
 @pytest.mark.asyncio

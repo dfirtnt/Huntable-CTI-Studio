@@ -229,6 +229,98 @@ class TestModelRollbackAudit:
 
 
 # ---------------------------------------------------------------------------
+# Evaluation routes
+# ---------------------------------------------------------------------------
+
+
+class TestEvalRouteAudit:
+    """Eval endpoints audit on their own sync session.
+
+    The governing constraint on these routes is that adding auditability must not
+    touch eval data: no re-scraping, no mutation of eval-article rows or of the
+    config/eval_articles_data fixtures.
+    """
+
+    def test_clear_pending_audit_joins_the_delete_transaction(self):
+        """Clearing records is a real DB mutation, so the event must be atomic with it."""
+        from src.services.audit_service import ACTION_EVAL_RECORDS_CLEARED
+        from src.web.routes import evaluation_api
+
+        session = Mock()
+        request = _fake_request()
+
+        with patch.object(evaluation_api.AuditService, "record_mandatory") as mandatory:
+            with patch.object(evaluation_api.AuditService, "record_best_effort") as best_effort:
+                evaluation_api._audit_eval(
+                    session,
+                    request,
+                    ACTION_EVAL_RECORDS_CLEARED,
+                    "CmdlineExtract",
+                    "Cleared 3 pending eval record(s)",
+                    {"deleted_count": 3},
+                    mandatory=True,
+                )
+
+        mandatory.assert_called_once()
+        best_effort.assert_not_called()
+
+        event = mandatory.call_args.args[1]
+        assert event.action == ACTION_EVAL_RECORDS_CLEARED
+        assert event.target_type == "evaluation"
+        assert event.target_id == "CmdlineExtract"
+        assert event.actor.actor_id == "u-42"
+
+    def test_dispatch_only_routes_use_best_effort(self):
+        """A run/export route has already dispatched; it commits best-effort."""
+        from src.services.audit_service import ACTION_EVAL_RUN_REQUESTED
+        from src.web.routes import evaluation_api
+
+        session = Mock()
+        request = _fake_request()
+
+        with patch.object(evaluation_api.AuditService, "record_best_effort") as best_effort:
+            with patch.object(evaluation_api.AuditService, "record_mandatory") as mandatory:
+                evaluation_api._audit_eval(
+                    session,
+                    request,
+                    ACTION_EVAL_RUN_REQUESTED,
+                    None,
+                    "Triggered 2 evaluation workflow executions",
+                    {"eval_kind": "workflow", "executions_count": 2},
+                )
+
+        best_effort.assert_called_once()
+        mandatory.assert_not_called()
+
+    def test_audit_helper_touches_no_eval_article_state(self):
+        """The helper only adds an audit row -- it must not read or write eval data.
+
+        Guards the task constraint directly: the session handed to _audit_eval is
+        used for the audit write and nothing else.
+        """
+        from src.services.audit_service import ACTION_EVAL_BUNDLE_EXPORTED
+        from src.web.routes import evaluation_api
+
+        session = Mock()
+
+        evaluation_api._audit_eval(
+            session,
+            _fake_request(),
+            ACTION_EVAL_BUNDLE_EXPORTED,
+            "501",
+            "Exported eval bundle for execution 501",
+            {"execution_id": 501},
+        )
+
+        session.query.assert_not_called()
+        session.execute.assert_not_called()
+        session.delete.assert_not_called()
+        session.merge.assert_not_called()
+        # Exactly one row added: the audit event itself.
+        assert session.add.call_count == 1
+
+
+# ---------------------------------------------------------------------------
 # record_out_of_band durability guarantees
 # ---------------------------------------------------------------------------
 

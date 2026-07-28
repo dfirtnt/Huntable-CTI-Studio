@@ -5,13 +5,52 @@ Embedding-related API routes.
 from __future__ import annotations
 
 import os
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 
 from src.database.async_manager import async_db_manager
+from src.services.audit_service import (
+    ACTION_ARTICLE_EMBEDDED,
+    ACTION_EMBEDDINGS_REBUILD_REQUESTED,
+    STATUS_FAILURE,
+    STATUS_SUCCESS,
+    AsyncAuditService,
+    AuditEvent,
+    build_actor_context,
+)
 from src.web.dependencies import logger
 
 router = APIRouter(tags=["Embeddings"])
+
+
+async def _audit_embeddings(
+    request: Request,
+    action: str,
+    target_id: str | None,
+    summary: str,
+    metadata: dict[str, Any] | None = None,
+    *,
+    status: str = STATUS_SUCCESS,
+) -> None:
+    """Emit an embeddings audit event out-of-band.
+
+    Both endpoints hand work to a Celery worker and return a task id immediately,
+    so the dispatch is the whole of the route's action: it either queued (task id
+    recorded) or it did not. The worker-side outcome is not observable here and is
+    deliberately out of scope -- this records who asked for the rebuild.
+    """
+    await AsyncAuditService.record_out_of_band(
+        AuditEvent(
+            action=action,
+            target_type="embeddings",
+            target_id=target_id,
+            status=status,
+            summary=summary,
+            actor=build_actor_context(getattr(request.state, "identity", None), request),
+            metadata=metadata or {},
+        )
+    )
 
 
 async def _get_embedding_coverage_stats() -> dict[str, object]:
@@ -54,6 +93,18 @@ async def api_update_embeddings(request: Request):
 
         stats = await _get_embedding_coverage_stats()
 
+        await _audit_embeddings(
+            request,
+            ACTION_EMBEDDINGS_REBUILD_REQUESTED,
+            task.id,
+            "Bulk article embedding rebuild dispatched",
+            {
+                "task_id": task.id,
+                "batch_size": batch_size,
+                "estimated_articles": stats.get("pending_embeddings", 0),
+            },
+        )
+
         return {
             "success": True,
             "message": "Embedding update task started",
@@ -65,6 +116,14 @@ async def api_update_embeddings(request: Request):
 
     except Exception as exc:  # noqa: BLE001
         logger.error("Embedding update error: %s", exc)
+        await _audit_embeddings(
+            request,
+            ACTION_EMBEDDINGS_REBUILD_REQUESTED,
+            None,
+            "Bulk article embedding rebuild dispatch failed",
+            {"error": str(exc)},
+            status=STATUS_FAILURE,
+        )
         raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
@@ -156,7 +215,7 @@ async def get_embedding_logs():
 
 
 @router.post("/api/articles/{article_id}/embed")
-async def api_generate_embedding(article_id: int):
+async def api_generate_embedding(request: Request, article_id: int):
     """
     Generate embedding for a specific article.
     """
@@ -181,12 +240,30 @@ async def api_generate_embedding(article_id: int):
 
         task = generate_article_embedding.delay(article_id)
 
+        await _audit_embeddings(
+            request,
+            ACTION_ARTICLE_EMBEDDED,
+            str(article_id),
+            f"Embedding generation dispatched for article {article_id}",
+            {"article_id": article_id, "task_id": task.id},
+        )
+
         return {
             "status": "task_submitted",
             "task_id": task.id,
             "message": f"Embedding generation started for article {article_id}",
         }
 
+    except HTTPException:
+        raise
     except Exception as exc:  # noqa: BLE001
         logger.error("Generate embedding error: %s", exc)
+        await _audit_embeddings(
+            request,
+            ACTION_ARTICLE_EMBEDDED,
+            str(article_id),
+            f"Embedding generation dispatch failed for article {article_id}",
+            {"article_id": article_id, "error": str(exc)},
+            status=STATUS_FAILURE,
+        )
         raise HTTPException(status_code=500, detail="Internal server error") from exc
