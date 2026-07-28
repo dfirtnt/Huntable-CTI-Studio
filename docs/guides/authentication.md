@@ -175,12 +175,9 @@ shape, and by value-level scrubbing of embedded credentials (URL `user:pass@`,
 (e.g. a git error message) is caught even under an innocuous key name. Secret
 updates record presence/change booleans and hashes, not raw tokens.
 
-> **Not yet mandatory-audited:** backup create/restore, model
-> retrain/rollback/version management, observable training, embedding rebuilds,
-> and evaluation runs remain role-gated (and, where
-> applicable, CSRF-protected) but their durable audit events are a follow-up.
-> These are non-transactional (subprocess/worker/external) paths that need
-> status-aware auditing rather than the same-transaction guarantee above.
+> **Model version management** (listing and comparing versions) is read-only and
+> therefore not audited; the mutating operations on those routes -- retrain,
+> evaluate, rollback -- are covered above.
 
 Admin-only audit endpoints:
 
