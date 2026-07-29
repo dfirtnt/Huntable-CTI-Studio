@@ -1,19 +1,34 @@
 /**
  * Shared front-end utilities.
  *
- * Loaded from base.html for every page, so these are plain globals rather
- * than module exports -- inline template scripts call them unqualified.
+ * Loaded from base.html for every page, so these are attached as globals --
+ * inline template scripts call them unqualified. Also exported via
+ * module.exports so Node-based tests (and components/similarity-display.js
+ * when required in Node) can reach the same single implementation.
  *
- * Before this file, escapeHtml was redefined in seven templates in three
- * mutually incompatible variants. Two of them (the createElement/textContent
- * trick, and a manual replace of only & < >) do not escape quote characters,
- * yet article_detail.html, agent_evals.html and workflow.html interpolate
- * escapeHtml output directly into HTML attributes -- so a value containing a
- * double quote escaped its attribute. The canonical version below escapes
- * quotes too, making it safe in both text and attribute position.
+ * Before this file, escapeHtml was redefined in seven templates plus
+ * similarity-display.js in three mutually incompatible variants. Two of them
+ * (the createElement/textContent trick, and a manual replace of only & < >)
+ * do not escape quote characters, yet article_detail.html, agent_evals.html,
+ * workflow.html and similarity-display.js interpolate escapeHtml output
+ * directly into HTML attributes -- so a value containing a double quote
+ * escaped its attribute. The canonical version below escapes quotes too,
+ * making it safe in both text and attribute position.
  */
 
-(function (global) {
+(function (root, factory) {
+    'use strict';
+
+    var api = factory();
+
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = api;
+    }
+    if (root) {
+        root.escapeHtml = api.escapeHtml;
+        root.formatTimestamp = api.formatTimestamp;
+    }
+})(typeof window !== 'undefined' ? window : null, function () {
     'use strict';
 
     var HTML_ESCAPES = {
@@ -50,6 +65,8 @@
         return new Date(ts).toLocaleString();
     }
 
-    global.escapeHtml = escapeHtml;
-    global.formatTimestamp = formatTimestamp;
-})(window);
+    return {
+        escapeHtml: escapeHtml,
+        formatTimestamp: formatTimestamp
+    };
+});

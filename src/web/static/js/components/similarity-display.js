@@ -222,7 +222,16 @@ function getScoringModeLabel(atomComparison) {
  * shared global on every page loading this component (sigma_ab_test,
  * article_detail, sigma_similarity_test, workflow) with a version that does
  * not escape quotes -- and this file interpolates it into a title attribute.
+ *
+ * In the browser this resolves to the already-loaded global (the assignment
+ * is a self-assignment and cannot clobber it). Under Node -- this module is
+ * require()d by tests/unit/test_similarity_display_normalization.py, and
+ * escapeHtml is part of module.exports below -- it loads the same shared
+ * implementation from disk.
  */
+var escapeHtml = (typeof window !== 'undefined' && window.escapeHtml)
+    ? window.escapeHtml
+    : require('../utils.js').escapeHtml;
 
 /**
  * Renders similarity display based on mode.
