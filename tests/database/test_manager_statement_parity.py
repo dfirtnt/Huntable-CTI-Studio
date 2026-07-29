@@ -285,10 +285,13 @@ def test_sync_list_articles_propagates_db_errors():
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_async_list_articles_swallows_db_errors_to_empty_list():
-    """Async error semantics: list_articles logs and returns [] (web routes
-    render an empty page rather than 500). Pinned deliberately -- see the
-    linked error-swallowing task before changing."""
+async def test_async_list_articles_propagates_db_errors():
+    """Async error semantics now match the sync manager: exceptions propagate.
+
+    Previously this returned [], which made a broken database look like an
+    empty result and rendered "no articles" instead of an error. Every caller
+    wraps list_articles in its own handler and turns the raised error into an
+    HTTP 500 or error.html."""
 
     class _ErrorAsyncSession(_RecordingAsyncSession):
         async def execute(self, stmt):
@@ -302,4 +305,5 @@ async def test_async_list_articles_swallows_db_errors_to_empty_list():
 
     mgr.get_session = _fake_get_session
 
-    assert await mgr.list_articles() == []
+    with pytest.raises(RuntimeError, match="simulated DB error"):
+        await mgr.list_articles()

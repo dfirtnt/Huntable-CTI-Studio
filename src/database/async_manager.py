@@ -816,8 +816,14 @@ class AsyncDatabaseManager:
 
         Statement construction is shared with DatabaseManager.list_articles
         (src/database/statements.py); the web default sort is discovered_at desc.
-        Content deferral, batched annotation counts, and error handling below
-        are async-side execution behavior and stay here.
+        Content deferral and batched annotation counts below are async-side
+        execution behavior and stay here.
+
+        Errors propagate to the caller (matching the sync DatabaseManager).
+        Returning [] on failure made a broken database indistinguishable from
+        an empty result, so the UI rendered "no articles" instead of an error.
+        Every caller wraps this in its own handler and turns it into an HTTP
+        500 or an error page.
         """
         try:
             async with self.get_session() as session:
@@ -888,7 +894,7 @@ class AsyncDatabaseManager:
 
         except Exception as e:
             logger.error(f"Failed to list articles: {e}")
-            return []
+            raise
 
     async def get_articles_count(self, source_id: int | None = None, processing_status: str | None = None) -> int:
         """Get total count of articles with optional filtering."""
@@ -919,7 +925,12 @@ class AsyncDatabaseManager:
             return None
 
     async def list_articles_by_source(self, source_id: int) -> list[Article]:
-        """Get all articles for a specific source."""
+        """Get all articles for a specific source.
+
+        Errors propagate for the same reason as list_articles: a source with
+        zero articles is a real state, so a swallowed failure would be
+        reported to the user as "this source has no articles".
+        """
         try:
             async with self.get_session() as session:
                 query = (
@@ -935,7 +946,7 @@ class AsyncDatabaseManager:
 
         except Exception as e:
             logger.error(f"Failed to list articles by source {source_id}: {e}")
-            return []
+            raise
 
     async def create_article(self, article: ArticleCreate) -> Article | None:
         """Create a new article in the database with deduplication."""
@@ -1164,7 +1175,11 @@ class AsyncDatabaseManager:
             return 0
 
     async def get_source_quality_stats(self) -> list[dict[str, Any]]:
-        """Get quality statistics for all sources."""
+        """Get quality statistics for all sources.
+
+        Soft-empty on failure is deliberate: this is supplementary decoration
+        on the sources page, and losing it should not take the page down.
+        """
         try:
             async with self.get_session() as session:
                 # Raw SQL query for better performance
@@ -1218,7 +1233,11 @@ class AsyncDatabaseManager:
             return []
 
     async def get_source_hunt_scores(self) -> list[dict[str, Any]]:
-        """Get hunt score statistics for all sources."""
+        """Get hunt score statistics for all sources.
+
+        Soft-empty on failure is deliberate, same rationale as
+        get_source_quality_stats: decoration on the sources page.
+        """
         try:
             async with self.get_session() as session:
                 # Raw SQL query for hunt score statistics
@@ -1424,7 +1443,12 @@ class AsyncDatabaseManager:
             }
 
     async def get_performance_metrics(self) -> list[dict[str, Any]]:
-        """Get database performance metrics."""
+        """Get database performance metrics.
+
+        Soft-empty on failure is deliberate: the only caller is the database
+        health endpoint, which must stay reachable to report degradation
+        rather than 500 on the way to saying the database is unwell.
+        """
         try:
             async with self.get_session() as session:
                 metrics = []
@@ -1697,7 +1721,12 @@ class AsyncDatabaseManager:
             return None
 
     async def get_article_annotations(self, article_id: int) -> list[ArticleAnnotation]:
-        """Get all annotations for a specific article."""
+        """Get all annotations for a specific article.
+
+        Errors propagate: most articles legitimately have zero annotations, so
+        a swallowed failure is completely invisible here. All four callers in
+        src/web/routes/annotations.py wrap this in their own handler.
+        """
         try:
             async with self.get_session() as session:
                 result = await session.execute(
@@ -1711,7 +1740,7 @@ class AsyncDatabaseManager:
 
         except Exception as e:
             logger.error(f"Failed to get annotations for article {article_id}: {e}")
-            return []
+            raise
 
     async def update_annotation(
         self, annotation_id: int, update_data: ArticleAnnotationUpdate
@@ -2011,6 +2040,8 @@ class AsyncDatabaseManager:
                 return similar_annotations
 
         except Exception as e:
+            # Soft-empty is deliberate: RAG retrieval degrades to "no context"
+            # rather than failing the whole workflow that asked for it.
             logger.error(f"Failed to search similar annotations: {e}")
             return []
 
@@ -2029,7 +2060,12 @@ class AsyncDatabaseManager:
             return None
 
     async def get_articles_with_source_info(self, article_ids: list[int]) -> list[ArticleTable]:
-        """Get multiple articles with source information."""
+        """Get multiple articles with source information.
+
+        Errors propagate: the embedding batch loop in src/worker/celery_app.py
+        treats an empty batch as "already embedded, skip", so a swallowed
+        failure silently dropped a whole batch. Its handler re-raises.
+        """
         try:
             async with self.get_session() as session:
                 result = await session.execute(
@@ -2041,10 +2077,16 @@ class AsyncDatabaseManager:
 
         except Exception as e:
             logger.error(f"Failed to get articles with source info: {e}")
-            return []
+            raise
 
     async def get_articles_without_embeddings(self) -> list[ArticleTable]:
-        """Get all articles that don't have embeddings yet."""
+        """Get all articles that don't have embeddings yet.
+
+        Errors propagate: both retroactive-embedding tasks in
+        src/worker/celery_app.py report "success, no articles found without
+        embeddings" on an empty list, so a swallowed failure looked like a
+        clean run. Both task handlers surface the raised error.
+        """
         try:
             async with self.get_session() as session:
                 result = await session.execute(
@@ -2054,7 +2096,7 @@ class AsyncDatabaseManager:
 
         except Exception as e:
             logger.error(f"Failed to get articles without embeddings: {e}")
-            return []
+            raise
 
     async def get_article_by_id(self, article_id: int) -> dict[str, Any] | None:
         """Get article by ID with source information."""
@@ -2170,6 +2212,8 @@ class AsyncDatabaseManager:
                 return similar_articles
 
         except Exception as e:
+            # Soft-empty is deliberate, same rationale as
+            # search_similar_annotations: RAG degrades to "no context".
             logger.error(f"Failed to search similar articles: {e}")
             return []
 
@@ -2231,6 +2275,8 @@ class AsyncDatabaseManager:
                     for row in rows
                 ]
         except Exception as e:
+            # Soft-empty is deliberate: this is the lexical fallback behind
+            # semantic search, so it degrades to "no matches".
             logger.error(f"Failed to search articles by lexical terms: {e}")
             return []
 
