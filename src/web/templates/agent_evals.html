@@ -3589,11 +3589,7 @@ function renderCompareResult(data) {
 }
 
 // Escape HTML to prevent XSS
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
+// escapeHtml now lives in /static/js/utils.js (loaded from base.html).
 
 // Version compare button
 document.getElementById('runCompareBtn').addEventListener('click', runVersionCompare);

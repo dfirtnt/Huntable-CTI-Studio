@@ -592,10 +592,10 @@ async function runHealthCheck(endpoint, loadingMessage) {
     }
 }
 
-function formatTimestamp(ts) { return new Date(ts).toLocaleString(); }
+// formatTimestamp now lives in /static/js/utils.js (loaded from base.html).
 function getHealthIcon(s) { return s === 'healthy' ? '✓' : s === 'unhealthy' || s === 'error' ? '✗' : s === 'not_configured' ? '○' : '?'; }
 function getHealthColor(s) { return s === 'healthy' ? 'diag-status-success' : s === 'unhealthy' || s === 'error' ? 'diag-status-error' : 'diag-muted'; }
-function escapeHtml(str) { const d = document.createElement('div'); d.textContent = String(str ?? ''); return d.innerHTML; }
+// escapeHtml now lives in /static/js/utils.js (loaded from base.html).
 
 async function updateOverallHealthStatus() {
     const data = await runHealthCheck('', 'Checking overall system status...');

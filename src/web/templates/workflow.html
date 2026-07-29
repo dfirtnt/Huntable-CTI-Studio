@@ -3754,7 +3754,7 @@ END SYSTEM PROMPT</textarea>
 </div>
 
 <script src="/static/js/components/observable-utils.js"></script>
-<script src="/static/js/components/similarity-display.js"></script>
+<script src="/static/js/components/similarity-display.js?v=20260729"></script>
 <script src="/static/js/components/similar-rule-modal.js"></script>
 <script>
 // Helper function to parse UTC timestamp and convert to local time
@@ -14985,11 +14985,7 @@ async function restoreLastEnrichmentPreset() {
     }
 }
 
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
+// escapeHtml now lives in /static/js/utils.js (loaded from base.html).
 
 async function generateEnrichmentDiff(originalYaml, enrichedYaml) {
     const diffView = document.getElementById('enrichDiffView');

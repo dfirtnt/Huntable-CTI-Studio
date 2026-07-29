@@ -4,7 +4,7 @@
 
 {% block content %}
 <div class="container mx-auto px-4 pt-4 pb-6">
-    <script src="/static/js/components/similarity-display.js"></script>
+    <script src="/static/js/components/similarity-display.js?v=20260729"></script>
     <script>
         // Pre-set annotation mode attribute before paint to avoid flashes of the rich container
         (function() {
@@ -6752,16 +6752,9 @@ Please provide a detailed analysis based on the article content and the user's s
         }
     }
 
-    function escapeHtml(value) {
-        if (value === undefined || value === null) {
-            return '';
-        }
-        return value
-            .toString()
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;');
-    }
+    // escapeHtml now lives in /static/js/utils.js (loaded from base.html).
+    // The shared version also escapes quotes, which this copy did not --
+    // required because this template interpolates it into HTML attributes.
 
     async function detectOS() {
         // closeAIAssistantModal(); // DEPRECATED

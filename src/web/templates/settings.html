@@ -1339,17 +1339,9 @@
         };
     }
 
-    function escapeHtml(value) {
-        return String(value || '').replace(/[&<>"']/g, function(char) {
-            return {
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#39;'
-            }[char];
-        });
-    }
+    // escapeHtml now lives in /static/js/utils.js (loaded from base.html).
+    // This copy was the reference for the shared version -- it is the only
+    // one of the seven that escaped quotes.
 
     function renderScheduledJobs(state) {
         const jobs = state.jobs || [];
