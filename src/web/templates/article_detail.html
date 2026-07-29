@@ -4045,6 +4045,14 @@ Please provide a detailed analysis based on the article content and the user's s
     }
     window.toggleAnnotationSystem = toggleAnnotationSystem;
     
+    // DELIBERATE SECOND DEFINITION -- do not delete either copy.
+    // The early "essential functions" script block near the top of this file
+    // defines setAnnotationMode too, so inline onclick handlers keep working
+    // if this main script throws before reaching here. Both blocks are
+    // separate top-level scopes, so this one overwrites window.setAnnotationMode
+    // and is what normally runs; the early copy is the fallback. Keep the two
+    // behaviors in sync (this one reads the bare simpleTextManager binding,
+    // the early one reads window.simpleTextManager).
     function setAnnotationMode(mode) {
         try {
             if (!simpleTextManager) {
@@ -4443,6 +4451,10 @@ Please provide a detailed analysis based on the article content and the user's s
     }
     
     // Copy article content to clipboard (for detail page)
+    // DELIBERATE SECOND DEFINITION -- do not delete either copy. Same pattern
+    // as setAnnotationMode above: the early "essential functions" script block
+    // near the top of this file carries a fallback copy for inline onclick
+    // handlers, and this one overwrites it in the normal case.
     function copyArticleContentToClipboard() {
         try {
             const contentElement = document.getElementById('article-content');
