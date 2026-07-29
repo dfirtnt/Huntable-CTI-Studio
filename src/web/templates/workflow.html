@@ -7027,7 +7027,7 @@ function renderAgentModels(lmstudioModels) {
         osContainer.innerHTML = `
             <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                 <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                    Platform Detection Model
+                    Platform Detection
                     <button type="button" 
                             onclick="showHelp('osDetectionAgent')"
                             class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none"
@@ -7038,7 +7038,7 @@ function renderAgentModels(lmstudioModels) {
                     </button>
                 </label>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                    Deterministic detection (entity/keyword registry) — no model to configure.
+                    Deterministic keyword-registry detection, with an LLM fallback for the inconclusive tail — no model to configure.
                 </p>
             </div>
         `;
@@ -16627,15 +16627,17 @@ function showHelp(fieldName) {
         'osDetectionAgent': {
             title: 'Platform Detection',
             content: `<p class="mb-2"><strong>Description:</strong></p>
-                      <p class="mb-2">Determines the target platform of each threat intelligence article. The result routes extractors by their platform capabilities before extraction begins.</p>
+                      <p class="mb-2">Step 0 of the workflow. Determines which host platform(s) an article concerns. The verdict never stops the workflow — it becomes the platform context that routes the extraction sub-agents.</p>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li><strong>Phase 1 — Entity/keyword registry:</strong> Scans article content against a platform-tagged keyword registry. Weighted scores are accumulated for Windows, Linux, and macOS simultaneously. ATT&amp;CK technique citations reinforce platforms already evidenced by keywords.</li>
-                          <li><strong>Phase 2 — LLM adjudication (fallback):</strong> Fires only when Phase 1 returns low confidence or Unknown. An LLM classifies the article excerpt and returns a structured verdict with evidence.</li>
-                          <li>Detects: Windows, Linux, macOS, multiple platforms, or Unknown</li>
-                          <li>Workflow continues to extractor capability routing; unsupported extractors are skipped with an explicit reason</li>
+                          <li><strong>Step 1 — Keyword registry (deterministic):</strong> Platform-tagged registry entries are scored for Windows, Linux, and macOS simultaneously. Confidence is margin-based: the top platform must clear an absolute evidence floor and lead the runner-up by half its own score to rate "high". Any platform scoring within 50% of the top is co-labelled, so genuinely mixed articles return multiple platforms; thin evidence returns Unknown rather than a guess. This verdict is normally computed once at ingest scoring time and reused here without re-scanning.</li>
+                          <li><strong>ATT&amp;CK reinforcement:</strong> Cited technique IDs (e.g. T1059.001) add weight only to platforms the registry already evidenced. A citation on its own never originates a verdict — broad write-ups name techniques across platforms.</li>
+                          <li><strong>Step 2 — Windows keyword safety net (deterministic):</strong> When Step 1 is low confidence, three or more Windows indicators (powershell.exe, HKLM, system32, Event ID, …) settle the article as Windows.</li>
+                          <li><strong>Step 3 — LLM adjudication (fallback):</strong> Fires only when both deterministic steps remain inconclusive. The model classifies the first 8,000 characters and returns a strict-JSON verdict with evidence. On a failed call, unparseable output, or "no clear signal", the deterministic verdict stands.</li>
+                          <li><strong>Result:</strong> Windows, Linux, MacOS, multiple, or Unknown. An Unknown whose sub-floor evidence still leans Windows is promoted to Windows.</li>
+                          <li><strong>Routing:</strong> RegistryExtract, ServicesExtract, and ScheduledTasksExtract are Windows-only and are skipped with an <code>unsupported_platform</code> reason on non-Windows verdicts. Cmdline, ProcTree, Hunt Queries, and Network Indicators run on every platform, including Unknown.</li>
                       </ul>
-                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>No configuration needed.</strong> Detection is fully deterministic in the common case. The LLM fallback uses the configured Extract Agent provider and is only invoked for genuinely ambiguous articles.</p>`
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>No model to configure.</strong> The deterministic steps resolve the common case at zero cost. The Step 3 fallback uses the <code>PlatformAdjudicator</code> model/provider when set in the config, otherwise it inherits Extract Agent (then Rank Agent). Eval runs bypass Platform Detection entirely and assume Windows.</p>`
         },
 	        'rankAgent': {
 	            title: 'Rank / Triage Agent Model',
