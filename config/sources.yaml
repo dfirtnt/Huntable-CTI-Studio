@@ -736,15 +736,30 @@ sources:
       title_filter_keywords: ["CrowdStrike Named a Leader", "CrowdStrike to Acquire"]
       min_content_length: 2000
 
-  # Microsoft Security Response Center (existing)
+  # Microsoft Security Response Center (AEM blog; JS-rendered — Playwright + listing discovery)
+  # Blog restructured 2026-07: post listing lives at /msrc/blog/msrc-blogs, not /msrc/blog.
   - id: "microsoft_security"
     name: "Microsoft Security Response Center"
-    url: "https://msrc.microsoft.com/blog/"
-    rss_url: "https://msrc.microsoft.com/blog/feed/"
+    url: "https://www.microsoft.com/en-us/msrc/blog"
+    rss_url: null
     check_frequency: 3600  # 1 hour
-    active: false
+    active: true
     config:
+      post_url_regex: ["^https://www\\.microsoft\\.com/en-us/msrc/blog/.*"]
+      use_playwright: true
       min_content_length: 2000  # Microsoft Security requires 1000+ chars
+      discovery:
+        strategies:
+          - listing:
+              urls:
+                - "https://www.microsoft.com/en-us/msrc/blog/msrc-blogs"
+              post_link_selector: "h2 a, .post-title a"
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors:
+          - "meta[property='article:published_time']::attr(content)"
+        body_selectors: ["article", "main", ".content", ".post-content"]
 
 
   # Zscaler ThreatLabz (author listing; JS-rendered — Playwright + paginated listing URLs)

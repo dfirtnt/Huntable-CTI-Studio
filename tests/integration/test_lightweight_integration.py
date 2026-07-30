@@ -333,7 +333,7 @@ class TestSourceManagementPipeline:
     async def test_source_config_loading(self, mock_source_manager, mock_source_config):
         """Test source configuration loading and validation."""
         # Execute: Load sources from config
-        sources = await mock_source_manager.load_sources_from_config("config/sources.yaml", sync_to_db=False)
+        sources = await mock_source_manager.load_sources_from_config("config/sources.yaml")
 
         # Verify: Sources loaded correctly
         assert len(sources) == 1

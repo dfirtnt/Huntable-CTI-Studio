@@ -217,6 +217,8 @@ def test_eval_constraints_help_modal_stays_within_viewport(page: Page):
 
     expect(modal).to_be_visible()
     expect(modal_card).to_be_visible()
+    expect(modal_card).to_contain_text("Junk filtering is skipped")
+    expect(modal_card).to_contain_text("complete article content")
 
     viewport = page.viewport_size
     modal_box = modal_card.bounding_box()

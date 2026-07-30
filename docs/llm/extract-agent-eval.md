@@ -61,14 +61,9 @@ Extractor subagent evals (cmdline, process_lineage, hunt_queries, etc.) use **st
 
 ### Compare Results
 
-`scripts/compare_evaluations.py` compares two saved evaluation JSON files (e.g. baseline vs. post-fine-tune):
+<!-- AUDIT: Accuracy -- scripts/compare_evaluations.py was deleted in the May 2026 stale-scripts purge (commit e48b9246) and has no CLI replacement. Use the UI-based version compare instead. -->
 
-```bash
-# Flags: --eval1 / --eval2 (or --baseline / --finetuned as aliases)
-python3 scripts/compare_evaluations.py \
-    --baseline outputs/evaluations/extract_agent_baseline.json \
-    --finetuned outputs/evaluations/extract_agent_finetuned.json
-```
+Use the **Version Compare** panel in the Agent Evals UI (`/mlops/agent-evals`) to compare two saved eval versions for a subagent. It calls `GET /api/evaluations/subagent-eval-compare?subagent=<name>&version_a=<id>&version_b=<id>`.
 
 ## Output Format
 
@@ -170,7 +165,7 @@ After fine-tuning, aim for:
 
 ## Notes
 
-- Evaluation uses **filtered content** (junk filter applied) to match workflow behavior
+- Evaluation uses the **complete article content**. The junk filter is skipped so extraction is evaluated against every article chunk.
 - Test dataset should be **representative** of production articles
 - Run evaluation **multiple times** to check consistency
 - Save results for **historical comparison**

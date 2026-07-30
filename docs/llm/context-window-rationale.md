@@ -15,7 +15,7 @@ During inference, transformer attention requires storing key-value pairs for eve
 in the context window. This KV cache grows with the square of context length relative to
 memory efficiency:
 
-```
+```text
 KV cache memory ~ 2 * n_layers * n_heads * head_dim * n_ctx * dtype_bytes
 ```
 
@@ -97,7 +97,7 @@ within 16K tokens.
 The three-agent architecture eliminates the need for a monolithic high-context model.
 Each agent receives a transformed input that is smaller than the original article:
 
-```
+```text
 Raw article (variable, up to 40K tokens)
     |
     v
@@ -219,7 +219,7 @@ in throughput and concurrency capacity.
 This is why the application enforces different defaults for local vs. cloud models:
 
 - Local models (LM Studio):  n_ctx = 16384
-- Cloud models (OpenAI):     context = 81920 (80K, see WORKFLOW_CLOUD_CONTEXT_TOKENS)
+- Cloud models (OpenAI):     context = 80000 (80K default, see WORKFLOW_CLOUD_CONTEXT_TOKENS in `src/services/llm_service.py`)
 
 These are not symmetric defaults that happen to be different. They reflect a
 fundamentally different infrastructure model.

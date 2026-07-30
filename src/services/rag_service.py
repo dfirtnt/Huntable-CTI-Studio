@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
 from src.database.async_manager import AsyncDatabaseManager
 from src.services.embedding_service import EmbeddingService, generate_query_embedding, get_embedding_service
@@ -111,7 +112,7 @@ class RAGService:
             logger.info(f"Found {len(enhanced_chunks)} similar chunks for query: '{query[:50]}...'")
             return enhanced_chunks
 
-        except Exception as e:
+        except (RuntimeError, SQLAlchemyError) as e:
             logger.error(f"Failed to find similar chunks: {e}")
             return []
 
@@ -231,7 +232,7 @@ class RAGService:
 
             return articles[:top_k]
 
-        except Exception as e:
+        except (RuntimeError, SQLAlchemyError) as e:
             logger.error(f"Failed to find similar content: {e}")
             return []
 
@@ -262,7 +263,7 @@ class RAGService:
             logger.info(f"Found {len(similar_articles)} similar articles for query: '{query[:50]}...'")
             return similar_articles
 
-        except Exception as e:
+        except (RuntimeError, SQLAlchemyError) as e:
             logger.error(f"Failed to find similar articles: {e}")
             return []
 
@@ -294,7 +295,7 @@ class RAGService:
 
             return context_results
 
-        except Exception as e:
+        except (RuntimeError, SQLAlchemyError) as e:
             logger.error(f"Failed to get context for SIGMA: {e}")
             return {}
 

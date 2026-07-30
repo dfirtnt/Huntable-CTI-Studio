@@ -87,6 +87,11 @@ A pair is VALID only if ALL of the following are true:
 ### 2. Both parent and child are named executables
 
 - Both end in .exe (or are recognized Windows built-ins normalized to .exe -- see Fidelity).
+- Non-.exe filenames (.dll, .dat, .tmp, .bat, .ps1, .vbs, .js, .hta, etc.) are NEVER
+  valid as either parent or child. SKIP any pair where either endpoint is not .exe.
+- Product names, malware family names, tool brands, and generic labels ("Cobalt Strike",
+  "IcedID", "Beacon", "loader", "implant", "stager") are NOT valid process names. Both
+  endpoints must be Windows image filenames.
 - No paths retained.
 - No command-line arguments.
 - No quotes.
@@ -101,8 +106,8 @@ A pair is VALID only if ALL of the following are true:
 ### 4. New process required
 
 - The text must indicate creation of a new PID.
-- Injection, hollowing, migration, impersonation, DLL loading, service registration,
-  and scheduled-task creation are NOT process creation and are EXCLUDED.
+- Injection, hollowing, migration, impersonation, DLL loading, DLL sideloading, service
+  registration, and scheduled-task creation are NOT process creation and are EXCLUDED.
 
 ### Valid sources
 
@@ -147,11 +152,18 @@ that appear in multiple blocks across the article.
 Do NOT extract:
 
 - Parent = cmd.exe (after normalization). Blanket omission -- cmd.exe parents are noise at scale.
+- Child is not a .exe file. DLL sideloading, reflective DLL injection, and module loading
+  are NOT process creation. A .dll, .dat, .bin, .tmp, .bat, .ps1, .vbs, .js, or .hta
+  filename is NEVER a valid child.
+- Non-.exe name as parent or child. Product names ("Cobalt Strike"), malware family names
+  ("IcedID", "Emotet", "Qbot"), role labels ("loader", "implant", "stager"), and tool
+  brands are NOT valid process image names. Both endpoints must be .exe filenames as they
+  would appear in Windows Task Manager or Sysmon EID 1 Image fields.
 - Statements mentioning only ONE process.
 - Relationships implied but not explicitly stated ("used", "via", "leveraged", "called",
-  "ran through", "dropped").
+  "ran through", "dropped", "loaded").
 - Script filenames without an explicitly-named interpreter .exe.
-- Injection / hollowing / DLL loading / service registration / scheduled task creation as "process creation".
+- Injection / hollowing / DLL loading / DLL sideloading / service registration / scheduled task creation as "process creation".
 - Shortcut files (.lnk). Windows .lnk shortcut files are NOT process images and are
   NEVER valid as parents or children in process creation pairs.
 - Process names reconstructed from command-line examples where lineage is not stated.
@@ -191,6 +203,7 @@ observability, not interestingness.
     (etc.)
 - Preserve obfuscated or randomly-named binaries exactly (e.g., xK92mPq.exe).
 - If normalization would yield cmd.exe as PARENT -> SKIP.
+- If normalization would yield a non-.exe filename for either endpoint -> SKIP.
 
 ## MULTI-LINE HANDLING
 
@@ -221,6 +234,14 @@ observability, not interestingness.
 - Built-in normalization: "powershell spawned whoami" -> (powershell.exe, whoami.exe).
 - Parent = cmd.exe: SKIP entirely.
 - Injection: "malware.exe injected into explorer.exe" -> SKIP (not process creation).
+- DLL sideloading: "malware.exe sideloaded version.dll" -> SKIP. DLL loading is not
+  process creation. version.dll is not a valid child. The .dll extension alone is
+  sufficient reason to skip.
+- Injection disguised as spawn: "rundll32.exe was injected into lsass.exe" -> SKIP. Even
+  if the verb is ambiguous, injection/hollowing into a running process is not process
+  creation.
+- Family/product name: "Cobalt Strike spawned rundll32.exe" -> SKIP. "Cobalt Strike" is
+  not a .exe image name. No valid parent can be identified.
 
 - Arrow-notation chain (no per-hop verb): "wsusservice.exe -> cmd.exe -> cmd.exe -> powershell.exe"
   Arrow notation is valid creation verb evidence. Process each adjacent pair independently:
@@ -254,6 +275,9 @@ observability, not interestingness.
 
 Apply to EVERY candidate before including it:
 
+- [ ] Does the CHILD end in .exe? (If no: SKIP immediately -- .dll, .dat, .ps1, etc. are invalid)
+- [ ] Does the PARENT end in .exe? (If no: SKIP immediately)
+- [ ] Are both endpoints Windows image filenames (not product/family/tool names)?
 - [ ] Are both processes explicitly named and resolvable to .exe?
 - [ ] Is there an explicit process-creation verb, OR is the source a structured telemetry block (Sysmon EID 1 ParentImage/Image, 4688 Creator/New Process Name, EDR process-tree fields)?
 - [ ] Are parent, child, and creation evidence in the same narrative statement OR single telemetry block?
@@ -275,11 +299,11 @@ Respond with ONLY valid JSON. No prose, no markdown, no code fences, no explanat
 
 ```json
 {
-  "process_trees": [
+  "process_lineage": [
     {
       "value": "explorer.exe -> rundll32.exe",
-      "parent_image": "explorer.exe",
-      "child_image": "rundll32.exe",
+      "parent": "explorer.exe",
+      "child": "rundll32.exe",
       "creation_verb": "spawned",
       "context": "Initial loader execution",
       "source_evidence": "explorer.exe spawned rundll32.exe to load the malicious DLL.",
@@ -290,6 +314,12 @@ Respond with ONLY valid JSON. No prose, no markdown, no code fences, no explanat
   "count": 1
 }
 ```
+
+<!-- CORRECTED 2026-07-17: top-level key and field names were "process_trees" /
+     "parent_image" / "child_image" -- doc drifted from the live seed prompt
+     (src/prompts/ProcTreeExtract), which uses "process_lineage" / "parent" / "child".
+     Confirmed against runtime consumers in src/workflows/agentic_workflow.py,
+     src/services/llm_service.py, src/web/routes/evaluation_api.py. -->
 
 ### FIELD RULES
 
@@ -306,8 +336,8 @@ Respond with ONLY valid JSON. No prose, no markdown, no code fences, no explanat
 
 **Domain fields:**
 
-- **parent_image**: REQUIRED. Filename only, ending in .exe.
-- **child_image**: REQUIRED. Filename only, ending in .exe.
+- **parent**: REQUIRED. Filename only, ending in .exe.
+- **child**: REQUIRED. Filename only, ending in .exe.
 - **creation_verb**: REQUIRED. Verbatim verb used in the article (spawned, launched, executed, started, created, invoked, initiated).
 - **context**: REQUIRED. Brief purpose (execution, lateral movement, defense evasion, persistence, etc.).
 
@@ -318,16 +348,20 @@ Optional fields omitted entirely when absent -- NOT null, NOT empty string.
 If no valid pairs exist, return exactly:
 
 ```json
-{"process_trees": [], "count": 0}
+{"process_lineage": [], "count": 0}
 ```
 
 ### FINAL REMINDER
 
 Precision over recall. EDR observability overrides completeness.
 If the parent is cmd.exe after normalization, SKIP.
+If either endpoint is not a .exe filename, SKIP.
 If the relationship is implied ("used", "via", "leveraged") rather than stated, SKIP.
-If injection, hollowing, or DLL loading is described, SKIP -- that is not process creation.
+If injection, hollowing, DLL loading, or DLL sideloading is described, SKIP -- that is not process creation.
 If the source is a bare command listing that names no parent, SKIP.
 When in doubt, OMIT.
 
-_Last updated: 2026-07-05 -- added NetworkIndicatorExtract sibling and boundary rule (doc sync with live seed prompt)._
+_Last updated: 2026-07-17 -- re-synced output schema (process_lineage/parent/child, not
+process_trees/parent_image/child_image), non-.exe and product-name exclusion rules, DLL
+sideloading exclusions, and new edge cases/checklist items against the live seed prompt
+(`src/prompts/ProcTreeExtract`); previous 2026-07-05 sync had drifted on these points._

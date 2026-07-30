@@ -45,7 +45,8 @@ After seeding, the MLOps page at **Settings → MLOps** shows version 1 and a gr
 curl -s http://localhost:8001/api/ml-model-performance/summary | python3 -m json.tool
 ```
 
-Expected response includes `"model_loaded": true` and a non-null `current_version`.
+<!-- AUDIT: Accuracy -- this endpoint has no `model_loaded` or `current_version` field; corrected to the actual response shape. -->
+Expected response includes a `"summary"` object with `"total_model_versions": 1` (or higher) and a non-null `"eval_set_size"`.
 
 ---
 
@@ -269,6 +270,6 @@ docker logs cti_web 2>&1 | grep "\[retrain"
 | `src/utils/content_filter.py` | Feature extraction (v1/v2/v3) and model I/O |
 | `src/utils/model_evaluation.py` | `ModelEvaluator` — runs holdout evaluation |
 | `src/utils/model_versioning.py` | Version DB records, artifact resolution, rollback |
-| `src/web/routes/models.py` | API routes: `/retrain`, `/rollback/{id}`, `/performance` |
+| `src/web/routes/models.py` | API routes: `/retrain`, `/rollback/{id}`, `/versions` |
 
 _Last updated: 2026-07-05_

@@ -114,6 +114,107 @@ test.describe('Article Detail Page', () => {
     expect(result.captured?.titleStyle).not.toContain('var(');
     expect(result.notifications.some((item) => item.type === 'error')).toBe(false);
   });
+
+  test('[ARTICLE-007] Inline toolbar handlers are available', async ({ page }) => {
+    const handlers = await page.evaluate(() => ({
+      toggleAnnotationSystem: typeof (window as any).toggleAnnotationSystem,
+      exportArticleToPDF: typeof (window as any).exportArticleToPDF,
+      showChunkDebugModal: typeof (window as any).showChunkDebugModal,
+      deleteArticle: typeof (window as any).deleteArticle
+    }));
+
+    expect(handlers).toEqual({
+      toggleAnnotationSystem: 'function',
+      exportArticleToPDF: 'function',
+      showChunkDebugModal: 'function',
+      deleteArticle: 'function'
+    });
+  });
+
+  test('[ARTICLE-008] Toolbar buttons invoke their page actions', async ({ page }) => {
+    await page.waitForFunction(() => !!(window as any).simpleTextManager);
+
+    const beforeToggle = await page.evaluate(() => (window as any).simpleTextManager.annotationsEnabled);
+    await page.locator('#toggle-annotations-btn').click();
+    const afterToggle = await page.evaluate(() => (window as any).simpleTextManager.annotationsEnabled);
+    expect(afterToggle).toBe(!beforeToggle);
+
+    const pdfResult = await page.evaluate(async () => {
+      let captured = false;
+      const notifications: Array<{ message: string; type: string }> = [];
+      (window as any).showNotification = (message: string, type: string) => notifications.push({ message, type });
+      (window as any).open = () => null;
+      (window as any).html2pdf = () => ({
+        set() {
+          return {
+            from() {
+              captured = true;
+              return {
+                output() {
+                  return Promise.resolve('data:application/pdf;base64,JVBERi0xLjQKJQ==');
+                }
+              };
+            }
+          };
+        }
+      });
+      await (window as any).exportArticleToPDF();
+      return { captured, notifications };
+    });
+    expect(pdfResult.captured).toBe(true);
+    expect(pdfResult.notifications.some((item) => item.type === 'error')).toBe(false);
+
+    await page.route('**/api/articles/**/chunk-debug**', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          chunks: [],
+          processing_summary: { processed_chunks: 0, total_chunks: 0 },
+          filter_config: {}
+        })
+      });
+    });
+    await page.locator('button[onclick="showChunkDebugModal()"]').first().click();
+    await expect(page.locator('#chunkDebugLoadingModal')).toBeVisible();
+    await page.evaluate(() => {
+      for (const id of ['chunkDebugLoadingModal', 'chunkDebugModal']) {
+        const modal = document.getElementById(id);
+        if (modal) {
+          (window as any).ModalManager?.close(id);
+          modal.remove();
+        }
+      }
+    });
+
+    await page.evaluate(() => {
+      (window as any).ModalManager.confirm = undefined;
+      (window as any).ensureModalConfirmAvailable();
+    });
+    await page.locator('button[onclick^="deleteArticle"]').click();
+    await expect(page.getByRole('heading', { name: 'Delete Article' })).toBeVisible();
+    await expect(page.getByText('This action cannot be undone')).toBeVisible();
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByRole('heading', { name: 'Delete Article' })).toBeHidden();
+  });
+
+  test('[ARTICLE-009] Article reading surface stays light in dark mode', async ({ page }) => {
+    const color = await page.locator('#article-content').evaluate((element) => {
+      const backgroundColor = getComputedStyle(element).backgroundColor;
+      const match = backgroundColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+      if (!match) return { backgroundColor, luminance: null };
+      const [, r, g, b] = match.map(Number);
+      return {
+        backgroundColor,
+        luminance: 0.2126 * r + 0.7152 * g + 0.0722 * b
+      };
+    });
+
+    expect(color.backgroundColor).not.toBe('rgb(31, 41, 55)');
+    expect(color.luminance).not.toBeNull();
+    expect(color.luminance).toBeGreaterThan(180);
+  });
 });
 
 test.describe('Article List Page', () => {

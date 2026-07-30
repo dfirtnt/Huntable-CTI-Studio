@@ -59,8 +59,12 @@ MCP writes are intentionally not action-parity with the web app. Huntable ingest
 | 24 | `delete_sigma_queue_rule` | Confirmation-required write. Creates a pending confirmation request for queue deletion; does not delete from MCP. Param: `queue_number`. |
 | 25 | `update_sigma_queue_rule_yaml` | Confirmation-required write. Validates proposed Sigma YAML and creates a pending confirmation request; does not edit from MCP. Params: `queue_number`, `rule_yaml`. |
 | 26 | `add_sigma_rule_to_queue` | Confirmation-required write. Validates proposed Sigma YAML/JSON and creates a pending confirmation request; does not enqueue from MCP. Params: `rule_yaml` or `rule_json`, optional `article_id`. |
+| 27 | `get_eval_bundle` | Full `eval_bundle_v1` JSON export for one workflow execution and agent. Defaults to full bundles (`slim=false`) so MCP clients can inspect complete request/response/input context. Params: `execution_id`, `agent_name`, optional `attempt`, `slim`, `include_langfuse`, `inline_large_text`, `max_inline_chars`. |
+| 28 | `diagnose_eval_bundle` | Runs the same LLM-powered diagnosis flow as the web **Diagnose** button, using `EvalBundleService` + `EvalDiagnosisService`, and saves the result to `data/diagnoses` by default. Params: `execution_id`, `agent_name`, optional `provider`, `model_name`, `save`, `slim`, `include_langfuse`. |
+| 29 | `list_eval_diagnoses` | Returns saved diagnosis runs for an execution, newest first, optionally filtered by agent. Params: `execution_id`, optional `agent_name`. |
+| 30 | `export_diagnosed_eval_bundles` | JSON equivalent of a diagnosis-oriented bundle export for MCP clients: finds completed eval records for a config version/subagent that already have saved diagnoses, then returns each diagnosis plus its generated eval bundle. Defaults to full bundles (`slim=false`) and caps output with `max_bundles` (hard cap 100). Params: `config_version`, `subagent`, optional `slim`, `include_langfuse`, `max_bundles`. |
 
-Implementation lives under `src/huntable_mcp/` (`stdio_server.py`, `resources.py`, `tools/articles.py`, `tools/sigma.py`, `tools/sources.py`, `tools/workflow.py`, `tools/query.py`, `tools/write_support.py`).
+Implementation lives under `src/huntable_mcp/` (`stdio_server.py`, `resources.py`, `tools/articles.py`, `tools/sigma.py`, `tools/sources.py`, `tools/workflow.py`, `tools/query.py`, `tools/evals.py`, `tools/write_support.py`).
 
 ## Schema note — raw_yaml column
 

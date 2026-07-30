@@ -48,7 +48,7 @@ async def test_hunt_queries_eval_articles_use_static_titles(async_client: httpx.
         titles[
             "https://www.microsoft.com/en-us/security/blog/2026/01/06/phishing-actors-exploit-complex-routing-and-misconfigurations-to-spoof-domains/"
         ]
-        == "Phishing actors exploit complex routing and misconfigurations to spoof domains"
+        == "Phishing actors exploit complex routing and misconfigurations to spoof domains | Microsoft Security Blog"
     )
     assert "Your Privacy Choices Opt-Out Icon" not in {title for title in titles.values() if title}
 

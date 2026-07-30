@@ -460,7 +460,7 @@
             <h1>Agent Evaluations</h1>
             <p class="eval-hero-desc">
                 Run evaluation articles through workflows with different presets and compare results.
-                Evals use the <code>0.8</code> confidence (conservative) threshold for content filtering.
+                Evals skip junk filtering and give the selected extractor the complete article content.
             </p>
         </div>
     </div>
@@ -1155,6 +1155,7 @@ function showHelp(fieldName) {
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>Rank agent is skipped in eval runs.</li>
                           <li>OS detection is skipped in eval runs.</li>
+                          <li>Junk filtering is skipped; extraction receives the complete article content.</li>
                           <li>SIGMA rule generation is skipped (no rules created).</li>
                           <li>Each eval runs a single extraction subagent (the selected one).</li>
                       </ul>
@@ -2688,7 +2689,11 @@ async function clearPendingRecords() {
     const resultsTable = document.getElementById('resultsTable');
 
     // Confirm deletion
-    if (!confirm(`Are you sure you want to delete all pending evaluation records for ${apiSubagent}? This action cannot be undone.`)) {
+    const confirmed = await ModalManager.confirm(
+        `Are you sure you want to delete all pending evaluation records for ${apiSubagent}? This action cannot be undone.`,
+        { title: 'Clear Records', confirmText: 'Delete', confirmClass: 'bg-red-600 hover:bg-red-700', cancelText: 'Cancel' }
+    );
+    if (!confirmed) {
         return;
     }
 
@@ -3092,9 +3097,9 @@ async function exportEvalBundle(executionId, agentName) {
             
             // Show success message
             if (bundle.integrity?.warnings?.length > 0) {
-                alert(`✅ Bundle exported!\n\nWarnings: ${bundle.integrity.warnings.join(', ')}\n\nSHA256: ${bundle.integrity.bundle_sha256.substring(0, 16)}...`);
+                window.showNotification(`✅ Bundle exported!\n\nWarnings: ${bundle.integrity.warnings.join(', ')}\n\nSHA256: ${bundle.integrity.bundle_sha256.substring(0, 16)}...`, 'success');
             } else {
-                alert(`✅ Bundle exported!\n\nSHA256: ${bundle.integrity.bundle_sha256.substring(0, 16)}...`);
+                window.showNotification(`✅ Bundle exported!\n\nSHA256: ${bundle.integrity.bundle_sha256.substring(0, 16)}...`, 'success');
             }
         } else {
             const error = await response.json();
@@ -3584,11 +3589,7 @@ function renderCompareResult(data) {
 }
 
 // Escape HTML to prevent XSS
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
+// escapeHtml now lives in /static/js/utils.js (loaded from base.html).
 
 // Version compare button
 document.getElementById('runCompareBtn').addEventListener('click', runVersionCompare);

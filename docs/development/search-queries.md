@@ -9,7 +9,7 @@ The search system supports boolean operators for complex queries:
 - **AND**: Both terms must be present (e.g., `ransomware AND encryption`)
 - **OR**: Either term must be present (e.g., `malware OR trojan`)
 - **NOT**: Exclude term (e.g., `exploit NOT patched`)
-- **Parentheses**: Group expressions (e.g., `(ransomware OR malware) AND windows`)
+- **Parentheses**: <!-- AUDIT: Accuracy -- verified against src/utils/search_parser.py (BooleanSearchParser.parse_query) and confirmed empirically: the term regex `[^\s"()]+` excludes parentheses, so they are silently stripped rather than used for grouping. `(ransomware OR malware) AND windows` parses to three flat terms (ransomware/OR, malware/OR, windows/AND) with no bracketing. Parentheses appearing in the examples below have no effect on evaluation order. --> Not functionally supported for grouping; `(` and `)` are silently stripped from the query
 - **Quotes**: Exact phrase match (e.g., `"remote code execution"`)
 
 ## Example Windows Threat Queries
@@ -107,9 +107,11 @@ Searches are case-insensitive by default. No need to provide multiple case varia
 
 The boolean search parser handles:
 - Operator precedence (NOT > AND > OR)
-- Parenthetical grouping
 - Quoted phrase matching
 - Mixed operators in complex expressions
+
+Parentheses are stripped rather than parsed as grouping (see note above); do not rely on
+them to control evaluation order.
 
 See `src/utils/search_parser.py` for implementation details.
 

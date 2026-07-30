@@ -7,16 +7,24 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from src.database.manager import DatabaseManager
+from src.services.audit_service import (
+    ACTION_OBSERVABLE_EVALUATION_REQUESTED,
+    STATUS_FAILURE,
+    STATUS_SUCCESS,
+    AuditEvent,
+    AuditService,
+    build_actor_context,
+)
 from src.web.dependencies import logger
 
 router = APIRouter(prefix="/api/observables/evaluation", tags=["Observable Evaluation"])
 
 
 @router.post("/run")
-def api_run_observable_evaluation(body: dict[str, Any] | None = None):
+def api_run_observable_evaluation(request: Request, body: dict[str, Any] | None = None):
     """
     Run evaluation for an observable extraction model.
 
@@ -66,13 +74,46 @@ def api_run_observable_evaluation(body: dict[str, Any] | None = None):
             evaluations = result.get("evaluations", {})
             has_errors = any(isinstance(metrics, dict) and "error" in metrics for metrics in evaluations.values())
 
+            audit_metadata = {
+                "model_name": model_name,
+                "model_version": model_version,
+                "observable_type": observable_type,
+                "usages": usages,
+                "overlap_threshold": overlap_threshold,
+            }
+
             if has_errors:
                 error_messages = [
                     f"{usage}: {metrics.get('error', 'Unknown error')}"
                     for usage, metrics in evaluations.items()
                     if isinstance(metrics, dict) and "error" in metrics
                 ]
+                AuditService.record_best_effort(
+                    session,
+                    AuditEvent(
+                        action=ACTION_OBSERVABLE_EVALUATION_REQUESTED,
+                        target_type="observable_evaluation",
+                        target_id=f"{model_name}:{model_version}",
+                        status=STATUS_FAILURE,
+                        summary=f"Observable evaluation failed for {model_name} {model_version}",
+                        actor=build_actor_context(getattr(request.state, "identity", None), request),
+                        metadata={**audit_metadata, "errors": error_messages},
+                    ),
+                )
                 raise HTTPException(status_code=400, detail=f"Evaluation failed: {'; '.join(error_messages)}")
+
+            AuditService.record_best_effort(
+                session,
+                AuditEvent(
+                    action=ACTION_OBSERVABLE_EVALUATION_REQUESTED,
+                    target_type="observable_evaluation",
+                    target_id=f"{model_name}:{model_version}",
+                    status=STATUS_SUCCESS,
+                    summary=f"Observable evaluation completed for {model_name} {model_version}",
+                    actor=build_actor_context(getattr(request.state, "identity", None), request),
+                    metadata=audit_metadata,
+                ),
+            )
 
             return {
                 "success": True,

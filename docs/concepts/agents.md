@@ -22,7 +22,10 @@ that schedules and distributes the work. Each agent writes results to
 4. **Sigma generator**: Builds Sigma rules from extracted observables and
    validates with pySigma.
 5. **Similarity matcher**: Compares generated rules against SigmaHQ using
-   behavioral novelty scoring; embeddings used for candidate retrieval.
+   deterministic behavioral novelty scoring (Jaccard x Containment, via
+   `SigmaNoveltyService`); candidate retrieval is a plain SQL filter on
+   `canonical_class`, not embeddings/pgvector (embeddings are used for the
+   separate article-to-Sigma RAG matching path).
 6. **Promote to queue**: Queues Sigma rules with low similarity scores for
    human review.
 
@@ -146,7 +149,7 @@ A `pending` execution older than the stale cutoff is re-triggerable. See
 
 ### Agent Evaluation Badges (Agent Evals Page)
 
-On `/agent-evals`, the comparison table shows per-row badges:
+On `/mlops/agent-evals`, the comparison table shows per-row badges:
 
 | Badge | Meaning |
 |---|---|

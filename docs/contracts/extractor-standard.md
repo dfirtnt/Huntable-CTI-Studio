@@ -1,8 +1,8 @@
 # Extractor Agent Prompt Standard
 
 Version: 1.1
-Last Updated: 2026-07-03
-Applies To: All ExtractAgent sub-agents (CmdLine, ProcTree, Registry, Services, HuntQueries, future extractors)
+Last Updated: 2026-07-17
+Applies To: All ExtractAgent sub-agents (CmdLine, ProcTree, Registry, Services, ScheduledTasks, HuntQueries, NetworkIndicator, future extractors)
 
 ## Jump to an agent contract
 
@@ -31,7 +31,8 @@ The Huntable pipeline code (`llm_service.py`) enforces specific prompt structure
 ### 1. System prompt is mandatory
 
 - The code validates that a `system` role message exists before calling the LLM.
-- Missing system prompt = PreprocessInvariantError = hard abort (no retries).
+- Missing system prompt = `PromptConfigValidationError` = hard abort (no retries), raised by
+  `_validate_extraction_prompt_config()` in `llm_service.py` before the retry loop starts.
 - The entire extraction prompt (ROLE through FINAL REMINDER) goes in the system message.
 
 ### 2. Instructions key is mandatory
@@ -420,15 +421,31 @@ canonical telemetry class before comparison. Rules whose logsource does not matc
 registered class fall through to the legacy `logsource_key + top_k=20` path, which
 loses containment/surface-score classification and caps retrieval.
 
-### Supported canonical classes (as of 2026-05-23)
+### Supported canonical classes (as of 2026-06-11)
 
 | Canonical class | Covered logsource / EventIDs |
 |---|---|
 | `windows.process_creation` | `category: process_creation`, Sysmon EID 1, Security EID 4688 |
 | `linux.process_creation` | `category: process_creation` (Linux) |
-| `windows.registry_event` | `category: registry_event`, Sysmon EIDs 12/13/14, Security EID 4657 |
+| `macos.process_creation` | `category: process_creation` (macOS) |
+| `windows.process_access` | `category: process_access`, Sysmon EID 10 |
+| `windows.pipe_created` | `category: pipe_created`, Sysmon EIDs 17/18 |
+| `windows.create_remote_thread` | `category: create_remote_thread`, Sysmon EID 8 |
+| `windows.driver_load` | `category: driver_load`, Sysmon EID 6 |
+| `windows.create_stream_hash` | `category: create_stream_hash`, Sysmon EID 15 |
+| `windows.dns_query` | `category: dns_query`, Sysmon EID 22, DNS-Client EID 3008 |
+| `network.dns` | generic `category: dns`, Zeek `service: dns` |
+| `windows.ps_script` | `category: ps_script`, PowerShell Script Block Logging EID 4104 |
+| `windows.ps_module` | `category: ps_module`, PowerShell Module Logging EID 4103 |
+| `windows.ps_classic_start` | `category: ps_classic_start`, classic PowerShell log EID 400 |
+| `windows.registry_event` | `category: registry_event`/`registry_set`/`registry_add`/`registry_delete`, Sysmon EIDs 12/13/14, Security EID 4657 |
+| `windows.file_event` | `category: file_event`/`file_delete`/`file_access`/`file_rename`/`file_change`, Sysmon EIDs 11/23/26 |
+| `windows.image_load` | `category: image_load`, Sysmon EID 7 |
+| `windows.network_connection` | `category: network_connection`, Sysmon EID 3 |
+| `web.webserver` | generic `category: webserver` |
+| `web.proxy` | generic `category: proxy` |
 | `windows.service` | `category: service_creation`, System EIDs 7045/7036, Security EID 4697 |
-| `windows.scheduled_task` | `service: taskscheduler`, Security EIDs 4698/4699/4700/4702 |
+| `windows.scheduled_task` | `category: taskscheduler`/`service: taskscheduler`, Security EIDs 4698/4699/4700/4702 |
 
 Source of truth: `sigma_atom_similarity/sigma_similarity/canonical_logsource.py::CANONICAL_CLASS_REGISTRY`.
 
@@ -446,4 +463,5 @@ This can produce false-NOVEL classifications for behaviorally equivalent rules.
 This structural limitation is tracked separately and requires cross-class comparison
 support to resolve (Option B).
 
-_Last updated: 2026-07-05_
+_Last updated: 2026-07-17 -- refreshed the canonical class table (5 -> 21 entries) against the live
+`CANONICAL_CLASS_REGISTRY`, which had drifted since the 2026-05-23 registry snapshot._

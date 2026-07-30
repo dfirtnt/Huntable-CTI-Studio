@@ -796,7 +796,7 @@
                            placeholder="sigma-repo"
                            class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        Path to your SIGMA rules repo (relative to app root). Default <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">sigma-repo</code>. Docker mounts <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">../Huntable-SIGMA-Rules</code> there.
+                        Customer rules repo for Huntable-created rules and PR submission (relative to app root). Default <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">sigma-repo</code>. Docker mounts <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">${HOME}/Huntable-SIGMA-Rules</code> there. The upstream SigmaHQ reference cache is separate at <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">data/sigma-repo</code> and must not be used here.
                     </p>
                 </div>
 
@@ -866,13 +866,7 @@
     </div>
 </div>
 
-<!-- Success Notification (hidden when not in use) -->
-<div id="successNotification" class="hidden fixed top-4 right-4 z-[100] p-4 rounded-md shadow-lg w-full max-w-[min(24rem,calc(100vw-2rem))] bg-green-500 text-white transform translate-x-full transition-transform duration-300 pointer-events-none" aria-live="polite" aria-hidden="true">
-    <div class="flex items-center">
-        <span class="mr-2"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></span>
-        <span>Settings saved successfully!</span>
-    </div>
-</div>
+<!-- Success Notification removed — using global window.showNotification instead -->
 
 <!-- Restore Backup Modal -->
 <div id="restoreBackupModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
@@ -1345,17 +1339,9 @@
         };
     }
 
-    function escapeHtml(value) {
-        return String(value || '').replace(/[&<>"']/g, function(char) {
-            return {
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#39;'
-            }[char];
-        });
-    }
+    // escapeHtml now lives in /static/js/utils.js (loaded from base.html).
+    // This copy was the reference for the shared version -- it is the only
+    // one of the seven that escaped quotes.
 
     function renderScheduledJobs(state) {
         const jobs = state.jobs || [];
@@ -1833,7 +1819,7 @@
         });
 
         if (failures.length === 0) {
-            showSuccessNotification();
+            window.showNotification('Settings saved successfully', 'success');
         } else {
             showNotification(`Failed to save: ${failures.join(', ')}`, 'error');
         }
@@ -2275,21 +2261,7 @@
     }
 
     
-    // Show success notification (slide in, then after 5s slide out and hide completely)
-    function showSuccessNotification() {
-        const notification = document.getElementById('successNotification');
-        if (!notification) return;
-        notification.classList.remove('hidden', 'translate-x-full');
-        notification.setAttribute('aria-hidden', 'false');
-        setTimeout(function() {
-            notification.classList.add('translate-x-full');
-            notification.addEventListener('transitionend', function onEnd() {
-                notification.removeEventListener('transitionend', onEnd);
-                notification.classList.add('hidden');
-                notification.setAttribute('aria-hidden', 'true');
-            }, { once: true });
-        }, 5000);
-    }
+    // Show success notification — routed through global window.showNotification
 
     function safeAddListener(id, event, handler) {
         const element = document.getElementById(id);
@@ -2696,7 +2668,10 @@
         const restoreForce = document.getElementById('restoreForce');
         
         // Confirm action
-        const confirmed = confirm('⚠️ WARNING: This will restore the system from backup. This action may overwrite current data.\n\nAre you sure you want to continue?');
+        const confirmed = await ModalManager.confirm(
+            'This will restore the system from backup. This action may overwrite current data. Are you sure you want to continue?',
+            { title: 'Restore Backup', confirmText: 'Restore', confirmClass: 'bg-orange-600 hover:bg-orange-700', cancelText: 'Cancel' }
+        );
         if (!confirmed) {
             return;
         }
@@ -2749,7 +2724,10 @@
             showNotification('Please select a backup file', 'error');
             return;
         }
-        var confirmed = confirm('⚠️ WARNING: This will restore the database from the selected file. Current data may be overwritten.\n\nAre you sure you want to continue?');
+        var confirmed = await ModalManager.confirm(
+            'This will restore the database from the selected file. Current data may be overwritten. Are you sure you want to continue?',
+            { title: 'Restore Database', confirmText: 'Restore', confirmClass: 'bg-orange-600 hover:bg-orange-700', cancelText: 'Cancel' }
+        );
         if (!confirmed) return;
 
         errorEl.classList.add('hidden');

@@ -23,6 +23,33 @@ class TestContentCleaner:
         assert hasattr(content_cleaner, "enhanced_html_clean")
         assert hasattr(content_cleaner, "html_to_text")
 
+    def test_clean_text_characters_preserves_unicode_detection_signal(self, content_cleaner):
+        """Unicode punctuation and non-Latin text are valid observable content."""
+        assert content_cleaner.clean_text_characters("powershell \u2013enc SQBFAFgA") == "powershell \u2013enc SQBFAFgA"
+        assert (
+            content_cleaner.clean_text_characters("mklink /D \u201cC:\\ProgramData\\roming\u201d x")
+            == "mklink /D \u201cC:\\ProgramData\\roming\u201d x"
+        )
+        assert (
+            content_cleaner.clean_text_characters(
+                "\u0410\u0442\u0430\u043a\u0430 \u043d\u0430 \u0441\u0435\u0440\u0432\u0435\u0440"
+            )
+            == "\u0410\u0442\u0430\u043a\u0430 \u043d\u0430 \u0441\u0435\u0440\u0432\u0435\u0440"
+        )
+        assert (
+            content_cleaner.clean_text_characters("\u6076\u610f\u8f6f\u4ef6\u5206\u6790")
+            == "\u6076\u610f\u8f6f\u4ef6\u5206\u6790"
+        )
+
+    def test_clean_text_characters_keeps_existing_repairs(self, content_cleaner):
+        assert content_cleaner.clean_text_characters("It\u201a\u00c4\u00f6\u221a\u00d1\u221a\u00a5s bad") == "It's bad"
+        assert content_cleaner.clean_text_characters("a\x00b\x1fc") == "abc"
+        assert content_cleaner.clean_text_characters("x\ufffdy") == "xy"
+        assert (
+            content_cleaner.clean_text_characters('net\u00a0group "Domain Admins" /domain')
+            == 'net group "Domain Admins" /domain'
+        )
+
     def test_clean_html_basic(self, content_cleaner):
         """Test basic HTML cleaning."""
         html = """
@@ -45,6 +72,12 @@ class TestContentCleaner:
         assert "<html>" not in cleaned
         assert "<head>" not in cleaned
         assert "<body>" not in cleaned
+
+    def test_clean_html_preserves_main_inside_footer_named_wrapper(self, content_cleaner):
+        """A footer-named layout wrapper must not erase a semantic article main."""
+        html = '<div class="footer-section"><main><p>DFIR article body with enough text to qualify as main content.</p></main></div>'
+
+        assert content_cleaner.clean_html(html) == "DFIR article body with enough text to qualify as main content."
 
     def test_clean_html_with_scripts(self, content_cleaner):
         """Test HTML cleaning with scripts and styles."""
@@ -261,6 +294,88 @@ class TestContentCleaner:
         text = content_cleaner.html_to_text(html).strip()
 
         assert text == "net use Z: mapped"
+
+    def test_html_to_text_does_not_split_words_across_adjacent_inline_tags(self, content_cleaner):
+        """Adjacent inline elements must not gain a space between them.
+
+        Regression guard for the ``get_text(separator=" ")`` bug: publishers that
+        export from Google Docs (e.g. cloud.google.com) split words across
+        arbitrary ``<span>`` runs, and a text-node separator turned
+        ``<span>comman</span><span>d</span>`` into "comman d". HTML gives inline
+        elements no implicit whitespace -- real spacing lives in whitespace text
+        nodes, which ``strip=False`` already preserves.
+
+        Verbatim markup from the UNC1549 article's Figure 9 caption
+        (2026-07-27 Sigma eval-fixture corruption audit).
+        """
+        html = (
+            '<p><span style="vertical-align:baseline">Figure 9: Example of an UNC1549 reverse SSH comman</span>'
+            '<span style="vertical-align:baseline">d</span></p>'
+        )
+
+        text = content_cleaner.html_to_text(html).strip()
+
+        assert text == "Figure 9: Example of an UNC1549 reverse SSH command"
+
+    def test_html_to_text_preserves_detection_tokens_wrapped_in_inline_markup(self, content_cleaner):
+        """Process names and file paths broken by inline markup must stay intact.
+
+        These are exactly the tokens detection engineering keys on, so a stray
+        separator space silently destroys the observable.
+        """
+        assert content_cleaner.html_to_text("<p>Power<b>Shell</b> was used</p>").strip() == "PowerShell was used"
+        assert content_cleaner.html_to_text('<p>rund<a href="#">ll32</a>.exe</p>').strip() == "rundll32.exe"
+        assert (
+            content_cleaner.html_to_text("<p><span>Screen</span><span>Connect</span>.exe ran</p>").strip()
+            == "ScreenConnect.exe ran"
+        )
+
+    def test_html_to_text_keeps_real_whitespace_around_inline_markup(self, content_cleaner):
+        """Whitespace text nodes around inline tags must survive the fix."""
+        html = "<p>This is a paragraph with <strong>bold text</strong> and <em>italic text</em>.</p>"
+
+        text = content_cleaner.html_to_text(html).strip()
+
+        assert text == "This is a paragraph with bold text and italic text."
+
+    def test_html_to_text_separates_table_cells_without_source_whitespace(self, content_cleaner):
+        """Minified table markup must not glue adjacent cell values together.
+
+        Guard for the fix itself: dropping the text-node separator must not make
+        ``<td>a</td><td>b</td>`` collapse to "ab". IOC tables are ubiquitous in
+        CTI reporting and are frequently emitted without inter-tag whitespace.
+        """
+        html = (
+            "<table><tr><th>Indicator</th><th>Type</th></tr>"
+            "<tr><td>evil.example.com</td><td>domain</td></tr>"
+            "<tr><td>1.2.3.4</td><td>ip</td></tr></table>"
+        )
+
+        text = content_cleaner.html_to_text(html)
+        flat = " ".join(text.split())
+
+        assert "evil.example.com" in flat
+        assert "1.2.3.4" in flat
+        for glued in ("evil.example.comdomain", "1.2.3.4ip", "IndicatorType"):
+            assert glued not in flat, f"table cells glued together: {glued!r}"
+
+    def test_html_to_text_separates_a_block_from_text_that_precedes_it(self, content_cleaner):
+        """A block element must break from preceding inline text, not just following.
+
+        ``insert_after`` alone only breaks on the trailing side, so the first
+        block in a run glued onto whatever preceded it once the text-node
+        separator was removed (e.g. "Google Cloud BlogJump to Content",
+        "Solutions & technologyAI & Machine Learning" in real nav markup).
+        """
+        nested = "<a>Solutions &amp; technology</a><ul><li>AI &amp; Machine Learning</li></ul>"
+        flat = " ".join(content_cleaner.html_to_text(nested).split())
+        assert "technologyAI" not in flat
+        assert "Solutions & technology" in flat
+        assert "AI & Machine Learning" in flat
+
+        titled = "<title>Some Article | Blog</title><header><a>Jump to Content</a></header>"
+        flat2 = " ".join(content_cleaner.html_to_text(titled).split())
+        assert "BlogJump" not in flat2
 
     def test_normalize_whitespace_keeps_titles_single_line(self):
         """The shared normalize_whitespace stays single-line (used for titles/tags)."""
@@ -719,3 +834,82 @@ def test_find_main_content_node_falls_through_to_next_selector():
     ContentCleaner.prepare_soup_for_selection(soup)
     node = ContentCleaner.find_main_content_node(soup)
     assert node is not None and "content" in (node.get("class") or [])
+
+
+# ---------------------------------------------------------------------------
+# Regression: unwanted-pattern matching must use WHOLE class/id tokens, not
+# substrings. 'ad' is a substring of 'advanced'/'gradient'/'shadow'/'leading'
+# and previously guillotined real article bodies (see Todoist 6h67xcVVGGVfM65V).
+# ---------------------------------------------------------------------------
+
+
+def test_clean_html_preserves_google_ti_style_advanced_class():
+    """Google Cloud TI wraps body paragraphs in class="block-paragraph_advanced".
+
+    'ad' is a substring of 'advanced', so the old substring match decomposed
+    every paragraph, gutting a 34,834-char article down to 589 chars in
+    production (source id 6).
+    """
+    body_text = "Real Google TI article body text. " * 80
+    html = f'<div class="block-paragraph_advanced"><p>{body_text}</p></div>'
+
+    cleaned = ContentCleaner.html_to_text(ContentCleaner.clean_html(html))
+
+    assert "Real Google TI article body text." in cleaned
+    assert len(cleaned.strip()) > len(body_text) * 0.9
+
+
+def test_clean_html_preserves_tailwind_utility_classes():
+    """NCSC UK is Tailwind-built; gradient/shadow/leading classes contain 'ad'.
+
+    bg-gradient-to-b (gr-AD-ient), shadow-xl (sh-AD-ow), and leading-tight
+    (le-AD-ing) all matched the old substring pattern and gutted a real
+    <main> body from 5,370 chars to 278 chars in production (source id 31).
+    """
+    body_text = "Real NCSC advisory body text. " * 80
+    html = f'<main><div class="bg-gradient-to-b shadow-xl leading-tight"><p>{body_text}</p></div></main>'
+
+    cleaned = ContentCleaner.html_to_text(ContentCleaner.clean_html(html))
+
+    assert "Real NCSC advisory body text." in cleaned
+    assert len(cleaned.strip()) > len(body_text) * 0.9
+
+
+@pytest.mark.parametrize(
+    "html_fragment",
+    [
+        '<div class="ad-banner">unwanted</div>',
+        '<div class="social-share">unwanted</div>',
+        '<div class="sidebar-widget">unwanted</div>',
+        '<div id="sidebar">unwanted</div>',
+    ],
+)
+def test_prepare_soup_for_selection_still_decomposes_genuine_unwanted_containers(html_fragment):
+    """Whole-token matching must not regress removal of real ad/social/nav elements."""
+    kept_text = "Kept article body text. " * 10
+    soup = BeautifulSoup(f"<body>{html_fragment}<article><p>{kept_text}</p></article></body>", "lxml")
+
+    ContentCleaner.prepare_soup_for_selection(soup)
+
+    assert "unwanted" not in str(soup)
+    assert "Kept article body text." in str(soup)
+
+
+@pytest.mark.parametrize(
+    "class_name",
+    [
+        "block-paragraph_advanced",
+        "download-link",
+        "bg-gradient-to-b",
+        "shadow-xl",
+        "leading-tight",
+    ],
+)
+def test_prepare_soup_for_selection_does_not_decompose_substring_false_positives(class_name):
+    """'ad' (and other short unwanted_patterns) must never match mid-word."""
+    kept_text = "Kept article body text. " * 10
+    soup = BeautifulSoup(f'<body><div class="{class_name}"><p>{kept_text}</p></div></body>', "lxml")
+
+    ContentCleaner.prepare_soup_for_selection(soup)
+
+    assert "Kept article body text." in str(soup)

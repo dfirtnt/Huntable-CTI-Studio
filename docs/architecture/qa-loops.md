@@ -1,7 +1,9 @@
 # QA Loops
 
-Extraction, Sigma generation, and ranking each include validation retry loops
-to catch bad output before it surfaces to users.
+Sigma generation includes a deterministic-validation + LLM-repair retry loop
+to catch bad output before it surfaces to users. Extraction and ranking
+previously had their own QA retry loops; both were removed (see the
+per-section notes below) and now proceed directly without a validation step.
 
 ## Extraction QA
 
@@ -10,9 +12,10 @@ to catch bad output before it surfaces to users.
 > sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract,
 > RegistryExtract, ServicesExtract, ScheduledTasksExtract). The per-extractor QA
 > agent layer was removed in v7.0.0 (2026-05-12) and the remaining shared QA
-> subsystem (`RankAgentQA`, `qa_max_retries`) was removed in v7.1.0
-> (2026-05-22); extractor output now reaches aggregation directly. The steps
-> below are retained for historical context only.
+> subsystem (`RankAgentQA`, `qa_max_retries`) was removed in v7.2.0
+> (2026-05-22, commit `b9645305`; released 2026-05-29); extractor output now
+> reaches aggregation directly. The steps below are retained for historical
+> context only.
 
 Historical pipeline steps:
 
@@ -33,10 +36,8 @@ From [Sigma Detection Rules](../features/sigma-rules.md):
 
 - **pySigma validation (deterministic -- no LLM)**: Every generated rule is
   validated by `validate_sigma_rule` (`src/services/sigma_validator.py`): a
-  pySigma library parse plus structural/metadata checks.
-  `sigma_extended_validator.py` adds a pySigma hard-fail gate and extended
-  checks. No model is called here -- this is a pure-Python gate, so its verdict
-  is reproducible.
+  deterministic structural/metadata gate. No model is called here -- this is a
+  pure-Python gate, so its verdict is reproducible.
 - **Iterative repair (LLM)**: Up to 3 attempts per rule
   (`max_repair_attempts_per_rule`, default 3). On failure, `_repair_rules`
   (`src/services/sigma_generation_service.py`) injects the deterministic
@@ -54,7 +55,7 @@ From [Sigma Detection Rules](../features/sigma-rules.md):
 
 ## Ranking QA
 
-> **Deprecated (v7.1.0, 2026-05-22):** The `RankAgentQA` agent and the `qa_max_retries` config field were removed as part of the full QA agent subsystem removal. Ranking now proceeds directly to the threshold check without a QA validation step. The content below is retained for historical context only.
+> **Deprecated (v7.2.0, commit `b9645305`, 2026-05-22; released 2026-05-29):** The `RankAgentQA` agent and the `qa_max_retries` config field were removed as part of the full QA agent subsystem removal. Ranking now proceeds directly to the threshold check without a QA validation step. The content below is retained for historical context only.
 
 ## Operational Safeguards
 
@@ -63,4 +64,4 @@ From [Sigma Detection Rules](../features/sigma-rules.md):
 - Health endpoints (`/health`, `/api/health/*`) surface ingestion and service
   readiness so QA runs against a healthy stack.
 
-_Last updated: 2026-07-03_
+_Last updated: 2026-07-17_

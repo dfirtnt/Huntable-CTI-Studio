@@ -20,22 +20,6 @@ from src.web.routes.articles import SimpleFilter
 router = APIRouter()
 
 
-def _compact_unique(values: list | None, limit: int = 6) -> list[str]:
-    seen: set[str] = set()
-    items: list[str] = []
-    for value in values or []:
-        if value is None:
-            continue
-        text = str(value).strip()
-        if not text or text in seen:
-            continue
-        seen.add(text)
-        items.append(text)
-        if len(items) >= limit:
-            break
-    return items
-
-
 @router.get("/", response_class=HTMLResponse)
 @router.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):
@@ -201,21 +185,6 @@ async def hunt_metrics_page(request: Request):
         return templates.TemplateResponse(request, "hunt_metrics.html", {"environment": ENVIRONMENT})
     except Exception as exc:
         logger.error("Hunt metrics page error: %s", exc)
-        return templates.TemplateResponse(
-            request,
-            "error.html",
-            {"error": "An unexpected error occurred"},
-            status_code=500,
-        )
-
-
-@router.get("/analytics/hunt-metrics-demo", response_class=HTMLResponse)
-async def hunt_metrics_demo_page(request: Request):
-    """Advanced hunt scoring metrics demo page with multidimensional visualizations."""
-    try:
-        return templates.TemplateResponse(request, "hunt_metrics_demo.html", {"environment": ENVIRONMENT})
-    except Exception as exc:
-        logger.error("Hunt metrics demo page error: %s", exc)
         return templates.TemplateResponse(
             request,
             "error.html",

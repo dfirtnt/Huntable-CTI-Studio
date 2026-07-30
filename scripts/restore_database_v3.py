@@ -2,6 +2,47 @@
 """
 Improved Database Restore Script v3
 Uses PostgreSQL native tools for reliable restoration
+
+STATUS: Documented and retired from active use.
+=======================================================================
+
+This script is NOT wired into any user-facing path (Settings UI restore
+button, backup_restore.sh db-restore, CLI dispatcher, or restore-from-file
+upload). It is kept for its post-restore
+``check_source_attribution_integrity()`` guardrail — a SQL query that
+warns if the restored database's article canonical_url / source-url
+mismatch count exceeds a known baseline, indicating a potentially corrupt
+backup.
+
+Why it is NOT wired in (feature gaps vs. ``restore_database.py`` v1 and
+``restore_database_v2.py``):
+
+  * No pre-restore snapshot + rollback — the other scripts pg_dump the
+    current database before dropping it and can roll back on failure.
+    v3 has no safety net.
+  * No app-container pausing — v1/v2 stop ``cti_web`` / ``cti_worker``
+    so their startup ``create_tables()`` cannot race-create the schema on
+    the empty database while the restore SQL is running.
+  * No pgvector extension — v3 relies on the dump file to recreate the
+    extension, which may fail if the dump predates pgvector installation.
+  * Less comprehensive post-restore verification — v3 only compares
+    article counts; v1/v2 check connectivity, table counts, ML model
+    versions, sources, etc.
+
+Architectural strengths (what v3 does better than v1/v2):
+
+  * Direct argv ``psql`` invocation — no ``docker exec ... bash -c "..."``
+    shell wrapper that can swallow exit codes.
+  * ``--single-transaction`` — the entire restore is one atomic transaction;
+    any failure aborts with zero partial writes.
+  * ``-d postgres`` — connects to the maintenance database first, which is
+    the correct class of fix that ``verify_backup.py`` needed (commit 69c219d5).
+  * Streams ``.sql.gz`` via ``gzip`` — no intermediate file extraction.
+
+Future direction (if consolidation is ever pursued):
+  Extract ``check_source_attribution_integrity()`` into
+  ``_restore_common.py`` as a callable post-restore step, then remove v3
+  and its test file entirely.
 """
 
 import json

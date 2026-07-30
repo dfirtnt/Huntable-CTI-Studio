@@ -1,7 +1,8 @@
 # Huntable CTI Studio — Brand & Style Guide
-### Handoff Document for Presentation / Pitch Deck Agents
 
-**Product:** Huntable CTI Studio v7.5.0 "Europa"  
+*Handoff Document for Presentation / Pitch Deck Agents*
+
+**Product:** Huntable CTI Studio v7.6.0 "Europa"  
 **Category:** Cyber Threat Intelligence (CTI) ML/AI Workbench  
 **Audience:** Security Operations, Threat Hunters, Detection Engineers  
 **Tone:** Precision-tool. Operational. No hype. Quietly confident.
@@ -49,7 +50,7 @@ An end-to-end OSINT-to-SIGMA pipeline. Ingests threat intel from 38+ sources, us
 **Concept:** Combines threat hunting (crosshair/target) with defense (shield) and identity (H letterform).
 
 ### SVG Structure
-```
+```text
 - Background circle: #1a1a2e at 90% opacity
 - Shield path: stroke #8B5CF6 (violet-500), no fill
 - H verticals: #A78BFA (violet-400)
@@ -204,7 +205,7 @@ These define the "intelligence terminal" feel:
 ## 6. UI Components (for slide mockups)
 
 ### Cards / Panels
-```
+```text
 Background: #0f1423  (--panel-bg-1)
 Border: 1px solid rgba(255,255,255,0.06)
 Border-radius: 8px (cards) / 3px (dashboard intel-cards)
@@ -212,14 +213,14 @@ Padding: 20px 22px
 ```
 
 **Elevated card:**
-```
+```text
 Background: #141c30
 Border: 1px solid rgba(255,255,255,0.08)
 Box-shadow: 0 1px 3px rgba(0,0,0,0.2)
 ```
 
 **Interactive card (hover state):**
-```
+```text
 Background: #141c30
 Border: 1px solid rgba(139,92,246,0.35)   ← purple accent
 ```
@@ -234,7 +235,7 @@ Border: 1px solid rgba(139,92,246,0.35)   ← purple accent
 | **Workflow** (muted purple) | `#4B4E77` | `#7C3AED` | Secondary workflow actions |
 
 ### Nav Bar
-```
+```text
 Background: #0a0e1a  (same as page bg — flat nav)
 Border-bottom: 1px solid #374151
 Height: 70px
@@ -244,7 +245,7 @@ Active indicator: 2px gradient bottom border + glow
 ```
 
 ### Badges / Pills
-```
+```text
 Font: Inter 10px 600, letter-spacing 0.14em
 Padding: 1px 5px
 Border-radius: 2–3px
@@ -252,7 +253,7 @@ Style: semi-transparent bg + matching text + 1px border
 ```
 
 ### Metric Rows (data tables)
-```
+```text
 Layout: flex, space-between
 Label: Inter 12px 400, color #64748b
 Value: JetBrains Mono 12px 600, color #e2e8f0
@@ -270,7 +271,7 @@ Separator: 1px solid rgba(34,211,238,0.10)
 - Optional: Subtle radial gradient from center — `radial-gradient(ellipse at 50% 0%, rgba(139,92,246,0.08), transparent 70%)`
 
 ### Slide Structure Pattern
-```
+```text
 ┌──────────────────────────────────────────────────────┐
 │  [SECTION LABEL] ─────────────────  10px Inter caps  │
 │                                                       │
@@ -327,7 +328,7 @@ For the 7-step pipeline diagram:
 
 ## 9. Quick Reference Cheatsheet
 
-```
+```text
 BACKGROUNDS          BRAND               SEMANTIC
 ──────────────────── ─────────────────── ───────────────────
 #0a0e1a  base        #8B5CF6  primary    #10B981  success

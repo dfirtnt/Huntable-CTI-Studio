@@ -19,6 +19,8 @@ import json
 import os
 import re
 import sys
+import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -35,7 +37,6 @@ if _venv_python.exists():
 try:
     import httpx
     import yaml
-    from bs4 import BeautifulSoup
 except ModuleNotFoundError as e:
     print(
         "Missing dependency:",
@@ -52,12 +53,21 @@ except ModuleNotFoundError as e:
 project_root = _project_root
 sys.path.insert(0, str(project_root))
 
+from src.utils.content import ContentCleaner  # noqa: E402
+
 CONFIG_EVAL_ARTICLES = project_root / "config" / "eval_articles.yaml"
 DATA_DIR = project_root / "config" / "eval_articles_data"
 
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+)
+MIN_EVAL_ARTICLE_CHARS = 500
+MIN_EXISTING_CONTENT_RATIO = 0.5
+NEVER_REFRESH_URLS = frozenset(
+    {
+        "https://www.proofpoint.com/us/blog/threat-insight/bitter-end-unraveling-eight-years-espionage-antics-part-one",
+    }
 )
 
 
@@ -78,27 +88,77 @@ async def fetch_article(url: str) -> tuple[str, str]:
         response.raise_for_status()
         html = response.content.decode("utf-8", errors="replace")
 
-    soup = BeautifulSoup(html, "html.parser")
-    for tag in soup(["script", "style", "meta", "noscript", "iframe"]):
-        tag.decompose()
-    content_text = soup.get_text(separator=" ", strip=True)
-    sanitized = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", "", content_text)
-    sanitized = re.sub(r"\s+", " ", sanitized).strip()
+    content = ContentCleaner.clean_html(html)
+    _validate_content_length(content)
+    title_match = re.search(r"<title[^>]*>(.*?)</title>", html, flags=re.IGNORECASE | re.DOTALL)
+    title = ContentCleaner.html_to_text(title_match.group(1)) if title_match else "Untitled Article"
+    return title or "Untitled Article", content
 
-    title_tag = soup.find("title")
-    title = (title_tag.get_text().strip() if title_tag else "") or "Untitled Article"
-    return title, sanitized
+
+def _validate_content_length(content: str, existing_content: str | None = None) -> None:
+    """Reject bot-wall shells and unexpectedly truncated refreshes."""
+    content_length = len(content.strip())
+    if content_length < MIN_EVAL_ARTICLE_CHARS:
+        raise ValueError(
+            f"cleaned article content is too short ({content_length} chars; "
+            f"minimum {MIN_EVAL_ARTICLE_CHARS})"
+        )
+    if existing_content and content_length < len(existing_content.strip()) * MIN_EXISTING_CONTENT_RATIO:
+        raise ValueError(
+            f"cleaned article content regressed from {len(existing_content.strip())} to {content_length} chars"
+        )
+
+
+def _validate_ground_truth_retention(
+    content: str,
+    existing_content: str | None,
+    expected_items: list[str],
+) -> None:
+    """Reject a refresh that removes a ground-truth item the fixture previously supported."""
+    if not existing_content or not expected_items:
+        return
+
+    existing_normalized = _normalize_ground_truth_text(existing_content)
+    refreshed_normalized = _normalize_ground_truth_text(content)
+    lost_items = [
+        item
+        for item in expected_items
+        if _normalize_ground_truth_text(item) in existing_normalized
+        and _normalize_ground_truth_text(item) not in refreshed_normalized
+    ]
+    if lost_items:
+        raise ValueError(f"refresh lost {len(lost_items)} previously supported ground-truth item(s): {lost_items[0]!r}")
+
+
+def _normalize_ground_truth_text(value: str) -> str:
+    return re.sub(r"\s+", " ", value.lower()).strip()
+
+
+@dataclass
+class RefreshOutcome:
+    articles: list[dict] | None
+    refreshed: int
+    kept_existing: list[tuple[str, str]]
+    failed: list[tuple[str, str]]
 
 
 async def process_subagent(
     subagent_key: str,
     articles_def: list[dict],
     sem: asyncio.Semaphore,
-) -> list[dict]:
-    """Fetch all external URLs for a subagent and return list of article dicts."""
+    fetched_by_url: dict[str, tuple[str, str]],
+    fetch_failures_by_url: dict[str, Exception],
+    existing_by_url: dict[str, dict],
+    expected_by_url: dict[str, list[str]],
+    rejected_by_url: dict[str, str],
+) -> RefreshOutcome:
+    """Refresh a subagent's URLs, retaining an existing fixture when a URL fails."""
     if not isinstance(articles_def, list) or not articles_def:
-        return []
+        return RefreshOutcome([], 0, [], [])
     out: list[dict] = []
+    refreshed = 0
+    kept_existing: list[tuple[str, str]] = []
+    failed: list[tuple[str, str]] = []
     for article_def in articles_def:
         url = article_def.get("url")
         if not url:
@@ -107,25 +167,62 @@ async def process_subagent(
             print(f"  Skip (localhost): {url[:60]}...")
             continue
         expected_count = article_def.get("expected_count", 0)
-        async with sem:
-            try:
-                title, content = await fetch_article(url)
-                out.append(
-                    {
-                        "url": url,
-                        "title": title,
-                        "content": content,
-                        "filtered_content": content,
-                        "expected_count": expected_count,
-                    }
-                )
-                print(f"  OK: {url[:55]}... ({len(content)} chars)")
-            except Exception as e:
-                print(f"  FAIL: {url[:55]}... {e}")
-    return out
+        existing = existing_by_url.get(url)
+        try:
+            if url in NEVER_REFRESH_URLS:
+                raise ValueError("URL is permanently retained after ground-truth retention failure")
+            if url in rejected_by_url:
+                raise ValueError(rejected_by_url[url])
+            if url in fetch_failures_by_url:
+                raise fetch_failures_by_url[url]
+            if url not in fetched_by_url:
+                try:
+                    async with sem:
+                        fetched_by_url[url] = await fetch_article(url)
+                except Exception as exc:
+                    fetch_failures_by_url[url] = exc
+                    raise
+            title, content = fetched_by_url[url]
+            existing_content = existing.get("content", "") if existing else None
+            _validate_content_length(content, existing_content)
+            _validate_ground_truth_retention(content, existing_content, expected_by_url.get(url, []))
+            out.append(
+                {
+                    "url": url,
+                    "title": title,
+                    "content": content,
+                    "expected_count": expected_count,
+                }
+            )
+            refreshed += 1
+            print(f"  OK: {url[:55]}... ({len(content)} chars)")
+        except Exception as e:
+            reason = str(e)
+            if existing is not None:
+                retained_article = existing.copy()
+                retained_article["expected_count"] = expected_count
+                out.append(retained_article)
+                kept_existing.append((url, reason))
+                if url in fetched_by_url:
+                    rejected_by_url.setdefault(url, reason)
+                print(f"  KEEP: {url[:55]}... ({reason})")
+                continue
+            failed.append((url, reason))
+            print(f"  FAIL: {url[:55]}... ({reason})")
+    return RefreshOutcome(None if failed else out, refreshed, kept_existing, failed)
 
 
-async def main_async() -> None:
+def _write_articles_atomically(path: Path, articles: list[dict]) -> None:
+    """Write one complete fixture file without exposing a partially written version."""
+    with tempfile.NamedTemporaryFile("w", dir=path.parent, delete=False) as temporary_file:
+        json.dump(articles, temporary_file, indent=2)
+        temporary_file.flush()
+        os.fsync(temporary_file.fileno())
+        temporary_path = Path(temporary_file.name)
+    os.replace(temporary_path, path)
+
+
+async def main_async() -> bool:
     if not CONFIG_EVAL_ARTICLES.exists():
         print(f"Config not found: {CONFIG_EVAL_ARTICLES}")
         sys.exit(1)
@@ -135,10 +232,15 @@ async def main_async() -> None:
     subagents = config.get("subagents", {})
     if not subagents:
         print("No subagents in config.")
-        return
+        return False
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     sem = asyncio.Semaphore(3)  # limit concurrent fetches
+    fetched_by_url: dict[str, tuple[str, str]] = {}
+    fetch_failures_by_url: dict[str, Exception] = {}
+    rejected_by_url: dict[str, str] = {}
+    had_partial_refresh = False
+    prepared_subagents: list[tuple[str, Path, list[dict], dict[str, dict], dict[str, list[str]]]] = []
 
     for subagent_key, articles_def in subagents.items():
         if not isinstance(articles_def, list) or not articles_def:
@@ -149,20 +251,76 @@ async def main_async() -> None:
             print(f"{subagent_key}: no external URLs to fetch (only localhost or empty).")
             continue
         print(f"{subagent_key}: fetching {len(external)} URL(s)...")
-        out_articles = await process_subagent(subagent_key, articles_def, sem)
-        if not out_articles:
-            print(f"  No articles fetched for {subagent_key}.")
+        out_path = DATA_DIR / subagent_key / "articles.json"
+        existing_by_url: dict[str, dict] = {}
+        if out_path.exists():
+            with open(out_path) as f:
+                existing_by_url = {
+                    article["url"]: article
+                    for article in json.load(f)
+                    if isinstance(article, dict) and article.get("url")
+                }
+        expected_by_url: dict[str, list[str]] = {}
+        ground_truth_path = DATA_DIR / subagent_key / "ground_truth.json"
+        if ground_truth_path.exists():
+            with open(ground_truth_path) as f:
+                expected_by_url = {
+                    article["url"]: article["expected_items"]
+                    for article in json.load(f)
+                    if isinstance(article, dict)
+                    and article.get("url")
+                    and isinstance(article.get("expected_items"), list)
+                }
+        prepared_subagents.append((subagent_key, out_path, articles_def, existing_by_url, expected_by_url))
+
+    outcomes: dict[str, RefreshOutcome] = {}
+    for subagent_key, _out_path, articles_def, existing_by_url, expected_by_url in prepared_subagents:
+        outcomes[subagent_key] = await process_subagent(
+            subagent_key,
+            articles_def,
+            sem,
+            fetched_by_url,
+            fetch_failures_by_url,
+            existing_by_url,
+            expected_by_url,
+            rejected_by_url,
+        )
+
+    if rejected_by_url:
+        print("Rebuilding affected sets with shared rejected URLs kept from existing fixtures.")
+        for subagent_key, _out_path, articles_def, existing_by_url, expected_by_url in prepared_subagents:
+            outcomes[subagent_key] = await process_subagent(
+                subagent_key,
+                articles_def,
+                sem,
+                fetched_by_url,
+                fetch_failures_by_url,
+                existing_by_url,
+                expected_by_url,
+                rejected_by_url,
+            )
+
+    for subagent_key, out_path, _articles_def, _existing_by_url, _expected_by_url in prepared_subagents:
+        outcome = outcomes[subagent_key]
+        kept_reasons = "; ".join(reason for _url, reason in outcome.kept_existing) or "none"
+        print(
+            f"  Summary: {outcome.refreshed} refreshed, "
+            f"{len(outcome.kept_existing)} kept-existing ({kept_reasons}), "
+            f"{len(outcome.failed)} failed"
+        )
+        if outcome.kept_existing or outcome.failed:
+            had_partial_refresh = True
+        if outcome.articles is None:
+            print(f"  No fixture written for {subagent_key}; at least one URL has no existing fallback.\n")
             continue
-        subdir = DATA_DIR / subagent_key
-        subdir.mkdir(parents=True, exist_ok=True)
-        out_path = subdir / "articles.json"
-        with open(out_path, "w") as f:
-            json.dump(out_articles, f, indent=2)
-        print(f"  Wrote {len(out_articles)} articles to {out_path}\n")
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        _write_articles_atomically(out_path, outcome.articles)
+        print(f"  Wrote {len(outcome.articles)} articles to {out_path}\n")
+    return had_partial_refresh
 
 
 def main() -> None:
-    asyncio.run(main_async())
+    sys.exit(1 if asyncio.run(main_async()) else 0)
 
 
 if __name__ == "__main__":

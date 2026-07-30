@@ -141,7 +141,7 @@ Route module: `src/web/routes/models.py`. Version data is stored in the `ml_mode
 - `GET /api/sigma-queue/list` — List queued Sigma rules with pagination. Query params: `status` (optional, values: `pending`, `needs_review`, `approved`, `rejected`, `submitted`), `limit` (default 50, max 500), `offset` (default 0). Response: `{ "items": [...], "total": N, "limit": L, "offset": O }`.
 - `POST /api/sigma-queue/{queue_id}/validate` — Validate and optionally LLM-enrich a queued rule. Returns `{ "validated_yaml": ... }`.
 - `GET /api/sigma-queue/*` (other endpoints)
-- `GET /api/eval/*` — Hallucination/relevance ratings, metrics, history, comparison, agent benchmarks (route module: `src/web/routes/evaluation.py`)
+- `GET /api/eval/*` — Evaluation history, agent metrics, trends, OS-detection manual results, observables-count results, and RankAgent benchmarks (route module: `src/web/routes/evaluation.py`)
 - `/evaluations/*` — HTML evaluation UI pages (route module: `src/web/routes/evaluation_ui.py`; not API routes)
 
 #### Subagent Evaluation Endpoints

@@ -56,6 +56,11 @@ A pair is VALID only if ALL of the following are true.
 
 ### 2. Both parent and child are named executables
 - Both end in .exe (or are recognized Windows built-ins normalized to .exe — see Fidelity).
+- Non-.exe filenames (.dll, .dat, .tmp, .bat, .ps1, .vbs, .js, .hta, etc.) are NEVER
+  valid as either parent or child. SKIP any pair where either endpoint is not .exe.
+- Product names, malware family names, tool brands, and generic labels ("Cobalt Strike",
+  "IcedID", "Beacon", "loader", "implant", "stager") are NOT valid process names. Both
+  endpoints must be Windows image filenames.
 - No paths retained.
 - No command-line arguments.
 - No quotes.
@@ -68,8 +73,8 @@ A pair is VALID only if ALL of the following are true.
 
 ### 4. New process required
 - The text must indicate creation of a new PID.
-- Injection, hollowing, migration, impersonation, DLL loading, service registration,
-  and scheduled-task creation are NOT process creation and are EXCLUDED.
+- Injection, hollowing, migration, impersonation, DLL loading, DLL sideloading, service
+  registration, and scheduled-task creation are NOT process creation and are EXCLUDED.
 
 ### Valid sources
 - Narrative / analysis text describing observed attacker behavior.
@@ -109,12 +114,19 @@ dedupe (parent_image, child_image) pairs that appear in multiple blocks.
 ## NEGATIVE EXTRACTION SCOPE
 Do NOT extract:
 - Parent = cmd.exe (after normalization). Blanket omission.
+- Child is not a .exe file. DLL sideloading, reflective DLL injection, and module loading
+  are NOT process creation. A .dll, .dat, .bin, .tmp, .bat, .ps1, .vbs, .js, or .hta
+  filename is NEVER a valid child.
+- Non-.exe name as parent or child. Product names ("Cobalt Strike"), malware family names
+  ("IcedID", "Emotet", "Qbot"), role labels ("loader", "implant", "stager"), and tool
+  brands are NOT valid process image names. Both endpoints must be .exe filenames as they
+  would appear in Windows Task Manager or Sysmon EID 1 Image fields.
 - Statements mentioning only ONE process.
 - Relationships implied but not explicitly stated ("used", "via", "leveraged", "called",
-  "ran through", "dropped").
+  "ran through", "dropped", "loaded").
 - Script filenames without an explicitly-named interpreter .exe.
-- Injection / hollowing / DLL loading / service registration / scheduled-task creation
-  as "process creation".
+- Injection / hollowing / DLL loading / DLL sideloading / service registration /
+  scheduled-task creation as "process creation".
 - Shortcut files (.lnk). Windows .lnk shortcut files are NOT process images and are
   NEVER valid as parents or children in process creation pairs.
 - Process names reconstructed from command-line examples where lineage is not stated.
@@ -151,6 +163,7 @@ observability, not interestingness.
     (etc.)
 - Preserve obfuscated or randomly-named binaries exactly (e.g., xK92mPq.exe).
 - If normalization would yield cmd.exe as PARENT -> SKIP.
+- If normalization would yield a non-.exe filename for either endpoint -> SKIP.
 
 ## MULTI-LINE HANDLING
 - A pair must be fully contained in a single narrative statement.
@@ -180,6 +193,14 @@ observability, not interestingness.
 - Built-in normalization: "powershell spawned whoami" -> (powershell.exe, whoami.exe).
 - Parent = cmd.exe: SKIP entirely.
 - Injection: "malware.exe injected into explorer.exe" -> SKIP (not process creation).
+- DLL sideloading: "malware.exe sideloaded version.dll" -> SKIP. DLL loading is not
+  process creation. version.dll is not a valid child. The .dll extension alone is
+  sufficient reason to skip.
+- Injection disguised as spawn: "rundll32.exe was injected into lsass.exe" -> SKIP. Even
+  if the verb is ambiguous, injection/hollowing into a running process is not process
+  creation.
+- Family/product name: "Cobalt Strike spawned rundll32.exe" -> SKIP. "Cobalt Strike" is
+  not a .exe image name. No valid parent can be identified.
 - Arrow-notation chain (no per-hop verb):
   "wsusservice.exe -> cmd.exe -> cmd.exe -> powershell.exe"
   Arrow notation is valid creation-verb evidence. Process each adjacent pair independently:
@@ -203,6 +224,9 @@ observability, not interestingness.
 
 ## VERIFICATION CHECKLIST
 Apply to EVERY candidate before including it:
+- [ ] Does the CHILD end in .exe? (If no: SKIP immediately — .dll, .dat, .ps1, etc. are invalid)
+- [ ] Does the PARENT end in .exe? (If no: SKIP immediately)
+- [ ] Are both endpoints Windows image filenames (not product/family/tool names)?
 - [ ] Are both processes explicitly named and resolvable to .exe?
 - [ ] Is there an explicit process-creation verb, OR is the source a structured telemetry
       block (Sysmon EID 1 ParentImage/Image, 4688 Creator/New Process Name, EDR

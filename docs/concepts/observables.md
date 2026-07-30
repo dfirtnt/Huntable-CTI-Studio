@@ -37,7 +37,7 @@ Observables are the **structured extraction output** of the Extract Agent: typed
     {"type": "hunt_queries", "value": "DeviceProcessEvents | where ...", "source": "supervisor_aggregation", "platform": "windows"}
   ],
   "subresults": {
-    "cmdline": {"items": ["e.exe -d=\"E:\\\""], "count": 1, "raw": {"cmdline_items": ["..."], "qa_corrections": {}}},
+    "cmdline": {"items": ["e.exe -d=\"E:\\\""], "count": 1, "raw": {"cmdline_items": ["..."]}},
     "hunt_queries": {"items": ["DeviceProcessEvents | where ..."], "count": 1}
   },
   "content": "- e.exe -d=\"E:\\\"\n- DeviceProcessEvents | where ...",

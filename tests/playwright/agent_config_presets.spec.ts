@@ -10,6 +10,11 @@ async function clickExportPresetButton(page: any) {
   await page.locator('#export-preset-btn').click();
 }
 
+async function acceptLoadPresetModal(page: any) {
+  await expect(page.getByRole('heading', { name: 'Load Preset' })).toBeVisible({ timeout: 5000 });
+  await page.getByRole('button', { name: 'Load' }).click();
+}
+
 test.describe('Agent Config Presets', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(`${BASE}/workflow#config`);
@@ -101,17 +106,10 @@ test.describe('Agent Config Presets', () => {
     const presetPath = path.join(tempDir, 'test-preset.json');
     fs.writeFileSync(presetPath, JSON.stringify(testPreset, null, 2));
 
-    // Set up dialog handler - might be confirm or alert
-    let dialogHandled = false;
-    page.on('dialog', async dialog => {
-      dialogHandled = true;
-      // Accept both confirm and alert dialogs
-      await dialog.accept();
-    });
-
     // Load preset
     const fileInput = page.locator('#import-preset-input');
     await fileInput.setInputFiles(presetPath);
+    await acceptLoadPresetModal(page);
 
     // Wait for preset to be applied and dialog
     await page.waitForTimeout(3000);
@@ -199,20 +197,13 @@ test.describe('Agent Config Presets', () => {
     const presetPath = path.join(tempDir, 'test-preset.json');
     fs.writeFileSync(presetPath, JSON.stringify(testPreset, null, 2));
 
-    let dialogShown = false;
-    page.on('dialog', async dialog => {
-      dialogShown = true;
-      expect(dialog.type()).toBe('confirm');
-      expect(dialog.message()).toContain('Load preset');
-      await dialog.dismiss(); // Cancel the load
-    });
-
     const fileInput = page.locator('#import-preset-input');
     await fileInput.setInputFiles(presetPath);
 
-    await page.waitForTimeout(1000);
-
-    expect(dialogShown).toBe(true);
+    await expect(page.getByRole('heading', { name: 'Load Preset' })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Load preset "test-preset.json"?')).toBeVisible();
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByRole('heading', { name: 'Load Preset' })).toBeHidden();
 
     // Clean up
     if (fs.existsSync(presetPath)) {
@@ -367,14 +358,10 @@ test.describe('Agent Config Presets', () => {
       preset.thresholds?.ranking_threshold ??
       originalRankingThreshold;
 
-    // Set up dialog handler to accept the import
-    page.on('dialog', async dialog => {
-      await dialog.accept();
-    });
-
     // Step 3: Import the preset
     const fileInput = page.locator('#import-preset-input');
     await fileInput.setInputFiles(presetPath);
+    await acceptLoadPresetModal(page);
     
     // Wait for preset to be applied
     await page.waitForTimeout(3000);

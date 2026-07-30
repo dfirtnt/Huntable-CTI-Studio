@@ -4,7 +4,7 @@
 
 ## Overview
 
-The observable evaluation system validates the accuracy of observable extraction models across all six observable types (command lines, process trees, hunt queries, registry artifacts, Windows services, scheduled tasks). **This capability is currently unsupported.**
+The observable evaluation system is designed to validate the accuracy of observable extraction models across all six observable types (command lines, process trees, hunt queries, registry artifacts, Windows services, scheduled tasks), but the `observable_type` validation in `POST /api/observables/evaluation/run` and `SUPPORTED_OBSERVABLE_TYPES` in `src/services/observable_training.py` currently only recognize `CMD` and `PROC_LINEAGE` (command lines, process trees); `ObservableModelInference.load_model()`/`.extract()` in `src/services/observable_evaluation/model_inference.py` only implement the `CMD` case. **This capability is currently unsupported.**
 
 ## Implementation
 

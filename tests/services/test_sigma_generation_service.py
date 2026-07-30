@@ -1859,6 +1859,114 @@ class TestInferObservablesUsedTokenQuality:
         assert result is None
 
 
+class TestSigmaExpansionCoverage:
+    """Expansion helpers should lock uncovered observable categories without LLM calls."""
+
+    def _service(self):
+        return object.__new__(SigmaGenerationService)
+
+    def _rule(self, category: str = "process_creation") -> str:
+        return (
+            "title: Covered Rule\n"
+            "id: covered-rule\n"
+            "description: Existing rule\n"
+            "logsource:\n"
+            f"  category: {category}\n"
+            "  product: windows\n"
+            "detection:\n"
+            "  selection:\n"
+            "    CommandLine|contains: powershell\n"
+            "  condition: selection\n"
+            "level: low\n"
+        )
+
+    def test_needs_expansion_returns_uncovered_categories_from_counts_and_items(self):
+        service = self._service()
+        valid_rule = Mock(rule_yaml=self._rule("process_creation"))
+        extraction_result = {
+            "subresults": {
+                "cmdline": {"count": 2, "items": ["powershell -enc"]},
+                "network_connection": {"count": 0, "items": [{"dst_ip": "203.0.113.10"}]},
+                "registry_keys": {"count": 1, "items": []},
+                "file_event": {"count": 0, "items": []},
+                "ignored_scalar": "not-a-dict",
+            }
+        }
+
+        needs_expansion, uncovered = service._needs_expansion([valid_rule], extraction_result)
+
+        assert needs_expansion is True
+        assert uncovered == ["network_connection", "registry_event"]
+
+    def test_needs_expansion_returns_false_when_all_available_categories_are_covered(self):
+        service = self._service()
+        valid_rules = [
+            Mock(rule_yaml=self._rule("process_creation")),
+            Mock(rule_yaml=self._rule("network_connection")),
+        ]
+        extraction_result = {
+            "subresults": {
+                "cmdline": {"count": 1, "items": []},
+                "network_indicators": {"count": 0, "items": ["198.51.100.7"]},
+            }
+        }
+
+        needs_expansion, uncovered = service._needs_expansion(valid_rules, extraction_result)
+
+        assert needs_expansion is False
+        assert uncovered == []
+
+    def test_needs_expansion_ignores_unparseable_existing_rules(self):
+        service = self._service()
+        extraction_result = {"subresults": {"powershell": {"count": 1, "items": ["Invoke-Expression"]}}}
+
+        needs_expansion, uncovered = service._needs_expansion([Mock(rule_yaml="not: [valid")], extraction_result)
+
+        assert needs_expansion is True
+        assert uncovered == ["powershell"]
+
+    @pytest.mark.asyncio
+    async def test_build_expansion_prompt_includes_context_for_first_five_items_only(self):
+        service = self._service()
+        extraction_result = {
+            "observables": [{"type": "network_connection", "value": "203.0.113.10:443"}],
+            "subresults": {
+                "network_connection": {
+                    "count": 6,
+                    "items": [
+                        "conn-1",
+                        "conn-2",
+                        "conn-3",
+                        "conn-4",
+                        "conn-5",
+                        "conn-6",
+                    ],
+                }
+            },
+        }
+
+        with patch("src.utils.prompt_loader.format_prompt_async", new_callable=AsyncMock) as mock_prompt:
+            mock_prompt.return_value = "Base prompt with observables"
+
+            prompt = await service._build_expansion_prompt(
+                sigma_prompt_template=None,
+                article_title="Title",
+                source_name="Source",
+                url="https://example.test/report",
+                content_to_analyze="content",
+                uncovered_categories=["network_connection"],
+                extraction_result=extraction_result,
+            )
+
+        assert "uncovered logsource categories: network_connection" in prompt
+        assert "NETWORK_CONNECTION observables (network_connection):" in prompt
+        assert "conn-1" in prompt
+        assert "conn-5" in prompt
+        assert "conn-6" not in prompt
+        assert "Base prompt with observables" in prompt
+        assert mock_prompt.await_args.kwargs["observables_section"]
+
+
 # ---------------------------------------------------------------------------
 # Platform-aware Sigma guidance (Linux pilot follow-up)
 # ---------------------------------------------------------------------------

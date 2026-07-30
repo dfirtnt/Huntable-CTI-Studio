@@ -106,6 +106,44 @@ etc.). Review every finding. You have two options:
 Do not proceed to Phase 3 until all findings are resolved or explicitly
 accepted.
 
+## Phase 2c: Container rebuild check
+
+The live dev container bind-mounts most of `src/`, so edited files are
+served immediately — but anything **outside** the bind-mounted paths (the
+`Dockerfile` itself, dependency/lockfiles, or any package `COPY`'d into the
+image rather than mounted) only takes effect after `docker compose build`.
+Shipping a change that was never exercised against a rebuilt image means the
+release can pass CI and still fail in production for a reason nobody
+actually tested.
+
+1. Read the volume mounts to know what's live vs. baked-in:
+   ```bash
+   grep -A5 "volumes:" docker-compose.yml
+   ```
+2. Diff the release branch against `main` and check whether any changed
+   path falls outside those bind-mounted paths:
+   ```bash
+   git diff --name-only main...HEAD
+   ```
+   Pay particular attention to `Dockerfile`, `docker-compose.yml`,
+   dependency/lockfiles (`pyproject.toml`, `uv.lock`, `requirements*.txt`),
+   and any directory that's `COPY`'d into the image in the `Dockerfile` but
+   not also listed as a bind mount — those only update on rebuild, not on
+   restart.
+3. If nothing changed outside the bind-mounted paths, note that in your
+   summary to the operator and move on — no rebuild needed.
+4. If something did change outside the bind-mounted paths, ask the operator
+   directly: "This release touches `<files>`, which only take effect after a
+   container rebuild. Have you rebuilt the container and re-tested against
+   the rebuilt image since these changes landed?"
+   - If yes, get a one-line description of what they verified and record it
+     in your summary before continuing.
+   - If no, or the operator is unsure: **stop here.** Tell them to run
+     `docker compose build` (plus any package-specific build target, e.g. a
+     `--profile tools build <service>` step for CLI-only packages), re-verify
+     the affected behavior against the rebuilt container, and come back. Do
+     not proceed to Phase 3 against an unrebuilt or untested image.
+
 ## Phase 3: Run release_cut.py
 
 Execute:

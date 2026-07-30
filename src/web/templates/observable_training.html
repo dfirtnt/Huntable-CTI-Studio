@@ -477,11 +477,7 @@
         }).join("");
     }
 
-    function escapeHtml(text) {
-        const div = document.createElement("div");
-        div.textContent = text;
-        return div.innerHTML;
-    }
+    // escapeHtml now lives in /static/js/utils.js (loaded from base.html).
 
     async function viewAnnotation(id) {
         const ann = currentAnnotations.find(a => a.id === id);
@@ -616,7 +612,10 @@
     }
 
     async function deleteAnnotation(id) {
-        if (!confirm(`Are you sure you want to delete annotation ${id}? This cannot be undone.`)) {
+        if (!await ModalManager.confirm(
+            `Are you sure you want to delete annotation ${id}? This cannot be undone.`,
+            { title: 'Delete Annotation', confirmText: 'Delete', confirmClass: 'bg-red-600 hover:bg-red-700', cancelText: 'Cancel' }
+        )) {
             return;
         }
         

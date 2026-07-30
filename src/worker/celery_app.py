@@ -146,7 +146,6 @@ def reset_db_connections_on_fork(**kwargs):
 celery_app.autodiscover_tasks()
 
 # Ensure local task modules are registered
-import src.worker.tasks.annotation_embeddings  # noqa: E402,F401
 import src.worker.tasks.observable_training  # noqa: E402,F401
 
 
@@ -325,13 +324,6 @@ def setup_periodic_tasks(sender, **kwargs):
         index_customer_repo.s(),
         name="index-customer-repo-daily",
     )
-
-    # Generate annotation embeddings weekly on Sundays at 4 AM
-    # sender.add_periodic_task(
-    #     crontab(hour=4, minute=0, day_of_week=0),  # Weekly on Sunday at 4 AM
-    #     generate_annotation_embeddings.s(),
-    #     name='embed-annotations-weekly'
-    # )
 
 
 @celery_app.task(bind=True, max_retries=3)

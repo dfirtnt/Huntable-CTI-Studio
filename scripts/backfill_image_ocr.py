@@ -14,7 +14,7 @@ from typing import Any
 from sqlalchemy import text
 
 from src.database.manager import DatabaseManager
-from src.database.models import ArticleTable, ContentHashTable
+from src.database.models import ArticleTable
 from src.services.vision_ocr_service import (
     OcrConfig,
     OcrStatus,
@@ -55,8 +55,7 @@ def detect_hash_basis(stored_hash: str, title: str, content: str) -> str | None:
     """Recover the row's content_hash basis by comparison against the CURRENT content.
 
     This is retry-stable: detection is by stored-hash comparison, NEVER by
-    content_hashes-row existence (the upsert below creates such a row for async
-    articles, which would flip the discriminator on a retry).
+    the presence of any side-table row (a retry must recover the same basis).
 
     Returns 'async_raw' | 'sync' | None (unknown / content changed out-of-band).
     """
@@ -111,7 +110,6 @@ class ArticleUpdateIntent:
     new_simhash: int
     new_simhash_bucket: int
     new_metadata: dict
-    upsert_content_hash: bool  # True = insert/update content_hashes row
     basis: str
     skipped: bool = False
     skip_reason: str = ""
@@ -150,7 +148,6 @@ def compute_article_update(
             new_simhash=0,
             new_simhash_bucket=0,
             new_metadata=article_metadata,
-            upsert_content_hash=False,
             basis="",
             skipped=True,
             skip_reason=f"article {article_id}: content_hash basis unknown (content changed out-of-band?)",
@@ -167,7 +164,6 @@ def compute_article_update(
             new_simhash=0,
             new_simhash_bucket=0,
             new_metadata=article_metadata,
-            upsert_content_hash=False,
             basis=basis,
             skipped=True,
             skip_reason=(
@@ -201,7 +197,6 @@ def compute_article_update(
         new_simhash=new_simhash,
         new_simhash_bucket=new_simhash_bucket,
         new_metadata=new_metadata,
-        upsert_content_hash=True,
         basis=basis,
     )
 
@@ -429,22 +424,13 @@ def main() -> None:
                 new_hash_preview = recompute_hash(basis_preview, title, new_content_preview)
                 if new_hash_preview != stored_hash:
                     with db.get_session() as session:
-                        # Check both articles.content_hash and content_hashes table
                         colliding_article = (
                             session.query(ArticleTable)
                             .filter(ArticleTable.content_hash == new_hash_preview)
                             .filter(ArticleTable.id != article_id)
                             .first()
                         )
-                        colliding_ch = (
-                            session.query(ContentHashTable)
-                            .filter(ContentHashTable.content_hash == new_hash_preview)
-                            .filter(ContentHashTable.article_id != article_id)
-                            .first()
-                        ) if colliding_article is None else colliding_article
-                    if colliding_article is not None or (
-                        colliding_ch is not None and colliding_ch is not colliding_article
-                    ):
+                    if colliding_article is not None:
                         collision_hash = new_hash_preview
 
         # -----------------------------------------------------------------------
@@ -493,24 +479,7 @@ def main() -> None:
                 db_article.simhash = intent.new_simhash
                 db_article.simhash_bucket = intent.new_simhash_bucket
                 db_article.article_metadata = intent.new_metadata
-
-                # UPSERT content_hashes (insert-if-absent, update-if-present)
-                # Async-ingested rows have NO row; sync-ingested rows have one.
                 # Do NOT touch simhash_buckets — no ingest path writes it.
-                existing_ch = (
-                    session.query(ContentHashTable)
-                    .filter(ContentHashTable.article_id == article_id)
-                    .first()
-                )
-                if existing_ch is None:
-                    session.add(
-                        ContentHashTable(
-                            content_hash=intent.new_content_hash,
-                            article_id=article_id,
-                        )
-                    )
-                else:
-                    existing_ch.content_hash = intent.new_content_hash
 
                 session.commit()
 

@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 FEATURES_DIR = ROOT / "docs" / "features"
 SOLUTIONS_DIR = ROOT / "docs" / "solutions"
 MKDOCS_YML = ROOT / "mkdocs.yml"
+AUTHENTICATION_GUIDE = ROOT / "docs" / "guides" / "authentication.md"
 
 REQUIRED_SOLUTION_KEYS = ("title", "date", "module", "problem_type")
 
@@ -46,3 +47,15 @@ def test_solution_page_has_required_frontmatter(page: Path) -> None:
         f"{page} frontmatter is missing key(s) {missing}; AGENTS.md documents "
         f"docs/solutions/ frontmatter as {REQUIRED_SOLUTION_KEYS}"
     )
+
+
+def test_authentication_docs_record_successful_auth_audit_boundary() -> None:
+    text = AUTHENTICATION_GUIDE.read_text(encoding="utf-8")
+
+    assert "Successful authentication is audited at the upstream identity proxy / IdP" in text
+    assert "boundary, not by Huntable" in text
+    assert "X-Request-ID" in text
+    assert "deployment SIEM" in text
+    assert "Huntable records authorization denials" in text
+    assert "application-side" in text
+    assert "mutations once a verified identity reaches the app" in text

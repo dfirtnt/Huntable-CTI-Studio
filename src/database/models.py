@@ -68,10 +68,17 @@ class ArticleTable(Base):
     """Database table for articles with enhanced deduplication."""
 
     __tablename__ = "articles"
+    __table_args__ = (
+        # Match production's index name exactly: prod enforces a single UNIQUE btree
+        # named uq_articles_canonical_url (no separate plain index). Keeping the same
+        # name lets the idempotent CREATE UNIQUE INDEX IF NOT EXISTS in
+        # DatabaseManager.create_tables() converge instead of adding a duplicate.
+        Index("uq_articles_canonical_url", "canonical_url", unique=True),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     source_id = Column(Integer, ForeignKey("sources.id"), nullable=False, index=True)
-    canonical_url = Column(Text, nullable=False, index=True)
+    canonical_url = Column(Text, nullable=False)
     title = Column(Text, nullable=False)
     published_at = Column(DateTime, nullable=False, index=True)
     modified_at = Column(DateTime, nullable=True)
@@ -186,20 +193,6 @@ def _prevent_annotation_usage_change(_mapper, connection, target):
         deleted = hist.deleted[0] if hist.deleted else None
         if added is not None and deleted is not None and added != deleted:
             raise ValueError("Annotation usage cannot be modified once set.")
-
-
-class ContentHashTable(Base):
-    """Database table for content hash tracking (for efficient deduplication)."""
-
-    __tablename__ = "content_hashes"
-
-    id = Column(Integer, primary_key=True, index=True)
-    content_hash = Column(String(64), nullable=False, unique=True, index=True)
-    article_id = Column(Integer, ForeignKey("articles.id"), nullable=False)
-    first_seen = Column(DateTime, nullable=False, default=func.now())
-
-    def __repr__(self):
-        return f"<ContentHash(hash='{self.content_hash[:8]}...', article_id={self.article_id})>"
 
 
 class SimHashBucketTable(Base):
@@ -564,8 +557,9 @@ class AgenticWorkflowConfigTable(Base):
     similarity_threshold = Column(Float, nullable=False, default=0.5)
     junk_filter_threshold = Column(Float, nullable=False, default=0.8)  # min_confidence for junk filter (0.0-1.0)
     auto_trigger_hunt_score_threshold = Column(
-        Float, nullable=False, default=60.0
-    )  # RegexHuntScore threshold for auto-triggering workflows
+        Float, nullable=False, default=100.0
+    )  # RegexHuntScore threshold for auto-triggering workflows. Defaults to 100 (above the
+    # 99.9 score ceiling) so nothing auto-processes until a user consciously lowers it (opt-in).
 
     # Versioning and audit
     version = Column(Integer, nullable=False, default=1)
@@ -822,10 +816,12 @@ class SubagentEvaluationTable(Base):
 
     # Item-level ground truth and results (optional -- only populated when expected_items is set)
     expected_items = Column(JSONB, nullable=True)  # Ground truth item list from articles.json
+    acceptable_items = Column(JSONB, nullable=True)  # Justified alternate readings excluded from scoring
     actual_items = Column(JSONB, nullable=True)  # Items extracted by the agent
     matched_count = Column(Integer, nullable=True)
     missed_count = Column(Integer, nullable=True)
     extra_count = Column(Integer, nullable=True)
+    neutral_count = Column(Integer, nullable=True)
 
     # Workflow execution and config tracking
     workflow_execution_id = Column(Integer, ForeignKey("agentic_workflow_executions.id"), nullable=True, index=True)

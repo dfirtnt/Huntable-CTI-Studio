@@ -176,11 +176,11 @@ The ML vs Hunt Comparison Dashboard compares RandomForest predictions against th
 
 ---
 
-## Classification Trends Chart
+## Classification Timeline Data
 
-A time series showing how ML and hunt score predictions align across model versions.
+<!-- AUDIT: Accuracy -- ml_hunt_comparison.html does not render a dedicated "Classification Trends Chart"; verified no canvas or Chart.js instance for these categories exists in the template. The endpoint response is fetched but only used to align x-axis version numbers for the Accuracy Trends Chart below. -->
 
-**Four tracked categories:**
+`GET /api/model/classification-timeline` computes how ML and hunt score predictions align across model versions, tracking four categories:
 
 | Category | Definition |
 |---|---|
@@ -189,9 +189,7 @@ A time series showing how ML and hunt score predictions align across model versi
 | Hunt Only | Only Hunt classifies as huntable |
 | Neither | Both systems classify as not huntable |
 
-**Reading the chart:**
-- Y-axis: percentage of chunks (0-100%)
-- X-axis: model versions (v0, v1, v2, ...)
+**Interpretation:**
 - Increasing Agreement: model is converging with hunt scoring
 - Decreasing ML Only: model is becoming more conservative
 - Stable Neither: consistent filtering of non-huntable content
@@ -253,13 +251,11 @@ After retraining, new feedback is marked "used." Previously used feedback stays 
 
 ## Performance Visualization
 
-### Radar Chart
-
-Displays 4 metrics for the latest evaluated model version: Accuracy, Precision (Huntable), Recall (Huntable), F1 (Huntable).
-
 ### Accuracy Trends Chart
 
-Line chart showing accuracy progression across model versions. Use this to confirm that retraining is improving the model, not degrading it.
+<!-- AUDIT: Accuracy -- no separate radar chart exists; ml_hunt_comparison.html has one canvas (`evalAccuracyChart`, a line chart) plotting all four metrics across versions. -->
+
+A single line chart plots Accuracy %, Precision (Huntable) %, Recall (Huntable) %, and F1 (Huntable) % across model versions (v0, v1, v2, ...). Use this to confirm that retraining is improving the model, not degrading it.
 
 ---
 

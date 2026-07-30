@@ -29,7 +29,7 @@ def sigma_group():
 @sigma_group.command("sync")
 @click.option("--force", is_flag=True, help="Force re-clone of repository")
 def sync_repo(force: bool):
-    """Sync Sigma rules repository."""
+    """Sync the upstream SigmaHQ reference repository."""
     console.print("[bold blue]Syncing Sigma rules repository...[/bold blue]")
 
     try:

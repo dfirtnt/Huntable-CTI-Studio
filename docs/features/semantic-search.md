@@ -50,7 +50,7 @@ Available tools (non-exhaustive):
 
 Run once after setup, then again whenever Sigma rules change:
 
-```
+```bash
 ./run_cli.sh sigma index-embeddings
 ./run_cli.sh embed stats
 ```
@@ -59,7 +59,7 @@ Indexing runs inside the `cli` container and embeds rules **in chunks, committin
 
 On a low-memory host, lower the per-chunk working set with the `SIGMA_EMBED_RULES_PER_CHUNK` environment variable (default 64) to reduce peak memory at the cost of more commits:
 
-```
+```bash
 SIGMA_EMBED_RULES_PER_CHUNK=32 ./run_cli.sh sigma index-embeddings
 ```
 

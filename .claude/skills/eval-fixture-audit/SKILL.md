@@ -47,7 +47,8 @@ never free-wheel:
   an autonomous step, even on a `claude/*` session branch.
 - **A spot-fix is not an audit.** The run is not complete until Steps 3–5 produced a
   blind per-article extraction for EVERY article and a divergence table across ALL
-  five sinks (xlsx, DB, yaml, articles.json, ground_truth.json). Spotting one bad item
+  four authoritative sinks (xlsx, yaml, articles.json, ground_truth.json). The DB is
+  derived run output, not a fixture sink. Spotting one bad item
   by reading ground_truth.json is the anchored shortcut this skill exists to
   prevent — not a passing run.
 
@@ -70,6 +71,9 @@ never free-wheel:
   - **SPEC CHANGE** — the operator decides a rule itself should move. Requires a
     doc edit + GT re-audit + CHANGELOG entry, and creates a known discontinuity
     in eval scores. Deliberate event only.
+- Since commits `811741aa` and `95487e13` (2026-07-21), subagent evals are
+  fixture-first: expected counts and items are read from repo fixtures at run time.
+  `subagent_evaluations` rows are derived eval-run output, never curated fixture data.
 
 ## Step 0 — Resolve the agent
 
@@ -136,13 +140,15 @@ cause errors.
 
 ## Step 4 — Load recorded values (only now)
 
-Load all five sinks independently (paths and queries in
+Load the four authoritative sinks independently (paths and formats in
 `references/agent-map.md`):
 
 - **xlsx** — the most-drifted sink; expect pathologies. Report them
   (see `references/hazards.md`), do not auto-fix.
-- **DB** `subagent_evaluations` — latest row per URL. This is *fixture* data
-  (in scope), unlike the contract-side config row (out of scope).
+- **DB** `subagent_evaluations` - inspect the latest row per URL only as a
+  read-only diagnostic of what the last eval run used. A difference from the repo
+  fixtures means they changed since that run; report it as context, never as drift
+  to fix.
 - **Repo fixtures** — `eval_articles.yaml`, `articles.json` (count mirror),
   `ground_truth.json` (items). Entries with `expected_items: []` are intentional
   registered-but-uncurated placeholders: populate or leave per operator
@@ -152,7 +158,7 @@ Load all five sinks independently (paths and queries in
 
 Produce:
 
-1. **Eval1 counts table**: url | mine | xlsx | DB | yaml | a.json | gt.json |
+1. **Eval1 counts table**: url | mine | xlsx | yaml | a.json | gt.json |
    verdict.
 2. **Eval2 item-set table**: url | mine | gt.json | overlap | only-mine |
    only-gt | agree?  Match using loose normalization (HTML-entity decode,
@@ -185,7 +191,7 @@ in **separate commits** so the era boundary stays legible in `git log`.
 
 **STOP. Offer write targets explicitly and wait** for the operator to choose:
 (1) xlsx Count+GroundTruth, (2) eval_articles.yaml, (3) articles.json +
-ground_truth.json, (4) DB latest rows, (5) subset/none.
+ground_truth.json, (4) subset/none.
 No operator response = HALT: write nothing, commit nothing, push nothing. Never
 self-select the targets to keep moving.
 

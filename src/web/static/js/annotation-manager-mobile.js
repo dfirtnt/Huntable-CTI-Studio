@@ -15,6 +15,16 @@ const MOBILE_ANNOTATION_LABELS = {
 };
 
 class MobileTextAnnotationManager {
+    // HTML-escape arbitrary text before concatenation into innerHTML.
+    // Matches the pattern in similarity-display.js::escapeHtml and
+    // observable-utils.js. Class-scoped to avoid colliding with any
+    // global escapeHtml registered by other scripts on the page.
+    static escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text == null ? '' : String(text);
+        return div.innerHTML;
+    }
+
     constructor(container, articleId) {
         this.container = container;
         this.articleId = articleId;
@@ -595,7 +605,14 @@ class MobileTextAnnotationManager {
             const afterText = fullText.substring(endPos);
             
             highlight.textContent = selectedText;
-            this.container.innerHTML = beforeText + highlight.outerHTML + afterText;
+            // Escape surrounding text before re-parsing as HTML; selectedText is
+            // already safe (set via .textContent on the highlight). Without this,
+            // article bodies containing literal markup like
+            // `<img src=x onerror=...>` execute when an annotation is created.
+            this.container.innerHTML =
+                MobileTextAnnotationManager.escapeHtml(beforeText) +
+                highlight.outerHTML +
+                MobileTextAnnotationManager.escapeHtml(afterText);
         }
     }
     
@@ -633,7 +650,14 @@ class MobileTextAnnotationManager {
             highlight.title = `Marked as ${this.getAnnotationLabel(annotation.annotation_type)}`;
             highlight.textContent = selectedText;
             
-            this.container.innerHTML = beforeText + highlight.outerHTML + afterText;
+            // Escape surrounding text before re-parsing as HTML; selectedText
+            // is safe (set via .textContent above). Without this, articles whose
+            // raw scraped content contains literal markup like
+            // `<img src=x onerror=alert(1)>` execute on article page load.
+            this.container.innerHTML =
+                MobileTextAnnotationManager.escapeHtml(beforeText) +
+                highlight.outerHTML +
+                MobileTextAnnotationManager.escapeHtml(afterText);
         }
     }
     

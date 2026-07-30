@@ -107,24 +107,12 @@ class EvalBundleService:
         else:
             logger.debug(f"Execution {execution_id} error_log is not a dict: {type(error_log)}")
 
+        config_snapshot_raw = _coerce_json_dict(execution.config_snapshot)
+
         # Fetch article
         article = self.db_session.query(ArticleTable).filter(ArticleTable.id == execution.article_id).first()
 
-        if not article:
-            warnings.append("ARTICLE_NOT_FOUND")
-            article_text = None
-            article_sha256 = None
-            article_length = 0
-        else:
-            article_text = article.content
-            if article_text:
-                article_sha256 = compute_sha256(article_text)
-                article_length = len(article_text)
-            else:
-                warnings.append("FULL_ARTICLE_TEXT_MISSING")
-                article_text = None
-                article_sha256 = None
-                article_length = 0
+        article_input = self._extract_article_text_input(article, config_snapshot_raw, warnings)
 
         # Extract LLM call data from error_log
         llm_request, llm_response, request_warnings, actual_attempt = self._extract_llm_call_data(
@@ -142,6 +130,8 @@ class EvalBundleService:
         inputs = []
 
         # Article text input
+        article_text = article_input["text"]
+        article_length = article_input["length_chars"]
         if article_text:
             was_truncated = False
             if not inline_large_text and article_length > max_inline_chars:
@@ -149,27 +139,9 @@ class EvalBundleService:
                 was_truncated = True
                 warnings.append("ARTICLE_TEXT_TRUNCATED_IN_BUNDLE")
 
-            inputs.append(
-                {
-                    "name": "article_text",
-                    "source": "postgres",
-                    "text": article_text,
-                    "sha256": article_sha256,
-                    "length_chars": article_length,
-                    "was_truncated_anywhere": was_truncated,
-                }
-            )
+            inputs.append({**article_input, "text": article_text, "was_truncated_anywhere": was_truncated})
         else:
-            inputs.append(
-                {
-                    "name": "article_text",
-                    "source": "postgres",
-                    "text": None,
-                    "sha256": None,
-                    "length_chars": 0,
-                    "was_truncated_anywhere": False,
-                }
-            )
+            inputs.append({**article_input, "was_truncated_anywhere": False})
 
         # System prompt input
         inputs.append(system_prompt_data)
@@ -300,6 +272,61 @@ class EvalBundleService:
             bundle = self._apply_slim_transform(bundle)
 
         return bundle
+
+    def _extract_article_text_input(
+        self,
+        article: ArticleTable | None,
+        config_snapshot: dict[str, Any],
+        warnings: list[str],
+    ) -> dict[str, Any]:
+        """Select the article text source that actually fed the workflow."""
+        fixture_text = config_snapshot.get("eval_fixture_content")
+        if isinstance(fixture_text, str):
+            fixture_sha256 = compute_sha256(fixture_text)
+            snapshot_sha256 = config_snapshot.get("eval_fixture_content_sha256")
+            article_input = {
+                "name": "article_text",
+                "source": "eval_fixture",
+                "text": fixture_text,
+                "sha256": fixture_sha256,
+                "length_chars": len(fixture_text),
+            }
+            if isinstance(snapshot_sha256, str):
+                article_input["snapshot_sha256"] = snapshot_sha256
+                if snapshot_sha256 != fixture_sha256:
+                    warnings.append("EVAL_FIXTURE_CONTENT_SHA256_MISMATCH")
+            else:
+                warnings.append("EVAL_FIXTURE_CONTENT_SHA256_MISSING")
+            return article_input
+
+        if not article:
+            warnings.append("ARTICLE_NOT_FOUND")
+            return {
+                "name": "article_text",
+                "source": "postgres",
+                "text": None,
+                "sha256": None,
+                "length_chars": 0,
+            }
+
+        article_text = article.content
+        if not article_text:
+            warnings.append("FULL_ARTICLE_TEXT_MISSING")
+            return {
+                "name": "article_text",
+                "source": "postgres",
+                "text": None,
+                "sha256": None,
+                "length_chars": 0,
+            }
+
+        return {
+            "name": "article_text",
+            "source": "postgres",
+            "text": article_text,
+            "sha256": compute_sha256(article_text),
+            "length_chars": len(article_text),
+        }
 
     def _apply_slim_transform(self, bundle: dict[str, Any]) -> dict[str, Any]:
         """Strip redundant/bulky fields from a bundle to reduce token consumption.

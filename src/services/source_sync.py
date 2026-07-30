@@ -36,6 +36,18 @@ class SourceSyncService:
         logger.info("Synchronization complete: %d sources", len(synced_sources))
         return len(synced_sources)
 
+    async def sync_configs(
+        self, source_configs: list[SourceCreate], *, remove_missing: bool = True, new_only: bool = False
+    ) -> list[Source]:
+        """Synchronize already-loaded source configs to the database.
+
+        Unlike sync(), this does not reload the YAML file -- for callers (e.g.
+        `cti init`) that load and feed-validate configs themselves before
+        persisting. This is the single DB-write implementation shared by both
+        CLI entrypoints; SourceManager no longer has its own.
+        """
+        return await self._sync_to_db(source_configs, remove_missing, new_only=new_only)
+
     async def _sync_to_db(
         self,
         source_configs: list[SourceCreate],

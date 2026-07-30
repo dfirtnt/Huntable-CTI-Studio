@@ -124,6 +124,7 @@ class DeduplicationService:
             "simhash": simhash,
             "simhash_bucket": bucket,
             "article_metadata": article.article_metadata,
+            "word_count": article.article_metadata.get("word_count", 0) if article.article_metadata else 0,
             "created_at": datetime.now(),
             "updated_at": datetime.now(),
         }
@@ -253,6 +254,7 @@ class AsyncDeduplicationService:
             "simhash": simhash,
             "simhash_bucket": bucket,
             "article_metadata": article.article_metadata,
+            "word_count": article.article_metadata.get("word_count", 0) if article.article_metadata else 0,
             "created_at": datetime.now(),
             "updated_at": datetime.now(),
         }

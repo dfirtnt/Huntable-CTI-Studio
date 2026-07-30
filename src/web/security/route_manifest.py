@@ -105,10 +105,10 @@ UNSAFE_ROUTE_RULES: tuple[RouteRule, ...] = (
         AuditRequirement.MANDATORY,
         CsrfRequirement.REQUIRED,
     ),
+    # /api/cron exposes a raw crontab editor (arbitrary command scheduling), the
+    # same trust level as /api/backup/* and /api/settings* above — admin-only.
+    RouteRule("/api/cron", RouteClassification.ROLES, _ADMIN, AuditRequirement.MANDATORY, CsrfRequirement.REQUIRED),
     # Operator surfaces.
-    RouteRule(
-        "/api/cron", RouteClassification.ROLES, _OPERATOR_ADMIN, AuditRequirement.MANDATORY, CsrfRequirement.REQUIRED
-    ),
     RouteRule(
         "/api/scheduled-jobs",
         RouteClassification.ROLES,

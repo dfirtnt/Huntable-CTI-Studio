@@ -21,9 +21,7 @@ pytestmark = [pytest.mark.unit, pytest.mark.regression]
 # Templates that participate in similarity search
 TEMPLATES_DIR = Path("src/web/templates")
 SIMILARITY_TEMPLATES = [
-    TEMPLATES_DIR / "sigma_queue.html",
     TEMPLATES_DIR / "workflow.html",
-    TEMPLATES_DIR / "workflow_executions.html",
     TEMPLATES_DIR / "article_detail.html",
     TEMPLATES_DIR / "sigma_similarity_test.html",
     TEMPLATES_DIR / "sigma_ab_test.html",
@@ -152,18 +150,10 @@ class TestMatchListCustomerRuleDetection:
     """Match list items must detect customer rules via cust- prefix
     to render the correct origin badge."""
 
-    def test_sigma_queue_detects_cust_prefix(self):
-        html = _read(TEMPLATES_DIR / "sigma_queue.html")
-        assert "startsWith('cust-')" in html, "sigma_queue.html match list must detect customer rules via cust- prefix"
-        assert "customer/" in html, "sigma_queue.html must also detect customer rules via file_path prefix"
-
     def test_workflow_detects_cust_prefix(self):
         html = _read(TEMPLATES_DIR / "workflow.html")
         assert "startsWith('cust-')" in html, "workflow.html match list must detect customer rules via cust- prefix"
-
-    def test_workflow_executions_detects_cust_prefix(self):
-        html = _read(TEMPLATES_DIR / "workflow_executions.html")
-        assert "startsWith('cust-')" in html, "workflow_executions.html must detect customer rules via cust- prefix"
+        assert "customer/" in html, "workflow.html must also detect customer rules via file_path prefix"
 
     def test_article_detail_detects_cust_prefix(self):
         html = _read(TEMPLATES_DIR / "article_detail.html")

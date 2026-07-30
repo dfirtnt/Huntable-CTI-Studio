@@ -36,8 +36,6 @@ theme:
 not_in_nav: |
   superpowers/
   adr/0002-sigma-similarity-engine.md
-  contracts/qa-agent.md
-  contracts/qa-output.md
   development/cmdline-eval-audit-2026-05-31.md
   development/eval-contract-audit-prompt.md
   development/extractor-lane-partial-enablement-2026-06-12.md
@@ -92,6 +90,7 @@ nav:
       - Scoring: architecture/scoring.md
       - Chunking: architecture/chunking.md
       - QA Loops: architecture/qa-loops.md
+      - Workflow Threshold Tuning: tuning.md
   - Features:
       - Sigma Detection Rules: features/sigma-rules.md
       - Content Filtering: features/content-filtering.md
@@ -143,6 +142,7 @@ nav:
       - ML Model Runbook: operations/ml-model-runbook.md
       - ML Versions Backup Verification: operations/verify-ml-versions-backup.md
   - Contracts:
+      - UX Contract (UI Designer): contracts/ui-designer.md
       - Extractor Standard: contracts/extractor-standard.md
       - CmdLineExtract: contracts/cmdline-extract.md
       - ProcTreeExtract: contracts/proctree-extract.md

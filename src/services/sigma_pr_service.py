@@ -26,11 +26,13 @@ class SigmaPRService:
         Initialize the PR service.
 
         Args:
-            repo_path: Path to local SIGMA repository. Defaults to sigma-repo.
+            repo_path: Path to the customer SIGMA rules repository. Defaults to sigma-repo.
         """
         # Try to load from AppSettings first, then fall back to env vars
         self.github_token = self._get_setting("GITHUB_TOKEN") or os.getenv("GITHUB_TOKEN")
-        # Single default: sigma-repo (Docker mounts ../Huntable-SIGMA-Rules at /app/sigma-repo)
+        # This is the customer rules repo. The upstream SigmaHQ reference cache
+        # lives at data/sigma-repo and must never be used for PR submission.
+        # Docker mounts ../Huntable-SIGMA-Rules at /app/sigma-repo.
         default_path = "sigma-repo"
         repo_path_setting = self._get_setting("SIGMA_REPO_PATH") or os.getenv("SIGMA_REPO_PATH", default_path)
 
@@ -192,12 +194,12 @@ class SigmaPRService:
             result = subprocess.run(["git"] + cmd, cwd=self.repo_path, capture_output=True, text=True, timeout=60)
 
             if check and result.returncode != 0:
-                raise Exception(f"Git command failed: {' '.join(cmd)}\n{result.stderr}")
+                raise RuntimeError(f"Git command failed: {' '.join(cmd)}\n{result.stderr}")
 
             return result.returncode, result.stdout, result.stderr
         except subprocess.TimeoutExpired as e:
-            raise Exception(f"Git command timed out: {' '.join(cmd)}") from e
-        except Exception as e:
+            raise RuntimeError(f"Git command timed out: {' '.join(cmd)}") from e
+        except (RuntimeError, subprocess.SubprocessError, OSError) as e:
             logger.error(f"Git command error: {e}")
             raise
 
@@ -346,6 +348,35 @@ class SigmaPRService:
 
         return {"valid": True}
 
+    def _validate_pr_repository(self) -> dict[str, Any]:
+        """Reject the upstream SigmaHQ reference repository as a PR target."""
+        returncode, remote_url, stderr = self._run_git_command(
+            ["remote", "get-url", "origin"], check=False
+        )
+        if returncode != 0:
+            return {
+                "valid": False,
+                "error": (
+                    "Customer Sigma repository has no readable origin remote: "
+                    f"{stderr.strip() or 'origin is not configured'}"
+                ),
+            }
+
+        remote = remote_url.strip().removesuffix(".git").rstrip("/")
+        match = re.search(r"github\.com[:/]([^/]+/[^/]+)$", remote, re.IGNORECASE)
+        if match and match.group(1).lower() == "sigmahq/sigma":
+            return {
+                "valid": False,
+                "error": (
+                    "Refusing PR submission from upstream SigmaHQ reference repository "
+                    f"{self.repo_path}. Configure SIGMA_REPO_PATH "
+                    "to the customer rules repository, such as sigma-repo or "
+                    "../Huntable-SIGMA-Rules."
+                ),
+            }
+
+        return {"valid": True}
+
     def submit_pr(self, rules: list[dict[str, Any]]) -> dict[str, Any]:
         """
         Submit approved rules as a GitHub PR.
@@ -395,6 +426,12 @@ class SigmaPRService:
                 f"3. You have read/write permissions to this directory\n"
                 f"4. After changing Settings, click 'Save Settings' and refresh the page",
             }
+
+        # Validate the remote before _check_repo_status can stash, checkout, pull,
+        # or before this method can write generated rules to the repository.
+        repo_identity = self._validate_pr_repository()
+        if not repo_identity.get("valid"):
+            return {"success": False, "error": repo_identity["error"]}
 
         # Validate repository
         repo_status = self._check_repo_status()

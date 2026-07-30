@@ -3,7 +3,9 @@
 import contextlib
 from unittest.mock import AsyncMock, Mock, patch
 
+import httpx
 import pytest
+from sqlalchemy.exc import SQLAlchemyError
 
 from src.services.llm_service import (
     MIN_USER_CONTENT_CHARS,
@@ -904,3 +906,76 @@ class TestTraceabilityNormalization:
         for item in result["items"]:
             assert isinstance(item, dict), "items should be normalized to dicts"
             assert "value" in item
+
+
+class TestNarrowedExceptionHandling:
+    """Pin the narrowed except clauses: intended failures degrade, unexpected ones propagate."""
+
+    def test_provider_settings_loader_swallows_sqlalchemy_error(self, llm_service):
+        """DB unavailability degrades to empty settings (workers fall back to env)."""
+        with patch("src.services.llm_service.DatabaseManager", side_effect=SQLAlchemyError("db down")):
+            assert llm_service._load_workflow_provider_settings() == {}
+
+    def test_lmstudio_settings_loader_swallows_sqlalchemy_error(self, llm_service):
+        with patch("src.services.llm_service.DatabaseManager", side_effect=SQLAlchemyError("db down")):
+            assert llm_service._load_lmstudio_settings() == {}
+
+    @pytest.mark.asyncio
+    async def test_anthropic_non_retryable_4xx_fails_fast(self, llm_service):
+        """A 4xx client error (e.g. bad API key) must raise immediately, not burn 5 retries."""
+        resp = Mock(status_code=401, text="unauthorized", headers={})
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=resp)
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client_class.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client_class.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            with pytest.raises(RuntimeError, match=r"Anthropic API error \(401\)"):
+                await llm_service._call_anthropic_with_retry(
+                    api_key="test-key",
+                    payload={"model": "claude-sonnet-4-5"},
+                    anthropic_api_url="https://api.anthropic.com/v1/messages",
+                    base_delay=0.001,
+                )
+
+        assert mock_client.post.await_count == 1, "4xx must not be retried"
+
+    @pytest.mark.asyncio
+    async def test_anthropic_transient_transport_error_still_retries(self, llm_service):
+        """httpx transport errors remain retryable after the narrowing."""
+        ok = Mock(status_code=200, text="ok", headers={})
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(side_effect=[httpx.ConnectError("connection reset"), ok])
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client_class.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client_class.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            result = await llm_service._call_anthropic_with_retry(
+                api_key="test-key",
+                payload={"model": "claude-sonnet-4-5"},
+                anthropic_api_url="https://api.anthropic.com/v1/messages",
+                base_delay=0.001,
+            )
+
+        assert result is ok
+        assert mock_client.post.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_context_probe_survives_missing_lms_cli(self, llm_service):
+        """FileNotFoundError from the `lms` CLI probe is handled; HTTP detection still runs."""
+        llm_service.provider_rank = "lmstudio"
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_response = Mock(
+                status_code=200, json=lambda: {"data": [{"id": "test-model", "context_length": 32768}]}
+            )
+            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            with patch("src.services.llm_service.subprocess.run", side_effect=FileNotFoundError("lms not installed")):
+                result = await llm_service.check_model_context_length(model_name="test-model", threshold=16384)
+
+        assert result["is_sufficient"] is True
+        assert result["method"] == "api_models_endpoint"

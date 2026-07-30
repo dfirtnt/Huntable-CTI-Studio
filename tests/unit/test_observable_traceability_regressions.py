@@ -325,8 +325,6 @@ OBS_TYPE_ORDER_SHARED_JS = "src/web/static/js/components/observable-utils.js"
 # These must NOT declare their own copy -- doing so would silently diverge.
 OBS_TYPE_ORDER_CONSUMER_TEMPLATES = [
     "src/web/templates/workflow.html",
-    "src/web/templates/workflow_executions.html",
-    "src/web/templates/sigma_queue.html",
 ]
 
 

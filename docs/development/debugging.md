@@ -73,18 +73,26 @@ Each workflow execution creates:
 
 ### Implementation Details
 
-The Langfuse integration is implemented in `src/utils/langfuse_client.py`:
+The Langfuse integration is implemented in `src/utils/langfuse_client.py`
+(`_LangfuseWorkflowTrace.__enter__`):
 
+<!-- AUDIT: Accuracy -- snippet was stale: current code uses `propagate_attributes(session_id=..., user_id=..., ...)`
+     as a separate context manager to set session/user on the OTEL context, not a `TraceContext(session_id=...,
+     user_id=...)` passed into `start_as_current_observation`. The current code's own comment notes
+     "TraceContext only carries trace_id / parent_span_id for span linkage" -- session_id/user_id no longer go
+     through TraceContext. Verified against src/utils/langfuse_client.py lines 155-224. -->
 ```python
-from langfuse.types import TraceContext
+from langfuse import propagate_attributes
 
-trace_context = TraceContext(
+attributes_cm = propagate_attributes(
     session_id=f"workflow_exec_{execution_id}",
     user_id=f"article_{article_id}",
+    trace_name=f"agentic_workflow_execution_{execution_id}",
+    tags=[...],
 )
+attributes_cm.__enter__()
 
 span_cm = client.start_as_current_observation(
-    trace_context=trace_context,
     name=f"agentic_workflow_execution_{execution_id}",
     input={"execution_id": execution_id, "article_id": article_id},
     metadata={...},
@@ -95,7 +103,7 @@ trace_id = getattr(span, "trace_id", None) or getattr(span, "id", None)
 
 ### Key Implementation Points
 
-1. **Session Association**: The workflow trace is created with `TraceContext(session_id=..., user_id=...)`. Child generations are linked by `trace_id` and the same `workflow_exec_{execution_id}` session identifier.
+1. **Session Association**: The workflow trace is created with `propagate_attributes(session_id=..., user_id=...)`, which sets session/user on the OTEL context for everything created inside the block. Child generations are linked by `trace_id` and the same `workflow_exec_{execution_id}` session identifier.
 
 2. **Trace ID vs Span ID**:
    - **Trace ID**: 32-character identifier (e.g., `62ed1c144abee5401636ea6c5b9b4f7a`)
@@ -170,9 +178,10 @@ For setup, host selection, security guidance, and troubleshooting, see [Langfuse
 
 ### Code References
 
-- **Trace creation**: `src/utils/langfuse_client.py` (lines 155-189)
-- **Workflow execution**: `src/workflows/agentic_workflow.py` (line 1662)
-- **Debug link generation**: `src/web/routes/workflow_executions.py` (lines 805-814)
+<!-- AUDIT: Accuracy -- line numbers re-verified 2026-07-17 against current source; all three had drifted. -->
+- **Trace creation**: `src/utils/langfuse_client.py` (`_LangfuseWorkflowTrace.__enter__`, lines 155-224)
+- **Workflow execution**: `src/workflows/agentic_workflow.py` (`run_workflow`, trace opened at line 3887)
+- **Debug link generation**: `src/web/routes/workflow_executions.py` (`_build_langfuse_debug_urls` / `get_workflow_debug_info`, lines 1272-1296)
 
 ## Test Failure Analysis
 
@@ -733,6 +742,12 @@ LIMIT 5;
 - Retry stuck executions via UI or API
 
 ### 2. Hybrid Extractor Being Used
+
+<!-- AUDIT: Relevancy -- `use_hybrid_extractor` no longer exists anywhere in src/workflows/agentic_workflow.py or
+     src/services/llm_service.py (verified via grep, zero matches, 2026-07-17). This subsystem appears to have been
+     removed (see the deprecated HybridIOCExtractor / /extract-iocs endpoint removal, commit 51c750c0). This
+     section describes historical behavior that no longer applies to the current codebase; if LMStudio logs are
+     still missing, this is not the cause -- see the other numbered causes in this doc instead. -->
 If `use_hybrid_extractor=True`, the hybrid extractor runs first and may return results without calling LMStudio.
 
 **Check:**
@@ -854,6 +869,8 @@ When evaluation runs correctly, you should see:
 ## Quick Fixes
 
 ### Force LLM Extraction (Disable Hybrid)
+<!-- AUDIT: Relevancy -- `use_hybrid_extractor` no longer exists in the codebase (see note above); this
+     snippet describes removed functionality and has no current effect. -->
 Set in workflow config or execution snapshot:
 ```python
 config_snapshot = {
@@ -877,10 +894,11 @@ POST /api/workflow/executions/{execution_id}/retry
 ```
 
 ## Related Files
-- `src/workflows/agentic_workflow.py:944` - `use_hybrid_extractor=False` setting
-- `src/services/llm_service.py:2555-2568` - Hybrid extractor logic
-- `src/services/llm_service.py:2629-2650` - LLM call with tracing
-- `src/services/llm_service.py:971-974` - LMStudio request logging
+<!-- AUDIT: Accuracy -- lines re-verified 2026-07-17. `use_hybrid_extractor` and "hybrid" extractor logic no
+     longer exist anywhere in agentic_workflow.py or llm_service.py (zero grep matches); those two entries are
+     removed. Remaining line numbers corrected to current locations. -->
+- `src/services/llm_service.py:2529-2536` - LLM call with tracing (`trace_llm_call`)
+- `src/services/llm_service.py:1496` - LMStudio request logging (`Attempting LMStudio at {url}...`)
 
 ---
 
@@ -1028,9 +1046,12 @@ for exec in pending:
 4. **Worker scaling** - Scale workers based on queue depth
 
 ## Related Files
+<!-- AUDIT: Accuracy -- lines re-verified 2026-07-17. trigger_agentic_workflow is now defined at line 799 (was
+     629). evaluation_api.py has three trigger_agentic_workflow.apply_async() dispatch sites, not one at line 862
+     (that line is unrelated result-parsing code). -->
 - `src/worker/celeryconfig.py` - Celery configuration
-- `src/worker/celery_app.py:629` - `trigger_agentic_workflow` task definition
-- `src/web/routes/evaluation_api.py:862` - Task dispatch in eval API
+- `src/worker/celery_app.py:799` - `trigger_agentic_workflow` task definition
+- `src/web/routes/evaluation_api.py` - Task dispatch in eval API (`trigger_agentic_workflow.apply_async(...)` at lines ~672, ~1342, ~1496)
 
 ---
 

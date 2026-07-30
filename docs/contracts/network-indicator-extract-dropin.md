@@ -87,9 +87,10 @@ indicator is technically present but has no detection engineering value, SKIP.
 - Do NOT expand, refang, or paraphrase indicator values.
 
 ## COUNT SEMANTICS
-- Unique indicator value = ONE item.
+- Unique indicator: each unique (indicator_type + value) pair = ONE item.
 - The same indicator mentioned multiple times = ONE item.
-- Two distinct indicators (different values) = TWO items.
+- Two different indicator_types with the same string = TWO items only if both are
+  literally present as distinct indicators.
 - Defanged and refanged forms of the same indicator that BOTH appear literally in the
   text are distinct entries (exact character-for-character uniqueness).
 
@@ -107,12 +108,13 @@ Apply to EVERY candidate before including it:
 ## OUTPUT (default: readable Markdown table)
 Return a table, one row per unique indicator:
 
-| value | indicator_type | context | source_evidence | confidence |
+| value | indicator_type | port | source_evidence | confidence |
 
 Field definitions:
 - value: the literal indicator value, verbatim (defanging preserved).
 - indicator_type: one of domain, ip, url, uri_path, user_agent.
-- context: brief role (C2, payload host, phishing lure, exfiltration, scanning, etc.).
+- port: integer or string port, only when explicitly associated with an ip/url in the
+  text. Leave blank when absent.
 - source_evidence: the exact excerpt you pulled it from.
 - confidence: 0.0–1.0. Below 0.5 = do not extract (fail closed).
     - 1.0     unambiguous, literal, explicitly attacker-attributed

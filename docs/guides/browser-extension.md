@@ -67,7 +67,7 @@ Check the browser console (Chrome DevTools -> Console) for debug log lines prefi
 
 ## File Structure
 
-```
+```text
 browser-extension/
   manifest.json       # MV3 extension manifest
   popup.html          # Extension popup UI

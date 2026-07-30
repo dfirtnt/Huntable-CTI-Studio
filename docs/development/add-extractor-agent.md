@@ -1,6 +1,6 @@
 # Adding an Extraction Sub-Agent
 
-This page is a companion reference for the **`Create-Huntable-Agent` skill** — the Claude Code skill that guides you through wiring a new extractor into the LangGraph pipeline.
+This page is a companion reference for the **`Create-Huntable-Agent` skill** (invoked as `create-huntable-agent`) — the Claude Code skill that guides you through wiring a new extractor into the LangGraph pipeline.
 
 The interactive wiring map below visualises every integration point across all 7 layers, all 17 known pitfalls, and the 4 behaviours that are auto-wired for free once Layers 1–3 are complete.
 

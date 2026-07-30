@@ -211,14 +211,19 @@ The annotation interface ensures evaluation data matches production chunking:
 > terminates immediately with status `no_huntable_content` — no LLM calls
 > are made.
 
-### Environment Variables
+### Configuration Defaults
+
+The model path (`models/content_filter.pkl`), chunk size (`1000`), and overlap
+(`200`) are hardcoded constructor/function defaults in
+`src/utils/content_filter.py`, not environment variables. The one real
+environment variable is:
 
 ```bash
-CONTENT_FILTER_MODEL_PATH=models/content_filter.pkl
-DEFAULT_CHUNK_SIZE=1000
-DEFAULT_OVERLAP=200
-DEFAULT_CONFIDENCE_THRESHOLD=0.7
+CONTENT_FILTERING_CONFIDENCE=0.7
 ```
+
+which seeds the article-detail page's displayed confidence default (see
+`src/web/routes/pages.py`).
 
 ## API
 

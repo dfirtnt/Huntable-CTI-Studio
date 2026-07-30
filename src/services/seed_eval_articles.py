@@ -20,11 +20,11 @@ import yaml
 from src.database.manager import DatabaseManager
 from src.database.models import ArticleTable, SourceTable, SubagentEvaluationTable
 from src.models.article import ArticleCreate
+from src.models.source import EVAL_SOURCE_IDENTIFIER
 from src.utils.content import ContentCleaner
 
 logger = logging.getLogger(__name__)
 
-EVAL_SOURCE_IDENTIFIER = "eval_articles"
 EVAL_SOURCE_NAME = "Eval Articles"
 
 

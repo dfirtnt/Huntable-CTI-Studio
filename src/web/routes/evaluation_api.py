@@ -2,6 +2,7 @@
 API routes for agent evaluation management.
 """
 
+import hashlib
 import io
 import json
 import logging
@@ -25,8 +26,19 @@ from src.database.models import (
     SigmaEvaluationTable,
     SubagentEvaluationTable,
 )
+from src.services.audit_service import (
+    ACTION_EVAL_BUNDLE_DIAGNOSED,
+    ACTION_EVAL_BUNDLE_EXPORTED,
+    ACTION_EVAL_RECORDS_BACKFILLED,
+    ACTION_EVAL_RECORDS_CLEARED,
+    ACTION_EVAL_RUN_REQUESTED,
+    STATUS_SUCCESS,
+    AuditEvent,
+    AuditService,
+    build_actor_context,
+)
 from src.services.eval_bundle_service import EvalBundleService, compute_sha256_json
-from src.services.eval_item_scorer import calculate_f_beta
+from src.services.eval_item_scorer import calculate_f_beta, score_items
 from src.services.llm_service import LLMService
 from src.services.sigma_eval_service import load_sigma_ground_truth
 from src.utils.subagent_utils import build_subagent_lookup_values, normalize_subagent_name
@@ -57,6 +69,43 @@ def _is_throttle_string(text: str) -> bool:
     if _QUOTA_ERROR_PATTERNS.search(text):
         return False
     return bool(_THROTTLE_PATTERNS.search(text))
+
+
+def _audit_eval(
+    db_session,
+    request: Request,
+    action: str,
+    target_id: str | None,
+    summary: str,
+    metadata: dict | None = None,
+    *,
+    status: str = STATUS_SUCCESS,
+    mandatory: bool = False,
+) -> None:
+    """Record an evaluation audit event on the route's existing sync session.
+
+    These endpoints already own a sync session, so the event joins it rather than
+    opening its own. Pass ``mandatory=True`` when the route is about to commit a
+    DB mutation of its own (clearing or backfilling eval records): the event is
+    added to that same transaction so the mutation and its attribution commit or
+    roll back together. Dispatch-only routes use the best-effort commit.
+
+    Audit emission only: nothing here reads, re-scrapes, or mutates eval-article
+    rows or the config/eval_articles_data fixtures.
+    """
+    event = AuditEvent(
+        action=action,
+        target_type="evaluation",
+        target_id=target_id,
+        status=status,
+        summary=summary,
+        actor=build_actor_context(getattr(request.state, "identity", None), request),
+        metadata=metadata or {},
+    )
+    if mandatory:
+        AuditService.record_mandatory(db_session, event)
+    else:
+        AuditService.record_best_effort(db_session, event)
 
 
 # Matches LMStudio context-exceeded messages and the context_length_exceeded flag on raw subagent results.
@@ -257,6 +306,35 @@ def _actual_count_from_agent_result(subagent_name: str, agent_result: dict) -> i
     return len(items) if isinstance(items, list) else 0
 
 
+def _actual_items_from_agent_result(subagent_name: str, agent_result: dict) -> list[str]:
+    """Return the literal values from a direct static-eval agent result."""
+    item_keys = {
+        "cmdline": ("cmdline_items", "items"),
+        "hunt_queries": ("queries", "items"),
+        "process_lineage": ("items",),
+        "registry_artifacts": ("registry_artifacts", "items"),
+        "windows_services": ("windows_services", "items"),
+        "scheduled_tasks": ("scheduled_tasks", "items"),
+        "network_indicators": ("network_indicators", "items"),
+    }.get(subagent_name, ("items",))
+    raw_items = next((agent_result.get(key) for key in item_keys if isinstance(agent_result.get(key), list)), [])
+    values = []
+    for item in raw_items:
+        value = item
+        if isinstance(item, dict):
+            value = next(
+                (
+                    item.get(field)
+                    for field in ("cmdline", "command", "commandline", "value", "name", "query")
+                    if isinstance(item.get(field), str)
+                ),
+                None,
+            )
+        if isinstance(value, str):
+            values.append(value)
+    return values
+
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/evaluations", tags=["evaluations"])
@@ -286,7 +364,7 @@ _SUBAGENT_KEY_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 def _load_static_eval_articles(subagent_key: str) -> dict[str, dict]:
     """Load static eval article snapshots for a subagent.
 
-    Returns dict url -> {url, title, content, filtered_content?, expected_count,
+    Returns dict url -> {url, title, content, expected_count,
     expected_items?}.  expected_items comes from the separate ground_truth.json
     file (if present) and is never stored in articles.json.
     """
@@ -315,9 +393,9 @@ def _load_static_eval_articles(subagent_key: str) -> dict[str, dict]:
                     "url": url,
                     "title": entry.get("title", ""),
                     "content": entry.get("content", ""),
-                    "filtered_content": entry.get("filtered_content") or entry.get("content", ""),
                     "expected_count": entry.get("expected_count", 0),
                     "expected_items": None,
+                    "acceptable_items": None,
                 }
     except Exception as e:
         logger.warning("Failed to load static eval articles for %s: %s", subagent_key, e)
@@ -336,10 +414,47 @@ def _load_static_eval_articles(subagent_key: str) -> dict[str, dict]:
                     items = gt.get("expected_items")
                     if url and url in out and isinstance(items, list):
                         out[url]["expected_items"] = items
+                        acceptable_items = gt.get("acceptable_items")
+                        if isinstance(acceptable_items, list):
+                            out[url]["acceptable_items"] = acceptable_items
         except Exception as e:
             logger.warning("Failed to load ground_truth.json for %s: %s", subagent_key, e)
 
     return out
+
+
+def _load_static_eval_fixture_by_url(article_url: str | None) -> str | None:
+    """Return committed eval text for an article URL when the corpus contains it."""
+    if not isinstance(article_url, str) or not article_url:
+        return None
+
+    for data_dir in _EVAL_ARTICLES_DATA_DIR.iterdir():
+        if not data_dir.is_dir():
+            continue
+        entries = _load_static_eval_articles(data_dir.name)
+        entry = entries.get(article_url)
+        content = entry.get("content") if entry else None
+        if isinstance(content, str) and content:
+            return content
+    return None
+
+
+def _workflow_config_snapshot(config: AgenticWorkflowConfigTable) -> dict:
+    """Capture every runtime workflow setting needed by an evaluation execution."""
+    return {
+        "min_hunt_score": config.min_hunt_score,
+        "ranking_threshold": config.ranking_threshold,
+        "similarity_threshold": config.similarity_threshold,
+        "junk_filter_threshold": config.junk_filter_threshold,
+        "sigma_fallback_enabled": config.sigma_fallback_enabled,
+        "agent_models": config.agent_models or {},
+        "agent_prompts": config.agent_prompts or {},
+        "rank_agent_enabled": config.rank_agent_enabled,
+        "cmdline_attention_preprocessor_enabled": config.cmdline_attention_preprocessor_enabled,
+        "proc_tree_attention_preprocessor_enabled": config.proc_tree_attention_preprocessor_enabled,
+        "config_id": config.id,
+        "config_version": config.version,
+    }
 
 
 def _load_preset_expected_by_url(subagent: str) -> dict[str, int]:
@@ -627,56 +742,37 @@ async def run_evaluation(request: Request, eval_request: EvaluationRunRequest):
                         logger.warning(f"Config {config_id} not found")
                         continue
 
-                    # Create execution with config snapshot
-                    # Note: Workflow uses active config, so we activate this config temporarily
-                    # For proper eval support, workflow should be modified to use config_snapshot when present
-                    original_active = (
-                        db_session.query(AgenticWorkflowConfigTable)
-                        .filter(AgenticWorkflowConfigTable.is_active.is_(True))
-                        .first()
+                    config_snapshot = _workflow_config_snapshot(config)
+                    config_snapshot.update(
+                        {
+                            "eval_run": True,
+                            "skip_rank_agent": True,
+                        }
                     )
-
-                    # Temporarily activate eval config
-                    if original_active and original_active.id != config.id:
-                        original_active.is_active = False
-                    config.is_active = True
-                    db_session.commit()
+                    fixture_content = _load_static_eval_fixture_by_url(article.canonical_url)
+                    if fixture_content is not None:
+                        config_snapshot["eval_fixture_content"] = fixture_content
+                        config_snapshot["eval_fixture_content_sha256"] = hashlib.sha256(
+                            fixture_content.encode("utf-8")
+                        ).hexdigest()
 
                     execution = AgenticWorkflowExecutionTable(
                         article_id=article_id,
                         status="pending",
-                        config_snapshot={
-                            "min_hunt_score": config.min_hunt_score,
-                            "ranking_threshold": config.ranking_threshold,
-                            "similarity_threshold": config.similarity_threshold,
-                            "junk_filter_threshold": config.junk_filter_threshold,
-                            "agent_models": config.agent_models or {},
-                            "agent_prompts": config.agent_prompts or {},
-                            "rank_agent_enabled": config.rank_agent_enabled
-                            if hasattr(config, "rank_agent_enabled")
-                            else True,
-                            "config_id": config.id,
-                            "config_version": config.version,
-                            "eval_run": True,
-                            "skip_rank_agent": True,  # Bypass rank agent for evals
-                            "original_config_id": original_active.id if original_active else None,
-                        },
+                        config_snapshot=config_snapshot,
                     )
                     db_session.add(execution)
                     db_session.commit()
                     db_session.refresh(execution)
 
-                    # Trigger workflow via Celery (will use the now-active config).
-                    # Stagger submissions via broker countdown so concurrent workers
-                    # don't race on DB connections during os_detection.
+                    # Trigger workflow via Celery. The execution snapshot is the
+                    # complete configuration authority for this eval.
                     trigger_agentic_workflow.apply_async(
                         args=[article_id, execution.id],
                         countdown=stagger_idx * _EVAL_STAGGER_SECONDS,
                     )
                     stagger_idx += 1
 
-                    # Note: Config remains active - user should restore original manually
-                    # Or implement proper config restoration after workflow completes
                     logger.info(f"Eval execution {execution.id}: Using config {config.id} (v{config.version})")
 
                     executions.append(
@@ -694,6 +790,20 @@ async def run_evaluation(request: Request, eval_request: EvaluationRunRequest):
                     "executions": [],
                     "message": "No executions were created. Check that articles and configs exist.",
                 }
+
+            _audit_eval(
+                db_session,
+                request,
+                ACTION_EVAL_RUN_REQUESTED,
+                None,
+                f"Triggered {len(executions)} evaluation workflow executions",
+                {
+                    "eval_kind": "workflow",
+                    "executions_count": len(executions),
+                    "execution_ids": [e["execution_id"] for e in executions],
+                    "config_ids": sorted({e["config_id"] for e in executions}),
+                },
+            )
 
             return {
                 "success": True,
@@ -1064,9 +1174,11 @@ async def get_subagent_eval_articles(
             found = article_id is not None or from_static
             expected_count = article_def.get("expected_count", 0)
             expected_items = article_def.get("expected_items")
+            acceptable_items = article_def.get("acceptable_items")
             # Also pull expected_items from static snapshot when present
             if not expected_items and from_static and url in url_to_static:
                 expected_items = url_to_static[url].get("expected_items")
+                acceptable_items = url_to_static[url].get("acceptable_items")
             title = ""
             if from_static and url in url_to_static:
                 title = (url_to_static[url].get("title") or "").strip()
@@ -1078,6 +1190,7 @@ async def get_subagent_eval_articles(
                     "title": title or None,
                     "expected_count": expected_count,
                     "expected_items": expected_items,
+                    "acceptable_items": acceptable_items,
                     "article_id": article_id,
                     "found": found,
                     "from_static": from_static,
@@ -1160,10 +1273,14 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
 
             # Build expected_items map from static snapshots (optional, item-level scoring)
             url_to_expected_items: dict[str, list[str] | None] = {}
+            url_to_acceptable_items: dict[str, list[dict[str, str]] | None] = {}
             for _url, _entry in url_to_static.items():
                 items = _entry.get("expected_items")
                 if isinstance(items, list):
                     url_to_expected_items[_url] = items
+                acceptable_items = _entry.get("acceptable_items")
+                if isinstance(acceptable_items, list):
+                    url_to_acceptable_items[_url] = acceptable_items
 
             eval_records = []
             executions = []
@@ -1172,9 +1289,18 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                 url = mapping["url"]
                 article_id = mapping["article_id"]
                 expected_count = expected_counts.get(url, 0)
+                static_entry = url_to_static.get(url)
+
+                # Eval article snapshots are versioned test inputs.  A live DB row
+                # supplies the workflow/article identity, but must never replace the
+                # committed content being scored.
+                if not static_entry or not static_entry.get("content"):
+                    raise HTTPException(
+                        status_code=422,
+                        detail=f"No committed eval fixture content for URL: {url}",
+                    )
 
                 if not article_id:
-                    static_entry = url_to_static.get(url)
                     if static_entry:
                         agent_name = _SUBAGENT_TO_AGENT.get(canonical_subagent_name)
                         if (
@@ -1205,7 +1331,7 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                                 raise ValueError(f"No prompt for {agent_name}")
                             agent_models = active_config.agent_models or {}
                             llm_service = LLMService(config_models=agent_models)
-                            content = static_entry.get("filtered_content") or static_entry.get("content", "")
+                            content = static_entry.get("content", "")
                             agent_result = await llm_service.run_extraction_agent(
                                 agent_name=agent_name,
                                 content=content,
@@ -1228,13 +1354,27 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                             if actual_count is None:
                                 actual_count = 0
                             score = actual_count - expected_count
+                            expected_items = url_to_expected_items.get(url)
+                            acceptable_items = url_to_acceptable_items.get(url)
+                            actual_items = _actual_items_from_agent_result(canonical_subagent_name, agent_result or {})
+                            item_score = (
+                                score_items(expected_items, actual_items, acceptable_items)
+                                if isinstance(expected_items, list)
+                                else None
+                            )
                             eval_record = SubagentEvaluationTable(
                                 subagent_name=canonical_subagent_name,
                                 article_url=url,
                                 article_id=None,
                                 expected_count=expected_count,
-                                expected_items=url_to_expected_items.get(url),
+                                expected_items=expected_items,
+                                acceptable_items=acceptable_items,
                                 actual_count=actual_count,
+                                actual_items=actual_items if item_score else None,
+                                matched_count=item_score.matched_count if item_score else None,
+                                missed_count=item_score.missed_count if item_score else None,
+                                extra_count=item_score.extra_count if item_score else None,
+                                neutral_count=item_score.neutral_count if item_score else None,
                                 score=score,
                                 workflow_config_id=active_config.id,
                                 workflow_config_version=active_config.version,
@@ -1286,7 +1426,6 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                         "min_hunt_score": active_config.min_hunt_score,
                         "ranking_threshold": active_config.ranking_threshold,
                         "similarity_threshold": active_config.similarity_threshold,
-                        "junk_filter_threshold": active_config.junk_filter_threshold,
                         "agent_models": active_config.agent_models or {},
                         "agent_prompts": active_config.agent_prompts or {},
                         "config_id": active_config.id,
@@ -1296,6 +1435,10 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                         "skip_rank_agent": True,  # Bypass rank agent for evals
                         "skip_sigma_generation": True,  # Skip SIGMA generation for evals
                         "subagent_eval": canonical_subagent_name,
+                        "eval_fixture_content": static_entry["content"],
+                        "eval_fixture_content_sha256": hashlib.sha256(
+                            static_entry["content"].encode("utf-8")
+                        ).hexdigest(),
                         "cmdline_attention_preprocessor_enabled": getattr(
                             active_config, "cmdline_attention_preprocessor_enabled", True
                         ),
@@ -1314,6 +1457,7 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                     article_id=article_id,
                     expected_count=expected_count,
                     expected_items=url_to_expected_items.get(url),
+                    acceptable_items=url_to_acceptable_items.get(url),
                     workflow_execution_id=execution.id,
                     workflow_config_id=active_config.id,
                     workflow_config_version=active_config.version,
@@ -1347,6 +1491,21 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                     f"Triggered workflow execution {exec_info['execution_id']} for article {exec_info['article_id']}"
                 )
 
+            _audit_eval(
+                db_session,
+                request,
+                ACTION_EVAL_RUN_REQUESTED,
+                canonical_subagent_name,
+                f"Triggered {len(executions)} subagent eval executions for {canonical_subagent_name}",
+                {
+                    "eval_kind": "subagent",
+                    "subagent": canonical_subagent_name,
+                    "executions_count": len(executions),
+                    "total_articles": len(eval_request.article_urls),
+                    "found_articles": sum(1 for m in article_mappings if m["found"]),
+                },
+            )
+
             return {
                 "success": True,
                 "subagent": canonical_subagent_name,
@@ -1371,18 +1530,20 @@ class SigmaEvalRunRequest(BaseModel):
     concurrency_throttle_seconds: float = Field(default=5.0, ge=0.0, le=60.0)
 
 
-def _sigma_eval_config_snapshot(active_config: AgenticWorkflowConfigTable) -> dict:
+def _sigma_eval_config_snapshot(active_config: AgenticWorkflowConfigTable, fixture_content: str) -> dict:
     """Config snapshot for a Sigma eval execution.
 
     Runs the full pipeline through generate_sigma (skip_sigma_generation=False)
     while bypassing the OS-detection and ranking gates, and flags sigma_eval so
     the workflow scores the rules and skips queue promotion.
+
+    ``fixture_content`` is the committed eval article snapshot text (never the
+    live DB row) — see ``agentic_workflow.py``'s ``eval_fixture_content`` read.
     """
     return {
         "min_hunt_score": active_config.min_hunt_score,
         "ranking_threshold": active_config.ranking_threshold,
         "similarity_threshold": active_config.similarity_threshold,
-        "junk_filter_threshold": active_config.junk_filter_threshold,
         "agent_models": active_config.agent_models or {},
         "agent_prompts": active_config.agent_prompts or {},
         "config_id": active_config.id,
@@ -1392,6 +1553,8 @@ def _sigma_eval_config_snapshot(active_config: AgenticWorkflowConfigTable) -> di
         "skip_os_detection": True,
         "skip_rank_agent": True,
         "skip_sigma_generation": False,
+        "eval_fixture_content": fixture_content,
+        "eval_fixture_content_sha256": hashlib.sha256(fixture_content.encode("utf-8")).hexdigest(),
         "cmdline_attention_preprocessor_enabled": getattr(
             active_config, "cmdline_attention_preprocessor_enabled", True
         ),
@@ -1445,6 +1608,7 @@ async def run_sigma_eval(request: Request, eval_request: SigmaEvalRunRequest):
             ground_truth = load_sigma_ground_truth()
             urls_list = list(eval_request.article_urls)
             url_to_id = resolve_articles_by_urls(urls_list)
+            url_to_static = _load_static_eval_articles("sigma")
 
             executions = []
             for url in urls_list:
@@ -1468,10 +1632,20 @@ async def run_sigma_eval(request: Request, eval_request: SigmaEvalRunRequest):
                     )
                     continue
 
+                # Eval article snapshots are versioned test inputs. A live DB row
+                # supplies the workflow/article identity, but must never replace the
+                # committed content being scored (mirrors run_subagent_eval).
+                static_entry = url_to_static.get(url)
+                if not static_entry or not static_entry.get("content"):
+                    raise HTTPException(
+                        status_code=422,
+                        detail=f"No committed eval fixture content for URL: {url}",
+                    )
+
                 execution = AgenticWorkflowExecutionTable(
                     article_id=article_id,
                     status="pending",
-                    config_snapshot=_sigma_eval_config_snapshot(active_config),
+                    config_snapshot=_sigma_eval_config_snapshot(active_config, static_entry["content"]),
                 )
                 db_session.add(execution)
                 db_session.flush()  # get execution.id
@@ -1502,6 +1676,20 @@ async def run_sigma_eval(request: Request, eval_request: SigmaEvalRunRequest):
                     exec_info["execution_id"],
                     exec_info["article_id"],
                 )
+
+            _audit_eval(
+                db_session,
+                request,
+                ACTION_EVAL_RUN_REQUESTED,
+                None,
+                f"Triggered {len(executions)} Sigma eval executions",
+                {
+                    "eval_kind": "sigma",
+                    "executions_count": len(executions),
+                    "total_articles": len(urls_list),
+                    "config_version": active_config.version,
+                },
+            )
 
             return {
                 "success": True,
@@ -1775,10 +1963,12 @@ async def get_subagent_eval_results(
                         "quota_exceeded": quota_exceeded,
                         # Item-level fields (present when expected_items was set)
                         "expected_items": record.expected_items,
+                        "acceptable_items": record.acceptable_items,
                         "actual_items": record.actual_items,
                         "matched_count": record.matched_count,
                         "missed_count": record.missed_count,
                         "extra_count": record.extra_count,
+                        "neutral_count": record.neutral_count,
                     }
                 )
 
@@ -1888,6 +2078,22 @@ async def clear_pending_eval_records(request: Request, subagent: str = Query(...
             for record in pending_records:
                 db_session.delete(record)
 
+            # Same transaction as the deletes, so attribution cannot outlive or
+            # fall behind the mutation it describes.
+            _audit_eval(
+                db_session,
+                request,
+                ACTION_EVAL_RECORDS_CLEARED,
+                canonical_subagent,
+                f"Cleared {deleted_count} pending eval record(s) for {canonical_subagent}",
+                {
+                    "subagent": canonical_subagent,
+                    "deleted_count": deleted_count,
+                    "deleted_ids": [r.id for r in pending_records],
+                },
+                mandatory=True,
+            )
+
             db_session.commit()
 
             logger.info(f"Deleted {deleted_count} pending evaluation records for subagent {canonical_subagent}")
@@ -1955,6 +2161,21 @@ async def backfill_eval_records(request: Request, subagent: str = Query(..., des
                 except Exception as e:
                     logger.warning(f"Error updating eval record {eval_record.id}: {e}")
                     failed_count += 1
+
+            _audit_eval(
+                db_session,
+                request,
+                ACTION_EVAL_RECORDS_BACKFILLED,
+                canonical_subagent,
+                f"Backfilled {updated_count} eval record(s) for {canonical_subagent}",
+                {
+                    "subagent": canonical_subagent,
+                    "updated_count": updated_count,
+                    "failed_count": failed_count,
+                    "pending_considered": len(pending_evals),
+                },
+                mandatory=True,
+            )
 
             db_session.commit()
 
@@ -2655,6 +2876,21 @@ async def export_eval_bundle(request: Request, execution_id: int, export_request
             bundle_sha256 = compute_sha256_json(bundle_for_hash)
             bundle["integrity"]["bundle_sha256"] = bundle_sha256
 
+            _audit_eval(
+                db_session,
+                request,
+                ACTION_EVAL_BUNDLE_EXPORTED,
+                str(execution_id),
+                f"Exported eval bundle for execution {execution_id}",
+                {
+                    "execution_id": execution_id,
+                    "agent_name": export_request.agent_name,
+                    "attempt": export_request.attempt,
+                    "bundle_id": bundle.get("bundle_id"),
+                    "bundle_sha256": bundle_sha256,
+                },
+            )
+
             return bundle
         finally:
             db_session.close()
@@ -2817,6 +3053,22 @@ async def diagnose_eval_bundle(
             )
 
             diagnosis_service.save_diagnosis(diagnosis)
+
+            # Diagnosis calls a frontier model, so this event doubles as cost
+            # attribution. Record the provider/model used, never the diagnosis body.
+            _audit_eval(
+                db_session,
+                request,
+                ACTION_EVAL_BUNDLE_DIAGNOSED,
+                str(execution_id),
+                f"Diagnosed eval bundle for execution {execution_id} ({body.agent_name})",
+                {
+                    "execution_id": execution_id,
+                    "agent_name": body.agent_name,
+                    "provider": provider,
+                    "model_name": model_name,
+                },
+            )
 
             return diagnosis
 

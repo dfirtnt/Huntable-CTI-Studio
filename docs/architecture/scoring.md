@@ -2,10 +2,14 @@
 
 The threat hunting scorer assigns a 0-100 numeric score to each ingested article
 based on keyword pattern matching. Scores drive filtering, sorting, and workflow
-auto-triggering: an article must clear the configurable
-`auto_trigger_hunt_score_threshold` (default 60) for ingestion to auto-trigger
-the agentic workflow. (The separate `ranking_threshold`, default 6.0, applies to
-the LLM RankAgent's 0-10 score inside the workflow, not to this keyword score.)
+auto-triggering: an article's score must be strictly **above** the configurable
+`auto_trigger_hunt_score_threshold` for ingestion to auto-trigger the agentic
+workflow. The default is **100**, which sits above the 99.9 score ceiling (see
+[Scoring Formula](#scoring-formula)), so **nothing auto-processes by default** —
+auto-triggering is opt-in, activated only when a user consciously lowers the
+threshold in Settings → Workflow. (The separate `ranking_threshold`, default 6.0,
+applies to the LLM RankAgent's 0-10 score inside the workflow, not to this keyword
+score.)
 
 Scores are derived from a keyword model trained on 319 labeled articles
 (97 high-signal, 222 low-signal). The scorer runs automatically at ingestion
@@ -24,9 +28,9 @@ reducing API calls.
 Appeared exclusively in high-signal training articles. Each match contributes to
 the 75-point Perfect score bucket (see [Scoring Formula](#scoring-formula) below).
 
-- **Process names**: `rundll32`, `msiexec`, `svchost`, `lsass.exe`
+- **Process names**: `rundll32.exe`, `msiexec.exe`, `svchost.exe`, `lsass.exe`
 - **Registry references**: `hklm`, `appdata`, `programdata`, `WINDIR`
-- **Command execution**: `iex`, `wmic`, `powershell.exe`
+- **Command execution**: `iex`, `wmic.exe`, `powershell.exe`
 - **File types**: `.lnk`, `.iso`
 - **Technical patterns**: `MZ`, `-accepteula`, `wintmp`
 - **Path patterns**: `\temp\`, `\pipe\`, `%WINDIR%`, `%wintmp%`
@@ -43,7 +47,7 @@ Provide corroborating signal; contribute to the 5-point Good score bucket.
 - **Script extensions**: `.bat`, `.ps1`
 - **Detection patterns**: `==`, `[.]`, `-->`
 - **Registry patterns**: `currentversion`
-- **Event log patterns**: `EventCode`
+- **Event log patterns**: `Event ID`
 
 ### LOLBAS Executables
 
@@ -52,11 +56,12 @@ LOLBAS score bucket. Examples:
 
 - **System tools**: `certutil.exe`, `cmd.exe`, `reg.exe`, `schtasks.exe`
 - **Network tools**: `bitsadmin.exe`, `ftp.exe`, `netsh.exe`, `wmic.exe`
-- **Script engines**: `cscript.exe`, `mshta.exe`, `wscript.exe`
-- **Installers**: `msiexec.exe`, `regsvr32.exe`, `rundll32.exe`
+- **Script engines**: `cscript.exe`, `mshta.exe`, `scriptrunner.exe`
+- **Installers**: `installutil.exe`, `regsvr32.exe`, `rundll32.exe`
 - **File ops**: `forfiles.exe`, `explorer.exe`, `ieexec.exe`
 
-Full list: `src/utils/content.py` `LOLBAS_EXECUTABLES`
+Full list: `config/keyword_registry.yaml` (tier: `lolbas`), exposed as
+`HUNT_SCORING_KEYWORDS["lolbas_executables"]` in `src/utils/content.py`
 
 ## Scoring Formula
 
@@ -64,7 +69,7 @@ Each category uses a geometric series with 50% diminishing returns
 (`score = max * (1 - 0.5^n)`). This prevents a single keyword-dense article
 from saturating any one bucket.
 
-```
+```text
 Perfect discriminators  75.0 pts max  (114 patterns)
 LOLBAS executables      10.0 pts max  (239 patterns)
 Intelligence indicators 10.0 pts max  (56 patterns)
@@ -75,10 +80,10 @@ Final = max(0.0, min(99.9, perfect + good + lolbas + intelligence - negative))
 ```
 
 **Perfect discriminators** (75 pts max):
-`rundll32`, `comspec`, `msiexec`, `wmic`, `iex`, `findstr`,
+`rundll32.exe`, `comspec`, `msiexec.exe`, `wmic.exe`, `iex`, `findstr.exe`,
 `hklm`, `appdata`, `programdata`, `powershell.exe`, `wbem`,
 `.lnk`, `D:\`, `.iso`, `<Command>`, `MZ`,
-`svchost`, `-accepteula`, `lsass.exe`, `WINDIR`, `wintmp`,
+`svchost.exe`, `-accepteula`, `lsass.exe`, `WINDIR`, `wintmp`,
 `\temp\`, `\pipe\`, `%WINDIR%`, `%wintmp%`, `Defender query`
 
 Cmd.exe obfuscation regex patterns (sampled): `%VAR:~0,4%`, `!VAR!`,
@@ -93,7 +98,7 @@ Cmd.exe obfuscation regex patterns (sampled): `%VAR:~0,4%`, `!VAR!`,
 
 **Supporting indicators** (5 pts max):
 `temp`, `==`, `c:\windows\`, `Event ID`, `.bat`, `.ps1`,
-`pipe`, `::`, `[.]`, `-->`, `currentversion`, `EventCode`
+`pipe`, `::`, `[.]`, `-->`, `currentversion`
 
 **Negative indicators** (up to -15 pts, geometric like the positive buckets):
 Educational and marketing content: `what is`, `how to`, `best practices`,
@@ -150,4 +155,4 @@ Contains `rundll32`, `iex`, `lsass.exe`; code blocks and host-based indicators.
 **Score 0/100**
 No recognized keywords; no technical depth indicators.
 
-_Last updated: 2026-07-04_
+_Last updated: 2026-07-17_

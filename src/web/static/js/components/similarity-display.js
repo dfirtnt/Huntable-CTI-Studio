@@ -216,17 +216,22 @@ function getScoringModeLabel(atomComparison) {
     return 'Atom Set-Math';
 }
 
-/**
- * Escapes HTML to prevent XSS.
- * 
- * @param {string} text - Text to escape
- * @returns {string} Escaped text
+/*
+ * escapeHtml comes from /static/js/utils.js, loaded by base.html ahead of
+ * this file. It used to be redeclared here at top level, which overwrote the
+ * shared global on every page loading this component (sigma_ab_test,
+ * article_detail, sigma_similarity_test, workflow) with a version that does
+ * not escape quotes -- and this file interpolates it into a title attribute.
+ *
+ * In the browser this resolves to the already-loaded global (the assignment
+ * is a self-assignment and cannot clobber it). Under Node -- this module is
+ * require()d by tests/unit/test_similarity_display_normalization.py, and
+ * escapeHtml is part of module.exports below -- it loads the same shared
+ * implementation from disk.
  */
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
+var escapeHtml = (typeof window !== 'undefined' && window.escapeHtml)
+    ? window.escapeHtml
+    : require('../utils.js').escapeHtml;
 
 /**
  * Renders similarity display based on mode.

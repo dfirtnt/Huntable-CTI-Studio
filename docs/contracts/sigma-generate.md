@@ -18,7 +18,8 @@ when building new generator variants and as a checklist when reviewing existing 
 
 ## Code-level requirements
 
-The pipeline drives rule generation from `SigmaGenerationAgent` (or equivalent service). Prompts
+The pipeline drives rule generation from the `SigmaAgent` config key, implemented by
+`SigmaGenerationService` (`src/services/sigma_generation_service.py`). Prompts
 that do not meet these requirements will either hard-fail validation or produce rules that pass
 pySIGMA parsing but fail downstream enrichment or ranking.
 

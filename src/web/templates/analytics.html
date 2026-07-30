@@ -62,7 +62,18 @@
 
     </div>
 
-    <!-- Quick Stats Section -->
+    <!-- Loading skeleton (shown during fetch, hidden after) -->
+    <div id="analytics-loading">
+        {% include "partials/skeleton_loading.html" %}
+    </div>
+
+    <!-- Empty state (hidden by default, shown when no data) -->
+    <div id="analytics-empty" class="hidden">
+        {% include "partials/empty_state.html" %}
+    </div>
+
+    <!-- Quick Stats Section (hidden during fetch, shown after) -->
+    <div id="analytics-content" class="hidden">
     <div class="mt-6 card-elevated p-6">
         <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941"/></svg> Quick Overview</h2>
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -84,6 +95,7 @@
             </div>
         </div>
     </div>
+    </div> <!-- /#analytics-content -->
 </div>
 
 <script>
@@ -99,8 +111,18 @@ async function loadQuickStats() {
             Math.round(data.stats.avg_hunt_score) : '-';
         document.getElementById('filterEfficiency').textContent = data.stats?.filter_efficiency ? 
             Math.round(data.stats.filter_efficiency) + '%' : '-';
+
+        // Hide skeleton, show content
+        document.getElementById('analytics-loading').classList.add('hidden');
+        document.getElementById('analytics-content').classList.remove('hidden');
+
     } catch (error) {
         console.error('Failed to load quick stats:', error);
+        // Hide skeleton, show empty state
+        document.getElementById('analytics-loading').classList.add('hidden');
+        const emptyState = document.getElementById('analytics-empty');
+        emptyState.classList.remove('hidden');
+        emptyState.querySelector('#empty-state-message').textContent = 'Failed to load dashboard data. ' + error.message;
     }
 }
 
