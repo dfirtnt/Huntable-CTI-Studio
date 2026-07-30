@@ -17441,11 +17441,16 @@ function initializeTabs() {
             window.location.hash = 'executions';
             return;
         }
-        if (hash && ['config', 'executions', 'queue'].includes(hash)) {
-            switchTab(hash);
-        } else {
-            switchTab('config');
+        const target = (hash && ['config', 'executions', 'queue'].includes(hash)) ? hash : 'config';
+        // switchTab() writes window.location.hash itself, which fires hashchange right back
+        // here. Without this guard that self-inflicted event re-enters switchTab for the tab
+        // we are already on and re-runs its loader — which is why a bare /workflow load fired
+        // loadConfig() (and therefore GET /config/prompts) twice, ~1ms apart. Back/forward to
+        // a genuinely different tab still switches, since currentTab differs there.
+        if (target === currentTab) {
+            return;
         }
+        switchTab(target);
     }
 
     // Delegated click: any .tab-button click switches tab (works even if inline onclick fails)

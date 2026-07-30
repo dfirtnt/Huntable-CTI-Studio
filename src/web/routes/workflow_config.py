@@ -1080,10 +1080,13 @@ def get_agent_prompts(request: Request):
         db_session = db_manager.get_session()
 
         try:
-            # Use with_for_update(skip_locked=True) to ensure we get the latest committed data
-            # This prevents race conditions where a new config was just created but not yet visible
-            # skip_locked=True allows the query to proceed even if another transaction has a lock
-            config = _active_workflow_config_query(db_session).with_for_update(skip_locked=True).first()
+            # Plain read: no row lock. This handler never writes, and under READ COMMITTED
+            # a plain SELECT already sees the latest committed data as of statement start.
+            # Do NOT reintroduce with_for_update(skip_locked=True) here: FOR UPDATE takes an
+            # *exclusive* row lock, so two concurrent GETs (which /workflow fires on every page
+            # load) would collide — SKIP LOCKED makes the loser skip the only active row, read
+            # zero rows, and return a spurious 404 while its sibling returns 200.
+            config = _active_workflow_config_query(db_session).first()
 
             if not config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")
