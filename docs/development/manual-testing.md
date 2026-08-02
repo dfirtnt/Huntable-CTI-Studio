@@ -563,7 +563,7 @@ Individual diags checks (`#runDatabaseCheck`, `#runDeduplicationCheck`, etc.) ar
 
 ---
 
-## 6. Workflow — trigger and execution list (happy path only)
+## 5. Workflow — trigger and execution list (happy path only)
 
 **Time: ~4 min**
 
@@ -578,7 +578,7 @@ API/Playwright cover config and trigger endpoint; manual check stresses “see e
 
 ---
 
-## 7. Agent evals — load and run (skipped when “Load Eval Articles” fails)
+## 6. Agent evals — load and run (skipped when “Load Eval Articles” fails)
 
 **Time: ~3 min**
 
@@ -590,7 +590,7 @@ API/Playwright cover config and trigger endpoint; manual check stresses “see e
 
 ---
 
-## 8. Sigma queue — no rules (tests skip when “No rules in queue”)
+## 7. Sigma queue — no rules (tests skip when “No rules in queue”)
 
 **Time: ~3 min**
 
@@ -602,7 +602,7 @@ API/Playwright cover config and trigger endpoint; manual check stresses “see e
 
 ---
 
-## 9. PDF upload and ML hunt comparison (light smoke)
+## 8. PDF upload and ML hunt comparison (light smoke)
 
 **Time: ~2 min**
 

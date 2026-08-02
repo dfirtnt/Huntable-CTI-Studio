@@ -10,7 +10,7 @@ The agentic workflow's `Thresholds` config block (`src/config/workflow_config_sc
 | `RankingThreshold` | 6.0 | 0-10 | Whether the workflow continues past the LLM RankAgent step |
 | `SimilarityThreshold` | 0.5 | 0.0-1.0 | Whether a generated SIGMA rule is queued or dropped as a near-duplicate |
 
-All three live in `AgenticWorkflowConfigTable` (`src/database/models.py:562-564`),
+All three live in `AgenticWorkflowConfigTable` (`src/database/models.py:555-557`),
 are read at runtime from `state["config"]` inside `src/workflows/agentic_workflow.py`,
 and can be changed via `PUT /api/workflow/config` (`src/web/routes/workflow_config.py:353`)
 or the workflow config UI.
@@ -22,7 +22,7 @@ scores an article's relevance 0-10; if `ranking_score < RankingThreshold`, the
 workflow terminates with `TERMINATION_REASON_RANK_THRESHOLD` and never reaches
 extraction or SIGMA generation.
 
-Code: `src/workflows/agentic_workflow.py:1777-1802`
+Code: `src/workflows/agentic_workflow.py:1847-1848`
 (`should_continue = ranking_score >= ranking_threshold`).
 
 **Raising it** makes the workflow pickier — fewer articles reach extraction,
@@ -35,10 +35,10 @@ the (expensive) extraction agents on lower-relevance content.
 Gates SIGMA rule novelty/deduplication in two places, both in
 `src/workflows/agentic_workflow.py`:
 
-1. **Context filtering** (~line 3111): when assessing novelty against existing
+1. **Context filtering** (~line 3148): when assessing novelty against existing
    rules, only candidates with `similarity >= SimilarityThreshold` are kept as
    "similar rules" context (top 10).
-2. **Queue-promotion gate** (~line 3268-3292): after generation, if a rule's
+2. **Queue-promotion gate** (~line 3299-3356): after generation, if a rule's
    `max_similarity >= SimilarityThreshold` against existing rules, it is treated
    as a near-duplicate and **dropped** (not queued for human review). Below the
    threshold — or when the comparator is inconclusive — the rule is queued.

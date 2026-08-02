@@ -76,12 +76,12 @@ are not classified fail closed in auth-enabled modes, and any unsafe route that
 is only authenticated (no role) must be listed in an explicit allowlist
 (`AUTHENTICATED_UNSAFE_ALLOWLIST`) or it fails startup and tests.
 
-Initial roles (`AUTH_<ROLE>_GROUPS` in `src/web/security/config.py`):
+Initial roles and their group env vars (`_ROLE_ENV` in `src/web/security/config.py`):
 
-- `analyst`: annotation and ingest-oriented analyst actions
-- `rule_reviewer`: Sigma queue review actions
-- `operator`: workflow/source/scheduled-job operations
-- `admin`: settings, credentials, audit, backup/restore, model management, and
+- `analyst` (`AUTH_ANALYST_GROUPS`): annotation and ingest-oriented analyst actions
+- `rule_reviewer` (`AUTH_REVIEWER_GROUPS` -- note the shortened env var name): Sigma queue review actions
+- `operator` (`AUTH_OPERATOR_GROUPS`): workflow/source/scheduled-job operations
+- `admin` (`AUTH_ADMIN_GROUPS`): settings, credentials, audit, backup/restore, model management, and
   dangerous maintenance
 
 There is no separate `viewer` role. Routes classified `authenticated` (most

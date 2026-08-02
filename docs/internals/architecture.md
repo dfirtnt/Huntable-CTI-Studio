@@ -451,8 +451,8 @@ API Endpoints:
 │ Length Validation│
 │                 │
 │ • Min: 950 chars│
-│ • Max: 1050 chars│
-│ • Auto 1000     │
+│ • Max: 1000 chars│
+│ • Auto-expand to 1000│
 └─────────┬───────┘
           │
           ▼

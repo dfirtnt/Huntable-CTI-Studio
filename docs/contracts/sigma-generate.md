@@ -115,7 +115,7 @@ Purpose: Declare the pipeline position and input provenance.
 Required elements:
 - "Receives pre-extracted observables from ExtractAgent sub-agents"
 - List observable types consumed: CmdlineExtract, ProcTreeExtract, RegistryExtract,
-  ServicesExtract, ScheduledTasksExtract, HuntQueriesExtract
+  ServicesExtract, ScheduledTasksExtract, HuntQueriesExtract, NetworkIndicatorExtract
 - Explicit note: "Do NOT re-extract raw indicators from article content; observables are
   already structured. Your job is to generate rules FROM them, not to re-parse the article."
 

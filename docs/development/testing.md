@@ -67,9 +67,12 @@ Cloud LLM keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `CHATGPT_API_KEY`) are
 | Setting | Value |
 |---|---|
 | File | `docker-compose.test.yml` |
-| Services | `postgres_test` (port 5433), `redis_test` (port 6380), `web_test` (port 8002) |
+| Services | `postgres_test` (port 5433), `redis_test` (port 6380) — no test web container |
 | Volumes | None — data exists only in container filesystem |
 | Network | Isolated `test_network` |
+
+Runs that collect `tests/api/` get `USE_ASGI_CLIENT=1` and exercise the app
+in-process against `TEST_DATABASE_URL` instead of a running web container.
 
 **Lifecycle:**
 ```bash

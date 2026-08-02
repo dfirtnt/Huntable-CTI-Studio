@@ -51,10 +51,18 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 ## Version History
 
 ### v7.6.0 "Europa" (2026-07-10)
-<!-- TODO: fill Significance and Features before merging to main; pull content from docs/CHANGELOG.md [7.6.0] section. -->
-- **Named After**: <fill>
-- **Significance**: <fill>
-- **Features**: <fill>
+- **Named After**: Europa, one of Jupiter's four Galilean moons; minor release continues the Europa codename
+- **Significance**: Route-authorization parity fix on GET reads for credential/admin-scoped routes, production trusted-header fail-closed hardening, NetworkIndicatorExtract sibling/boundary doc-sync, MCP ambient context resources, and enterprise-auth Chunk C completion (workflow trigger/retry audit + initiating-actor attribution)
+- **Features**:
+    - SRF-2: `SAFE_ROUTE_RULES` now mirrors `UNSAFE_ROUTE_RULES` role gates for `/api/settings*`, `/api/backup/*`, `/api/model/*`, `/api/observables/training/*`, and `/api/sigma-queue/*`, closing a gap where any authenticated identity (any role) could read settings/credentials via `GET /api/settings`
+    - SRF-1: production `trusted_header` mode now aborts startup on an empty `AUTH_TRUSTED_PROXY_IPS` allowlist unless `ALLOW_INSECURE_PRODUCTION_TRUSTED_PROXY_OPEN=true` is set; non-literal allowlist entries (`*`, CIDR ranges) rejected at startup
+    - NetworkIndicatorExtract cross-listed as a sibling with reciprocal boundary rules across all six pre-existing extractor contracts; seventh drop-in prompt (`docs/contracts/network-indicator-extract-dropin.md`) added
+    - `docs/features/image-ocr-ingest.md` feature page documenting the Tesseract ingest pre-pass (SSRF guard, `OCR_INGEST_ENABLED`, per-source override, `ocr_status` vocabulary)
+    - MCP ambient context resources: `huntable://sigma-queue/status`, `huntable://sigma-queue/recent-rules`, `huntable://workflow/active-config`
+    - Enterprise auth Chunk C completion: workflow trigger/retry audit events with `initiated_by` attribution
+    - Risk-tiered MCP write tools (workflow retry/cancel, source toggle, article reviewed marker, annotation CRUD auto-executable; Sigma queue mutations and article deletion require human confirmation)
+    - Dead-code cleanup: 8 orphan files + 49 zero-reference symbols removed (-2,203 lines)
+    - Domains + Products classification dimensions (Phase D) removed as YAGNI cruft (zero functional consumer)
 
 ### v7.5.0 "Europa" (2026-06-22)
 - **Named After**: Europa, one of Jupiter's four Galilean moons; minor release continues the Europa codename
