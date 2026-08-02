@@ -1,6 +1,13 @@
 import { test, expect } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
+import { acceptConfirmModal, confirmModal, dismissConfirmModal } from './helpers';
+import {
+  WorkflowConfigSnapshot,
+  assertConfigMutationAllowed,
+  restoreWorkflowConfig,
+  snapshotWorkflowConfig,
+} from './workflow-config-snapshot';
 
 const BASE = process.env.CTI_SCRAPER_URL || 'http://127.0.0.1:8001';
 
@@ -10,12 +17,43 @@ async function clickExportPresetButton(page: any) {
   await page.locator('#export-preset-btn').click();
 }
 
-async function acceptLoadPresetModal(page: any) {
-  await expect(page.getByRole('heading', { name: 'Load Preset' })).toBeVisible({ timeout: 5000 });
-  await page.getByRole('button', { name: 'Load' }).click();
+/** Per-test temp preset path -- a shared filename races when tests run concurrently. */
+function writeTempPreset(name: string, preset: unknown): string {
+  const tempDir = path.join(__dirname, '..', '..', 'tmp');
+  if (!fs.existsSync(tempDir)) {
+    fs.mkdirSync(tempDir, { recursive: true });
+  }
+  const presetPath = path.join(tempDir, `${name}-${process.pid}-${Date.now()}.json`);
+  fs.writeFileSync(presetPath, JSON.stringify(preset, null, 2));
+  return presetPath;
 }
 
+/**
+ * Serial: every test here writes the SAME shared `agentic_workflow_config` row
+ * on the dev app. Running them concurrently makes each test observe another
+ * test's config writes -- which is how "should import real preset file" came to
+ * assert against a ranking threshold left behind by the autosave test.
+ */
+test.describe.configure({ mode: 'serial' });
+
 test.describe('Agent Config Presets', () => {
+  let configSnapshot: WorkflowConfigSnapshot;
+
+  test.beforeAll(async ({ request }) => {
+    assertConfigMutationAllowed('agent_config_presets.spec.ts');
+    configSnapshot = await snapshotWorkflowConfig(request, BASE);
+  });
+
+  // Put config back after every test so no test inherits another's mutations,
+  // and verify by read-back that the restore actually landed.
+  test.afterEach(async ({ request }) => {
+    await restoreWorkflowConfig(request, BASE, configSnapshot);
+  });
+
+  test.afterAll(async ({ request }) => {
+    await restoreWorkflowConfig(request, BASE, configSnapshot);
+  });
+
   test.beforeEach(async ({ page }) => {
     await page.goto(`${BASE}/workflow#config`);
     await page.waitForLoadState('networkidle');
@@ -98,20 +136,19 @@ test.describe('Agent Config Presets', () => {
       agent_prompts: {}
     };
 
-    // Write preset to temp file
-    const tempDir = path.join(__dirname, '..', '..', 'tmp');
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
-    }
-    const presetPath = path.join(tempDir, 'test-preset.json');
-    fs.writeFileSync(presetPath, JSON.stringify(testPreset, null, 2));
+    const presetPath = writeTempPreset('test-preset-apply', testPreset);
 
     // Load preset
     const fileInput = page.locator('#import-preset-input');
     await fileInput.setInputFiles(presetPath);
-    await acceptLoadPresetModal(page);
 
-    // Wait for preset to be applied and dialog
+    // The import gate is a ModalManager.confirm() DOM modal, not window.confirm,
+    // so it must be clicked. Waiting on page.on('dialog') never fires and leaves
+    // applyPreset() unreached -- the assertions below then silently measure
+    // whatever the previous test left in the shared config.
+    await acceptConfirmModal(page);
+
+    // Wait for applyPreset() to populate the form and flush its autosaves
     await page.waitForTimeout(3000);
 
     // Verify thresholds were applied
@@ -140,31 +177,18 @@ test.describe('Agent Config Presets', () => {
       version: '1.0'
     };
 
-    const tempDir = path.join(__dirname, '..', '..', 'tmp');
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
-    }
-    const presetPath = path.join(tempDir, 'invalid-preset.json');
-    fs.writeFileSync(presetPath, JSON.stringify(invalidPreset, null, 2));
+    const presetPath = writeTempPreset('invalid-preset', invalidPreset);
 
     const fileInput = page.locator('#import-preset-input');
     await fileInput.setInputFiles(presetPath);
 
     await page.waitForTimeout(2000);
 
-    // Error is shown via showNotification() toast, not alert()
-    const errorToast = page.locator('.notification-toast.error, [class*="notification"][class*="error"], .toast-error');
-    const hasErrorToast = await errorToast.count() > 0;
-
-    // Also check console for the error
-    const consoleErrors: string[] = [];
-    page.on('console', msg => {
-      if (msg.type() === 'error') consoleErrors.push(msg.text());
-    });
-
-    // Verify either toast or console error was triggered
-    // The import should have failed since thresholds/agent_models are missing
-    expect(hasErrorToast || true).toBe(true); // Error was logged to console
+    // importPresetFromFile() throws on the missing thresholds/agent_models before
+    // it ever reaches ModalManager.confirm(), so the load gate must never appear.
+    // Asserting on that is the real signal the preset was rejected; the previous
+    // `expect(hasErrorToast || true)` could not fail.
+    await expect(confirmModal(page)).toHaveCount(0);
 
     // Clean up
     if (fs.existsSync(presetPath)) {
@@ -190,20 +214,26 @@ test.describe('Agent Config Presets', () => {
       agent_prompts: {}
     };
 
-    const tempDir = path.join(__dirname, '..', '..', 'tmp');
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
-    }
-    const presetPath = path.join(tempDir, 'test-preset.json');
-    fs.writeFileSync(presetPath, JSON.stringify(testPreset, null, 2));
+    const presetPath = writeTempPreset('test-preset-confirm', testPreset);
 
     const fileInput = page.locator('#import-preset-input');
     await fileInput.setInputFiles(presetPath);
 
-    await expect(page.getByRole('heading', { name: 'Load Preset' })).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText('Load preset "test-preset.json"?')).toBeVisible();
-    await page.getByRole('button', { name: 'Cancel' }).click();
-    await expect(page.getByRole('heading', { name: 'Load Preset' })).toBeHidden();
+    // The gate is a ModalManager.confirm() DOM modal titled "Load Preset", not a
+    // native confirm dialog -- page.on('dialog') never fired here, so the old
+    // `expect(dialogShown).toBe(true)` failed whenever it ran on its own.
+    const modal = confirmModal(page);
+    await expect(modal).toBeVisible({ timeout: 10000 });
+    await expect(modal.locator('h3')).toHaveText(/Load Preset/i);
+    await expect(modal).toContainText('Load preset');
+    await expect(modal.locator('.confirm-btn')).toHaveText('Load');
+
+    // Cancel the load, and confirm the config was left untouched.
+    const before = await (await page.request.get(`${BASE}/api/workflow/config`)).json();
+    await dismissConfirmModal(page);
+    await page.waitForTimeout(1000);
+    const after = await (await page.request.get(`${BASE}/api/workflow/config`)).json();
+    expect(after.ranking_threshold).toBeCloseTo(before.ranking_threshold, 2);
 
     // Clean up
     if (fs.existsSync(presetPath)) {
@@ -273,14 +303,10 @@ test.describe('Agent Config Presets', () => {
       return;
     }
 
-    // Set up dialog handler
-    page.on('dialog', async dialog => {
-      await dialog.accept();
-    });
-
-    // Import preset
+    // Import preset (ModalManager.confirm gate, not a native dialog)
     const fileInput = page.locator('#import-preset-input');
     await fileInput.setInputFiles(presetPath);
+    await acceptConfirmModal(page);
 
     // Wait for preset to be applied
     await page.waitForTimeout(5000);
@@ -331,7 +357,6 @@ test.describe('Agent Config Presets', () => {
     const currentConfig = await currentConfigRes.json();
     const originalSimilarityThreshold = currentConfig.similarity_threshold;
     const originalRankingThreshold = currentConfig.ranking_threshold;
-    const originalJunkFilterThreshold = currentConfig.junk_filter_threshold;
 
     // Step 2: Load a real preset file from config/presets (always-committed quickstart preset)
     const presetPath = path.join(__dirname, '..', '..', 'config', 'presets', 'AgentConfigs', 'quickstart', 'Quickstart-LMStudio-Qwen3.json');
@@ -358,11 +383,11 @@ test.describe('Agent Config Presets', () => {
       preset.thresholds?.ranking_threshold ??
       originalRankingThreshold;
 
-    // Step 3: Import the preset
+    // Step 3: Import the preset (ModalManager.confirm gate, not a native dialog)
     const fileInput = page.locator('#import-preset-input');
     await fileInput.setInputFiles(presetPath);
-    await acceptLoadPresetModal(page);
-    
+    await acceptConfirmModal(page);
+
     // Wait for preset to be applied
     await page.waitForTimeout(3000);
 
@@ -393,24 +418,27 @@ test.describe('Agent Config Presets', () => {
     // sleep, which may be shorter than the total debounce chain.
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
 
-    const restoreRes = await page.request.put(`${BASE}/api/workflow/config`, {
-      data: {
-        similarity_threshold: originalSimilarityThreshold,
-        ranking_threshold: originalRankingThreshold,
-        junk_filter_threshold: originalJunkFilterThreshold,
-        description: 'Restored after Playwright preset import test'
-      }
-    });
-    expect(restoreRes.ok()).toBeTruthy();
-
-    // Wait for network to fully idle again before reloading so any debounced
-    // saves that lagged behind the restore PUT do not overwrite it after reload.
-    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    // Restore the FULL config, not just the three thresholds.
+    //
+    // The previous partial PUT is what damaged the shared dev config: the
+    // backend carries omitted fields forward from the active row, but that
+    // fallback yields None when the active-config lookup comes back empty
+    // (concurrent PUT mid-deactivate). agent_prompts/agent_models are JSONB, so
+    // SQLAlchemy wrote Python None as JSON `null` -- producing config row 5396
+    // with null agent_prompts, which left CmdlineExtract's stored prompt empty
+    // and made the expanded prompt editor's Save a permanent no-op.
+    //
+    // restoreWorkflowConfig sends every mutable field and then re-reads the
+    // config to prove the restore landed instead of trusting the 200.
+    await restoreWorkflowConfig(page.request, BASE, configSnapshot);
 
     // Step 6: Verify restoration worked
     const restoredConfigRes = await page.request.get(`${BASE}/api/workflow/config`);
     const restoredConfig = await restoredConfigRes.json();
-    expect(restoredConfig.similarity_threshold).toBeCloseTo(originalSimilarityThreshold, 2);
+    expect(restoredConfig.similarity_threshold).toBeCloseTo(configSnapshot.similarity_threshold, 2);
+    // Guard the exact regression: prompts must survive a restore intact.
+    expect(restoredConfig.agent_prompts).not.toBeNull();
+    expect(restoredConfig.agent_prompts.CmdlineExtract.prompt.length).toBeGreaterThan(0);
 
     // Reload the page to reflect restored values
     await page.reload();
@@ -425,7 +453,7 @@ test.describe('Agent Config Presets', () => {
     const restoredSimilarityInput = page.locator('#similarityThreshold');
     await restoredSimilarityInput.waitFor({ state: 'visible', timeout: 10000 });
     const restoredSimilarity = parseFloat(await restoredSimilarityInput.inputValue());
-    expect(restoredSimilarity).toBeCloseTo(originalSimilarityThreshold, 2);
+    expect(restoredSimilarity).toBeCloseTo(configSnapshot.similarity_threshold, 2);
   });
 });
 

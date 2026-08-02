@@ -84,3 +84,32 @@ export async function switchProviderAndWait(
   await page.waitForTimeout(2000); // Wait for UI to update
   await waitForModelLoad(page); // Wait for model API if needed
 }
+
+/**
+ * Locator for a ModalManager.confirm() dialog.
+ *
+ * These are in-page DOM modals built by `ModalManager.confirm` in
+ * `src/web/static/js/modal-manager.js`, NOT native `window.confirm`. A spec
+ * that registers `page.on('dialog', ...)` will therefore never see them: the
+ * handler never fires, the modal is never answered, and the action behind it
+ * silently never runs. Use these helpers instead.
+ */
+export function confirmModal(page: Page) {
+  return page.locator('[id^="_confirm_"]').last();
+}
+
+/** Wait for a ModalManager.confirm() modal and click its confirm button. */
+export async function acceptConfirmModal(page: Page, timeout: number = 10000): Promise<void> {
+  const modal = confirmModal(page);
+  await modal.waitFor({ state: 'visible', timeout });
+  await modal.locator('.confirm-btn').click();
+  await modal.waitFor({ state: 'detached', timeout });
+}
+
+/** Wait for a ModalManager.confirm() modal and click its cancel button. */
+export async function dismissConfirmModal(page: Page, timeout: number = 10000): Promise<void> {
+  const modal = confirmModal(page);
+  await modal.waitFor({ state: 'visible', timeout });
+  await modal.locator('.cancel-btn').click();
+  await modal.waitFor({ state: 'detached', timeout });
+}
