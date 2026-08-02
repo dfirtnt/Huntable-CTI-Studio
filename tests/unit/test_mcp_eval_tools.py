@@ -9,9 +9,46 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from mcp.server.fastmcp import FastMCP
 
-from src.huntable_mcp.tools.evals import register
+from src.huntable_mcp.tools.evals import _bundle_selection, _parse_config_version, register
 
 pytestmark = pytest.mark.unit
+
+
+@pytest.mark.parametrize(
+    "value,expected_version,expected_selector,expected_run_index",
+    [
+        (5114, 5114, "5114", None),
+        ("5114", 5114, "5114", None),
+        ("v5114", 5114, "v5114", None),
+        ("v5114a", 5114, "v5114a", 0),
+        ("V5114B", 5114, "V5114B", 1),
+        ("  v5114c  ", 5114, "v5114c", 2),
+    ],
+)
+def test_parse_config_version_accepts_valid_forms(value, expected_version, expected_selector, expected_run_index):
+    version, selector, run_index = _parse_config_version(value)
+    assert version == expected_version
+    assert selector == expected_selector
+    assert run_index == expected_run_index
+
+
+@pytest.mark.parametrize("value", [0, -1, "0", "v0a", "not-a-version", "v5114-a", "", True, False])
+def test_parse_config_version_rejects_invalid_forms(value):
+    with pytest.raises(ValueError):
+        _parse_config_version(value)
+
+
+def test_bundle_selection_with_no_subagent_aggregates_all_aliases():
+    canonical, lookup_values, agent_name = _bundle_selection(None)
+    assert canonical is None
+    assert agent_name is None
+    assert "hunt_queries_edr" in lookup_values
+    assert "cmdline" in lookup_values
+
+
+def test_bundle_selection_rejects_unknown_subagent():
+    canonical, lookup_values, agent_name = _bundle_selection("not-a-real-subagent")
+    assert agent_name is None
 
 
 def _registered_tools():
@@ -348,4 +385,240 @@ async def test_export_diagnosed_eval_bundles_rejects_unsupported_subagent():
     payload = json.loads(result)
     assert payload == {"error": "Unsupported subagent for bundle export: unknown-agent"}
     session.query.assert_not_called()
+    session.close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_get_eval_bundles_by_config_accepts_replicate_label():
+    tools = _registered_tools()
+    db_manager, session = _mock_db_session()
+    first = MagicMock(id=11, article_id=501, workflow_execution_id=3468, subagent_name="cmdline")
+    second = MagicMock(id=12, article_id=501, workflow_execution_id=3469, subagent_name="cmdline")
+    query = MagicMock()
+    query.filter.return_value = query
+    query.order_by.return_value = query
+    query.all.return_value = [first, second]
+    session.query.return_value = query
+    bundle_service = MagicMock()
+    bundle_service.generate_bundle.return_value = {"schema_version": "eval_bundle_v1"}
+
+    with (
+        patch("src.huntable_mcp.tools.evals.DatabaseManager", return_value=db_manager),
+        patch("src.huntable_mcp.tools.evals.EvalBundleService", return_value=bundle_service),
+    ):
+        result = await tools["get_eval_bundles_by_config"](
+            config_version="v5114b",
+            subagent="cmdline",
+        )
+
+    payload = json.loads(result)
+    assert payload["config_version"] == 5114
+    assert payload["config_selector"] == "v5114b"
+    assert payload["run_index"] == 1
+    assert payload["exported_count"] == 1
+    assert payload["items"][0]["execution_id"] == 3469
+    session.close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_get_article_eval_bundle_returns_bundle_and_trace():
+    tools = _registered_tools()
+    db_manager, session = _mock_db_session()
+    record = MagicMock(
+        id=11,
+        article_id=501,
+        workflow_execution_id=3468,
+        workflow_config_version=5114,
+        subagent_name="cmdline",
+    )
+    query = MagicMock()
+    query.filter.return_value = query
+    query.order_by.return_value = query
+    query.all.return_value = [record]
+    session.query.return_value = query
+    bundle_service = MagicMock()
+    bundle_service.generate_bundle.return_value = {"schema_version": "eval_bundle_v1"}
+    trace = {"schema_version": "workflow_execution_trace_v1", "execution_id": 3468}
+
+    with (
+        patch("src.huntable_mcp.tools.evals.DatabaseManager", return_value=db_manager),
+        patch("src.huntable_mcp.tools.evals.EvalBundleService", return_value=bundle_service),
+        patch("src.web.routes.workflow_executions._build_workflow_trace_bundle", return_value=trace) as build_trace,
+    ):
+        result = await tools["get_article_eval_bundle"](
+            article_id=501,
+            subagent="cmdline",
+            config_version="v5114a",
+            include_trace=True,
+        )
+
+    payload = json.loads(result)
+    assert payload["config_version"] == 5114
+    assert payload["run_index"] == 0
+    assert payload["items"][0]["trace"] == trace
+    build_trace.assert_called_once_with(
+        db_session=session,
+        execution_id=3468,
+        include_eval_bundles=True,
+        fetch_langfuse=False,
+        slim=False,
+    )
+    session.close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_get_workflow_execution_trace_excludes_eval_bundles_by_default():
+    tools = _registered_tools()
+    db_manager, session = _mock_db_session()
+    trace = {"schema_version": "workflow_execution_trace_v1", "execution_id": 3468}
+
+    with (
+        patch("src.huntable_mcp.tools.evals.DatabaseManager", return_value=db_manager),
+        patch("src.web.routes.workflow_executions._build_workflow_trace_bundle", return_value=trace) as build_trace,
+    ):
+        result = await tools["get_workflow_execution_trace"](execution_id=3468)
+
+    assert json.loads(result) == trace
+    build_trace.assert_called_once_with(
+        db_session=session,
+        execution_id=3468,
+        include_eval_bundles=False,
+        fetch_langfuse=False,
+        slim=True,
+    )
+    session.close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_get_eval_run_uses_safe_config_defaults():
+    tools = _registered_tools()
+    db_manager, session = _mock_db_session()
+    query = MagicMock()
+    query.filter.return_value = query
+    query.order_by.return_value = query
+    query.all.return_value = []
+    session.query.return_value = query
+
+    with patch("src.huntable_mcp.tools.evals.DatabaseManager", return_value=db_manager):
+        result = await tools["get_eval_run"](run="v5139a", subagent="cmdline")
+
+    payload = json.loads(result)
+    assert payload["config_version"] == 5139
+    assert payload["config_selector"] == "v5139a"
+    assert payload["run_index"] == 0
+    assert payload["slim"] is True
+    assert payload["max_bundles"] == 3
+    session.close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_get_eval_run_with_article_id_delegates_to_article_bundle():
+    tools = _registered_tools()
+    db_manager, session = _mock_db_session()
+    record = MagicMock(
+        id=11,
+        article_id=501,
+        workflow_execution_id=3468,
+        workflow_config_version=5139,
+        subagent_name="cmdline",
+    )
+    query = MagicMock()
+    query.filter.return_value = query
+    query.order_by.return_value = query
+    query.all.return_value = [record]
+    session.query.return_value = query
+    bundle_service = MagicMock()
+    bundle_service.generate_bundle.return_value = {"schema_version": "eval_bundle_v1"}
+
+    with (
+        patch("src.huntable_mcp.tools.evals.DatabaseManager", return_value=db_manager),
+        patch("src.huntable_mcp.tools.evals.EvalBundleService", return_value=bundle_service),
+    ):
+        result = await tools["get_eval_run"](run="v5139a", article_id=501, subagent="cmdline")
+
+    payload = json.loads(result)
+    assert payload["schema_version"] == "mcp_article_eval_bundle_v1"
+    assert payload["article_id"] == 501
+    assert payload["config_version"] == 5139
+    assert payload["config_selector"] == "v5139a"
+    assert payload["count"] == 1
+    bundle_service.generate_bundle.assert_called_once_with(
+        execution_id=3468,
+        agent_name="CmdlineExtract",
+        attempt=None,
+        fetch_langfuse=False,
+        slim=True,
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_eval_bundles_by_config_rejects_bad_config_version():
+    tools = _registered_tools()
+    result = await tools["get_eval_bundles_by_config"](config_version="not-a-version")
+    assert json.loads(result)["error"]
+
+
+@pytest.mark.asyncio
+async def test_get_eval_bundles_by_config_rejects_invalid_max_bundles():
+    tools = _registered_tools()
+    result = await tools["get_eval_bundles_by_config"](config_version=5114, max_bundles=0)
+    assert json.loads(result)["error"] == "max_bundles must be at least 1"
+
+
+@pytest.mark.asyncio
+async def test_get_eval_bundles_by_config_rejects_unsupported_subagent():
+    tools = _registered_tools()
+    db_manager, session = _mock_db_session()
+
+    with patch("src.huntable_mcp.tools.evals.DatabaseManager", return_value=db_manager):
+        result = await tools["get_eval_bundles_by_config"](config_version=5114, subagent="not-a-real-subagent")
+
+    payload = json.loads(result)
+    assert payload["error"] == "Unsupported subagent for bundle export: not-a-real-subagent"
+    session.query.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_get_article_eval_bundle_rejects_bad_config_version():
+    tools = _registered_tools()
+    result = await tools["get_article_eval_bundle"](article_id=501, config_version="not-a-version")
+    assert json.loads(result)["error"]
+
+
+@pytest.mark.asyncio
+async def test_get_article_eval_bundle_returns_error_when_no_records():
+    tools = _registered_tools()
+    db_manager, session = _mock_db_session()
+    query = MagicMock()
+    query.filter.return_value = query
+    query.order_by.return_value = query
+    query.all.return_value = []
+    session.query.return_value = query
+
+    with patch("src.huntable_mcp.tools.evals.DatabaseManager", return_value=db_manager):
+        result = await tools["get_article_eval_bundle"](article_id=999)
+
+    payload = json.loads(result)
+    assert payload["error"] == "No completed eval records found"
+    assert payload["article_id"] == 999
+    session.close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_get_workflow_execution_trace_reports_error_on_failure():
+    tools = _registered_tools()
+    db_manager, session = _mock_db_session()
+
+    with (
+        patch("src.huntable_mcp.tools.evals.DatabaseManager", return_value=db_manager),
+        patch(
+            "src.web.routes.workflow_executions._build_workflow_trace_bundle",
+            side_effect=ValueError("execution not found"),
+        ),
+    ):
+        result = await tools["get_workflow_execution_trace"](execution_id=999999)
+
+    payload = json.loads(result)
+    assert payload["error"] == "execution not found"
+    assert payload["execution_id"] == 999999
     session.close.assert_called_once()

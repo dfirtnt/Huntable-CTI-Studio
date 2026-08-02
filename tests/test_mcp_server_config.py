@@ -114,3 +114,7 @@ def test_mcp_server_registers_eval_diagnosis_tools(monkeypatch):
     assert "diagnose_eval_bundle" in tool_names
     assert "list_eval_diagnoses" in tool_names
     assert "export_diagnosed_eval_bundles" in tool_names
+    assert "get_eval_bundles_by_config" in tool_names
+    assert "get_article_eval_bundle" in tool_names
+    assert "get_workflow_execution_trace" in tool_names
+    assert "get_eval_run" in tool_names
