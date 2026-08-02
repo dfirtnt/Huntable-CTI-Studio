@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Fixed
+- **Langfuse trace-bundle live-read compatibility** (2026-08-02): the v2 Observations API defaults to `core,basic`, which omitted input/output/usage from eval-bundle enrichment even when those fields existed in live traces. The lookup now requests the required `io`, `usage`, and `model` field groups; the live audit confirmed 159 recent generations and preserved the cloud-run cost guardrail.
+
 ### Added
 - **MCP eval-retrieval tools** (2026-08-01): added 4 new MCP tools in `src/huntable_mcp/tools/evals.py` -- `get_eval_bundles_by_config` (all completed bundles for a config run, optionally filtered by subagent), `get_article_eval_bundle` (bundle(s) for one article, with an optional workflow trace), `get_workflow_execution_trace` (a standalone `workflow_execution_trace_v1` payload), and `get_eval_run` (a convenience entry point accepting a run label like `v5139a`, the recommended surface for the `huntable-eval-retrieval` skill). `config_version` accepts a bare integer or an operator label such as `v5114a`/`v5114b` to select a specific replicate run. Registered in `stdio_server.py`, documented in `docs/reference/mcp-tools.md`, unit-tested in `tests/unit/test_mcp_eval_tools.py` and `tests/test_mcp_server_config.py`.
 - **`claude-opus-5` added to the Anthropic model catalog** (2026-08-01): registered in `config/provider_model_catalog.json` with its existing 1M-token `MODEL_CONTEXT_TOKENS` entry; pinned by a catalog-presence regression test.

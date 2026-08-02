@@ -44,6 +44,21 @@ The live-data portion could not be run in this environment. `LANGFUSE_PUBLIC_KEY
 5. Medium: connection probes were not distinguishable from production calls because they were not traced. They now use explicit `connection_test` metadata and names.
 6. Medium: platform adjudication omitted `article_id` even though the workflow state had it. Fixed by propagating the ID into the trace.
 
+## Live verification - 2026-08-02
+
+The live Huntable stack was healthy at verification time (`/health` returned healthy, database connected). Langfuse settings were present in the application database; credential values were not read or displayed.
+
+Read-only Langfuse queries covered the preceding 14 days:
+
+- 100 recent traces were returned on the first page, and sampled workflow traces had a `workflow_exec_<id>` session link.
+- 159 `GENERATION` observations were returned. The observed agent names were `cmdlineextract_extraction`, `proctreeextract_extraction`, `huntqueriesextract_extraction`, `registryextract_extraction`, `servicesextract_extraction`, `scheduledtasksextract_extraction`, `networkindicatorextract_extraction`, `generate_sigma`, and one `test_generation` connection probe.
+- With the documented v2 field groups requested (`core,basic,io,usage,model`), 158/159 generations had input, 100/159 had output, 159/159 had usage details, and 158/159 had a model identifier. The missing outputs were error-level generations, not successful completions.
+- Representative workflow traces for executions 3669 and 3670 contained nested generations with parent observation IDs. The 3670 trace covered extraction agents and Sigma generation; its error-level Sigma generations had no output, as expected for failed calls.
+- No scores were returned for the preceding 14 days, including no `sigma_repair_attempts` score. The all-time score set contained 95 older scores (`accuracy`, `count_diff`, `exact_match`, `mean_count_diff`, `passed`, and `Hallucination`) but no `sigma_repair_attempts`.
+- The recent window contained no live rank, platform-adjudication, evaluation-diagnosis, route, or vision observations. No fresh provider workflow was run because RankAgent is configured for OpenAI and the cost guardrail prohibits an unapproved cloud run.
+
+The live query also exposed a compatibility issue: Langfuse's v2 observations endpoint returns only `core,basic` fields by default. `EvalBundleService._fetch_langfuse_generation` now explicitly requests `core,basic,io,usage,model`, so trace-bundle exports receive the input, output, usage, and model fields observed above.
+
 ## Verification
 
 Passed:
@@ -53,10 +68,12 @@ Passed:
 - Ruff checks on all changed source and test files.
 - Python compilation of all changed source files.
 - `git diff --check`.
+- Live read-only Langfuse query: 159 recent generations inspected with input, output, usage, model, parent-observation, and error-level summaries.
+- Live trace-bundle export for execution 3669: Langfuse messages and response usage were fetched without reconstruction; usage total was present.
 
 Blocked:
 
-- Recent Langfuse trace, observation, score, and session reads. Credentials were unavailable and were not retrieved from protected files or settings.
-- The definition-of-done requirement for one recent live execution per agent type therefore remains unverified.
+- Live coverage for rank, platform adjudication, evaluation diagnosis, route, and vision paths because no recent observations exist and exercising the configured rank path would use OpenAI.
+- `sigma_repair_attempts` is not present in the recent score data; the existing code path is covered by tests, but live population remains unverified.
 
-No fresh cloud-provider workflows were run because the task's cost guardrail requires checking provider configuration first, and local LM Studio availability was not established in this audit.
+No fresh provider workflow was run. Local LMStudio is available, but it cannot cover the configured OpenAI RankAgent path without changing provider configuration.

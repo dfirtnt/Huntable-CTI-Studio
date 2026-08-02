@@ -402,7 +402,12 @@ class TestEvalBundleServiceHelpers:
         assert result["messages"][0]["content"] == "payload"
         assert result["response"] == "structured-output"
         assert result["usage"]["total_tokens"] == 10
-        mock_api.observations.get_many.assert_called_once_with(trace_id="trace-xyz", type="GENERATION", limit=100)
+        mock_api.observations.get_many.assert_called_once_with(
+            trace_id="trace-xyz",
+            type="GENERATION",
+            limit=100,
+            fields="core,basic,io,usage,model",
+        )
         # The removed v3 attribute must never be reached
         mock_api.trace.list.assert_not_called()
 
@@ -447,7 +452,10 @@ class TestEvalBundleServiceHelpers:
         assert result is not None
         mock_api.trace.list.assert_called_once_with(session_id="workflow_exec_456", limit=1, order_by="timestamp.desc")
         mock_api.observations.get_many.assert_called_once_with(
-            trace_id="resolved-trace-id", type="GENERATION", limit=100
+            trace_id="resolved-trace-id",
+            type="GENERATION",
+            limit=100,
+            fields="core,basic,io,usage,model",
         )
 
     def test_fetch_langfuse_generation_returns_none_when_api_unavailable(self):

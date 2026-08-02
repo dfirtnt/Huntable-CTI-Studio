@@ -939,6 +939,7 @@ class EvalBundleService:
                             trace_id=resolved_trace_id,
                             type="GENERATION",
                             limit=100,
+                            fields="core,basic,io,usage,model",
                         )
                         logger.debug(
                             "Langfuse observations.get_many by trace_id=%s returned %s items",
