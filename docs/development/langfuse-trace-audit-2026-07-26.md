@@ -73,7 +73,9 @@ Passed:
 
 Blocked:
 
-- Live coverage for rank, platform adjudication, evaluation diagnosis, route, and vision paths because no recent observations exist and exercising the configured rank path would use OpenAI.
+- Live coverage for the disabled rank path, evaluation diagnosis, route, and vision paths because no recent observations exist. Platform adjudication is now covered by the local Qwen3 runs, but the article workflows terminated before ranking/extraction completion.
 - `sigma_repair_attempts` is not present in the recent score data; the existing code path is covered by tests, but live population remains unverified.
 
-No fresh provider workflow was run. Local LMStudio is available, but it cannot cover the configured OpenAI RankAgent path without changing provider configuration.
+No fresh cloud-provider workflow was run. Local LMStudio was available, so a follow-up Qwen3-only verification was run against four short stored articles (executions 3671-3674; article IDs 6557, 1285, 1126, and 6484) after loading the committed Qwen3 preset. All four executions completed without workflow errors and linked to `workflow_exec_<id>` Langfuse sessions. Each produced a `workflow_completed` trace and a `platform_adjudication` trace. The representative execution 3671 contained 15 Qwen3 generations across `generate_sigma`, `huntqueriesextract_extraction`, `proctreeextract_qa`, `proctreeextract_extraction`, `cmdlineextract_qa`, and `cmdlineextract_extraction`; generation observations had input, usage details, model IDs, and parent-observation linkage. Expected QA generations had no output, while successful extraction/Sigma generations had output. The platform trace carried `article_id`, `execution_id`, and `model:qwen/qwen3-8b` tags.
+
+The short articles' stored text was degraded or too short for the production junk filter, so all four runs terminated at `junk_filter` before ranking/extraction completion; no `sigma_repair_attempts` score was emitted. The Qwen3 preset also intentionally has `rank_agent_enabled=false` and `sigma_fallback_enabled=false`. Therefore this fresh run closes the local workflow/session-linkage evidence gap, but does not satisfy live coverage for the disabled rank path, evaluation diagnosis, Sigma/AI/vision routes, or live Sigma repair scoring. Those remain explicit follow-up evidence gaps rather than being marked verified.
