@@ -4,7 +4,7 @@
 
 This audit covers active provider-touching paths in the workflow, services, web routes, and shared provider clients. The static inventory searched for `request_chat`, `openai_chat_completions`, direct OpenAI and Anthropic endpoints, `LMStudioChatClient`, and `post_anthropic_with_retry`.
 
-The live-data portion could not be run in this environment. `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, and `LANGFUSE_HOST` were unset. The audit did not read `.env` or database-held credentials, and it did not start fresh cloud-provider workflow runs.
+The initial static pass could not query live Langfuse data without reading protected configuration. A later read-only application-mediated query used database-held settings without displaying credential values; no fresh cloud-provider workflow runs were started.
 
 ## Coverage matrix
 
@@ -55,7 +55,7 @@ Read-only Langfuse queries covered the preceding 14 days:
 - With the documented v2 field groups requested (`core,basic,io,usage,model`), 158/159 generations had input, 100/159 had output, 159/159 had usage details, and 158/159 had a model identifier. The missing outputs were error-level generations, not successful completions.
 - Representative workflow traces for executions 3669 and 3670 contained nested generations with parent observation IDs. The 3670 trace covered extraction agents and Sigma generation; its error-level Sigma generations had no output, as expected for failed calls.
 - No scores were returned for the preceding 14 days, including no `sigma_repair_attempts` score. The all-time score set contained 95 older scores (`accuracy`, `count_diff`, `exact_match`, `mean_count_diff`, `passed`, and `Hallucination`) but no `sigma_repair_attempts`.
-- The recent window contained no live rank, platform-adjudication, evaluation-diagnosis, route, or vision observations. No fresh provider workflow was run because RankAgent is configured for OpenAI and the cost guardrail prohibits an unapproved cloud run.
+- The initial recent window contained no rank, platform-adjudication, evaluation-diagnosis, route, or vision observations; local follow-up route tests are documented below.
 
 The live query also exposed a compatibility issue: Langfuse's v2 observations endpoint returns only `core,basic` fields by default. `EvalBundleService._fetch_langfuse_generation` now explicitly requests `core,basic,io,usage,model`, so trace-bundle exports receive the input, output, usage, and model fields observed above.
 
