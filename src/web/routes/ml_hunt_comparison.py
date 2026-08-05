@@ -1,5 +1,10 @@
 """
 ML vs Hunt comparison endpoints.
+
+Reference implementation for the routes -> service layering pattern: handlers take a
+session via ``Depends(get_db_session)`` and marshal request/response only. No
+``DatabaseManager`` construction, no session try/finally, and no ORM queries live in
+this module — all data access goes through the chunk-analysis services.
 """
 
 from __future__ import annotations
@@ -7,9 +12,12 @@ from __future__ import annotations
 import asyncio
 import os
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
 
-from src.web.dependencies import logger
+from src.services.chunk_analysis_backfill import ChunkAnalysisBackfillService
+from src.services.chunk_analysis_service import ChunkAnalysisService
+from src.web.dependencies import get_db_session, logger, session_scope
 
 router = APIRouter(prefix="/api/ml-model-performance", tags=["ML Model Performance"])
 
@@ -38,19 +46,13 @@ def _count_csv_data_rows(csv_path: str) -> int | None:
 
 
 @router.get("/stats")
-def get_model_comparison_stats(model_version: str | None = None):
+def get_model_comparison_stats(
+    model_version: str | None = None,
+    session: Session = Depends(get_db_session),
+):
     """Get comparison statistics for model versions."""
     try:
-        from src.database.manager import DatabaseManager
-        from src.services.chunk_analysis_service import ChunkAnalysisService
-
-        db_manager = DatabaseManager()
-        sync_db = db_manager.get_session()
-        try:
-            service = ChunkAnalysisService(sync_db)
-            stats = service.get_model_comparison_stats(model_version)
-        finally:
-            sync_db.close()
+        stats = ChunkAnalysisService(session).get_model_comparison_stats(model_version)
         return {"success": True, "stats": stats}
     except Exception as exc:  # noqa: BLE001
         logger.error("Error getting model comparison stats: %s", exc)
@@ -68,29 +70,21 @@ def get_chunk_analysis_results(
     agreement: bool | None = None,
     limit: int = 100,
     offset: int = 0,
+    session: Session = Depends(get_db_session),
 ):
     """Get chunk analysis results with filtering."""
     try:
-        from src.database.manager import DatabaseManager
-        from src.services.chunk_analysis_service import ChunkAnalysisService
-
-        db_manager = DatabaseManager()
-        sync_db = db_manager.get_session()
-        try:
-            service = ChunkAnalysisService(sync_db)
-            results = service.get_chunk_analysis_results(
-                article_id=article_id,
-                model_version=model_version,
-                hunt_score_min=hunt_score_min,
-                hunt_score_max=hunt_score_max,
-                ml_prediction=ml_prediction,
-                hunt_prediction=hunt_prediction,
-                agreement=agreement,
-                limit=limit,
-                offset=offset,
-            )
-        finally:
-            sync_db.close()
+        results = ChunkAnalysisService(session).get_chunk_analysis_results(
+            article_id=article_id,
+            model_version=model_version,
+            hunt_score_min=hunt_score_min,
+            hunt_score_max=hunt_score_max,
+            ml_prediction=ml_prediction,
+            hunt_prediction=hunt_prediction,
+            agreement=agreement,
+            limit=limit,
+            offset=offset,
+        )
         return {"success": True, "results": results, "count": len(results)}
     except Exception as exc:  # noqa: BLE001
         logger.error("Error getting chunk analysis results: %s", exc)
@@ -98,19 +92,10 @@ def get_chunk_analysis_results(
 
 
 @router.get("/model-versions")
-def get_available_model_versions():
+def get_available_model_versions(session: Session = Depends(get_db_session)):
     """Get list of available model versions."""
     try:
-        from src.database.manager import DatabaseManager
-        from src.services.chunk_analysis_service import ChunkAnalysisService
-
-        db_manager = DatabaseManager()
-        sync_db = db_manager.get_session()
-        try:
-            service = ChunkAnalysisService(sync_db)
-            versions = service.get_available_model_versions()
-        finally:
-            sync_db.close()
+        versions = ChunkAnalysisService(session).get_available_model_versions()
         return {"success": True, "model_versions": versions}
     except Exception as exc:  # noqa: BLE001
         logger.error("Error getting model versions: %s", exc)
@@ -118,22 +103,14 @@ def get_available_model_versions():
 
 
 @router.get("/eligible-count")
-def get_eligible_articles_count(min_hunt_score: float = 50.0):
+def get_eligible_articles_count(
+    min_hunt_score: float = 50.0,
+    session: Session = Depends(get_db_session),
+):
     """Get count of articles eligible for chunk analysis."""
     try:
-        from src.database.manager import DatabaseManager
-        from src.services.chunk_analysis_backfill import ChunkAnalysisBackfillService
-
-        db_manager = DatabaseManager()
-        sync_db = db_manager.get_session()
-        try:
-            service = ChunkAnalysisBackfillService(sync_db)
-            eligible = service.get_eligible_articles(min_hunt_score)
-            count = len(eligible)
-        finally:
-            sync_db.close()
-
-        return {"success": True, "count": count, "min_hunt_score": min_hunt_score}
+        eligible = ChunkAnalysisBackfillService(session).get_eligible_articles(min_hunt_score)
+        return {"success": True, "count": len(eligible), "min_hunt_score": min_hunt_score}
     except Exception as exc:  # noqa: BLE001
         logger.error("Error getting eligible count: %s", exc)
         raise HTTPException(status_code=500, detail="Internal server error") from exc
@@ -228,7 +205,12 @@ def get_backfill_logs():
 
 @router.post("/backfill")
 async def process_eligible_articles_backfill(min_hunt_score: float = 50.0, min_confidence: float = 0.7):
-    """Process all eligible articles through chunk analysis."""
+    """Process all eligible articles through chunk analysis.
+
+    The backfill runs on a background task that outlives this request, so it owns its
+    own session instead of taking the request-scoped ``Depends(get_db_session)`` one —
+    that session is closed the moment the response is returned.
+    """
     try:
         import time
         import traceback
@@ -250,11 +232,6 @@ async def process_eligible_articles_backfill(min_hunt_score: float = 50.0, min_c
 
         def process_articles_sync():
             """Synchronous function to process articles (runs in thread pool)."""
-            from src.database.manager import DatabaseManager
-            from src.services.chunk_analysis_backfill import ChunkAnalysisBackfillService
-
-            db_manager = None
-            sync_db = None
             try:
                 logger.info(f"Background task started: processing articles with hunt_score > {min_hunt_score}")
 
@@ -265,20 +242,18 @@ async def process_eligible_articles_backfill(min_hunt_score: float = 50.0, min_c
                 except Exception:
                     pass  # Log file write failed, continue with logger
 
-                db_manager = DatabaseManager()
-                sync_db = db_manager.get_session()
+                with session_scope() as sync_db:
+                    try:
+                        with open(log_file, "a") as file:
+                            file.write(f"[{time.strftime('%H:%M:%S')}] Starting chunk analysis backfill service...\n")
+                    except Exception:
+                        pass
 
-                try:
-                    with open(log_file, "a") as file:
-                        file.write(f"[{time.strftime('%H:%M:%S')}] Starting chunk analysis backfill service...\n")
-                except Exception:
-                    pass
-
-                service = ChunkAnalysisBackfillService(sync_db)
-                results = service.backfill_all(
-                    min_hunt_score=min_hunt_score,
-                    min_confidence=min_confidence,
-                )
+                    service = ChunkAnalysisBackfillService(sync_db)
+                    results = service.backfill_all(
+                        min_hunt_score=min_hunt_score,
+                        min_confidence=min_confidence,
+                    )
 
                 # Write completion to log file
                 try:
@@ -314,12 +289,6 @@ async def process_eligible_articles_backfill(min_hunt_score: float = 50.0, min_c
                     pass  # Log file write failed, error already logged
 
                 raise  # Re-raise to ensure task failure is visible
-            finally:
-                if sync_db:
-                    try:
-                        sync_db.close()
-                    except Exception:
-                        pass
 
         async def process_articles():
             """Async wrapper that runs blocking operation in thread pool."""
@@ -362,24 +331,15 @@ async def process_eligible_articles_backfill(min_hunt_score: float = 50.0, min_c
 
 
 @router.get("/summary")
-def get_comparison_summary():
+def get_comparison_summary(session: Session = Depends(get_db_session)):
     """Get summary statistics for the comparison."""
     try:
-        from src.database.manager import DatabaseManager
-        from src.database.models import MLModelVersionTable
-        from src.services.chunk_analysis_service import ChunkAnalysisService
-
-        db_manager = DatabaseManager()
-        sync_db = db_manager.get_session()
-        try:
-            service = ChunkAnalysisService(sync_db)
-            all_stats = service.get_model_comparison_stats()
-            model_versions = service.get_available_model_versions()
-            total_model_versions = sync_db.query(MLModelVersionTable).count()
-            recent_results = service.get_chunk_analysis_results(limit=1)
-            total_results = len(service.get_chunk_analysis_results(limit=50000))
-        finally:
-            sync_db.close()
+        service = ChunkAnalysisService(session)
+        all_stats = service.get_model_comparison_stats()
+        model_versions = service.get_available_model_versions()
+        total_model_versions = service.count_registered_model_versions()
+        recent_results = service.get_chunk_analysis_results(limit=1)
+        total_results = len(service.get_chunk_analysis_results(limit=50000))
 
         # Eval-set size for chart labels (read once per request — small CSV, cheap).
         eval_set_path = os.path.join(
