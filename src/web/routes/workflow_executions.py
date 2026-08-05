@@ -30,6 +30,11 @@ from src.services.audit_service import (
     initiating_actor_metadata,
 )
 from src.services.eval_bundle_service import EvalBundleService, compute_sha256_json
+from src.services.workflow_config_snapshot import (
+    SNAPSHOT_CONFIG_FIELDS,
+    build_config_snapshot,
+    rehash_snapshot,
+)
 from src.utils.langfuse_client import get_langfuse_trace_id_for_session
 from src.workflows.status_utils import extract_termination_info
 
@@ -1068,6 +1073,15 @@ async def retry_workflow_execution(request: Request, execution_id: int):
             initiated_by = initiating_actor_metadata(getattr(request.state, "identity", None))
             if initiated_by:
                 new_config_snapshot["initiated_by"] = initiated_by
+
+            # A retry is a new dispatch, so it gets a complete, freshly hashed snapshot —
+            # even when the execution being retried predates immutable snapshots. Only
+            # gaps are backfilled, so the deliberate refreshes above still win, and the
+            # new hash describes the configuration this retry will actually run under.
+            complete_base = build_config_snapshot(current_config)
+            for field in SNAPSHOT_CONFIG_FIELDS:
+                new_config_snapshot.setdefault(field, complete_base[field])
+            new_config_snapshot = rehash_snapshot(new_config_snapshot)
 
             # Create new execution record
             new_execution = AgenticWorkflowExecutionTable(

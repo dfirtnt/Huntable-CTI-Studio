@@ -18,6 +18,7 @@ from src.database.models import (
     AgenticWorkflowExecutionTable,
     ArticleTable,
 )
+from src.services.workflow_config_snapshot import build_config_snapshot
 from src.workflows.agentic_workflow import WorkflowState, create_agentic_workflow
 
 pytestmark = pytest.mark.unit
@@ -95,7 +96,29 @@ def config_obj():
         },
     }
     cfg.sigma_fallback_enabled = True
+    # Mock(spec=...) auto-creates these as Mock objects, which are truthy and
+    # non-numeric; pin them so snapshots built from this fixture hold real values.
+    cfg.min_hunt_score = 97.0
+    cfg.ranking_threshold = 6.0
+    cfg.similarity_threshold = 0.5
+    cfg.junk_filter_threshold = 0.8
+    cfg.auto_trigger_hunt_score_threshold = 100.0
+    cfg.rank_agent_enabled = True
+    cfg.cmdline_attention_preprocessor_enabled = True
+    cfg.proc_tree_attention_preprocessor_enabled = True
     return cfg
+
+
+def _snapshot_state_config(config_obj, **overrides):
+    """Build the node-visible config the way run_workflow() seeds it.
+
+    Nodes read the execution's immutable snapshot from ``state["config"]``, not the
+    live active configuration, so tests exercising a node's config-dependent behavior
+    must seed the snapshot rather than only mocking ``get_active_config()``.
+    """
+    snapshot = build_config_snapshot(config_obj)
+    snapshot.update(overrides)
+    return snapshot
 
 
 def _make_db_session(article, execution):
@@ -444,7 +467,11 @@ class TestRankArticleNode:
             mock_llm_cls.return_value = mock_instance
 
             await nodes["rank_article"](
-                _default_state(filtered_content="threat intel content", current_step="junk_filter")
+                _default_state(
+                    filtered_content="threat intel content",
+                    current_step="junk_filter",
+                    config=_snapshot_state_config(config_obj),
+                )
             )
 
         assert execution.error_log is not None
@@ -563,6 +590,7 @@ class TestGenerateSigmaNode:
                     filtered_content=article.content,
                     extraction_result=extraction_result,
                     discrete_huntables_count=2,
+                    config=_snapshot_state_config(config_obj),
                 )
             )
 
@@ -706,6 +734,7 @@ class TestGenerateSigmaNode:
                     filtered_content=article.content,
                     extraction_result=extraction_result,
                     discrete_huntables_count=1,
+                    config=_snapshot_state_config(config_obj),
                 )
             )
 

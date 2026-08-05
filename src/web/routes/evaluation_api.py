@@ -41,6 +41,7 @@ from src.services.eval_bundle_service import EvalBundleService, compute_sha256_j
 from src.services.eval_item_scorer import calculate_f_beta, score_items
 from src.services.llm_service import LLMService
 from src.services.sigma_eval_service import load_sigma_ground_truth
+from src.services.workflow_config_snapshot import build_config_snapshot
 from src.utils.subagent_utils import build_subagent_lookup_values, normalize_subagent_name
 from src.worker.celery_app import trigger_agentic_workflow
 
@@ -440,21 +441,14 @@ def _load_static_eval_fixture_by_url(article_url: str | None) -> str | None:
 
 
 def _workflow_config_snapshot(config: AgenticWorkflowConfigTable) -> dict:
-    """Capture every runtime workflow setting needed by an evaluation execution."""
-    return {
-        "min_hunt_score": config.min_hunt_score,
-        "ranking_threshold": config.ranking_threshold,
-        "similarity_threshold": config.similarity_threshold,
-        "junk_filter_threshold": config.junk_filter_threshold,
-        "sigma_fallback_enabled": config.sigma_fallback_enabled,
-        "agent_models": config.agent_models or {},
-        "agent_prompts": config.agent_prompts or {},
-        "rank_agent_enabled": config.rank_agent_enabled,
-        "cmdline_attention_preprocessor_enabled": config.cmdline_attention_preprocessor_enabled,
-        "proc_tree_attention_preprocessor_enabled": config.proc_tree_attention_preprocessor_enabled,
-        "config_id": config.id,
-        "config_version": config.version,
-    }
+    """Capture every runtime workflow setting needed by an evaluation execution.
+
+    Delegates to the shared snapshot builder so eval executions satisfy the same
+    completeness contract as normal ones and are hashed the same way — an eval whose
+    snapshot were incomplete would fall back to the live active config at run time,
+    which is exactly the irreproducibility this is meant to remove.
+    """
+    return build_config_snapshot(config)
 
 
 def _load_preset_expected_by_url(subagent: str) -> dict[str, int]:
@@ -1422,30 +1416,20 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                 execution = AgenticWorkflowExecutionTable(
                     article_id=article_id,
                     status="pending",
-                    config_snapshot={
-                        "min_hunt_score": active_config.min_hunt_score,
-                        "ranking_threshold": active_config.ranking_threshold,
-                        "similarity_threshold": active_config.similarity_threshold,
-                        "agent_models": active_config.agent_models or {},
-                        "agent_prompts": active_config.agent_prompts or {},
-                        "config_id": active_config.id,
-                        "config_version": active_config.version,
-                        "eval_run": True,
-                        "skip_os_detection": True,  # Bypass OS detection for evals
-                        "skip_rank_agent": True,  # Bypass rank agent for evals
-                        "skip_sigma_generation": True,  # Skip SIGMA generation for evals
-                        "subagent_eval": canonical_subagent_name,
-                        "eval_fixture_content": static_entry["content"],
-                        "eval_fixture_content_sha256": hashlib.sha256(
-                            static_entry["content"].encode("utf-8")
-                        ).hexdigest(),
-                        "cmdline_attention_preprocessor_enabled": getattr(
-                            active_config, "cmdline_attention_preprocessor_enabled", True
-                        ),
-                        "proc_tree_attention_preprocessor_enabled": getattr(
-                            active_config, "proc_tree_attention_preprocessor_enabled", True
-                        ),
-                    },
+                    config_snapshot=build_config_snapshot(
+                        active_config,
+                        extra={
+                            "eval_run": True,
+                            "skip_os_detection": True,  # Bypass OS detection for evals
+                            "skip_rank_agent": True,  # Bypass rank agent for evals
+                            "skip_sigma_generation": True,  # Skip SIGMA generation for evals
+                            "subagent_eval": canonical_subagent_name,
+                            "eval_fixture_content": static_entry["content"],
+                            "eval_fixture_content_sha256": hashlib.sha256(
+                                static_entry["content"].encode("utf-8")
+                            ).hexdigest(),
+                        },
+                    ),
                 )
                 db_session.add(execution)
                 db_session.flush()  # Get execution.id
@@ -1540,28 +1524,18 @@ def _sigma_eval_config_snapshot(active_config: AgenticWorkflowConfigTable, fixtu
     ``fixture_content`` is the committed eval article snapshot text (never the
     live DB row) — see ``agentic_workflow.py``'s ``eval_fixture_content`` read.
     """
-    return {
-        "min_hunt_score": active_config.min_hunt_score,
-        "ranking_threshold": active_config.ranking_threshold,
-        "similarity_threshold": active_config.similarity_threshold,
-        "agent_models": active_config.agent_models or {},
-        "agent_prompts": active_config.agent_prompts or {},
-        "config_id": active_config.id,
-        "config_version": active_config.version,
-        "eval_run": True,
-        "sigma_eval": True,
-        "skip_os_detection": True,
-        "skip_rank_agent": True,
-        "skip_sigma_generation": False,
-        "eval_fixture_content": fixture_content,
-        "eval_fixture_content_sha256": hashlib.sha256(fixture_content.encode("utf-8")).hexdigest(),
-        "cmdline_attention_preprocessor_enabled": getattr(
-            active_config, "cmdline_attention_preprocessor_enabled", True
-        ),
-        "proc_tree_attention_preprocessor_enabled": getattr(
-            active_config, "proc_tree_attention_preprocessor_enabled", True
-        ),
-    }
+    return build_config_snapshot(
+        active_config,
+        extra={
+            "eval_run": True,
+            "sigma_eval": True,
+            "skip_os_detection": True,
+            "skip_rank_agent": True,
+            "skip_sigma_generation": False,
+            "eval_fixture_content": fixture_content,
+            "eval_fixture_content_sha256": hashlib.sha256(fixture_content.encode("utf-8")).hexdigest(),
+        },
+    )
 
 
 @router.get("/sigma-eval-articles")

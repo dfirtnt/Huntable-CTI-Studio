@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from src.database.models import AgenticWorkflowConfigTable, AgenticWorkflowExecutionTable, ArticleTable
 from src.services.audit_service import AuditEvent, AuditService
+from src.services.workflow_config_snapshot import build_config_snapshot
 from src.utils.default_agent_prompts import get_default_agent_prompts
 
 logger = logging.getLogger(__name__)
@@ -225,32 +226,15 @@ class WorkflowTriggerService:
             if not ok:
                 return False, block_reason
 
-            # Create execution record
+            # Resolve and hash the configuration BEFORE dispatch. The snapshot is the
+            # execution's immutable contract: it is persisted in the same transaction as
+            # the execution row below, and nodes read it instead of the live active
+            # config, so edits made after this point cannot alter this run.
             config = self.get_active_config()
-            config_snapshot = (
-                {
-                    "min_hunt_score": config.min_hunt_score,
-                    "ranking_threshold": config.ranking_threshold,
-                    "similarity_threshold": config.similarity_threshold,
-                    "junk_filter_threshold": config.junk_filter_threshold,
-                    "agent_models": config.agent_models,
-                    "rank_agent_enabled": config.rank_agent_enabled
-                    if config and hasattr(config, "rank_agent_enabled")
-                    else True,
-                    "cmdline_attention_preprocessor_enabled": getattr(
-                        config, "cmdline_attention_preprocessor_enabled", True
-                    ),
-                    "proc_tree_attention_preprocessor_enabled": getattr(
-                        config, "proc_tree_attention_preprocessor_enabled", True
-                    ),
-                    "config_id": config.id,
-                    "config_version": config.version,
-                }
-                if config
-                else None
+            config_snapshot = build_config_snapshot(
+                config,
+                extra={"initiated_by": initiated_by} if initiated_by else None,
             )
-            if initiated_by:
-                config_snapshot = {**(config_snapshot or {}), "initiated_by": initiated_by}
             execution = AgenticWorkflowExecutionTable(
                 article_id=article_id,
                 status="pending",

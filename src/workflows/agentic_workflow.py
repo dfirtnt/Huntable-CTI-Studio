@@ -40,6 +40,7 @@ from src.services.sigma_eval_service import (
 )
 from src.services.sigma_generation_service import _infer_observables_used
 from src.services.sigma_matching_service import SigmaMatchingService
+from src.services.workflow_config_snapshot import build_config_snapshot, snapshot_is_complete
 from src.services.workflow_provider_options import _probe_lmstudio
 from src.services.workflow_trigger_service import WorkflowTriggerService
 from src.utils.content_filter import ContentFilter
@@ -99,6 +100,35 @@ def _bool_from_value(val: Any) -> bool:
     if isinstance(val, str):
         return val.lower() == "true"
     return bool(val)
+
+
+def _snapshot_config(state: Any) -> dict[str, Any]:
+    """Return the execution's immutable configuration snapshot from workflow state.
+
+    Every node reads configuration through this rather than calling
+    ``get_active_config()``. ``state["config"]`` is seeded once in ``run_workflow()``
+    from ``execution.config_snapshot``, so a node's view of the configuration is fixed
+    at dispatch and unaffected by edits made while the run is queued or in flight.
+
+    Nodes receive a ``WorkflowState`` pydantic model, not a plain dict, so this reads
+    through ``.get()`` when available and falls back to attribute access. Guarding on
+    ``isinstance(state, dict)`` here silently yields an empty config on every real run.
+    """
+    getter = getattr(state, "get", None)
+    config = getter("config") if callable(getter) else getattr(state, "config", None)
+    return config if isinstance(config, dict) else {}
+
+
+def _snapshot_agent_models(state: Any) -> dict[str, Any]:
+    """Per-agent model/provider map from the execution snapshot (never the live config)."""
+    models = _snapshot_config(state).get("agent_models")
+    return models if isinstance(models, dict) else {}
+
+
+def _snapshot_agent_prompts(state: Any) -> dict[str, Any]:
+    """Resolved agent prompts from the execution snapshot (never the live config)."""
+    prompts = _snapshot_config(state).get("agent_prompts")
+    return prompts if isinstance(prompts, dict) else {}
 
 
 def _normalize_platform_value(value: Any) -> str:
@@ -1403,10 +1433,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     # the adjudicator falls back to its built-in default when this is unset.
                     os_det_prompt = None
                     try:
-                        from src.services.workflow_trigger_service import WorkflowTriggerService
-
-                        _cfg = WorkflowTriggerService(db_session).get_active_config()
-                        _pd = (_cfg.agent_prompts or {}).get("OSDetectionAgent") if _cfg else None
+                        _pd = (_snapshot_agent_prompts(state) or {}).get("OSDetectionAgent")
                         os_det_prompt = (
                             _pd.get("prompt") if isinstance(_pd, dict) else (_pd if isinstance(_pd, str) else None)
                         )
@@ -1754,9 +1781,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 execution.current_step = "rank_article"
                 db_session.commit()
 
-            # Get config models for LLMService
-            config_obj = trigger_service.get_active_config()
-            agent_models = config_obj.agent_models if config_obj else None
+            # Models come from the execution snapshot, not the active config: a model
+            # swapped in Settings after dispatch must not change this run.
+            snapshot_prompts = _snapshot_agent_prompts(state)
+            agent_models = _snapshot_agent_models(state) or None
             llm_service = LLMService(config_models=agent_models)
             llm_service._current_execution_id = state["execution_id"]
             llm_service._current_article_id = article.id
@@ -1779,12 +1807,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 "Score threat intelligence articles 1-10 for SIGMA huntability. "
                 "Output only a score and brief reasoning."
             )
-            if config_obj and config_obj.agent_prompts and "RankAgent" in config_obj.agent_prompts:
+            if "RankAgent" in snapshot_prompts:
                 from src.utils.prompt_loader import parse_rank_agent_prompt_data
 
-                rank_prompt_template, rank_system_prompt = parse_rank_agent_prompt_data(
-                    config_obj.agent_prompts["RankAgent"]
-                )
+                rank_prompt_template, rank_system_prompt = parse_rank_agent_prompt_data(snapshot_prompts["RankAgent"])
                 if rank_prompt_template or rank_system_prompt:
                     agent_prompt = (rank_system_prompt or rank_prompt_template or "")[:5000]
                     logger.info(
@@ -2096,15 +2122,15 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     f"{list(agent_prompts_config.keys())}"
                 )
                 extract_settings = (
-                    agent_prompts_config.get("ExtractAgentSettings")
-                    or agent_prompts_config.get("ExtractAgent")
-                    or {}
+                    agent_prompts_config.get("ExtractAgentSettings") or agent_prompts_config.get("ExtractAgent") or {}
                 )
                 logger.info(
                     f"[Workflow {state['execution_id']}] Found extract_settings from agent prompts: {extract_settings}"
                 )
             else:
-                logger.warning(f"[Workflow {state['execution_id']}] agent prompts unavailable - cannot read disabled agents")
+                logger.warning(
+                    f"[Workflow {state['execution_id']}] agent prompts unavailable - cannot read disabled agents"
+                )
 
             # Fallback to state config if extract_settings is still empty
             state_config = state.get("config", {}) if isinstance(state.get("config", {}), dict) else {}
@@ -2682,22 +2708,21 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 execution.current_step = "generate_sigma"
                 db_session.commit()
 
-            # Get config models for SigmaGenerationService
-            config_obj = trigger_service.get_active_config()
-            agent_models = config_obj.agent_models if config_obj else None
+            # Sigma generation reads the execution snapshot like every other node. It
+            # used to re-read the active config here, which is why a prompt or model
+            # edited mid-run could still land in the generated rules.
+            snapshot = _snapshot_config(state)
+            snapshot_prompts = _snapshot_agent_prompts(state)
+            agent_models = _snapshot_agent_models(state) or None
 
-            # Get SIGMA fallback setting from config
-            sigma_fallback_enabled = (
-                config_obj.sigma_fallback_enabled
-                if config_obj and hasattr(config_obj, "sigma_fallback_enabled")
-                else False
-            )
+            # Get SIGMA fallback setting from the snapshot
+            sigma_fallback_enabled = _bool_from_value(snapshot.get("sigma_fallback_enabled", False))
 
             # Use the same junk filter threshold the user configured so Sigma
             # content filtering stays in sync with the rest of the pipeline.
-            sigma_min_confidence = (
-                config_obj.junk_filter_threshold if config_obj and hasattr(config_obj, "junk_filter_threshold") else 0.8
-            )
+            sigma_min_confidence = snapshot.get("junk_filter_threshold", 0.8)
+            if sigma_min_confidence is None:
+                sigma_min_confidence = 0.8
 
             generation_result = None
 
@@ -2708,26 +2733,26 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             sigma_prompt_template = None
             sigma_system_prompt = None
             sigma_repair_template = None
-            if config_obj and config_obj.agent_prompts and "SigmaRepair" in config_obj.agent_prompts:
+            if "SigmaRepair" in snapshot_prompts:
                 from src.utils.prompt_loader import parse_sigma_repair_prompt_data
 
-                sigma_repair_template = parse_sigma_repair_prompt_data(config_obj.agent_prompts["SigmaRepair"])
+                sigma_repair_template = parse_sigma_repair_prompt_data(snapshot_prompts["SigmaRepair"])
                 if sigma_repair_template:
                     logger.info(
-                        f"[Workflow {state['execution_id']}] Using database prompt for SigmaRepair (len={len(sigma_repair_template)} chars)"
+                        f"[Workflow {state['execution_id']}] Using snapshot prompt for SigmaRepair (len={len(sigma_repair_template)} chars)"
                     )
-            if config_obj and config_obj.agent_prompts and "SigmaAgent" in config_obj.agent_prompts:
+            if "SigmaAgent" in snapshot_prompts:
                 from src.utils.prompt_loader import parse_sigma_agent_prompt_data
 
                 sigma_prompt_template, sigma_system_prompt = parse_sigma_agent_prompt_data(
-                    config_obj.agent_prompts["SigmaAgent"]
+                    snapshot_prompts["SigmaAgent"]
                 )
                 logger.info(
-                    f"[Workflow {state['execution_id']}] Using database prompt for SigmaAgent (template_len={len(sigma_prompt_template or '')} chars, system_len={len(sigma_system_prompt or '')} chars)"
+                    f"[Workflow {state['execution_id']}] Using snapshot prompt for SigmaAgent (template_len={len(sigma_prompt_template or '')} chars, system_len={len(sigma_system_prompt or '')} chars)"
                 )
             else:
                 logger.info(
-                    f"[Workflow {state['execution_id']}] No SigmaAgent prompt in database, using file-based prompt"
+                    f"[Workflow {state['execution_id']}] No SigmaAgent prompt in snapshot, using file-based prompt"
                 )
 
             # Determine content to use for SIGMA generation
@@ -3149,9 +3174,9 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 config.get("similarity_threshold", 0.5) if config and isinstance(config, dict) else 0.5
             )
 
-            # Get config models for embedding model selection
-            config_obj = trigger_service.get_active_config()
-            agent_models = config_obj.agent_models if config_obj else None
+            # Embedding-model selection comes from the execution snapshot, so the
+            # similarity scores of a run stay comparable to the rules it generated.
+            agent_models = _snapshot_agent_models(state) or None
 
             # Initialize SigmaMatchingService (now uses novelty assessment internally)
             sigma_matching_service = SigmaMatchingService(db_session, config_models=agent_models)
@@ -3715,31 +3740,7 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
             execution = AgenticWorkflowExecutionTable(
                 article_id=article_id,
                 status="pending",
-                config_snapshot={
-                    "min_hunt_score": config_obj.min_hunt_score if config_obj else 97.0,
-                    "ranking_threshold": config_obj.ranking_threshold if config_obj else 6.0,
-                    "similarity_threshold": config_obj.similarity_threshold if config_obj else 0.5,
-                    "junk_filter_threshold": config_obj.junk_filter_threshold if config_obj else 0.8,
-                    "agent_models": config_obj.agent_models if config_obj else {},
-                    "agent_prompts": config_obj.agent_prompts if config_obj else {},
-                    "rank_agent_enabled": config_obj.rank_agent_enabled
-                    if config_obj and hasattr(config_obj, "rank_agent_enabled")
-                    else True,
-                    "cmdline_attention_preprocessor_enabled": getattr(
-                        config_obj, "cmdline_attention_preprocessor_enabled", True
-                    )
-                    if config_obj
-                    else True,
-                    "proc_tree_attention_preprocessor_enabled": getattr(
-                        config_obj, "proc_tree_attention_preprocessor_enabled", True
-                    )
-                    if config_obj
-                    else True,
-                    "config_id": config_obj.id if config_obj else None,
-                    "config_version": config_obj.version if config_obj else None,
-                }
-                if config_obj
-                else None,
+                config_snapshot=build_config_snapshot(config_obj),
             )
             db_session.add(execution)
             db_session.commit()
@@ -3751,46 +3752,20 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
             )
 
         snapshot = execution.config_snapshot if isinstance(execution.config_snapshot, dict) else {}
-        snapshot_is_complete = all(
-            key in snapshot
-            for key in (
-                "min_hunt_score",
-                "ranking_threshold",
-                "similarity_threshold",
-                "junk_filter_threshold",
-                "agent_models",
-                "agent_prompts",
-                "config_id",
-                "config_version",
+        # Executions dispatched after the immutable-snapshot change always carry a
+        # complete snapshot, so the active config is never read here. The fallback exists
+        # only for legacy rows dispatched with a partial snapshot; those cannot be made
+        # reproducible retroactively, so they keep the old behavior.
+        config_is_immutable = snapshot_is_complete(snapshot)
+        config_obj = None if config_is_immutable else trigger_service.get_active_config()
+        if not config_is_immutable:
+            logger.warning(
+                "[Workflow %s] Legacy partial config_snapshot — falling back to the active "
+                "configuration. This run is not reproducible; configuration edits made after "
+                "dispatch can affect it.",
+                execution.id,
             )
-        )
-        config_obj = None if snapshot_is_complete else trigger_service.get_active_config()
-        config = (
-            dict(snapshot)
-            if snapshot_is_complete
-            else {
-                "min_hunt_score": config_obj.min_hunt_score if config_obj else 97.0,
-                "ranking_threshold": config_obj.ranking_threshold if config_obj else 6.0,
-                "similarity_threshold": config_obj.similarity_threshold if config_obj else 0.5,
-                "junk_filter_threshold": config_obj.junk_filter_threshold if config_obj else 0.8,
-                "agent_models": config_obj.agent_models
-                if config_obj and config_obj.agent_models and isinstance(config_obj.agent_models, dict)
-                else {},
-                "rank_agent_enabled": config_obj.rank_agent_enabled
-                if config_obj and hasattr(config_obj, "rank_agent_enabled")
-                else True,
-                "cmdline_attention_preprocessor_enabled": getattr(
-                    config_obj, "cmdline_attention_preprocessor_enabled", True
-                )
-                if config_obj
-                else True,
-                "proc_tree_attention_preprocessor_enabled": getattr(
-                    config_obj, "proc_tree_attention_preprocessor_enabled", True
-                )
-                if config_obj
-                else True,
-            }
-        )
+        config = dict(snapshot) if config_is_immutable else build_config_snapshot(config_obj)
 
         # Merge config_snapshot from execution (for eval runs and other overrides)
         # Use deep merge for nested dicts like agent_models, agent_prompts
