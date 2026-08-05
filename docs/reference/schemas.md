@@ -45,7 +45,7 @@ Key fields exposed via the workflow APIs:
 - `status`
 - `current_step`
 - `ranking_score`
-- `config_snapshot`
+- `config_snapshot` — the execution's immutable configuration. Resolved and hashed before dispatch by `src/services/workflow_config_snapshot.py` and persisted in the same transaction as the execution row, so configuration edits made after dispatch cannot alter the run. Carries every behavior-affecting setting (resolved prompts, models and providers, thresholds, toggles), plus `snapshot_schema_version` and a SHA-256 `snapshot_hash` over the canonicalized snapshot. `initiated_by` rides along as provenance and is excluded from the hash. Executions dispatched before this contract hold partial snapshots and fall back to the active configuration at run time; they log a non-reproducibility warning.
 - `termination_reason` (API response field; derived from `error_log` via `extract_termination_info()` — not a direct DB column)
 - `termination_details` (API response field; derived from `error_log` — not a direct DB column)
 - `error_log`

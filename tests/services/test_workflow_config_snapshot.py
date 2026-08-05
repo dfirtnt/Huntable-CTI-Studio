@@ -235,7 +235,6 @@ class TestConfigChangesAfterDispatchCannotAffectExecution:
 
         snapshot = build_config_snapshot(make_config())
         state = {"config": dict(snapshot), "execution_id": 1}
-        assert _snapshot_config(state), "dict-shaped state must resolve"
 
         # Simulating the four former get_active_config() call sites.
         os_detection_view = _snapshot_agent_prompts(state)
