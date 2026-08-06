@@ -53,9 +53,30 @@ async def test_articles_api_returns_500_not_empty_payload(async_client):
     assert response.json().get("articles") is None
 
 
-# NOTE: /api/articles/search is not covered here because it is currently
-# unreachable -- articles.router declares /api/articles/{article_id} and is
-# registered before search.router, so the path resolves to the id route and
-# 422s on "search". That shadowing is a separate pre-existing bug; once it is
-# fixed this file should gain the matching case, since api_search_articles
-# also calls list_articles.
+@pytest.mark.asyncio
+async def test_articles_search_reaches_the_search_route(async_client):
+    """/api/articles/search must resolve to the search handler, not /{article_id}.
+
+    The id route used to shadow this path and 422 on int parsing of "search".
+    """
+    with patch(
+        "src.web.routes.articles.async_db_manager.list_articles",
+        new=AsyncMock(return_value=[]),
+    ):
+        response = await async_client.get("/api/articles/search", params={"q": "emotet"})
+
+    assert response.status_code == 200, response.text
+    assert response.json()["query"] == "emotet"
+
+
+@pytest.mark.asyncio
+async def test_articles_search_returns_500_not_zero_matches(async_client):
+    """The search endpoint must 500 rather than report zero matches when the DB is down."""
+    with patch(
+        "src.web.routes.articles.async_db_manager.list_articles",
+        new=AsyncMock(side_effect=DB_ERROR),
+    ):
+        response = await async_client.get("/api/articles/search", params={"q": "emotet"})
+
+    assert response.status_code == 500
+    assert response.json().get("total_results") is None

@@ -7,68 +7,10 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Request
 
 from src.database.async_manager import async_db_manager
-from src.utils.search_parser import get_search_help_text, parse_boolean_search
+from src.utils.search_parser import get_search_help_text
 from src.web.dependencies import logger
 
 router = APIRouter(tags=["Search"])
-
-
-@router.get("/api/articles/search")
-async def api_search_articles(
-    q: str,
-    source_id: int | None = None,
-    threat_hunting_min: int | None = None,
-    limit: int | None = 100,
-    offset: int | None = 0,
-):
-    """Search articles with wildcard and boolean support."""
-    try:
-        all_articles = await async_db_manager.list_articles()
-        filtered_articles = all_articles
-
-        if source_id:
-            filtered_articles = [article for article in filtered_articles if article.source_id == source_id]
-
-        if threat_hunting_min is not None:
-            filtered_articles = [
-                article
-                for article in filtered_articles
-                if article.article_metadata
-                and article.article_metadata.get("threat_hunting_score", 0) >= threat_hunting_min
-            ]
-
-        articles_dict = [
-            {
-                "id": article.id,
-                "title": article.title,
-                "content": article.content,
-                "source_id": article.source_id,
-                "published_at": article.published_at.isoformat() if article.published_at else None,
-                "canonical_url": article.canonical_url,
-                "metadata": article.article_metadata,
-            }
-            for article in filtered_articles
-        ]
-
-        search_results = parse_boolean_search(q, articles_dict)
-
-        total_results = len(search_results)
-        paginated_results = search_results[offset : offset + limit]
-
-        return {
-            "query": q,
-            "total_results": total_results,
-            "articles": paginated_results,
-            "pagination": {
-                "offset": offset,
-                "limit": limit,
-                "has_more": offset + limit < total_results,
-            },
-        }
-
-    except Exception as exc:  # noqa: BLE001
-        logger.error("Search API error: %s", exc)
-        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/api/search/help")
@@ -111,7 +53,7 @@ async def api_semantic_search(request: Request):
         raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
-@router.get("/api/articles/{article_id}/similar")
+@router.get("/api/articles/{article_id:int}/similar")
 async def api_similar_articles(article_id: int, limit: int = 10, threshold: float = 0.7):
     """
     Find similar articles to a given article using embeddings.

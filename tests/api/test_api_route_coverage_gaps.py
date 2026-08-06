@@ -54,7 +54,9 @@ class TestHealthRouteCoverage:
 class TestSearchRouteCoverage:
     @pytest.mark.asyncio
     async def test_search_articles_handler_returns_paginated_results(self, monkeypatch: pytest.MonkeyPatch):
-        from src.web.routes import search as search_routes
+        # api_search_articles lives in the articles router: declaring it there,
+        # above /{article_id:int}, is what keeps /api/articles/search reachable.
+        from src.web.routes import articles as articles_routes
 
         articles = [
             SimpleNamespace(
@@ -76,9 +78,9 @@ class TestSearchRouteCoverage:
                 article_metadata={"threat_hunting_score": 3},
             ),
         ]
-        monkeypatch.setattr(search_routes.async_db_manager, "list_articles", AsyncMock(return_value=articles))
+        monkeypatch.setattr(articles_routes.async_db_manager, "list_articles", AsyncMock(return_value=articles))
 
-        data = await search_routes.api_search_articles(q="emotet", limit=1, offset=0)
+        data = await articles_routes.api_search_articles(q="emotet", limit=1, offset=0)
         assert data["query"] == "emotet"
         assert data["total_results"] >= 1
         assert len(data["articles"]) <= 1

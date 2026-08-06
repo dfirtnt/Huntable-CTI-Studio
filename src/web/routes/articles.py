@@ -7,6 +7,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Request
 
 from src.database.async_manager import async_db_manager
+from src.utils.search_parser import parse_boolean_search
 from src.web.dependencies import logger
 
 
@@ -153,7 +154,67 @@ async def api_articles_top(limit: int = 10):
         raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
-@router.get("/{article_id}")
+@router.get("/search")
+async def api_search_articles(
+    q: str,
+    source_id: int | None = None,
+    threat_hunting_min: int | None = None,
+    limit: int | None = 100,
+    offset: int | None = 0,
+):
+    """Search articles with wildcard and boolean support."""
+    try:
+        all_articles = await async_db_manager.list_articles()
+        filtered_articles = all_articles
+
+        if source_id:
+            filtered_articles = [article for article in filtered_articles if article.source_id == source_id]
+
+        if threat_hunting_min is not None:
+            filtered_articles = [
+                article
+                for article in filtered_articles
+                if article.article_metadata
+                and article.article_metadata.get("threat_hunting_score", 0) >= threat_hunting_min
+            ]
+
+        articles_dict = [
+            {
+                "id": article.id,
+                "title": article.title,
+                "content": article.content,
+                "source_id": article.source_id,
+                "published_at": article.published_at.isoformat() if article.published_at else None,
+                "canonical_url": article.canonical_url,
+                "metadata": article.article_metadata,
+            }
+            for article in filtered_articles
+        ]
+
+        search_results = parse_boolean_search(q, articles_dict)
+
+        total_results = len(search_results)
+        paginated_results = search_results[offset : offset + limit]
+
+        return {
+            "query": q,
+            "total_results": total_results,
+            "articles": paginated_results,
+            "pagination": {
+                "offset": offset,
+                "limit": limit,
+                "has_more": offset + limit < total_results,
+            },
+        }
+
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Search API error: %s", exc)
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
+
+
+# The ":int" converter keeps literal sibling paths (declared here or in another
+# router under this prefix) from being swallowed by the id route.
+@router.get("/{article_id:int}")
 async def api_get_article(article_id: int):
     """API endpoint for getting a specific article."""
     try:
@@ -183,7 +244,7 @@ async def api_get_article(article_id: int):
         raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
-@router.post("/{article_id}/mark-reviewed")
+@router.post("/{article_id:int}/mark-reviewed")
 async def api_mark_article_reviewed(article_id: int):
     """Mark an article as reviewed (processing complete)."""
     try:
@@ -260,7 +321,7 @@ async def api_bulk_action(request: Request):
         raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
-@router.delete("/{article_id}")
+@router.delete("/{article_id:int}")
 async def delete_article(article_id: int):
     """Delete an article and all its related data."""
     try:
@@ -286,7 +347,7 @@ async def delete_article(article_id: int):
         raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
-@router.get("/{article_id}/workflow-status")
+@router.get("/{article_id:int}/workflow-status")
 def api_get_article_workflow_status(article_id: int):
     """Return whether this article has a completed execution under the current active config.
 
