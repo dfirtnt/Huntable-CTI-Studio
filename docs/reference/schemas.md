@@ -12,6 +12,45 @@ Use these files as canonical:
 
 If this document and code disagree, trust the code.
 
+## Schema Drift
+
+`models.py` is canonical, but the live database can silently diverge from it.
+
+`Base.metadata.create_all` (called from `manager.py` and `async_manager.py` at startup)
+defaults to `checkfirst=True`. It skips any table that already exists and never
+reconciles that table's constraints or indexes. A table created by one of the
+hand-rolled `scripts/migrate_*.py` helpers therefore keeps its columns and id
+sequence but permanently loses the primary keys, foreign keys, and indexes
+`models.py` declares -- and `create_all` reports success either way.
+
+A 2026-08-06 audit found 25 of 29 declared tables drifted this way, including 18
+tables with no primary key. It has since been reconciled.
+
+Two things keep it from recurring:
+
+- `src/database/schema_drift.py` runs on every startup and logs `SCHEMA DRIFT
+  DETECTED` at ERROR when the live schema does not match `models.py`. Detection is
+  catalog-only (no table scans) and never raises.
+- `scripts/migrate_reconcile_schema.py` is the remediation. Report-only by default:
+
+```bash
+python scripts/migrate_reconcile_schema.py              # report drift
+python scripts/migrate_reconcile_schema.py --sql        # print DDL, run nothing
+python scripts/migrate_reconcile_schema.py --apply      # primary keys + indexes
+python scripts/migrate_reconcile_schema.py --apply --include-foreign-keys
+```
+
+Indexes build `CONCURRENTLY`. Primary keys, unique indexes, and foreign keys are
+preflighted for duplicates, NULLs, and orphan rows, and are reported as blocked
+rather than attempted when the data cannot support them. Foreign keys need the
+explicit flag because clearing orphans means deleting rows -- an operator decision.
+
+Startup never applies DDL: a pending `ACCESS EXCLUSIVE` lock blocks all readers of
+a table, and `CREATE INDEX CONCURRENTLY` cannot run inside a transaction.
+
+Run the reconciler after any database restore, or after any `migrate_*` script that
+creates a table.
+
 ## Articles
 
 Backed by the `articles` table.

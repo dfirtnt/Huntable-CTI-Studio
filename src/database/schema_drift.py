@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 # INSERT. scripts/migrate_pgvector_indexes.py owns HNSW indexes for these columns.
 # The class is `Vector` but the SQLAlchemy type name renders as `VECTOR`, so this
 # must match case-insensitively.
-_VECTOR_TYPE_NAMES = {"VECTOR", "HALFVEC", "SPARSEVEC", "BIT"}
+_VECTOR_TYPE_NAMES = {"VECTOR", "HALFVEC", "SPARSEVEC"}
 
 
 @dataclass
