@@ -57,6 +57,8 @@ from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Engine
 
 from src.database.models import Base
+from src.database.schema_drift import declared_indexes as _declared_indexes
+from src.database.schema_drift import live_index_coverage as _live_indexes
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
@@ -75,42 +77,8 @@ class Plan:
         return len(self.primary_keys) + len(self.indexes) + len(self.foreign_keys)
 
 
-def _is_vector(column) -> bool:
-    """True for pgvector columns, which must never receive a B-tree index.
-
-    pgvector's class is `Vector` but its SQLAlchemy type name renders as `VECTOR`,
-    so match case-insensitively rather than on an exact spelling.
-    """
-    type_name = type(column.type).__name__
-    return type_name.upper() in {"VECTOR", "HALFVEC", "SPARSEVEC", "BIT"}
-
-
 def _quote(identifier: str) -> str:
     return '"' + identifier.replace('"', '""') + '"'
-
-
-def _declared_indexes(table) -> dict[tuple[str, ...], bool]:
-    """Map column-tuple -> is_unique for every index models.py declares."""
-    declared: dict[tuple[str, ...], bool] = {}
-    for index in table.indexes:
-        columns = tuple(c.name for c in index.columns)
-        if any(_is_vector(c) for c in index.columns):
-            continue
-        declared[columns] = bool(index.unique)
-    # Column(index=True) does not appear in table.indexes
-    for column in table.columns:
-        if column.index and not _is_vector(column):
-            declared.setdefault((column.name,), bool(column.unique))
-    return declared
-
-
-def _live_indexes(inspector, table_name: str, live_pk: set[str]) -> set[tuple[str, ...]]:
-    """Column-tuples already covered by an index, including the implicit PK index."""
-    covered = {tuple(ix["column_names"]) for ix in inspector.get_indexes(table_name, schema="public")}
-    covered |= {tuple(u["column_names"]) for u in inspector.get_unique_constraints(table_name, schema="public")}
-    if live_pk:
-        covered.add(tuple(sorted(live_pk)))
-    return covered
 
 
 def _scalar(engine: Engine, sql: str) -> int:

@@ -95,21 +95,25 @@ class TestAsyncDatabaseManager:
     @pytest.mark.asyncio
     async def test_create_tables(self, manager, mock_engine):
         """Test table creation."""
-        # Mock engine.begin() to return an async context manager
+        # Mock engine.begin() / engine.connect() to return async context managers.
+        # A fresh one per call: create_tables enters them repeatedly (DDL loop, then
+        # the schema-drift check), and a single shared instance cannot be re-entered.
         from contextlib import asynccontextmanager
 
         @asynccontextmanager
-        async def mock_begin():
+        async def mock_conn():
             conn = AsyncMock()
             conn.run_sync = AsyncMock()
             yield conn
 
-        # Replace the mock_engine.begin with our async context manager
-        mock_engine.begin = Mock(return_value=mock_begin())
+        mock_engine.begin = Mock(side_effect=lambda: mock_conn())
+        mock_engine.connect = Mock(side_effect=lambda: mock_conn())
 
         await manager.create_tables()
 
         mock_engine.begin.assert_called()
+        # The drift check runs on its own connection, not inside a write transaction.
+        mock_engine.connect.assert_called()
 
     @pytest.mark.asyncio
     async def test_get_database_stats(self, manager, mock_session_factory):

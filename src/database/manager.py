@@ -202,6 +202,13 @@ class DatabaseManager:
             if os.getenv("APP_ENV", "").lower() == "production":
                 self.validate_audit_schema()
 
+            # create_all(checkfirst=True) skips existing tables and never reconciles their
+            # constraints or indexes, so drift is silent and permanent. Report it loudly;
+            # remediation is scripts/migrate_reconcile_schema.py, never startup DDL.
+            from src.database.schema_drift import log_drift
+
+            log_drift(self.engine)
+
             logger.info("Database tables created successfully")
         except Exception as e:
             logger.error(f"Failed to create database tables: {e}")

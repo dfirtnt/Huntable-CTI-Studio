@@ -201,6 +201,15 @@ class AsyncDatabaseManager:
             if os.getenv("APP_ENV", "").lower() == "production":
                 await self.validate_audit_schema()
 
+            # create_all(checkfirst=True) skips existing tables and never reconciles their
+            # constraints or indexes, so drift is silent and permanent. Report it loudly;
+            # remediation is scripts/migrate_reconcile_schema.py, never startup DDL.
+            # run_sync because detect_drift uses the sync Inspector API.
+            from src.database.schema_drift import log_drift
+
+            async with self.engine.connect() as conn:
+                await conn.run_sync(log_drift)
+
             logger.info("Database tables created successfully")
         except Exception as e:
             logger.error(f"Failed to create tables: {e}")
