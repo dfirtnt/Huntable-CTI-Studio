@@ -15,11 +15,10 @@ Invariants:
 """
 
 import re
-from pathlib import Path
 
 import pytest
 
-WORKFLOW_TEMPLATE = Path(__file__).resolve().parents[2] / "src" / "web" / "templates" / "workflow.html"
+from tests.utils.workflow_html_source import read_workflow_src
 
 
 @pytest.mark.unit
@@ -27,7 +26,7 @@ WORKFLOW_TEMPLATE = Path(__file__).resolve().parents[2] / "src" / "web" / "templ
 class TestSigmaPreviewJobLink:
     @pytest.fixture(scope="class")
     def render_rule_preview_body(self) -> str:
-        text = WORKFLOW_TEMPLATE.read_text()
+        text = read_workflow_src()
         match = re.search(
             r"function renderRulePreview\([^)]*\)\s*\{(.*?)\nfunction ",
             text,

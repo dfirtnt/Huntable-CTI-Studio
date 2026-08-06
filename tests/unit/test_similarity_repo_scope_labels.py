@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 
 from src.services.capability_service import CapabilityService
+from tests.utils.workflow_html_source import read_workflow_src
 
 pytestmark = [pytest.mark.unit]
 
@@ -32,6 +33,11 @@ SIGMA_AB_TEST = TEMPLATES_DIR / "sigma_ab_test.html"
 # ---------------------------------------------------------------------------
 def _read(path: Path) -> str:
     assert path.exists(), f"Template not found: {path}"
+    if path == WORKFLOW:
+        # workflow.html's inline script was split into src/web/static/js/workflow/*.js
+        # modules (loaded back in via <script src>); include them so substring
+        # checks still find content that moved out of the template.
+        return read_workflow_src()
     return path.read_text(encoding="utf-8")
 
 

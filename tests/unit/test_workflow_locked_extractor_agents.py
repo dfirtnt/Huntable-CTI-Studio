@@ -12,13 +12,14 @@ These are static-text checks -- no DOM or browser needed.
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 import pytest
 
+from tests.utils.workflow_html_source import read_workflow_src
+
 pytestmark = pytest.mark.unit
 
-TEMPLATE = Path("src/web/templates/workflow.html").read_text()
+TEMPLATE = read_workflow_src()
 
 # Extract the LOCKED_EXTRACTOR_AGENTS array literal so substring checks don't
 # spuriously match unrelated mentions of the agent names elsewhere in the file.

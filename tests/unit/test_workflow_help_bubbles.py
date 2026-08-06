@@ -14,13 +14,14 @@ Changes covered:
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 import pytest
 
+from tests.utils.workflow_html_source import read_workflow_src
+
 pytestmark = pytest.mark.unit
 
-TEMPLATE = Path("src/web/templates/workflow.html").read_text()
+TEMPLATE = read_workflow_src()
 
 # Extract only the helpTexts JS object so substring checks don't match
 # unrelated parts of the file (e.g. agent config selects, slider labels).

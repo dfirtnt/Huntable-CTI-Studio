@@ -15,18 +15,17 @@ immediately after the await, plus a console.warn guard.
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 import pytest
 
-WORKFLOW_TEMPLATE = Path(__file__).resolve().parents[2] / "src" / "web" / "templates" / "workflow.html"
+from tests.utils.workflow_html_source import read_workflow_src
 
 pytestmark = pytest.mark.unit
 
 
 def _load_preset_by_id_body() -> str:
-    """Extract the loadPresetById function body from workflow.html."""
-    source = WORKFLOW_TEMPLATE.read_text()
+    """Extract the loadPresetById function body from workflow.html's JS surface."""
+    source = read_workflow_src()
     # Capture from the function declaration to the next top-level function
     m = re.search(
         r"(async function loadPresetById\b.*?)(?=\nasync function |\nfunction )",

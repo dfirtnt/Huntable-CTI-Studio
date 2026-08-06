@@ -1,21 +1,19 @@
 """Regression tests for workflow agent-test button article ID handling."""
 
-from pathlib import Path
-
 import pytest
 
-WORKFLOW_TEMPLATE = Path(__file__).resolve().parents[2] / "src" / "web" / "templates" / "workflow.html"
+from tests.utils.workflow_html_source import read_workflow_src
 
 
 @pytest.mark.unit
 def test_agent_test_buttons_await_article_id_prompt():
     """Test buttons must not pass the prompt Promise as an article ID."""
-    content = WORKFLOW_TEMPLATE.read_text()
+    content = read_workflow_src()
 
     assert "const id = promptForArticleId(2155);" not in content
     assert content.count("onclick=\"promptAndTestSubAgent('") == 7
-    assert "onclick=\"promptAndTestRankAgent();\"" in content
-    assert "onclick=\"promptAndTestSigmaAgent();\"" in content
+    assert 'onclick="promptAndTestRankAgent();"' in content
+    assert 'onclick="promptAndTestSigmaAgent();"' in content
 
     for function_name in (
         "promptAndTestSubAgent",

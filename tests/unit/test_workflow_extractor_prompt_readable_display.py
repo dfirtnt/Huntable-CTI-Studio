@@ -17,13 +17,14 @@ consistent with the repo note that :8001 is Docker-served from the MAIN tree.
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 import pytest
 
+from tests.utils.workflow_html_source import read_workflow_src
+
 pytestmark = pytest.mark.unit
 
-TEMPLATE = Path("src/web/templates/workflow.html").read_text()
+TEMPLATE = read_workflow_src()
 
 # renderSinglePrompt body: from its definition up to the next top-level function.
 _RENDER_SINGLE_MATCH = re.search(

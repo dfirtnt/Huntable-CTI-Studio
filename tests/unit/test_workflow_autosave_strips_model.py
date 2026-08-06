@@ -13,13 +13,14 @@ These are static-text checks against workflow.html -- no DOM/browser needed.
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 import pytest
 
+from tests.utils.workflow_html_source import read_workflow_src
+
 pytestmark = pytest.mark.unit
 
-TEMPLATE = Path("src/web/templates/workflow.html").read_text()
+TEMPLATE = read_workflow_src()
 
 # Locate the performAutoSave function body so the strip block must live inside it.
 _FN_MATCH = re.search(
