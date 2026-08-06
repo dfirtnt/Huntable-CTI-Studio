@@ -130,16 +130,28 @@ def select_backups_to_keep(backups: list[BackupEntry], retention: dict[str, int 
 
 
 def apply_size_limit(backups: list[BackupEntry], max_size_gb: float) -> list[BackupEntry]:
-    """Drop oldest retained backups until total size is under the limit."""
+    """Drop oldest retained backups until total size is under the limit.
+
+    The newest backup is never evicted: prune runs unattended with --force, and a
+    max_size_gb smaller than a single backup would otherwise empty the retention
+    set entirely. Staying over the limit is reported; having zero backups is not
+    a recoverable state.
+    """
     max_size_mb = max_size_gb * 1024
     current_size_mb = sum(backup[2] for backup in backups)
     if current_size_mb <= max_size_mb:
         return backups
 
     remaining = sorted(backups, key=lambda backup: backup[1])
-    while current_size_mb > max_size_mb and remaining:
+    while current_size_mb > max_size_mb and len(remaining) > 1:
         removed = remaining.pop(0)
         current_size_mb -= removed[2]
+
+    if current_size_mb > max_size_mb:
+        print(
+            f"Warning: newest backup is {current_size_mb:.2f} MB, above the "
+            f"{max_size_mb:.2f} MB limit. Keeping it anyway; raise --max-size-gb."
+        )
 
     return sorted(remaining, key=lambda backup: backup[1], reverse=True)
 

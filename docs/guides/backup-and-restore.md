@@ -247,6 +247,12 @@ Full system backups provide complete system recovery capability, backing up all 
 ./scripts/backup_restore.sh verify system_backup_20251010_103000 --test-restore
 ```
 
+Verification fails (`overall_valid: false`) when the backup has no `metadata.json`,
+when the metadata is unparseable, or when the database dump is missing, empty, or
+does not match its recorded SHA-256 checksum. A backup whose `pg_dump` step failed
+records only errors in its `database` component and is rejected on that basis.
+Missing non-database components are reported as warnings, not failures.
+
 #### Restore System
 
 ```bash
@@ -585,6 +591,11 @@ print('Model loaded' if cf.load_model() else 'Model missing')
 - **Weekly**: Keep last 4 weekly backups  
 - **Monthly**: Keep last 3 monthly backups
 - **Size Limit**: Maximum 50 GB total backup size
+
+The size limit never deletes the newest backup. If a single backup exceeds
+`--max-size-gb`, pruning keeps it and prints a warning rather than emptying the
+retention set — pruning runs unattended with `--force`, and being over the limit
+is recoverable while having zero backups is not.
 
 ### Pruning Commands
 

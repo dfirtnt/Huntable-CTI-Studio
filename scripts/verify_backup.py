@@ -122,6 +122,11 @@ def validate_backup_structure(backup_path: Path) -> dict[str, Any]:
 
             # Check component directories exist
             for component_name in components:
+                if component_name == "database":
+                    # The database component is a dump file, not a directory.
+                    # Its presence and integrity are checked by
+                    # validate_file_checksums().
+                    continue
                 if component_name.startswith("docker_volume_"):
                     # Docker volume backups are files, not directories
                     volume_name = component_name.replace("docker_volume_", "")
@@ -157,12 +162,21 @@ def validate_file_checksums(backup_path: Path, metadata: dict[str, Any]) -> dict
         if not isinstance(component_data, dict):
             continue
 
-        # Check database backup checksum
-        if component_name == "database" and "checksum" in component_data:
+        # Check database backup presence and checksum
+        if component_name == "database":
             db_filename = component_data.get("filename", "")
             if db_filename:
                 db_file = backup_path / db_filename
-                if db_file.exists():
+                if not db_file.exists():
+                    # A declared-but-absent dump means there is nothing to
+                    # restore. This is a hard failure, not a warning: the whole
+                    # point of verification is to catch it before a real restore.
+                    checksum_result["valid"] = False
+                    checksum_result["errors"].append(f"Database backup file not found: {db_filename}")
+                elif db_file.stat().st_size == 0:
+                    checksum_result["valid"] = False
+                    checksum_result["errors"].append(f"Database backup file is empty: {db_filename}")
+                elif "checksum" in component_data:
                     try:
                         actual_checksum = calculate_checksum(db_file)
                         expected_checksum = component_data["checksum"]
@@ -180,7 +194,10 @@ def validate_file_checksums(backup_path: Path, metadata: dict[str, Any]) -> dict
                         checksum_result["valid"] = False
                         checksum_result["errors"].append(f"Could not verify database checksum: {e}")
                 else:
-                    checksum_result["warnings"].append(f"Database backup file not found: {db_filename}")
+                    checksum_result["warnings"].append(f"No checksum recorded for database backup: {db_filename}")
+            else:
+                checksum_result["valid"] = False
+                checksum_result["errors"].append("Database component declares no backup filename")
 
         # Check Docker volume backup checksums
         elif component_name.startswith("docker_volume_") and "checksum" in component_data:
