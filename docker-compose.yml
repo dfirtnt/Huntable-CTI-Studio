@@ -365,6 +365,69 @@ services:
       - tools
     command: ["python", "-m", "src.cli.main"]
 
+  # MCP over streamable-HTTP, for Docker MCP Gateway.
+  #
+  # The stdio launcher (scripts/run_mcp_server.sh) shells out to `docker compose
+  # run` on the host, which the Gateway — itself a container — cannot do. It can
+  # reach a remote streamable-HTTP MCP server, so this service serves the same
+  # FastMCP instance over HTTP. Same tools, same write risk tiers.
+  #
+  # Bearer-protected and fails closed: without HUNTABLE_MCP_TOKEN the app raises
+  # before binding, so the container exits instead of exposing execute_sql and
+  # the write tools unauthenticated. Published on 127.0.0.1 only.
+  #
+  #   docker compose --profile mcp up -d mcp_http
+  mcp_http:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cti_mcp_http
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=development
+      - LOG_LEVEL=INFO
+      - SOURCES_CONFIG=/app/config/sources.yaml
+      - HUNTABLE_MCP_TOKEN=${HUNTABLE_MCP_TOKEN}
+      # Bind all interfaces *inside* the container; the published port below is
+      # what actually limits exposure to the loopback interface on the host.
+      - HUNTABLE_MCP_HOST=0.0.0.0
+      - HUNTABLE_MCP_PORT=8009
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CHATGPT_API_KEY=${CHATGPT_API_KEY}
+      - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
+      - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
+    ports:
+      - "127.0.0.1:${HUNTABLE_MCP_PORT:-8009}:8009"
+    volumes:
+      - ./src:/app/src
+      - ./config:/app/config
+      - ./scripts:/app/scripts
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - hf_cache:/root/.cache/huggingface
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - cti_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8009/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    profiles:
+      - mcp
+    # Module entry point rather than run_mcp.py: only ./src is bind-mounted, so
+    # the repo-root launcher would be whatever the image was built with.
+    command: ["python", "-m", "src.huntable_mcp", "--transport", "http"]
+
   # LangFlow for Visual LangChain/LangGraph Workflow Management
   # langflow:
     # image: langflowai/langflow:latest

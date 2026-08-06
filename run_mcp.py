@@ -2,7 +2,7 @@
 """Launcher for the Huntable CTI Studio MCP server.
 
 Can be invoked from any working directory — sets up sys.path automatically.
-Usage:  python /path/to/Huntable-CTI-Studio/run_mcp.py
+Usage:  python /path/to/Huntable-CTI-Studio/run_mcp.py [--transport stdio|http]
 """
 
 import sys
@@ -12,6 +12,6 @@ _project_root = str(Path(__file__).resolve().parent)
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
-from src.huntable_mcp.stdio_server import mcp  # noqa: E402
+from src.huntable_mcp.cli import main  # noqa: E402
 
-mcp.run()
+main()

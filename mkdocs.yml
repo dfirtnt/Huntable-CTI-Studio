@@ -82,6 +82,7 @@ nav:
       - Enterprise SSO Setup: guides/enterprise-sso.md
       - Source Configuration: guides/source-config.md
       - Memory Tuning: guides/memory-tuning.md
+      - Docker MCP Gateway: guides/mcp-gateway.md
   - Architecture:
       - Overview: architecture/overview.md
       - Architecture Diagrams: internals/architecture.md
