@@ -235,3 +235,28 @@ def test_eval_constraints_help_modal_stays_within_viewport(page: Page):
     assert modal_box["y"] + modal_box["height"] <= viewport["height"], (
         "Eval constraints modal should fit within the viewport height"
     )
+
+
+@pytest.mark.ui
+def test_diagnosis_help_uses_selected_execution_and_requires_confirmation(page: Page):
+    """Diagnosis help should be actionable, safe, and tied to the selected eval run."""
+    page.goto("http://127.0.0.1:8001/mlops/agent-evals")
+    page.wait_for_load_state("load")
+    page.evaluate(
+        """
+        const button = document.getElementById('diagnosisHelpBtn');
+        button.dataset.executionId = '3468';
+        button.dataset.agentName = 'CmdlineExtract';
+        showHelp('diagnosisWorkflow');
+        """
+    )
+
+    modal = page.locator("#agentEvalsHelpModal")
+    expect(modal).to_be_visible()
+    expect(modal).to_contain_text("untrusted evidence")
+    expect(modal).to_contain_text("explicitly approve one save action")
+    expect(modal).to_contain_text("confirmed_by_user=true")
+    expect(page.locator("#diagnosisAgentPrompt")).to_have_text("Diagnose execution 3468 for CmdlineExtract")
+
+    page.keyboard.press("Escape")
+    expect(modal).not_to_be_visible()

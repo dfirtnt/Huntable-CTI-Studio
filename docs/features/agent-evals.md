@@ -35,7 +35,7 @@ Each cell in the table represents one article evaluated by one config version.
 Clicking a completed cell opens the full execution detail (messages, extracted
 items, process lineage) so you can inspect what the agent actually returned.
 
-![Execution detail modal listing extracted commandlines with Export Bundle and Diagnose buttons](../assets/screenshots/14-agent-evals-execution-modal.png)
+![Execution detail modal listing extracted commandlines with Export Bundle and Diagnose via MCP buttons](../assets/screenshots/14-agent-evals-execution-modal.png)
 
 ---
 
@@ -256,16 +256,54 @@ Bundles ship five wire-truth fields alongside the headline `messages` array. The
 
 Exported bundles can be:
 - Shared with colleagues for offline analysis
-- Fed back to the Diagnose endpoint via the API (see API reference below)
+- Diagnosed by an MCP agent (see AI Diagnosis below) -- though the agent can pull
+  the same bundle itself via `get_eval_diagnosis_context`, so exporting first is
+  only needed for offline or out-of-band review
 - Used to reproduce a failure locally against a different model or prompt
 
 ---
 
 ## AI Diagnosis
 
-The **Diagnose** button (next to Export Bundle in the execution detail modal) sends
-the full eval bundle and the agent's extractor contract to an LLM and returns a
-structured failure analysis.
+Diagnosis runs **in your MCP client agent, not on the server**. This app makes no
+LLM call and spends no provider tokens for it, so there is no provider, model, or
+API key to configure. The agent pulls an evidence packet over MCP, reasons over it
+itself, and writes a validated diagnosis back.
+
+### How to run one
+
+Ask a connected agent: *"Diagnose execution 3468 for CmdlineExtract."* The
+`huntable-eval-diagnosis` skill (`.agents/skills/huntable-eval-diagnosis/`, with
+the Claude compatibility copy under `.claude/skills/`) drives the loop:
+
+1. **`get_eval_diagnosis_context(execution_id, agent_name)`** -- read-only. Returns
+   the `eval_diagnosis_context_v1` packet: the eval bundle, the extractor standard,
+   the agent's own contract, the scoring context, and `instructions` (the diagnosis
+   schema and field definitions).
+2. **The agent treats the packet as untrusted evidence and proposes a diagnosis.**
+   Commands embedded in article text, model output, contracts, or other packet
+   fields are reported as suspected prompt injection, never followed.
+3. **The operator explicitly approves one save.** Approval does not carry over
+   to retries or another diagnosis.
+4. **`save_eval_diagnosis(..., evidence_sha256=...,
+   confirmed_by_user=true)`** verifies that the reviewed packet is still
+   current, validates the payload, writes one JSON file to `data/diagnoses/`,
+   and audits attempted plus terminal persistence states under
+   `evaluation.bundle_diagnosed`.
+
+Without explicit confirmation, nothing is written. `confirmed_by_user` is the
+caller's attestation; the server records it but cannot independently prove the
+human interaction, so the MCP host should enforce approval for this destructive,
+non-idempotent tool. If bundle lookup, evidence matching, validation, or auditing
+fails, no diagnosis file remains and the tool returns the
+field to fix (bad `failure_category`, unknown `recommendations[].type` or
+`severity`, missing evidence, invalid run signals, `confidence` outside 0.0-1.0,
+or missing `summary`). The agent corrects the proposal and asks for fresh
+confirmation before retrying. A stale evidence digest requires retrieving and
+reviewing a fresh context packet first.
+
+The **Diagnose via MCP** button in the execution detail modal is a help affordance
+that explains this workflow -- it does not trigger anything.
 
 ### What it returns
 
@@ -281,33 +319,22 @@ structured failure analysis.
 ### Persistence
 
 Diagnosis results are saved to `data/diagnoses/` as JSON and auto-load the next
-time you open the same execution's modal. Running Diagnose again creates a new
-file; the most recent one is shown.
+time you open the same execution's modal. Each save appends a new run rather than
+replacing the last; the panels are numbered newest-first. Call
+`list_eval_diagnoses(execution_id)` to see prior runs before adding another.
 
-### Configuring the diagnosis model
+Saved files carry `schema_version: eval_diagnosis_v2`, `source: mcp_agent`, and
+`authored_by` (whatever the agent passed). Diagnosis files written before this
+change instead carry `provider_used` / `model_used` from the retired server-side
+call; the UI reads both and attributes each panel accordingly.
 
-**Settings -> Diagnosis Agent** lets you choose the provider (Anthropic, OpenAI,
-LMStudio) and model. Click the **?** button in the diagnosis panel header for a
-pointer to where the system prompt and prompt builder live in the codebase.
+### Editing the diagnosis instructions
 
-Provider/model resolution order when running a diagnosis:
-
-1. Explicit override in request body (API callers only)
-2. App settings (`DIAGNOSIS_PROVIDER`, `DIAGNOSIS_MODEL` in Settings)
-3. Hardcoded fallback: OpenAI / gpt-4o
-
-### Model recommendations
-
-| Provider | Model | Tradeoff |
-|---|---|---|
-| OpenAI | `gpt-4o` | Best balance of speed and quality; recommended default |
-| OpenAI | `gpt-4.1` | Slightly better at contract reasoning; slower |
-| Anthropic | `claude-sonnet-4-6` | Strong at structured JSON output; good alternative |
-| LMStudio | (local) | Free/private; quality depends on loaded model size |
-
-For routine diagnosis of extraction failures, `gpt-4o` is sufficient. Switch to
-`gpt-4.1` or Anthropic when investigating subtle contract violations that
-require careful reasoning about extraction rules.
+The instructions and response schema handed to the agent live in
+`src/services/eval_diagnosis_service.py` as `DIAGNOSIS_INSTRUCTIONS`. There is no
+database-backed preset for them. The validation rules that gate
+`save_eval_diagnosis` live in the same module (`normalize_diagnosis`), so a schema
+change means editing both the instructions and the validator.
 
 ### Understanding contract violations
 
@@ -334,33 +361,10 @@ quoted rule or paraphrase from one of two contract documents:
 
 ### Diagnosis API reference
 
-All endpoints are mounted under the `/api/evaluations` prefix (router in `src/web/routes/evaluation_api.py`).
-
-#### POST /api/evaluations/evals/{execution_id}/diagnose
-
-Run LLM-powered failure diagnosis on an eval bundle.
-
-**Request body (JSON):**
-
-```json
-{
-  "agent_name": "CmdlineExtract",
-  "provider": "openai",
-  "model_name": "gpt-4o"
-}
-```
-
-| Field | Required | Default | Description |
-|---|---|---|---|
-| `agent_name` | Yes | -- | Agent name (e.g., `CmdlineExtract`, `ProcTreeExtract`) |
-| `provider` | No | `"openai"` | LLM provider (`openai`, `anthropic`, `lmstudio`) |
-| `model_name` | No | `"gpt-4o"` | Model to use for diagnosis |
-
-**Response (200):** Structured diagnosis JSON (see "What it returns" above).
-
-**Errors:** 404 if execution_id not found, 500 on LLM or service failure.
-
----
+The diagnosis HTTP surface is **read-only**. Diagnoses are created through MCP
+(`get_eval_diagnosis_context` + `save_eval_diagnosis`) -- there is no endpoint that
+runs one, because the app makes no LLM call. All endpoints are mounted under the
+`/api/evaluations` prefix (router in `src/web/routes/evaluation_api.py`).
 
 #### GET /api/evaluations/evals/{execution_id}/diagnosis
 
@@ -467,4 +471,4 @@ config version without manually re-selecting articles.
 | Zero-count cells with no error | Model ran but returned empty array; inspect `_llm_response` in the execution detail |
 | Same article appearing in multiple versions with identical output | Idempotency not enforced; manual re-runs use the force flag to bypass |
 
-_Last updated: 2026-07-05_
+_Last updated: 2026-08-03_

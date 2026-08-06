@@ -111,9 +111,13 @@ def test_mcp_server_registers_eval_diagnosis_tools(monkeypatch):
     tool_names = {tool.name for tool in mod.mcp._tool_manager.list_tools()}
 
     assert "get_eval_bundle" in tool_names
-    assert "diagnose_eval_bundle" in tool_names
     assert "list_eval_diagnoses" in tool_names
     assert "export_diagnosed_eval_bundles" in tool_names
+    # Diagnosis is agent-authored over MCP: context out, validated diagnosis in.
+    assert "get_eval_diagnosis_context" in tool_names
+    assert "save_eval_diagnosis" in tool_names
+    # The retired server-side LLM diagnosis tool must not come back.
+    assert "diagnose_eval_bundle" not in tool_names
     assert "get_eval_bundles_by_config" in tool_names
     assert "get_article_eval_bundle" in tool_names
     assert "get_workflow_execution_trace" in tool_names

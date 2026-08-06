@@ -15,7 +15,8 @@ Covers:
     (no inline bespoke provider picker HTML)
   - workflow.html cloud model inputs are all text fields (use_select omitted/false),
     not dropdowns, consistent with LMStudio-only select behavior in the macro
-  - settings.html diagnosis picker uses use_select=true (catalog-driven dropdowns)
+  - settings.html has no diagnosis provider/model picker (diagnosis is agent-side
+    over MCP and uses no API key)
 """
 
 import json
@@ -31,10 +32,11 @@ TEMPLATE_DIR = REPO_ROOT / "src" / "web" / "templates"
 # All page templates that could contain a model picker.
 PAGE_TEMPLATES = list(TEMPLATE_DIR.glob("*.html"))
 
-# Templates known to import + call provider_model_grid.
+# Templates known to import + call provider_model_grid. settings.html is not in
+# this set: its only picker configured the retired server-side eval diagnosis
+# call, which now runs agent-side over MCP with no provider/model to choose.
 MACRO_USING_TEMPLATES = {
     "workflow.html",
-    "settings.html",
 }
 
 # Model IDs that were previously hardcoded and must not return.
@@ -232,8 +234,7 @@ class TestWorkflowCloudInputType:
     model fields render as <input type='text'>, not <select>.  The JS populates
     them from LM Studio; cloud models are typed by the user.
 
-    This is intentional and different from settings.html diagnosis (use_select=true).
-    Guard the distinction so a future edit doesn't silently flip it.
+    Guard the shape so a future edit doesn't silently flip it.
     """
 
     @pytest.fixture(scope="class")
@@ -250,17 +251,15 @@ class TestWorkflowCloudInputType:
                 f"workflow cloud pickers should be text inputs, not dropdowns: {call[:120]}"
             )
 
-    def test_settings_diagnosis_uses_select_true(self):
-        """settings.html diagnosis call must explicitly pass use_select=true."""
+    def test_settings_has_no_diagnosis_provider_picker(self):
+        """Eval diagnosis runs through MCP + agent skill -- no provider/model config."""
         src = (TEMPLATE_DIR / "settings.html").read_text()
-        assert "provider_model_grid('diagnosis'" in src
-        # Extract the diagnosis call and verify use_select=true is present.
-        m = re.search(r"provider_model_grid\('diagnosis'[^)]+\)", src, re.DOTALL)
-        assert m, "Could not locate provider_model_grid('diagnosis'...) call in settings.html"
-        assert "use_select=true" in m.group(0), (
-            "settings.html diagnosis picker must pass use_select=true so cloud fields "
-            "render as catalog-driven dropdowns, not free-text inputs"
+        assert "provider_model_grid('diagnosis'" not in src, (
+            "settings.html must not offer a diagnosis provider/model picker -- "
+            "diagnosis is agent-authored over MCP and uses no API key"
         )
+        assert "DIAGNOSIS_PROVIDER" not in src
+        assert "DIAGNOSIS_MODEL" not in src
 
 
 # ─── Provider catalog cache freshness (workflow.html) ────────────────────────

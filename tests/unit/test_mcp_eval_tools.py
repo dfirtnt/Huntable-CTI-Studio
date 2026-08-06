@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import json
 import time
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from mcp.server.fastmcp import FastMCP
 
 from src.huntable_mcp.tools.evals import _bundle_selection, _parse_config_version, register
+from src.services.eval_diagnosis_service import compute_diagnosis_evidence_sha256
 
 pytestmark = pytest.mark.unit
 
@@ -51,10 +53,21 @@ def test_bundle_selection_rejects_unknown_subagent():
     assert agent_name is None
 
 
-def _registered_tools():
+def _registered_tools(db=None):
     mcp = FastMCP("test-evals")
-    register(mcp, MagicMock())
+    register(mcp, db or MagicMock())
     return {tool.name: tool.fn for tool in mcp._tool_manager.list_tools()}
+
+
+def _mock_async_db():
+    """Async DB manager whose get_session() works as an async context manager."""
+    session = AsyncMock()
+    ctx = MagicMock()
+    ctx.__aenter__ = AsyncMock(return_value=session)
+    ctx.__aexit__ = AsyncMock(return_value=False)
+    db = MagicMock()
+    db.get_session.return_value = ctx
+    return db, session
 
 
 def _mock_db_session():
@@ -63,18 +76,6 @@ def _mock_db_session():
     db_manager = MagicMock()
     db_manager.get_session.return_value = session
     return db_manager, session
-
-
-def _empty_settings_result():
-    result = MagicMock()
-    result.scalars.return_value.all.return_value = []
-    return result
-
-
-def _settings_result(settings):
-    result = MagicMock()
-    result.scalars.return_value.all.return_value = [MagicMock(key=key, value=value) for key, value in settings.items()]
-    return result
 
 
 @pytest.mark.asyncio
@@ -107,128 +108,426 @@ async def test_get_eval_bundle_returns_full_bundle_by_default():
     session.close.assert_called_once()
 
 
+def _valid_diagnosis() -> dict:
+    return {
+        "summary": "Extractor missed two PowerShell aliases the contract requires.",
+        "failure_category": "prompt_gap",
+        "confidence": 0.8,
+        "run_signals": {
+            "truncation_detected": False,
+            "context_pressure": "low",
+            "contract_compliance": "partial",
+            "finish_reason": "stop",
+            "token_utilization_pct": 40,
+        },
+        "root_causes": [{"cause": "Aliases not covered", "evidence": "iwr | iex present", "severity": "high"}],
+        "recommendations": [
+            {"type": "prompt_edit", "action": "Cover aliases in SCOPE", "rationale": "Common pattern", "priority": 1}
+        ],
+        "contract_violations": [],
+    }
+
+
+def _evidence_sha256(bundle: dict) -> str:
+    return compute_diagnosis_evidence_sha256(bundle, "CmdlineExtract")
+
+
+def test_no_server_side_diagnosis_tool_is_registered():
+    """The LLM-calling diagnose tool is gone; only agent-side tools remain."""
+    tools = _registered_tools()
+    assert "diagnose_eval_bundle" not in tools
+    assert "get_eval_diagnosis_context" in tools
+    assert "save_eval_diagnosis" in tools
+
+
+def test_save_eval_diagnosis_is_declared_as_a_confirmation_worthy_write():
+    mcp = FastMCP("test-evals-annotations")
+    register(mcp, MagicMock())
+    tool = next(tool for tool in mcp._tool_manager.list_tools() if tool.name == "save_eval_diagnosis")
+
+    assert tool.annotations is not None
+    assert tool.annotations.readOnlyHint is False
+    assert tool.annotations.destructiveHint is True
+    assert tool.annotations.idempotentHint is False
+    assert tool.annotations.openWorldHint is False
+
+
 @pytest.mark.asyncio
-async def test_diagnose_eval_bundle_uses_existing_service_and_saves_result():
+async def test_get_eval_diagnosis_context_returns_packet_without_llm_call():
     tools = _registered_tools()
     db_manager, session = _mock_db_session()
-    session.execute.return_value = _empty_settings_result()
 
     bundle = {"schema_version": "eval_bundle_v1", "workflow": {"execution_id": 3468}}
     bundle_service = MagicMock()
     bundle_service.generate_bundle.return_value = bundle
 
-    diagnosis = {
-        "diagnosis_id": "dx-1",
-        "execution_id": 3468,
-        "agent_name": "CmdlineExtract",
-        "summary": "No command lines were expected.",
-    }
-    diagnosis_service = MagicMock()
-    diagnosis_service.diagnose_bundle = AsyncMock(return_value=diagnosis)
-    diagnosis_service.save_diagnosis.return_value = "/tmp/3468_CmdlineExtract_dx-1.json"
-
     with (
         patch("src.huntable_mcp.tools.evals.DatabaseManager", return_value=db_manager),
         patch("src.huntable_mcp.tools.evals.EvalBundleService", return_value=bundle_service),
-        patch("src.huntable_mcp.tools.evals.LLMService", return_value=MagicMock()),
-        patch("src.huntable_mcp.tools.evals.EvalDiagnosisService", return_value=diagnosis_service),
     ):
-        result = await tools["diagnose_eval_bundle"](execution_id=3468, agent_name="CmdlineExtract")
+        result = await tools["get_eval_diagnosis_context"](execution_id=3468, agent_name="CmdlineExtract")
 
     payload = json.loads(result)
-    assert payload["diagnosis_id"] == "dx-1"
-    assert payload["_saved_path"] == "/tmp/3468_CmdlineExtract_dx-1.json"
+    assert payload["schema_version"] == "eval_diagnosis_context_v1"
+    assert payload["agent_name"] == "CmdlineExtract"
+    assert payload["bundle"] == bundle
+    assert payload["evidence_sha256"] == _evidence_sha256(bundle)
+    assert "failure_category" in payload["instructions"]
+    assert payload["contracts"]["agent_contract_file"] == "cmdline-extract.md"
     bundle_service.generate_bundle.assert_called_once_with(
         execution_id=3468,
         agent_name="CmdlineExtract",
         fetch_langfuse=True,
         slim=True,
     )
-    diagnosis_service.diagnose_bundle.assert_awaited_once_with(
-        bundle=bundle,
+    session.close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_save_eval_diagnosis_persists_and_audits():
+    db, async_session = _mock_async_db()
+    tools = _registered_tools(db=db)
+    db_manager, session = _mock_db_session()
+
+    bundle_service = MagicMock()
+    bundle = {"workflow": {"expected_count": 7, "actual_count": 4}}
+    bundle_service.generate_bundle.return_value = bundle
+
+    with (
+        patch("src.huntable_mcp.tools.evals.DatabaseManager", return_value=db_manager),
+        patch("src.huntable_mcp.tools.evals.EvalBundleService", return_value=bundle_service),
+        patch(
+            "src.huntable_mcp.tools.evals.EvalDiagnosisService.prepare_diagnosis_file",
+            return_value=(Path("/data/.dx.pending"), Path("/data/dx.json")),
+        ) as prepare,
+        patch(
+            "src.huntable_mcp.tools.evals.EvalDiagnosisService.publish_diagnosis_file",
+            return_value=Path("/data/dx.json"),
+        ) as publish,
+        patch("src.huntable_mcp.tools.evals.record_mcp_audit", new=AsyncMock()) as audit,
+    ):
+        result = await tools["save_eval_diagnosis"](
+            execution_id=3468,
+            agent_name="CmdlineExtract",
+            diagnosis=_valid_diagnosis(),
+            evidence_sha256=_evidence_sha256(bundle),
+            authored_by="claude-opus-5",
+            confirmed_by_user=True,
+            slim=False,
+        )
+
+    payload = json.loads(result)
+    assert payload["saved"] is True
+    assert payload["path"] == "/data/dx.json"
+    assert payload["diagnosis"]["source"] == "mcp_agent"
+    assert payload["diagnosis"]["authored_by"] == "claude-opus-5"
+    assert payload["diagnosis"]["score_context"]["expected_count"] == 7
+    bundle_service.generate_bundle.assert_called_once_with(
+        execution_id=3468,
         agent_name="CmdlineExtract",
-        provider="openai",
-        model_name="gpt-4o",
+        fetch_langfuse=True,
+        slim=False,
     )
-    diagnosis_service.save_diagnosis.assert_called_once_with(diagnosis)
-    session.close.assert_called_once()
+
+    assert audit.await_count == 2
+    prepare.assert_called_once()
+    publish.assert_called_once_with(Path("/data/.dx.pending"), Path("/data/dx.json"))
+    assert all(call.args[1] == "evaluation.bundle_diagnosed" for call in audit.await_args_list)
+    assert audit.await_args_list[0].kwargs["status"] == "attempted"
+    assert audit.await_args_list[1].kwargs["status"] == "success"
+    assert async_session.commit.await_count == 2
 
 
 @pytest.mark.asyncio
-async def test_diagnose_eval_bundle_uses_settings_when_no_override():
-    tools = _registered_tools()
-    db_manager, session = _mock_db_session()
-    session.execute.return_value = _settings_result(
-        {
-            "DIAGNOSIS_PROVIDER": "anthropic",
-            "DIAGNOSIS_MODEL": "claude-sonnet-4-6",
-        }
-    )
+async def test_save_eval_diagnosis_accepts_json_string():
+    db, _ = _mock_async_db()
+    tools = _registered_tools(db=db)
+    db_manager, _session = _mock_db_session()
 
     bundle_service = MagicMock()
-    bundle_service.generate_bundle.return_value = {"schema_version": "eval_bundle_v1"}
-    diagnosis_service = MagicMock()
-    diagnosis_service.diagnose_bundle = AsyncMock(return_value={"diagnosis_id": "dx-settings"})
+    bundle = {"workflow": {}}
+    bundle_service.generate_bundle.return_value = bundle
 
     with (
         patch("src.huntable_mcp.tools.evals.DatabaseManager", return_value=db_manager),
         patch("src.huntable_mcp.tools.evals.EvalBundleService", return_value=bundle_service),
-        patch("src.huntable_mcp.tools.evals.LLMService", return_value=MagicMock()),
-        patch("src.huntable_mcp.tools.evals.EvalDiagnosisService", return_value=diagnosis_service),
+        patch(
+            "src.huntable_mcp.tools.evals.EvalDiagnosisService.prepare_diagnosis_file",
+            return_value=(Path("/data/.dx.pending"), Path("/data/dx.json")),
+        ),
+        patch(
+            "src.huntable_mcp.tools.evals.EvalDiagnosisService.publish_diagnosis_file",
+            return_value=Path("/data/dx.json"),
+        ),
+        patch("src.huntable_mcp.tools.evals.record_mcp_audit", new=AsyncMock()),
     ):
-        result = await tools["diagnose_eval_bundle"](
+        result = await tools["save_eval_diagnosis"](
             execution_id=3468,
             agent_name="CmdlineExtract",
-            save=False,
+            diagnosis=json.dumps(_valid_diagnosis()),
+            evidence_sha256=_evidence_sha256(bundle),
+            confirmed_by_user=True,
         )
 
-    payload = json.loads(result)
-    assert payload["diagnosis_id"] == "dx-settings"
-    diagnosis_service.diagnose_bundle.assert_awaited_once()
-    kwargs = diagnosis_service.diagnose_bundle.await_args.kwargs
-    assert kwargs["provider"] == "anthropic"
-    assert kwargs["model_name"] == "claude-sonnet-4-6"
-    diagnosis_service.save_diagnosis.assert_not_called()
-    session.close.assert_called_once()
+    assert json.loads(result)["saved"] is True
 
 
 @pytest.mark.asyncio
-async def test_diagnose_eval_bundle_explicit_provider_model_override_settings():
-    tools = _registered_tools()
-    db_manager, session = _mock_db_session()
-    session.execute.return_value = _settings_result(
-        {
-            "DIAGNOSIS_PROVIDER": "anthropic",
-            "DIAGNOSIS_MODEL": "claude-sonnet-4-6",
-        }
-    )
+async def test_save_eval_diagnosis_rejects_invalid_payload_without_writing():
+    db, _ = _mock_async_db()
+    tools = _registered_tools(db=db)
+    db_manager, _session = _mock_db_session()
 
     bundle_service = MagicMock()
-    bundle_service.generate_bundle.return_value = {"schema_version": "eval_bundle_v1"}
-    diagnosis_service = MagicMock()
-    diagnosis_service.diagnose_bundle = AsyncMock(return_value={"diagnosis_id": "dx-override"})
+    bundle = {"workflow": {}}
+    bundle_service.generate_bundle.return_value = bundle
+    invalid = _valid_diagnosis()
+    invalid["failure_category"] = "vibes"
 
     with (
         patch("src.huntable_mcp.tools.evals.DatabaseManager", return_value=db_manager),
         patch("src.huntable_mcp.tools.evals.EvalBundleService", return_value=bundle_service),
-        patch("src.huntable_mcp.tools.evals.LLMService", return_value=MagicMock()),
-        patch("src.huntable_mcp.tools.evals.EvalDiagnosisService", return_value=diagnosis_service),
+        patch("src.huntable_mcp.tools.evals.EvalDiagnosisService.prepare_diagnosis_file") as prepare,
+        patch("src.huntable_mcp.tools.evals.record_mcp_audit", new=AsyncMock()) as audit,
     ):
-        result = await tools["diagnose_eval_bundle"](
+        result = await tools["save_eval_diagnosis"](
             execution_id=3468,
             agent_name="CmdlineExtract",
-            provider="openai",
-            model_name="gpt-4.1-mini",
-            save=False,
+            diagnosis=invalid,
+            evidence_sha256=_evidence_sha256(bundle),
+            confirmed_by_user=True,
         )
 
     payload = json.loads(result)
-    assert payload["diagnosis_id"] == "dx-override"
-    kwargs = diagnosis_service.diagnose_bundle.await_args.kwargs
-    assert kwargs["provider"] == "openai"
-    assert kwargs["model_name"] == "gpt-4.1-mini"
-    diagnosis_service.save_diagnosis.assert_not_called()
+    assert "Invalid diagnosis" in payload["error"]
+    assert "failure_category" in payload["error"]
+    prepare.assert_not_called()
+    audit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_save_eval_diagnosis_rejects_malformed_json_string():
+    db, _ = _mock_async_db()
+    tools = _registered_tools(db=db)
+
+    with patch("src.huntable_mcp.tools.evals.EvalDiagnosisService.prepare_diagnosis_file") as prepare:
+        result = await tools["save_eval_diagnosis"](
+            execution_id=3468,
+            agent_name="CmdlineExtract",
+            diagnosis="{not json",
+            evidence_sha256="0" * 64,
+            confirmed_by_user=True,
+        )
+
+    assert "not valid JSON" in json.loads(result)["error"]
+    prepare.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_save_eval_diagnosis_requires_explicit_user_confirmation():
+    db, _ = _mock_async_db()
+    tools = _registered_tools(db=db)
+
+    with (
+        patch("src.huntable_mcp.tools.evals.DatabaseManager") as database_manager,
+        patch("src.huntable_mcp.tools.evals.EvalDiagnosisService.prepare_diagnosis_file") as prepare,
+        patch("src.huntable_mcp.tools.evals.record_mcp_audit", new=AsyncMock()) as audit,
+    ):
+        result = await tools["save_eval_diagnosis"](
+            execution_id=3468,
+            agent_name="CmdlineExtract",
+            diagnosis=_valid_diagnosis(),
+            evidence_sha256="0" * 64,
+        )
+
+    payload = json.loads(result)
+    assert payload["confirmation_required"] is True
+    assert payload["saved"] is False
+    database_manager.assert_not_called()
+    prepare.assert_not_called()
+    audit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_save_eval_diagnosis_fails_closed_when_bundle_cannot_be_loaded():
+    db, _ = _mock_async_db()
+    tools = _registered_tools(db=db)
+    db_manager, session = _mock_db_session()
+    bundle_service = MagicMock()
+    bundle_service.generate_bundle.side_effect = ValueError("execution not found")
+
+    with (
+        patch("src.huntable_mcp.tools.evals.DatabaseManager", return_value=db_manager),
+        patch("src.huntable_mcp.tools.evals.EvalBundleService", return_value=bundle_service),
+        patch("src.huntable_mcp.tools.evals.EvalDiagnosisService.prepare_diagnosis_file") as prepare,
+        patch("src.huntable_mcp.tools.evals.record_mcp_audit", new=AsyncMock()) as audit,
+    ):
+        result = await tools["save_eval_diagnosis"](
+            execution_id=999999,
+            agent_name="CmdlineExtract",
+            diagnosis=_valid_diagnosis(),
+            evidence_sha256="0" * 64,
+            confirmed_by_user=True,
+        )
+
+    payload = json.loads(result)
+    assert "could not load eval bundle" in payload["error"]
+    prepare.assert_not_called()
+    audit.assert_not_awaited()
     session.close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_save_eval_diagnosis_rejects_stale_context_before_writing():
+    db, _ = _mock_async_db()
+    tools = _registered_tools(db=db)
+    db_manager, _session = _mock_db_session()
+    bundle = {"workflow": {"execution_id": 3468}, "llm_response": {"text_output": "current"}}
+    bundle_service = MagicMock()
+    bundle_service.generate_bundle.return_value = bundle
+
+    with (
+        patch("src.huntable_mcp.tools.evals.DatabaseManager", return_value=db_manager),
+        patch("src.huntable_mcp.tools.evals.EvalBundleService", return_value=bundle_service),
+        patch("src.huntable_mcp.tools.evals.EvalDiagnosisService.prepare_diagnosis_file") as prepare,
+        patch("src.huntable_mcp.tools.evals.record_mcp_audit", new=AsyncMock()) as audit,
+    ):
+        result = await tools["save_eval_diagnosis"](
+            execution_id=3468,
+            agent_name="CmdlineExtract",
+            diagnosis=_valid_diagnosis(),
+            evidence_sha256="0" * 64,
+            confirmed_by_user=True,
+        )
+
+    payload = json.loads(result)
+    assert payload["context_refresh_required"] is True
+    assert payload["saved"] is False
+    prepare.assert_not_called()
+    audit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_save_eval_diagnosis_removes_pending_file_when_audit_fails(tmp_path):
+    db, _ = _mock_async_db()
+    tools = _registered_tools(db=db)
+    db_manager, _session = _mock_db_session()
+    bundle_service = MagicMock()
+    bundle = {"workflow": {"execution_id": 3468}}
+    bundle_service.generate_bundle.return_value = bundle
+    pending_path = tmp_path / ".diagnosis.pending"
+    final_path = tmp_path / "diagnosis.json"
+
+    def prepare_then_return(_diagnosis):
+        pending_path.write_text("{}", encoding="utf-8")
+        return pending_path, final_path
+
+    with (
+        patch("src.huntable_mcp.tools.evals.DatabaseManager", return_value=db_manager),
+        patch("src.huntable_mcp.tools.evals.EvalBundleService", return_value=bundle_service),
+        patch(
+            "src.huntable_mcp.tools.evals.EvalDiagnosisService.prepare_diagnosis_file",
+            side_effect=prepare_then_return,
+        ),
+        patch(
+            "src.huntable_mcp.tools.evals.record_mcp_audit",
+            new=AsyncMock(side_effect=RuntimeError("audit unavailable")),
+        ),
+    ):
+        result = await tools["save_eval_diagnosis"](
+            execution_id=3468,
+            agent_name="CmdlineExtract",
+            diagnosis=_valid_diagnosis(),
+            evidence_sha256=_evidence_sha256(bundle),
+            confirmed_by_user=True,
+        )
+
+    assert "audit unavailable" in json.loads(result)["error"]
+    assert not pending_path.exists()
+    assert not final_path.exists()
+
+
+@pytest.mark.asyncio
+async def test_save_eval_diagnosis_removes_pending_file_when_commit_fails(tmp_path):
+    db, async_session = _mock_async_db()
+    async_session.commit.side_effect = RuntimeError("commit unavailable")
+    tools = _registered_tools(db=db)
+    db_manager, _session = _mock_db_session()
+    bundle_service = MagicMock()
+    bundle = {"workflow": {"execution_id": 3468}}
+    bundle_service.generate_bundle.return_value = bundle
+    pending_path = tmp_path / ".diagnosis.pending"
+    final_path = tmp_path / "diagnosis.json"
+
+    def prepare_then_return(_diagnosis):
+        pending_path.write_text("{}", encoding="utf-8")
+        return pending_path, final_path
+
+    with (
+        patch("src.huntable_mcp.tools.evals.DatabaseManager", return_value=db_manager),
+        patch("src.huntable_mcp.tools.evals.EvalBundleService", return_value=bundle_service),
+        patch(
+            "src.huntable_mcp.tools.evals.EvalDiagnosisService.prepare_diagnosis_file",
+            side_effect=prepare_then_return,
+        ),
+        patch("src.huntable_mcp.tools.evals.record_mcp_audit", new=AsyncMock()),
+    ):
+        result = await tools["save_eval_diagnosis"](
+            execution_id=3468,
+            agent_name="CmdlineExtract",
+            diagnosis=_valid_diagnosis(),
+            evidence_sha256=_evidence_sha256(bundle),
+            confirmed_by_user=True,
+        )
+
+    assert "commit unavailable" in json.loads(result)["error"]
+    assert not pending_path.exists()
+    assert not final_path.exists()
+
+
+@pytest.mark.asyncio
+async def test_save_eval_diagnosis_records_failure_when_publish_fails(tmp_path):
+    db, async_session = _mock_async_db()
+    tools = _registered_tools(db=db)
+    db_manager, _session = _mock_db_session()
+    bundle = {"workflow": {"execution_id": 3468}}
+    bundle_service = MagicMock()
+    bundle_service.generate_bundle.return_value = bundle
+    pending_path = tmp_path / ".diagnosis.pending"
+    final_path = tmp_path / "diagnosis.json"
+
+    def prepare_then_return(_diagnosis):
+        pending_path.write_text("{}", encoding="utf-8")
+        return pending_path, final_path
+
+    with (
+        patch("src.huntable_mcp.tools.evals.DatabaseManager", return_value=db_manager),
+        patch("src.huntable_mcp.tools.evals.EvalBundleService", return_value=bundle_service),
+        patch(
+            "src.huntable_mcp.tools.evals.EvalDiagnosisService.prepare_diagnosis_file",
+            side_effect=prepare_then_return,
+        ),
+        patch(
+            "src.huntable_mcp.tools.evals.EvalDiagnosisService.publish_diagnosis_file",
+            side_effect=RuntimeError("publish unavailable"),
+        ),
+        patch("src.huntable_mcp.tools.evals.record_mcp_audit", new=AsyncMock()) as audit,
+    ):
+        result = await tools["save_eval_diagnosis"](
+            execution_id=3468,
+            agent_name="CmdlineExtract",
+            diagnosis=_valid_diagnosis(),
+            evidence_sha256=_evidence_sha256(bundle),
+            confirmed_by_user=True,
+        )
+
+    assert "publish unavailable" in json.loads(result)["error"]
+    assert not pending_path.exists()
+    assert not final_path.exists()
+    assert audit.await_count == 2
+    assert audit.await_args_list[0].kwargs["status"] == "attempted"
+    assert audit.await_args_list[1].kwargs["status"] == "failure"
+    assert async_session.commit.await_count == 2
 
 
 @pytest.mark.asyncio

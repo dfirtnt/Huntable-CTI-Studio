@@ -51,11 +51,13 @@ async def record_mcp_audit(
     target_id: Any,
     summary: str,
     metadata: dict[str, Any] | None = None,
+    *,
+    status: str = STATUS_SUCCESS,
 ) -> None:
     """Record a mandatory MCP audit event in a caller-owned transaction."""
     await AsyncAuditService.record_mandatory(
         session,
-        mcp_audit_event(action, target_type, target_id, summary, metadata),
+        mcp_audit_event(action, target_type, target_id, summary, metadata, status=status),
     )
 
 

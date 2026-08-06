@@ -2,21 +2,33 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import re
+from pathlib import Path
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
-from sqlalchemy import select
+from mcp.types import ToolAnnotations
 
 from src.database.async_manager import AsyncDatabaseManager
 from src.database.manager import DatabaseManager
-from src.database.models import AppSettingsTable, SubagentEvaluationTable
+from src.database.models import SubagentEvaluationTable
+from src.huntable_mcp.tools.write_support import record_mcp_audit
 from src.services import eval_diagnosis_service
+from src.services.audit_service import (
+    ACTION_EVAL_BUNDLE_DIAGNOSED,
+    STATUS_ATTEMPTED,
+    STATUS_FAILURE,
+    STATUS_SUCCESS,
+)
 from src.services.eval_bundle_service import EvalBundleService
-from src.services.eval_diagnosis_service import EvalDiagnosisService
-from src.services.llm_service import LLMService
+from src.services.eval_diagnosis_service import (
+    DiagnosisValidationError,
+    EvalDiagnosisService,
+    compute_diagnosis_evidence_sha256,
+)
 from src.utils.subagent_utils import build_subagent_lookup_values
 
 logger = logging.getLogger(__name__)
@@ -38,25 +50,6 @@ _CONFIG_VERSION_PATTERN = re.compile(r"^v?(?P<version>\d+)(?P<label>[a-z])?$", r
 
 def _json_response(payload: Any) -> str:
     return json.dumps(payload, indent=2, ensure_ascii=False, default=str)
-
-
-def _resolve_provider_model(db_session, provider: str | None, model_name: str | None) -> tuple[str, str | None]:
-    resolved_provider = provider or "openai"
-    resolved_model = model_name if model_name is not None else "gpt-4o"
-
-    try:
-        result = db_session.execute(
-            select(AppSettingsTable).where(AppSettingsTable.key.in_(["DIAGNOSIS_PROVIDER", "DIAGNOSIS_MODEL"]))
-        )
-        settings_map = {setting.key: setting.value for setting in result.scalars().all()}
-        if provider is None and settings_map.get("DIAGNOSIS_PROVIDER"):
-            resolved_provider = settings_map["DIAGNOSIS_PROVIDER"]
-        if model_name is None and settings_map.get("DIAGNOSIS_MODEL"):
-            resolved_model = settings_map["DIAGNOSIS_MODEL"]
-    except Exception as e:
-        logger.warning("Could not load diagnosis settings, using MCP defaults: %s", e)
-
-    return resolved_provider, resolved_model
 
 
 def _load_saved_diagnoses(execution_id: int, agent_name: str | None = None) -> list[dict[str, Any]]:
@@ -135,7 +128,6 @@ def _new_sync_session():
 
 def register(mcp: FastMCP, db: AsyncDatabaseManager) -> None:
     """Register eval bundle and diagnosis tools on the MCP server."""
-    _ = db
 
     @mcp.tool()
     async def get_eval_bundle(
@@ -177,51 +169,258 @@ def register(mcp: FastMCP, db: AsyncDatabaseManager) -> None:
             db_session.close()
 
     @mcp.tool()
-    async def diagnose_eval_bundle(
+    async def get_eval_diagnosis_context(
         execution_id: int,
         agent_name: str,
-        provider: str | None = None,
-        model_name: str | None = None,
-        save: bool = True,
         slim: bool = True,
         include_langfuse: bool = True,
     ) -> str:
-        """Run the same LLM-powered eval diagnosis used by the web Diagnose button.
+        """Return the evidence packet for diagnosing one eval run.
+
+        Read-only. No LLM is called server-side and no provider API key is used:
+        the packet bundles the eval bundle, the extractor standard, the agent
+        contract, scoring context, and the diagnosis instructions/schema so the
+        calling agent does the reasoning. Persist the result with
+        save_eval_diagnosis.
 
         Args:
             execution_id: Workflow execution ID.
             agent_name: Agent name, e.g. CmdlineExtract.
-            provider: Optional provider override. If omitted, uses DIAGNOSIS_PROVIDER setting or openai.
-            model_name: Optional model override. If omitted, uses DIAGNOSIS_MODEL setting or gpt-4o.
-            save: Persist the diagnosis JSON to data/diagnoses for history and UI badges.
-            slim: Use a slim eval bundle for diagnosis token efficiency.
+            slim: Use a slim eval bundle to keep the packet within MCP result limits.
             include_langfuse: Fetch Langfuse request/response data when available.
         """
         db_session = _new_sync_session()
         try:
-            resolved_provider, resolved_model = _resolve_provider_model(db_session, provider, model_name)
             bundle = EvalBundleService(db_session).generate_bundle(
                 execution_id=execution_id,
                 agent_name=agent_name,
                 fetch_langfuse=include_langfuse,
                 slim=slim,
             )
-            diagnosis_service = EvalDiagnosisService(LLMService(config_models={}))
-            diagnosis = await diagnosis_service.diagnose_bundle(
-                bundle=bundle,
-                agent_name=agent_name,
-                provider=resolved_provider,
-                model_name=resolved_model,
-            )
-            if save:
-                path = diagnosis_service.save_diagnosis(diagnosis)
-                diagnosis["_saved_path"] = str(path)
-            return _json_response(diagnosis)
+            context = EvalDiagnosisService().build_context(bundle=bundle, agent_name=agent_name)
+            return _json_response(context)
         except Exception as e:
-            logger.error("MCP diagnose_eval_bundle failed for execution %s: %s", execution_id, e, exc_info=True)
+            logger.error("MCP get_eval_diagnosis_context failed for execution %s: %s", execution_id, e, exc_info=True)
             return _json_response({"error": str(e), "execution_id": execution_id, "agent_name": agent_name})
         finally:
             db_session.close()
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            readOnlyHint=False,
+            destructiveHint=True,
+            idempotentHint=False,
+            openWorldHint=False,
+        )
+    )
+    async def save_eval_diagnosis(
+        execution_id: int,
+        agent_name: str,
+        diagnosis: dict[str, Any] | str,
+        evidence_sha256: str,
+        authored_by: str | None = None,
+        confirmed_by_user: bool = False,
+        slim: bool = True,
+        include_langfuse: bool = True,
+    ) -> str:
+        """Persist an agent-authored eval diagnosis to data/diagnoses.
+
+        Caller-attested write. The caller must obtain explicit user approval
+        for this single save and pass confirmed_by_user=true. The server cannot
+        independently prove the human interaction. The tool validates
+        the diagnosis against the schema returned by get_eval_diagnosis_context,
+        verifies that evidence_sha256 still matches the reviewed context packet,
+        writes one JSON file, and audits attempted plus terminal persistence
+        states. Validation errors require fresh confirmation before retrying.
+
+        Args:
+            execution_id: Workflow execution ID the diagnosis applies to.
+            agent_name: Agent name, e.g. CmdlineExtract.
+            diagnosis: Diagnosis JSON object (or JSON string) matching the schema.
+            evidence_sha256: Digest returned by get_eval_diagnosis_context for the reviewed packet.
+            authored_by: Optional label for the agent/model that authored it.
+            confirmed_by_user: True only after explicit approval for this save call.
+            slim: Must match the context-packet retrieval option.
+            include_langfuse: Must match the context-packet retrieval option.
+        """
+        if not confirmed_by_user:
+            return _json_response(
+                {
+                    "saved": False,
+                    "confirmation_required": True,
+                    "execution_id": execution_id,
+                    "agent_name": agent_name,
+                    "message": (
+                        "Explicit user confirmation is required before saving this diagnosis. "
+                        "After approval, retry once with confirmed_by_user=true."
+                    ),
+                }
+            )
+
+        if isinstance(diagnosis, str):
+            try:
+                diagnosis = json.loads(diagnosis)
+            except json.JSONDecodeError as e:
+                return _json_response({"error": f"diagnosis is not valid JSON: {e}", "execution_id": execution_id})
+
+        db_session = _new_sync_session()
+        try:
+            bundle = EvalBundleService(db_session).generate_bundle(
+                execution_id=execution_id,
+                agent_name=agent_name,
+                fetch_langfuse=include_langfuse,
+                slim=slim,
+            )
+        except Exception as e:
+            logger.error("save_eval_diagnosis could not load eval bundle: %s", e, exc_info=True)
+            return _json_response(
+                {
+                    "error": f"could not load eval bundle; diagnosis was not saved: {e}",
+                    "execution_id": execution_id,
+                    "agent_name": agent_name,
+                }
+            )
+        finally:
+            db_session.close()
+
+        if not re.fullmatch(r"[0-9a-f]{64}", evidence_sha256 or ""):
+            return _json_response(
+                {
+                    "error": "evidence_sha256 must be the 64-character digest from get_eval_diagnosis_context",
+                    "execution_id": execution_id,
+                    "agent_name": agent_name,
+                    "saved": False,
+                }
+            )
+        current_evidence_sha256 = compute_diagnosis_evidence_sha256(bundle, agent_name)
+        if evidence_sha256 != current_evidence_sha256:
+            return _json_response(
+                {
+                    "error": "Diagnosis context is stale or does not match this execution and agent",
+                    "execution_id": execution_id,
+                    "agent_name": agent_name,
+                    "saved": False,
+                    "context_refresh_required": True,
+                    "current_evidence_sha256": current_evidence_sha256,
+                }
+            )
+
+        diagnosis_service = EvalDiagnosisService()
+        try:
+            normalized = diagnosis_service.normalize(
+                diagnosis,
+                agent_name=agent_name,
+                execution_id=execution_id,
+                bundle=bundle,
+                evidence_sha256=evidence_sha256,
+                authored_by=authored_by,
+            )
+        except DiagnosisValidationError as e:
+            return _json_response(
+                {
+                    "error": f"Invalid diagnosis: {e}",
+                    "execution_id": execution_id,
+                    "agent_name": agent_name,
+                    "hint": "Fix the field and call save_eval_diagnosis again. Nothing was written.",
+                }
+            )
+
+        pending_path: Path | None = None
+        final_path: Path | None = None
+        path: Path | None = None
+        attempted_audit_committed = False
+        published = False
+        diagnosis_sha256 = hashlib.sha256(
+            json.dumps(normalized, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+        ).hexdigest()
+        audit_metadata = {
+            "execution_id": execution_id,
+            "agent_name": agent_name,
+            "diagnosis_id": normalized["diagnosis_id"],
+            "diagnosis_sha256": diagnosis_sha256,
+            "evidence_sha256": evidence_sha256,
+            "failure_category": normalized["failure_category"],
+            "source": normalized["source"],
+            "authored_by": normalized["authored_by"],
+            "confirmation_attested_by_caller": True,
+        }
+        try:
+            pending_path, final_path = diagnosis_service.prepare_diagnosis_file(normalized)
+            async with db.get_session() as session:
+                await record_mcp_audit(
+                    session,
+                    ACTION_EVAL_BUNDLE_DIAGNOSED,
+                    "workflow_execution",
+                    execution_id,
+                    f"Preparing approved agent diagnosis for execution {execution_id} ({agent_name})",
+                    {**audit_metadata, "storage_state": "prepared"},
+                    status=STATUS_ATTEMPTED,
+                )
+                await session.commit()
+            attempted_audit_committed = True
+            path = diagnosis_service.publish_diagnosis_file(pending_path, final_path)
+            pending_path = None
+            published = True
+            async with db.get_session() as session:
+                await record_mcp_audit(
+                    session,
+                    ACTION_EVAL_BUNDLE_DIAGNOSED,
+                    "workflow_execution",
+                    execution_id,
+                    f"Saved agent diagnosis for execution {execution_id} ({agent_name})",
+                    {**audit_metadata, "storage_state": "published", "path": str(path)},
+                    status=STATUS_SUCCESS,
+                )
+                await session.commit()
+        except Exception as e:
+            logger.error("MCP save_eval_diagnosis failed for execution %s: %s", execution_id, e, exc_info=True)
+            cleanup_error = None
+            if pending_path is not None:
+                try:
+                    pending_path.unlink(missing_ok=True)
+                except OSError as cleanup_exception:
+                    cleanup_error = str(cleanup_exception)
+                    logger.critical("Could not remove pending diagnosis file %s: %s", pending_path, cleanup_exception)
+            if published and path is not None:
+                try:
+                    path.unlink(missing_ok=True)
+                except OSError as cleanup_exception:
+                    cleanup_error = str(cleanup_exception)
+                    logger.critical(
+                        "Could not remove incompletely audited diagnosis file %s: %s", path, cleanup_exception
+                    )
+            failure_audit_error = None
+            if attempted_audit_committed:
+                try:
+                    async with db.get_session() as session:
+                        await record_mcp_audit(
+                            session,
+                            ACTION_EVAL_BUNDLE_DIAGNOSED,
+                            "workflow_execution",
+                            execution_id,
+                            f"Failed to finalize agent diagnosis for execution {execution_id} ({agent_name})",
+                            {**audit_metadata, "storage_state": "failed", "error_type": type(e).__name__},
+                            status=STATUS_FAILURE,
+                        )
+                        await session.commit()
+                except Exception as audit_exception:
+                    failure_audit_error = str(audit_exception)
+                    logger.critical("Could not audit diagnosis finalization failure: %s", audit_exception)
+            payload = {"error": str(e), "execution_id": execution_id, "agent_name": agent_name, "saved": False}
+            if cleanup_error:
+                payload["cleanup_error"] = cleanup_error
+                payload["orphaned_path"] = str(pending_path)
+            if failure_audit_error:
+                payload["failure_audit_error"] = failure_audit_error
+            return _json_response(payload)
+
+        return _json_response(
+            {
+                "saved": True,
+                "path": str(path),
+                "diagnosis": normalized,
+            }
+        )
 
     @mcp.tool()
     async def list_eval_diagnoses(execution_id: int, agent_name: str | None = None) -> str:
