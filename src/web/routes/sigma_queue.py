@@ -2079,7 +2079,6 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                                 error_occurred = error_detail
                                 raise HTTPException(status_code=status_code, detail=error_detail) from e
 
-
                         elif provider == "lmstudio":
                             raw_response = await _call_traced_sigma_provider(
                                 agent_name="sigma_validation",

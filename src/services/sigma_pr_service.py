@@ -350,9 +350,7 @@ class SigmaPRService:
 
     def _validate_pr_repository(self) -> dict[str, Any]:
         """Reject the upstream SigmaHQ reference repository as a PR target."""
-        returncode, remote_url, stderr = self._run_git_command(
-            ["remote", "get-url", "origin"], check=False
-        )
+        returncode, remote_url, stderr = self._run_git_command(["remote", "get-url", "origin"], check=False)
         if returncode != 0:
             return {
                 "valid": False,

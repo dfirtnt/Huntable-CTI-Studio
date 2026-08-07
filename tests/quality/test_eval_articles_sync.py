@@ -197,7 +197,11 @@ def _build_too_short_content_params() -> list[pytest.param]:
         for article in articles:
             content = article.get("content", "")
             if article.get("expected_count", 0) > 0 and len(content.strip()) < 500:
-                params.append(pytest.param(subdir.name, article["url"], len(content.strip()), id=f"{subdir.name}::{article['url']}"))
+                params.append(
+                    pytest.param(
+                        subdir.name, article["url"], len(content.strip()), id=f"{subdir.name}::{article['url']}"
+                    )
+                )
     return params or [pytest.param("__none__", "__none__", 0, id="no_title_only_fixtures")]
 
 

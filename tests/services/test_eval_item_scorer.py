@@ -54,7 +54,7 @@ def test_ioc_defang_normalization():
 @pytest.mark.parametrize("wrapper", ["cmd /c", "cmd.exe /k", "%COMSPEC% /c"])
 def test_cmd_execution_wrappers_match_unwrapped_ground_truth(wrapper):
     """Only supported cmd execution wrappers compare as the contained command."""
-    result = score_items(["net group \"Domain Admins\" /domain"], [f"{wrapper} net group \"Domain Admins\" /domain"])
+    result = score_items(['net group "Domain Admins" /domain'], [f'{wrapper} net group "Domain Admins" /domain'])
     assert result.matched_count == 1
     assert result.missed_count == 0
     assert result.extra_count == 0

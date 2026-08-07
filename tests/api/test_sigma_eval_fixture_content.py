@@ -66,9 +66,10 @@ async def test_sigma_eval_injects_committed_fixture_content():
     assert snapshot["sigma_eval"] is True
     assert snapshot["eval_fixture_content"]
     assert len(snapshot["eval_fixture_content"]) > 1000
-    assert snapshot["eval_fixture_content_sha256"] == hashlib.sha256(
-        snapshot["eval_fixture_content"].encode("utf-8")
-    ).hexdigest()
+    assert (
+        snapshot["eval_fixture_content_sha256"]
+        == hashlib.sha256(snapshot["eval_fixture_content"].encode("utf-8")).hexdigest()
+    )
     apply_async.assert_called_once()
 
 

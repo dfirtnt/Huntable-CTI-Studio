@@ -88,13 +88,9 @@ async def api_vision_extract(request: dict):
         ) as generation:
             try:
                 if provider == "openai":
-                    result = await _call_openai_vision(
-                        image_data_url, api_key, response_metadata=response_metadata
-                    )
+                    result = await _call_openai_vision(image_data_url, api_key, response_metadata=response_metadata)
                 else:
-                    result = await _call_anthropic_vision(
-                        image_data_url, api_key, response_metadata=response_metadata
-                    )
+                    result = await _call_anthropic_vision(image_data_url, api_key, response_metadata=response_metadata)
             except Exception as error:
                 log_llm_error(generation, error, metadata={"provider": provider})
                 raise
@@ -114,9 +110,7 @@ async def api_vision_extract(request: dict):
         raise HTTPException(status_code=502, detail="Vision extraction failed") from exc
 
 
-async def _call_openai_vision(
-    image_data_url: str, api_key: str, response_metadata: dict | None = None
-) -> dict:
+async def _call_openai_vision(image_data_url: str, api_key: str, response_metadata: dict | None = None) -> dict:
     async with httpx.AsyncClient(timeout=60.0) as client:
         resp = await client.post(
             "https://api.openai.com/v1/chat/completions",
@@ -142,9 +136,7 @@ async def _call_openai_vision(
         return {"text": response_data["choices"][0]["message"]["content"].strip()}
 
 
-async def _call_anthropic_vision(
-    image_data_url: str, api_key: str, response_metadata: dict | None = None
-) -> dict:
+async def _call_anthropic_vision(image_data_url: str, api_key: str, response_metadata: dict | None = None) -> dict:
     match = re.match(r"^data:(image/[a-z]+);base64,(.+)$", image_data_url)
     if not match:
         raise HTTPException(status_code=400, detail="imageDataUrl must be a base64 data URL")

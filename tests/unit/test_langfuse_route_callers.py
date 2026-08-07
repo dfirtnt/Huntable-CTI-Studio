@@ -58,9 +58,7 @@ async def test_vision_route_records_redacted_input_and_output():
         patch("src.web.routes.scrape.trace_llm_call", return_value=trace_cm) as trace_call,
         patch("src.web.routes.scrape.log_llm_completion") as log_completion,
     ):
-        result = await api_vision_extract(
-            {"provider": "openai", "imageDataUrl": "data:image/png;base64,AAAA"}
-        )
+        result = await api_vision_extract({"provider": "openai", "imageDataUrl": "data:image/png;base64,AAAA"})
 
     assert result == {"text": "visible text"}
     trace_metadata = trace_call.call_args.kwargs["metadata"]

