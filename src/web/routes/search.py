@@ -53,7 +53,7 @@ async def api_semantic_search(request: Request):
         raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
-@router.get("/api/articles/{article_id:int}/similar")
+@router.get("/api/articles/{article_id}/similar")
 async def api_similar_articles(article_id: int, limit: int = 10, threshold: float = 0.7):
     """
     Find similar articles to a given article using embeddings.

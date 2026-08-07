@@ -71,7 +71,9 @@ async def test_sources_get_500_hides_exception_detail(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_search_500_hides_exception_detail(monkeypatch):
-    from src.web.routes import search as mod
+    # api_search_articles lives in the articles router so /api/articles/search
+    # is declared above /{article_id} and stays reachable.
+    from src.web.routes import articles as mod
 
     monkeypatch.setattr(
         mod.async_db_manager,

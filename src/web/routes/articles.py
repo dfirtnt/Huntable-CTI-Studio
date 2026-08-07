@@ -212,9 +212,10 @@ async def api_search_articles(
         raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
-# The ":int" converter keeps literal sibling paths (declared here or in another
-# router under this prefix) from being swallowed by the id route.
-@router.get("/{article_id:int}")
+# Every literal path under this prefix must be declared ABOVE this route:
+# FastAPI matches in registration order, so /{article_id} swallows any literal
+# sibling declared after it. tests/unit/test_route_shadowing.py enforces this.
+@router.get("/{article_id}")
 async def api_get_article(article_id: int):
     """API endpoint for getting a specific article."""
     try:
@@ -244,7 +245,7 @@ async def api_get_article(article_id: int):
         raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
-@router.post("/{article_id:int}/mark-reviewed")
+@router.post("/{article_id}/mark-reviewed")
 async def api_mark_article_reviewed(article_id: int):
     """Mark an article as reviewed (processing complete)."""
     try:
@@ -321,7 +322,7 @@ async def api_bulk_action(request: Request):
         raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
-@router.delete("/{article_id:int}")
+@router.delete("/{article_id}")
 async def delete_article(article_id: int):
     """Delete an article and all its related data."""
     try:
@@ -347,7 +348,7 @@ async def delete_article(article_id: int):
         raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
-@router.get("/{article_id:int}/workflow-status")
+@router.get("/{article_id}/workflow-status")
 def api_get_article_workflow_status(article_id: int):
     """Return whether this article has a completed execution under the current active config.
 
