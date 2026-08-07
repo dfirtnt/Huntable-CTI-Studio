@@ -166,7 +166,12 @@ def lmstudio_chat_url_candidates(default_url: str = "http://localhost:1234/v1") 
         if docker_url not in candidates:
             candidates.append(docker_url)
     seen: set[str] = set()
-    return [candidate for candidate in candidates if candidate not in seen and not seen.add(candidate)]
+    deduped: list[str] = []
+    for candidate in candidates:
+        if candidate not in seen:
+            seen.add(candidate)
+            deduped.append(candidate)
+    return deduped
 
 
 class LMStudioChatClient:
