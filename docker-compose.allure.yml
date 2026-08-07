@@ -12,7 +12,10 @@ services:
     environment:
       - CHECK_RESULTS_EVERY_SECONDS=30
       - KEEP_HISTORY=1
-      - KEEP_HISTORY_LATEST=10
+      - KEEP_HISTORY_LATEST=1
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
     restart: unless-stopped
     deploy:
       resources:
