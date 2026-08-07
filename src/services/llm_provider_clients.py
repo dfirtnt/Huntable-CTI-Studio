@@ -224,6 +224,10 @@ class LMStudioChatClient:
                     idx + 1,
                     len(self.url_candidates),
                 )
+                # Scalar request metrics only (model name, counts, thresholds). No API keys,
+                # tokens, or message content are logged here - the full payload dump is
+                # separately gated behind isEnabledFor(DEBUG) with content truncated.
+                # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
                 logger.debug(
                     "Request payload preview: model=%s, messages_count=%s, max_tokens=%s, temperature=%s, top_p=%s",
                     payload.get("model"),
@@ -284,6 +288,9 @@ class LMStudioChatClient:
                             logger.debug("LMStudio response content length: %s chars", len(content))
                             logger.debug("LMStudio response content preview: %s", content[:500])
                         if "usage" in result:
+                            # Token COUNT usage stats (prompt/completion totals) - not
+                            # credentials or secrets.
+                            # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
                             logger.info("LMStudio token usage: %s", result["usage"])
                         result["_provider_payload"] = payload
                         result["_provider_url"] = f"{lmstudio_url}/chat/completions"
