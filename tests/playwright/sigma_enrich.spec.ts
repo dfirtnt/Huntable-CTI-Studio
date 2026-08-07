@@ -248,7 +248,10 @@ test.describe('Sigma enrich modal — no duplicate Original Rule', () => {
     await page.locator('#enrichFurtherBtn').click();
     await expect(page.getByRole('heading', { name: 'Enrich Rule' })).toBeVisible();
     await page.locator('.prompt-input').fill('add MITRE technique mapping');
-    await page.getByRole('button', { name: 'Enrich' }).click();
+    // Use the unique id, not a role-name substring match: the page-level
+    // "Enrich" button (opens the modal) and "Enrich Further" both contain
+    // "Enrich", so getByRole('button', { name: 'Enrich' }) is ambiguous.
+    await page.locator('#enrichFurtherBtn').click();
     await expect(page.locator('#enrichIterationInfo')).toContainText(
       'iteration #2',
     );

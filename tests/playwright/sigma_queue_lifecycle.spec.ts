@@ -419,10 +419,12 @@ test.describe('Sigma Queue UI', () => {
     await page.selectOption('#queueStatusFilter', '');
     await filterRefreshPromise.catch(() => {});
 
-    // Filter by queueId to avoid matching orphaned rows from previous runs
+    // Filter by queueId to avoid matching orphaned rows from previous runs.
+    // Target the row's DOM id directly — hasText substring filtering can match
+    // neighboring rows (e.g. row 6's content containing a "7"), which is a
+    // strict-mode violation when both rows render an approve button.
     const approveBtn = page
-      .locator(`#queueTableBody tr`)
-      .filter({ hasText: String(queueId) })
+      .locator(`#queue-row-${queueId}`)
       .locator('.q-action.approve');
 
     if (!(await approveBtn.isVisible())) {
