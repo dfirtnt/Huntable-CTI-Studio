@@ -36,9 +36,11 @@ theme:
 not_in_nav: |
   superpowers/
   adr/0002-sigma-similarity-engine.md
+  audits/ui-contract-audit-2026-07-20.md
   development/cmdline-eval-audit-2026-05-31.md
   development/eval-contract-audit-prompt.md
   development/extractor-lane-partial-enablement-2026-06-12.md
+  development/langfuse-trace-audit-2026-07-26.md
   development/preset-lifecycle-tests.md
   development/queue-similarity-replay-2026-06-01.md
   development/queue-similarity-replay-2026-06-02.md
@@ -145,7 +147,7 @@ nav:
   - Contracts:
       - UX Contract (UI Designer): contracts/ui-designer.md
       - Extractor Standard: contracts/extractor-standard.md
-      - CmdLineExtract: contracts/cmdline-extract.md
+      - CmdlineExtract: contracts/cmdline-extract.md
       - ProcTreeExtract: contracts/proctree-extract.md
       - RegistryExtract: contracts/registry-extract.md
       - ServicesExtract: contracts/services-extract.md
@@ -155,7 +157,7 @@ nav:
       - Rank Agent: contracts/rank-agent.md
       - Sigma Generate: contracts/sigma-generate.md
       - Drop-in Prompts:
-          - CmdLineExtract: contracts/cmdline-extract-dropin.md
+          - CmdlineExtract: contracts/cmdline-extract-dropin.md
           - ProcTreeExtract: contracts/proctree-extract-dropin.md
           - RegistryExtract: contracts/registry-extract-dropin.md
           - ServicesExtract: contracts/services-extract-dropin.md

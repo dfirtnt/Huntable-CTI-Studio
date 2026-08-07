@@ -1,9 +1,9 @@
-# CmdLine Extractor — Drop-in Prompt
+# Cmdline Extractor — Drop-in Prompt
 
-A standalone version of the CmdLineExtract rules with the Huntable pipeline plumbing
+A standalone version of the CmdlineExtract rules with the Huntable pipeline plumbing
 removed. Paste it as the system / project instructions in a Claude or ChatGPT Project,
 then feed it a URL, pasted text, or a PDF. The full pipeline contract lives at
-[CmdLineExtract](cmdline-extract.md).
+[CmdlineExtract](cmdline-extract.md).
 
 ```text
 # Windows Command-Line Extractor — Drop-in Rules

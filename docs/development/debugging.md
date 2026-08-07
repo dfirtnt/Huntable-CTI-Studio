@@ -744,21 +744,13 @@ LIMIT 5;
 - Check worker logs: `docker logs cti_worker --tail 100`
 - Retry stuck executions via UI or API
 
-### 2. Hybrid Extractor Being Used
+### 2. Hybrid Extractor Being Used (removed — no longer a possible cause)
 
-<!-- AUDIT: Relevancy -- `use_hybrid_extractor` no longer exists anywhere in src/workflows/agentic_workflow.py or
-     src/services/llm_service.py (verified via grep, zero matches, 2026-07-17). This subsystem appears to have been
-     removed (see the deprecated HybridIOCExtractor / /extract-iocs endpoint removal, commit 51c750c0). This
-     section describes historical behavior that no longer applies to the current codebase; if LMStudio logs are
-     still missing, this is not the cause -- see the other numbered causes in this doc instead. -->
-If `use_hybrid_extractor=True`, the hybrid extractor runs first and may return results without calling LMStudio.
-
-**Check:**
-- If a hybrid extractor is enabled, it may run first and return results without calling LMStudio. Verify workflow configuration and execution logs.
-
-**Fix:**
-- Verify no hybrid extractor is enabled for the eval path (check env and workflow config).
-- Check execution logs for hybrid extractor usage.
+> **Removed** (commit `51c750c0`, 2026-05-04): `HybridIOCExtractor` and the
+> `/extract-iocs` endpoint were deleted, and the `use_hybrid_extractor` flag no longer
+> exists anywhere in the codebase. Nothing runs ahead of LMStudio on the eval path, so
+> this cannot explain missing LMStudio logs — see the other numbered causes in this
+> section instead. Retained only so the cause numbering matches older reports.
 
 ### 3. Execution Failing Before LLM Call
 The workflow may be failing at an earlier step (junk filter, OS detection, etc.).

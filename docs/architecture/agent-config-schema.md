@@ -15,7 +15,7 @@ Workflow agent configuration uses a **normalized hierarchical schema (v2)** with
   - **Features**: SigmaFallbackEnabled, CmdlineAttentionPreprocessorEnabled, ProcTreeAttentionPreprocessorEnabled. (Rank Agent enablement is controlled via `Agents.RankAgent.Enabled`. The `OSDetectionFallback` agent was removed; any stale `Agents.OSDetectionFallback` entries are stripped automatically by the v1→v2 migration.)
   - **Prompts**: Per-agent prompt/instructions (content unchanged; relocation only).
   - **Execution**: ExtractAgentSettings.DisabledAgents, OsDetectionSelectedOs.
-- **Naming normalization**: All QA agent names (`RankAgentQA`, `CmdLineQA`, `CmdlineQA`, `ProcTreeQA`, `HuntQueriesQA`, `RegistryQA`, `ServicesQA`, `ScheduledTasksQA`) are automatically removed by the migration. The QA agent subsystem was fully removed in v7.1.0 (2026-05-22).
+- **Naming normalization**: All QA agent names (`RankAgentQA`, `CmdLineQA`, `CmdlineQA`, `ProcTreeQA`, `HuntQueriesQA`, `RegistryQA`, `ServicesQA`, `ScheduledTasksQA`) are automatically removed by the migration. The QA agent subsystem was fully removed in v7.2.0 (commit `b9645305`, 2026-05-22; released 2026-05-29).
 - **No unknown keys**: Schema validation forbids unknown root keys; validation errors are explicit.
 
 ## Backward compatibility

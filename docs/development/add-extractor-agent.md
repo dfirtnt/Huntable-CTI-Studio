@@ -72,7 +72,5 @@ restart. See [Sigma rules](../features/sigma-rules.md) for the live modeled-clas
 
 ## See also
 
-- [`references/integration-checklist.md`](../contracts/extractor-standard.md) — file-by-file insertion guide with code patterns
-- [`references/workflow-html-checklist.md`](../contracts/extractor-standard.md) — the ~40-point `workflow.html` checklist
-- [Extractor Standard Contract](../contracts/extractor-standard.md) — Architecture Context block format, traceability field requirements
+- [Extractor Standard Contract](../contracts/extractor-standard.md) — Architecture Context block format, traceability field requirements, the file-by-file insertion guide, and the `workflow.html` checklist
 - [Agent Evals](../features/agent-evals.md) — how eval data directories and ground truth files are consumed

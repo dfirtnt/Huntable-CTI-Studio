@@ -15,57 +15,57 @@ This document describes a safe verification process to confirm that ML model ver
 
 The automated scripts that once ran this process (`utils/temp/verify_backup_restore_*.sh`) were removed; the manual steps below are the supported procedure. They create an isolated `cti_scraper_test` database, copy the table, back it up, restore it, and verify integrity.
 
-#### Step 1: Create Test Database
+### Step 1: Create Test Database
 ```bash
 docker exec cti_postgres psql -U cti_user -d postgres -c "CREATE DATABASE cti_scraper_test;"
 ```
 
-#### Step 2: Copy Table Structure
+### Step 2: Copy Table Structure
 ```bash
 docker exec cti_postgres pg_dump -U cti_user -d cti_scraper -t ml_model_versions --schema-only | \
   docker exec -i cti_postgres psql -U cti_user -d cti_scraper_test
 ```
 
-#### Step 3: Copy Data
+### Step 3: Copy Data
 ```bash
 docker exec cti_postgres pg_dump -U cti_user -d cti_scraper -t ml_model_versions --data-only | \
   docker exec -i cti_postgres psql -U cti_user -d cti_scraper_test
 ```
 
-#### Step 4: Verify Data Copied
+### Step 4: Verify Data Copied
 ```bash
 docker exec cti_postgres psql -U cti_user -d cti_scraper_test -c \
   "SELECT COUNT(*) FROM ml_model_versions;"
 ```
 
-#### Step 5: Create Backup
+### Step 5: Create Backup
 ```bash
 mkdir -p /tmp/backup_test
 docker exec cti_postgres pg_dump -U cti_user -d cti_scraper_test > \
   /tmp/backup_test/test_backup.sql
 ```
 
-#### Step 6: Verify Backup Contains Data
+### Step 6: Verify Backup Contains Data
 ```bash
 grep -c "ml_model_versions" /tmp/backup_test/test_backup.sql
 # Should show multiple references (table definition, COPY statement, data)
 ```
 
-#### Step 7: Drop and Restore
+### Step 7: Drop and Restore
 ```bash
 docker exec cti_postgres psql -U cti_user -d postgres -c "DROP DATABASE cti_scraper_test;"
 docker exec cti_postgres psql -U cti_user -d postgres -c "CREATE DATABASE cti_scraper_test;"
 docker exec -i cti_postgres psql -U cti_user -d cti_scraper_test < /tmp/backup_test/test_backup.sql
 ```
 
-#### Step 8: Verify Restored Count
+### Step 8: Verify Restored Count
 ```bash
 docker exec cti_postgres psql -U cti_user -d cti_scraper_test -c \
   "SELECT COUNT(*) FROM ml_model_versions;"
 # Should match production count
 ```
 
-#### Step 9: Cleanup
+### Step 9: Cleanup
 ```bash
 docker exec cti_postgres psql -U cti_user -d postgres -c "DROP DATABASE cti_scraper_test;"
 rm -rf /tmp/backup_test
