@@ -56,6 +56,7 @@ def _validate_model_path(model_path: str | None) -> str | None:
     if not candidate.is_absolute():
         candidate = _MODELS_ROOT / candidate
     try:
+        # codeql[py/path-injection] false positive: model_path validated by _validate_model_version (safe charset) at route entry; relative_to() containment check below
         candidate.resolve().relative_to(_MODELS_ROOT)
     except (ValueError, OSError) as e:
         raise HTTPException(status_code=400, detail="model_path must be inside Workshop/models") from e
