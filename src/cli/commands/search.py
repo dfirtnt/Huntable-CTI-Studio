@@ -29,9 +29,9 @@ def search(ctx: CLIContext, query: str | None, source: str | None, days: int, li
         try:
             from datetime import datetime, timedelta
 
-            # Build filter
+            # Build filter (query matches article content via content_contains)
             filter_params = ArticleFilter(
-                search_query=query, published_after=datetime.now() - timedelta(days=days), limit=limit
+                content_contains=query, published_after=datetime.now() - timedelta(days=days), limit=limit
             )
 
             if source:
@@ -43,6 +43,7 @@ def search(ctx: CLIContext, query: str | None, source: str | None, days: int, li
 
             # Get articles
             articles = db_manager.list_articles(filter_params)
+            source_names = {s.id: s.name for s in db_manager.list_sources()}
 
             if not articles:
                 console.print("[yellow]No articles found[/yellow]")
@@ -61,7 +62,7 @@ def search(ctx: CLIContext, query: str | None, source: str | None, days: int, li
                             "title": article.title,
                             "url": article.canonical_url,
                             "published_at": article.published_at.isoformat(),
-                            "source": article.source.name if article.source else None,
+                            "source": source_names.get(article.source_id),
                             "summary": article.summary,
                         }
                     )
@@ -78,7 +79,7 @@ def search(ctx: CLIContext, query: str | None, source: str | None, days: int, li
                     table.add_row(
                         str(article.id),
                         article.title[:60] + "..." if len(article.title) > 60 else article.title,
-                        article.source.name if article.source else "Unknown",
+                        source_names.get(article.source_id, "Unknown"),
                         article.published_at.strftime("%Y-%m-%d"),
                         article.canonical_url[:50] + "..."
                         if len(article.canonical_url) > 50

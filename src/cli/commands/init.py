@@ -2,9 +2,13 @@
 
 import asyncio
 import os
+from pathlib import Path
 
 import click
 from rich.table import Table
+
+from src.database.async_manager import AsyncDatabaseManager
+from src.services.source_sync import SourceSyncService
 
 from ..context import CLIContext, get_managers
 from ..utils import console
@@ -32,9 +36,17 @@ def init(ctx: CLIContext, config: str, validate_feeds: bool):
 
         try:
             async with http_client:
-                sources = await source_manager.load_sources_from_config(
-                    config_path, sync_to_db=True, validate_feeds=validate_feeds
+                source_configs = await source_manager.load_sources_from_config(
+                    config_path, validate_feeds=validate_feeds
                 )
+
+            # Single source-sync implementation (also used by `cti sync-sources`).
+            async_db = AsyncDatabaseManager(ctx.database_url)
+            try:
+                sync_service = SourceSyncService(Path(config_path), async_db)
+                sources = await sync_service.sync_configs(source_configs, remove_missing=True)
+            finally:
+                await async_db.close()
 
             console.print(f"[green]Successfully initialized with {len(sources)} sources[/green]")
 

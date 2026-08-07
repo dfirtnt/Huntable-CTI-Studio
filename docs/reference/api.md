@@ -91,7 +91,7 @@ The workflow engine writes its state into `agentic_workflow_executions` and expo
 - `POST /api/workflow/config/preset/save`
 - `PATCH /api/workflow/config/auto-trigger-threshold` — Update the auto-trigger hunt score threshold (0–100). Body: `{ "auto_trigger_hunt_score_threshold": <float> }`. **This is the only endpoint that changes this value.** It mutates the active config row in-place and is intentionally excluded from the main `PUT /api/workflow/config` endpoint and from all preset import/export paths. Manage this setting only through the Settings UI.
 
-Valid `agent_name` values for the prompts endpoints are the canonical agent names defined in `src/config/workflow_config_schema.py`: `RankAgent`, `ExtractAgent`, `SigmaAgent`, `CmdlineExtract`, `ProcTreeExtract`, `HuntQueriesExtract`, `RegistryExtract`, `ServicesExtract`, `ScheduledTasksExtract`, `NetworkIndicatorExtract`. QA agents (`RankAgentQA` and all extractor QA agents) were fully removed in v7.1.0 (2026-05-22) and are no longer valid agent names.
+Valid `agent_name` values for the prompts endpoints are the canonical agent names defined in `src/config/workflow_config_schema.py`: `RankAgent`, `ExtractAgent`, `SigmaAgent`, `CmdlineExtract`, `ProcTreeExtract`, `HuntQueriesExtract`, `RegistryExtract`, `ServicesExtract`, `ScheduledTasksExtract`, `NetworkIndicatorExtract`. QA agents (`RankAgentQA` and all extractor QA agents) were fully removed in v7.2.0 (commit `b9645305`, 2026-05-22; released 2026-05-29) and are no longer valid agent names.
 
 Each prompt object is a JSON dict with these fields:
 
@@ -141,7 +141,7 @@ Route module: `src/web/routes/models.py`. Version data is stored in the `ml_mode
 - `GET /api/sigma-queue/list` — List queued Sigma rules with pagination. Query params: `status` (optional, values: `pending`, `needs_review`, `approved`, `rejected`, `submitted`), `limit` (default 50, max 500), `offset` (default 0). Response: `{ "items": [...], "total": N, "limit": L, "offset": O }`.
 - `POST /api/sigma-queue/{queue_id}/validate` — Validate and optionally LLM-enrich a queued rule. Returns `{ "validated_yaml": ... }`.
 - `GET /api/sigma-queue/*` (other endpoints)
-- `GET /api/eval/*` — Hallucination/relevance ratings, metrics, history, comparison, agent benchmarks (route module: `src/web/routes/evaluation.py`)
+- `GET /api/eval/*` — Evaluation history, agent metrics, trends, OS-detection manual results, observables-count results, and RankAgent benchmarks (route module: `src/web/routes/evaluation.py`)
 - `/evaluations/*` — HTML evaluation UI pages (route module: `src/web/routes/evaluation_ui.py`; not API routes)
 
 #### Subagent Evaluation Endpoints

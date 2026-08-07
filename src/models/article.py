@@ -40,15 +40,24 @@ class ArticleUpdate(BaseModel):
 
 
 class ArticleListFilter(BaseModel):
-    """Filter parameters for listing articles."""
+    """Filter parameters for listing articles.
+
+    This is the full field union consumed by the shared statement builders in
+    src/database/statements.py; both DatabaseManager and AsyncDatabaseManager
+    accept it. Fields left unset are simply not applied.
+    """
 
     source_id: int | None = None
+    author: str | None = None
+    tag: str | None = None
     published_after: datetime | None = None
     published_before: datetime | None = None
     processing_status: str | None = None
     content_contains: str | None = None
     sort_by: str | None = "published_at"
     sort_order: str | None = "desc"  # "asc" or "desc"
+    offset: int | None = 0
+    limit: int | None = None
 
 
 class Article(BaseModel):

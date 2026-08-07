@@ -192,7 +192,8 @@ python3 scripts/seed_model.py
 docker-compose restart web
 ```
 
-`seed_model.py` chunks the 52 fixture articles in `config/eval_articles_data/`,
+`seed_model.py` chunks the 60 fixture articles (across categories that ship both
+`articles.json` and `ground_truth.json`) in `config/eval_articles_data/`,
 labels each chunk against the ground-truth `expected_items`, and trains a
 baseline RandomForest (F1 ≈ 0.69 huntable). The resulting pkl replaces
 pattern-only classification immediately and improves with each retrain cycle.
@@ -237,8 +238,9 @@ database automatically.
 ## Testing
 
 ### Updated Test Files
-- `tests/api/test_ml_feedback.py` - API contract tests
-- `tests/integration/test_retraining_integration.py` - Workflow tests
+<!-- AUDIT: Accuracy -- tests/api/test_ml_feedback.py and tests/integration/test_retraining_integration.py do not exist in the repo; replaced with the current equivalents. -->
+- `tests/api/test_model_endpoints_api.py` - API contract tests (`/api/model/retrain-status`, `/retrain`, `/eval-chunk-count`, `/feedback-count`, `/versions`)
+- `tests/scripts/test_retrain_fallback.py` - Retrain baseline/fallback workflow tests
 
 ### New Test Coverage
 - Database feedback storage
@@ -248,11 +250,11 @@ database automatically.
 
 ### Test Commands
 ```bash
-# Run ML feedback tests
-docker exec cti_web python -m pytest tests/api/test_ml_feedback.py -v
+# Run ML feedback/model API tests
+docker exec cti_web python -m pytest tests/api/test_model_endpoints_api.py -v
 
-# Run retraining integration tests
-docker exec cti_web python -m pytest tests/integration/test_retraining_integration.py -v
+# Run retraining fallback tests
+docker exec cti_web python -m pytest tests/scripts/test_retrain_fallback.py -v
 ```
 
 ## Monitoring

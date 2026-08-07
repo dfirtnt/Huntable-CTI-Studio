@@ -19,7 +19,7 @@ This guide covers the day-to-day edit loop. For what the on-disk `src/prompts/` 
 
 ## What the system expects from an extract prompt
 
-Every extract sub-agent must emit **per-item traceability fields** on every extracted object. The runtime appends a reminder to your user prompt automatically (`_traceability_block` in `src/services/llm_service.py`), but your prompt body should reinforce it in the JSON schema and examples.
+Every extract sub-agent must emit **per-item traceability fields** on every extracted object. The runtime appends a reminder to your user prompt automatically (`_traceability_common` in `src/services/llm_service.py`), but your prompt body should reinforce it in the JSON schema and examples.
 
 ### Required fields on every item
 
@@ -46,7 +46,7 @@ Confidence is **self-reported by the model**, not derived from log-probs. The ru
 
 You do not need to defend against these in the prompt:
 
-- Numeric coercion of `confidence_score` and range-clamping to `[0.0, 1.0]`.
+- Numeric coercion of `confidence_score`; values outside `[0.0, 1.0]` (or non-numeric) are discarded (set to `None`), not clamped to the nearest boundary.
 - Fallback mapping of a stray `confidence_level` string (`high`/`medium`/`low`) to `0.95`/`0.7`/`0.4`.
 - Wrapping bare-string items into `{"value": ..., "confidence_score": None}`.
 
@@ -63,13 +63,13 @@ All seven extract sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtrac
 | `json_example` | A populated JSON example matching the required output schema |
 | `instructions` | Long-form rules: extraction scope, field rules, exclusions, validation checklist. If absent, the runtime substitutes `"Output valid JSON only."` — no schema constraints are enforced. |
 
-**`role` is required.** If the parsed prompt config contains neither `role` nor `system`, `_validate_preprocess_invariants` in `src/services/llm_service.py` raises a `PreprocessInvariantError` and aborts the call before it reaches the model. This is classified as `infra_failed`, not a model failure, so it does not consume QA retries. The symptom is a silent extraction failure with no LLM response logged.
+**`role` is required.** If the parsed prompt config contains neither `role` nor `system`, `_validate_preprocess_invariants` in `src/services/llm_service.py` raises a `PreprocessInvariantError` and aborts the call before it reaches the model. This is classified as `infra_failed`, not a model failure (`src/services/eval_bundle_service.py` marks it distinctly for eval scoring). The symptom is a silent extraction failure with no LLM response logged.
 
 **`user_template` is code-owned — do not store it in presets.** The user message scaffold (Title/URL/Content headers, traceability block, and instructions footer) is an inline f-string assembled at runtime in `run_extraction_agent()` (`src/services/llm_service.py`). Preset authors control the system message content via the four keys above; the runtime controls how they are assembled into the user message. Any `user_template` key found in a saved prompt is ignored by the backend.
 
 ## QA
 
-The QA agent subsystem was fully removed in v7.1.0 (2026-05-22). There are no QA agents in the pipeline. All six extraction sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract) and the RankAgent output go directly to the next pipeline stage.
+The QA agent subsystem was fully removed in v7.1.0 (2026-05-22). There are no QA agents in the pipeline. All seven extraction sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract, NetworkIndicatorExtract) and the RankAgent output go directly to the next pipeline stage.
 
 ## Versioning and rollback
 

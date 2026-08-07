@@ -41,6 +41,7 @@ psql postgresql://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
 
 ### View All Sources
 
+<!-- AUDIT: Accuracy -- `sources` has no `tier` column (verified against src/database/models.py SourceTable); removed from the "Only active sources" SELECT below. -->
 ```sql
 -- All sources with their details
 SELECT id, name, url, rss_url, active, created_at
@@ -48,7 +49,7 @@ FROM sources
 ORDER BY name;
 
 -- Only active sources
-SELECT name, url, rss_url, tier 
+SELECT name, url, rss_url 
 FROM sources 
 WHERE active = true 
 ORDER BY name;
@@ -130,9 +131,12 @@ ORDER BY date DESC;
 
 ### Source Management
 
+<!-- AUDIT: Accuracy -- INSERT column list previously had 8 names but 10 values (SQL error). Column list below
+     corrected to match the existing values and src/database/models.py SourceTable field types
+     (lookback_days: Integer, average_response_time: Float, check_frequency: Integer). -->
 ```sql
 -- Add a new source (id is auto-increment, use identifier for the string key)
-INSERT INTO sources (identifier, name, url, rss_url, check_frequency, active, created_at, updated_at)
+INSERT INTO sources (identifier, name, url, rss_url, lookback_days, average_response_time, check_frequency, active, created_at, updated_at)
 VALUES (
     'new_source_id',
     'New Source Name',
@@ -296,10 +300,6 @@ ORDER BY SIMILARITY(a1.title, a2.title) DESC;
 
 ### Additional Tables
 
-#### `content_hashes`
-- Stores content hashes for deduplication
-- Links to articles via `article_id`
-
 #### `simhash_buckets`
 - Stores simhash buckets for similarity detection
 - Links to articles via `article_id`
@@ -362,34 +362,6 @@ docker exec cti_postgres pg_dump -U cti_user cti_scraper > backup_$(date +%Y%m%d
 
 # Restore from backup
 docker exec -i cti_postgres psql -U cti_user cti_scraper < backup_file.sql
-```
-
-### Text Highlights Migration
-
-When restoring a database that contains the legacy `text_highlights` table, the system will automatically migrate annotations to the new `article_annotations` table:
-
-```sql
--- Check migration status
-SELECT 
-    (SELECT COUNT(*) FROM article_annotations) as current_annotations,
-    (SELECT COUNT(*) FROM text_highlights) as legacy_highlights;
-
--- Manual migration (if needed)
-INSERT INTO article_annotations (article_id, annotation_type, selected_text, start_position, end_position, created_at, updated_at)
-SELECT 
-    article_id,
-    CASE WHEN is_huntable = true THEN 'huntable' ELSE 'not_huntable' END,
-    selected_text,
-    start_offset,
-    end_offset,
-    COALESCE(categorized_at, created_at),
-    updated_at
-FROM text_highlights
-WHERE NOT EXISTS (
-    SELECT 1 FROM article_annotations aa 
-    WHERE aa.article_id = text_highlights.article_id 
-    AND aa.selected_text = text_highlights.selected_text
-);
 ```
 
 ## Security Notes

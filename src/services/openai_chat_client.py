@@ -50,6 +50,7 @@ async def openai_chat_completions(
     max_tokens: int = 2000,
     temperature: float = 0.3,
     timeout: float = 60.0,
+    response_metadata: dict[str, Any] | None = None,
 ) -> str:
     """
     Call OpenAI Chat Completions API. Retries with alternate params on unsupported-parameter errors.
@@ -75,6 +76,8 @@ async def openai_chat_completions(
 
         if response.status_code == 200:
             result = response.json()
+            if response_metadata is not None:
+                response_metadata.update({"model": result.get("model"), "usage": result.get("usage")})
             return result["choices"][0]["message"]["content"]
 
         error_text = response.text.lower()
@@ -101,6 +104,8 @@ async def openai_chat_completions(
             )
             if retry.status_code == 200:
                 result = retry.json()
+                if response_metadata is not None:
+                    response_metadata.update({"model": result.get("model"), "usage": result.get("usage")})
                 logger.info(
                     "OpenAI retry succeeded with %s params",
                     "reasoning" if not use_reasoning else "standard",

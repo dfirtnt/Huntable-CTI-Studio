@@ -1,4 +1,4 @@
-"""One-shot backfill: re-scrape articles whose stored content has no newlines.
+"""One-shot backfill: re-scrape articles whose stored content needs repair.
 
 The early scrape pipeline used soup.get_text(strip=True) which collapses all
 block-level newlines into spaces. ContentCleaner.clean_html() was later fixed
@@ -11,10 +11,19 @@ config/eval_articles_data/*/articles.json) are EXCLUDED and never touched.
 Eval doctrine is forward-only; ground truth is never changed to chase a
 pipeline bug.
 
+CONTENT-LOSS GUARD: publishers edit articles after we capture them, so a fresh
+fetch that is materially smaller than what we stored is drift, not a repair.
+Articles below --min-ratio are SKIPPED rather than overwritten, and the
+fresh/stored ratio is logged on every skip and every write so drift is visible
+in the run output.
+
 Usage:
     uv run --frozen scripts/rescrape_collapsed_articles.py --dry-run
     uv run --frozen scripts/rescrape_collapsed_articles.py --limit 50
     uv run --frozen scripts/rescrape_collapsed_articles.py            # all
+    uv run --frozen scripts/rescrape_collapsed_articles.py \
+        --all-content --min-hunt-score 90 --min-length 0
+    uv run --frozen scripts/rescrape_collapsed_articles.py --min-ratio 0.5  # lossy
 
 Options:
     --dry-run        Print which articles would be updated; make no DB writes.
@@ -22,7 +31,12 @@ Options:
     --delay SECS     Seconds to sleep between fetches (default: 1.5).
     --min-length N   Minimum content length to consider collapsed (default: 5000).
     --source-id N    Restrict to a single source_id (optional).
+    --min-hunt-score N  Restrict to articles with a higher hunt score (optional).
+    --all-content    Include structured rows; requires --min-hunt-score.
+    --min-ratio R    Require fresh content >= R x the stored length (default: 0.95).
+                     Use 0.5 to deliberately allow lossy overwrites.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -31,7 +45,6 @@ import logging
 import pathlib
 import sys
 import time
-from datetime import datetime
 from typing import Any
 
 import httpx
@@ -46,7 +59,6 @@ sys.path.insert(0, str(ROOT))
 
 from src.database.manager import DatabaseManager
 from src.utils.content import ContentCleaner
-from src.utils.simhash import compute_article_simhash
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(message)s")
 logger = logging.getLogger(__name__)
@@ -90,26 +102,45 @@ def _load_eval_urls() -> frozenset[str]:
 # ---------------------------------------------------------------------------
 
 SELECT_COLLAPSED = """
-SELECT id, canonical_url, title, word_count
+SELECT id, canonical_url, content, title, word_count
 FROM articles
 WHERE length(content) >= :min_length
-  AND array_length(string_to_array(content, chr(10)), 1) - 1 = 0
+  {content_filter}
   AND archived = FALSE
+  {hunt_score_filter}
   {source_filter}
 ORDER BY id
 """
 
 
-def _fetch_collapsed_rows(
+def _fetch_rows(
     db: DatabaseManager,
     min_length: int,
     source_id: int | None,
+    min_hunt_score: float | None,
+    all_content: bool,
 ) -> list[dict[str, Any]]:
     source_filter = "AND source_id = :source_id" if source_id is not None else ""
-    sql = SELECT_COLLAPSED.format(source_filter=source_filter)
+    content_filter = "" if all_content else "AND array_length(string_to_array(content, chr(10)), 1) - 1 = 0"
+    hunt_score_filter = ""
+    if min_hunt_score is not None:
+        hunt_score_filter = """
+        AND CASE
+            WHEN article_metadata ->> 'threat_hunting_score' ~ '^[0-9]+([.][0-9]+)?$'
+            THEN (article_metadata ->> 'threat_hunting_score')::numeric
+            ELSE 0
+        END > :min_hunt_score
+        """
+    sql = SELECT_COLLAPSED.format(
+        content_filter=content_filter,
+        hunt_score_filter=hunt_score_filter,
+        source_filter=source_filter,
+    )
     params: dict[str, Any] = {"min_length": min_length}
     if source_id is not None:
         params["source_id"] = source_id
+    if min_hunt_score is not None:
+        params["min_hunt_score"] = min_hunt_score
 
     with db.get_session() as session:
         rows = session.execute(text(sql), params).mappings().all()
@@ -180,6 +211,53 @@ def _reprocess(html: str, title: str) -> tuple[str, str, int]:
     return new_content, new_hash, new_word_count
 
 
+MIN_REFRESH_CONTENT_CHARS = 500
+
+# Default drift floor. Upstream publishers routinely edit articles after we
+# capture them, so a re-scrape that comes back materially smaller is a silent
+# content-loss event, not a repair. Measured case: article 6759 (Sekoia) stored
+# 18,177 chars but re-fetched at ~14,200 (0.78x) after the publisher edited the
+# page — a permissive floor would have destroyed 4,000 chars of archived CTI.
+DEFAULT_MIN_EXISTING_CONTENT_RATIO = 0.95
+
+# Explicit escape hatch for operators who knowingly accept lossy overwrites,
+# e.g. `--min-ratio 0.5`. Never the default.
+LOOSE_MIN_EXISTING_CONTENT_RATIO = 0.5
+
+
+def _content_ratio(existing_content: str, fresh_content: str) -> float:
+    """Fresh/existing length ratio; inf when nothing was stored to lose."""
+    existing_length = len(existing_content)
+    if existing_length == 0:
+        return float("inf")
+    return len(fresh_content) / existing_length
+
+
+def _validate_refresh_content(
+    existing_content: str,
+    fresh_content: str,
+    min_ratio: float = DEFAULT_MIN_EXISTING_CONTENT_RATIO,
+) -> float:
+    """Reject title shells and content regressions before a DB update.
+
+    Returns the fresh/existing length ratio so callers can log drift.
+    """
+    fresh_length = len(fresh_content)
+    existing_length = len(existing_content)
+    ratio = _content_ratio(existing_content, fresh_content)
+
+    if fresh_length < MIN_REFRESH_CONTENT_CHARS:
+        raise ValueError(f"fresh content too short ({fresh_length} < {MIN_REFRESH_CONTENT_CHARS})")
+    if fresh_length < existing_length * min_ratio:
+        raise ValueError(
+            f"fresh content regressed to {ratio:.2f}x of stored, below the "
+            f"{min_ratio:.2f}x floor ({fresh_length} < {existing_length * min_ratio:.0f} chars)"
+        )
+    if fresh_content.count("\n") == 0:
+        raise ValueError("fresh content has 0 newlines")
+    return ratio
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -191,12 +269,21 @@ async def main(
     delay: float,
     min_length: int,
     source_id: int | None,
+    min_hunt_score: float | None,
+    all_content: bool,
+    min_ratio: float = DEFAULT_MIN_EXISTING_CONTENT_RATIO,
 ) -> None:
     eval_urls = _load_eval_urls()
     db = DatabaseManager()
 
-    rows = _fetch_collapsed_rows(db, min_length, source_id)
-    logger.info("Found %d collapsed articles in DB", len(rows))
+    logger.info(
+        "Content-loss floor: fresh content must be >= %.2fx the stored length",
+        min_ratio,
+    )
+
+    rows = _fetch_rows(db, min_length, source_id, min_hunt_score, all_content)
+    selection_description = "eligible articles" if all_content else "collapsed articles"
+    logger.info("Found %d %s in DB", len(rows), selection_description)
 
     # Filter eval-pinned
     candidates = [r for r in rows if r["canonical_url"].rstrip("/") not in eval_urls]
@@ -232,15 +319,29 @@ async def main(
         else:
             try:
                 new_content, new_hash, new_wc = _reprocess(html, title)
-                new_newlines = new_content.count("\n")
-                if new_newlines == 0:
+                existing_content = row["content"] or ""
+                ratio = _content_ratio(existing_content, new_content)
+                try:
+                    _validate_refresh_content(existing_content, new_content, min_ratio)
+                except ValueError as exc:
                     logger.warning(
-                        "  SKIP — re-processed content still has 0 newlines (site may block scraping)"
+                        "  SKIP — %s [ratio %.2fx: stored %d chars -> fresh %d chars]",
+                        exc,
+                        ratio,
+                        len(existing_content),
+                        len(new_content),
                     )
                     skipped += 1
                 else:
                     _update_article_content(db, article_id, new_content, new_hash, new_wc)
-                    logger.info("  OK — restored %d newlines, %d words", new_newlines, new_wc)
+                    logger.info(
+                        "  OK — ratio %.2fx (stored %d chars -> fresh %d chars), %d newlines, %d words",
+                        ratio,
+                        len(existing_content),
+                        len(new_content),
+                        new_content.count("\n"),
+                        new_wc,
+                    )
                     updated += 1
             except Exception as exc:
                 logger.error("  ERROR — %s", exc)
@@ -258,14 +359,41 @@ async def main(
     )
 
 
-if __name__ == "__main__":
+def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--dry-run", action="store_true", help="Print plan; make no DB writes")
     parser.add_argument("--limit", type=int, default=None, help="Max articles to process")
     parser.add_argument("--delay", type=float, default=1.5, help="Seconds between fetches")
     parser.add_argument("--min-length", type=int, default=5000, help="Min content chars to consider")
     parser.add_argument("--source-id", type=int, default=None, help="Restrict to a single source_id")
+    parser.add_argument("--min-hunt-score", type=float, default=None, help="Require a higher hunt score")
+    parser.add_argument(
+        "--all-content",
+        action="store_true",
+        help="Include structured rows; requires --min-hunt-score",
+    )
+    parser.add_argument(
+        "--min-ratio",
+        type=float,
+        default=DEFAULT_MIN_EXISTING_CONTENT_RATIO,
+        help=(
+            "Skip an article unless the fresh content is at least this multiple of the "
+            f"stored length (default: {DEFAULT_MIN_EXISTING_CONTENT_RATIO}). "
+            f"Pass --min-ratio {LOOSE_MIN_EXISTING_CONTENT_RATIO} to accept lossy overwrites."
+        ),
+    )
+    return parser
+
+
+if __name__ == "__main__":
+    parser = _build_parser()
     args = parser.parse_args()
+
+    if args.all_content and args.min_hunt_score is None:
+        parser.error("--all-content requires --min-hunt-score to prevent a broad re-scrape")
+
+    if args.min_ratio <= 0:
+        parser.error("--min-ratio must be greater than 0")
 
     asyncio.run(
         main(
@@ -274,5 +402,8 @@ if __name__ == "__main__":
             delay=args.delay,
             min_length=args.min_length,
             source_id=args.source_id,
+            min_hunt_score=args.min_hunt_score,
+            all_content=args.all_content,
+            min_ratio=args.min_ratio,
         )
     )

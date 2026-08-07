@@ -16,10 +16,11 @@ import json
 import logging
 import re
 from datetime import datetime
-from typing import Any, TypedDict
+from typing import Any
 
 import yaml
 from langgraph.graph import END, StateGraph
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -39,6 +40,7 @@ from src.services.sigma_eval_service import (
 )
 from src.services.sigma_generation_service import _infer_observables_used
 from src.services.sigma_matching_service import SigmaMatchingService
+from src.services.workflow_config_snapshot import build_config_snapshot, snapshot_is_complete
 from src.services.workflow_provider_options import _probe_lmstudio
 from src.services.workflow_trigger_service import WorkflowTriggerService
 from src.utils.content_filter import ContentFilter
@@ -98,6 +100,35 @@ def _bool_from_value(val: Any) -> bool:
     if isinstance(val, str):
         return val.lower() == "true"
     return bool(val)
+
+
+def _snapshot_config(state: Any) -> dict[str, Any]:
+    """Return the execution's immutable configuration snapshot from workflow state.
+
+    Every node reads configuration through this rather than calling
+    ``get_active_config()``. ``state["config"]`` is seeded once in ``run_workflow()``
+    from ``execution.config_snapshot``, so a node's view of the configuration is fixed
+    at dispatch and unaffected by edits made while the run is queued or in flight.
+
+    Nodes receive a ``WorkflowState`` pydantic model, not a plain dict, so this reads
+    through ``.get()`` when available and falls back to attribute access. Guarding on
+    ``isinstance(state, dict)`` here silently yields an empty config on every real run.
+    """
+    getter = getattr(state, "get", None)
+    config = getter("config") if callable(getter) else getattr(state, "config", None)
+    return config if isinstance(config, dict) else {}
+
+
+def _snapshot_agent_models(state: Any) -> dict[str, Any]:
+    """Per-agent model/provider map from the execution snapshot (never the live config)."""
+    models = _snapshot_config(state).get("agent_models")
+    return models if isinstance(models, dict) else {}
+
+
+def _snapshot_agent_prompts(state: Any) -> dict[str, Any]:
+    """Resolved agent prompts from the execution snapshot (never the live config)."""
+    prompts = _snapshot_config(state).get("agent_prompts")
+    return prompts if isinstance(prompts, dict) else {}
 
 
 def _normalize_platform_value(value: Any) -> str:
@@ -721,8 +752,15 @@ def summarize_rule_novelty(match_result: dict, threshold: float = 0.5) -> dict:
     }
 
 
-class WorkflowState(TypedDict):
-    """State for the agentic workflow."""
+class WorkflowState(BaseModel):
+    """Validated state channels for the agentic workflow.
+
+    LangGraph validates this model whenever it builds state for a node.  The
+    mapping helpers preserve the existing node API while the workflow is
+    incrementally migrated to attribute access.
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid", validate_assignment=True)
 
     article_id: int
     execution_id: int
@@ -767,6 +805,26 @@ class WorkflowState(TypedDict):
     status: str | None
     termination_reason: str | None
     termination_details: dict[str, Any] | None
+
+    # CmdlineExtract publishes these intermediate values for downstream SIGMA
+    # generation. They must be explicit channels so assignment is validated.
+    cmdline_items: list[Any] | None
+    count: int | None
+
+    def __getitem__(self, key: str) -> Any:
+        return getattr(self, key)
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        setattr(self, key, value)
+
+    def __contains__(self, key: object) -> bool:
+        return isinstance(key, str) and key in self.__class__.model_fields
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return getattr(self, key, default)
+
+    def keys(self):
+        return self.model_dump(exclude_none=True).keys()
 
 
 def _mark_pending_subagent_evals_as_failed(
@@ -1011,11 +1069,12 @@ def _update_single_eval_record(
             actual_items = _extract_actual_items(eval_record.subagent_name, subresults)
             if actual_items is None:
                 actual_items = []
-            result = score_items(eval_record.expected_items, actual_items)
+            result = score_items(eval_record.expected_items, actual_items, eval_record.acceptable_items)
             eval_record.actual_items = actual_items
             eval_record.matched_count = result.matched_count
             eval_record.missed_count = result.missed_count
             eval_record.extra_count = result.extra_count
+            eval_record.neutral_count = result.neutral_count
 
         # Update eval record
         eval_record.actual_count = actual_count
@@ -1196,6 +1255,7 @@ async def _maybe_adjudicate_platform(
     detected_os: Any,
     execution_id: int,
     os_detection_prompt: str | None = None,
+    article_id: int | None = None,
 ) -> tuple[dict[str, Any], Any]:
     """Phase B: LLM platform adjudication for the inconclusive (KB Unknown/low) tail.
 
@@ -1223,6 +1283,7 @@ async def _maybe_adjudicate_platform(
                 name="platform_adjudication",
                 model=model_name,
                 execution_id=execution_id,
+                article_id=article_id,
                 metadata={
                     "agent_name": "platform_adjudication",
                     "prompt_length": sum(len(m.get("content", "")) for m in messages),
@@ -1372,10 +1433,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     # the adjudicator falls back to its built-in default when this is unset.
                     os_det_prompt = None
                     try:
-                        from src.services.workflow_trigger_service import WorkflowTriggerService
-
-                        _cfg = WorkflowTriggerService(db_session).get_active_config()
-                        _pd = (_cfg.agent_prompts or {}).get("OSDetectionAgent") if _cfg else None
+                        _pd = (_snapshot_agent_prompts(state) or {}).get("OSDetectionAgent")
                         os_det_prompt = (
                             _pd.get("prompt") if isinstance(_pd, dict) else (_pd if isinstance(_pd, str) else None)
                         )
@@ -1388,6 +1446,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         detected_os,
                         state["execution_id"],
                         os_detection_prompt=os_det_prompt,
+                        article_id=state["article_id"],
                     )
 
             similarities = os_result.get("similarities", {}) if os_result else {}
@@ -1474,12 +1533,50 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             if not article:
                 raise ValueError(f"Article {state['article_id']} not found in database")
 
-            # Validate article content
-            if not article.content or len(article.content.strip()) == 0:
+            config = state.get("config")
+            eval_fixture_content = (
+                config.get("eval_fixture_content") if isinstance(config, dict) and config.get("eval_run") else None
+            )
+            content = eval_fixture_content if isinstance(eval_fixture_content, str) else article.content
+
+            # Validate the selected source content.
+            if not content or len(content.strip()) == 0:
                 raise ValueError(f"Article {article.id} has no content to filter")
 
+            # Evals exercise the extraction agent against the complete article. They
+            # must not inherit the production junk-filter threshold or terminate
+            # before extraction when the filter rejects an article.
+            if isinstance(config, dict) and config.get("eval_run"):
+                execution = (
+                    db_session.query(AgenticWorkflowExecutionTable)
+                    .filter(AgenticWorkflowExecutionTable.id == state["execution_id"])
+                    .first()
+                )
+                junk_filter_result = {
+                    "bypassed": True,
+                    "reason": "eval_run_uses_committed_fixture_content",
+                    "filtered_length": len(content),
+                    "original_length": len(content),
+                    "chunks_kept": (len(content) // 1000) + 1,
+                    "chunks_removed": 0,
+                    "is_huntable": True,
+                    "confidence": None,
+                }
+                if execution:
+                    execution.current_step = "junk_filter"
+                    execution.junk_filter_result = junk_filter_result
+                    db_session.commit()
+                return {
+                    **state,
+                    "filtered_content": content,
+                    "junk_filter_result": junk_filter_result,
+                    "current_step": "junk_filter",
+                    "status": state.get("status", "running"),
+                    "termination_reason": state.get("termination_reason"),
+                    "termination_details": state.get("termination_details"),
+                }
+
             # Get junk filter threshold from config
-            config = state.get("config")
             junk_filter_threshold = (
                 config.get("junk_filter_threshold", 0.8) if config and isinstance(config, dict) else 0.8
             )
@@ -1487,7 +1584,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Use configured filter threshold
             try:
                 filter_result = content_filter.filter_content(
-                    article.content,
+                    content,
                     min_confidence=junk_filter_threshold,
                     hunt_score=article.article_metadata.get("threat_hunting_score", 0)
                     if article.article_metadata
@@ -1508,13 +1605,13 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             if execution:
                 execution.current_step = "junk_filter"
                 # Calculate chunks kept (total chunks - removed chunks)
-                total_chunks = (len(article.content) // 1000) + 1  # Rough estimate
+                total_chunks = (len(content) // 1000) + 1  # Rough estimate
                 chunks_removed = len(filter_result.removed_chunks) if filter_result.removed_chunks else 0
                 chunks_kept = total_chunks - chunks_removed if chunks_removed > 0 else total_chunks
 
                 execution.junk_filter_result = {
                     "filtered_length": len(filter_result.filtered_content) if filter_result.filtered_content else 0,
-                    "original_length": len(article.content),
+                    "original_length": len(content),
                     "chunks_kept": chunks_kept,
                     "chunks_removed": chunks_removed,
                     "is_huntable": filter_result.is_huntable,
@@ -1531,7 +1628,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 termination_details = {
                     "confidence": filter_result.confidence,
                     "threshold": junk_filter_threshold,
-                    "original_length": len(article.content),
+                    "original_length": len(content),
                 }
                 if execution:
                     mark_execution_completed(
@@ -1684,9 +1781,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 execution.current_step = "rank_article"
                 db_session.commit()
 
-            # Get config models for LLMService
-            config_obj = trigger_service.get_active_config()
-            agent_models = config_obj.agent_models if config_obj else None
+            # Models come from the execution snapshot, not the active config: a model
+            # swapped in Settings after dispatch must not change this run.
+            snapshot_prompts = _snapshot_agent_prompts(state)
+            agent_models = _snapshot_agent_models(state) or None
             llm_service = LLMService(config_models=agent_models)
             llm_service._current_execution_id = state["execution_id"]
             llm_service._current_article_id = article.id
@@ -1709,12 +1807,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 "Score threat intelligence articles 1-10 for SIGMA huntability. "
                 "Output only a score and brief reasoning."
             )
-            if config_obj and config_obj.agent_prompts and "RankAgent" in config_obj.agent_prompts:
+            if "RankAgent" in snapshot_prompts:
                 from src.utils.prompt_loader import parse_rank_agent_prompt_data
 
-                rank_prompt_template, rank_system_prompt = parse_rank_agent_prompt_data(
-                    config_obj.agent_prompts["RankAgent"]
-                )
+                rank_prompt_template, rank_system_prompt = parse_rank_agent_prompt_data(snapshot_prompts["RankAgent"])
                 if rank_prompt_template or rank_system_prompt:
                     agent_prompt = (rank_system_prompt or rank_prompt_template or "")[:5000]
                     logger.info(
@@ -1902,13 +1998,14 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 )
             article_platforms = [_normalize_platform_value(platform) for platform in article_platforms]
 
-            config_obj = trigger_service.get_active_config()
-            if not config_obj:
-                raise ValueError("No active workflow configuration found")
+            state_config = state.get("config", {}) if isinstance(state.get("config"), dict) else {}
+            configured_models = state_config.get("agent_models")
+            configured_prompts = state_config.get("agent_prompts")
+            agent_models_config = configured_models if isinstance(configured_models, dict) else {}
+            agent_prompts_config = configured_prompts if isinstance(configured_prompts, dict) else {}
 
             # Check if this is a subagent eval run
             config_snapshot = execution.config_snapshot if execution else {}
-            state_config = state.get("config", {})
             subagent_eval = normalize_subagent_name(
                 config_snapshot.get("subagent_eval") or state_config.get("subagent_eval")
             )
@@ -1942,7 +2039,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Get config models for LLMService
             # For eval runs, exclude SigmaAgent to avoid loading the SIGMA model unnecessarily
             # For subagent evals, only include models for the agent being evaluated
-            agent_models = config_obj.agent_models if config_obj else None
+            agent_models = agent_models_config.copy()
             max_extraction_retries = 5
             if agent_models:
                 # Check if this is an eval run (check both config_snapshot and state config)
@@ -2017,30 +2114,23 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             disabled_agents_cfg = set()
             extract_settings = {}
 
-            # Try to get disabled agents from config_obj.agent_prompts
-            if config_obj:
+            # The workflow state is the execution snapshot.  Fall back to active
+            # configuration only when a legacy execution lacks those fields.
+            if agent_prompts_config:
                 logger.info(
-                    f"[Workflow {state['execution_id']}] config_obj found. agent_prompts type: {type(config_obj.agent_prompts)}, is None: {config_obj.agent_prompts is None}"
+                    f"[Workflow {state['execution_id']}] using execution-snapshot agent prompts: "
+                    f"{list(agent_prompts_config.keys())}"
                 )
-                if config_obj.agent_prompts is not None:
-                    logger.info(
-                        f"[Workflow {state['execution_id']}] agent_prompts keys: {list(config_obj.agent_prompts.keys()) if isinstance(config_obj.agent_prompts, dict) else 'not a dict'}"
-                    )
-                if config_obj.agent_prompts and isinstance(config_obj.agent_prompts, dict):
-                    extract_settings = (
-                        config_obj.agent_prompts.get("ExtractAgentSettings")
-                        or config_obj.agent_prompts.get("ExtractAgent")
-                        or {}
-                    )
-                    logger.info(
-                        f"[Workflow {state['execution_id']}] Found extract_settings from agent_prompts: {extract_settings}"
-                    )
-                else:
-                    logger.warning(
-                        f"[Workflow {state['execution_id']}] agent_prompts not available or not a dict. agent_prompts type: {type(config_obj.agent_prompts)}, value: {config_obj.agent_prompts}"
-                    )
+                extract_settings = (
+                    agent_prompts_config.get("ExtractAgentSettings") or agent_prompts_config.get("ExtractAgent") or {}
+                )
+                logger.info(
+                    f"[Workflow {state['execution_id']}] Found extract_settings from agent prompts: {extract_settings}"
+                )
             else:
-                logger.warning(f"[Workflow {state['execution_id']}] config_obj is None - cannot read disabled agents")
+                logger.warning(
+                    f"[Workflow {state['execution_id']}] agent prompts unavailable - cannot read disabled agents"
+                )
 
             # Fallback to state config if extract_settings is still empty
             state_config = state.get("config", {}) if isinstance(state.get("config", {}), dict) else {}
@@ -2089,20 +2179,12 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Check if this is a subagent eval run - if so, only run the specified agent
             # Re-read subagent_eval directly from execution to ensure we have the correct value
             # (config_snapshot was redefined at line 858, so we need to read from execution again)
-            logger.info(
-                f"[Workflow {state['execution_id']}] 🔍 DEBUG: About to check subagent_eval. execution is None: {execution is None}, "
-                f"config_snapshot keys: {list(config_snapshot.keys()) if config_snapshot else 'None'}"
-            )
-
             if execution:
                 config_snapshot_for_filter = execution.config_snapshot if execution.config_snapshot else {}
-                logger.info(
-                    f"[Workflow {state['execution_id']}] 🔍 DEBUG: execution.config_snapshot keys: {list(config_snapshot_for_filter.keys()) if config_snapshot_for_filter else 'None'}"
-                )
             else:
                 config_snapshot_for_filter = config_snapshot
                 logger.warning(
-                    f"[Workflow {state['execution_id']}] ⚠️ execution is None, using config_snapshot from state"
+                    f"[Workflow {state['execution_id']}] execution is None, using config_snapshot from state"
                 )
             state_config_for_filter = state.get("config", {})
             raw_subagent_eval = config_snapshot_for_filter.get("subagent_eval") or state_config_for_filter.get(
@@ -2118,11 +2200,9 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             if subagent_eval and subagent_eval not in eval_lookup_values:
                 eval_lookup_values.add(subagent_eval)
 
-            # Log for debugging
-            logger.info(
-                f"[Workflow {state['execution_id']}] 🔍 Filtering check - subagent_eval from execution: '{raw_subagent_eval}' "
-                f"(normalized: '{subagent_eval}'), lookup_values={sorted(eval_lookup_values)}, "
-                f"type={type(raw_subagent_eval)}, execution is None: {execution is None}"
+            logger.debug(
+                f"[Workflow {state['execution_id']}] Filtering check - subagent_eval from execution: '{raw_subagent_eval}' "
+                f"(normalized: '{subagent_eval}'), lookup_values={sorted(eval_lookup_values)}"
             )
 
             if eval_lookup_values:
@@ -2130,23 +2210,11 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 # subagent_eval is the subagent name (e.g., "process_lineage"), so compare with alias and agent name
                 original_sub_agents = sub_agents
 
-                # Debug: log what we're comparing
-                logger.info(
-                    f"[Workflow {state['execution_id']}] 🔍 BEFORE FILTERING - subagent_eval='{subagent_eval}' "
-                    f"(lookup_values={sorted(eval_lookup_values)}), sub_agents list: "
-                    f"{[(name, subagent, f'match={subagent.lower() in eval_lookup_values or name.lower() in eval_lookup_values}') for name, subagent in original_sub_agents]}"
-                )
-
-                # Filter with explicit comparison logging
                 filtered_agents = []
                 for agent in sub_agents:
                     agent_subagent = agent[1].lower() if len(agent) > 1 else ""
                     agent_name = agent[0].lower() if len(agent) > 0 else ""
                     matches = agent_subagent in eval_lookup_values or agent_name in eval_lookup_values
-                    logger.info(
-                        f"[Workflow {state['execution_id']}] 🔍 Comparing: agent[0]='{agent[0]}' -> lower()='{agent_name}', "
-                        f"agent[1]='{agent[1]}' -> lower()='{agent_subagent}' vs lookup_values={sorted(eval_lookup_values)} -> {matches}"
-                    )
                     if matches:
                         filtered_agents.append(agent)
 
@@ -2162,25 +2230,22 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 # CRITICAL: Verify filtering worked
                 if len(sub_agents) != 1:
                     logger.error(
-                        f"[Workflow {state['execution_id']}] 🚫 CRITICAL FILTERING ERROR: Expected 1 agent, got {len(sub_agents)}. "
+                        f"[Workflow {state['execution_id']}] CRITICAL FILTERING ERROR: Expected 1 agent, got {len(sub_agents)}. "
                         f"Filtered agents: {[(name, subagent) for name, subagent in sub_agents]}. "
                         f"This will cause incorrect agent execution!"
                     )
 
                 if not sub_agents:
+                    # DO NOT reset to original - this is a critical error.
+                    # Keep the empty list so no agents run.
                     logger.error(
-                        f"[Workflow {state['execution_id']}] ⚠️ subagent_eval='{subagent_eval}' not found in sub_agents list. "
-                        f"Available subagents: {[subagent for _, subagent in original_sub_agents]}. "
-                        f"CRITICAL: This should not happen - filtering failed!"
-                    )
-                    # DO NOT reset to original - this is a critical error
-                    # Instead, keep the empty list so no agents run
-                    logger.error(
-                        f"[Workflow {state['execution_id']}] 🚫 CRITICAL: Filtering failed, keeping empty sub_agents list to prevent all agents from running"
+                        f"[Workflow {state['execution_id']}] CRITICAL: subagent_eval='{subagent_eval}' not found in sub_agents list "
+                        f"(available: {[subagent for _, subagent in original_sub_agents]}); filtering failed, "
+                        f"keeping empty sub_agents list to prevent all agents from running"
                     )
                 else:
                     logger.info(
-                        f"[Workflow {state['execution_id']}] 🔬 Eval mode: Only running {subagent_eval}. "
+                        f"[Workflow {state['execution_id']}] Eval mode: Only running {subagent_eval}. "
                         f"Filtered sub_agents: {[name for name, _ in sub_agents]}. "
                         f"Other agents will be skipped."
                     )
@@ -2193,13 +2258,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                                 {"agent": agent_name, "items_count": 0, "result": {"status": "skipped_for_eval"}}
                             )
                             logger.info(
-                                f"[Workflow {state['execution_id']}] ⏭️ {agent_name} skipped (eval mode: only {subagent_eval} running)"
+                                f"[Workflow {state['execution_id']}] {agent_name} skipped (eval mode: only {subagent_eval} running)"
                             )
-
-            logger.info(
-                f"[Workflow {state['execution_id']}] 🔍 FINAL CHECK - Sub-agents to process: {[name for name, _ in sub_agents]}, "
-                f"subagent_eval='{subagent_eval}', count={len(sub_agents)}"
-            )
 
             # Final safety check: if subagent_eval is set, ensure we only process the evaluated agent
             if subagent_eval:
@@ -2209,11 +2269,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         f"[Workflow {state['execution_id']}] CRITICAL: subagent_eval={subagent_eval} not in filtered sub_agents! "
                         f"Filtered agents: {evaluated_subagent_names}. This should not happen."
                     )
-
-            logger.info(
-                f"[Workflow {state['execution_id']}] 🔍 ABOUT TO LOOP - sub_agents count: {len(sub_agents)}, "
-                f"agents: {[(name, subagent) for name, subagent in sub_agents]}, subagent_eval='{subagent_eval}'"
-            )
 
             for agent_name, result_key in sub_agents:
                 if not _agent_supported_for_platforms(agent_name, article_platforms):
@@ -2263,11 +2318,11 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     prompt_config = None
 
                     # Get prompt from config
-                    if not config_obj or not config_obj.agent_prompts or agent_name not in config_obj.agent_prompts:
+                    if agent_name not in agent_prompts_config:
                         logger.error(f"{agent_name} prompt not found in workflow config, skipping")
                         continue
 
-                    agent_prompt_data = config_obj.agent_prompts[agent_name]
+                    agent_prompt_data = agent_prompts_config[agent_name]
                     if not isinstance(agent_prompt_data.get("prompt"), str):
                         logger.error(f"{agent_name} prompt in config is not a string, skipping")
                         continue
@@ -2653,22 +2708,21 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 execution.current_step = "generate_sigma"
                 db_session.commit()
 
-            # Get config models for SigmaGenerationService
-            config_obj = trigger_service.get_active_config()
-            agent_models = config_obj.agent_models if config_obj else None
+            # Sigma generation reads the execution snapshot like every other node. It
+            # used to re-read the active config here, which is why a prompt or model
+            # edited mid-run could still land in the generated rules.
+            snapshot = _snapshot_config(state)
+            snapshot_prompts = _snapshot_agent_prompts(state)
+            agent_models = _snapshot_agent_models(state) or None
 
-            # Get SIGMA fallback setting from config
-            sigma_fallback_enabled = (
-                config_obj.sigma_fallback_enabled
-                if config_obj and hasattr(config_obj, "sigma_fallback_enabled")
-                else False
-            )
+            # Get SIGMA fallback setting from the snapshot
+            sigma_fallback_enabled = _bool_from_value(snapshot.get("sigma_fallback_enabled", False))
 
             # Use the same junk filter threshold the user configured so Sigma
             # content filtering stays in sync with the rest of the pipeline.
-            sigma_min_confidence = (
-                config_obj.junk_filter_threshold if config_obj and hasattr(config_obj, "junk_filter_threshold") else 0.8
-            )
+            sigma_min_confidence = snapshot.get("junk_filter_threshold", 0.8)
+            if sigma_min_confidence is None:
+                sigma_min_confidence = 0.8
 
             generation_result = None
 
@@ -2679,26 +2733,26 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             sigma_prompt_template = None
             sigma_system_prompt = None
             sigma_repair_template = None
-            if config_obj and config_obj.agent_prompts and "SigmaRepair" in config_obj.agent_prompts:
+            if "SigmaRepair" in snapshot_prompts:
                 from src.utils.prompt_loader import parse_sigma_repair_prompt_data
 
-                sigma_repair_template = parse_sigma_repair_prompt_data(config_obj.agent_prompts["SigmaRepair"])
+                sigma_repair_template = parse_sigma_repair_prompt_data(snapshot_prompts["SigmaRepair"])
                 if sigma_repair_template:
                     logger.info(
-                        f"[Workflow {state['execution_id']}] Using database prompt for SigmaRepair (len={len(sigma_repair_template)} chars)"
+                        f"[Workflow {state['execution_id']}] Using snapshot prompt for SigmaRepair (len={len(sigma_repair_template)} chars)"
                     )
-            if config_obj and config_obj.agent_prompts and "SigmaAgent" in config_obj.agent_prompts:
+            if "SigmaAgent" in snapshot_prompts:
                 from src.utils.prompt_loader import parse_sigma_agent_prompt_data
 
                 sigma_prompt_template, sigma_system_prompt = parse_sigma_agent_prompt_data(
-                    config_obj.agent_prompts["SigmaAgent"]
+                    snapshot_prompts["SigmaAgent"]
                 )
                 logger.info(
-                    f"[Workflow {state['execution_id']}] Using database prompt for SigmaAgent (template_len={len(sigma_prompt_template or '')} chars, system_len={len(sigma_system_prompt or '')} chars)"
+                    f"[Workflow {state['execution_id']}] Using snapshot prompt for SigmaAgent (template_len={len(sigma_prompt_template or '')} chars, system_len={len(sigma_system_prompt or '')} chars)"
                 )
             else:
                 logger.info(
-                    f"[Workflow {state['execution_id']}] No SigmaAgent prompt in database, using file-based prompt"
+                    f"[Workflow {state['execution_id']}] No SigmaAgent prompt in snapshot, using file-based prompt"
                 )
 
             # Determine content to use for SIGMA generation
@@ -3120,9 +3174,9 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 config.get("similarity_threshold", 0.5) if config and isinstance(config, dict) else 0.5
             )
 
-            # Get config models for embedding model selection
-            config_obj = trigger_service.get_active_config()
-            agent_models = config_obj.agent_models if config_obj else None
+            # Embedding-model selection comes from the execution snapshot, so the
+            # similarity scores of a run stay comparable to the rules it generated.
+            agent_models = _snapshot_agent_models(state) or None
 
             # Initialize SigmaMatchingService (now uses novelty assessment internally)
             sigma_matching_service = SigmaMatchingService(db_session, config_models=agent_models)
@@ -3686,31 +3740,7 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
             execution = AgenticWorkflowExecutionTable(
                 article_id=article_id,
                 status="pending",
-                config_snapshot={
-                    "min_hunt_score": config_obj.min_hunt_score if config_obj else 97.0,
-                    "ranking_threshold": config_obj.ranking_threshold if config_obj else 6.0,
-                    "similarity_threshold": config_obj.similarity_threshold if config_obj else 0.5,
-                    "junk_filter_threshold": config_obj.junk_filter_threshold if config_obj else 0.8,
-                    "agent_models": config_obj.agent_models if config_obj else {},
-                    "agent_prompts": config_obj.agent_prompts if config_obj else {},
-                    "rank_agent_enabled": config_obj.rank_agent_enabled
-                    if config_obj and hasattr(config_obj, "rank_agent_enabled")
-                    else True,
-                    "cmdline_attention_preprocessor_enabled": getattr(
-                        config_obj, "cmdline_attention_preprocessor_enabled", True
-                    )
-                    if config_obj
-                    else True,
-                    "proc_tree_attention_preprocessor_enabled": getattr(
-                        config_obj, "proc_tree_attention_preprocessor_enabled", True
-                    )
-                    if config_obj
-                    else True,
-                    "config_id": config_obj.id if config_obj else None,
-                    "config_version": config_obj.version if config_obj else None,
-                }
-                if config_obj
-                else None,
+                config_snapshot=build_config_snapshot(config_obj),
             )
             db_session.add(execution)
             db_session.commit()
@@ -3721,43 +3751,21 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                 f"Found existing execution {execution.id} for article {article_id}, status: {execution.status}, has config_snapshot: {execution.config_snapshot is not None}"
             )
 
-        # Get config
-        config_obj = trigger_service.get_active_config()
-        config = (
-            {
-                "min_hunt_score": config_obj.min_hunt_score if config_obj else 97.0,
-                "ranking_threshold": config_obj.ranking_threshold if config_obj else 6.0,
-                "similarity_threshold": config_obj.similarity_threshold if config_obj else 0.5,
-                "junk_filter_threshold": config_obj.junk_filter_threshold if config_obj else 0.8,
-                "agent_models": config_obj.agent_models
-                if config_obj and config_obj.agent_models and isinstance(config_obj.agent_models, dict)
-                else {},
-                "rank_agent_enabled": config_obj.rank_agent_enabled
-                if config_obj and hasattr(config_obj, "rank_agent_enabled")
-                else True,
-                "cmdline_attention_preprocessor_enabled": getattr(
-                    config_obj, "cmdline_attention_preprocessor_enabled", True
-                )
-                if config_obj
-                else True,
-                "proc_tree_attention_preprocessor_enabled": getattr(
-                    config_obj, "proc_tree_attention_preprocessor_enabled", True
-                )
-                if config_obj
-                else True,
-            }
-            if config_obj
-            else {
-                "min_hunt_score": 97.0,
-                "ranking_threshold": 6.0,
-                "similarity_threshold": 0.5,
-                "junk_filter_threshold": 0.8,
-                "agent_models": {},
-                "rank_agent_enabled": True,
-                "cmdline_attention_preprocessor_enabled": True,
-                "proc_tree_attention_preprocessor_enabled": True,
-            }
-        )
+        snapshot = execution.config_snapshot if isinstance(execution.config_snapshot, dict) else {}
+        # Executions dispatched after the immutable-snapshot change always carry a
+        # complete snapshot, so the active config is never read here. The fallback exists
+        # only for legacy rows dispatched with a partial snapshot; those cannot be made
+        # reproducible retroactively, so they keep the old behavior.
+        config_is_immutable = snapshot_is_complete(snapshot)
+        config_obj = None if config_is_immutable else trigger_service.get_active_config()
+        if not config_is_immutable:
+            logger.warning(
+                "[Workflow %s] Legacy partial config_snapshot — falling back to the active "
+                "configuration. This run is not reproducible; configuration edits made after "
+                "dispatch can affect it.",
+                execution.id,
+            )
+        config = dict(snapshot) if config_is_immutable else build_config_snapshot(config_obj)
 
         # Merge config_snapshot from execution (for eval runs and other overrides)
         # Use deep merge for nested dicts like agent_models, agent_prompts
@@ -3859,6 +3867,7 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
             "skip_rank_agent": state_skip_rank_flag,
             "os_detection_result": None,
             "detected_os": None,
+            "platforms_detected": None,
             "filtered_content": None,
             "junk_filter_result": None,
             "ranking_score": None,
@@ -3875,11 +3884,12 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
             "status": "running",
             "termination_reason": None,
             "termination_details": None,
+            "cmdline_items": None,
+            "count": None,
         }
 
         # Get config models for context check (use config if available, otherwise env vars)
-        config_obj = trigger_service.get_active_config()
-        agent_models = config_obj.agent_models if config_obj else None
+        agent_models = config.get("agent_models") if isinstance(config.get("agent_models"), dict) else None
 
         # Set execution context for LLM service tracing
         llm_service = LLMService(config_models=agent_models)

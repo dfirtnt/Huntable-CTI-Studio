@@ -7,10 +7,19 @@ preset management, and agent prompt endpoints.
 NOTE: These tests require a running application with database access.
 They use the ASGI client which connects to the real database.
 Set USE_ASGI_CLIENT=1 to run with in-process app.
+
+Every test here writes a real active workflow config version (PUT /config, the
+prompt endpoints, preset save/delete), so the module carries the
+``agent_config_mutation`` marker: the async_client fixture refuses to point these
+at the dev app on :8001, whose database holds the operator's live config.
 """
+
+import asyncio
 
 import httpx
 import pytest
+
+pytestmark = pytest.mark.agent_config_mutation
 
 
 class TestWorkflowConfigCRUD:
@@ -368,6 +377,57 @@ class TestAgentPrompts:
             assert isinstance(prompt_data, dict)
             # Prompts should have either "prompt" or "instructions" fields
             assert "prompt" in prompt_data or "instructions" in prompt_data
+
+    @pytest.mark.api
+    @pytest.mark.integration_full
+    @pytest.mark.asyncio
+    async def test_concurrent_list_agent_prompts_all_succeed(self, async_client: httpx.AsyncClient):
+        """Concurrent GET /config/prompts must all return 200.
+
+        Regression: the handler used ``SELECT ... FOR UPDATE SKIP LOCKED``. The first
+        request took an exclusive row lock on the single active config row and the
+        sibling request *skipped* that row, got an empty result, and returned 404.
+        /workflow fires this pair on every page load.
+        """
+        responses = await asyncio.gather(*(async_client.get("/api/workflow/config/prompts") for _ in range(4)))
+
+        statuses = [r.status_code for r in responses]
+        assert statuses == [200] * 4, f"concurrent reads disagreed: {statuses}"
+        for response in responses:
+            assert "prompts" in response.json()
+
+    @pytest.mark.api
+    @pytest.mark.integration_full
+    @pytest.mark.asyncio
+    async def test_list_agent_prompts_while_active_row_locked(self, async_client: httpx.AsyncClient):
+        """GET /config/prompts must succeed while the active config row is row-locked.
+
+        Deterministic form of the concurrency regression above: hold ``FOR UPDATE`` on
+        the active row from an independent connection (as a concurrent reader or an
+        in-flight writer does) and assert the read still observes the row. A handler
+        that locks with ``SKIP LOCKED`` sees zero rows here and 404s.
+        """
+        from sqlalchemy import text
+
+        from src.database.manager import DatabaseManager
+
+        db_session = DatabaseManager().get_session()
+        try:
+            locked = db_session.execute(
+                text(
+                    "SELECT id FROM agentic_workflow_config WHERE is_active = true "
+                    "ORDER BY version DESC, id DESC LIMIT 1 FOR UPDATE"
+                )
+            ).fetchone()
+            assert locked is not None, "test DB has no active workflow config row"
+
+            response = await async_client.get("/api/workflow/config/prompts")
+        finally:
+            db_session.rollback()
+            db_session.close()
+
+        assert response.status_code == 200
+        assert "prompts" in response.json()
 
     @pytest.mark.api
     @pytest.mark.integration_full

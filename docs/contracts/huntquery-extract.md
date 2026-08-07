@@ -27,7 +27,10 @@ Supported query platforms (platform enum):
 - elastic                Elastic Security EQL / KQL / Lucene / ES|QL
 - xql                    Palo Alto Cortex XDR
 - carbon_black           VMware Carbon Black Cloud
+- google_secops          Google SecOps / Chronicle (YARA-L 2.0 rules and UDM search queries)
+- sigma                  Sigma YAML detection rules
 - unknown                structure valid but platform ambiguous
+- other                  named platform not in this list
 
 ## ARCHITECTURE CONTEXT
 
@@ -119,6 +122,37 @@ dataset = xdr_data, action_process_image_name, action_process_command_line, acto
 **Carbon Black:**
 process_name:, process_cmdline:, childproc_name:, filemod_name:, netconn_domain:
 
+**Google SecOps / Chronicle (two valid formats -- accept either):**
+
+Format A -- YARA-L 2.0 detection rules (require BOTH):
+
+1. A rule block: `rule <name> { ... }` containing an `events:` section and a `condition:` section.
+2. At least ONE UDM field path verbatim within the `events:` block, e.g.:
+   `$<var>.metadata.event_type`, `$<var>.principal.hostname`, `$<var>.principal.ip`,
+   `$<var>.principal.process.command_line`, `$<var>.target.file.sha256`,
+   `$<var>.target.process.file.full_path`, `$<var>.network.dns.questions.name`,
+   `$<var>.security_result.action`, `$<var>.src.ip`
+   (the `$<var>.` dot-path prefix into UDM namespaces is unique to YARA-L 2.0)
+
+Format B -- UDM search / ad-hoc hunt queries (require BOTH):
+
+1. A contiguous demarcated code block WITHOUT a `rule { }` wrapper.
+2. At least TWO Chronicle UDM field-path expressions, from at least two different namespaces:
+    - metadata namespace: `metadata.log_type`, `metadata.event_type`, `metadata.product_event_type`
+    - principal namespace: `principal.process.command_line`, `principal.hostname`, `principal.ip`, `principal.user.userid`
+    - target namespace: `target.process.command_line`, `target.file.full_path`, `target.hostname`, `target.ip`
+    - src namespace: `src.ip`, `src.hostname`
+    - additional: `additional.fields["..."]` (Chronicle-specific accessor; counts as one occurrence)
+    - security_result: `security_result.action`, `security_result.severity`
+    - Chronicle-specific log-type / event-type values used as metadata field values also qualify:
+      `"WINEVTLOG"`, `"PROCESS_LAUNCH"`, `"NETWORK_CONNECTION"`, `"USER_LOGIN"`, `"FILE_CREATION"`
+    - Two fields from the SAME namespace count as two distinct occurrences.
+    - The `/regex/ nocase` modifier is characteristic of Chronicle but NOT sufficient alone.
+
+Do NOT confuse with classic YARA (file/memory scanning): classic YARA uses `strings:` blocks
+without `events:` or UDM field paths. Do NOT extract prose descriptions of UDM fields -- field
+paths must appear inside a demarcated code block.
+
 ### B) Sigma rule -- VALID only if ALL are true:
 
 1. Appears as a contiguous block clearly formatted as YAML.
@@ -145,9 +179,12 @@ Do NOT extract:
   "a possible query would be...". These are recommendations, not observed detection logic.
 - Defensive guidance queries from hardening guides or best-practice sections without incident grounding.
 - Raw command lines, registry keys, lineage statements, or service artifacts (owned by siblings).
-- YARA rules (different detection domain; not in scope).
+- Classic YARA rules (file/memory scanning; `strings:` block without `events:` or UDM fields; not in
+  scope). Google SecOps YARA-L 2.0 detection rules AND raw UDM search queries ARE in scope -- see
+  platform indicators above.
 - Query text embedded in malware source code.
 - Queries inferred from vendor documentation of a product the article merely mentions.
+- Queries or Sigma rules derived from screenshots, diagrams, or image captions.
 
 ## DETECTION RELEVANCE GATE
 
@@ -155,6 +192,8 @@ Every extracted artifact must be a complete, executable-as-shown detection for i
 
 - Query: runs in the target platform console with the schema indicators present.
 - Sigma: parses as valid Sigma YAML with logsource + detection.
+- Google SecOps (YARA-L rule): rule block with `events:` containing at least one UDM field path and a `condition:` section.
+- Google SecOps (UDM search): contiguous query block containing at least two Chronicle UDM field-path expressions from at least two different namespaces (no `rule {}` wrapper).
 
 If structurally present but incomplete / fragmentary / not executable as shown, SKIP.
 
@@ -187,6 +226,27 @@ If structurally present but incomplete / fragmentary / not executable as shown, 
 
 ## EDGE CASES
 
+**INCLUDE:**
+
+- A KQL query embedded in a screenshot caption ONLY if the query text appears verbatim as plain text
+  in the article body (not image-only).
+- A Sigma rule that uses a custom logsource product not in the standard list, if it has both
+  `logsource` and `detection` blocks.
+- Multi-line Splunk searches with pipe-chained commands.
+- A YARA-L rule labeled only as "detection rule" or "Chronicle rule" without explicit Google SecOps
+  branding, if the rule block contains `events:` with UDM field paths and a `condition:` section.
+- A raw UDM search query published under a "SecOps searches", "Chronicle queries", or "Google SecOps"
+  heading without a `rule {}` wrapper, if the block contains at least two Chronicle UDM field-path
+  expressions from different namespaces.
+
+**EXCLUDE:**
+
+- A code block labeled "pseudocode" even if it resembles KQL.
+- A Sigma template with placeholder values like `<insert_process_name>` -- partial artifact.
+- A query that only appears in an external link URL (not inline in text).
+- Classic YARA rules (`strings:` + `condition:` for file/memory scanning) even if labeled alongside
+  Sigma or YARA-L rules.
+- A query snippet that is demonstrably only a fragment (e.g., just a WHERE clause).
 - Multiple matching platforms: If indicators from more than one platform appear in the same block,
   determine platform by the STRONGEST indicator present. Strength order (high to low):
     1. Index/dataset patterns: logs-endpoint.events.*, dataset = xdr_data, Endpoint.Processes/Registry/Filesystem
@@ -211,9 +271,11 @@ Apply to EVERY candidate before including it:
 - [ ] Is the block contiguous and demarcated (fenced/indented code or unambiguous inline)?
 - [ ] For a query: does it contain at least one verbatim schema-level platform indicator (per lists above)?
 - [ ] For Sigma: does it contain BOTH logsource: and detection: as YAML keys?
+- [ ] For Google SecOps (YARA-L rule): does the rule block contain `events:` with at least one UDM field path AND a `condition:` section?
+- [ ] For Google SecOps (UDM search): does the block (without a `rule {}` wrapper) contain at least TWO Chronicle UDM field-path expressions from at least two different namespaces?
 - [ ] Preserved verbatim, including indentation?
 - [ ] Presented as real observed detection, NOT as recommendation/hypothetical?
-- [ ] Source is valid (not malware source code, not pseudocode, not defensive guidance)?
+- [ ] Source is valid (not malware source code, not pseudocode, not defensive guidance, not image-only)?
 - [ ] Can I point to the exact source_evidence?
 - [ ] NOT owned by a sibling extractor (no bare commands, keys, pairs, or service items)?
 - [ ] Are all four traceability fields populated (value, source_evidence, extraction_justification, confidence_score)?
@@ -246,7 +308,7 @@ Respond with ONLY valid JSON. No prose, no markdown, no code fences, no explanat
       "confidence_score": 0.98
     }
   ],
-  "query_count": 2
+  "count": 2
 }
 ```
 
@@ -267,18 +329,25 @@ Traceability fields (REQUIRED on every item in `queries`):
 Domain fields (queries array):
 
 - query: REQUIRED. Verbatim extracted EDR/SIEM query or Sigma YAML.
-- type: REQUIRED. One of: kql, falcon, logscale, sentinelone_dv, sentinelone_pq, splunk, elastic, xql, carbon_black, sigma, unknown, other.
+- type: REQUIRED. One of: kql, falcon, logscale, sentinelone_dv, sentinelone_pq, splunk, elastic, xql, carbon_black, google_secops, sigma, unknown, other.
 - context: Optional short source or detection context. Omit when not useful.
-- query_count: REQUIRED envelope field. Integer equal to len(queries), counting both EDR/SIEM queries and Sigma rules.
+- count: REQUIRED envelope field. Integer equal to len(queries), counting both EDR/SIEM queries and Sigma rules.
 
 Optional fields omitted entirely when absent -- NOT null, NOT empty string.
+
+<!-- TODO: verify: src/prompts/HuntQueriesExtract's role/system text (COUNT SEMANTICS
+section) still names the envelope field `query_count`, while its instructions/json_example
+and src/workflows/agentic_workflow.py `_extract_actual_count()` (comment: "hunt_queries:
+prefer count (current contract)") treat `count` as canonical. This doc follows the
+instructions/code precedent; the seed prompt's role text appears stale and may need a
+prompt-level fix (out of scope for a docs-only change). -->
 
 ### FAIL-SAFE / EMPTY OUTPUT
 
 If no valid artifacts exist, return exactly:
 
 ```json
-{"queries": [], "query_count": 0}
+{"queries": [], "count": 0}
 ```
 
 ### FINAL REMINDER
@@ -286,8 +355,15 @@ If no valid artifacts exist, return exactly:
 Precision over recall. EDR observability overrides completeness.
 If no verbatim schema-level indicator appears, SKIP the query.
 If a Sigma block lacks logsource OR detection, SKIP.
+If a YARA-L rule block lacks events: with UDM field paths OR condition:, SKIP.
+If a claimed UDM search query has fewer than TWO Chronicle UDM field-path expressions from different namespaces, SKIP.
 If the query is presented as "you could detect..." or "defenders should...", SKIP -- it is a recommendation, not a detection.
 If the content is pseudocode or narrative description without runnable text, SKIP.
 When in doubt, OMIT.
 
-_Last updated: 2026-07-03 — extended KQL indicator list to Microsoft Defender for Office 365 (EmailEvents et al.), Microsoft Defender for Cloud (CloudProcessEvents, CloudAuditEvents), and Sentinel ASIM parsers (_Im_NetworkSession, _Im_WebSession, imFileEvent, etc.). Era boundary._
+_Last updated: 2026-07-17 — added the Google SecOps / Chronicle platform (YARA-L 2.0 rules and UDM
+search queries), corrected the envelope field name to `count`, and synced EDGE CASES / VERIFICATION
+CHECKLIST / FINAL REMINDER against the live `src/prompts/HuntQueriesExtract` seed prompt (doc had
+drifted since the 2026-07-03 sync). Prior note: extended KQL indicator list to Microsoft Defender for
+Office 365 (EmailEvents et al.), Microsoft Defender for Cloud (CloudProcessEvents, CloudAuditEvents),
+and Sentinel ASIM parsers (_Im_NetworkSession, _Im_WebSession, imFileEvent, etc.)._

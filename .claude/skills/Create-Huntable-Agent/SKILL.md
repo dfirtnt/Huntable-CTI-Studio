@@ -1,5 +1,5 @@
 ---
-name: Create-Huntable-Agent
+name: create-huntable-agent
 description: >
   Add a new extraction sub-agent to Huntable CTI Studio as a first-class peer of CmdlineExtract,
   ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, and ScheduledTasksExtract.

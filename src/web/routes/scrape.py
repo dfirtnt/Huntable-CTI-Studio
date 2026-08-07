@@ -13,6 +13,8 @@ from bs4 import BeautifulSoup
 from fastapi import APIRouter, HTTPException
 
 from src.utils.input_validation import ValidationError, validate_url_for_scraping
+from src.utils.langfuse_client import log_llm_completion, log_llm_error, trace_llm_call
+from src.utils.safe_fetch import UnsafeURLError, safe_fetch_text
 from src.web.dependencies import logger
 
 router = APIRouter(tags=["Scrape"])
@@ -69,9 +71,38 @@ async def api_vision_extract(request: dict):
         )
 
     try:
-        if provider == "openai":
-            return await _call_openai_vision(image_data_url, api_key)
-        return await _call_anthropic_vision(image_data_url, api_key)
+        model = "gpt-4o" if provider == "openai" else "claude-sonnet-4-6"
+        messages = [{"role": "user", "content": [{"type": "text", "text": _VISION_PROMPT}, {"type": "image"}]}]
+        response_metadata: dict = {}
+        with trace_llm_call(
+            name="vision_extract",
+            model=model,
+            metadata={
+                "agent_name": "vision_extract",
+                "attempt": 1,
+                "provider": provider,
+                "messages": messages,
+                "image_data_redacted": True,
+                "image_data_length": len(image_data_url),
+            },
+        ) as generation:
+            try:
+                if provider == "openai":
+                    result = await _call_openai_vision(image_data_url, api_key, response_metadata=response_metadata)
+                else:
+                    result = await _call_anthropic_vision(image_data_url, api_key, response_metadata=response_metadata)
+            except Exception as error:
+                log_llm_error(generation, error, metadata={"provider": provider})
+                raise
+
+            log_llm_completion(
+                generation,
+                input_messages=messages,
+                output=result["text"],
+                usage=response_metadata.get("usage"),
+                metadata={"agent_name": "vision_extract", "attempt": 1, "provider": provider},
+            )
+            return result
     except httpx.HTTPStatusError as exc:
         raise HTTPException(status_code=502, detail=f"{provider} API error: {exc.response.status_code}") from exc
     except Exception as exc:
@@ -79,7 +110,7 @@ async def api_vision_extract(request: dict):
         raise HTTPException(status_code=502, detail="Vision extraction failed") from exc
 
 
-async def _call_openai_vision(image_data_url: str, api_key: str) -> dict:
+async def _call_openai_vision(image_data_url: str, api_key: str, response_metadata: dict | None = None) -> dict:
     async with httpx.AsyncClient(timeout=60.0) as client:
         resp = await client.post(
             "https://api.openai.com/v1/chat/completions",
@@ -99,10 +130,13 @@ async def _call_openai_vision(image_data_url: str, api_key: str) -> dict:
             },
         )
         resp.raise_for_status()
-        return {"text": resp.json()["choices"][0]["message"]["content"].strip()}
+        response_data = resp.json()
+        if response_metadata is not None:
+            response_metadata.update({"model": response_data.get("model"), "usage": response_data.get("usage")})
+        return {"text": response_data["choices"][0]["message"]["content"].strip()}
 
 
-async def _call_anthropic_vision(image_data_url: str, api_key: str) -> dict:
+async def _call_anthropic_vision(image_data_url: str, api_key: str, response_metadata: dict | None = None) -> dict:
     match = re.match(r"^data:(image/[a-z]+);base64,(.+)$", image_data_url)
     if not match:
         raise HTTPException(status_code=400, detail="imageDataUrl must be a base64 data URL")
@@ -133,7 +167,10 @@ async def _call_anthropic_vision(image_data_url: str, api_key: str) -> dict:
             },
         )
         resp.raise_for_status()
-        return {"text": resp.json()["content"][0]["text"].strip()}
+        response_data = resp.json()
+        if response_metadata is not None:
+            response_metadata.update({"model": response_data.get("model"), "usage": response_data.get("usage")})
+        return {"text": response_data["content"][0]["text"].strip()}
 
 
 @router.post("/api/scrape-url")
@@ -197,16 +234,16 @@ async def _scrape_single_url(
                     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
                 )
             }
-            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-                try:
-                    response = await client.get(
-                        url, headers=headers
-                    )  # codeql[py/full-ssrf] false positive: url validated by validate_url_for_scraping above (blocks private IPs, loopback, reserved ranges)
-                    response.raise_for_status()
-                    html_content = response.content.decode("utf-8", errors="replace")
-                except Exception:
-                    # If we can't fetch, use pre-scraped content and continue
-                    pass
+            try:
+                result = await safe_fetch_text(url, timeout=30.0, headers=headers)
+                html_content = result.content.decode("utf-8", errors="replace")
+            except UnsafeURLError as exc:
+                # SSRF redirect/rebind must not be silently swallowed even on the
+                # title-only fetch path -- refuse the request rather than risk it.
+                raise HTTPException(status_code=400, detail=f"Invalid URL: {exc}") from exc
+            except (httpx.HTTPStatusError, httpx.RequestError):
+                # Genuine upstream failure: fall back to the pre-scraped content.
+                pass
     else:
         # Scrape content using the working approach from test endpoint
         headers = {
@@ -216,31 +253,29 @@ async def _scrape_single_url(
             )
         }
 
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-            try:
-                response = await client.get(
-                    url, headers=headers
-                )  # codeql[py/full-ssrf] false positive: url validated by validate_url_for_scraping above (blocks private IPs, loopback, reserved ranges)
-                response.raise_for_status()  # Raise exception for 4xx/5xx status codes
-            except httpx.HTTPStatusError as exc:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"HTTP {exc.response.status_code} error fetching URL: {exc.response.reason_phrase}",
-                ) from exc
-            except httpx.RequestError as exc:
-                logger.warning(f"Failed to fetch URL {url}: {exc}")
-                raise HTTPException(status_code=400, detail="Failed to fetch URL") from exc
+        try:
+            result = await safe_fetch_text(url, timeout=30.0, headers=headers)
+        except UnsafeURLError as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid URL: {exc}") from exc
+        except httpx.HTTPStatusError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"HTTP {exc.response.status_code} error fetching URL: {exc.response.reason_phrase}",
+            ) from exc
+        except httpx.RequestError as exc:
+            logger.warning(f"Failed to fetch URL {url}: {exc}")
+            raise HTTPException(status_code=400, detail="Failed to fetch URL") from exc
 
-            html_content = response.content.decode("utf-8", errors="replace")
+        html_content = result.content.decode("utf-8", errors="replace")
 
-            soup = BeautifulSoup(html_content, "html.parser")
-            for script in soup(["script", "style", "meta", "noscript", "iframe"]):
-                script.decompose()
-            content_text = soup.get_text(separator=" ", strip=True)
+        soup = BeautifulSoup(html_content, "html.parser")
+        for script in soup(["script", "style", "meta", "noscript", "iframe"]):
+            script.decompose()
+        content_text = soup.get_text(separator=" ", strip=True)
 
-            # Conservative sanitization
-            sanitized_content = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", "", content_text)
-            sanitized_content = re.sub(r"\s+", " ", sanitized_content).strip()
+        # Conservative sanitization
+        sanitized_content = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", "", content_text)
+        sanitized_content = re.sub(r"\s+", " ", sanitized_content).strip()
 
     # Extract title
     extracted_title = title

@@ -137,6 +137,25 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         except Exception as e:
             logger.exception("Eval articles seed at startup failed: %s", e)
 
+        # Seed default workflow config + AppSettings threshold so GET /api/workflow/config
+        # stays read-only (no lazy DB writes on a safe-method route).
+        try:
+            from src.database.manager import DatabaseManager
+            from src.web.routes.workflow_config import ensure_default_workflow_config
+
+            def _seed_workflow_config() -> None:
+                db = DatabaseManager()
+                session = db.get_session()
+                try:
+                    ensure_default_workflow_config(session)
+                finally:
+                    session.close()
+
+            await asyncio.to_thread(_seed_workflow_config)
+            logger.info("Workflow config seed at startup: ensured")
+        except Exception as e:
+            logger.exception("Workflow config seed at startup failed: %s", e)
+
         updated_agents = await async_db_manager.set_robots_user_agent_for_all(DEFAULT_SOURCE_USER_AGENT)
         if updated_agents:
             logger.info("Normalized robots user-agent for %s sources", updated_agents)

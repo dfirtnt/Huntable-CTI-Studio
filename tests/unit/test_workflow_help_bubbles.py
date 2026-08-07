@@ -14,14 +14,14 @@ Changes covered:
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 import pytest
 
+from tests.utils.workflow_html_source import read_workflow_src
+
 pytestmark = pytest.mark.unit
 
-TEMPLATE = Path("src/web/templates/workflow.html").read_text()
-WORKFLOW_CONFIG_TEMPLATE = Path("src/web/templates/workflow_config.html").read_text()
+TEMPLATE = read_workflow_src()
 
 # Extract only the helpTexts JS object so substring checks don't match
 # unrelated parts of the file (e.g. agent config selects, slider labels).
@@ -31,15 +31,6 @@ _HELP_TEXTS_MATCH = re.search(
     re.DOTALL,
 )
 HELP_TEXTS_BLOCK = _HELP_TEXTS_MATCH.group(1) if _HELP_TEXTS_MATCH else ""
-
-_WORKFLOW_CONFIG_HELP_TEXTS_MATCH = re.search(
-    r"const helpTexts\s*=\s*\{(.+?)\};\s*\n\s*const help\s*=\s*helpTexts",
-    WORKFLOW_CONFIG_TEMPLATE,
-    re.DOTALL,
-)
-WORKFLOW_CONFIG_HELP_TEXTS_BLOCK = (
-    _WORKFLOW_CONFIG_HELP_TEXTS_MATCH.group(1) if _WORKFLOW_CONFIG_HELP_TEXTS_MATCH else ""
-)
 
 
 # ---------------------------------------------------------------------------
@@ -119,25 +110,20 @@ def test_no_backup_models_list_in_help_bubbles():
 
 def test_similarity_threshold_help_uses_current_atom_path_terms():
     """Similarity threshold help uses precomputed/on-the-fly atom path terms."""
-    blocks = {
-        "workflow.html": HELP_TEXTS_BLOCK,
-        "workflow_config.html": WORKFLOW_CONFIG_HELP_TEXTS_BLOCK,
-    }
-    for template_name, help_block in blocks.items():
-        similarity_section = re.search(
-            r"'similarityThreshold'\s*:\s*\{(.+?)\}\s*(?:,\s*\n\s*'|\s*$)",
-            help_block,
-            re.DOTALL,
-        )
-        assert similarity_section, f"Could not isolate similarityThreshold section in {template_name}"
-        section = similarity_section.group(1)
+    similarity_section = re.search(
+        r"'similarityThreshold'\s*:\s*\{(.+?)\}\s*(?:,\s*\n\s*'|\s*$)",
+        HELP_TEXTS_BLOCK,
+        re.DOTALL,
+    )
+    assert similarity_section, "Could not isolate similarityThreshold section in workflow.html"
+    section = similarity_section.group(1)
 
-        assert "Precomputed atom path" in section
-        assert "On-the-fly atom path" in section
-        assert "Deterministic engine" not in section
-        assert "Legacy engine" not in section
-        assert "stored rule semantics" not in section
-        assert "precomputed semantics" not in section
+    assert "Precomputed atom path" in section
+    assert "On-the-fly atom path" in section
+    assert "Deterministic engine" not in section
+    assert "Legacy engine" not in section
+    assert "stored rule semantics" not in section
+    assert "precomputed semantics" not in section
 
 
 # ---------------------------------------------------------------------------
@@ -159,8 +145,6 @@ def test_extract_agent_sub_agent_list_includes_scheduled_tasks():
 # ---------------------------------------------------------------------------
 # Sigma enrichment help button
 # ---------------------------------------------------------------------------
-
-SIGMA_QUEUE_TEMPLATE = Path("src/web/templates/sigma_queue.html").read_text()
 
 
 def test_sigma_enrich_help_key_present():
@@ -191,17 +175,3 @@ def test_workflow_enrich_modal_has_help_button():
         re.DOTALL,
     )
     assert pattern.search(TEMPLATE), "enrichModal header is missing its showHelp() button"
-
-
-def test_sigma_queue_enrich_modal_has_help_button():
-    """sigma_queue.html enrichModal header has a showEnrichHelp() button."""
-    pattern = re.compile(
-        r"AI-Assisted Rule Enrichment.*?showEnrichHelp\(\)",
-        re.DOTALL,
-    )
-    assert pattern.search(SIGMA_QUEUE_TEMPLATE), "sigma_queue enrichModal header is missing its help button"
-
-
-def test_sigma_queue_has_show_enrich_help_function():
-    """sigma_queue.html contains the showEnrichHelp function definition."""
-    assert "function showEnrichHelp()" in SIGMA_QUEUE_TEMPLATE

@@ -81,7 +81,7 @@ We follow PEP 8 with some modifications:
 
 ### Python Code Style
 
-- **Line length**: 88 characters (Ruff default)
+- **Line length**: 120 characters (configured in `pyproject.toml`, `[tool.ruff]`)
 - **Import order**: Managed by `ruff` (replaces isort)
 - **Type hints**: Required for all public functions and methods
 - **Docstrings**: Use Google-style docstrings
@@ -107,7 +107,7 @@ uv run ruff format src/
 
 Organize files according to their purpose and lifecycle:
 
-```
+```text
 Huntable-CTI-Studio/
 ├── utils/temp/              # Temporary scripts (ephemeral, one-off)
 │   ├── debug_*.py          # Debug scripts
@@ -174,7 +174,8 @@ python3 run_tests.py ui
 
 ### Test Coverage
 
-- Maintain 85%+ overall test coverage
+- CI enforces coverage gates on `src.services`/`src.utils` in `.github/workflows/tests.yml`
+  (currently 60% combined baseline, 68% for `src.services`, 20% for `src.utils` — not a repo-wide 85% target)
 - Write tests for new features
 - Update tests when modifying existing functionality
 - Use appropriate test markers and categories

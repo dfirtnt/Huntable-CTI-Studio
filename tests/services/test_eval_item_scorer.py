@@ -51,6 +51,22 @@ def test_ioc_defang_normalization():
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize("wrapper", ["cmd /c", "cmd.exe /k", "%COMSPEC% /c"])
+def test_cmd_execution_wrappers_match_unwrapped_ground_truth(wrapper):
+    """Only supported cmd execution wrappers compare as the contained command."""
+    result = score_items(['net group "Domain Admins" /domain'], [f'{wrapper} net group "Domain Admins" /domain'])
+    assert result.matched_count == 1
+    assert result.missed_count == 0
+    assert result.extra_count == 0
+
+
+@pytest.mark.unit
+def test_powershell_wrapper_is_not_stripped():
+    result = score_items(["whoami /groups"], ["powershell.exe /c whoami /groups"])
+    assert result.matched_count == 0
+
+
+@pytest.mark.unit
 def test_zero_extraction_against_nonempty_expected():
     """Critical case: model returned no items but ground truth has 9 items.
 
@@ -121,3 +137,25 @@ def test_returns_dataclass_with_lists():
     assert result.matched == ["a"]
     assert result.missed == ["b"]
     assert result.extra == ["z"]
+
+
+@pytest.mark.unit
+def test_acceptable_item_is_excluded_from_precision_denominator():
+    result = score_items(
+        ["whoami /groups"],
+        ["whoami /groups", "tasklist /svc", "hostname"],
+        [{"value": "tasklist /svc", "justification": "Equivalent supported reading."}],
+    )
+    assert result.matched_count == 1
+    assert result.neutral == ["tasklist /svc"]
+    assert result.neutral_count == 1
+    assert result.extra == ["hostname"]
+    assert result.precision == 0.5
+
+
+@pytest.mark.unit
+def test_acceptable_item_requires_justification_and_cannot_mask_expected_item():
+    with pytest.raises(ValueError, match="justification"):
+        score_items([], ["tasklist /svc"], [{"value": "tasklist /svc"}])
+    with pytest.raises(ValueError, match="must not duplicate expected"):
+        score_items(["tasklist /svc"], ["tasklist /svc"], [{"value": "tasklist /svc", "justification": "No."}])

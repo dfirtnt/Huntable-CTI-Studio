@@ -13,6 +13,18 @@ from typing import Any
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
 
+from src.services.audit_service import (
+    ACTION_BACKUP_CREATED,
+    ACTION_BACKUP_CRON_DELETED,
+    ACTION_BACKUP_CRON_UPDATED,
+    ACTION_BACKUP_RESTORED,
+    STATUS_ATTEMPTED,
+    STATUS_FAILURE,
+    STATUS_SUCCESS,
+    AsyncAuditService,
+    AuditEvent,
+    build_actor_context,
+)
 from src.services.backup_cron_service import BackupCronService, CronCommandError, CronUnavailableError
 from src.utils.backup_config import BackupConfigManager, get_backup_config_manager
 from src.utils.input_validation import (
@@ -24,6 +36,42 @@ from src.utils.input_validation import (
 from src.web.dependencies import logger
 
 router = APIRouter(prefix="/api/backup", tags=["Backup"])
+
+
+async def _audit_backup(
+    request: Request,
+    action: str,
+    target_id: str | None,
+    summary: str,
+    metadata: dict[str, Any] | None = None,
+    *,
+    status: str = STATUS_SUCCESS,
+) -> None:
+    """Emit a backup audit event out-of-band.
+
+    Every mutating endpoint here drives a non-transactional side effect (a
+    pg_dump/pg_restore subprocess or a crontab rewrite), so there is no
+    caller-owned transaction to attach the event to. Each operation records an
+    attempt before the side effect and a terminal success/failure after it.
+
+    Note on restore specifically: a full-database restore replaces the
+    ``audit_events`` table along with everything else, so the pre-restore
+    ``attempted`` row does not survive a successful restore -- the post-restore
+    terminal row is what persists. The attempt row is what remains when a restore
+    fails, times out, or kills the process partway through, which is exactly the
+    case where the forensic record matters most.
+    """
+    await AsyncAuditService.record_out_of_band(
+        AuditEvent(
+            action=action,
+            target_type="backup",
+            target_id=target_id,
+            status=status,
+            summary=summary,
+            actor=build_actor_context(getattr(request.state, "identity", None), request),
+            metadata=metadata or {},
+        )
+    )
 
 
 class BackupCronUpdate(BaseModel):
@@ -93,14 +141,34 @@ async def api_create_backup(request: Request):
         if not verify:
             cmd.append("--no-verify")
 
-        result = subprocess.run(
-            cmd,
-            cwd=str(project_root),
-            capture_output=True,
-            text=True,
-            timeout=300,
-            check=False,
+        await _audit_backup(
+            request,
+            ACTION_BACKUP_CREATED,
+            None,
+            "Backup creation requested",
+            {"compress": compress, "verify": verify},
+            status=STATUS_ATTEMPTED,
         )
+
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=str(project_root),
+                capture_output=True,
+                text=True,
+                timeout=300,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            await _audit_backup(
+                request,
+                ACTION_BACKUP_CREATED,
+                None,
+                "Backup creation timed out",
+                {"timeout_seconds": 300},
+                status=STATUS_FAILURE,
+            )
+            raise
 
         if result.returncode == 0:
             backup_name = None
@@ -109,16 +177,34 @@ async def api_create_backup(request: Request):
                     backup_name = line.split(":")[-1].strip()
                     break
 
+            await _audit_backup(
+                request,
+                ACTION_BACKUP_CREATED,
+                backup_name,
+                "Backup created successfully",
+                {"backup_name": backup_name or "unknown", "compress": compress, "verify": verify},
+            )
+
             return {
                 "success": True,
                 "backup_name": backup_name or "unknown",
                 "message": "Backup created successfully",
             }
 
+        await _audit_backup(
+            request,
+            ACTION_BACKUP_CREATED,
+            None,
+            "Backup creation failed",
+            {"returncode": result.returncode},
+            status=STATUS_FAILURE,
+        )
         raise HTTPException(status_code=500, detail="Internal server error")
 
     except subprocess.TimeoutExpired as exc:
         raise HTTPException(status_code=500, detail="Backup timed out") from exc
+    except HTTPException:
+        raise
     except Exception as exc:  # noqa: BLE001
         logger.error("Backup creation error: %s", exc)
         raise HTTPException(status_code=500, detail="Internal server error") from exc
@@ -199,8 +285,16 @@ async def api_get_backup_cron():
 
 
 @router.post("/cron")
-async def api_update_backup_cron(payload: BackupCronUpdate):
+async def api_update_backup_cron(request: Request, payload: BackupCronUpdate):
     """Save backup config and optionally install/update CTI-managed cron jobs."""
+    cron_metadata = {
+        "backup_time": payload.backup_time,
+        "cleanup_time": payload.cleanup_time,
+        "backup_type": payload.backup_type,
+        "retention": {"daily": payload.daily, "weekly": payload.weekly, "monthly": payload.monthly},
+        "max_size_gb": payload.max_size_gb,
+        "install_crontab": payload.install_crontab,
+    }
     try:
         manager = get_backup_config_manager()
         config = _sync_backup_config(manager, payload)
@@ -215,6 +309,15 @@ async def api_update_backup_cron(payload: BackupCronUpdate):
         if payload.install_crontab:
             state = service.install_backup_schedule(config)
 
+        await _audit_backup(
+            request,
+            ACTION_BACKUP_CRON_UPDATED,
+            None,
+            "Backup schedule config saved"
+            + (" and crontab installed" if payload.install_crontab else " (crontab not applied)"),
+            cron_metadata,
+        )
+
         return {
             "success": True,
             "config_saved": True,
@@ -224,6 +327,14 @@ async def api_update_backup_cron(payload: BackupCronUpdate):
     except CronUnavailableError as exc:
         raise HTTPException(status_code=503, detail="Service unavailable") from exc
     except CronCommandError as exc:
+        await _audit_backup(
+            request,
+            ACTION_BACKUP_CRON_UPDATED,
+            None,
+            "Backup schedule crontab command failed",
+            cron_metadata,
+            status=STATUS_FAILURE,
+        )
         raise HTTPException(status_code=500, detail="Internal server error") from exc
     except HTTPException:
         raise
@@ -233,16 +344,31 @@ async def api_update_backup_cron(payload: BackupCronUpdate):
 
 
 @router.delete("/cron")
-async def api_delete_backup_cron():
+async def api_delete_backup_cron(request: Request):
     """Disable CTI-managed backup cron jobs while preserving other crontab entries."""
     try:
         manager = get_backup_config_manager()
         service = BackupCronService()
         state = service.remove_backup_schedule(manager.get_config())
+        await _audit_backup(
+            request,
+            ACTION_BACKUP_CRON_DELETED,
+            None,
+            "CTI-managed backup cron jobs removed",
+            {"installed": state.get("installed")},
+        )
         return {"success": True, **state}
     except CronUnavailableError as exc:
         raise HTTPException(status_code=503, detail="Service unavailable") from exc
     except CronCommandError as exc:
+        await _audit_backup(
+            request,
+            ACTION_BACKUP_CRON_DELETED,
+            None,
+            "Backup cron removal failed",
+            {},
+            status=STATUS_FAILURE,
+        )
         raise HTTPException(status_code=500, detail="Internal server error") from exc
     except Exception as exc:  # noqa: BLE001
         logger.error("Backup cron delete error: %s", exc)
@@ -301,16 +427,13 @@ async def api_backup_status():
                             total_size_gb = float(size_str.split()[0].replace("MB", "")) / 1024
                     except (ValueError, IndexError):
                         total_size_gb = 0.0
-            if "Recent Backups" in line:
-                # Find the first backup entry (starts with number and dot, may have leading spaces)
-                for next_line in lines[lines.index(line) + 1 :]:
-                    stripped = next_line.strip()
-                    # Match lines like " 1. backup_name" or "1. backup_name"
-                    if stripped and re.match(r"^\d+\.", stripped):
-                        parts = stripped.split(".", 1)
-                        if len(parts) >= 2:
-                            last_backup = parts[1].strip()
-                        break
+
+        # Reuse the shared parser so the status endpoint and the list endpoint stay
+        # in lockstep with the prune script's heading format ("Recent backups:").
+        # A case-sensitive inline match here previously left last_backup null.
+        parsed_backups = _parse_backup_list(lines)
+        if parsed_backups:
+            last_backup = parsed_backups[0]["name"]
 
         return {
             "automated": cron_state["automated"],
@@ -400,22 +523,65 @@ async def api_restore_backup(request: Request):
             if no_snapshot:
                 cmd.append("--no-snapshot")
 
-        result = subprocess.run(  # nosemgrep  # codeql[py/command-line-injection] false positive: all cmd args validated by validate_backup_name/validate_backup_dir/validate_backup_components; list form (no shell=True)
-            cmd,
-            cwd=str(project_root),
-            capture_output=True,
-            text=True,
-            timeout=600,  # Restore can take longer
-            check=False,
+        restore_metadata = {
+            "backup_name": backup_name,
+            "backup_dir": backup_dir,
+            "components": components,
+            "no_snapshot": no_snapshot,
+            "script": script_path.name,
+        }
+        await _audit_backup(
+            request,
+            ACTION_BACKUP_RESTORED,
+            backup_name,
+            "Database restore requested",
+            restore_metadata,
+            status=STATUS_ATTEMPTED,
         )
 
+        try:
+            # nosemgrep codeql[py/command-line-injection] false positive: all cmd args validated by validate_backup_name/validate_backup_dir/validate_backup_components; list form (no shell=True)
+            result = subprocess.run(
+                cmd,
+                cwd=str(project_root),
+                capture_output=True,
+                text=True,
+                timeout=600,  # Restore can take longer
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            await _audit_backup(
+                request,
+                ACTION_BACKUP_RESTORED,
+                backup_name,
+                "Database restore timed out",
+                {**restore_metadata, "timeout_seconds": 600},
+                status=STATUS_FAILURE,
+            )
+            raise
+
         if result.returncode == 0:
+            await _audit_backup(
+                request,
+                ACTION_BACKUP_RESTORED,
+                backup_name,
+                "Database restore completed successfully",
+                restore_metadata,
+            )
             return {
                 "success": True,
                 "message": "Restore completed successfully",
                 "output": result.stdout,
             }
 
+        await _audit_backup(
+            request,
+            ACTION_BACKUP_RESTORED,
+            backup_name,
+            "Database restore failed",
+            {**restore_metadata, "returncode": result.returncode},
+            status=STATUS_FAILURE,
+        )
         raise HTTPException(status_code=500, detail="Internal server error")
 
     except subprocess.TimeoutExpired as exc:
@@ -433,6 +599,7 @@ RESTORE_FILE_SUFFIXES = (".sql", ".sql.gz")
 
 @router.post("/restore-from-file")
 async def api_restore_from_file(
+    request: Request,
     file: UploadFile = File(..., description="Backup file (.sql or .sql.gz)"),
 ):
     """Restore database from an uploaded backup file."""
@@ -459,6 +626,17 @@ async def api_restore_from_file(
             f.write(content)
             tmp_path = Path(f.name)
 
+        # Audit the uploaded filename and size, never the file contents.
+        upload_metadata = {"filename": file.filename, "suffix": suffix, "size_bytes": len(content)}
+        await _audit_backup(
+            request,
+            ACTION_BACKUP_RESTORED,
+            file.filename,
+            "Database restore from uploaded file requested",
+            upload_metadata,
+            status=STATUS_ATTEMPTED,
+        )
+
         cmd = [sys.executable, str(script_path), str(tmp_path), "--force"]
         result = subprocess.run(
             cmd,
@@ -470,16 +648,39 @@ async def api_restore_from_file(
         )
 
         if result.returncode == 0:
+            await _audit_backup(
+                request,
+                ACTION_BACKUP_RESTORED,
+                file.filename,
+                "Database restore from uploaded file completed successfully",
+                upload_metadata,
+            )
             return {
                 "success": True,
                 "message": "Restore from file completed successfully",
                 "output": result.stdout,
             }
+        await _audit_backup(
+            request,
+            ACTION_BACKUP_RESTORED,
+            file.filename,
+            "Database restore from uploaded file failed",
+            {**upload_metadata, "returncode": result.returncode},
+            status=STATUS_FAILURE,
+        )
         raise HTTPException(
             status_code=500,
             detail=result.stderr.strip() or result.stdout.strip() or "Restore failed",
         )
     except subprocess.TimeoutExpired as exc:
+        await _audit_backup(
+            request,
+            ACTION_BACKUP_RESTORED,
+            file.filename,
+            "Database restore from uploaded file timed out",
+            {"filename": file.filename, "timeout_seconds": 600},
+            status=STATUS_FAILURE,
+        )
         raise HTTPException(status_code=500, detail="Restore timed out") from exc
     except HTTPException:
         raise

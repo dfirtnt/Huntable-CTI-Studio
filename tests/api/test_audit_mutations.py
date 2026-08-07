@@ -18,6 +18,7 @@ from fastapi import HTTPException
 
 from src.database.models import AuditEventTable
 from src.services import audit_service
+from src.services.workflow_config_snapshot import SNAPSHOT_HASH_KEY, snapshot_is_complete
 
 pytestmark = pytest.mark.api
 
@@ -486,7 +487,13 @@ class TestWorkflowTriggerServiceAudit:
             c.args[0] for c in session.add.call_args_list if isinstance(c.args[0], AgenticWorkflowExecutionTable)
         ]
         assert len(executions) == 1
-        assert executions[0].config_snapshot == {"initiated_by": {"user_id": "u1"}}
+        # The dispatch snapshot is resolved and hashed before dispatch, so it is always
+        # complete -- initiated_by rides along as provenance rather than being the whole
+        # snapshot (it is excluded from the hash).
+        snapshot = executions[0].config_snapshot
+        assert snapshot["initiated_by"] == {"user_id": "u1"}
+        assert snapshot_is_complete(snapshot)
+        assert snapshot[SNAPSHOT_HASH_KEY]
 
     def test_trigger_workflow_without_factory_is_backward_compatible(self):
         """Auto-trigger callers (ingest) pass no factory: no audit row, no initiated_by."""
@@ -507,7 +514,12 @@ class TestWorkflowTriggerServiceAudit:
         executions = [
             c.args[0] for c in session.add.call_args_list if isinstance(c.args[0], AgenticWorkflowExecutionTable)
         ]
-        assert executions[0].config_snapshot is None
+        # No initiated_by (service-originated trigger), but still a complete, hashed
+        # snapshot: a run with no active configuration must stay reproducible too.
+        snapshot = executions[0].config_snapshot
+        assert "initiated_by" not in snapshot
+        assert snapshot_is_complete(snapshot)
+        assert snapshot[SNAPSHOT_HASH_KEY]
 
     def test_trigger_workflow_audit_failure_rolls_back_and_raises(self):
         from src.services.workflow_trigger_service import WorkflowAuditError

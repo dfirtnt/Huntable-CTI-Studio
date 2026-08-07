@@ -1,0 +1,51 @@
+# Docker MCP Gateway server entry for Huntable CTI Studio.
+#
+# The Gateway runs in its own container and cannot invoke this repo's stdio
+# launcher (scripts/run_mcp_server.sh shells out to `docker compose run` on the
+# host). It can connect to a remote streamable-HTTP MCP server, which is what
+# the `mcp_http` compose service serves.
+#
+# Install (docker mcp v0.43+ resolves `file://` under ~/.docker/mcp/catalogs):
+#
+#   docker compose --profile mcp up -d mcp_http
+#   cp config/mcp-gateway/huntable-server-entry.yaml ~/.docker/mcp/catalogs/
+#   docker mcp catalog server add custom --server file://huntable-server-entry.yaml
+#   docker mcp secret set huntable.mcp_token=<the HUNTABLE_MCP_TOKEN value from .env>
+#   docker mcp server enable huntable-cti-studio
+#
+# Verify:
+#
+#   docker mcp catalog server ls custom
+#   docker mcp tools list --server huntable-cti-studio
+#
+# `host.docker.internal` is how the Gateway container reaches the port that
+# `mcp_http` publishes on the host loopback interface. The two containers share
+# a host but not a compose network, so the service name `mcp_http` will not
+# resolve — the published port is the seam.
+name: huntable-cti-studio
+type: remote
+title: Huntable CTI Studio
+description: >-
+  Threat intelligence database with semantic search over CTI articles and SIGMA
+  detection rules, workflow status, eval bundles, and read-only SQL. Write tools
+  are risk-tiered; execute_sql is permanently read-only.
+remote:
+  transport_type: streamable-http
+  url: http://host.docker.internal:8009/mcp
+  headers:
+    Authorization: "Bearer ${HUNTABLE_MCP_TOKEN}"
+secrets:
+  - name: huntable.mcp_token
+    env: HUNTABLE_MCP_TOKEN
+    example: <the HUNTABLE_MCP_TOKEN value from .env>
+    description: >-
+      Bearer token for the local Huntable MCP HTTP endpoint. Must match
+      HUNTABLE_MCP_TOKEN in the repo's .env.
+metadata:
+  category: security
+  tags:
+    - threat-intelligence
+    - detection-engineering
+    - sigma
+    - remote
+  owner: local

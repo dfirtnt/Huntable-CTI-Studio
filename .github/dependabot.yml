@@ -12,6 +12,8 @@ updates:
       interval: weekly
       day: saturday
     open-pull-requests-limit: 0
+    cooldown:
+      default-days: 7
     groups:
       security-updates:
         applies-to: security-updates
@@ -25,6 +27,8 @@ updates:
       interval: weekly
       day: saturday
     open-pull-requests-limit: 0
+    cooldown:
+      default-days: 7
     groups:
       security-updates:
         applies-to: security-updates
@@ -38,3 +42,5 @@ updates:
       interval: weekly
       day: saturday
     open-pull-requests-limit: 0
+    cooldown:
+      default-days: 7

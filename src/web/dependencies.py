@@ -10,14 +10,68 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import AsyncGenerator, Generator
+from contextlib import contextmanager
 from functools import lru_cache
 
 from fastapi.templating import Jinja2Templates
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from starlette.requests import Request
 
+from src.database.async_manager import async_db_manager
+from src.database.manager import DatabaseManager
 from src.utils.content_filter import ContentFilter
 from src.web.security.csrf import issue_csrf_token
 from src.web.utils.jinja_filters import highlight_keywords, strftime_filter
+
+
+def get_db_session() -> Generator[Session, None, None]:
+    """FastAPI dependency yielding a synchronous SQLAlchemy session.
+
+    Route handlers take ``session: Session = Depends(get_db_session)`` instead of
+    constructing ``DatabaseManager()`` by hand, so session lifecycle (rollback on
+    error, close on completion) lives in one place rather than in every endpoint's
+    try/finally. ``DatabaseManager`` caches engines per connection string, so
+    per-request instantiation does not open a new pool.
+    """
+    session = DatabaseManager().get_session()
+    try:
+        yield session
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+async def get_async_db_session() -> AsyncGenerator[AsyncSession, None]:
+    """FastAPI dependency yielding an async SQLAlchemy session.
+
+    Async counterpart to :func:`get_db_session`, backed by the ``async_db_manager``
+    singleton whose context manager already handles rollback and close.
+    """
+    async with async_db_manager.get_session() as session:
+        yield session
+
+
+@contextmanager
+def session_scope() -> Generator[Session, None, None]:
+    """Session context manager for work that outlives the request.
+
+    Background tasks and thread-pool workers cannot use ``Depends(get_db_session)``:
+    that session is closed as soon as the response is returned. They use this instead,
+    so route modules still never import ``src.database`` directly.
+    """
+    session = DatabaseManager().get_session()
+    try:
+        yield session
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
 
 # Configure logging once for the web layer
 logging.basicConfig(level=logging.INFO)
@@ -63,4 +117,7 @@ __all__ = [
     "logger",
     "templates",
     "get_content_filter",
+    "get_db_session",
+    "get_async_db_session",
+    "session_scope",
 ]

@@ -402,6 +402,7 @@ class TestExportEndpoints:
         # Verify success message format
         assert (
             "Rescoring completed" in data["message"]
+            or "Rescoring started" in data["message"]
             or "No articles found" in data["message"]
             or "All articles already have scores" in data["message"]
         )

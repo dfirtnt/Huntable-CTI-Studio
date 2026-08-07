@@ -52,12 +52,6 @@ def calculate_filtered_costs(
     }
 
 
-@router.get("/api/test-route")
-async def test_route():
-    """Test route to verify route registration."""
-    return {"message": "Test route is working"}
-
-
 @router.get("/api/articles/{article_id}/chunk-debug")
 async def api_chunk_debug(
     article_id: int,

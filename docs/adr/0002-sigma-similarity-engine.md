@@ -25,7 +25,7 @@ This ADR records the deterministic atom-set engine that replaced both paths, the
 
 The engine compares two Sigma rules by reducing each to a sorted set of canonical positive atoms and a sorted set of negative atoms, then scoring the pair with:
 
-```
+```text
 similarity = clamp(0, 1, Jaccard(A1, A2) × Containment(A1, A2) − FilterPenalty(F1, F2))
 ```
 
@@ -35,7 +35,7 @@ All three terms are implemented in the standalone `sigma_atom_similarity` packag
 
 An atom is the smallest behavioral predicate in a Sigma detection: one field, one operator (possibly with modifiers), one value. Its identity string lives in the column `sigma_rules.positive_atoms` (JSONB array) and takes the **3-slot form**:
 
-```
+```text
 field | modifier_chain | normalized_value
 ```
 
@@ -55,7 +55,7 @@ If a rule fails to map, the engine raises `UnknownTelemetryClassError`. The call
 
 Once both rules resolve to the same class and the atom sets are extracted, the engine computes Jaccard over positive atoms:
 
-```
+```text
 J = |A1 ∩ A2| / |A1 ∪ A2|
 ```
 
@@ -78,7 +78,7 @@ Jaccard alone is symmetric and penalizes subset relationships. If rule A has 3 a
 
 Negative atoms (NOT clauses) never increase similarity. They only subtract. `filter_penalty(F1, F2, |A1|, |A2|)` computes:
 
-```
+```text
 F = min(0.5, |F1 △ F2| / max(|A1|, |A2|))
 ```
 
@@ -123,7 +123,7 @@ The corpus was replayed against the rebuilt extractors twice (`docs/development/
 
 Every similarity endpoint had been hand-shaping the raw match dict differently — nesting, rounding, field pruning, key renaming. A fix in one surface did not propagate. `src/services/similarity_serialization.py::serialize_similarity_match` projects every raw match onto one canonical contract:
 
-```
+```text
 id, rule_id, title, description, logsource, detection, tags, level, status, file_path,
 similarity, atom_jaccard, logic_shape_similarity, containment, novelty_label, novelty_score,
 similarity_engine, service_penalty, filter_penalty, weighted_before_penalties,
@@ -145,7 +145,7 @@ All numeric metrics are rounded to 4 decimal places at one site. Directional con
 
 Frontend mirrors live in `src/web/static/js/components/similarity-display.js`:
 
-```
+```javascript
 SIMILARITY_THRESHOLDS = {
   legacy:        { duplicateAtomJaccard: 0.95, duplicateLogicShape: 0.95, similarAtomJaccard: 0.80 },
   deterministic: { duplicateSimilarity:  0.75, similarSimilarity:    0.50 },

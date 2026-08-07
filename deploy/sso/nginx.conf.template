@@ -6,6 +6,11 @@
 # directives below always overwrite client input, and the app additionally requires
 # the X-Huntable-Verified marker before trusting identity. Direct access to web:8001
 # must be blocked at the network layer so this edge cannot be bypassed.
+#
+# Host-header pinning: redirects and proxied Host/X-Forwarded-Host headers use
+# $server_name (the configured __SSO_HOSTNAME__), never the client-supplied
+# Host header, so an attacker cannot control the redirect target or the Host
+# header seen by the upstreams by sending a crafted Host header.
 
 upstream cti_app {
     server web:8001;
@@ -17,7 +22,7 @@ upstream cti_oauth2 {
 server {
     listen 80;
     server_name __SSO_HOSTNAME__;
-    return 301 https://$host$request_uri;
+    return 301 https://$server_name$request_uri;
 }
 
 server {
@@ -31,10 +36,10 @@ server {
     # oauth2-proxy's own endpoints (login page, OAuth callback, sign-out).
     location /oauth2/ {
         proxy_pass http://cti_oauth2;
-        proxy_set_header Host              $host;
+        proxy_set_header Host              $server_name;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header X-Forwarded-Host  $server_name;
         proxy_set_header X-Forwarded-Uri   $request_uri;
     }
 
@@ -42,7 +47,7 @@ server {
     location = /oauth2/auth {
         internal;
         proxy_pass http://cti_oauth2;
-        proxy_set_header Host             $host;
+        proxy_set_header Host             $server_name;
         proxy_set_header X-Real-IP        $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_pass_request_body off;
@@ -52,7 +57,7 @@ server {
     location / {
         auth_request /oauth2/auth;
         # Unauthenticated -> bounce to the provider login, then back here.
-        error_page 401 = /oauth2/sign_in?rd=$scheme://$host$request_uri;
+        error_page 401 = /oauth2/sign_in?rd=$scheme://$server_name$request_uri;
 
         # Verified identity returned by oauth2-proxy (--set-xauthrequest=true).
         auth_request_set $auth_user   $upstream_http_x_auth_request_user;
@@ -60,7 +65,7 @@ server {
         auth_request_set $auth_groups $upstream_http_x_auth_request_groups;
 
         proxy_pass http://cti_app;
-        proxy_set_header Host              $host;
+        proxy_set_header Host              $server_name;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;

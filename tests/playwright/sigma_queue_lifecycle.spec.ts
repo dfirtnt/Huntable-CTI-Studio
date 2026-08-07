@@ -419,10 +419,12 @@ test.describe('Sigma Queue UI', () => {
     await page.selectOption('#queueStatusFilter', '');
     await filterRefreshPromise.catch(() => {});
 
-    // Filter by queueId to avoid matching orphaned rows from previous runs
+    // Filter by queueId to avoid matching orphaned rows from previous runs.
+    // Target the row's DOM id directly — hasText substring filtering can match
+    // neighboring rows (e.g. row 6's content containing a "7"), which is a
+    // strict-mode violation when both rows render an approve button.
     const approveBtn = page
-      .locator(`#queueTableBody tr`)
-      .filter({ hasText: String(queueId) })
+      .locator(`#queue-row-${queueId}`)
       .locator('.q-action.approve');
 
     if (!(await approveBtn.isVisible())) {
@@ -435,8 +437,8 @@ test.describe('Sigma Queue UI', () => {
       await fallbackRefreshPromise.catch(() => {});
     }
 
-    // approveRule() calls confirm() -- accept it so the fetch fires
-    page.once('dialog', dialog => dialog.accept());
+    await approveBtn.click();
+    await expect(page.getByRole('heading', { name: 'Approve Rule' })).toBeVisible();
 
     // Intercept the approve API call to confirm it fires
     const approveResponsePromise = page.waitForResponse(
@@ -444,8 +446,7 @@ test.describe('Sigma Queue UI', () => {
         resp.url().includes(`/api/sigma-queue/${queueId}/approve`) && resp.request().method() === 'POST',
       { timeout: 10000 },
     );
-
-    await approveBtn.click();
+    await page.locator('[id^="_confirm_"] .confirm-btn').click();
     const approveResp = await approveResponsePromise;
     expect(approveResp.status()).toBe(200);
 
@@ -492,20 +493,23 @@ test.describe('Sigma Queue UI', () => {
       .filter({ hasText: String(queueId) })
       .locator('.q-action.reject');
 
+    await rejectBtn.click();
+    await expect(page.getByRole('heading', { name: 'Reject Rule' })).toBeVisible();
+
     const rejectResponsePromise = page.waitForResponse(
       (resp: any) =>
         resp.url().includes(`/api/sigma-queue/${queueId}/reject`) && resp.request().method() === 'POST',
       { timeout: 10000 },
     );
 
-    // Register the post-reject queue-refresh listener BEFORE clicking so the
+    // Register the post-reject queue-refresh listener BEFORE confirming so the
     // continuation fetch inside rejectRule() cannot fire before we subscribe.
     const listRefreshPromise = page.waitForResponse(
       (resp: any) => resp.url().includes('/api/sigma-queue/list') && resp.status() === 200,
       { timeout: 10000 },
     );
 
-    await rejectBtn.click();
+    await page.locator('[id^="_prompt_"] .confirm-btn').click();
     const rejectResp = await rejectResponsePromise;
     expect(rejectResp.status()).toBe(200);
 

@@ -15,6 +15,11 @@ from src.database.models import (
 )
 from src.huntable_mcp.tools.write_support import record_mcp_audit
 from src.services.audit_service import ACTION_WORKFLOW_CANCELLED, ACTION_WORKFLOW_RETRIED
+from src.services.workflow_config_snapshot import (
+    SNAPSHOT_CONFIG_FIELDS,
+    build_config_snapshot,
+    rehash_snapshot,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +136,14 @@ def register(mcp: FastMCP, db: AsyncDatabaseManager) -> None:
                     new_config_snapshot["rank_agent_enabled"] = bool(
                         new_config_snapshot.get("rank_agent_enabled", True)
                     )
+
+                # Mirror the HTTP retry route: a retry is a new dispatch, so backfill any
+                # fields the retried execution's snapshot lacked and re-hash, leaving the
+                # deliberate model/rank refreshes above intact.
+                complete_base = build_config_snapshot(current_config)
+                for field in SNAPSHOT_CONFIG_FIELDS:
+                    new_config_snapshot.setdefault(field, complete_base[field])
+                new_config_snapshot = rehash_snapshot(new_config_snapshot)
 
                 article_id = execution.article_id
                 new_execution = AgenticWorkflowExecutionTable(

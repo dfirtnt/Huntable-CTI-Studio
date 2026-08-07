@@ -22,17 +22,16 @@ These are unit tests — no DB, no browser. They parse the template source.
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.unit
+from tests.utils.workflow_html_source import read_workflow_src
 
-WORKFLOW_TEMPLATE = Path(__file__).resolve().parents[2] / "src" / "web" / "templates" / "workflow.html"
+pytestmark = pytest.mark.unit
 
 
 def _source() -> str:
-    return WORKFLOW_TEMPLATE.read_text()
+    return read_workflow_src()
 
 
 def _function_body(source: str, name: str) -> str:

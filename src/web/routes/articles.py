@@ -7,6 +7,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Request
 
 from src.database.async_manager import async_db_manager
+from src.utils.search_parser import parse_boolean_search
 from src.web.dependencies import logger
 
 
@@ -46,18 +47,12 @@ async def api_articles_list(
     processing_status: str | None = None,
 ):
     """API endpoint for listing articles with sorting and filtering."""
-    logger.debug("=" * 50)
-    logger.debug("API ARTICLES ENDPOINT CALLED!")
-    logger.debug("=" * 50)
-    logger.debug("Function parameters: sort_by=%s, sort_order=%s", sort_by, sort_order)
     # Validate sort parameters against allowlist
     if sort_by not in _ALLOWED_SORT_COLUMNS:
         sort_by = "published_at"
     if sort_order not in _ALLOWED_SORT_ORDERS:
         sort_order = "desc"
     try:
-        logger.debug("DEBUG: API called with sort_by=%s, sort_order=%s", sort_by, sort_order)
-        logger.info("DEBUG: API called with sort_by=%s, sort_order=%s", sort_by, sort_order)
         try:
             article_filter = SimpleFilter(
                 limit=limit,
@@ -66,17 +61,11 @@ async def api_articles_list(
                 source_id=source_id,
                 processing_status=processing_status,
             )
-            logger.info(
-                "DEBUG: Created filter with sort_by=%s, sort_order=%s",
-                article_filter.sort_by,
-                article_filter.sort_order,
-            )
         except Exception as exc:  # noqa: BLE001
-            logger.error("DEBUG: Error creating filter: %s", exc)
+            logger.error("Error creating article filter: %s", exc)
             article_filter = None
 
         articles = await async_db_manager.list_articles(article_filter=article_filter)
-        logger.info("DEBUG: Retrieved %s articles", len(articles))
 
         total_count = await async_db_manager.get_articles_count(
             source_id=source_id,
@@ -165,6 +154,67 @@ async def api_articles_top(limit: int = 10):
         raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
+@router.get("/search")
+async def api_search_articles(
+    q: str,
+    source_id: int | None = None,
+    threat_hunting_min: int | None = None,
+    limit: int | None = 100,
+    offset: int | None = 0,
+):
+    """Search articles with wildcard and boolean support."""
+    try:
+        all_articles = await async_db_manager.list_articles()
+        filtered_articles = all_articles
+
+        if source_id:
+            filtered_articles = [article for article in filtered_articles if article.source_id == source_id]
+
+        if threat_hunting_min is not None:
+            filtered_articles = [
+                article
+                for article in filtered_articles
+                if article.article_metadata
+                and article.article_metadata.get("threat_hunting_score", 0) >= threat_hunting_min
+            ]
+
+        articles_dict = [
+            {
+                "id": article.id,
+                "title": article.title,
+                "content": article.content,
+                "source_id": article.source_id,
+                "published_at": article.published_at.isoformat() if article.published_at else None,
+                "canonical_url": article.canonical_url,
+                "metadata": article.article_metadata,
+            }
+            for article in filtered_articles
+        ]
+
+        search_results = parse_boolean_search(q, articles_dict)
+
+        total_results = len(search_results)
+        paginated_results = search_results[offset : offset + limit]
+
+        return {
+            "query": q,
+            "total_results": total_results,
+            "articles": paginated_results,
+            "pagination": {
+                "offset": offset,
+                "limit": limit,
+                "has_more": offset + limit < total_results,
+            },
+        }
+
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Search API error: %s", exc)
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
+
+
+# Every literal path under this prefix must be declared ABOVE this route:
+# FastAPI matches in registration order, so /{article_id} swallows any literal
+# sibling declared after it. tests/unit/test_route_shadowing.py enforces this.
 @router.get("/{article_id}")
 async def api_get_article(article_id: int):
     """API endpoint for getting a specific article."""
@@ -242,10 +292,14 @@ async def api_bulk_action(request: Request):
             raise HTTPException(status_code=400, detail="Only 'delete' bulk action is supported")
 
         processed_count = 0
+        protected_count = 0
         errors: list[str] = []
 
         for article_id in article_ids:
             try:
+                if await async_db_manager.is_eval_article(article_id):
+                    protected_count += 1
+                    continue
                 await async_db_manager.delete_article(article_id)
                 processed_count += 1
 
@@ -256,6 +310,7 @@ async def api_bulk_action(request: Request):
         return {
             "success": True,
             "processed_count": processed_count,
+            "protected_count": protected_count,
             "total_requested": len(article_ids),
             "errors": errors,
         }
@@ -274,6 +329,9 @@ async def delete_article(article_id: int):
         article = await async_db_manager.get_article(article_id)
         if not article:
             raise HTTPException(status_code=404, detail="Article not found")
+
+        if await async_db_manager.is_eval_article(article_id):
+            raise HTTPException(status_code=403, detail="Eval articles are protected and cannot be deleted.")
 
         success = await async_db_manager.delete_article(article_id)
         if not success:

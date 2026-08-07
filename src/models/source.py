@@ -6,9 +6,13 @@ from typing import Any
 
 from pydantic import BaseModel
 
+# The synthetic feed that holds ground-truth evaluation articles. Its rows are
+# protected against deletion and mutation (see is_eval_source / delete guards).
+EVAL_SOURCE_IDENTIFIER: str = "eval_articles"
+
 # Synthetic/internal feeds that are not real ingestion sources. Excluded from
 # every source count so the dashboard and Sources page report the same numbers.
-INTERNAL_SOURCE_IDENTIFIERS: tuple[str, ...] = ("manual", "eval_articles")
+INTERNAL_SOURCE_IDENTIFIERS: tuple[str, ...] = ("manual", EVAL_SOURCE_IDENTIFIER)
 
 
 class SourceConfig(BaseModel):
@@ -75,6 +79,21 @@ class Source(BaseModel):
 
     model_config = {"from_attributes": True}
 
+    def should_check(self) -> bool:
+        """Return True when this source is active and due for its next check.
+
+        Consumed by SourceManager.get_sources_due_for_check and the ``collect``
+        CLI command to gate scheduled ingestion. ``last_check`` is written by the
+        DB layer with ``datetime.now()`` (naive local time), so the elapsed-time
+        comparison uses the same clock to stay consistent.
+        """
+        if not self.active:
+            return False
+        if self.last_check is None:
+            return True
+        time_since_check = (datetime.now() - self.last_check).total_seconds()
+        return time_since_check >= self.check_frequency
+
 
 class SourceHealth(BaseModel):
     """Source health status model."""
@@ -111,6 +130,11 @@ def _attr(source: Any, key: str, default: Any = None) -> Any:
 def is_internal_source(source: Any) -> bool:
     """True for synthetic feeds (``manual``, ``eval_articles``) by identifier."""
     return (_attr(source, "identifier", "") or "") in INTERNAL_SOURCE_IDENTIFIERS
+
+
+def is_eval_source(source: Any) -> bool:
+    """True only for the protected ground-truth eval feed (``eval_articles``)."""
+    return (_attr(source, "identifier", "") or "") == EVAL_SOURCE_IDENTIFIER
 
 
 def summarize_sources(sources: Iterable[Any] | None) -> SourceCounts:

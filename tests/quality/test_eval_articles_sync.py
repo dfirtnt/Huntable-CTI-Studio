@@ -183,6 +183,28 @@ def _build_count_mismatch_params() -> list[pytest.param]:
     return params or [pytest.param("__none__", "__none__", id="no_count_mismatches")]
 
 
+def _build_too_short_content_params() -> list[pytest.param]:
+    """Eval fixtures with ground-truth items need more than a title-only shell."""
+    params = []
+    for subdir in _DATA_DIR.iterdir():
+        if not subdir.is_dir() or subdir.name in _NON_SUBAGENT_DIRS:
+            continue
+        articles_path = subdir / "articles.json"
+        if not articles_path.exists():
+            continue
+        with open(articles_path) as f:
+            articles = json.load(f)
+        for article in articles:
+            content = article.get("content", "")
+            if article.get("expected_count", 0) > 0 and len(content.strip()) < 500:
+                params.append(
+                    pytest.param(
+                        subdir.name, article["url"], len(content.strip()), id=f"{subdir.name}::{article['url']}"
+                    )
+                )
+    return params or [pytest.param("__none__", "__none__", 0, id="no_title_only_fixtures")]
+
+
 @pytest.mark.unit
 @pytest.mark.contract
 @pytest.mark.parametrize("subagent,url", _build_stale_params())
@@ -263,4 +285,17 @@ def test_ground_truth_item_count_matches_yaml_expected_count(subagent: str, url:
         f"eval_articles.yaml expected_count={yaml_ec} but "
         f"ground_truth.json has {gt_ec} expected_items. "
         f"Update ground_truth.json or the YAML expected_count to agree."
+    )
+
+
+@pytest.mark.unit
+@pytest.mark.contract
+@pytest.mark.parametrize("subagent,url,content_length", _build_too_short_content_params())
+def test_eval_fixture_with_expected_items_is_not_title_only(subagent: str, url: str, content_length: int) -> None:
+    """A bot-wall response must never replace an article that has scored items."""
+    if subagent == "__none__":
+        return
+    pytest.fail(
+        f"[{subagent}] {url}: fixture has expected items but only {content_length} characters. "
+        "Restore the last known-good fixture; do not commit a title-only fetch response."
     )

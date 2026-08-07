@@ -10,11 +10,10 @@ rendered outside the editing branch too.
 """
 
 import re
-from pathlib import Path
 
 import pytest
 
-WORKFLOW_TEMPLATE = Path(__file__).resolve().parents[2] / "src" / "web" / "templates" / "workflow.html"
+from tests.utils.workflow_html_source import read_workflow_src
 
 
 @pytest.mark.unit
@@ -22,7 +21,7 @@ WORKFLOW_TEMPLATE = Path(__file__).resolve().parents[2] / "src" / "web" / "templ
 class TestInlineValidateButtonAlwaysVisible:
     @pytest.fixture(scope="class")
     def render_single_prompt_body(self) -> str:
-        text = WORKFLOW_TEMPLATE.read_text()
+        text = read_workflow_src()
         match = re.search(
             r"function renderSinglePrompt\([^)]*\)\s*\{(.*?)\nfunction ",
             text,
@@ -68,7 +67,7 @@ class TestValidateAgentPromptReadOnlyFallback:
 
     @pytest.fixture(scope="class")
     def validate_fn_body(self) -> str:
-        text = WORKFLOW_TEMPLATE.read_text()
+        text = read_workflow_src()
         match = re.search(
             r"function validateAgentPrompt\([^)]*\)\s*\{(.*?)\n\}",
             text,

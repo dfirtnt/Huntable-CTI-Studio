@@ -1014,8 +1014,7 @@
 
 
     function showError(message) {
-        console.error(message);
-        // Could add a toast notification here
+        window.showNotification(message, 'error');
     }
 
         // Backfill functions
@@ -1125,18 +1124,14 @@
             }
         }
 
-        function confirmRetrainWithUnprocessed(event) {
+        async function confirmRetrainWithUnprocessed(event) {
             const eligibleCount = document.getElementById('eligibleCount').textContent.match(/(\d+)/);
             if (eligibleCount && parseInt(eligibleCount[1]) > 0) {
-                const confirmed = confirm(
-                    `⚠️ You have ${eligibleCount[1]} unprocessed articles.\n\n` +
-                    `Recommended workflow:\n` +
-                    `1. Process articles first (for baseline comparison)\n` +
-                    `2. Retrain model\n` +
-                    `3. Reprocess articles (with new model)\n\n` +
-                    `Do you want to proceed with retraining anyway?`
+                const confirmed = await ModalManager.confirm(
+                    `You have ${eligibleCount[1]} unprocessed articles.\n\nRecommended workflow:\n1. Process articles first (for baseline comparison)\n2. Retrain model\n3. Reprocess articles (with new model)\n\nDo you want to proceed with retraining anyway?`,
+                    { title: 'Unprocessed Articles', confirmText: 'Retrain Anyway', confirmClass: 'bg-orange-600 hover:bg-orange-700', cancelText: 'Cancel' }
                 );
-                
+
                 if (!confirmed) {
                     event.preventDefault();
                     event.stopPropagation();

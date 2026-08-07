@@ -152,6 +152,13 @@ class TestOnDiskCatalog:
         models = json.loads(path.read_text())["anthropic"]
         assert "claude-opus-4-8" in models, "claude-opus-4-8 missing from catalog"
 
+    def test_opus_5_in_catalog(self):
+        """claude-opus-5 must be in the on-disk catalog (1M context default)."""
+
+        path = Path(__file__).resolve().parents[2] / "config" / "provider_model_catalog.json"
+        models = json.loads(path.read_text())["anthropic"]
+        assert "claude-opus-5" in models, "claude-opus-5 missing from catalog"
+
     def test_codex_models_not_in_catalog(self):
         """gpt-5.1-codex-max and gpt-5.1-codex-mini must not be in the committed catalog.
         Regression: they were present before the -codex anchor fix and slipped into the UI."""

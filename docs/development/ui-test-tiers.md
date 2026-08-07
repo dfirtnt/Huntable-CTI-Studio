@@ -1,6 +1,11 @@
 # UI Test Tiers
 
-The UI suite (627 pytest browser tests + 355 Playwright specs across 49 files)
+<!-- AUDIT: Accuracy -- 2026-07-17: counts below were stale (from before the "UI test diet" commits that cut
+     the suite, e.g. 1a490501, f1e1db0e, 24d78955). Re-measured directly: `pytest --collect-only tests/ui/`
+     collects 116 tests; `npx playwright test --config tests/playwright.config.ts --list` reports
+     "218 tests in 33 files" for the default (non-quarantine) project set. Time estimates in the table below
+     are not re-verified (would require a full ~45min run) and are left as-is. -->
+The UI suite (116 pytest browser tests + 218 Playwright specs across 33 files)
 takes ~45 minutes end to end. The tier system below lets you pick the right
 slice for the moment so you do not pay the full cost on every change.
 
@@ -29,23 +34,32 @@ slice for the moment so you do not pay the full cost on every change.
 Defined in `tests/playwright.config.ts` as projects. Each project owns a
 disjoint set of spec files:
 
+<!-- AUDIT: Accuracy -- file counts re-measured 2026-07-17 via `npx playwright test --config tests/playwright.config.ts --list`,
+     grouped by project. Previous counts (and some "what it covers" descriptions) referenced spec files removed by
+     the UI test-suite reduction commits (e.g. navigation.spec.ts, chat.spec.ts, chunk_coverage.spec.ts,
+     agent_evals_hunt_query.spec.ts, observables_selection.spec.ts) that no longer exist on disk; the config's
+     `testMatch` patterns for those files are now dead (match zero files), including all three `quarantine`
+     patterns. -->
 | Area           | Files | What it covers                                             |
 |----------------|-------|------------------------------------------------------------|
 | `agent-config` | 14    | `agent_config_*.spec.ts` -- presets, validation, autosave  |
-| `workflow`     | 16    | workflow save/config/persistence, execution detail tabs    |
-| `sources`      | 2     | sources page, chunk coverage                               |
-| `articles`     | 5     | article detail, dashboard, navigation, jobs                |
-| `intelligence` | 7     | sigma enrich, hunt query evals, observables, optimizer     |
-| `ui-misc`      | 5     | collapsible sections, modals, settings, text colors        |
-| `quarantine`   | 3     | known-flaky / env-dependent (workflow_executions, observables_plain/exact) |
+| `workflow`     | 8     | execution detail tabs, prompt editor, workflow config persistence/versions, platform badge/detection |
+| `sources`      | 1     | sources page                                                |
+| `articles`     | 3     | article detail, dashboard, jobs                             |
+| `intelligence` | 3     | sigma enrich, sigma queue lifecycle, sigma similarity unification |
+| `ui-misc`      | 4     | collapsible sections, modals, settings                     |
+| `quarantine`   | 0     | patterns reference files that no longer exist (dead config; see audit note) |
 
 Run a single area: `npx playwright test --config tests/playwright.config.ts --project=sources`
 or via the runner: `python3 run_tests.py ui-fast --area=sources`.
 
 ## Tags and exclusions
 
-- `@pytest.mark.slow` -- mobile responsiveness, accessibility, performance
-  (~76 tests). Excluded from tiers 1-3, included in tier 4.
+- `@pytest.mark.slow` -- mobile responsiveness, accessibility, performance.
+  <!-- AUDIT: Accuracy -- `pytest --collect-only -m slow tests/ui/` collects 0 tests as of 2026-07-17 (6 tests
+       repo-wide carry the marker, none under tests/ui/); the "~76 tests" figure is stale. Excluding this marker
+       from tiers 1-3 is currently a no-op for the pytest side. -->
+  Excluded from tiers 1-3, included in tier 4.
 - `@pytest.mark.ui_smoke` -- ~10 critical browser smoke tests, hand-tagged.
 - `@pytest.mark.smoke` -- ~30 fast httpx-based page-load checks.
 - `@pytest.mark.agent_config_mutation` -- tests that mutate live agent/workflow

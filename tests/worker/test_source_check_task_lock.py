@@ -14,7 +14,6 @@ def _import_celery_app():
             del sys.modules[key]
 
     mocks = {
-        "src.worker.tasks.annotation_embeddings": MagicMock(),
         "src.worker.tasks.observable_training": MagicMock(),
         "src.worker.tasks.test_agents": MagicMock(),
     }

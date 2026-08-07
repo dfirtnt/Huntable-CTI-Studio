@@ -27,7 +27,7 @@ see [Overview](../architecture/overview.md); for Docker specifics see
 
 ### Collection
 
-```
+```text
 Scheduler triggers source check
   -> RSS parser extracts article metadata
   -> Modern scraper (JSON-LD, OpenGraph) or CSS selector fallback
@@ -38,7 +38,7 @@ Scheduler triggers source check
 
 ### Agentic Workflow
 
-```
+```text
 Article trigger (API or UI)
   -> Platform Detection (platform routing, not a gate)
   -> Junk Filter
@@ -53,7 +53,7 @@ See [Pipelines](../concepts/pipelines.md) for the full execution order.
 
 ### Web Interface
 
-```
+```text
 User request -> FastAPI route -> async DB query -> Jinja2 template -> HTML
 ```
 

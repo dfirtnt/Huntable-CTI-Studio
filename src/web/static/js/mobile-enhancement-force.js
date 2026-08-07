@@ -192,7 +192,7 @@
             // Validate length (must be ~1000 chars)
             const textLength = text.length;
             if (textLength < 950 || textLength > 1050) {
-                showNotification(
+                window.showNotification(
                     `Selection must be approximately 1000 characters (current: ${textLength})`,
                     'error'
                 );
@@ -227,7 +227,7 @@
                 const result = await response.json();
                 if (result.success) {
                     console.log(`✅ Mobile annotation created: ${type}`);
-                    showNotification(`Marked as ${type === 'huntable' ? 'Huntable' : 'Not Huntable'}`, 'success');
+                    window.showNotification(`Marked as ${type === 'huntable' ? 'Huntable' : 'Not Huntable'}`, 'success');
                 } else {
                     console.error('❌ Annotation creation failed:', result.message);
                 }
@@ -240,21 +240,7 @@
     }
     
     // Show notification
-    function showNotification(message, type) {
-        const notification = document.createElement('div');
-        notification.className = `fixed top-4 right-4 p-4 rounded-lg text-white z-50 ${
-            type === 'success' ? 'bg-green-600' : 'bg-red-600'
-        }`;
-        notification.textContent = message;
-        
-        document.body.appendChild(notification);
-        
-        setTimeout(() => {
-            if (notification.parentNode) {
-                notification.parentNode.removeChild(notification);
-            }
-        }, 3000);
-    }
+    // NOTE: global window.showNotification at base.html is canonical — this local shadow removed.
     
     // Initialize when page loads
     if (document.readyState === 'loading') {

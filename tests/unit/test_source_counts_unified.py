@@ -9,7 +9,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from src.models.source import INTERNAL_SOURCE_IDENTIFIERS, summarize_sources
+from src.models.source import (
+    EVAL_SOURCE_IDENTIFIER,
+    INTERNAL_SOURCE_IDENTIFIERS,
+    is_eval_source,
+    summarize_sources,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -79,3 +84,32 @@ def test_home_and_sources_page_agree_on_active_count():
     sources_page_active = summarize_sources(raw_sources).active
 
     assert home_active == sources_page_active == 2
+
+
+# ---------------------------------------------------------------------------
+# Eval-source discriminator (delete-protection guard)
+# ---------------------------------------------------------------------------
+
+
+def test_eval_source_identifier_constant():
+    assert EVAL_SOURCE_IDENTIFIER == "eval_articles"
+
+
+def test_internal_identifiers_reference_eval_constant():
+    """The eval identifier is the single source of truth for both concepts."""
+    assert EVAL_SOURCE_IDENTIFIER in INTERNAL_SOURCE_IDENTIFIERS
+
+
+def test_is_eval_source_true_only_for_eval_articles():
+    assert is_eval_source(_src(1, "eval_articles")) is True
+
+
+def test_is_eval_source_false_for_manual_and_normal_feeds():
+    assert is_eval_source(_src(2, "manual")) is False
+    assert is_eval_source(_src(3, "splunk-blog")) is False
+
+
+def test_is_eval_source_accepts_dict_and_missing_identifier():
+    assert is_eval_source({"identifier": "eval_articles"}) is True
+    assert is_eval_source({"identifier": None}) is False
+    assert is_eval_source(SimpleNamespace()) is False

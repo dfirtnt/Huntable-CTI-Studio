@@ -3,10 +3,36 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from src.web.routes import backup as backup_routes
+
+
+@pytest.fixture(autouse=True)
+def _no_real_audit_writes():
+    """Stub the backup routes' audit sink for this module.
+
+    These tests call the route coroutines directly with no live database. The
+    routes emit status-aware audit events, which would otherwise be the only real
+    DB access here. Audit emission is covered by
+    tests/unit/test_privileged_route_audit.py.
+    """
+    with patch(
+        "src.web.routes.backup.AsyncAuditService.record_out_of_band",
+        new=AsyncMock(return_value=True),
+    ):
+        yield
+
+
+def _audit_request():
+    """Minimal Request stand-in for routes that now capture actor context."""
+    return SimpleNamespace(
+        state=SimpleNamespace(identity=None, request_id="test-req"),
+        client=SimpleNamespace(host="127.0.0.1"),
+        headers={"user-agent": "pytest"},
+    )
 
 
 @pytest.mark.api
@@ -90,7 +116,7 @@ async def test_update_backup_cron_saves_config_and_applies_when_requested(monkey
         install_crontab=True,
     )
 
-    result = await backup_routes.api_update_backup_cron(payload)
+    result = await backup_routes.api_update_backup_cron(_audit_request(), payload)
 
     assert result["success"] is True
     assert result["crontab_applied"] is True
@@ -118,7 +144,7 @@ async def test_delete_backup_cron_removes_managed_jobs(monkeypatch):
     monkeypatch.setattr(backup_routes, "get_backup_config_manager", lambda: FakeManager())
     monkeypatch.setattr(backup_routes, "BackupCronService", lambda: FakeService())
 
-    result = await backup_routes.api_delete_backup_cron()
+    result = await backup_routes.api_delete_backup_cron(_audit_request())
 
     assert result["success"] is True
     assert result["automated"] is False
@@ -134,7 +160,7 @@ async def test_restore_from_file_rejects_invalid_extension():
 
     bad_file = UploadFile(filename="backup.txt", file=BytesIO(b"irrelevant"))
     with pytest.raises(Exception) as exc_info:
-        await backup_routes.api_restore_from_file(file=bad_file)
+        await backup_routes.api_restore_from_file(_audit_request(), file=bad_file)
     assert exc_info.value.status_code == 400
     assert "Invalid file type" in str(exc_info.value.detail)
 
@@ -177,7 +203,7 @@ async def test_restore_from_file_accepts_sql_extension(monkeypatch, tmp_path):
     monkeypatch.setattr(backup_routes, "Path", patched_path)
 
     sql_file = UploadFile(filename="backup.sql", file=BytesIO(b"SELECT 1"))
-    result = await backup_routes.api_restore_from_file(file=sql_file)
+    result = await backup_routes.api_restore_from_file(_audit_request(), file=sql_file)
     assert result["success"] is True
 
 
@@ -208,7 +234,7 @@ async def test_restore_from_file_accepts_sql_gz_extension(monkeypatch, tmp_path)
     monkeypatch.setattr(subprocess, "run", fake_run)
 
     gz_file = UploadFile(filename="backup.sql.gz", file=BytesIO(b"\x1f\x8b"))
-    result = await backup_routes.api_restore_from_file(file=gz_file)
+    result = await backup_routes.api_restore_from_file(_audit_request(), file=gz_file)
     assert result["success"] is True
 
 

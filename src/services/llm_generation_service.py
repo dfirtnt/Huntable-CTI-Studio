@@ -5,13 +5,12 @@ Provides LLM calling utilities for multiple providers (OpenAI, Anthropic Claude,
 Used by sigma_matching_service and benchmark tooling.
 """
 
-import asyncio
 import logging
 import os
-from datetime import datetime
 from typing import Any
 
-import httpx
+from src.services.llm_provider_clients import LMStudioChatClient, parse_retry_after, post_anthropic_with_retry
+from src.utils.langfuse_client import log_llm_completion, log_llm_error, trace_llm_call
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +56,7 @@ class LLMGenerationService:
         self.lmstudio_url = get_lmstudio_base_url("http://host.docker.internal:1234/v1")
         self.lmstudio_model = os.getenv("LMSTUDIO_MODEL", "deepseek-r1-qwen3-8b")
         self.last_lmstudio_model: str | None = None
+        self._last_llm_response_metadata: dict[str, Any] = {}
 
         logger.info("Initialized LLM Generation Service")
 
@@ -192,14 +192,39 @@ class LLMGenerationService:
     ) -> str:
         """Call the specified LLM provider."""
         model = (model_override or "").strip() or None
+        model_name = model or self._get_model_name(provider)
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+        self._last_llm_response_metadata = {}
 
-        if provider == "openai":
-            return await self._call_openai(system_prompt, user_prompt, model=model)
-        if provider == "anthropic":
-            return await self._call_anthropic(system_prompt, user_prompt, model=model)
-        if provider == "lmstudio":
-            return await self._call_lmstudio(system_prompt, user_prompt, model=model)
-        raise ValueError(f"Unknown provider: {provider}")
+        with trace_llm_call(
+            name="llm_generation",
+            model=model_name,
+            metadata={"agent_name": "llm_generation", "attempt": 1, "messages": messages, "provider": provider},
+        ) as generation:
+            try:
+                if provider == "openai":
+                    result = await self._call_openai(system_prompt, user_prompt, model=model)
+                elif provider == "anthropic":
+                    result = await self._call_anthropic(system_prompt, user_prompt, model=model)
+                elif provider == "lmstudio":
+                    result = await self._call_lmstudio(system_prompt, user_prompt, model=model)
+                else:
+                    raise ValueError(f"Unknown provider: {provider}")
+            except Exception as error:
+                log_llm_error(generation, error, metadata={"provider": provider})
+                raise
+
+            log_llm_completion(
+                generation,
+                input_messages=messages,
+                output=result,
+                usage=self._last_llm_response_metadata.get("usage"),
+                metadata={"agent_name": "llm_generation", "attempt": 1, "provider": provider},
+            )
+            return result
 
     async def _call_openai(self, system_prompt: str, user_prompt: str, model: str | None = None) -> str:
         """Call OpenAI API via shared openai_chat_client (RAG, Enrichment, etc.)."""
@@ -212,14 +237,18 @@ class LLMGenerationService:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
-        return await openai_chat_completions(
+        response_metadata: dict[str, Any] = {}
+        result = await openai_chat_completions(
             api_key=self.openai_api_key,
             model_name=model_name,
             messages=messages,
             max_tokens=2000,
             temperature=0.3,
             timeout=60.0,
+            response_metadata=response_metadata,
         )
+        self._last_llm_response_metadata = response_metadata
+        return result
 
     async def _call_anthropic(self, system_prompt: str, user_prompt: str, model: str | None = None) -> str:
         """Call Anthropic Claude API with rate limit handling and exponential backoff."""
@@ -265,14 +294,6 @@ class LLMGenerationService:
         if not self.anthropic_api_key:
             raise ValueError("Anthropic API key not configured")
 
-        # Default headers
-        if headers is None:
-            headers = {
-                "x-api-key": self.anthropic_api_key,
-                "Content-Type": "application/json",
-                "anthropic-version": "2023-06-01",
-            }
-
         # Default payload
         if payload is None:
             model_name = (model_override or "").strip() or "claude-sonnet-4-5"
@@ -283,84 +304,18 @@ class LLMGenerationService:
                 "messages": [{"role": "user", "content": user_prompt}],
             }
 
-        last_exception = None
-
-        for attempt in range(max_retries):
-            async with httpx.AsyncClient() as client:
-                try:
-                    response = await client.post(
-                        "https://api.anthropic.com/v1/messages",
-                        headers=headers,
-                        json=payload,
-                        timeout=60.0,
-                    )
-
-                    # Success
-                    if response.status_code == 200:
-                        result = response.json()
-                        return result["content"][0]["text"]
-
-                    # Rate limit (429) - retry with exponential backoff
-                    if response.status_code == 429:
-                        retry_after = self._parse_retry_after(response.headers.get("retry-after"))
-
-                        # Use exponential backoff with retry-after as minimum
-                        delay = max(retry_after, base_delay * (2**attempt))
-                        delay = min(delay, max_delay)
-
-                        if attempt < max_retries - 1:
-                            logger.warning(
-                                f"Anthropic API rate limited (429). "
-                                f"Retry {attempt + 1}/{max_retries} after {delay:.1f}s. "
-                                f"Retry-After header: {retry_after}s"
-                            )
-                            await asyncio.sleep(delay)
-                            continue
-                        error_detail = response.text
-                        logger.error(f"Anthropic API rate limit exceeded after {max_retries} attempts: {error_detail}")
-                        raise RuntimeError(f"Anthropic API rate limit exceeded: {error_detail}")
-
-                    # Other errors - retry with exponential backoff for 5xx, fail fast for 4xx
-                    if 500 <= response.status_code < 600:
-                        delay = min(base_delay * (2**attempt), max_delay)
-                        if attempt < max_retries - 1:
-                            error_detail = response.text
-                            logger.warning(
-                                f"Anthropic API server error ({response.status_code}). "
-                                f"Retry {attempt + 1}/{max_retries} after {delay:.1f}s: {error_detail}"
-                            )
-                            await asyncio.sleep(delay)
-                            continue
-
-                    # Client errors (4xx) - don't retry
-                    error_detail = response.text
-                    logger.error(f"Anthropic API client error ({response.status_code}): {error_detail}")
-                    raise RuntimeError(f"Anthropic API error ({response.status_code}): {error_detail}")
-
-                except httpx.TimeoutException as e:
-                    delay = min(base_delay * (2**attempt), max_delay)
-                    if attempt < max_retries - 1:
-                        logger.warning(f"Anthropic API timeout. Retry {attempt + 1}/{max_retries} after {delay:.1f}s")
-                        await asyncio.sleep(delay)
-                        last_exception = e
-                        continue
-                    raise RuntimeError(f"Anthropic API timeout after {max_retries} attempts") from e
-
-                except Exception as e:
-                    delay = min(base_delay * (2**attempt), max_delay)
-                    if attempt < max_retries - 1:
-                        logger.warning(
-                            f"Anthropic API error: {e}. Retry {attempt + 1}/{max_retries} after {delay:.1f}s"
-                        )
-                        await asyncio.sleep(delay)
-                        last_exception = e
-                        continue
-                    raise RuntimeError(f"Anthropic API error after {max_retries} attempts: {e}") from e
-
-        # Should not reach here, but handle edge case
-        if last_exception:
-            raise RuntimeError(f"Anthropic API failed after {max_retries} attempts") from last_exception
-        raise RuntimeError(f"Anthropic API failed after {max_retries} attempts")
+        response = await post_anthropic_with_retry(
+            api_key=headers.get("x-api-key", self.anthropic_api_key) if headers else self.anthropic_api_key,
+            payload=payload,
+            anthropic_api_url="https://api.anthropic.com/v1/messages",
+            max_retries=max_retries,
+            base_delay=base_delay,
+            max_delay=max_delay,
+            timeout=60.0,
+        )
+        result = response.json()
+        self._last_llm_response_metadata = {"model": result.get("model"), "usage": result.get("usage")}
+        return result["content"][0]["text"]
 
     def _parse_retry_after(self, retry_after_header: str | None) -> float:
         """
@@ -376,24 +331,7 @@ class LLMGenerationService:
         Returns:
             Seconds to wait (default: 30.0 if parsing fails)
         """
-        if not retry_after_header:
-            return 30.0
-
-        try:
-            # Try integer seconds first
-            return float(retry_after_header.strip())
-        except ValueError:
-            # Try HTTP date format
-            try:
-                from email.utils import parsedate_to_datetime
-
-                retry_date = parsedate_to_datetime(retry_after_header)
-                now = datetime.now(retry_date.tzinfo) if retry_date.tzinfo else datetime.now()
-                delta = retry_date - now
-                return max(0.0, delta.total_seconds())
-            except (ValueError, TypeError):
-                logger.warning(f"Could not parse retry-after header: {retry_after_header}, using 30s default")
-                return 30.0
+        return parse_retry_after(retry_after_header)
 
     async def _call_lmstudio(self, system_prompt: str, user_prompt: str, model: str | None = None) -> str:
         """Call LMStudio API (OpenAI-compatible) with recommended settings."""
@@ -416,23 +354,12 @@ class LLMGenerationService:
         if seed is not None:
             payload["seed"] = seed
 
-        async with httpx.AsyncClient() as client:
-            # For LM Studio, read timeout must be long enough to allow prompt processing
-            # before any response data is sent.
-            read_timeout = 600.0
-            response = await client.post(
-                f"{self.lmstudio_url}/chat/completions",
-                headers={"Content-Type": "application/json"},
-                json=payload,
-                timeout=httpx.Timeout(120.0, connect=30.0, read=read_timeout),
-            )
-
-            if response.status_code != 200:
-                error_detail = response.text
-                logger.error(f"LMStudio API error: {error_detail}")
-                raise RuntimeError(f"LMStudio API error: {error_detail}")
-
-            result = response.json()
-            # Capture actual model used by LMStudio for accurate UI display
-            self.last_lmstudio_model = result.get("model") or self.lmstudio_model
-            return result["choices"][0]["message"]["content"]
+        result = await LMStudioChatClient(url_candidates=[self.lmstudio_url]).post_chat(
+            payload,
+            model_name=model_name,
+            timeout=120.0,
+            failure_context="LMStudio API error",
+        )
+        self.last_lmstudio_model = result.get("model") or self.lmstudio_model
+        self._last_llm_response_metadata = {"model": result.get("model"), "usage": result.get("usage")}
+        return result["choices"][0]["message"]["content"]

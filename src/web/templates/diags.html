@@ -592,10 +592,10 @@ async function runHealthCheck(endpoint, loadingMessage) {
     }
 }
 
-function formatTimestamp(ts) { return new Date(ts).toLocaleString(); }
+// formatTimestamp now lives in /static/js/utils.js (loaded from base.html).
 function getHealthIcon(s) { return s === 'healthy' ? '✓' : s === 'unhealthy' || s === 'error' ? '✗' : s === 'not_configured' ? '○' : '?'; }
 function getHealthColor(s) { return s === 'healthy' ? 'diag-status-success' : s === 'unhealthy' || s === 'error' ? 'diag-status-error' : 'diag-muted'; }
-function escapeHtml(str) { const d = document.createElement('div'); d.textContent = String(str ?? ''); return d.innerHTML; }
+// escapeHtml now lives in /static/js/utils.js (loaded from base.html).
 
 async function updateOverallHealthStatus() {
     const data = await runHealthCheck('', 'Checking overall system status...');
@@ -722,13 +722,7 @@ async function updateCeleryHealth() {
 }
 
 function showError(message) {
-    console.error(message);
-    const el = document.createElement('div');
-    el.className = 'fixed top-4 right-4 px-4 py-2 rounded-lg shadow-lg z-50';
-    el.style.cssText = 'background:var(--action-danger);color:var(--text-emphasis);';
-    el.textContent = message;
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 5000);
+    window.showNotification(message, 'error');
 }
 </script>
 {% endblock %}

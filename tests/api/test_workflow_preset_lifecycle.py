@@ -7,12 +7,18 @@ These tests validate the full preset workflow:
 3. Restore original config after tests
 
 Also tests import/export of preset flat files (JSON).
+
+The save/restore fixture writes real active config versions, so the module carries
+the ``agent_config_mutation`` marker: the async_client fixture refuses to point
+these at the dev app on :8001, whose database holds the operator's live config.
 """
 
 import json
 
 import httpx
 import pytest
+
+pytestmark = pytest.mark.agent_config_mutation
 
 
 class TestPresetLifecycle:

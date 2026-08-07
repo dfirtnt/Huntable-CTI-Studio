@@ -16,14 +16,14 @@ from pathlib import Path
 
 import pytest
 
+from tests.utils.workflow_html_source import read_workflow_src
+
 pytestmark = [pytest.mark.unit, pytest.mark.regression]
 
 # Templates that participate in similarity search
 TEMPLATES_DIR = Path("src/web/templates")
 SIMILARITY_TEMPLATES = [
-    TEMPLATES_DIR / "sigma_queue.html",
     TEMPLATES_DIR / "workflow.html",
-    TEMPLATES_DIR / "workflow_executions.html",
     TEMPLATES_DIR / "article_detail.html",
     TEMPLATES_DIR / "sigma_similarity_test.html",
     TEMPLATES_DIR / "sigma_ab_test.html",
@@ -70,6 +70,11 @@ ALLOWED_SIGMAHQ_PATTERN = re.compile(
 
 def _read(path: Path) -> str:
     assert path.exists(), f"Template not found: {path}"
+    if path == TEMPLATES_DIR / "workflow.html":
+        # workflow.html's inline script was split into src/web/static/js/workflow/*.js
+        # modules (loaded back in via <script src>); include them so substring
+        # checks still find content that moved out of the template.
+        return read_workflow_src()
     return path.read_text(encoding="utf-8")
 
 
@@ -152,18 +157,10 @@ class TestMatchListCustomerRuleDetection:
     """Match list items must detect customer rules via cust- prefix
     to render the correct origin badge."""
 
-    def test_sigma_queue_detects_cust_prefix(self):
-        html = _read(TEMPLATES_DIR / "sigma_queue.html")
-        assert "startsWith('cust-')" in html, "sigma_queue.html match list must detect customer rules via cust- prefix"
-        assert "customer/" in html, "sigma_queue.html must also detect customer rules via file_path prefix"
-
     def test_workflow_detects_cust_prefix(self):
         html = _read(TEMPLATES_DIR / "workflow.html")
         assert "startsWith('cust-')" in html, "workflow.html match list must detect customer rules via cust- prefix"
-
-    def test_workflow_executions_detects_cust_prefix(self):
-        html = _read(TEMPLATES_DIR / "workflow_executions.html")
-        assert "startsWith('cust-')" in html, "workflow_executions.html must detect customer rules via cust- prefix"
+        assert "customer/" in html, "workflow.html must also detect customer rules via file_path prefix"
 
     def test_article_detail_detects_cust_prefix(self):
         html = _read(TEMPLATES_DIR / "article_detail.html")

@@ -359,17 +359,17 @@ API Endpoints:
 │ • used_for_training│
 └─────────────────┘
 
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│  source_checks  │    │  content_hashes │    │chunk_classification│
-│                 │    │                 │    │    _feedback     │
-│ • id (PK)       │    │ • id (PK)       │    │                 │
-│ • source_id (FK)│    │ • content_hash  │    │ • id (PK)       │
-│ • check_time    │    │ • article_id    │    │ • article_id (FK)│
-│ • success       │    │ • first_seen    │    │ • chunk_text    │
-│ • articles_found│    └─────────────────┘    │ • model_classification│
-└─────────────────┘                          │ • is_correct     │
-                                             │ • used_for_training│
-                                             └─────────────────┘
+┌─────────────────┐    ┌─────────────────┐
+│  source_checks  │    │chunk_classification│
+│                 │    │    _feedback     │
+│ • id (PK)       │    │                 │
+│ • source_id (FK)│    │ • id (PK)       │
+│ • check_time    │    │ • article_id (FK)│
+│ • success       │    │ • chunk_text    │
+│ • articles_found│    │ • model_classification│
+└─────────────────┘    │ • is_correct     │
+                        │ • used_for_training│
+                        └─────────────────┘
 ```
 
 ## 8. AI-Powered Analysis Workflow
@@ -451,8 +451,8 @@ API Endpoints:
 │ Length Validation│
 │                 │
 │ • Min: 950 chars│
-│ • Max: 1050 chars│
-│ • Auto 1000     │
+│ • Max: 1000 chars│
+│ • Auto-expand to 1000│
 └─────────┬───────┘
           │
           ▼

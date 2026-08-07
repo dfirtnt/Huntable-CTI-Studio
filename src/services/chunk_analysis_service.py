@@ -6,7 +6,7 @@ from typing import Any
 from sqlalchemy import and_, desc, func
 from sqlalchemy.orm import Session
 
-from src.database.models import ArticleTable, ChunkAnalysisResultTable
+from src.database.models import ArticleTable, ChunkAnalysisResultTable, MLModelVersionTable
 from src.utils.content import ThreatHuntingScorer
 from src.utils.content_filter import ContentFilter
 
@@ -290,3 +290,16 @@ class ChunkAnalysisService:
         except Exception as e:
             logger.error(f"Error getting model versions: {e}")
             return []
+
+    def count_registered_model_versions(self) -> int:
+        """Count rows in the ML model version registry.
+
+        Distinct from :meth:`get_available_model_versions`, which reports only the
+        versions that actually produced chunk analyses. Lives here rather than in the
+        route so the /summary endpoint issues no queries of its own.
+        """
+        try:
+            return self.db.query(MLModelVersionTable).count()
+        except Exception as e:
+            logger.error(f"Error counting model versions: {e}")
+            return 0

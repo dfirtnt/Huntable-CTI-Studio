@@ -103,6 +103,9 @@ Each instance uses its own Docker network (`cti_network_dev2`) to prevent servic
 
 ### Port Already in Use
 If you encounter port conflicts, check what's using the ports:
+<!-- TODO: verify: 11435 does not appear in docker-compose.dev2.yml, docker-compose.yml, or .env.example.
+     LMStudio/Ollama run on the host, not in Docker, so this port isn't defined in the compose files checked
+     here -- confirm it's the intended dev2 LLM port before relying on it. -->
 ```bash
 lsof -i :8002
 lsof -i :5433

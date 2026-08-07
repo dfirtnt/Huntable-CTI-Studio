@@ -2,7 +2,10 @@
 
 ## Test Pyramid
 
-```
+<!-- TODO: verify: these counts look stale -- tests/integration/ currently has
+     dozens of test functions (not ~20) and tests/unit/ + other stateless dirs
+     have well over 100 (not ~80). Recompute before trusting this diagram. -->
+```text
         /\
        /E2E\        <=2 Playwright tests (full analyst workflows)
       /------\
@@ -64,9 +67,12 @@ Cloud LLM keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `CHATGPT_API_KEY`) are
 | Setting | Value |
 |---|---|
 | File | `docker-compose.test.yml` |
-| Services | `postgres_test` (port 5433), `redis_test` (port 6380), `web_test` (port 8002) |
+| Services | `postgres_test` (port 5433), `redis_test` (port 6380) — no test web container |
 | Volumes | None — data exists only in container filesystem |
 | Network | Isolated `test_network` |
+
+Runs that collect `tests/api/` get `USE_ASGI_CLIENT=1` and exercise the app
+in-process against `TEST_DATABASE_URL` instead of a running web container.
 
 **Lifecycle:**
 ```bash
@@ -82,13 +88,14 @@ running `api`, `ui`, `integration`, `e2e`, or `all`.
 
 All fixtures in `tests/fixtures/`:
 
-```
+```text
 tests/fixtures/
 ├── rss/          # RSS and Atom feed samples
 ├── html/         # HTML page samples
 ├── sigma/        # Sigma YAML rules (valid, invalid, round-trip)
 ├── similarity/   # Similarity search inputs/outputs (golden files)
-└── articles/     # Article JSON samples
+├── ocr/          # OCR sample images
+└── workflow/     # Workflow config JSON samples
 ```
 
 **Golden files** (in `similarity/`) use relative ordering ("A > B > C") and
@@ -112,7 +119,8 @@ Quick health check — verifies critical endpoints and basic functionality.
 **Path:** `tests/` with marker exclusion (no smoke/integration/api/ui/e2e)  
 Individual components in isolation with mocked dependencies. Covers:
 `tests/cli/`, `tests/config/`, `tests/core/`, `tests/database/`, `tests/docs/`,
-`tests/services/`, `tests/utils/`, `tests/worker/`, `tests/workflows/`,
+`tests/scripts/`, `tests/services/`, `tests/sigma_atom_similarity/`,
+`tests/templates/`, `tests/utils/`, `tests/worker/`, `tests/workflows/`,
 `tests/unit/`, `tests/quality/`
 
 ### api
@@ -138,7 +146,8 @@ command. See `tests/SKIPPED_TESTS.md` for currently skipped integration tests.
 Two independent sections run in sequence:
 
 1. **Section 1 — pytest** (`tests/ui/`, Python Playwright via `pytest-playwright`).
-   Serial by default. Bulk of wall time.
+   Runs with `pytest-xdist -n 4` by default (`-n 2` for `ui-smoke`) when the
+   xdist plugin is installed; use `--serial` to disable. Bulk of wall time.
 2. **Section 2 — Node.js Playwright** (`tests/playwright/*.spec.ts`,
    `@playwright/test` runner, `workers: 4` locally).
 
@@ -186,7 +195,7 @@ workflows if at all.
 | `tests/integration/` | integration |
 | `tests/ui/` | ui |
 | `tests/e2e/`, `tests/playwright/` | e2e / ui |
-| `tests/cli/`, `tests/core/`, `tests/services/`, `tests/utils/`, `tests/worker/`, `tests/workflows/` | unit |
+| `tests/cli/`, `tests/config/`, `tests/core/`, `tests/database/`, `tests/docs/`, `tests/scripts/`, `tests/services/`, `tests/sigma_atom_similarity/`, `tests/templates/`, `tests/utils/`, `tests/worker/`, `tests/workflows/` | unit |
 | `tests/unit/` | unit (MCP tools, model versioning/rollback) |
 | `tests/quality/` | unit (regression/contract/security/a11y markers) |
 
@@ -198,10 +207,11 @@ workflows if at all.
 | unit | `python3 run_tests.py unit` | Running |
 | api | `python3 run_tests.py api` | Running |
 | integration | `python3 run_tests.py integration` | Running |
+| ui | `python3 run_tests.py ui` | Running |
 | playwright | `npx playwright test` | Running |
 
 **CI workflow files:**
-- `.github/workflows/tests.yml` — smoke, unit, api, integration
+- `.github/workflows/tests.yml` — smoke, unit, api, integration, ui
 - `.github/workflows/playwright.yml` — Playwright E2E/UI tests
 
 ### What NOT to run in CI
@@ -255,7 +265,10 @@ All tests are non-impactful to production data and configuration:
 ## Out of Scope
 
 - Analytics pages (`/analytics`) — likely to be deprecated
-- Authentication/authorization — single-user application
-- Multi-user tests — local-first, single-user design
+- Concurrent multi-user session tests — local-first design.
+  Authentication/authorization itself is in scope and covered by
+  `tests/api/test_route_authorization.py`, `tests/api/test_csrf.py`,
+  `tests/api/test_audit_*.py`, and `tests/unit/test_security_middleware.py`;
+  see [Authentication](../guides/authentication.md).
 
 _Last updated: 2026-07-03_

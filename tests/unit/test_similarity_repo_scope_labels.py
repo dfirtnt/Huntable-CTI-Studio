@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 
 from src.services.capability_service import CapabilityService
+from tests.utils.workflow_html_source import read_workflow_src
 
 pytestmark = [pytest.mark.unit]
 
@@ -21,9 +22,7 @@ pytestmark = [pytest.mark.unit]
 # Paths to the templates under test
 # ---------------------------------------------------------------------------
 TEMPLATES_DIR = Path("src/web/templates")
-SIGMA_QUEUE = TEMPLATES_DIR / "sigma_queue.html"
 WORKFLOW = TEMPLATES_DIR / "workflow.html"
-WORKFLOW_EXECUTIONS = TEMPLATES_DIR / "workflow_executions.html"
 ARTICLE_DETAIL = TEMPLATES_DIR / "article_detail.html"
 SIGMA_SIMILARITY_TEST = TEMPLATES_DIR / "sigma_similarity_test.html"
 SIGMA_AB_TEST = TEMPLATES_DIR / "sigma_ab_test.html"
@@ -34,6 +33,11 @@ SIGMA_AB_TEST = TEMPLATES_DIR / "sigma_ab_test.html"
 # ---------------------------------------------------------------------------
 def _read(path: Path) -> str:
     assert path.exists(), f"Template not found: {path}"
+    if path == WORKFLOW:
+        # workflow.html's inline script was split into src/web/static/js/workflow/*.js
+        # modules (loaded back in via <script src>); include them so substring
+        # checks still find content that moved out of the template.
+        return read_workflow_src()
     return path.read_text(encoding="utf-8")
 
 
@@ -44,24 +48,12 @@ class TestModalTitlesIncludeUserRepo:
     """Modal titles and loading messages must say 'indexed repositories',
     not 'SigmaHQ Repository'."""
 
-    def test_sigma_queue_modal_title(self):
-        html = _read(SIGMA_QUEUE)
-        assert "Similar rules across indexed repositories" in html
-
-    def test_sigma_queue_loading_message(self):
-        html = _read(SIGMA_QUEUE)
-        assert "Searching for similar rules across indexed repositories" in html
-
     def test_workflow_modal_title(self):
         html = _read(WORKFLOW)
         assert "Similar Rules Across Indexed Repositories" in html
 
     def test_workflow_loading_message(self):
         html = _read(WORKFLOW)
-        assert "Searching for similar rules across indexed repositories" in html
-
-    def test_workflow_executions_loading_message(self):
-        html = _read(WORKFLOW_EXECUTIONS)
         assert "Searching for similar rules across indexed repositories" in html
 
     def test_article_detail_button_tooltip(self):
@@ -83,18 +75,10 @@ class TestModalTitlesIncludeUserRepo:
 class TestEmptyStatesRepoAgnostic:
     """Empty states when no matches are found must not say 'SigmaHQ rules'."""
 
-    def test_sigma_queue_empty_title(self):
-        html = _read(SIGMA_QUEUE)
-        assert "Rule Corpus Unavailable" in html
-        assert "No indexed rules were available for behavioral comparison" in html
-
-    def test_sigma_queue_empty_subtitle(self):
-        html = _read(SIGMA_QUEUE)
-        assert "No indexed rules share detection logic with this rule" in html
-
     def test_workflow_empty_title(self):
         html = _read(WORKFLOW)
         assert "Rule Corpus Unavailable" in html
+        assert "No indexed rules were available for behavioral comparison" in html
 
     def test_workflow_empty_subtitle(self):
         html = _read(WORKFLOW)
@@ -115,17 +99,17 @@ class TestEmptyStatesRepoAgnostic:
 class TestMatchListOriginBadges:
     """Match list sidebar items must render 'Your repo' / 'SigmaHQ' badges."""
 
-    def test_sigma_queue_match_items_have_origin_badge(self):
-        """The sigma_queue match list builder must emit a repo-origin badge."""
-        html = _read(SIGMA_QUEUE)
+    def test_workflow_match_items_have_origin_badge(self):
+        """Workflow match items must emit a repo-origin badge."""
+        html = _read(WORKFLOW)
         # Customer-rule badge
         assert "Your repo</span>" in html
         # SigmaHQ badge (for non-customer rules in the match list)
         assert "SigmaHQ</span>" in html
 
-    def test_sigma_queue_customer_rule_detection(self):
+    def test_workflow_customer_rule_detection(self):
         """Match list must detect customer rules via rule_id prefix."""
-        html = _read(SIGMA_QUEUE)
+        html = _read(WORKFLOW)
         assert "startsWith('cust-')" in html
 
     def test_workflow_match_cards_have_origin_badge(self):

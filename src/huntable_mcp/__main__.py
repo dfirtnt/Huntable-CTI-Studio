@@ -2,6 +2,11 @@
 
 Adds the project root to sys.path so the server can be launched from any
 working directory (important for MCP clients that don't honour cwd).
+
+Defaults to stdio, the transport every desktop MCP client speaks. Pass
+`--transport http` (or set `HUNTABLE_MCP_TRANSPORT=http`) to serve the same
+tools over a bearer-protected streamable-HTTP endpoint instead, which is how
+Docker MCP Gateway connects — see `src/huntable_mcp/http_server.py`.
 """
 
 import logging
@@ -21,6 +26,6 @@ _project_root = str(Path(__file__).resolve().parent.parent.parent)
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
-from src.huntable_mcp.stdio_server import mcp  # noqa: E402
+from src.huntable_mcp.cli import main  # noqa: E402
 
-mcp.run()
+main()

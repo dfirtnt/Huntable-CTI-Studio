@@ -33,6 +33,7 @@ from src.database.models import (
 )
 from src.services.sigma_generation_service import SIGMA_GROUNDING_METADATA_FIELDS
 from src.services.sigma_validator import validate_sigma_rule
+from src.services.workflow_config_snapshot import build_config_snapshot
 from src.workflows.agentic_workflow import (
     AGENT_PLATFORM_CAPABILITIES,
     SUPPORTED_PLATFORM_VALUES,
@@ -262,6 +263,16 @@ def config_obj():
     cfg.agent_models = {"SigmaAgent": "gpt-4", "SigmaAgent_provider": "openai"}
     cfg.agent_prompts = {}
     cfg.sigma_fallback_enabled = True
+    # Mock(spec=...) auto-creates these as truthy Mock objects; pin them so the
+    # snapshot built from this fixture carries real values.
+    cfg.min_hunt_score = 97.0
+    cfg.ranking_threshold = 6.0
+    cfg.similarity_threshold = 0.5
+    cfg.junk_filter_threshold = 0.8
+    cfg.auto_trigger_hunt_score_threshold = 100.0
+    cfg.rank_agent_enabled = True
+    cfg.cmdline_attention_preprocessor_enabled = True
+    cfg.proc_tree_attention_preprocessor_enabled = True
     return cfg
 
 
@@ -404,6 +415,9 @@ async def _run_generate_sigma(article, execution, config_obj, extraction_result)
                 filtered_content=article.content,
                 extraction_result=extraction_result,
                 discrete_huntables_count=extraction_result.get("discrete_huntables_count"),
+                # generate_sigma reads the execution's immutable snapshot from state,
+                # not the live active config, so the snapshot has to be seeded here.
+                config=build_config_snapshot(config_obj),
             )
         )
     return result

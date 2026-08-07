@@ -95,21 +95,25 @@ class TestAsyncDatabaseManager:
     @pytest.mark.asyncio
     async def test_create_tables(self, manager, mock_engine):
         """Test table creation."""
-        # Mock engine.begin() to return an async context manager
+        # Mock engine.begin() / engine.connect() to return async context managers.
+        # A fresh one per call: create_tables enters them repeatedly (DDL loop, then
+        # the schema-drift check), and a single shared instance cannot be re-entered.
         from contextlib import asynccontextmanager
 
         @asynccontextmanager
-        async def mock_begin():
+        async def mock_conn():
             conn = AsyncMock()
             conn.run_sync = AsyncMock()
             yield conn
 
-        # Replace the mock_engine.begin with our async context manager
-        mock_engine.begin = Mock(return_value=mock_begin())
+        mock_engine.begin = Mock(side_effect=lambda: mock_conn())
+        mock_engine.connect = Mock(side_effect=lambda: mock_conn())
 
         await manager.create_tables()
 
         mock_engine.begin.assert_called()
+        # The drift check runs on its own connection, not inside a write transaction.
+        mock_engine.connect.assert_called()
 
     @pytest.mark.asyncio
     async def test_get_database_stats(self, manager, mock_session_factory):
@@ -452,3 +456,72 @@ class TestAsyncDatabaseManager:
 
         # session.add() must never be called — that was the old blind-insert path
         mock_session.add.assert_not_called()
+
+
+class TestErrorPropagationPolicy:
+    """Pin which AsyncDatabaseManager list/stat methods propagate DB errors.
+
+    Swallowing an exception and returning [] makes a broken database
+    indistinguishable from a legitimately empty result. Methods where an
+    empty list is meaningful data propagate instead; methods that are
+    supplementary decoration or graceful-degradation paths keep the
+    soft-empty behavior on purpose. Both halves are asserted here so a
+    future edit cannot silently flip one.
+    """
+
+    @pytest.fixture
+    def manager(self):
+        with (
+            patch("src.database.async_manager.create_async_engine", return_value=AsyncMock()),
+            patch("src.database.async_manager.async_sessionmaker", return_value=AsyncMock()),
+        ):
+            return AsyncDatabaseManager()
+
+    @staticmethod
+    def _failing_session(manager):
+        """Point manager.get_session at a session whose execute() always fails."""
+        from contextlib import asynccontextmanager
+
+        session = AsyncMock()
+        session.execute = AsyncMock(side_effect=RuntimeError("database is down"))
+
+        @asynccontextmanager
+        async def mock_get_session():
+            yield session
+
+        manager.get_session = mock_get_session
+        return session
+
+    # (method name, kwargs) for calls that must surface the failure
+    PROPAGATING = [
+        ("list_articles", {}),
+        ("list_articles_by_source", {"source_id": 1}),
+        ("get_article_annotations", {"article_id": 1}),
+        ("get_articles_with_source_info", {"article_ids": [1, 2]}),
+        ("get_articles_without_embeddings", {}),
+    ]
+
+    # (method name, kwargs) for calls that must degrade to an empty list
+    SOFT_EMPTY = [
+        ("get_source_quality_stats", {}),
+        ("get_source_hunt_scores", {}),
+        ("get_performance_metrics", {}),
+        ("search_similar_annotations", {"query_embedding": [0.1] * 768}),
+        ("search_similar_articles", {"query_embedding": [0.1] * 768}),
+        ("search_articles_by_lexical_terms", {"terms": ["emotet"]}),
+    ]
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("method_name,kwargs", PROPAGATING)
+    async def test_database_error_propagates(self, manager, method_name, kwargs):
+        self._failing_session(manager)
+
+        with pytest.raises(RuntimeError, match="database is down"):
+            await getattr(manager, method_name)(**kwargs)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("method_name,kwargs", SOFT_EMPTY)
+    async def test_database_error_degrades_to_empty(self, manager, method_name, kwargs):
+        self._failing_session(manager)
+
+        assert await getattr(manager, method_name)(**kwargs) == []

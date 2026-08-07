@@ -9,7 +9,29 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "scripts"))
 
-from _restore_common import filter_dump_lines, rewrite_fk_to_not_valid  # noqa: E402
+from _restore_common import extract_psql_errors, filter_dump_lines, rewrite_fk_to_not_valid  # noqa: E402
+
+# ---------------------------------------------------------------------------
+# extract_psql_errors
+# ---------------------------------------------------------------------------
+
+
+def test_extract_psql_errors_finds_statement_errors():
+    stderr = (
+        "psql:/tmp/restore.sql:9231: ERROR:  could not resize shared memory segment to 63999680 bytes: "
+        "No space left on device\n"
+        "psql:/tmp/restore.sql:9232: STATEMENT:  CREATE INDEX ix_articles_embedding_hnsw "
+        "ON public.articles USING hnsw (embedding vector_cosine_ops);\n"
+    )
+    errors = extract_psql_errors(stderr)
+    assert len(errors) == 1
+    assert "could not resize shared memory segment" in errors[0]
+
+
+def test_extract_psql_errors_ignores_warnings_and_notices():
+    stderr = 'NOTICE:  extension "vector" already exists, skipping\nWARNING:  there is no transaction in progress\n'
+    assert extract_psql_errors(stderr) == []
+
 
 # ---------------------------------------------------------------------------
 # rewrite_fk_to_not_valid
@@ -174,4 +196,33 @@ def test_restore_script_passes_skip_unsupported_sets(script_name: str) -> None:
     assert "skip_unsupported_sets=True" in source, (
         f"{script_name} calls filter_dump_lines without skip_unsupported_sets=True. "
         "Add skip_unsupported_sets=True to the filter_dump_lines call in that script."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Cross-script consistency: every restore script must detect psql stderr errors
+# ---------------------------------------------------------------------------
+
+_RESTORE_SCRIPTS_NEEDING_ERROR_DETECTION = [
+    "restore_database.py",
+    "restore_database_v2.py",
+    "restore_system.py",
+    "verify_backup.py",
+    # restore_database_v3.py deliberately excluded: uses --single-transaction +
+    # ON_ERROR_STOP=on with a direct argv psql invocation (no shell), so its
+    # returncode is already reliable without extract_psql_errors.
+]
+
+
+@pytest.mark.parametrize("script_name", _RESTORE_SCRIPTS_NEEDING_ERROR_DETECTION)
+def test_restore_script_calls_extract_psql_errors(script_name: str) -> None:
+    """Every restore/verify script must check extract_psql_errors(stderr) in
+    addition to returncode, since psql exits 0 even when individual statements
+    fail (bad COPY, index build, constraint) -- a returncode-only check reports
+    partial restores as successful.
+    """
+    source = (_SCRIPTS_ROOT / script_name).read_text()
+    assert "extract_psql_errors(" in source, (
+        f"{script_name} does not call extract_psql_errors on its restore psql invocation. "
+        "See scripts/_restore_common.py and the fix pattern in commits 69c219d5 / 3dd68bb0."
     )

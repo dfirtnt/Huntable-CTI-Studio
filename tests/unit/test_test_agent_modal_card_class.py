@@ -16,11 +16,10 @@ cannot silently regress if someone copy-pastes the old pattern back.
 """
 
 import re
-from pathlib import Path
 
 import pytest
 
-WORKFLOW_TEMPLATE = Path(__file__).resolve().parents[2] / "src" / "web" / "templates" / "workflow.html"
+from tests.utils.workflow_html_source import read_workflow_src
 
 # Matches the innerHTML line that opens the Test-Agent modal card. The
 # preceding JS lines pin this to the test-subagent modal, so matching on
@@ -36,7 +35,7 @@ class TestTestAgentModalCardClass:
     """Guard the Test-Agent modal container class list."""
 
     def _find_card_class(self) -> str:
-        content = WORKFLOW_TEMPLATE.read_text()
+        content = read_workflow_src()
         match = TEST_AGENT_CARD_RE.search(content)
         assert match is not None, (
             "Test-Agent modal container div not found in workflow.html -- selector drifted; update TEST_AGENT_CARD_RE."

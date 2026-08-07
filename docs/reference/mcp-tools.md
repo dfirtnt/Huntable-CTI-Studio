@@ -27,9 +27,14 @@ MCP writes are intentionally not action-parity with the web app. Huntable ingest
 | Tier | Behavior | Tools |
 |---|---|---|
 | Auto-executable | Applies a scoped, reversible mutation immediately and writes a mandatory `audit_events` row in the same transaction. | `retry_workflow_execution`, `cancel_workflow_execution`, `toggle_source_status`, `mark_article_reviewed`, `create_annotation`, `update_annotation`, `delete_annotation` |
+| Caller-attested | The caller represents one explicit user approval with `confirmed_by_user=true`; the server records but cannot independently prove that interaction. A compliant MCP host should enforce approval for the write tool. | `save_eval_diagnosis` |
 | Confirmation-required | Creates a pending `mcp_write_confirmations` row and an audit event. MCP does **not** apply the production mutation. A human must review and complete the action in the normal web UI. | `approve_sigma_queue_rule`, `reject_sigma_queue_rule`, `delete_sigma_queue_rule`, `update_sigma_queue_rule_yaml`, `add_sigma_rule_to_queue`, `delete_article` |
 
 `execute_sql` stays permanently read-only. It rejects DDL/DML before database execution and still opens a read-only transaction.
+
+`save_eval_diagnosis` writes a file (`data/diagnoses/*.json`) rather than a database row. It fails closed when the execution bundle cannot be loaded or the reviewed evidence digest is stale. Persistence records an `attempted` audit, atomically publishes the hidden pending file, then records terminal `success`; publication or terminal-audit failure removes the file and records `failure` when possible. A lone `attempted` row identifies a process termination that requires reconciliation.
+
+**Eval diagnosis has no server-side model.** The app never calls an LLM provider to diagnose an eval, so no provider API key is used and no tokens are billed by this app for it. The connected agent reads `get_eval_diagnosis_context`, reasons over the packet itself, and writes the result back through `save_eval_diagnosis`. The `huntable-eval-diagnosis` skill drives that loop.
 
 | # | Tool | Summary |
 |---|------|---------|
@@ -59,12 +64,21 @@ MCP writes are intentionally not action-parity with the web app. Huntable ingest
 | 24 | `delete_sigma_queue_rule` | Confirmation-required write. Creates a pending confirmation request for queue deletion; does not delete from MCP. Param: `queue_number`. |
 | 25 | `update_sigma_queue_rule_yaml` | Confirmation-required write. Validates proposed Sigma YAML and creates a pending confirmation request; does not edit from MCP. Params: `queue_number`, `rule_yaml`. |
 | 26 | `add_sigma_rule_to_queue` | Confirmation-required write. Validates proposed Sigma YAML/JSON and creates a pending confirmation request; does not enqueue from MCP. Params: `rule_yaml` or `rule_json`, optional `article_id`. |
+| 27 | `get_eval_bundle` | Full `eval_bundle_v1` JSON export for one workflow execution and agent. Defaults to full bundles (`slim=false`) so MCP clients can inspect complete request/response/input context. Params: `execution_id`, `agent_name`, optional `attempt`, `slim`, `include_langfuse`, `inline_large_text`, `max_inline_chars`. |
+| 28 | `get_eval_diagnosis_context` | Read-only. Returns the `eval_diagnosis_context_v1` evidence packet for one eval run: the eval bundle, `docs/contracts/extractor-standard.md`, the agent's own contract, the scoring context, and the diagnosis instructions/schema. **No server-side LLM call and no provider API key** -- the calling agent is the reasoner. Params: `execution_id`, `agent_name`, optional `slim` (default true), `include_langfuse`. |
+| 29 | `list_eval_diagnoses` | Returns saved diagnosis runs for an execution, newest first, optionally filtered by agent. Params: `execution_id`, optional `agent_name`. |
+| 30 | `export_diagnosed_eval_bundles` | JSON equivalent of a diagnosis-oriented bundle export for MCP clients: finds completed eval records for a config version/subagent that already have saved diagnoses, then returns each diagnosis plus its generated eval bundle. Defaults to full bundles (`slim=false`) and caps output with `max_bundles` (hard cap 100). Params: `config_version`, `subagent`, optional `slim`, `include_langfuse`, `max_bundles`. |
+| 31 | `get_eval_bundles_by_config` | Returns completed eval bundles for a config run, optionally filtered by subagent. `config_version` accepts `5114` for every run or a run label such as `v5114a` / `v5114b` for the first/second replicate. Omitting `subagent` includes all supported extractor evals. Params: `config_version`, optional `subagent`, `slim`, `include_langfuse`, `max_bundles` (hard cap 100). |
+| 32 | `get_article_eval_bundle` | Returns completed eval bundle(s) for one `article_id`, optionally filtered by config run or subagent. Bundle-only by default; set `include_trace=true` only when the combined response fits the MCP client limit. Params: `article_id`, optional `subagent`, `config_version` (`5114`, `v5114a`, or `v5114b`), `slim`, `include_langfuse`, `include_trace`. |
+| 33 | `get_workflow_execution_trace` | Returns one `workflow_execution_trace_v1` payload for an execution. Excludes embedded eval bundles by default so the trace remains below common MCP result-size limits; retrieve the agent bundle separately with `get_eval_bundle`. Params: `execution_id`, optional `include_eval_bundles`, `slim`, `include_langfuse`. |
+| 34 | `get_eval_run` | Convenience entry point and recommended MCP surface for the `huntable-eval-retrieval` skill: pass only a run label such as `v5139a`, optionally `article_id` and `subagent`. Uses slim bundles, excludes Langfuse, and caps config-wide results at three bundles. Use the returned `execution_id` with `get_workflow_execution_trace` when a trace is needed. |
+| 35 | `save_eval_diagnosis` | Caller-attested, non-idempotent write. MCP annotations mark it writable/destructive, but they are advisory; the host must enforce approval. Without `confirmed_by_user=true`, it returns `confirmation_required` and writes nothing. After approval, it verifies the context packet's evidence digest, strictly validates the diagnosis, and uses attempted/terminal audits around atomic publication of `data/diagnoses/{execution_id}_{agent}_{id}.json`. Params: `execution_id`, `agent_name`, `diagnosis` (object or JSON string), `evidence_sha256`, optional `authored_by`, `confirmed_by_user`, `slim`, `include_langfuse`; the last two must match context retrieval. |
 
-Implementation lives under `src/huntable_mcp/` (`stdio_server.py`, `resources.py`, `tools/articles.py`, `tools/sigma.py`, `tools/sources.py`, `tools/workflow.py`, `tools/query.py`, `tools/write_support.py`).
+Implementation lives under `src/huntable_mcp/` (`stdio_server.py`, `resources.py`, `tools/articles.py`, `tools/sigma.py`, `tools/sources.py`, `tools/workflow.py`, `tools/query.py`, `tools/evals.py`, `tools/write_support.py`).
 
 ## Schema note — raw_yaml column
 
 `sigma_rules.raw_yaml` (TEXT, nullable) stores the verbatim YAML from the SigmaHQ repo file. It is populated during `sigma index` / `sigma index-metadata`. Run `scripts/migrate_sigma_raw_yaml.py` once on existing databases before re-indexing.
 
-_Last updated: 2026-07-05_
-_Last reviewed: 2026-07-05_
+_Last updated: 2026-08-03_
+_Last reviewed: 2026-08-03_

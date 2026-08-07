@@ -31,7 +31,10 @@
   `{url, expected_items}` (Eval2). `expected_items: []` = intentional
   registered-but-uncurated placeholder.
 
-## Database (fixture data only — the config row is out of audit scope)
+## Database (read-only eval-run diagnostic)
+
+`subagent_evaluations` is run output, not fixture data. Inspect its latest rows to
+understand what the last run used, but never INSERT or UPDATE curated values there.
 
 Connection:
 
@@ -54,9 +57,8 @@ SELECT * FROM latest ORDER BY article_url;
 ```
 
 Heads-up: `expected_items` is frequently NULL on historical rows even where
-`expected_count` is set — many past eval runs wrote only the count. Populating it to
-match `ground_truth.json` is a no-content **alignment**, not a divergence; do it with
-operator approval and don't report it as drift.
+`expected_count` is set - many past eval runs wrote only the count. Treat that as
+historical run context, not a repo-fixture divergence or an update target.
 
 Optional seed-drift FYI (Step 1.4 — report-only, never the rubric):
 
@@ -73,6 +75,7 @@ Path:
 - Sheet `articles_table`; filter rows where `HuntableType` matches the agent's
   type(s). Columns: Title, URL, Status, HuntableType, Count, Analysis,
   GroundTruth.
+- The xlsx is the operator's canonical worksheet; the eval runtime does NOT read it.
 - Read/write with `.venv/bin/python` + openpyxl (not in the base venv — install if
   the import fails: `.venv/bin/pip install openpyxl`). To READ, copy to /tmp first if
   the OneDrive path misbehaves; load with `data_only=True` for verification
@@ -105,37 +108,8 @@ Path:
   massive spurious diff that collides with parallel sessions. `ensure_ascii=False +
   '\n'` is the preferred shape for NEW files only; never impose it on an existing
   file mid-audit.
-- **DB**: `UPDATE` the latest row per URL only (preserve eval-run history):
-
-  ```sql
-  UPDATE subagent_evaluations
-  SET expected_count = <N>, expected_items = '<json>'::jsonb
-  WHERE id = (
-    SELECT id FROM subagent_evaluations
-    WHERE subagent_name = '<subagent_key>' AND article_url = '<url>'
-    ORDER BY created_at DESC LIMIT 1
-  );
-  ```
-
-  Some eval URLs have NO row yet — the eval set grew after the last eval run (seen
-  for ProcTree arts 8 & 9, 2026-06-12). For those, `INSERT` instead of `UPDATE`:
-
-  ```sql
-  INSERT INTO subagent_evaluations
-    (subagent_name, article_url, expected_count, expected_items, status,
-     workflow_config_version, created_at)
-  VALUES
-    ('<subagent_key>', '<url>', <N>, '<json>'::jsonb, 'completed',
-     <active_config_version>, NOW());
-  ```
-
-  (`status='completed'` matches existing fixture rows; `<active_config_version>` =
-  current active `agentic_workflow_config.version`.) Check existence per URL first;
-  UPDATE where a row exists, INSERT where none does.
-
-After writing, re-verify every touched sink and print a cross-sink consistency
-table (yaml = a.json = gt.json items-len = xlsx Count = xlsx GT-len = DB count =
-DB items-len).
+After writing, re-verify every touched authoritative sink and print a cross-sink
+consistency table (yaml = a.json = gt.json items-len = xlsx Count = xlsx GT-len).
 
 ## Prompt-side propagation targets (Step 7.5 only, on operator request)
 

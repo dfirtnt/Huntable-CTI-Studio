@@ -8,6 +8,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
+from sqlalchemy.exc import SQLAlchemyError
 
 from src.services.rag_service import RAGService
 
@@ -190,6 +191,30 @@ class TestRAGService:
         chunks = await service.find_similar_chunks(query="test")
 
         assert chunks == []
+
+    @pytest.mark.asyncio
+    async def test_find_similar_articles_returns_empty_on_sqlalchemy_error(self, service, mock_db_manager):
+        """DB failures (SQLAlchemyError) are swallowed and degrade to []."""
+        mock_db_manager.search_similar_articles.side_effect = SQLAlchemyError("db down")
+
+        assert await service.find_similar_articles(query="test") == []
+
+    @pytest.mark.asyncio
+    async def test_find_similar_chunks_returns_empty_on_embedding_runtime_error(self, service):
+        """Embedding failures surface as RuntimeError (embedding_service wraps them) and degrade to []."""
+        with patch(
+            "src.services.rag_service.generate_query_embedding",
+            side_effect=RuntimeError("Could not load embedding model"),
+        ):
+            assert await service.find_similar_chunks(query="test") == []
+
+    @pytest.mark.asyncio
+    async def test_find_similar_articles_propagates_unexpected_error(self, service, mock_db_manager):
+        """Exceptions outside the known failure surface must propagate, not degrade to []."""
+        mock_db_manager.search_similar_articles.side_effect = TypeError("programming bug")
+
+        with pytest.raises(TypeError, match="programming bug"):
+            await service.find_similar_articles(query="test")
 
     @pytest.mark.asyncio
     async def test_find_similar_content_deduplication(self, service, mock_db_manager, sample_chunk, sample_article):

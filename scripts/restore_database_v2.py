@@ -22,7 +22,7 @@ from typing import Any
 
 # Allow `python scripts/restore_database_v2.py` to import sibling helpers.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _restore_common import filter_dump_lines  # noqa: E402
+from _restore_common import extract_psql_errors, filter_dump_lines  # noqa: E402
 
 
 class DatabaseRestore:
@@ -337,9 +337,11 @@ class DatabaseRestore:
             ]
 
             result = subprocess.run(restore_cmd, capture_output=True, text=True, timeout=300)
+            psql_errors = extract_psql_errors(result.stderr)
 
-            if result.returncode != 0:
-                print(f"❌ Restore failed: {result.stderr}")
+            if result.returncode != 0 or psql_errors:
+                error_output = "\n".join(psql_errors) if psql_errors else result.stderr
+                print(f"❌ Restore failed: {error_output}")
 
                 # Attempt rollback if snapshot exists
                 if snapshot_path and Path(snapshot_path).exists():

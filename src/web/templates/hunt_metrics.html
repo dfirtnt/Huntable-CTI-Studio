@@ -39,6 +39,19 @@
         </div>
     </div>
 
+    <!-- Loading skeleton (shown during fetch, hidden after) -->
+    <div id="hunt-loading">
+        {% include "partials/skeleton_loading.html" %}
+    </div>
+
+    <!-- Empty state (hidden by default, shown when no data) -->
+    <div id="hunt-empty" class="hidden">
+        {% include "partials/empty_state.html" %}
+    </div>
+
+    <!-- Metrics content (hidden during fetch, shown after) -->
+    <div id="hunt-content" class="hidden">
+
     <!-- Metrics Overview -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div class="card p-4">
@@ -293,7 +306,7 @@
             </div>
         </div>
     </div>
-
+    </div> <!-- /#hunt-content -->
 
 </div>
 
@@ -335,8 +348,17 @@ async function loadHuntMetrics() {
         // Load additional analytics
         await loadAdditionalAnalytics();
 
+        // Hide skeleton, show content
+        document.getElementById('hunt-loading').classList.add('hidden');
+        document.getElementById('hunt-content').classList.remove('hidden');
+
     } catch (error) {
         console.error('Failed to load hunt metrics:', error);
+        // Hide skeleton, show empty state
+        document.getElementById('hunt-loading').classList.add('hidden');
+        const emptyState = document.getElementById('hunt-empty');
+        emptyState.classList.remove('hidden');
+        emptyState.querySelector('#empty-state-message').textContent = 'Failed to load hunt metrics. ' + error.message;
     }
 }
 

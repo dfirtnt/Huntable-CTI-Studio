@@ -12,6 +12,7 @@ import re
 from dataclasses import dataclass
 
 AGENT_EVAL_FBETA_BETA = 0.5
+_CMD_WRAPPER_RE = re.compile(r"^(?:cmd(?:\.exe)?|%comspec%)\s+/[ck]\s+(.+)$", re.IGNORECASE)
 
 
 def calculate_f_beta(precision: float, recall: float, beta: float = AGENT_EVAL_FBETA_BETA) -> float:
@@ -25,12 +26,17 @@ def calculate_f_beta(precision: float, recall: float, beta: float = AGENT_EVAL_F
 def _normalize(s: str) -> str:
     """Normalize a command-line string for comparison.
 
+    - Strip a leading cmd /c or /k wrapper (cmd, cmd.exe, or %COMSPEC%)
     - Lowercase
     - Strip leading/trailing whitespace
     - Collapse internal whitespace runs to a single space
     - Defang IOC bracket notation: [.] -> .  [:]  -> :
     """
-    s = s.lower().strip()
+    s = s.strip()
+    wrapper_match = _CMD_WRAPPER_RE.match(s)
+    if wrapper_match:
+        s = wrapper_match.group(1).strip()
+    s = s.lower()
     s = re.sub(r"\[\.\]", ".", s)
     s = re.sub(r"\[:\]", ":", s)
     s = re.sub(r"\s+", " ", s)
@@ -44,14 +50,17 @@ class ItemScorerResult:
     matched: list[str]  # items in both expected and actual (using actual text)
     missed: list[str]  # in expected but not in actual
     extra: list[str]  # in actual but not in expected
+    neutral: list[str]  # acceptable alternate readings; excluded from scoring
     matched_count: int
     missed_count: int
     extra_count: int
+    neutral_count: int
 
 
 def score_items(
     expected_items: list[str],
     actual_items: list[str],
+    acceptable_items: list[dict[str, str]] | None = None,
 ) -> ItemScorerResult:
     """Compare expected vs actual item lists and return precision/recall metrics.
 
@@ -64,6 +73,10 @@ def score_items(
         expected_items = list(expected_items) if expected_items else []
     if not isinstance(actual_items, list):
         actual_items = list(actual_items) if actual_items else []
+    if acceptable_items is None:
+        acceptable_items = []
+    if not isinstance(acceptable_items, list):
+        raise ValueError("acceptable_items must be a list")
 
     # Build normalized -> original maps (first occurrence wins on duplicates)
     norm_to_expected: dict[str, str] = {}
@@ -78,16 +91,33 @@ def score_items(
         if k and k not in norm_to_actual:
             norm_to_actual[k] = str(item)
 
+    norm_to_acceptable: dict[str, str] = {}
+    for item in acceptable_items:
+        if not isinstance(item, dict) or not isinstance(item.get("value"), str) or not item["value"].strip():
+            raise ValueError("each acceptable item must provide a non-blank string value")
+        if not isinstance(item.get("justification"), str) or not item["justification"].strip():
+            raise ValueError("each acceptable item must provide a non-blank justification")
+        key = _normalize(item["value"])
+        if key and key not in norm_to_acceptable:
+            norm_to_acceptable[key] = item["value"]
+
     expected_keys = set(norm_to_expected)
     actual_keys = set(norm_to_actual)
+    acceptable_keys = set(norm_to_acceptable)
+
+    overlap = expected_keys & acceptable_keys
+    if overlap:
+        raise ValueError("acceptable items must not duplicate expected items")
 
     matched_keys = expected_keys & actual_keys
     missed_keys = expected_keys - actual_keys
-    extra_keys = actual_keys - expected_keys
+    neutral_keys = actual_keys & acceptable_keys
+    extra_keys = actual_keys - expected_keys - acceptable_keys
 
     matched = [norm_to_actual[k] for k in sorted(matched_keys)]
     missed = [norm_to_expected[k] for k in sorted(missed_keys)]
     extra = [norm_to_actual[k] for k in sorted(extra_keys)]
+    neutral = [norm_to_actual[k] for k in sorted(neutral_keys)]
 
     tp = len(matched_keys)
     fp = len(extra_keys)
@@ -102,7 +132,9 @@ def score_items(
         matched=matched,
         missed=missed,
         extra=extra,
+        neutral=neutral,
         matched_count=tp,
         missed_count=fn,
         extra_count=fp,
+        neutral_count=len(neutral_keys),
     )

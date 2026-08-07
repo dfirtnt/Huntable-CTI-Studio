@@ -12,6 +12,45 @@ Use these files as canonical:
 
 If this document and code disagree, trust the code.
 
+## Schema Drift
+
+`models.py` is canonical, but the live database can silently diverge from it.
+
+`Base.metadata.create_all` (called from `manager.py` and `async_manager.py` at startup)
+defaults to `checkfirst=True`. It skips any table that already exists and never
+reconciles that table's constraints or indexes. A table created by one of the
+hand-rolled `scripts/migrate_*.py` helpers therefore keeps its columns and id
+sequence but permanently loses the primary keys, foreign keys, and indexes
+`models.py` declares -- and `create_all` reports success either way.
+
+A 2026-08-06 audit found 25 of 29 declared tables drifted this way, including 18
+tables with no primary key. It has since been reconciled.
+
+Two things keep it from recurring:
+
+- `src/database/schema_drift.py` runs on every startup and logs `SCHEMA DRIFT
+  DETECTED` at ERROR when the live schema does not match `models.py`. Detection is
+  catalog-only (no table scans) and never raises.
+- `scripts/migrate_reconcile_schema.py` is the remediation. Report-only by default:
+
+```bash
+python scripts/migrate_reconcile_schema.py              # report drift
+python scripts/migrate_reconcile_schema.py --sql        # print DDL, run nothing
+python scripts/migrate_reconcile_schema.py --apply      # primary keys + indexes
+python scripts/migrate_reconcile_schema.py --apply --include-foreign-keys
+```
+
+Indexes build `CONCURRENTLY`. Primary keys, unique indexes, and foreign keys are
+preflighted for duplicates, NULLs, and orphan rows, and are reported as blocked
+rather than attempted when the data cannot support them. Foreign keys need the
+explicit flag because clearing orphans means deleting rows -- an operator decision.
+
+Startup never applies DDL: a pending `ACCESS EXCLUSIVE` lock blocks all readers of
+a table, and `CREATE INDEX CONCURRENTLY` cannot run inside a transaction.
+
+Run the reconciler after any database restore, or after any `migrate_*` script that
+creates a table.
+
 ## Articles
 
 Backed by the `articles` table.
@@ -45,7 +84,7 @@ Key fields exposed via the workflow APIs:
 - `status`
 - `current_step`
 - `ranking_score`
-- `config_snapshot`
+- `config_snapshot` — the execution's immutable configuration. Resolved and hashed before dispatch by `src/services/workflow_config_snapshot.py` and persisted in the same transaction as the execution row, so configuration edits made after dispatch cannot alter the run. Carries every behavior-affecting setting (resolved prompts, models and providers, thresholds, toggles), plus `snapshot_schema_version` and a SHA-256 `snapshot_hash` over the canonicalized snapshot. `initiated_by` rides along as provenance and is excluded from the hash. Executions dispatched before this contract hold partial snapshots and fall back to the active configuration at run time; they log a non-reproducibility warning.
 - `termination_reason` (API response field; derived from `error_log` via `extract_termination_info()` — not a direct DB column)
 - `termination_details` (API response field; derived from `error_log` — not a direct DB column)
 - `error_log`
@@ -139,7 +178,7 @@ Backed by the `sources` table.
 Operationally important fields:
 
 - `id`, `name`, `url`, `rss_url`, `active`
-- `config` — JSONB column with per-source overrides. Key: `image_ocr_enabled` (bool or null) — tri-state OCR override; null means inherit the global `OCR_INGEST_ENABLED` env. Protected sources (eval/manual identifiers in `PROTECTED_INTERNAL_SOURCE_IDENTIFIERS`) reject OCR override writes.
+- `config` — JSON column with per-source overrides. Key: `image_ocr_enabled` (bool or null) — tri-state OCR override; null means inherit the global `OCR_INGEST_ENABLED` env. Protected sources (eval/manual identifiers in `PROTECTED_INTERNAL_SOURCE_IDENTIFIERS`) reject OCR override writes.
 
 Use `src/database/models.py` for the full field list.
 

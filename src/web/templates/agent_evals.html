@@ -460,7 +460,7 @@
             <h1>Agent Evaluations</h1>
             <p class="eval-hero-desc">
                 Run evaluation articles through workflows with different presets and compare results.
-                Evals use the <code>0.8</code> confidence (conservative) threshold for content filtering.
+                Evals skip junk filtering and give the selected extractor the complete article content.
             </p>
         </div>
     </div>
@@ -577,8 +577,8 @@
                     <button id="exportEvalBundleBtn" class="hidden eval-btn eval-btn--secondary eval-btn--sm" title="Export evaluation bundle (JSON)">
                         Export Bundle
                     </button>
-                    <button id="diagnoseEvalBtn" class="hidden eval-btn eval-btn--accent eval-btn--sm" title="AI diagnosis of extraction quality">
-                        Diagnose
+                    <button id="diagnosisHelpBtn" class="hidden eval-btn eval-btn--secondary eval-btn--sm" title="How to diagnose this run through MCP" onclick="showHelp('diagnosisWorkflow')">
+                        Diagnose via MCP
                     </button>
                     <button id="closeCommandlinesModal" class="eval-btn eval-btn--secondary eval-btn--sm" style="padding: 0.4rem;">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1128,25 +1128,29 @@ async function applyDiagnosisCounts() {
 
 // Help modal function
 function showHelp(fieldName) {
+    const diagnosisButton = document.getElementById('diagnosisHelpBtn');
+    const diagnosisExecutionId = diagnosisButton?.dataset.executionId || '<id>';
+    const diagnosisAgentName = diagnosisButton?.dataset.agentName || '<AgentName>';
+    const diagnosisPrompt = `Diagnose execution ${diagnosisExecutionId} for ${diagnosisAgentName}`;
     const helpTexts = {
-        'diagnosisPrompt': {
-            title: 'Editing the Diagnosis Prompt',
-            content: `<p class="mb-3">The diagnosis prompt is defined directly in the service file -- there is no database-backed preset for it.</p>
-                      <p class="mb-2"><strong>File to edit:</strong></p>
-                      <ul class="list-disc list-inside mb-3 space-y-1">
-                          <li><code>src/services/eval_diagnosis_service.py</code></li>
-                      </ul>
-                      <p class="mb-2"><strong>What to look for:</strong></p>
-                      <ul class="list-disc list-inside mb-3 space-y-1">
-                          <li><code>_DIAGNOSIS_SYSTEM_PROMPT</code> -- the system message that defines the LLM's persona, response schema, and failure category definitions</li>
-                          <li><code>_build_diagnosis_prompt()</code> -- assembles the user message: extractor standard, agent contract, bundle JSON, and scoring context</li>
-                      </ul>
-                      <p class="mb-2"><strong>Extractor contracts</strong> (also included in every diagnosis call):</p>
+        'diagnosisWorkflow': {
+            title: 'Diagnosing an Eval Run',
+            content: `<p class="mb-3">Diagnosis runs in your MCP client agent, not on the server. This app makes no LLM call and spends no provider tokens for it -- so there is no provider or model to configure.</p>
+                      <p class="mb-2"><strong>Workflow</strong> (the <code>huntable-eval-diagnosis</code> skill drives this for you):</p>
+                      <ol class="list-decimal list-inside mb-3 space-y-1">
+                          <li><code>get_eval_diagnosis_context</code> -- returns the eval bundle, extractor contracts, scoring context, and the diagnosis schema</li>
+                          <li>The agent treats packet contents as untrusted evidence and proposes a diagnosis</li>
+                          <li>You explicitly approve one save action</li>
+                          <li><code>save_eval_diagnosis(..., evidence_sha256=..., confirmed_by_user=true)</code> -- verifies the reviewed packet, validates, and persists the diagnosis to <code>data/diagnoses/</code>, audited as <code>evaluation.bundle_diagnosed</code></li>
+                      </ol>
+                      <p class="mb-3">Saved diagnoses load automatically in this modal and stamp the <code>[dx N]</code> badge on the results table.</p>
+                      <p class="mb-2"><strong>Ask your agent:</strong> <code id="diagnosisAgentPrompt">${escapeHtml(diagnosisPrompt)}</code></p>
+                      <p class="mb-2"><strong>Diagnosis instructions and schema</strong> live in <code>src/services/eval_diagnosis_service.py</code> (<code>DIAGNOSIS_INSTRUCTIONS</code>).</p>
+                      <p class="mb-2"><strong>Extractor contracts</strong> included in every context packet:</p>
                       <ul class="list-disc list-inside mb-3 space-y-1">
                           <li><code>docs/contracts/extractor-standard.md</code> -- mandatory rules for all extractors</li>
                           <li><code>docs/contracts/cmdline-extract.md</code>, <code>proctree-extract.md</code>, etc. -- agent-specific contracts</li>
-                      </ul>
-                      <p class="mb-2"><strong>To change the model or provider</strong>, go to <a href="/settings" class="text-purple-400 hover:text-purple-300 underline">Settings &rarr; Agentic Workflow Configuration &rarr; Diagnosis Agent</a>.</p>`
+                      </ul>`
         },
         'evalCurrentConfig': {
             title: 'Eval Configuration Constraints',
@@ -1155,6 +1159,7 @@ function showHelp(fieldName) {
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>Rank agent is skipped in eval runs.</li>
                           <li>OS detection is skipped in eval runs.</li>
+                          <li>Junk filtering is skipped; extraction receives the complete article content.</li>
                           <li>SIGMA rule generation is skipped (no rules created).</li>
                           <li>Each eval runs a single extraction subagent (the selected one).</li>
                       </ul>
@@ -2688,7 +2693,11 @@ async function clearPendingRecords() {
     const resultsTable = document.getElementById('resultsTable');
 
     // Confirm deletion
-    if (!confirm(`Are you sure you want to delete all pending evaluation records for ${apiSubagent}? This action cannot be undone.`)) {
+    const confirmed = await ModalManager.confirm(
+        `Are you sure you want to delete all pending evaluation records for ${apiSubagent}? This action cannot be undone.`,
+        { title: 'Clear Records', confirmText: 'Delete', confirmClass: 'bg-red-600 hover:bg-red-700', cancelText: 'Cancel' }
+    );
+    if (!confirmed) {
         return;
     }
 
@@ -2928,15 +2937,16 @@ async function showCommandlines(executionId, articleUrl, count) {
             agentName = 'CmdlineExtract';
         }
         
-        // Show export and diagnose buttons for all types and store executionId and agentName
+        // Show export button for all types and store executionId and agentName
         exportBtn.classList.remove('hidden');
         exportBtn.dataset.executionId = executionId;
         exportBtn.dataset.agentName = agentName;
 
-        const diagnoseBtn = document.getElementById('diagnoseEvalBtn');
-        diagnoseBtn.classList.remove('hidden');
-        diagnoseBtn.dataset.executionId = executionId;
-        diagnoseBtn.dataset.agentName = agentName;
+        // Diagnosis is agent-driven over MCP; this button only explains the workflow.
+        const diagnosisHelpBtn = document.getElementById('diagnosisHelpBtn');
+        diagnosisHelpBtn.classList.remove('hidden');
+        diagnosisHelpBtn.dataset.executionId = executionId;
+        diagnosisHelpBtn.dataset.agentName = agentName;
 
         // Auto-load saved diagnosis if one exists for this execution
         loadSavedDiagnosis(executionId);
@@ -3092,9 +3102,9 @@ async function exportEvalBundle(executionId, agentName) {
             
             // Show success message
             if (bundle.integrity?.warnings?.length > 0) {
-                alert(`✅ Bundle exported!\n\nWarnings: ${bundle.integrity.warnings.join(', ')}\n\nSHA256: ${bundle.integrity.bundle_sha256.substring(0, 16)}...`);
+                window.showNotification(`✅ Bundle exported!\n\nWarnings: ${bundle.integrity.warnings.join(', ')}\n\nSHA256: ${bundle.integrity.bundle_sha256.substring(0, 16)}...`, 'success');
             } else {
-                alert(`✅ Bundle exported!\n\nSHA256: ${bundle.integrity.bundle_sha256.substring(0, 16)}...`);
+                window.showNotification(`✅ Bundle exported!\n\nSHA256: ${bundle.integrity.bundle_sha256.substring(0, 16)}...`, 'success');
             }
         } else {
             const error = await response.json();
@@ -3130,7 +3140,7 @@ async function loadSavedDiagnosis(executionId) {
             container.insertAdjacentHTML('beforeend', renderDiagnosisPanel(d, true, diagnoses.length - i));
         });
     } catch (e) {
-        // Network or parse error -- silently skip, user can run Diagnose manually
+        // Network or parse error -- silently skip; diagnoses are optional evidence
     }
 }
 
@@ -3142,48 +3152,9 @@ function ensureDiagnosisContainer(content) {
     }
 }
 
-// AI diagnosis of a single eval bundle
-async function diagnoseBundleExecution(executionId, agentName) {
-    const button = document.getElementById('diagnoseEvalBtn');
-    const content = document.getElementById('commandlinesContent');
-    const originalText = button.textContent;
-    button.disabled = true;
-    button.textContent = 'Diagnosing...';
-
-    try {
-        const response = await fetch(`/api/evaluations/evals/${executionId}/diagnose`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ agent_name: agentName })
-        });
-
-        if (!response.ok) {
-            const err = await response.json().catch(() => ({ detail: response.statusText }));
-            throw new Error(err.detail || `HTTP ${response.status}`);
-        }
-
-        const diagnosis = await response.json();
-        ensureDiagnosisContainer(content);
-        const container = document.getElementById('diagnosisHistory');
-        const total = container.querySelectorAll('.diagnosis-panel').length + 1;
-        container.insertAdjacentHTML('afterbegin', renderDiagnosisPanel(diagnosis, false, total));
-        // Re-number older panels now that a new one is at the top
-        container.querySelectorAll('.diagnosis-run-label').forEach((el, idx) => {
-            el.textContent = `Run ${total - idx}`;
-        });
-        showNotification('Diagnosis complete', 'success');
-        // Invalidate cache so the [dx N] badge refreshes on next table render
-        _diagnosisCountsCache = null;
-        applyDiagnosisCounts();
-
-    } catch (error) {
-        console.error('Error diagnosing bundle:', error);
-        showNotification('Diagnosis failed: ' + error.message, 'error');
-    } finally {
-        button.disabled = false;
-        button.textContent = originalText;
-    }
-}
+// Diagnoses are authored by an MCP client agent (huntable-eval-diagnosis skill)
+// via get_eval_diagnosis_context + save_eval_diagnosis, then rendered here from
+// data/diagnoses. This page never triggers an LLM call.
 
 function renderDiagnosisPanel(d, cached = false, runNumber = null) {
     const categoryColors = {
@@ -3238,13 +3209,23 @@ function renderDiagnosisPanel(d, cached = false, runNumber = null) {
     const runLabel = runNumber !== null ? `Run ${runNumber}` : '';
     const runTs = d.created_at ? new Date(d.created_at).toLocaleString() : '';
 
+    // Agent-authored diagnoses carry source/authored_by; pre-MCP files carry
+    // provider_used/model_used from the retired server-side LLM call.
+    let attributionHtml = '';
+    if (d.source === 'mcp_agent') {
+        const author = d.authored_by ? ` / ${d.authored_by}` : '';
+        attributionHtml = `<span class="text-xs font-mono" style="color: var(--text-muted);" title="Authored by an MCP client agent">mcp agent${escapeHtml(author)}</span>`;
+    } else if (d.model_used && d.model_used !== 'default') {
+        attributionHtml = `<span class="text-xs font-mono" style="color: var(--text-muted);" title="Legacy server-side diagnosis">${escapeHtml(d.provider_used || '')}${d.provider_used ? ' / ' : ''}${escapeHtml(d.model_used)}</span>`;
+    }
+
     return `
     <div class="diagnosis-panel p-4 rounded-lg border" style="background: var(--panel-bg-3); border-color: rgba(139, 92, 246, 0.15); color: var(--text-muted-slate);">
         <div class="flex items-center justify-between mb-3">
             <div class="flex items-center gap-2">
                 <h4 class="text-sm font-semibold" style="color: var(--text-secondary);">AI Diagnosis</h4>
                 ${runLabel ? `<span class="diagnosis-run-label text-xs font-mono px-1.5 py-0.5 rounded" style="background: rgba(139,92,246,0.12); color: var(--text-muted-slate);">${escapeHtml(runLabel)}</span>` : ''}
-                <button type="button" onclick="showHelp('diagnosisPrompt')" title="How to edit the diagnosis prompt" class="text-gray-400 hover:text-gray-300 focus:outline-none" style="line-height:1;">
+                <button type="button" onclick="showHelp('diagnosisWorkflow')" title="How eval diagnosis works" class="text-gray-400 hover:text-gray-300 focus:outline-none" style="line-height:1;">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
@@ -3253,7 +3234,7 @@ function renderDiagnosisPanel(d, cached = false, runNumber = null) {
             <div class="flex items-center gap-2">
                 <span class="text-xs px-2 py-0.5 rounded-full font-medium ${catClass}">${d.failure_category || 'unknown'}</span>
                 <span class="text-xs" style="color: var(--text-muted-slate);">${confidencePct}% confidence</span>
-                ${(d.model_used && d.model_used !== 'default') ? `<span class="text-xs font-mono" style="color: var(--text-muted);" title="Model used for this diagnosis">${escapeHtml(d.provider_used || '')}${d.provider_used ? ' / ' : ''}${escapeHtml(d.model_used)}</span>` : ''}
+                ${attributionHtml}
                 ${runTs ? `<span class="text-xs" style="color: var(--text-muted);" title="${escapeHtml(runTs)}">${escapeHtml(cached ? runTs : new Date(d.created_at).toLocaleTimeString())}</span>` : ''}
             </div>
         </div>
@@ -3584,11 +3565,7 @@ function renderCompareResult(data) {
 }
 
 // Escape HTML to prevent XSS
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
+// escapeHtml now lives in /static/js/utils.js (loaded from base.html).
 
 // Version compare button
 document.getElementById('runCompareBtn').addEventListener('click', runVersionCompare);
@@ -3600,13 +3577,6 @@ document.getElementById('exportEvalBundleBtn').addEventListener('click', (e) => 
     const agentName = e.target.dataset.agentName || 'CmdlineExtract';
     if (executionId) {
         exportEvalBundle(parseInt(executionId), agentName);
-    }
-});
-document.getElementById('diagnoseEvalBtn').addEventListener('click', (e) => {
-    const executionId = e.target.dataset.executionId;
-    const agentName = e.target.dataset.agentName || 'CmdlineExtract';
-    if (executionId) {
-        diagnoseBundleExecution(parseInt(executionId), agentName);
     }
 });
 document.getElementById('commandlinesModal').addEventListener('click', (e) => {

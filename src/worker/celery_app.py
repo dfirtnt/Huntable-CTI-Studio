@@ -146,7 +146,6 @@ def reset_db_connections_on_fork(**kwargs):
 celery_app.autodiscover_tasks()
 
 # Ensure local task modules are registered
-import src.worker.tasks.annotation_embeddings  # noqa: E402,F401
 import src.worker.tasks.observable_training  # noqa: E402,F401
 
 
@@ -325,13 +324,6 @@ def setup_periodic_tasks(sender, **kwargs):
         index_customer_repo.s(),
         name="index-customer-repo-daily",
     )
-
-    # Generate annotation embeddings weekly on Sundays at 4 AM
-    # sender.add_periodic_task(
-    #     crontab(hour=4, minute=0, day_of_week=0),  # Weekly on Sunday at 4 AM
-    #     generate_annotation_embeddings.s(),
-    #     name='embed-annotations-weekly'
-    # )
 
 
 @celery_app.task(bind=True, max_retries=3)
@@ -519,19 +511,33 @@ def check_all_sources(self):
 
 
 @celery_app.task(bind=True, max_retries=2)
-def cleanup_old_data(self):
-    """Clean up old articles and source check data."""
+def cleanup_old_data(self, dry_run: bool = False):
+    """Apply age-based retention and reap stale workflow executions.
+
+    Reports the rows it actually removed. This task previously returned success
+    without deleting anything, so an operator who enabled it saw a green result
+    while the tables kept growing.
+    """
+    from src.database.manager import DatabaseManager
+    from src.services.data_retention_service import run_retention
+
     try:
-        logger.info("Cleaning up old data...")
+        logger.info("Running data retention (dry_run=%s)...", dry_run)
 
-        # Data cleanup logic implementation
-        # - Remove articles older than X days
-        # - Clean up old source check records
-        # - Archive old data if needed
+        db = DatabaseManager()
+        with db.get_session() as session:
+            result = run_retention(session, dry_run=dry_run)
+            if dry_run:
+                session.rollback()
+            else:
+                session.commit()
 
-        return {"status": "success", "message": "Old data cleaned up"}
+        payload = result.as_dict()
+        logger.info("Data retention complete: %s", payload)
+        return {"status": "success", **payload}
 
     except Exception as exc:
+        logger.error(f"Data retention task failed: {exc}")
         raise self.retry(exc=exc, countdown=300 * (2**self.request.retries)) from exc
 
 

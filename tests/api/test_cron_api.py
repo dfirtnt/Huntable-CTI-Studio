@@ -90,15 +90,18 @@ def test_replace_cron_returns_success_when_cron_unavailable(monkeypatch):
     assert result["jobs"] == []
 
 
-def test_cron_replace_is_operator_classified_in_manifest():
+def test_cron_replace_is_admin_classified_in_manifest():
     """Enterprise contract (replaces the legacy 'no Depends() allowed' rule).
 
-    PUT /api/cron is operator/admin-only and mandatorily audited. Authorization
+    PUT /api/cron is a raw crontab editor — it accepts arbitrary cron lines with
+    no content validation, making it an HTTP-reachable command-execution
+    primitive equivalent to /api/backup/* and /api/settings*. It is therefore
+    admin-only and mandatorily audited, not operator-accessible. Authorization
     is enforced centrally by the route manifest + AuthorizationMiddleware (see
     tests/api/test_route_family_authorization.py for the live 401/403 behavior),
     not per-handler Depends(). The Settings page keeps working: in production the
-    operator is authenticated by the upstream proxy; in local AUTH_MODE=disabled
-    the synthetic local-dev admin identity satisfies the role.
+    admin is authenticated by the upstream proxy; in local AUTH_MODE=disabled the
+    synthetic local-dev admin identity satisfies the role.
     """
     from fastapi import FastAPI
 
@@ -117,5 +120,5 @@ def test_cron_replace_is_operator_classified_in_manifest():
     entry = find_manifest_entry(manifest, "PUT", "/api/cron")
     assert entry is not None, "PUT /api/cron missing from route manifest"
     assert entry.classification is RouteClassification.ROLES
-    assert entry.roles == ("operator", "admin")
+    assert entry.roles == ("admin",)
     assert entry.audit_requirement is AuditRequirement.MANDATORY

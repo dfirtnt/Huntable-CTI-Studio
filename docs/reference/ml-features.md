@@ -236,7 +236,7 @@ Command-line artifact density per word: `cmdline_artifact_count / word_count`.
 
 Sum of all six extractor signal counts:
 
-```
+```text
 cmdline_artifact_count + registry_hive_path_count + process_lineage_count
 + service_artifact_count + scheduled_task_count + hunt_query_count
 ```
@@ -291,5 +291,5 @@ Feature importances are learned from training data; call `model.feature_importan
 
 `HUNT_SCORING_KEYWORDS["perfect_discriminators"]` is imported from `src/utils/content.py` and shared by both the keyword-scoring system and the v3 extractor. Since v7.5.0 the dict is derived from the faceted registry `config/keyword_registry.yaml` via `build_hunt_scoring_keywords()` (`src/utils/keyword_registry.py`); edit the registry, not the dict. Changes affect both systems.
 
-_Last updated: 2026-07-04_
+_Last updated: 2026-07-17_
 _Last reviewed: 2026-05-22_

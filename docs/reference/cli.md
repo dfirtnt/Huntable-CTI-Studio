@@ -190,7 +190,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 | Subcommand | Description |
 |------------|-------------|
 | `show` | Show cron jobs from current user's crontab |
-| `replace` | Replace crontab with jobs from stdin or a file |
+| `set` | Replace crontab with jobs read from a file (`--file PATH`, required) |
 
 **Options (show):**
 
@@ -198,12 +198,18 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 |--------|-------------|
 | `--raw` | Print raw crontab instead of parsed job list |
 
+**Options (set):**
+
+| Option | Description |
+|--------|-------------|
+| `--file PATH` | Path to a file containing the full replacement crontab (required) |
+
 **Examples:**
 
 ```bash
 ./run_cli.sh cron show
 ./run_cli.sh cron show --raw
-./run_cli.sh cron replace < new_crontab.txt
+./run_cli.sh cron set --file new_crontab.txt
 ```
 
 **See also:** [Backup & Restore](../guides/backup-and-restore.md) (Automated Backups), Settings → Backup schedule.

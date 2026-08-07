@@ -48,23 +48,18 @@
     <link rel="stylesheet" href="/static/css/theme-variables.css">
     
     <!-- Tailwind CSS via CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
     <script>
       // Force class-based dark mode so `dark:` variants always activate on our dark-only theme
       tailwind.config = { darkMode: 'class' };
     </script>
     
-    <!-- HTMX for dynamic interactions -->
-    <script src="https://unpkg.com/htmx.org@1.9.6"></script>
-    
     <!-- Chart.js for visualizations -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
-    <!-- React for components -->
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js" integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ" crossorigin="anonymous"></script>
+
+    <!-- Shared utilities (escapeHtml, date formatting) - load before anything that uses them -->
+    <script src="/static/js/utils.js?v=20260729"></script>
+
     <!-- Text Annotation System -->
     <script src="/static/js/annotation-manager.js"></script>
     <script src="/static/js/mobile-simple.js"></script>
@@ -346,12 +341,8 @@
         }
         window.getThemeColor = getThemeColor;
 
-        // Global utility functions
-        function formatDate(dateString) {
-            if (!dateString) return 'Unknown';
-            const date = new Date(dateString);
-            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
-        }
+        // formatDate() lived here and had zero callers; deleted.
+        // Shared helpers now live in /static/js/utils.js (loaded above).
 
         // COMMENTED OUT: Truncation control
         // function truncateText(text, maxLength = 100) {

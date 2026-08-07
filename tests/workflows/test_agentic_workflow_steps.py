@@ -10,13 +10,16 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 import yaml
+from langgraph.graph import END, START, StateGraph
+from pydantic import ValidationError
 
 from src.database.models import (
     AgenticWorkflowConfigTable,
     AgenticWorkflowExecutionTable,
     ArticleTable,
 )
-from src.workflows.agentic_workflow import create_agentic_workflow
+from src.services.workflow_config_snapshot import build_config_snapshot
+from src.workflows.agentic_workflow import WorkflowState, create_agentic_workflow
 
 pytestmark = pytest.mark.unit
 
@@ -93,7 +96,29 @@ def config_obj():
         },
     }
     cfg.sigma_fallback_enabled = True
+    # Mock(spec=...) auto-creates these as Mock objects, which are truthy and
+    # non-numeric; pin them so snapshots built from this fixture hold real values.
+    cfg.min_hunt_score = 97.0
+    cfg.ranking_threshold = 6.0
+    cfg.similarity_threshold = 0.5
+    cfg.junk_filter_threshold = 0.8
+    cfg.auto_trigger_hunt_score_threshold = 100.0
+    cfg.rank_agent_enabled = True
+    cfg.cmdline_attention_preprocessor_enabled = True
+    cfg.proc_tree_attention_preprocessor_enabled = True
     return cfg
+
+
+def _snapshot_state_config(config_obj, **overrides):
+    """Build the node-visible config the way run_workflow() seeds it.
+
+    Nodes read the execution's immutable snapshot from ``state["config"]``, not the
+    live active configuration, so tests exercising a node's config-dependent behavior
+    must seed the snapshot rather than only mocking ``get_active_config()``.
+    """
+    snapshot = build_config_snapshot(config_obj)
+    snapshot.update(overrides)
+    return snapshot
 
 
 def _make_db_session(article, execution):
@@ -148,6 +173,40 @@ def _default_state(**overrides):
     }
     base.update(overrides)
     return base
+
+
+def _workflow_state_data(**overrides):
+    """Build a complete validated workflow state, applying overrides."""
+    base = _default_state(
+        eval_run=False,
+        skip_rank_agent=False,
+        platforms_detected=None,
+        cmdline_items=None,
+        count=None,
+    )
+    base.update(overrides)
+    return base
+
+
+class TestWorkflowStateValidation:
+    def test_rejects_missing_or_unknown_state_channels(self):
+        state = _workflow_state_data()
+
+        with pytest.raises(ValidationError, match="article_id"):
+            WorkflowState.model_validate({key: value for key, value in state.items() if key != "article_id"})
+        with pytest.raises(ValidationError, match="unexpected_channel"):
+            WorkflowState.model_validate({**state, "unexpected_channel": True})
+
+    def test_preserves_mapping_access_and_validates_langgraph_updates(self):
+        workflow = StateGraph(WorkflowState)
+        workflow.add_node("set_status", lambda state: {"status": "complete", "count": 1})
+        workflow.add_edge(START, "set_status")
+        workflow.add_edge("set_status", END)
+
+        result = workflow.compile().invoke(_workflow_state_data())
+
+        assert result["status"] == "complete"
+        assert result.get("count") == 1
 
 
 def _capture_nodes(db_session, **extra_patches):
@@ -210,6 +269,26 @@ class TestJunkFilterNode:
         assert result["filtered_content"] is not None
         assert result["current_step"] == "junk_filter"
         assert result["status"] == "running"
+
+    def test_eval_uses_committed_fixture_content(self, article, execution, config_obj):
+        db_session = _make_db_session(article, execution)
+        nodes = _capture_nodes(db_session)
+        fixture_content = "command one\ncommand two"
+
+        result = nodes["junk_filter"](
+            _default_state(
+                config={
+                    "eval_run": True,
+                    "junk_filter_threshold": 0.8,
+                    "eval_fixture_content": fixture_content,
+                }
+            )
+        )
+
+        assert result["filtered_content"] == fixture_content
+        assert result["junk_filter_result"]["bypassed"] is True
+        assert result["junk_filter_result"]["chunks_removed"] == 0
+        assert execution.junk_filter_result["reason"] == "eval_run_uses_committed_fixture_content"
 
     def test_junk_filter_marks_failed_on_empty_content(self, article, execution, config_obj):
         """Junk filter sets status=failed when article has no content."""
@@ -285,6 +364,46 @@ class TestJunkFilterNode:
 # ---------------------------------------------------------------------------
 
 
+class TestExtractAgentConfigSnapshot:
+    @pytest.mark.asyncio
+    async def test_extract_agent_uses_models_and_prompt_from_execution_snapshot(self, article, execution, config_obj):
+        """An eval keeps its saved provider/model/prompt after active config changes."""
+        active_prompt = json.dumps({"role": "active", "user_template": "active {content}"})
+        snapshot_prompt = json.dumps({"role": "snapshot", "user_template": "snapshot {content}"})
+        config_obj.agent_models = {
+            "CmdlineExtract_model": "active-model",
+            "CmdlineExtract_provider": "lmstudio",
+        }
+        config_obj.agent_prompts = {"CmdlineExtract": {"prompt": active_prompt}}
+        db_session = _make_db_session(article, execution)
+        nodes = _capture_nodes(db_session, trigger_service_config=config_obj)
+        snapshot_models = {
+            "CmdlineExtract_model": "snapshot-model",
+            "CmdlineExtract_provider": "openai",
+        }
+        snapshot_prompts = {"CmdlineExtract": {"prompt": snapshot_prompt}}
+
+        with patch("src.workflows.agentic_workflow.LLMService") as mock_llm_service:
+            mock_llm_service.return_value.run_extraction_agent = AsyncMock(return_value={"cmdline": []})
+            await nodes["extract_agent"](
+                _default_state(
+                    filtered_content="fixture command content",
+                    config={
+                        "eval_run": True,
+                        "subagent_eval": "cmdline",
+                        "agent_models": snapshot_models,
+                        "agent_prompts": snapshot_prompts,
+                    },
+                )
+            )
+
+        mock_llm_service.assert_called_once_with(config_models=snapshot_models)
+        call_kwargs = mock_llm_service.return_value.run_extraction_agent.await_args.kwargs
+        assert call_kwargs["model_name"] == "snapshot-model"
+        assert call_kwargs["provider"] == "openai"
+        assert call_kwargs["prompt_config"]["role"] == "snapshot"
+
+
 class TestRankAgentBypassNode:
     """Tests for the rank_agent_bypass_node step."""
 
@@ -348,7 +467,11 @@ class TestRankArticleNode:
             mock_llm_cls.return_value = mock_instance
 
             await nodes["rank_article"](
-                _default_state(filtered_content="threat intel content", current_step="junk_filter")
+                _default_state(
+                    filtered_content="threat intel content",
+                    current_step="junk_filter",
+                    config=_snapshot_state_config(config_obj),
+                )
             )
 
         assert execution.error_log is not None
@@ -467,6 +590,7 @@ class TestGenerateSigmaNode:
                     filtered_content=article.content,
                     extraction_result=extraction_result,
                     discrete_huntables_count=2,
+                    config=_snapshot_state_config(config_obj),
                 )
             )
 
@@ -610,6 +734,7 @@ class TestGenerateSigmaNode:
                     filtered_content=article.content,
                     extraction_result=extraction_result,
                     discrete_huntables_count=1,
+                    config=_snapshot_state_config(config_obj),
                 )
             )
 

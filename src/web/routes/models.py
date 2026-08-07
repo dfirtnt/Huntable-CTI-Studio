@@ -4,12 +4,55 @@ Model management endpoints.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Path
+from typing import Any
+
+from fastapi import APIRouter, HTTPException, Path, Request
 
 from src.database.async_manager import async_db_manager
+from src.services.audit_service import (
+    ACTION_MODEL_EVALUATED,
+    ACTION_MODEL_RETRAINED,
+    ACTION_MODEL_ROLLED_BACK,
+    STATUS_ATTEMPTED,
+    STATUS_FAILURE,
+    STATUS_SUCCESS,
+    ActorContext,
+    AsyncAuditService,
+    AuditEvent,
+    build_actor_context,
+)
 from src.web.dependencies import logger
 
 router = APIRouter(prefix="/api/model", tags=["Model"])
+
+
+async def _audit_model(
+    actor: ActorContext,
+    action: str,
+    target_id: str | None,
+    summary: str,
+    metadata: dict[str, Any] | None = None,
+    *,
+    status: str = STATUS_SUCCESS,
+) -> None:
+    """Emit a model-management audit event out-of-band.
+
+    Takes a pre-built ``ActorContext`` rather than a ``Request`` because retrain
+    and rollback finish on a background thread that outlives the request scope.
+    Capture the actor at the route boundary (``build_actor_context``) and hand the
+    frozen context to the thread so the terminal event keeps human attribution.
+    """
+    await AsyncAuditService.record_out_of_band(
+        AuditEvent(
+            action=action,
+            target_type="ml_model",
+            target_id=target_id,
+            status=status,
+            summary=summary,
+            actor=actor,
+            metadata=metadata or {},
+        )
+    )
 
 
 @router.get("/retrain-status")
@@ -89,8 +132,9 @@ async def api_model_retrain_status():
 
 
 @router.post("/retrain")
-async def api_model_retrain():
+async def api_model_retrain(request: Request):
     """Trigger model retraining using collected user feedback."""
+    actor = build_actor_context(getattr(request.state, "identity", None), request)
     try:
         import json
         import os
@@ -144,6 +188,28 @@ async def api_model_retrain():
             with open(status_file, "w") as f:
                 json.dump(status_data, f)
 
+        retrain_metadata = {
+            "training_samples": total_available,
+            "feedback_samples": feedback_count,
+            "annotation_samples": annotation_count,
+        }
+
+        def audit_from_thread(summary: str, metadata: dict, status: str) -> None:
+            """Emit a retrain audit event from the background thread.
+
+            run_retrain() has no event loop of its own, so the coroutine is driven
+            via run_sync the same way the version lookups in this thread are.
+            """
+            try:
+                from src.utils.async_tools import run_sync
+
+                run_sync(
+                    _audit_model(actor, ACTION_MODEL_RETRAINED, None, summary, metadata, status=status),
+                    allow_running_loop=False,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.error("Retrain audit emission failed (%s): %s", status, exc)
+
         # Start with initial status
         update_status(
             "starting",
@@ -174,6 +240,8 @@ async def api_model_retrain():
                         logger.warning(f"[retrain stderr] {line}")
 
                 if result.returncode == 0:
+                    audit_from_thread("Model retraining completed successfully", retrain_metadata, STATUS_SUCCESS)
+
                     # Clear the cached ContentFilter singleton so the next request loads the retrained model
                     try:
                         from src.web.dependencies import get_content_filter
@@ -301,6 +369,11 @@ async def api_model_retrain():
                     rejection_line = next((ln.strip() for ln in stdout_lines if "RETRAIN REJECTED" in ln), None)
                     if rejection_line:
                         update_status("error", 0, rejection_line)
+                        audit_from_thread(
+                            "Model retraining rejected by quality gate",
+                            {**retrain_metadata, "reason": rejection_line, "returncode": result.returncode},
+                            STATUS_FAILURE,
+                        )
                     else:
                         # Look for explicit ❌ failure markers in stdout
                         explicit_failure = next((ln.strip() for ln in reversed(stdout_lines) if "❌" in ln), None)
@@ -318,9 +391,19 @@ async def api_model_retrain():
                             explicit_failure or real_stderr_error or last_stdout or "unknown error — check server logs"
                         )
                         update_status("error", 0, f"Retraining failed: {error_detail}")
+                        audit_from_thread(
+                            "Model retraining failed",
+                            {**retrain_metadata, "error": error_detail, "returncode": result.returncode},
+                            STATUS_FAILURE,
+                        )
 
             except Exception as e:
                 update_status("error", 0, f"Retraining error: {str(e)}")
+                audit_from_thread(
+                    "Model retraining errored",
+                    {**retrain_metadata, "error": str(e)},
+                    STATUS_FAILURE,
+                )
             finally:
                 # Clean up status file after 30 seconds
                 import time
@@ -328,6 +411,17 @@ async def api_model_retrain():
                 time.sleep(30)
                 if os.path.exists(status_file):
                     os.remove(status_file)
+
+        # Record the dispatch before the thread starts: the route returns immediately,
+        # so this is the only event guaranteed to carry the requesting human.
+        await _audit_model(
+            actor,
+            ACTION_MODEL_RETRAINED,
+            None,
+            "Model retraining requested",
+            retrain_metadata,
+            status=STATUS_ATTEMPTED,
+        )
 
         # Start retraining in background thread to avoid blocking the web server
         retrain_thread = threading.Thread(target=run_retrain)
@@ -427,8 +521,9 @@ async def api_get_model_versions(
 
 
 @router.post("/evaluate")
-async def api_model_evaluate():
+async def api_model_evaluate(request: Request):
     """Evaluate the current model on annotated test chunks."""
+    actor = build_actor_context(getattr(request.state, "identity", None), request)
     try:
         from src.utils.content_filter import ContentFilter
         from src.utils.model_evaluation import ModelEvaluator
@@ -457,6 +552,22 @@ async def api_model_evaluate():
         else:
             logger.warning("No model versions found to save evaluation metrics")
 
+        # Evaluation mutates the stored metrics of a model version, so it is audited
+        # even though it does not change which model is active.
+        await _audit_model(
+            actor,
+            ACTION_MODEL_EVALUATED,
+            str(latest_version.id) if latest_version else None,
+            "Model evaluation completed",
+            {
+                "version_number": latest_version.version_number if latest_version else None,
+                "metrics_saved": bool(latest_version),
+                "accuracy": eval_metrics["accuracy"],
+                "total_eval_chunks": eval_metrics["total_eval_chunks"],
+                "misclassified_count": eval_metrics["misclassified_count"],
+            },
+        )
+
         # Prepare response
         response_data = {
             "success": True,
@@ -483,9 +594,25 @@ async def api_model_evaluate():
 
     except FileNotFoundError as e:
         logger.error(f"Evaluation data not found: {e}")
+        await _audit_model(
+            actor,
+            ACTION_MODEL_EVALUATED,
+            None,
+            "Model evaluation failed: dataset not found",
+            {"error": str(e)},
+            status=STATUS_FAILURE,
+        )
         return {"success": False, "message": "Evaluation dataset not found. Please run annotation export first."}
     except Exception as e:
         logger.error(f"Model evaluation failed: {e}")
+        await _audit_model(
+            actor,
+            ACTION_MODEL_EVALUATED,
+            None,
+            "Model evaluation failed",
+            {"error": str(e)},
+            status=STATUS_FAILURE,
+        )
         return {"success": False, "message": "Model evaluation failed"}
 
 
@@ -670,7 +797,7 @@ async def api_get_feedback_count():
 
 
 @router.post("/rollback/{version_id}")
-async def api_model_rollback(version_id: int = Path(..., gt=0)):
+async def api_model_rollback(request: Request, version_id: int = Path(..., gt=0)):
     """
     Roll back the active model to a specific version.
 
@@ -682,6 +809,7 @@ async def api_model_rollback(version_id: int = Path(..., gt=0)):
 
     from src.utils.model_versioning import MLModelVersionManager
 
+    actor = build_actor_context(getattr(request.state, "identity", None), request)
     version_manager = MLModelVersionManager(async_db_manager)
 
     version = await version_manager.get_version_by_id(version_id)
@@ -705,10 +833,43 @@ async def api_model_rollback(version_id: int = Path(..., gt=0)):
             ),
         )
 
+    rollback_metadata = {
+        "version_number": version.version_number,
+        "version_id": version_id,
+        "artifact_path": _resolved,
+        "used_backup_artifact": _resolved == _backup,
+    }
+    await _audit_model(
+        actor,
+        ACTION_MODEL_ROLLED_BACK,
+        str(version_id),
+        f"Model rollback to v{version.version_number} requested",
+        rollback_metadata,
+        status=STATUS_ATTEMPTED,
+    )
+
     try:
         await version_manager.activate_version(version_id)
     except (FileNotFoundError, ValueError) as exc:
+        await _audit_model(
+            actor,
+            ACTION_MODEL_ROLLED_BACK,
+            str(version_id),
+            f"Model rollback to v{version.version_number} failed",
+            {**rollback_metadata, "error": str(exc)},
+            status=STATUS_FAILURE,
+        )
         raise HTTPException(status_code=422, detail="Validation error") from exc
+
+    # activate_version() has committed the is_current flip; the live model has
+    # changed regardless of how the background re-scoring turns out.
+    await _audit_model(
+        actor,
+        ACTION_MODEL_ROLLED_BACK,
+        str(version_id),
+        f"Model rolled back to v{version.version_number}",
+        rollback_metadata,
+    )
 
     # Re-score all chunks with the restored model in a background thread
     def run_backfill():

@@ -80,11 +80,12 @@ def collect(ctx: CLIContext, source: str | None, force: bool, dry_run: bool):
                 if all_articles:
                     console.print(f"[blue]Processing {len(all_articles)} articles...[/blue]")
 
-                    # Get existing hashes for deduplication
+                    # Get existing hashes and URLs for deduplication
                     existing_hashes = db_manager.get_existing_content_hashes()
+                    existing_urls = db_manager.get_existing_urls()
 
                     # Process articles
-                    dedup_result = await processor.process_articles(all_articles, existing_hashes)
+                    dedup_result = await processor.process_articles(all_articles, existing_hashes, existing_urls)
 
                     console.print(
                         f"[green]Processed: {len(dedup_result.unique_articles)} unique, {len(dedup_result.duplicates)} duplicates[/green]"

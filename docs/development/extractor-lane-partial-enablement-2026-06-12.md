@@ -3,7 +3,10 @@
 **Status:** RATIFIED 2026-06-12 — principle adopted, Cmdline guard approved, and the
 guard generalized to a **Complete-Artifact Rule** across all four agents (operator ruling,
 §9). Execution: **Registry pilot first, then reassess** before Services / ScheduledTasks /
-Cmdline.
+Cmdline. **Update: the full rollout completed 2026-06-12/13** — Registry, ScheduledTasks,
+and Services shipped 2026-06-12, Cmdline (the heavy instance) shipped 2026-06-13; see
+`docs/CHANGELOG.md` entries citing this doc for all four contract edits. Retained as the
+design/decision record.
 **Date:** 2026-06-12.
 **Scope:** the six ExtractAgent sub-agents (CmdlineExtract, ProcTreeExtract,
 RegistryExtract, ServicesExtract, ScheduledTasksExtract, HuntQueriesExtract).

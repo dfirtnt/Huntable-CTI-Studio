@@ -1,6 +1,6 @@
 # Adding an Extraction Sub-Agent
 
-This page is a companion reference for the **`Create-Huntable-Agent` skill** — the Claude Code skill that guides you through wiring a new extractor into the LangGraph pipeline.
+This page is a companion reference for the **`Create-Huntable-Agent` skill** (invoked as `create-huntable-agent`) — the Claude Code skill that guides you through wiring a new extractor into the LangGraph pipeline.
 
 The interactive wiring map below visualises every integration point across all 7 layers, all 17 known pitfalls, and the 4 behaviours that are auto-wired for free once Layers 1–3 are complete.
 
@@ -72,7 +72,5 @@ restart. See [Sigma rules](../features/sigma-rules.md) for the live modeled-clas
 
 ## See also
 
-- [`references/integration-checklist.md`](../contracts/extractor-standard.md) — file-by-file insertion guide with code patterns
-- [`references/workflow-html-checklist.md`](../contracts/extractor-standard.md) — the ~40-point `workflow.html` checklist
-- [Extractor Standard Contract](../contracts/extractor-standard.md) — Architecture Context block format, traceability field requirements
+- [Extractor Standard Contract](../contracts/extractor-standard.md) — Architecture Context block format, traceability field requirements, the file-by-file insertion guide, and the `workflow.html` checklist
 - [Agent Evals](../features/agent-evals.md) — how eval data directories and ground truth files are consumed

@@ -254,6 +254,51 @@ def test_extract_psql_errors_ignores_warnings_and_notices():
     assert extract_psql_errors(stderr) == []
 
 
+def test_extract_psql_errors_detects_fatal_and_panic():
+    stderr = (
+        "psql:/tmp/restore.sql:12: FATAL:  connection to server was lost\n"
+        "psql:/tmp/restore.sql:40: PANIC:  could not write to file\n"
+    )
+    errors = extract_psql_errors(stderr)
+    assert len(errors) == 2
+    assert "FATAL" in errors[0]
+    assert "PANIC" in errors[1]
+
+
+def test_extract_psql_errors_finds_multiple_errors():
+    stderr = (
+        "psql:/tmp/restore.sql:5: ERROR:  duplicate key value violates unique constraint\n"
+        "psql:/tmp/restore.sql:5: STATEMENT:  INSERT INTO articles ...\n"
+        "psql:/tmp/restore.sql:9231: ERROR:  could not resize shared memory segment\n"
+    )
+    errors = extract_psql_errors(stderr)
+    assert len(errors) == 2
+    assert "duplicate key value" in errors[0]
+    assert "shared memory segment" in errors[1]
+
+
+def test_extract_psql_errors_ignores_midline_error_substring():
+    """A line that merely mentions ERROR/FATAL mid-sentence (not a psql error record) must not match.
+
+    extract_psql_errors anchors on the start of the (stripped) line so restore
+    output that echoes SQL text containing these words does not trip a false
+    restore failure.
+    """
+    stderr = "psql:/tmp/restore.sql:3: NOTICE:  see the ERROR log table for FATAL crash history\n"
+    assert extract_psql_errors(stderr) == []
+
+
+def test_extract_psql_errors_case_insensitive():
+    stderr = "psql:/tmp/restore.sql:7: error:  lowercase server message\n"
+    errors = extract_psql_errors(stderr)
+    assert len(errors) == 1
+    assert "lowercase server message" in errors[0]
+
+
+def test_extract_psql_errors_empty_stderr_returns_empty_list():
+    assert extract_psql_errors("") == []
+
+
 # ---------------------------------------------------------------------------
 # Cross-script consistency: all restore callers must pass skip_unsupported_sets
 # ---------------------------------------------------------------------------
@@ -279,4 +324,33 @@ def test_restore_script_passes_skip_unsupported_sets(script_name):
     assert "skip_unsupported_sets=True" in text, (
         f"{script_name} calls filter_dump_lines without skip_unsupported_sets=True. "
         f"Add the flag to protect against newer pg_dump versions."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Cross-script consistency: every restore script must detect psql stderr errors
+# ---------------------------------------------------------------------------
+
+_RESTORE_SCRIPTS_NEEDING_ERROR_DETECTION = [
+    "restore_database.py",
+    "restore_database_v2.py",
+    "restore_system.py",
+    "verify_backup.py",
+    # restore_database_v3.py deliberately excluded: uses --single-transaction +
+    # ON_ERROR_STOP=on with a direct argv psql invocation (no shell), so its
+    # returncode is already reliable without extract_psql_errors.
+]
+
+
+@pytest.mark.parametrize("script_name", _RESTORE_SCRIPTS_NEEDING_ERROR_DETECTION)
+def test_restore_script_calls_extract_psql_errors(script_name):
+    """Every restore/verify script must check extract_psql_errors(stderr) in
+    addition to returncode, since psql exits 0 even when individual statements
+    fail (bad COPY, index build, constraint) -- a returncode-only check reports
+    partial restores as successful.
+    """
+    text = (_SCRIPTS_DIR / script_name).read_text(encoding="utf-8")
+    assert "extract_psql_errors(" in text, (
+        f"{script_name} does not call extract_psql_errors on its restore psql invocation. "
+        "See scripts/_restore_common.py and the fix pattern in commits 69c219d5 / 3dd68bb0."
     )

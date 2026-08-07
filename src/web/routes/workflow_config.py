@@ -123,6 +123,43 @@ def _deactivate_active_workflow_configs(db_session) -> None:
     db_session.flush()
 
 
+def ensure_default_workflow_config(db_session) -> AgenticWorkflowConfigTable:
+    """Seed a default active workflow config row if none exists.
+
+    Idempotent: returns the existing active config when one is present.
+    Called at application startup so GET /api/workflow/config stays read-only.
+    """
+    config = _active_workflow_config_query(db_session).first()
+    if not config:
+        new_version = _next_workflow_config_version(db_session)
+        default_prompts = get_default_agent_prompts()
+        config = AgenticWorkflowConfigTable(
+            min_hunt_score=97.0,
+            ranking_threshold=6.0,
+            similarity_threshold=0.5,
+            junk_filter_threshold=0.8,
+            auto_trigger_hunt_score_threshold=100.0,
+            version=new_version,
+            is_active=True,
+            description="Default configuration",
+            sigma_fallback_enabled=False,
+            agent_prompts=default_prompts if default_prompts else None,
+        )
+        db_session.add(config)
+        db_session.commit()
+        db_session.refresh(config)
+
+    # Seed AppSettingsTable threshold so subsequent PUT autosaves never fall back
+    # to the column default of 100.0.
+    settings_threshold = _get_threshold_from_settings(db_session)
+    if settings_threshold is None:
+        config_threshold = getattr(config, "auto_trigger_hunt_score_threshold", 100.0)
+        _save_threshold_to_settings(db_session, config_threshold)
+        db_session.commit()
+
+    return config
+
+
 class WorkflowConfigResponse(BaseModel):
     """Response model for workflow configuration."""
 
@@ -140,7 +177,7 @@ class WorkflowConfigResponse(BaseModel):
     rank_agent_enabled: bool = True
     cmdline_attention_preprocessor_enabled: bool = True
     proc_tree_attention_preprocessor_enabled: bool = True
-    auto_trigger_hunt_score_threshold: float = 60.0
+    auto_trigger_hunt_score_threshold: float = 100.0
     created_at: str
     updated_at: str
 
@@ -261,7 +298,7 @@ class SaveConfigPresetRequest(BaseModel):
 
 @router.get("/config", response_model=WorkflowConfigResponse)
 def get_workflow_config(request: Request):
-    """Get active workflow configuration."""
+    """Get active workflow configuration (read-only; seeding happens at startup)."""
     try:
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
@@ -270,30 +307,15 @@ def get_workflow_config(request: Request):
             config = _active_workflow_config_query(db_session).first()
 
             if not config:
-                new_version = _next_workflow_config_version(db_session)
-                # Create default config with prompts from src/prompts so agents ship with working defaults
-                default_prompts = get_default_agent_prompts()
-                config = AgenticWorkflowConfigTable(
-                    min_hunt_score=97.0,
-                    ranking_threshold=6.0,
-                    similarity_threshold=0.5,
-                    junk_filter_threshold=0.8,
-                    version=new_version,
-                    is_active=True,
-                    description="Default configuration",
-                    sigma_fallback_enabled=False,
-                    agent_prompts=default_prompts if default_prompts else None,
+                raise HTTPException(
+                    status_code=404,
+                    detail="No active workflow configuration found. Restart the application to seed defaults.",
                 )
-                db_session.add(config)
-                db_session.commit()
-                db_session.refresh(config)
 
             # Fallback: if DB has no prompts, use defaults from src/prompts so UI and workflow get working prompts
             agent_prompts = config.agent_prompts if config.agent_prompts is not None else {}
             if not agent_prompts:
                 agent_prompts = get_default_agent_prompts()
-                if agent_prompts:
-                    config.agent_prompts = agent_prompts
 
             # Load via normalized schema (migrates v1 to v2, validates) and emit legacy response shape
             try:
@@ -311,14 +333,10 @@ def get_workflow_config(request: Request):
                 created_at=config.created_at.isoformat(),
                 updated_at=config.updated_at.isoformat(),
             )
+            # Read threshold from settings without writing; fall back to config column value.
             settings_threshold = _get_threshold_from_settings(db_session)
             if settings_threshold is None:
-                # Lazy migration: seed AppSettingsTable from config row so subsequent
-                # PUT autosaves never fall back to the column default of 60.0.
-                config_threshold = getattr(config, "auto_trigger_hunt_score_threshold", 60.0)
-                _save_threshold_to_settings(db_session, config_threshold)
-                db_session.commit()
-                settings_threshold = config_threshold
+                settings_threshold = getattr(config, "auto_trigger_hunt_score_threshold", 100.0)
             legacy_dict["auto_trigger_hunt_score_threshold"] = settings_threshold
             return WorkflowConfigResponse(**legacy_dict)
         finally:
@@ -480,7 +498,7 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
             final_auto_trigger_hunt_score_threshold = (
                 _settings_threshold
                 if _settings_threshold is not None
-                else (getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0) if current_config else 60.0)
+                else (getattr(current_config, "auto_trigger_hunt_score_threshold", 100.0) if current_config else 100.0)
             )
 
             # Validate all agent prompts are valid JSON (for extraction agents that use JSON prompts)
@@ -566,7 +584,7 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                         auto_trigger_hunt_score_threshold=(
                             _settings_threshold
                             if _settings_threshold is not None
-                            else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
+                            else getattr(current_config, "auto_trigger_hunt_score_threshold", 100.0)
                         ),
                         created_at=current_config.created_at.isoformat(),
                         updated_at=current_config.updated_at.isoformat(),
@@ -615,7 +633,7 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                 proc_tree_attention_preprocessor_enabled=getattr(
                     new_config, "proc_tree_attention_preprocessor_enabled", True
                 ),
-                auto_trigger_hunt_score_threshold=getattr(new_config, "auto_trigger_hunt_score_threshold", 60.0),
+                auto_trigger_hunt_score_threshold=getattr(new_config, "auto_trigger_hunt_score_threshold", 100.0),
                 created_at=new_config.created_at.isoformat(),
                 updated_at=new_config.updated_at.isoformat(),
             )
@@ -1080,10 +1098,13 @@ def get_agent_prompts(request: Request):
         db_session = db_manager.get_session()
 
         try:
-            # Use with_for_update(skip_locked=True) to ensure we get the latest committed data
-            # This prevents race conditions where a new config was just created but not yet visible
-            # skip_locked=True allows the query to proceed even if another transaction has a lock
-            config = _active_workflow_config_query(db_session).with_for_update(skip_locked=True).first()
+            # Plain read: no row lock. This handler never writes, and under READ COMMITTED
+            # a plain SELECT already sees the latest committed data as of statement start.
+            # Do NOT reintroduce with_for_update(skip_locked=True) here: FOR UPDATE takes an
+            # *exclusive* row lock, so two concurrent GETs (which /workflow fires on every page
+            # load) would collide — SKIP LOCKED makes the loser skip the only active row, read
+            # zero rows, and return a spurious 404 while its sibling returns 200.
+            config = _active_workflow_config_query(db_session).first()
 
             if not config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")
@@ -1318,7 +1339,7 @@ def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdate):
                     current_config, "proc_tree_attention_preprocessor_enabled", True
                 ),
                 auto_trigger_hunt_score_threshold=(
-                    _thr if _thr is not None else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
+                    _thr if _thr is not None else getattr(current_config, "auto_trigger_hunt_score_threshold", 100.0)
                 ),
             )
 
@@ -1433,7 +1454,7 @@ def delete_agent_prompt(request: Request, agent_name: str):
                     current_config, "proc_tree_attention_preprocessor_enabled", True
                 ),
                 auto_trigger_hunt_score_threshold=(
-                    _thr if _thr is not None else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
+                    _thr if _thr is not None else getattr(current_config, "auto_trigger_hunt_score_threshold", 100.0)
                 ),
             )
 
@@ -1657,7 +1678,7 @@ def rollback_agent_prompt(request: Request, agent_name: str, rollback_request: R
                     current_config, "proc_tree_attention_preprocessor_enabled", True
                 ),
                 auto_trigger_hunt_score_threshold=(
-                    _thr if _thr is not None else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
+                    _thr if _thr is not None else getattr(current_config, "auto_trigger_hunt_score_threshold", 100.0)
                 ),
             )
 
@@ -1925,7 +1946,7 @@ def bootstrap_prompts_from_files(request: Request):
                     current_config, "proc_tree_attention_preprocessor_enabled", True
                 ),
                 auto_trigger_hunt_score_threshold=(
-                    _thr if _thr is not None else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
+                    _thr if _thr is not None else getattr(current_config, "auto_trigger_hunt_score_threshold", 100.0)
                 ),
             )
 
@@ -2015,7 +2036,7 @@ def reset_prompts_to_defaults(request: Request, reset_request: ResetPromptsToDef
                     current_config, "proc_tree_attention_preprocessor_enabled", True
                 ),
                 auto_trigger_hunt_score_threshold=(
-                    _thr if _thr is not None else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
+                    _thr if _thr is not None else getattr(current_config, "auto_trigger_hunt_score_threshold", 100.0)
                 ),
             )
 

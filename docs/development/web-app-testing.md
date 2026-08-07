@@ -17,8 +17,11 @@ playwright install firefox webkit
 ```
 
 ### Configuration
+<!-- AUDIT: Accuracy -- there is no pytest.ini in this repo; pytest config (including the `markers` list) lives in
+     pyproject.toml under [tool.pytest.ini_options]. The block below is illustrative only -- don't create a
+     pytest.ini, it would conflict with the pyproject.toml config. -->
 ```python
-# pytest.ini
+# Illustrative only -- actual config is in pyproject.toml [tool.pytest.ini_options]
 [tool:pytest]
 markers =
     ui: marks tests as UI tests
@@ -538,19 +541,23 @@ pytest -m ui -v -s
 
 The project includes TypeScript Playwright tests that are integrated into the pytest suite:
 
-<!-- AUDIT: Accuracy -- Original spec filenames were stale (renamed during test reorganization). Corrected to match current tests/playwright/ contents. -->
+<!-- AUDIT: Accuracy -- Original spec filenames were stale (renamed during test reorganization). Corrected to match current tests/playwright/ contents.
+     2026-07-17: re-checked against the live tests/playwright/ directory (find + `npx playwright test --list`);
+     `agent_evals_input_persistence.spec.ts` no longer exists (removed in the UI test-suite reduction commits) and was
+     replaced below with an existing file. -->
 - **`tests/playwright/agent_config_save_button.spec.ts`** - Tests workflow configuration save button functionality
 - **`tests/playwright/workflow_config_persistence.spec.ts`** - Workflow config persistence across sessions
 - **`tests/playwright/workflow_executions_pagination.spec.ts`** - Workflow execution list and pagination
-- **`tests/playwright/agent_evals_input_persistence.spec.ts`** - Agent evals input persistence
+- **`tests/playwright/workflow_config_versions.spec.ts`** - Workflow config restore-by-version modal
 
 These tests can be run directly via npm:
+<!-- AUDIT: Accuracy -- package.json defines "test" and "test:playwright" scripts, not "test:pw" (verified 2026-07-17). -->
 ```bash
 # Run all TypeScript Playwright tests
-npm run test:pw
+npm run test:playwright
 
 # Run specific test
-npm run test:pw tests/playwright/agent_config_save_button.spec.ts
+npm run test:playwright tests/playwright/agent_config_save_button.spec.ts
 ```
 
 Or via pytest (which wraps the TypeScript tests):

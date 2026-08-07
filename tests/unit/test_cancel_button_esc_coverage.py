@@ -18,13 +18,15 @@ What counts as a dismiss Cancel button:
 
 Failure means: a user clicking the visible Cancel button cannot invoke the
 same action by pressing Escape -- violating the UX contract in
-.cursor/agents/ui-designer.md Section 6.1.
+docs/contracts/ui-designer.md Section 6.1.
 """
 
 import re
 from pathlib import Path
 
 import pytest
+
+from tests.utils.workflow_html_source import WORKFLOW_TEMPLATE, read_workflow_src
 
 TEMPLATES_DIR = Path(__file__).resolve().parents[2] / "src" / "web" / "templates"
 
@@ -133,6 +135,10 @@ def _collect_violations() -> list[dict]:
     for tmpl in sorted(TEMPLATES_DIR.glob("*.html")):
         content = tmpl.read_text(encoding="utf-8")
         script_spans = _script_ranges(content)
+        # workflow.html's inline script was split into src/web/static/js/workflow/*.js
+        # modules (loaded back in via <script src>); the Escape-key handler for a
+        # given overlay may now live in one of those files rather than inline.
+        esc_content = read_workflow_src() if tmpl == WORKFLOW_TEMPLATE else content
 
         for btn_m in CANCEL_BTN_RE.finditer(content):
             # Skip buttons inside <script> blocks (JS-generated HTML).
@@ -160,7 +166,7 @@ def _collect_violations() -> list[dict]:
                 # modal/overlay), so ESC coverage is out of scope for this test.
                 continue
 
-            if not _is_esc_covered(content, container_id, close_fn):
+            if not _is_esc_covered(esc_content, container_id, close_fn):
                 violations.append(
                     {
                         "template": tmpl.name,

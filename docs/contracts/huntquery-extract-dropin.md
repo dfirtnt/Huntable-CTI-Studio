@@ -19,11 +19,12 @@ reconstruct, or synthesize queries or rules. Precision over recall — when in d
 
 ## SCOPE NOTE
 This extractor only covers FINISHED, runnable detection logic: contiguous EDR/SIEM query
-snippets (KQL, SPL, FQL, LogScale CQL, SentinelOne DV/PQ, Elastic, XQL, Carbon Black) and
-contiguous Sigma YAML rules. It does NOT cover raw command lines, registry keys, process
-lineage pairs, service artifacts, scheduled-task identity, or YARA rules. If an article
-shows both a narrative IOC and a Sigma/KQL rule that references it, only the rule is in
-scope here.
+snippets (KQL, SPL, FQL, LogScale CQL, SentinelOne DV/PQ, Elastic, XQL, Carbon Black),
+Google SecOps / Chronicle YARA-L 2.0 rules and UDM search queries, and contiguous Sigma
+YAML rules. It does NOT cover raw command lines, registry keys, process lineage pairs,
+service artifacts, scheduled-task identity, or classic YARA rules (file/memory scanning).
+If an article shows both a narrative IOC and a Sigma/KQL rule that references it, only the
+rule is in scope here.
 
 Supported query platforms (type enum):
 - kql                Microsoft Defender Advanced Hunting / Sentinel (Kusto)
@@ -35,8 +36,10 @@ Supported query platforms (type enum):
 - elastic            Elastic Security EQL / KQL / Lucene / ES|QL
 - xql                Palo Alto Cortex XDR
 - carbon_black       VMware Carbon Black Cloud
+- google_secops      Google SecOps / Chronicle (YARA-L 2.0 rules and UDM search queries)
 - sigma              Sigma YAML rule
 - unknown            structurally valid but platform ambiguous
+- other              named platform not in this list
 
 ## INPUT (flexible)
 I will give you ONE of the following each turn:
@@ -119,6 +122,35 @@ Palo Alto Cortex XDR (XQL):
 Carbon Black:
     process_name:, process_cmdline:, childproc_name:, filemod_name:, netconn_domain:
 
+Google SecOps / Chronicle (two valid formats — accept either):
+
+Format A — YARA-L 2.0 detection rules (require BOTH):
+1. A rule block: rule <name> { ... } containing an events: section and a condition: section.
+2. At least ONE UDM field path verbatim within the events: block, e.g.:
+   $<var>.metadata.event_type, $<var>.principal.hostname, $<var>.principal.ip,
+   $<var>.principal.process.command_line, $<var>.target.file.sha256,
+   $<var>.target.process.file.full_path, $<var>.network.dns.questions.name,
+   $<var>.security_result.action, $<var>.src.ip
+   (the $<var>. dot-path prefix into UDM namespaces is unique to YARA-L 2.0)
+
+Format B — UDM search / ad-hoc hunt queries (require BOTH):
+1. A contiguous demarcated code block WITHOUT a rule { } wrapper.
+2. At least TWO Chronicle UDM field-path expressions, from at least two different namespaces:
+    metadata namespace:  metadata.log_type, metadata.event_type, metadata.product_event_type
+    principal namespace: principal.process.command_line, principal.hostname, principal.ip, principal.user.userid
+    target namespace:    target.process.command_line, target.file.full_path, target.hostname, target.ip
+    src namespace:       src.ip, src.hostname
+    additional:          additional.fields["..."]  (Chronicle-specific accessor; counts as one occurrence)
+    security_result:     security_result.action, security_result.severity
+    Chronicle-specific log-type / event-type values used as metadata field values also qualify:
+    "WINEVTLOG", "PROCESS_LAUNCH", "NETWORK_CONNECTION", "USER_LOGIN", "FILE_CREATION"
+    Two fields from the SAME namespace count as two distinct occurrences.
+    The /regex/ nocase modifier is characteristic of Chronicle but NOT sufficient alone.
+
+Do NOT confuse with classic YARA (file/memory scanning): classic YARA uses strings: blocks without
+events: or UDM field paths. Do NOT extract prose descriptions of UDM fields — field paths must
+appear inside a demarcated code block.
+
 ### B) Sigma rule — VALID only if ALL are true:
 1. Appears as a contiguous block clearly formatted as YAML.
 2. Contains BOTH of the following as YAML keys verbatim:
@@ -145,15 +177,22 @@ Do NOT extract:
 - Defensive guidance queries from hardening guides or best-practice sections without
   incident grounding.
 - Raw command lines, registry keys, lineage statements, or service artifacts.
-- YARA rules (different detection domain; not in scope).
+- Classic YARA rules (file/memory scanning; strings: block without events: or UDM fields; not in
+  scope). Google SecOps YARA-L 2.0 detection rules AND raw UDM search queries ARE in scope — see
+  platform indicators above.
 - Query text embedded in malware source code.
 - Queries inferred from vendor documentation of a product the article merely mentions.
+- Queries or Sigma rules derived from screenshots, diagrams, or image captions.
 
 ## DETECTION RELEVANCE GATE
 Every extracted artifact must be a complete, executable-as-shown detection for its
 target platform:
 - Query: runs in the target platform console with the schema indicators present.
 - Sigma: parses as valid Sigma YAML with logsource + detection.
+- Google SecOps (YARA-L rule): rule block with events: containing at least one UDM field path and a
+  condition: section.
+- Google SecOps (UDM search): contiguous query block containing at least two Chronicle UDM
+  field-path expressions from at least two different namespaces (no rule {} wrapper).
 
 If structurally present but incomplete / fragmentary / not executable as shown, SKIP.
 
@@ -182,6 +221,27 @@ If structurally present but incomplete / fragmentary / not executable as shown, 
 - Near-duplicates (whitespace, comments, title differences) = separate items.
 
 ## EDGE CASES
+
+Include (extract):
+- A KQL query embedded in a screenshot caption ONLY if the query text appears verbatim as
+  plain text in the article body (not image-only).
+- A Sigma rule that uses a custom logsource product not in the standard list, if it has
+  both logsource and detection blocks.
+- Multi-line Splunk searches with pipe-chained commands.
+- A YARA-L rule labeled only as "detection rule" or "Chronicle rule" without explicit
+  Google SecOps branding, if the rule block contains events: with UDM field paths and a
+  condition: section.
+- A raw UDM search query published under a "SecOps searches", "Chronicle queries", or
+  "Google SecOps" heading without a rule {} wrapper, if the block contains at least two
+  Chronicle UDM field-path expressions from different namespaces.
+
+Exclude (skip):
+- A code block labeled "pseudocode" even if it resembles KQL.
+- A Sigma template with placeholder values like "<insert_process_name>" — partial artifact.
+- A query that only appears in an external link URL (not inline in text).
+- Classic YARA rules (strings: + condition: for file/memory scanning) even if labeled
+  alongside Sigma or YARA-L rules.
+- A query snippet that is demonstrably only a fragment (e.g., just a WHERE clause).
 - Multiple matching platforms: if indicators from more than one platform appear in the
   same block, determine platform by the STRONGEST indicator present. Strength order
   (high to low):
@@ -213,6 +273,11 @@ Apply to EVERY candidate before including it:
 - [ ] For a query: does it contain at least one verbatim schema-level platform indicator
       (per lists above)?
 - [ ] For Sigma: does it contain BOTH logsource: and detection: as YAML keys?
+- [ ] For Google SecOps (YARA-L rule): does the rule block contain events: with at least
+      one UDM field path AND a condition: section?
+- [ ] For Google SecOps (UDM search): does the block (without a rule {} wrapper) contain
+      at least TWO Chronicle UDM field-path expressions from at least two different
+      namespaces?
 - [ ] Preserved verbatim, including indentation?
 - [ ] Presented as real observed detection, NOT as recommendation / hypothetical?
 - [ ] Source is valid (not malware source code, not pseudocode, not defensive guidance)?
@@ -225,7 +290,7 @@ Return a table, one row per unique artifact:
 
 Field definitions:
 - type: one of kql, falcon, logscale, sentinelone_dv, sentinelone_pq, splunk, elastic,
-  xql, carbon_black, sigma, unknown.
+  xql, carbon_black, google_secops, sigma, unknown, other.
 - query: the verbatim extracted EDR/SIEM query or Sigma YAML. For Markdown-table
   readability, fence the query inside a code block within the cell, or place it on its
   own line below the row if it does not fit on a single line — preserve indentation
@@ -256,6 +321,9 @@ emit [].
 Precision over recall. EDR observability overrides completeness.
 - If no verbatim schema-level indicator appears, SKIP the query.
 - If a Sigma block lacks logsource OR detection, SKIP.
+- If a YARA-L rule block lacks events: with UDM field paths OR condition:, SKIP.
+- If a claimed UDM search query has fewer than TWO Chronicle UDM field-path expressions
+  from different namespaces, SKIP.
 - If the query is presented as "you could detect..." or "defenders should...", SKIP —
   it is a recommendation, not a detection.
 - If the content is pseudocode or narrative description without runnable text, SKIP.

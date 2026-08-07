@@ -38,10 +38,7 @@ const featureProjects = [
     use: browser,
     testMatch: [
       /playwright\/workflow_(?!executions\.spec).*\.spec\.ts$/,
-      /playwright\/verify_workflow_.*\.spec\.ts$/,
-      /playwright\/test_workflow_buttons\.spec\.ts$/,
       /playwright\/execution_detail_tabs\.spec\.ts$/,
-      /playwright\/eval_workflow\.spec\.ts$/,
       /playwright\/expanded_prompt_editor_save\.spec\.ts$/,
     ],
   },
@@ -50,7 +47,6 @@ const featureProjects = [
     use: browser,
     testMatch: [
       /playwright\/sources_page\.spec\.ts$/,
-      /playwright\/chunk_coverage\.spec\.ts$/,
     ],
   },
   {
@@ -58,9 +54,8 @@ const featureProjects = [
     use: browser,
     testMatch: [
       /playwright\/article_detail\.spec\.ts$/,
+      /playwright\/annotation_xss_regression\.spec\.ts$/,
       /playwright\/dashboard\.spec\.ts$/,
-      /playwright\/navigation\.spec\.ts$/,
-      /playwright\/chat\.spec\.ts$/,
       /playwright\/jobs\.spec\.ts$/,
     ],
   },
@@ -71,13 +66,6 @@ const featureProjects = [
       /playwright\/sigma_queue_lifecycle\.spec\.ts$/,
       /playwright\/sigma_enrich\.spec\.ts$/,
       /playwright\/sigma_similarity_unification\.spec\.ts$/,
-      /playwright\/agent_evals_hunt_query\.spec\.ts$/,
-      /playwright\/agent_evals_input_persistence\.spec\.ts$/,
-      /playwright\/observables_selection\.spec\.ts$/,
-      /playwright\/llm_optimizer_api\.spec\.ts$/,
-      /playwright\/proctree_disable_persistence\.spec\.ts$/,
-      /playwright\/os_fallback_toggle\.spec\.ts$/,
-      /playwright\/model_selectors\.spec\.ts$/,
     ],
   },
   {
@@ -87,19 +75,19 @@ const featureProjects = [
       /playwright\/collapsible_sections\.spec\.ts$/,
       /playwright\/modal_.*\.spec\.ts$/,
       /playwright\/settings\.spec\.ts$/,
-      /playwright\/verify_text_colors\.spec\.ts$/,
     ],
   },
 ];
 
+/* No specs currently match the quarantine patterns -- the UI test diet
+ * (commit 1a490501) removed the flaky suites this project targeted. Kept as
+ * an empty project (rather than deleted) so --project=quarantine still
+ * resolves and doesn't error; add patterns here if a new suite needs
+ * quarantining. */
 const quarantineProject = {
   name: 'quarantine',
   use: browser,
-  testMatch: [
-    /playwright\/workflow_executions\.spec\.ts$/,
-    /playwright\/observables_plain\.spec\.ts$/,
-    /playwright\/observables_exact_selection\.spec\.ts$/,
-  ],
+  testMatch: [] as RegExp[],
 };
 
 export default defineConfig({
@@ -110,7 +98,6 @@ export default defineConfig({
   ...(excludeAgentConfigTests && {
     testIgnore: [
       'playwright/agent_config_*.spec.ts',
-      'playwright/workflow_save_button.spec.ts',
       'playwright/workflow_config_persistence.spec.ts',
       'playwright/workflow_config_versions.spec.ts',
     ],

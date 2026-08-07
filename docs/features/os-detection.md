@@ -68,7 +68,7 @@ and the checkboxes were never wired to the detector. The underlying config key
 | Location | Contents |
 |---|---|
 | `articles.article_metadata["os_classification"]` | Verdict computed at scoring time (operating_system, platforms_detected, confidence, method, similarities, evidence) |
-| `agentic_workflow_executions.error_log["os_detection_result"]` | Per-execution Platform Detection trace (verdict + Domains/Products dimensions) |
+| `agentic_workflow_executions.error_log["os_detection_result"]` | Per-execution Platform Detection trace (`detected_os`, `platforms_detected`, `detection_method`, `confidence`, `similarities`, `max_similarity`, `probabilities`) |
 
 ## API Endpoint
 

@@ -34,7 +34,10 @@ import pytest
 pytestmark = pytest.mark.unit
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-WORKFLOW_HTML = REPO_ROOT / "src" / "web" / "templates" / "workflow.html"
+# parsePromptParts and its helpers (stripOuterCodeFence, tryParseJsonMaybeDoubleEncoded,
+# extractJsonStringField) were extracted from workflow.html's inline script into
+# this module, which the template now loads via <script src>.
+WORKFLOW_HTML = REPO_ROOT / "src" / "web" / "static" / "js" / "workflow" / "config.js"
 PRESET_DIR = REPO_ROOT / "config" / "presets" / "AgentConfigs" / "quickstart"
 
 QUICKSTART_PRESETS = [

@@ -94,14 +94,14 @@ Comprehensive guide for Huntable CTI Studio backup and restore operations, inclu
 ### Backup Structure
 
 **Database-Only:**
-```
+```text
 backups/
 ├── cti_scraper_backup_20250907_134653.sql.gz
 └── cti_scraper_backup_20250907_134653.json
 ```
 
 **Full System:**
-```
+```text
 backups/system_backup_20251010_103000/
 ├── database.sql.gz
 ├── metadata.json
@@ -246,6 +246,12 @@ Full system backups provide complete system recovery capability, backing up all 
 # With database restore test
 ./scripts/backup_restore.sh verify system_backup_20251010_103000 --test-restore
 ```
+
+Verification fails (`overall_valid: false`) when the backup has no `metadata.json`,
+when the metadata is unparseable, or when the database dump is missing, empty, or
+does not match its recorded SHA-256 checksum. A backup whose `pg_dump` step failed
+records only errors in its `database` component and is rejected on that basis.
+Missing non-database components are reported as warnings, not failures.
 
 #### Restore System
 
@@ -438,6 +444,14 @@ ls backups/pre_restore_snapshot_*.sql
 python3 scripts/restore_database.py backups/pre_restore_snapshot_20250907_140201.sql --force
 ```
 
+### Legacy Restore Scripts
+
+Two legacy database restore scripts exist alongside the primary ``restore_database.py`` (v1) used by the UI and ``backup_restore.sh``:
+
+- **``restore_database_v2.py``** — Used by the Settings UI's restore-from-file upload endpoint (``POST /api/backup/restore-from-file``). Offers the same safety features as v1 (pre-restore snapshot, rollback, app-container pausing, ``extract_psql_errors`` guard) in a class-based implementation. Currently live in that one path.
+
+- **``restore_database_v3.py``** — NOT wired into any user-facing path. Uses direct ``psql`` with ``--single-transaction`` + ``ON_ERROR_STOP=on`` (no Docker shell wrapper, atomic restore, reliable exit codes). Its sole unique value is a post-restore ``check_source_attribution_integrity()`` check that warns if the restored database's article canonical_url / source-url mismatch count exceeds a known baseline. See the file header for a full gap analysis. If consolidation is ever pursued, extract that check into ``_restore_common.py`` and remove v3 entirely.
+
 ### Full System Restore
 
 #### Selective Component Restore
@@ -464,7 +478,7 @@ docker exec -it cti_postgres psql -U cti_user -d cti_scraper -c "SELECT COUNT(*)
 
 # Verify models
 ls -la models/
-python -c "import pickle; pickle.load(open('models/content_filter.pkl', 'rb'))"
+python3 -c "import pickle; pickle.load(open('models/content_filter.pkl', 'rb'))"
 
 # Verify config
 cat config/sources.yaml
@@ -532,7 +546,7 @@ print('Model loaded' if cf.load_model() else 'Model missing')
 >
 > ```bash
 > python3 scripts/seed_model.py
-> docker-compose restart web
+> docker compose restart web
 > ```
 >
 > Then annotate articles and retrain via MLOps → Retrain to incorporate your
@@ -578,6 +592,11 @@ print('Model loaded' if cf.load_model() else 'Model missing')
 - **Monthly**: Keep last 3 monthly backups
 - **Size Limit**: Maximum 50 GB total backup size
 
+The size limit never deletes the newest backup. If a single backup exceeds
+`--max-size-gb`, pruning keeps it and prints a warning rather than emptying the
+retention set — pruning runs unattended with `--force`, and being over the limit
+is recoverable while having zero backups is not.
+
 ### Pruning Commands
 
 ```bash
@@ -614,8 +633,8 @@ rm -f backups/cti_scraper_backup_20250901_*.{sql.gz,json}
 # Check backup status
 ./scripts/backup_restore.sh list
 
-# Show backup statistics
-./scripts/backup_restore.sh stats
+# Show backup statistics (not a backup_restore.sh subcommand -- use the CLI)
+python3 -m src.cli.main backup stats
 
 # Verify latest backup
 LATEST_BACKUP=$(./scripts/backup_restore.sh list | grep "system_backup_" | head -1 | awk '{print $2}')

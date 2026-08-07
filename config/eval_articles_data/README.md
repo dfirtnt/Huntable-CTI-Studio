@@ -18,15 +18,13 @@ Each element in `articles.json`:
   "url": "https://example.com/article",
   "title": "Article title",
   "content": "Full article text...",
-  "filtered_content": "Optional junk-filtered text (used by extractors if present)",
   "expected_count": 1
 }
 ```
 
 - **url** (string): Canonical article URL (key for lookup).
 - **title** (string): Article title.
-- **content** (string): Full article body.
-- **filtered_content** (string, optional): Content after junk filter; if present, eval path may use it instead of `content`.
+- **content** (string): Full article body. Evals always send this complete content to the extractor; they do not apply the junk filter.
 - **expected_count** (int): Expected observable count for this subagent. For `hunt_queries`, this is the combined count of EDR/SIEM hunt queries plus valid Sigma rules because both categories are emitted in `queries` and scored through `query_count`.
 
 ## Maintainers: updating article snapshots
@@ -49,7 +47,7 @@ When the application DB already contains the eval articles (e.g. after ingesting
 python3 scripts/dump_eval_articles_static.py
 ```
 
-Writes or overwrites the JSON files from the DB (includes localhost articles and applies the junk filter). Commit the updated files.
+Writes or overwrites the JSON files from the DB (including localhost articles) with full article content. Commit the updated files.
 
 ## Duplicates across subagents
 

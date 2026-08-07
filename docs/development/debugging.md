@@ -73,18 +73,26 @@ Each workflow execution creates:
 
 ### Implementation Details
 
-The Langfuse integration is implemented in `src/utils/langfuse_client.py`:
+The Langfuse integration is implemented in `src/utils/langfuse_client.py`
+(`_LangfuseWorkflowTrace.__enter__`):
 
+<!-- AUDIT: Accuracy -- snippet was stale: current code uses `propagate_attributes(session_id=..., user_id=..., ...)`
+     as a separate context manager to set session/user on the OTEL context, not a `TraceContext(session_id=...,
+     user_id=...)` passed into `start_as_current_observation`. The current code's own comment notes
+     "TraceContext only carries trace_id / parent_span_id for span linkage" -- session_id/user_id no longer go
+     through TraceContext. Verified against src/utils/langfuse_client.py lines 155-224. -->
 ```python
-from langfuse.types import TraceContext
+from langfuse import propagate_attributes
 
-trace_context = TraceContext(
+attributes_cm = propagate_attributes(
     session_id=f"workflow_exec_{execution_id}",
     user_id=f"article_{article_id}",
+    trace_name=f"agentic_workflow_execution_{execution_id}",
+    tags=[...],
 )
+attributes_cm.__enter__()
 
 span_cm = client.start_as_current_observation(
-    trace_context=trace_context,
     name=f"agentic_workflow_execution_{execution_id}",
     input={"execution_id": execution_id, "article_id": article_id},
     metadata={...},
@@ -95,7 +103,7 @@ trace_id = getattr(span, "trace_id", None) or getattr(span, "id", None)
 
 ### Key Implementation Points
 
-1. **Session Association**: The workflow trace is created with `TraceContext(session_id=..., user_id=...)`. Child generations are linked by `trace_id` and the same `workflow_exec_{execution_id}` session identifier.
+1. **Session Association**: The workflow trace is created with `propagate_attributes(session_id=..., user_id=...)`, which sets session/user on the OTEL context for everything created inside the block. Child generations are linked by `trace_id` and the same `workflow_exec_{execution_id}` session identifier.
 
 2. **Trace ID vs Span ID**:
    - **Trace ID**: 32-character identifier (e.g., `62ed1c144abee5401636ea6c5b9b4f7a`)
@@ -170,9 +178,13 @@ For setup, host selection, security guidance, and troubleshooting, see [Langfuse
 
 ### Code References
 
-- **Trace creation**: `src/utils/langfuse_client.py` (lines 155-189)
-- **Workflow execution**: `src/workflows/agentic_workflow.py` (line 1662)
-- **Debug link generation**: `src/web/routes/workflow_executions.py` (lines 805-814)
+<!-- AUDIT: Accuracy -- 2026-08-02: re-verified against current source. Trace creation lines still match.
+     `run_workflow` opens the trace via `trace_workflow_execution(...)` at line 3957, not 3887 (3887 is
+     execution-status bookkeeping earlier in the same function). Debug link function line range corrected
+     to match current file (function defs now at 1272 / 1296, unchanged). -->
+- **Trace creation**: `src/utils/langfuse_client.py` (`_LangfuseWorkflowTrace.__enter__`, lines 155-224; `trace_workflow_execution`, line 327)
+- **Workflow execution**: `src/workflows/agentic_workflow.py` (`run_workflow`, defined at line 3651; trace opened via `trace_workflow_execution(...)` at line 3957)
+- **Debug link generation**: `src/web/routes/workflow_executions.py` (`_build_langfuse_debug_urls` at line 1272 / `get_workflow_debug_info` at line 1296)
 
 ## Test Failure Analysis
 
@@ -732,15 +744,13 @@ LIMIT 5;
 - Check worker logs: `docker logs cti_worker --tail 100`
 - Retry stuck executions via UI or API
 
-### 2. Hybrid Extractor Being Used
-If `use_hybrid_extractor=True`, the hybrid extractor runs first and may return results without calling LMStudio.
+### 2. Hybrid Extractor Being Used (removed — no longer a possible cause)
 
-**Check:**
-- If a hybrid extractor is enabled, it may run first and return results without calling LMStudio. Verify workflow configuration and execution logs.
-
-**Fix:**
-- Verify no hybrid extractor is enabled for the eval path (check env and workflow config).
-- Check execution logs for hybrid extractor usage.
+> **Removed** (commit `51c750c0`, 2026-05-04): `HybridIOCExtractor` and the
+> `/extract-iocs` endpoint were deleted, and the `use_hybrid_extractor` flag no longer
+> exists anywhere in the codebase. Nothing runs ahead of LMStudio on the eval path, so
+> this cannot explain missing LMStudio logs — see the other numbered causes in this
+> section instead. Retained only so the cause numbering matches older reports.
 
 ### 3. Execution Failing Before LLM Call
 The workflow may be failing at an earlier step (junk filter, OS detection, etc.).
@@ -854,6 +864,8 @@ When evaluation runs correctly, you should see:
 ## Quick Fixes
 
 ### Force LLM Extraction (Disable Hybrid)
+<!-- AUDIT: Relevancy -- `use_hybrid_extractor` no longer exists in the codebase (see note above); this
+     snippet describes removed functionality and has no current effect. -->
 Set in workflow config or execution snapshot:
 ```python
 config_snapshot = {
@@ -877,20 +889,33 @@ POST /api/workflow/executions/{execution_id}/retry
 ```
 
 ## Related Files
-- `src/workflows/agentic_workflow.py:944` - `use_hybrid_extractor=False` setting
-- `src/services/llm_service.py:2555-2568` - Hybrid extractor logic
-- `src/services/llm_service.py:2629-2650` - LLM call with tracing
-- `src/services/llm_service.py:971-974` - LMStudio request logging
+<!-- AUDIT: Accuracy -- 2026-08-02: re-verified against current source. `trace_llm_call` call sites are at
+     llm_service.py:468 (rank_article) and :1051, not 2529-2536 (that range is unrelated error-handling code).
+     The "Attempting LMStudio at {url}..." log line has moved out of llm_service.py entirely -- it now lives
+     in src/services/llm_provider_clients.py:215. -->
+- `src/services/llm_service.py:468` and `:1051` - LLM calls with tracing (`trace_llm_call`)
+- `src/services/llm_provider_clients.py:215` - LMStudio request logging (`Attempting LMStudio at {url}...`)
 
 ---
 
 ## Troubleshooting: Evaluation Executions Stuck in Pending
 
+<!-- AUDIT: Accuracy -- 2026-08-02: the root cause described below (workflow tasks sharing a worker/queue with
+     long-running check_all_sources tasks) has been fixed since this section was written. `celeryconfig.py`
+     already routes `trigger_agentic_workflow` to a dedicated `workflows` queue (task_routes, line 43), and
+     `docker-compose.yml` runs a separate `cti_workflow_worker` container consuming only `-Q workflows`
+     (commit de0543e9, "Add dedicated workflow worker queue"), independent from `cti_worker` (which handles
+     collection_immediate/default/source_checks/maintenance/reports/connectivity/collection). "Option 2:
+     Dedicated Workflow Queue" below is not a recommendation -- it describes the current architecture. Worker
+     concurrency in docker-compose.yml also defaults to 2 per worker (env `WORKER_CONCURRENCY` /
+     `WORKFLOW_WORKER_CONCURRENCY`), not the "12" cited below. If evals are still stuck in pending, look
+     elsewhere first (worker container down, queue misrouting, DB lock) before assuming queue contention. -->
+
 ## Root Cause
 
 **Issue:** Evaluation executions are created with `status='pending'` but never start processing, resulting in no LMStudio logs.
 
-**Root Cause:** Celery worker is at capacity processing other tasks, preventing `trigger_agentic_workflow` tasks from being picked up.
+**Root Cause (historical):** Celery worker is at capacity processing other tasks, preventing `trigger_agentic_workflow` tasks from being picked up. This applied before workflow tasks got their own dedicated worker/queue -- see the audit note above.
 
 ## Evidence
 
@@ -1028,9 +1053,13 @@ for exec in pending:
 4. **Worker scaling** - Scale workers based on queue depth
 
 ## Related Files
+<!-- AUDIT: Accuracy -- 2026-08-02: re-verified against current source. trigger_agentic_workflow still defined
+     at line 799. evaluation_api.py's three trigger_agentic_workflow.apply_async() dispatch sites have drifted
+     to lines 770, 1486, 1670 since the 2026-07-17 pass (line numbers are approximate and will drift again --
+     grep the symbol rather than trusting exact line numbers). -->
 - `src/worker/celeryconfig.py` - Celery configuration
-- `src/worker/celery_app.py:629` - `trigger_agentic_workflow` task definition
-- `src/web/routes/evaluation_api.py:862` - Task dispatch in eval API
+- `src/worker/celery_app.py:799` - `trigger_agentic_workflow` task definition
+- `src/web/routes/evaluation_api.py` - Task dispatch in eval API (`trigger_agentic_workflow.apply_async(...)` at lines ~770, ~1486, ~1670)
 
 ---
 
