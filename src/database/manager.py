@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from src.database.audit_schema import AUDIT_INDEX_DDLS, missing_audit_schema_objects
-from src.database.models import ArticleTable, Base, SourceCheckTable, SourceTable, URLTrackingTable
+from src.database.models import ArticleTable, Base, SourceCheckTable, SourceTable
 from src.database.statements import (
     build_article_by_id_stmt,
     build_article_list_stmt,
@@ -818,27 +818,6 @@ class DatabaseManager:
             .count()
         )
         session.query(SourceTable).filter(SourceTable.id == source_id).update({"total_articles": count})
-
-    def cleanup_old_data(self, days_to_keep: int = 90) -> dict[str, int]:
-        """Clean up old data to manage database size."""
-        cutoff_date = datetime.now() - timedelta(days=days_to_keep)
-
-        with self.get_session() as session:
-            try:
-                # Clean up old source checks
-                old_checks = session.query(SourceCheckTable).filter(SourceCheckTable.check_time < cutoff_date).delete()
-
-                # Clean up old URL tracking
-                old_urls = session.query(URLTrackingTable).filter(URLTrackingTable.last_checked < cutoff_date).delete()
-
-                session.commit()
-
-                logger.info(f"Cleaned up {old_checks} old source checks and {old_urls} old URL records")
-
-            except Exception as e:
-                session.rollback()
-                logger.error(f"Failed to cleanup old data: {e}")
-                raise
 
     def create_chunk_feedback(self, feedback_data: dict):
         """Create chunk classification feedback entry."""

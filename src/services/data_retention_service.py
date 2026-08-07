@@ -1,0 +1,302 @@
+"""Age-based retention for operational tables.
+
+Before this module the ``cleanup_old_data`` Celery task was a placebo: it logged
+"Cleaning up old data...", returned ``{"status": "success"}``, and deleted nothing.
+The real implementation lived on ``DatabaseManager.cleanup_old_data`` and had zero
+callers. Enabling the scheduled job therefore reported success while the tables it
+was supposed to prune kept growing -- worse than leaving it off, because the green
+result implied retention was running.
+
+Retention here is deliberately conservative. ``agentic_workflow_executions`` is not
+an operational log: 85% of its rows are evaluation runs and two thirds are
+referenced by ``subagent_evaluations``. Purging it by age alone would destroy the
+evaluation corpus and, because ``sigma_rule_queue.workflow_execution_id`` is
+``ON DELETE CASCADE``, silently take queued Sigma rules with it. Every execution
+purge is guarded by explicit reference and eval-run exclusions; see
+:data:`_EXECUTION_REFERENCE_TABLES`.
+
+Windows are read from ``app_settings`` so an operator can retune them without a
+deploy, falling back to the defaults recorded on each policy.
+"""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from typing import Any
+
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
+from src.database.models import (
+    AgentEvaluationTable,
+    AgenticWorkflowExecutionTable,
+    AppSettingsTable,
+    SigmaEvaluationTable,
+    SigmaRuleQueueTable,
+    SourceCheckTable,
+    SubagentEvaluationTable,
+    URLTrackingTable,
+)
+
+logger = logging.getLogger(__name__)
+
+# Rows are deleted in chunks so a first run against a long-unpruned table does not
+# hold a single transaction open across tens of thousands of rows.
+DELETE_BATCH_SIZE = 5_000
+
+# Terminal statuses. A run still in `pending` or `running` is never purged by age --
+# it is reaped by `reap_stale_executions` instead, which records why it stopped.
+TERMINAL_STATUSES = ("completed", "failed")
+
+# Tables holding a `workflow_execution_id` FK. An execution referenced by any of
+# them is retained regardless of age: `sigma_rule_queue` cascades on delete, and the
+# three evaluation tables would be orphaned.
+_EXECUTION_REFERENCE_TABLES = (
+    SigmaRuleQueueTable,
+    SubagentEvaluationTable,
+    SigmaEvaluationTable,
+    AgentEvaluationTable,
+)
+
+STALE_EXECUTION_SETTING_KEY = "RETENTION_STALE_EXECUTION_HOURS"
+# A workflow run completes in minutes. Six hours of no row activity means the worker
+# died mid-run: the live database carries one execution stuck at `extract_agent`
+# since 2026-06-29 because nothing ever reaped it.
+DEFAULT_STALE_EXECUTION_HOURS = 6
+
+
+@dataclass(frozen=True)
+class RetentionPolicy:
+    """One table's age-based retention rule."""
+
+    key: str
+    label: str
+    setting_key: str
+    default_days: int
+    rationale: str
+
+
+RETENTION_POLICIES: tuple[RetentionPolicy, ...] = (
+    RetentionPolicy(
+        key="source_checks",
+        label="Source Check History",
+        setting_key="RETENTION_DAYS_SOURCE_CHECKS",
+        default_days=180,
+        rationale=(
+            "The only record of ingestion outages -- it is what surfaced the 11-hour "
+            "total blackout on 2026-07-19. Two quarters of history keeps incident "
+            "forensics possible for an outage nobody has had yet; at the observed "
+            "~500 checks/day that is roughly 90k rows."
+        ),
+    ),
+    RetentionPolicy(
+        key="url_tracking",
+        label="HTTP Conditional-Request Cache",
+        setting_key="RETENTION_DAYS_URL_TRACKING",
+        default_days=90,
+        rationale=(
+            "ETag/Last-Modified cache entries. An entry not revalidated in a quarter "
+            "describes a URL the fetcher no longer polls, so it can only produce a "
+            "stale conditional request."
+        ),
+    ),
+    RetentionPolicy(
+        key="workflow_executions",
+        label="Workflow Execution History",
+        setting_key="RETENTION_DAYS_WORKFLOW_EXECUTIONS",
+        default_days=90,
+        rationale=(
+            "Applies only to unreferenced non-eval runs. Eval runs and executions "
+            "cited by the queue or any evaluation table are retained at any age, so "
+            "this reclaims far less than the table's total size -- the bulk of that "
+            "is payload per row, not aged rows."
+        ),
+    ),
+)
+
+RETENTION_POLICY_MAP = {policy.key: policy for policy in RETENTION_POLICIES}
+
+
+@dataclass
+class RetentionResult:
+    """Outcome of one retention pass."""
+
+    deleted: dict[str, int]
+    reaped_executions: int
+    dry_run: bool
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "deleted": dict(self.deleted),
+            "reaped_executions": self.reaped_executions,
+            "dry_run": self.dry_run,
+            "total_deleted": sum(self.deleted.values()),
+        }
+
+
+def _read_int_setting(session: Session, key: str, default: int) -> int:
+    """Read a positive integer from ``app_settings``, falling back to *default*.
+
+    A malformed or non-positive stored value falls back rather than raising: a typo
+    in a settings row must not turn a maintenance job into a crash loop, and must
+    never be read as "delete everything".
+    """
+    row = session.query(AppSettingsTable).filter(AppSettingsTable.key == key).first()
+    if row is None or row.value is None:
+        return default
+    try:
+        parsed = int(str(row.value).strip())
+    except (TypeError, ValueError):
+        logger.warning("Retention setting %s is not an integer (%r); using default %d", key, row.value, default)
+        return default
+    if parsed <= 0:
+        logger.warning("Retention setting %s must be positive (got %d); using default %d", key, parsed, default)
+        return default
+    return parsed
+
+
+def resolve_retention_days(session: Session, policy: RetentionPolicy) -> int:
+    """Return the configured window for *policy*, or its default."""
+    return _read_int_setting(session, policy.setting_key, policy.default_days)
+
+
+def _delete_in_batches(session: Session, model: Any, ids: Sequence[int]) -> int:
+    """Delete *ids* from *model* in fixed-size chunks, returning the row count."""
+    deleted = 0
+    for start in range(0, len(ids), DELETE_BATCH_SIZE):
+        chunk = ids[start : start + DELETE_BATCH_SIZE]
+        deleted += (
+            session.query(model).filter(model.id.in_(chunk)).delete(synchronize_session=False)  # type: ignore[union-attr]
+        )
+        session.flush()
+    return deleted
+
+
+def _purge_by_age(
+    session: Session,
+    model: Any,
+    timestamp_column: Any,
+    cutoff: datetime,
+    dry_run: bool,
+) -> int:
+    """Delete rows of *model* whose *timestamp_column* predates *cutoff*."""
+    query = session.query(model.id).filter(timestamp_column < cutoff)
+    if dry_run:
+        return query.count()
+    ids = [row[0] for row in query.all()]
+    return _delete_in_batches(session, model, ids)
+
+
+def purgeable_execution_ids(session: Session, cutoff: datetime) -> list[int]:
+    """Executions older than *cutoff* that are safe to delete.
+
+    Excluded, in every case: non-terminal runs, eval runs, and anything referenced
+    by the queue or an evaluation table. The reference check is the load-bearing
+    part -- ``sigma_rule_queue`` cascades, so an unguarded age purge deletes
+    human-reviewable Sigma rules as a side effect.
+    """
+    query = (
+        session.query(AgenticWorkflowExecutionTable.id)
+        .filter(AgenticWorkflowExecutionTable.created_at < cutoff)
+        .filter(AgenticWorkflowExecutionTable.status.in_(TERMINAL_STATUSES))
+        .filter(
+            func.coalesce(
+                AgenticWorkflowExecutionTable.config_snapshot.contains({"eval_run": True}),
+                False,
+            )
+            == False  # noqa: E712 -- SQL boolean comparison, not a Python identity test
+        )
+    )
+    for table in _EXECUTION_REFERENCE_TABLES:
+        query = query.filter(
+            ~session.query(table.id).filter(table.workflow_execution_id == AgenticWorkflowExecutionTable.id).exists()
+        )
+    return [row[0] for row in query.all()]
+
+
+def _purge_workflow_executions(session: Session, cutoff: datetime, dry_run: bool) -> int:
+    ids = purgeable_execution_ids(session, cutoff)
+    if dry_run:
+        return len(ids)
+    return _delete_in_batches(session, AgenticWorkflowExecutionTable, ids)
+
+
+# Each policy's executor, keyed the same way as RETENTION_POLICIES.
+_PURGE_HANDLERS: dict[str, Callable[[Session, datetime, bool], int]] = {
+    "source_checks": lambda session, cutoff, dry_run: _purge_by_age(
+        session, SourceCheckTable, SourceCheckTable.check_time, cutoff, dry_run
+    ),
+    "url_tracking": lambda session, cutoff, dry_run: _purge_by_age(
+        session, URLTrackingTable, URLTrackingTable.last_checked, cutoff, dry_run
+    ),
+    "workflow_executions": _purge_workflow_executions,
+}
+
+
+def reap_stale_executions(session: Session, dry_run: bool = False, now: datetime | None = None) -> int:
+    """Fail executions that stopped updating past the stale timeout.
+
+    Staleness is measured on ``updated_at``, not ``created_at``: a genuinely long
+    run bumps ``updated_at`` at every step, so only inert rows are reaped. If the
+    worker is somehow still alive it overwrites the status on its next write.
+    """
+    reference = now or datetime.now()
+    hours = _read_int_setting(session, STALE_EXECUTION_SETTING_KEY, DEFAULT_STALE_EXECUTION_HOURS)
+    cutoff = reference - timedelta(hours=hours)
+
+    stale = (
+        session.query(AgenticWorkflowExecutionTable)
+        .filter(AgenticWorkflowExecutionTable.status.in_(("pending", "running")))
+        .filter(AgenticWorkflowExecutionTable.updated_at < cutoff)
+        .all()
+    )
+    if dry_run:
+        return len(stale)
+
+    for execution in stale:
+        execution.status = "failed"
+        execution.completed_at = reference
+        execution.error_message = (
+            f"Reaped by retention: no activity for over {hours}h (stuck at {execution.current_step or 'unknown step'})"
+        )
+    session.flush()
+    return len(stale)
+
+
+def run_retention(session: Session, dry_run: bool = False, now: datetime | None = None) -> RetentionResult:
+    """Apply every retention policy plus stale-run reaping.
+
+    Args:
+        session: an open session; the caller owns the transaction.
+        dry_run: count what would be removed without deleting or mutating anything.
+        now: reference time for cutoff arithmetic (injected by tests).
+
+    Returns:
+        A :class:`RetentionResult` with per-policy counts. Counts are what the job
+        reports, so a policy that removes nothing reports zero rather than success.
+    """
+    reference = now or datetime.now()
+    deleted: dict[str, int] = {}
+
+    for policy in RETENTION_POLICIES:
+        days = resolve_retention_days(session, policy)
+        cutoff = reference - timedelta(days=days)
+        count = _PURGE_HANDLERS[policy.key](session, cutoff, dry_run)
+        deleted[policy.key] = count
+        logger.info(
+            "Retention %s: %s %d rows older than %d days (cutoff %s)",
+            policy.key,
+            "would delete" if dry_run else "deleted",
+            count,
+            days,
+            cutoff.isoformat(),
+        )
+
+    reaped = reap_stale_executions(session, dry_run=dry_run, now=reference)
+    if reaped:
+        logger.info("Retention: %s %d stale executions", "would reap" if dry_run else "reaped", reaped)
+
+    return RetentionResult(deleted=deleted, reaped_executions=reaped, dry_run=dry_run)
