@@ -73,8 +73,19 @@ _TABLES = (
 NOW = datetime(2026, 8, 6, 12, 0, 0)
 
 
+def _sync_base_url() -> str:
+    """Base URL using the sync driver.
+
+    build_test_database_url returns TEST_DATABASE_URL verbatim when it is set,
+    ignoring asyncpg=False -- and the test harness sets it to the +asyncpg form.
+    These tests use the sync Session/engine API, so force the driver here.
+    """
+    url = build_test_database_url(asyncpg=False)
+    return url.replace("+asyncpg", "")
+
+
 def _admin_engine():
-    return create_engine(build_test_database_url(asyncpg=False), isolation_level="AUTOCOMMIT")
+    return create_engine(_sync_base_url(), isolation_level="AUTOCOMMIT")
 
 
 @pytest.fixture()
@@ -85,7 +96,7 @@ def session():
         conn.execute(text(f'CREATE DATABASE "{SCRATCH_DB}"'))
     admin.dispose()
 
-    scratch_url = build_test_database_url(asyncpg=False).rsplit("/", 1)[0] + f"/{SCRATCH_DB}"
+    scratch_url = _sync_base_url().rsplit("/", 1)[0] + f"/{SCRATCH_DB}"
     engine = create_engine(scratch_url)
     with engine.connect() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
@@ -112,7 +123,6 @@ def _seed_article(session) -> int:
     article = ArticleTable(
         source_id=source.id,
         title="t",
-        url="http://example.test/a",
         canonical_url="http://example.test/a",
         published_at=NOW,
         content="c",
@@ -185,8 +195,10 @@ class TestExecutionPurgeGuards:
         kwargs = {"workflow_execution_id": execution.id, column: "x"}
         if model is SubagentEvaluationTable:
             kwargs.update({"subagent_name": "cmdline", "expected_count": 1})
+        if model is SigmaEvaluationTable:
+            kwargs.update({"expected_rule_count": 1})
         if model is AgentEvaluationTable:
-            kwargs.update({"evaluation_type": "baseline"})
+            kwargs.update({"evaluation_type": "baseline", "total_articles": 1, "metrics": {}})
         session.add(model(**kwargs))
         session.flush()
 
@@ -296,9 +308,10 @@ class TestRunRetention:
         result = run_retention(session, now=NOW)
 
         # source_checks keeps 180 days; url_tracking keeps 90.
-        assert result.deleted["source_checks"] == 1
+        # Ages 400 and 200 both exceed the 180-day window, so two checks are purged.
+        assert result.deleted["source_checks"] == 2
         assert result.deleted["url_tracking"] == 2
-        assert session.query(SourceCheckTable).count() == 2
+        assert session.query(SourceCheckTable).count() == 1
         assert session.query(URLTrackingTable).count() == 1
 
     def test_dry_run_reports_counts_and_deletes_nothing(self, session):
