@@ -354,6 +354,7 @@ class TestContentCleaner:
         text = content_cleaner.html_to_text(html)
         flat = " ".join(text.split())
 
+        # codeql[py/incomplete-url-substring-sanitization] false positive: test asserts sanitized text preserves a domain in HTML table cells
         assert "evil.example.com" in flat
         assert "1.2.3.4" in flat
         for glued in ("evil.example.comdomain", "1.2.3.4ip", "IndicatorType"):

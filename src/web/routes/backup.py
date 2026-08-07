@@ -540,7 +540,9 @@ async def api_restore_backup(request: Request):
         )
 
         try:
-            result = subprocess.run(  # nosemgrep  # codeql[py/command-line-injection] false positive: all cmd args validated by validate_backup_name/validate_backup_dir/validate_backup_components; list form (no shell=True)
+            # codeql[py/command-line-injection] false positive: all cmd args validated by validate_backup_name/validate_backup_dir/validate_backup_components; list form (no shell=True)
+            # nosemgrep
+            result = subprocess.run(
                 cmd,
                 cwd=str(project_root),
                 capture_output=True,

@@ -97,6 +97,7 @@ async def safe_fetch_text(
             safe, reason = _is_safe_image_url(current)
             if not safe:
                 raise UnsafeURLError(f"URL resolves to an unsafe address: {current} ({reason})")
+            # codeql[py/full-ssrf] false positive: current validated by _is_safe_image_url (scheme allowlist + IP check) at line 97 before every request; re-validated after each redirect
             response = await client.get(current)
             if response.status_code in (301, 302, 303, 307, 308):
                 hops += 1

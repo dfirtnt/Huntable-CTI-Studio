@@ -4,7 +4,9 @@ Observable extraction model evaluation API endpoints.
 
 from __future__ import annotations
 
+import re
 from collections import defaultdict
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -21,6 +23,43 @@ from src.services.audit_service import (
 from src.web.dependencies import logger
 
 router = APIRouter(prefix="/api/observables/evaluation", tags=["Observable Evaluation"])
+
+# Version identifiers are joined into model filesystem paths (Workshop/models/<key>/<version>).
+# Restrict to a safe charset so a request cannot traverse out of the models root.
+_VERSION_IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+
+# Model paths supplied by callers must resolve inside the models root.
+_PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
+_MODELS_ROOT = (_PROJECT_ROOT / "Workshop" / "models").resolve()
+
+
+def _validate_model_version(model_version: str) -> str:
+    """Return the version after enforcing the safe charset, or raise 400."""
+    if not model_version or not _VERSION_IDENTIFIER_RE.match(model_version):
+        raise HTTPException(
+            status_code=400,
+            detail="model_version must be a plain version identifier (letters, digits, '.', '_', '-')",
+        )
+    return model_version
+
+
+def _validate_model_path(model_path: str | None) -> str | None:
+    """Return the model path if it resolves inside the models root, else raise 400.
+
+    ``model_path`` flows directly into Path(...).exists() in the inference
+    loader, so it must be constrained to the models root - mirroring the
+    backup-restore relative_to() containment check.
+    """
+    if not model_path:
+        return None
+    candidate = Path(model_path)
+    if not candidate.is_absolute():
+        candidate = _MODELS_ROOT / candidate
+    try:
+        candidate.resolve().relative_to(_MODELS_ROOT)
+    except (ValueError, OSError) as e:
+        raise HTTPException(status_code=400, detail="model_path must be inside Workshop/models") from e
+    return model_path
 
 
 @router.post("/run")
@@ -46,6 +85,10 @@ def api_run_observable_evaluation(request: Request, body: dict[str, Any] | None 
 
     if not model_version:
         raise HTTPException(status_code=400, detail="model_version is required")
+
+    # Validate model_version and model_path before they reach any Path() ops.
+    model_version = _validate_model_version(model_version)
+    model_path = _validate_model_path(model_path)
 
     if observable_type not in ["CMD", "PROC_LINEAGE"]:
         raise HTTPException(status_code=400, detail=f"Unsupported observable_type: {observable_type}")

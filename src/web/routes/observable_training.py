@@ -112,4 +112,4 @@ async def api_run_cmd_training(request: Request, body: dict[str, Any] | None = N
             {**base_metadata, "mode": "sync", "error": str(exc)},
             STATUS_FAILURE,
         )
-        raise HTTPException(status_code=500, detail="Internal server error") from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from None
