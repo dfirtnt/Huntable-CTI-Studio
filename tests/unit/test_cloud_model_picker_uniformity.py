@@ -25,6 +25,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.utils.workflow_html_source import read_workflow_src
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CATALOG_PATH = REPO_ROOT / "config" / "provider_model_catalog.json"
 TEMPLATE_DIR = REPO_ROOT / "src" / "web" / "templates"
@@ -281,7 +283,7 @@ class TestProviderCatalogCacheFreshness:
 
     @pytest.fixture(scope="class")
     def workflow_src(self) -> str:
-        return (TEMPLATE_DIR / "workflow.html").read_text()
+        return read_workflow_src()
 
     def test_cache_read_honors_ttl(self, workflow_src):
         assert "PROVIDER_CATALOG_CACHE_TTL_MS" in workflow_src, (
@@ -329,7 +331,7 @@ class TestEnrichModalCatalogSource:
 
     @pytest.fixture(scope="class")
     def workflow_src(self) -> str:
-        return (TEMPLATE_DIR / "workflow.html").read_text()
+        return read_workflow_src()
 
     def test_no_private_enrich_catalog_variable(self, workflow_src):
         assert "enrichProviderCatalog" not in workflow_src, (
