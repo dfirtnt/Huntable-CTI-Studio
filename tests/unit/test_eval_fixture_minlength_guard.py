@@ -7,7 +7,6 @@ import pathlib
 
 import pytest
 
-
 ROOT = pathlib.Path(__file__).parent.parent.parent
 EVAL_DATA = ROOT / "config" / "eval_articles_data"
 MIN_CONTENT_LENGTH = 2_000
@@ -25,9 +24,7 @@ def _fixture_articles() -> list[pytest.ParamSpecArgs]:
 
 @pytest.mark.unit
 @pytest.mark.parametrize(("fixture_set", "url", "article"), _fixture_articles())
-def test_eval_fixture_content_is_not_a_title_shell(
-    fixture_set: str, url: str, article: dict
-) -> None:
+def test_eval_fixture_content_is_not_a_title_shell(fixture_set: str, url: str, article: dict) -> None:
     """Every fixture must contain a real article body, not only its title."""
     content = article["content"]
     title = article["title"]
