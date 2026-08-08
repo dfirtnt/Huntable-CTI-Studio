@@ -78,6 +78,38 @@ test.describe('Settings - API Keys', () => {
     test.skip(!hasField, 'Anthropic API key field not rendered in current runtime');
     expect(hasField).toBe(true);
   });
+
+  test('[SETTINGS-032] Codex subscription provider control is present', async ({ page }) => {
+    await page.goto(`${BASE}/settings`);
+    await expect(page.locator('#saveSettings')).toBeVisible();
+    await page.locator('[data-collapsible-panel="agenticWorkflowConfig"]').click();
+    await expect(page.locator('#workflowCodexEnabled')).toBeVisible();
+    await page.locator('#workflowCodexEnabled').check();
+    await expect(page.locator('#workflowCodexSection')).toBeVisible();
+    await expect(page.getByText('Connection is managed by an administrator.')).toBeVisible();
+    await expect(page.getByText('Administrator setup')).toBeVisible();
+    await expect(page.locator('#testWorkflowCodexSubscription')).toBeVisible();
+  });
+
+  test('[SETTINGS-033] Codex subscription test displays the API result', async ({ page }) => {
+    await page.route('**/api/settings/codex/test', async (route) => {
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({ valid: true, message: 'Codex subscription is ready (plus)' }),
+      });
+    });
+    await page.goto(`${BASE}/settings`);
+    await expect(page.locator('#saveSettings')).toBeVisible();
+    await page.locator('[data-collapsible-panel="agenticWorkflowConfig"]').click();
+    await page.locator('#workflowCodexEnabled').check();
+    await page.locator('#testWorkflowCodexSubscription').click();
+
+    await expect(page.locator('#workflowCodexStatus')).toHaveText('Codex subscription is ready (plus)');
+    await expect(page.locator('#workflowCodexStatus')).toHaveClass(/settings-test-status is-ok/);
+    // The busy state swaps only the label, so the button keeps its icon.
+    await expect(page.locator('#testWorkflowCodexSubscription svg')).toHaveCount(1);
+    await expect(page.locator('#testWorkflowCodexSubscription .btn-label')).toHaveText('Test subscription');
+  });
 });
 
 test.describe('Settings - API', () => {
