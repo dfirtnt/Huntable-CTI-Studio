@@ -4,7 +4,7 @@
 
 This guide answers one question: **which LLM model do I use for each Huntable CTI Studio agent, and why?**
 
-It covers local models (LM Studio / GGUF) and cloud models (OpenAI, Anthropic) for the three-stage pipeline:
+It covers cloud models (OpenAI, Anthropic) and the optional local LM Studio provider for the three-stage pipeline. LM Studio is not required by the application or its embedding features.
 
 1. **Rank Agent** — Evaluates article quality and huntability (1–10 score)
 2. **Extractor Agents** — Extracts observables (command lines, process trees, registry keys, services, hunt queries, scheduled tasks, network indicators)
@@ -20,7 +20,7 @@ It covers local models (LM Studio / GGUF) and cloud models (OpenAI, Anthropic) f
 
 Start here. Optimize from measured bottlenecks, not theory.
 
-### Local Models (LM Studio)
+### Optional Local Models (LM Studio)
 
 | Agent | Model | Size | Quant | VRAM | Temp | Context |
 |-------|-------|------|-------|------|------|---------|

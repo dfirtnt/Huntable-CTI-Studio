@@ -105,8 +105,6 @@ services:
       - LMSTUDIO_MODEL_RANK=qwen/qwen3-4b-2507
       - LMSTUDIO_MODEL_EXTRACT=${LMSTUDIO_MODEL_EXTRACT:-qwen/qwen3-4b-2507}
       - LMSTUDIO_MODEL_SIGMA=${LMSTUDIO_MODEL_SIGMA:-qwen/qwen3-4b-2507}
-      - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
-      - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
       # Context length overrides (LM Studio API doesn't report actual configured context)
       - LMSTUDIO_CONTEXT_LENGTH_gemma_3n_e4b_it_text=16384
       - LMSTUDIO_CONTEXT_LENGTH_deepseek_deepseek_r1_0528_qwen3_8b=16384
@@ -181,8 +179,6 @@ services:
       - LMSTUDIO_MODEL_RANK=qwen/qwen3-4b-2507
       - LMSTUDIO_MODEL_EXTRACT=${LMSTUDIO_MODEL_EXTRACT:-qwen/qwen3-4b-2507}
       - LMSTUDIO_MODEL_SIGMA=${LMSTUDIO_MODEL_SIGMA:-qwen/qwen3-4b-2507}
-      - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
-      - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
       # Context length overrides (LM Studio API doesn't report actual configured context)
       - LMSTUDIO_CONTEXT_LENGTH_gemma_3n_e4b_it_text=16384
       - LMSTUDIO_CONTEXT_LENGTH_deepseek_deepseek_r1_0528_qwen3_8b=4096
@@ -252,8 +248,6 @@ services:
       - LMSTUDIO_MODEL_RANK=qwen/qwen3-4b-2507
       - LMSTUDIO_MODEL_EXTRACT=${LMSTUDIO_MODEL_EXTRACT:-qwen/qwen3-4b-2507}
       - LMSTUDIO_MODEL_SIGMA=${LMSTUDIO_MODEL_SIGMA:-qwen/qwen3-4b-2507}
-      - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
-      - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
       # Context length overrides (LM Studio API doesn't report actual configured context)
       - LMSTUDIO_CONTEXT_LENGTH_gemma_3n_e4b_it_text=16384
       - LMSTUDIO_CONTEXT_LENGTH_deepseek_deepseek_r1_0528_qwen3_8b=4096
@@ -364,8 +358,6 @@ services:
       - SOURCES_CONFIG=/app/config/sources.yaml
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CHATGPT_API_KEY=${CHATGPT_API_KEY}
-      - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
-      - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
       - OCR_INGEST_ENABLED=${OCR_INGEST_ENABLED:-true}
     volumes:
       - ./src:/app/src
@@ -424,8 +416,6 @@ services:
       - HUNTABLE_MCP_PORT=8009
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CHATGPT_API_KEY=${CHATGPT_API_KEY}
-      - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
-      - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
     ports:
       - "127.0.0.1:${HUNTABLE_MCP_PORT:-8009}:8009"
     volumes:
@@ -472,8 +462,6 @@ services:
     #   - LMSTUDIO_API_URL=${LMSTUDIO_API_URL:-http://host.docker.internal:1234/v1}
     #   - LMSTUDIO_MODEL=${LMSTUDIO_MODEL:-deepseek/deepseek-r1-0528-qwen3-8b}
     #   - LMSTUDIO_API_KEY=dummy
-    #   - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
-    #   - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
     #   - TZ=America/New_York
     # ports:
     #   - "${LANGFLOW_PORT:-7860}:7860"

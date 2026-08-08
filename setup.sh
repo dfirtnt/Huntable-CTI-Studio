@@ -252,7 +252,8 @@ create_env_file() {
     startup_set_env_key ".env" "ANTHROPIC_API_KEY" "${ANTHROPIC_API_KEY:-}"
     startup_set_env_key ".env" "REDIS_PASSWORD" "${REDIS_PASSWORD:-}"
 
-    # Update LM Studio URLs based on LLM choice (and optional server URL)
+    # Configure the optional LM Studio LLM endpoint. Embeddings are local and
+    # intentionally have no LM Studio configuration.
     if [[ "$USE_LMSTUDIO" == "true" ]]; then
         local base_url
         if [[ -n "${LMSTUDIO_SERVER_URL:-}" ]]; then
@@ -261,9 +262,7 @@ create_env_file() {
         else
             base_url="http://host.docker.internal:1234/v1"
         fi
-        local embed_url="${base_url%/v1}/v1/embeddings"
         startup_set_env_key ".env" "LMSTUDIO_API_URL" "${base_url}"
-        startup_set_env_key ".env" "LMSTUDIO_EMBEDDING_URL" "${embed_url}"
         startup_set_env_key ".env" "WORKFLOW_LMSTUDIO_ENABLED" "true"
         startup_set_env_key ".env" "PROCEED_WITHOUT_LMSTUDIO" "0"
     else

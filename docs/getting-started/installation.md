@@ -26,7 +26,7 @@ The `start.sh` script will:
 - Create necessary runtime directories (`logs/`, `backups/`, `models/`, `outputs/`, `data/`)
 - Run `docker compose up --build -d`
 - Health-check PostgreSQL, Redis, and the web application
-- Sync SigmaHQ repo and optionally index rules (when LM Studio / embeddings are available)
+- Sync the SigmaHQ repository and optionally index rules; embedding indexing runs locally with sentence-transformers and does not require LM Studio
 - Seed eval articles from config and refresh the **LLM provider model catalog** (OpenAI/Anthropic) so workflow model dropdowns show the current list without waiting for [the daily Celery run](../reports/scheduled-jobs-report.md#1-celery-beat-periodic-tasks)
 - Build the MkDocs docs site and start the MkDocs server in the background (logs in `logs/mkdocs.log`) when `mkdocs.yml` is present
 
@@ -56,12 +56,15 @@ Before running `./start.sh`, run `./setup.sh` (which creates and configures `.en
 
 If you enter these during `./setup.sh`, they are written to `.env` and used at runtime; you do not need to re-enter them in the web Settings page. They will not appear in the Settings UI (those fields show database-stored values), but workflows will still use the keys from `.env`. See [Configuration](configuration.md#llm-provider-keys) for details.
 
-### LM Studio Configuration
+### Optional LM Studio LLM Provider
+
+LM Studio is not required to install or run Huntable CTI Studio. Configure these values only when you deliberately select LM Studio as an LLM provider; embeddings do not use them.
+
 - `LMSTUDIO_API_URL` - Default: `http://host.docker.internal:1234/v1`
 - `LMSTUDIO_MODEL_EXTRACT` - Observable extraction model
 - `LMSTUDIO_MODEL_SIGMA` - Sigma rule generation model
 
-Note: `LMSTUDIO_MODEL` and `LMSTUDIO_MODEL_RANK` are set directly in `docker-compose.yml` (not read from `.env` by the containers). See [Configuration](configuration.md#lm-studio-configuration) for the full variable table.
+Note: `LMSTUDIO_MODEL` and `LMSTUDIO_MODEL_RANK` are set directly in `docker-compose.yml` (not read from `.env` by the containers). See [Configuration](configuration.md#optional-lm-studio-llm-provider) for the full variable table.
 
 ### Langfuse Tracing (Optional)
 Langfuse is an optional tracing integration for workflow and LLM observability.
@@ -176,8 +179,8 @@ See `configuration.md` for detailed port configuration.
 
 ### AI/LLM Errors
 - Confirm API keys are set in `.env`
-- For LM Studio, verify the endpoint is reachable from Docker containers
-- Test connection: `curl http://host.docker.internal:1234/v1/models`
+- If an agent is explicitly configured to use the optional LM Studio provider, verify that endpoint is reachable from Docker containers
+- For that optional provider only, test the connection: `curl http://host.docker.internal:1234/v1/models`
 
 ### CLI Command Errors
 - Use `./run_cli.sh --help` to see current commands

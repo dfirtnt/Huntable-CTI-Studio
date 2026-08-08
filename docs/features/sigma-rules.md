@@ -815,11 +815,10 @@ PR submission refuses to operate when the configured repository's `origin` is `S
 
 Indexing uses `intfloat/e5-base-v2` via local sentence-transformers (no LMStudio
 required). Run `sigma index-metadata` first, then `sigma index-embeddings` to
-enable similarity search. The `SigmaEmbeddingModel` workflow config key and the
-legacy `LMSTUDIO_EMBEDDING_MODEL` app setting are retained for import/export
-fidelity only -- LM Studio was never wired up as an embedding backend (the
-dead-code `LMStudioEmbeddingClient` was removed 2026-05-04); the embedding
-model is hardcoded to `intfloat/e5-base-v2`.
+enable similarity search. The `SigmaEmbeddingModel` workflow config key is
+retained for import/export fidelity only. LM Studio is not an embedding backend;
+the obsolete `LMSTUDIO_EMBEDDING_MODEL` setting and dead client plumbing have
+been removed. The active embedding model is hardcoded to `intfloat/e5-base-v2`.
 
 Each rule stores **two** `Vector(768)` embeddings: `embedding` (whole-rule text)
 and `logsource_embedding` (the combined "signature" — logsource + detection

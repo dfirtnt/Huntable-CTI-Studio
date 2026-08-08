@@ -619,38 +619,28 @@ async def api_get_lmstudio_models():
                     models_data = response.json()
                     all_models = [model["id"] for model in models_data.get("data", [])]
 
-                    # Filter for chat models only (exclude embedding models)
-                    # Check for common embedding model patterns
-                    def is_embedding_model(model_name: str) -> bool:
-                        embedding_indicators = [
+                    # This endpoint configures LLM inference, so expose only chat-capable models.
+                    def is_chat_model(model_name: str) -> bool:
+                        non_chat_indicators = [
                             "embedding",
                             "embed",
                             "e5-base",
                             "bge-",
                             "gte-",
                         ]
-                        return any(indicator in model_name.lower() for indicator in embedding_indicators)
+                        return not any(indicator in model_name.lower() for indicator in non_chat_indicators)
 
-                    chat_models = [m for m in all_models if not is_embedding_model(m)]
-                    embedding_models = [m for m in all_models if is_embedding_model(m)]
-
-                    # Return chat models first, then embedding models for reference
-                    models = chat_models if chat_models else all_models
+                    chat_models = [m for m in all_models if is_chat_model(m)]
 
                     if idx > 0:
                         logger.info(f"LMStudio models fetched using fallback URL {lmstudio_url}")
 
                     return {
                         "success": True,
-                        "models": models,
-                        "all_models": all_models,  # Include all models for debugging
-                        "chat_models": chat_models,  # Chat models only
-                        "embedding_models": embedding_models,  # Embedding models only
+                        "models": chat_models,
+                        "chat_models": chat_models,
                         "chat_models_count": len(chat_models),
-                        "embedding_models_count": len(embedding_models),
-                        "message": (
-                            f"Found {len(chat_models)} chat model(s) and {len(embedding_models)} embedding model(s)"
-                        ),
+                        "message": f"Found {len(chat_models)} chat model(s)",
                     }
 
                 last_error = f"HTTP {response.status_code}"
@@ -677,7 +667,6 @@ async def api_get_lmstudio_models():
             "success": False,
             "models": [],
             "chat_models": [],
-            "embedding_models": [],
             "message": "Cannot connect to LMStudio service",
         }
     except Exception as e:
@@ -686,89 +675,7 @@ async def api_get_lmstudio_models():
             "success": False,
             "models": [],
             "chat_models": [],
-            "embedding_models": [],
             "message": f"Error fetching models: {type(e).__name__}",
-        }
-
-
-@test_router.get("/lmstudio-embedding-models")
-async def api_get_lmstudio_embedding_models():
-    """Get currently loaded embedding models from LMStudio."""
-    try:
-        lmstudio_urls = _lmstudio_url_candidates()
-        async with httpx.AsyncClient() as client:
-            last_error = "Unknown LMStudio error"
-            for idx, lmstudio_url in enumerate(lmstudio_urls):
-                try:
-                    response = await client.get(f"{lmstudio_url}/models", timeout=10.0)
-                except httpx.HTTPError as e:
-                    last_error = "connection error"
-                    logger.debug(f"LMStudio models fetch failed via {lmstudio_url}: {e}")
-                    continue
-
-                if response.status_code == 200:
-                    models_data = response.json()
-                    all_models = [model["id"] for model in models_data.get("data", [])]
-
-                    # Filter for embedding models only
-                    def is_embedding_model(model_name: str) -> bool:
-                        embedding_indicators = [
-                            "embedding",
-                            "embed",
-                            "e5-base",
-                            "bge-",
-                            "gte-",
-                            "text-embedding",
-                        ]
-                        return any(indicator in model_name.lower() for indicator in embedding_indicators)
-
-                    embedding_models = [m for m in all_models if is_embedding_model(m)]
-
-                    if idx > 0:
-                        logger.info(f"LMStudio embedding models fetched using fallback URL {lmstudio_url}")
-
-                    return {
-                        "success": True,
-                        "models": embedding_models,
-                        "count": len(embedding_models),
-                        "message": f"Found {len(embedding_models)} embedding model(s)",
-                    }
-
-                last_error = f"HTTP {response.status_code}"
-                logger.error(f"LMStudio /models returned {response.status_code}: {response.text}")
-
-                if response.status_code == 404 and idx < len(lmstudio_urls) - 1:
-                    logger.warning("LMStudio /models endpoint returned 404. Retrying with alternate base URL.")
-                    continue
-
-            return {
-                "success": False,
-                "models": [],
-                "count": 0,
-                "message": f"LMStudio API error: {last_error}",
-            }
-
-    except httpx.TimeoutException:
-        return {
-            "success": False,
-            "models": [],
-            "count": 0,
-            "message": "Request timeout - LMStudio may be starting up",
-        }
-    except httpx.ConnectError:
-        return {
-            "success": False,
-            "models": [],
-            "count": 0,
-            "message": "Cannot connect to LMStudio service",
-        }
-    except Exception as e:
-        logger.error(f"LMStudio embedding models fetch error: {e}")
-        return {
-            "success": False,
-            "models": [],
-            "count": 0,
-            "message": f"Error fetching embedding models: {type(e).__name__}",
         }
 
 

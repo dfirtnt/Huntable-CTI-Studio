@@ -233,34 +233,38 @@ async def test_lmstudio_chat_models_non_200_does_not_leak_response_text():
 
 
 @pytest.mark.asyncio
-async def test_lmstudio_embedding_models_does_not_leak_httperror():
-    """Mirror of chat-models test for the embedding models endpoint."""
+async def test_lmstudio_model_catalog_exposes_chat_models_only():
+    """Optional LM Studio discovery must not advertise a separate embedding backend."""
     from src.web.routes import ai as ai_module
 
-    err = httpx.HTTPError(f"connect failed: {CANARY_INTERNAL_HOST}")
+    response = MagicMock(status_code=200)
+    response.json.return_value = {
+        "data": [
+            {"id": "qwen3-8b"},
+            {"id": "text-embedding-e5-base-v2"},
+        ]
+    }
     client = MagicMock()
-    client.get = AsyncMock(side_effect=err)
+    client.get = AsyncMock(return_value=response)
     async_cm = MagicMock()
     async_cm.__aenter__ = AsyncMock(return_value=client)
     async_cm.__aexit__ = AsyncMock(return_value=None)
 
     with (
         patch.object(ai_module, "httpx", create=False) as httpx_mock,
-        patch.object(
-            ai_module,
-            "_lmstudio_url_candidates",
-            return_value=["http://localhost:1234/v1"],
-        ),
+        patch.object(ai_module, "_lmstudio_url_candidates", return_value=["http://localhost:1234/v1"]),
     ):
         httpx_mock.AsyncClient = MagicMock(return_value=async_cm)
         httpx_mock.HTTPError = httpx.HTTPError
         httpx_mock.TimeoutException = httpx.TimeoutException
         httpx_mock.ConnectError = httpx.ConnectError
 
-        result = await ai_module.api_get_lmstudio_embedding_models()
+        result = await ai_module.api_get_lmstudio_models()
 
-    assert result["success"] is False
-    _assert_no_canary(result, CANARY_INTERNAL_HOST)
+    assert result["success"] is True
+    assert result["models"] == ["qwen3-8b"]
+    assert result["chat_models"] == ["qwen3-8b"]
+    assert "embedding_models" not in result
 
 
 # ---------------------------------------------------------------------------

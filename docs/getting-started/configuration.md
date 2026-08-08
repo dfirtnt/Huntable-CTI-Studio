@@ -105,7 +105,9 @@ Auth, RBAC, and CSRF are configured entirely via environment variables (`AUTH_MO
 | `WORKFLOW_OPENAI_MODEL` | OpenAI model for workflows | `gpt-4o-mini` |
 | `WORKFLOW_ANTHROPIC_MODEL` | Anthropic model for workflows | `claude-sonnet-4-5` |
 
-### LM Studio Configuration
+### Optional LM Studio LLM Provider
+
+LM Studio is not an application dependency. Configure this section only if you choose LM Studio for LLM inference. Embeddings are generated inside the application with sentence-transformers and do not call LM Studio.
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
@@ -114,14 +116,12 @@ Auth, RBAC, and CSRF are configured entirely via environment variables (`AUTH_MO
 | `LMSTUDIO_MODEL_RANK` | Model for ranking agent | `qwen/qwen3-4b-2507` (hardcoded in `docker-compose.yml`; `.env` value is not passed through) |
 | `LMSTUDIO_MODEL_EXTRACT` | Model for extraction agent | `qwen/qwen3-4b-2507` |
 | `LMSTUDIO_MODEL_SIGMA` | Model for Sigma generation | `qwen/qwen3-4b-2507` |
-| `LMSTUDIO_EMBEDDING_URL` | Embedding API URL | `http://host.docker.internal:1234/v1/embeddings` |
-| `LMSTUDIO_EMBEDDING_MODEL` | Embedding model | `text-embedding-e5-base-v2` |
 | `LMSTUDIO_TEMPERATURE` | LLM temperature | — |
 | `LMSTUDIO_TOP_P` | Top-p sampling | — |
 | `LMSTUDIO_SEED` | Random seed for reproducibility | — |
 | `LMSTUDIO_MAX_CONTEXT` | Max context window size | — |
 
-**Note**: LM Studio runs on your host machine. The `host.docker.internal` hostname allows Docker containers to reach services on the host. You can also set `LMSTUDIO_API_URL` and `LMSTUDIO_EMBEDDING_URL` in **Settings -> Agentic Workflow Configuration** (LM Studio section); those values override `.env`. Context length is configured per-model via `LMSTUDIO_CONTEXT_LENGTH_<model_slug>` in `docker-compose.yml` and can differ between web and worker services. See [LM Studio Integration](../llm/lmstudio.md#context-length) for details.
+**Note**: When the optional LM Studio LLM provider is enabled, it runs on your host machine. The `host.docker.internal` hostname allows Docker containers to reach that host service. Set `LMSTUDIO_API_URL` in **Settings -> Agentic Workflow Configuration**. Context length is configured per model via `LMSTUDIO_CONTEXT_LENGTH_<model_slug>` in `docker-compose.yml` and can differ between web and worker services. Old `.env` entries named `LMSTUDIO_EMBEDDING_URL` or `LMSTUDIO_EMBEDDING_MODEL` are obsolete and can be deleted. See [LM Studio Integration](../llm/lmstudio.md#context-length) for details.
 
 ## Workflow Presets
 

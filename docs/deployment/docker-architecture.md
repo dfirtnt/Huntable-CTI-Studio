@@ -18,7 +18,7 @@ This reflects the current `docker-compose.yml`.
 
 - **DB:** `POSTGRES_PASSWORD` required. `DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper`.
 - **Broker:** `REDIS_URL=redis://redis:6379/0`.
-- **AI/LLM:** `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `CHATGPT_API_KEY`; `LMSTUDIO_API_URL` (default `http://host.docker.internal:1234/v1`), `LMSTUDIO_MODEL*`, `LMSTUDIO_EMBEDDING_*`. Langfuse (`LANGFUSE_*`) is optional but is **not** declared in `docker-compose.yml`'s `environment:` blocks, so it is not forwarded from a host `.env` file into these containers; configure it via the Settings UI instead (see [Langfuse Setup](../guides/langfuse-setup.md)).
+- **AI/LLM:** `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `CHATGPT_API_KEY`; optional local-LLM support uses `LMSTUDIO_API_URL` (default `http://host.docker.internal:1234/v1`) and `LMSTUDIO_MODEL*`. LM Studio is not required by the application or by embeddings; embeddings run locally through sentence-transformers. Langfuse (`LANGFUSE_*`) is optional but is **not** declared in `docker-compose.yml`'s `environment:` blocks, so it is not forwarded from a host `.env` file into these containers; configure it via the Settings UI instead (see [Langfuse Setup](../guides/langfuse-setup.md)).
 - **Timezone:** `TZ=America/New_York`.
 
 ## Volumes and mounts
