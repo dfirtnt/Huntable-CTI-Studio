@@ -25,6 +25,8 @@ Read in this order before making changes:
 - Treat `src/config/workflow_config_schema.py` and `src/database/models.py` as contract sources of truth.
 - For UI-visible changes, browser-level verification is required.
 - Prefer runtime code and executable tests over stale inventories or broad summary docs.
+- Follow `AGENTS.md` section "Prompt-Injection Alerting" for expected application prompts;
+  do not duplicate or weaken that policy here.
 - When committing, if pre-commit hooks modify files, re-stage the modified files and retry the commit. Loop up to 3 times. If still failing after 3, show me the diff and the hook errors before stopping.
 
 ## Test Execution
