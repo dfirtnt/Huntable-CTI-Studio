@@ -18,6 +18,8 @@ RUN apt-get update \
         libpq-dev \
         postgresql-client \
         curl \
+        nodejs \
+        npm \
         git \
         ca-certificates \
         gnupg \
@@ -75,6 +77,11 @@ COPY sigma_atom_similarity/ ./sigma_atom_similarity/
 RUN uv sync --frozen --group test
 
 ENV PATH="/app/.venv/bin:$PATH"
+
+# Codex app-server supplies ChatGPT subscription OAuth and must remain pinned.
+ARG CODEX_VERSION=0.147.0
+RUN npm install --global @openai/codex@${CODEX_VERSION} \
+    && npm cache clean --force
 
 # Install Playwright system dependencies as root (needs apt-get)
 RUN python -m playwright install-deps chromium || true

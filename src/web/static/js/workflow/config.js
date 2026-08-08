@@ -52,6 +52,7 @@ function __dbgLog(hypothesisId, message, data) {
 const allProviderOptions = [
     { value: 'lmstudio', label: 'LMStudio (Local)' },
     { value: 'openai', label: 'OpenAI (Cloud)' },
+    { value: 'codex', label: 'Codex Subscription' },
     { value: 'anthropic', label: 'Anthropic Claude (Cloud)' }
 ];
 
@@ -62,6 +63,7 @@ let providerOptions = [...allProviderOptions];
 let enabledProviders = {
     lmstudio: true,  // LMStudio always available (local) when enabled
     openai: true,
+    codex: false,
     anthropic: true
 };
 
@@ -72,6 +74,7 @@ function getDefaultProvider() {
 
 const providerDefaults = {
     openai: 'gpt-4o-mini',
+    codex: 'gpt-5.6-luna',
     anthropic: 'claude-sonnet-4-5'
 };
 
@@ -94,6 +97,7 @@ async function loadEnabledProviders() {
         enabledProviders = {
             lmstudio: !!(providers.lmstudio && providers.lmstudio.enabled),
             openai: !!(providers.openai && providers.openai.enabled),
+            codex: !!(providers.codex && providers.codex.enabled),
             anthropic: !!(providers.anthropic && providers.anthropic.enabled),
         };
 
@@ -102,7 +106,7 @@ async function loadEnabledProviders() {
 
         // Populate commercialModelCatalog from unified response (avoids second fetch)
         const newCatalog = {};
-        ['openai', 'anthropic'].forEach(p => {
+        ['openai', 'anthropic', 'codex'].forEach(p => {
             if (providers[p] && Array.isArray(providers[p].models) && providers[p].models.length > 0) {
                 newCatalog[p] = providers[p].models;
             }
@@ -126,6 +130,11 @@ async function loadEnabledProviders() {
 
         // Refresh all provider dropdowns
         refreshProviderDropdowns();
+        // loadConfig can render before this live provider request completes.
+        // Re-render now so Codex uses its populated model select, not its text fallback.
+        if (typeof refreshAllProviderBlocks === 'function') {
+            refreshAllProviderBlocks();
+        }
     } catch (error) {
         console.error('Error loading provider options:', error);
     }
@@ -175,6 +184,7 @@ function refreshProviderDropdowns() {
 // Allow-list style checks to keep provider dropdowns focused on valid models
 const providerModelGuards = {
     openai: /^(gpt|o\d|text-|davinci|curie|babbage|ada|whisper|omni|turbo|codex)/i,
+    codex: /^(gpt|o\d|codex)/i,
     anthropic: /^claude/i
 };
 
@@ -183,6 +193,7 @@ function inferProviderFromModel(modelId) {
     const trimmed = modelId.trim();
     if (!trimmed) return null;
     if (providerModelGuards.openai && providerModelGuards.openai.test(trimmed)) return 'openai';
+    if (providerModelGuards.codex && providerModelGuards.codex.test(trimmed)) return 'codex';
     if (providerModelGuards.anthropic && providerModelGuards.anthropic.test(trimmed)) return 'anthropic';
     return null;
 }
@@ -340,6 +351,11 @@ function validateProviderModelCombination(agentPrefix, provider, modelId) {
                 errorMessage = validation.error || `Model "${trimmed}" is not a valid chat completion model`;
                 suggestion = validation.suggestion;
             }
+        }
+    } else if (normalizedProvider === 'codex') {
+        if (!isModelAllowedForProvider('codex', trimmed)) {
+            isValid = false;
+            errorMessage = `Invalid model for Codex subscription. Model "${trimmed}" must be a Codex-available OpenAI model.`;
         }
     } else if (normalizedProvider === 'anthropic') {
         if (!isModelAllowedForProvider('anthropic', trimmed)) {
@@ -1256,6 +1272,7 @@ function buildAgentProviderModelUI(agentPrefix, currentProvider = 'lmstudio', cu
     
     // Build commercial provider inputs
     const openaiInput = buildCommercialProviderInput(agentPrefix, 'openai', currentProvider, currentModel);
+    const codexInput = buildCommercialProviderInput(agentPrefix, 'codex', currentProvider, currentModel);
     const anthropicInput = buildCommercialProviderInput(agentPrefix, 'anthropic', currentProvider, currentModel);
     
     // Build temperature and top_p sliders on same row if needed
@@ -1286,6 +1303,9 @@ function buildAgentProviderModelUI(agentPrefix, currentProvider = 'lmstudio', cu
                 <div data-agent-prefix="${agentPrefix}" data-provider="openai" class="hidden">
                     ${openaiInput}
                 </div>
+                <div data-agent-prefix="${agentPrefix}" data-provider="codex" class="hidden">
+                    ${codexInput}
+                </div>
                 <div data-agent-prefix="${agentPrefix}" data-provider="anthropic" class="hidden">
                     ${anthropicInput}
                 </div>
@@ -1305,13 +1325,20 @@ function getCommercialProviderModels(provider) {
 }
 
 function buildCommercialProviderInput(agentPrefix, provider, currentProvider, currentModel) {
-    const placeholder = provider === 'openai' ? 'Select an OpenAI model' : 'Select a Claude model';
+    const placeholder = provider === 'openai'
+        ? 'Select an OpenAI model'
+        : provider === 'codex'
+            ? 'Select a Codex model'
+            : 'Select a Claude model';
     const baseClass = 'w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs';
     const fallbackValue = providerDefaults[provider] || '';
-    const eligibleCurrentModel = (currentProvider === provider && currentModel && isModelAllowedForProvider(provider, currentModel)) ? currentModel : '';
+    const catalog = getCommercialProviderModels(provider);
+    const eligibleCurrentModel = (currentProvider === provider && currentModel &&
+        (provider === 'codex' && catalog ? catalog.includes(currentModel) : isModelAllowedForProvider(provider, currentModel)))
+        ? currentModel
+        : '';
     const selectedModel = eligibleCurrentModel || fallbackValue || '';
     const elementId = `${agentPrefix}-model-${provider}`;
-    const catalog = getCommercialProviderModels(provider);
 
     // Determine the name attribute for form submission using unified AGENT_CONFIG
     const config = getAgentConfig(agentPrefix);
@@ -1328,7 +1355,7 @@ function buildCommercialProviderInput(agentPrefix, provider, currentProvider, cu
                    aria-label="${ariaLabel}"
                    class="${baseClass}"
                    value="${escapeHtml(eligibleCurrentModel || '')}"
-                   placeholder="${provider === 'openai' ? 'gpt-4o-mini' : 'claude-sonnet-4-5'}"
+                   placeholder="${provider === 'openai' ? 'gpt-4o-mini' : provider === 'codex' ? 'gpt-5.6-luna' : 'claude-sonnet-4-5'}"
                    oninput="validateAgentModelOnChange('${agentPrefix}'); autoSaveModelChange()"
                    onchange="validateAgentModelOnChange('${agentPrefix}'); autoSaveModelChange()">
         `;
@@ -1674,7 +1701,7 @@ if (typeof window !== 'undefined') {
         const providerSelect = document.getElementById(`${agentPrefix}-provider`);
         const provider = (providerSelect?.value || getDefaultProvider()).toString().trim().toLowerCase();
 
-        ['openai', 'anthropic'].forEach(p => {
+        ['openai', 'codex', 'anthropic'].forEach(p => {
             const container = document.querySelector(`[data-agent-prefix="${agentPrefix}"][data-provider="${p}"]`);
             if (!container) return;
 
@@ -1703,6 +1730,7 @@ function onAgentProviderChange(agentPrefix) {
     const modelSelect = document.getElementById(`${agentPrefix}-model-2`) || document.getElementById(`${agentPrefix}-model`);
     const modelInputs = [
         document.getElementById(`${agentPrefix}-model-openai`),
+        document.getElementById(`${agentPrefix}-model-codex`),
         document.getElementById(`${agentPrefix}-model-anthropic`)
     ].filter(Boolean);
     
@@ -1787,8 +1815,9 @@ function refreshAllProviderBlocks() {
             // Last-resort visibility only
             const lm = document.querySelector(`[data-agent-prefix="${prefix}"][data-provider="lmstudio"]`);
             const openai = document.querySelector(`[data-agent-prefix="${prefix}"][data-provider="openai"]`);
+            const codex = document.querySelector(`[data-agent-prefix="${prefix}"][data-provider="codex"]`);
             const anthropic = document.querySelector(`[data-agent-prefix="${prefix}"][data-provider="anthropic"]`);
-            [lm, openai, anthropic].forEach(el => {
+            [lm, openai, codex, anthropic].forEach(el => {
                 if (!el || !el.dataset.provider) return;
                 const gp = el.dataset.provider.toString().trim().toLowerCase();
                 if (gp === provider) {
@@ -3146,6 +3175,9 @@ function renderAgentModels(lmstudioModels) {
                         <div data-agent-prefix="rankagent" data-provider="openai" class="hidden">
                             ${buildCommercialProviderInput('rankagent', 'openai', currentProvider, currentModel)}
                         </div>
+                        <div data-agent-prefix="rankagent" data-provider="codex" class="hidden">
+                            ${buildCommercialProviderInput('rankagent', 'codex', currentProvider, currentModel)}
+                        </div>
                         <div data-agent-prefix="rankagent" data-provider="anthropic" class="hidden">
                             ${buildCommercialProviderInput('rankagent', 'anthropic', currentProvider, currentModel)}
                         </div>
@@ -3237,6 +3269,9 @@ function renderAgentModels(lmstudioModels) {
                         <div data-agent-prefix="extractagent" data-provider="openai" class="hidden">
                             ${buildCommercialProviderInput('extractagent', 'openai', currentProvider, currentModel)}
                         </div>
+                        <div data-agent-prefix="extractagent" data-provider="codex" class="hidden">
+                            ${buildCommercialProviderInput('extractagent', 'codex', currentProvider, currentModel)}
+                        </div>
                         <div data-agent-prefix="extractagent" data-provider="anthropic" class="hidden">
                             ${buildCommercialProviderInput('extractagent', 'anthropic', currentProvider, currentModel)}
                         </div>
@@ -3297,6 +3332,9 @@ function renderAgentModels(lmstudioModels) {
                         </div>
                         <div data-agent-prefix="sigmaagent" data-provider="openai" class="hidden">
                             ${buildCommercialProviderInput('sigmaagent', 'openai', currentProvider, currentModel)}
+                        </div>
+                        <div data-agent-prefix="sigmaagent" data-provider="codex" class="hidden">
+                            ${buildCommercialProviderInput('sigmaagent', 'codex', currentProvider, currentModel)}
                         </div>
                         <div data-agent-prefix="sigmaagent" data-provider="anthropic" class="hidden">
                             ${buildCommercialProviderInput('sigmaagent', 'anthropic', currentProvider, currentModel)}
@@ -6678,7 +6716,12 @@ if (workflowConfigForm) {
 // --- Global fallback definitions to ensure sub-agent provider inputs always render ---
 const subAgentModelKeysGlobal = {
     cmdlineextract: 'CmdlineExtract_model',
-    proctreeextract: 'ProcTreeExtract_model'
+    proctreeextract: 'ProcTreeExtract_model',
+    huntqueriesextract: 'HuntQueriesExtract_model',
+    registryextract: 'RegistryExtract_model',
+    servicesextract: 'ServicesExtract_model',
+    scheduledtasksextract: 'ScheduledTasksExtract_model',
+    networkindicatorextract: 'NetworkIndicatorExtract_model'
 };
 
 function renderSubAgentCommercialInputsGlobal(agentPrefix) {
@@ -6689,7 +6732,7 @@ function renderSubAgentCommercialInputsGlobal(agentPrefix) {
     const currentModel = agentModels?.[modelKey] || '';
 
     // Always use buildCommercialProviderInput for consistency with main agents
-    ['openai', 'anthropic'].forEach(p => {
+    ['openai', 'codex', 'anthropic'].forEach(p => {
         const container = document.querySelector(`[data-agent-prefix="${agentPrefix}"][data-provider="${p}"]`);
         if (!container) {
             console.warn(`Container not found for ${agentPrefix} provider ${p}`);
@@ -6704,7 +6747,7 @@ function renderSubAgentCommercialInputsGlobal(agentPrefix) {
             container.innerHTML = html;
         } else {
             // Fallback to manual input if buildCommercialProviderInput not available
-            const placeholder = p === 'openai' ? 'gpt-4o-mini' : 'claude-sonnet-4-5';
+            const placeholder = p === 'openai' ? 'gpt-4o-mini' : p === 'codex' ? 'gpt-5.6-luna' : 'claude-sonnet-4-5';
             container.innerHTML = `
                 <input type="text"
                        id="${agentPrefix}-model-${p}"

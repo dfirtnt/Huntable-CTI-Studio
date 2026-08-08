@@ -117,6 +117,29 @@ test.describe('Sub-agent commercial model inputs have onchange handler', () => {
     expect(onchange).toContain('autoSaveModelChange');
   });
 
+  test('cmdlineextract: Codex subscription renders a populated model dropdown', async ({ page }) => {
+    await page.evaluate(() => {
+      document.getElementById('s3')?.classList.add('open');
+      if (typeof (window as any).toggleSA === 'function') {
+        (window as any).toggleSA('sa-cmdline');
+      }
+    });
+
+    const providerSelect = page.locator('#cmdlineextract-provider');
+    await providerSelect.waitFor({ state: 'visible', timeout: 10000 });
+    const hasCodex = await providerSelect.locator('option[value="codex"]').count() > 0;
+    if (!hasCodex) {
+      test.skip(true, 'Codex subscription is not enabled');
+      return;
+    }
+
+    await providerSelect.selectOption('codex');
+    const modelSelect = page.locator('#cmdlineextract-model-codex');
+    await modelSelect.waitFor({ state: 'visible', timeout: 10000 });
+    await expect(modelSelect).toHaveJSProperty('tagName', 'SELECT');
+    await expect(modelSelect.locator('option:not([value=""])')).not.toHaveCount(0);
+  });
+
   // -------------------------------------------------------------------------
   // Autosave fires when a sub-agent commercial model changes
   // -------------------------------------------------------------------------

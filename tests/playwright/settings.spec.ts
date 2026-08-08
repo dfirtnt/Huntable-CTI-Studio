@@ -110,6 +110,47 @@ test.describe('Settings - API Keys', () => {
     await expect(page.locator('#testWorkflowCodexSubscription svg')).toHaveCount(1);
     await expect(page.locator('#testWorkflowCodexSubscription .btn-label')).toHaveText('Test subscription');
   });
+
+  // Each provider is one panel: enabling the checkbox must reveal that
+  // provider's own config section in place (and hide it again on disable).
+  const toggleProviderSection = async (page, checkboxId: string, sectionId: string) => {
+    await page.goto(`${BASE}/settings`);
+    await expect(page.locator('#saveSettings')).toBeVisible();
+    await page.locator('[data-collapsible-panel="agenticWorkflowConfig"]').click();
+    const checkbox = page.locator(`#${checkboxId}`);
+    const section = page.locator(`#${sectionId}`);
+
+    if (!(await checkbox.isVisible().catch(() => false))) {
+      test.skip(true, `${checkboxId} not rendered (provider hidden for this runtime)`);
+    }
+
+    await checkbox.uncheck();
+    await expect(section).toBeHidden();
+    await checkbox.check();
+    await expect(section).toBeVisible();
+    await checkbox.uncheck();
+    await expect(section).toBeHidden();
+    // Leave the provider enabled so the caller can assert its config is shown.
+    await checkbox.check();
+    await expect(section).toBeVisible();
+  };
+
+  test('[SETTINGS-034] OpenAI enable toggle reveals its API key section', async ({ page }) => {
+    await toggleProviderSection(page, 'workflowOpenaiEnabled', 'workflowOpenaiApiKeySection');
+    await expect(page.locator('#workflowOpenaiApiKey')).toBeVisible();
+  });
+
+  test('[SETTINGS-035] Anthropic enable toggle reveals its API key section', async ({ page }) => {
+    await toggleProviderSection(page, 'workflowAnthropicEnabled', 'workflowAnthropicApiKeySection');
+    await expect(page.locator('#workflowAnthropicApiKey')).toBeVisible();
+  });
+
+  test('[SETTINGS-036] LMStudio enable toggle reveals its config section', async ({ page }) => {
+    // When the operator opted out of LMStudio during setup, the whole row is
+    // removed from the page and the section never becomes visible.
+    await toggleProviderSection(page, 'workflowLmstudioEnabled', 'workflowLmstudioApiKeySection');
+    await expect(page.locator('#lmstudioApiUrl')).toBeVisible();
+  });
 });
 
 test.describe('Settings - API', () => {

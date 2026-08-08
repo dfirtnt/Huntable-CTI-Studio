@@ -22,6 +22,7 @@ WORKFLOW_PROVIDER_APPSETTING_KEYS = {
     "anthropic_enabled": "WORKFLOW_ANTHROPIC_ENABLED",
     "anthropic_api_key": "WORKFLOW_ANTHROPIC_API_KEY",
     "lmstudio_enabled": "WORKFLOW_LMSTUDIO_ENABLED",
+    "codex_enabled": "WORKFLOW_CODEX_ENABLED",
 }
 
 

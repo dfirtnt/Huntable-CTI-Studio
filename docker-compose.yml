@@ -113,6 +113,9 @@ services:
       - LMSTUDIO_CONTEXT_LENGTH_qwen_qwen3_4b_2507=16384
       # - LANGGRAPH_SERVER_URL=${LANGGRAPH_SERVER_URL:-http://langgraph-server:2024}
       - WORKFLOW_LMSTUDIO_ENABLED=${WORKFLOW_LMSTUDIO_ENABLED:-true}
+      - WORKFLOW_CODEX_ENABLED=${WORKFLOW_CODEX_ENABLED:-false}
+      - WORKFLOW_CODEX_MODEL=${WORKFLOW_CODEX_MODEL:-gpt-5.6-luna}
+      - CODEX_HOME=/var/lib/huntable-codex
       - OCR_INGEST_ENABLED=${OCR_INGEST_ENABLED:-true}
       - PROCEED_WITHOUT_LMSTUDIO=${PROCEED_WITHOUT_LMSTUDIO:-}
       - TZ=America/New_York
@@ -128,6 +131,7 @@ services:
       - ./backups:/app/backups
       - ./models:/app/models
       - ./outputs:/app/outputs
+      - codex_auth:/var/lib/huntable-codex
       - ./scripts:/app/scripts
       - ./test-results:/app/test-results
       - ${HOME}/Huntable-SIGMA-Rules:/app/sigma-repo
@@ -139,6 +143,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      codex_auth_init:
+        condition: service_completed_successfully
     networks:
       - cti_network
     restart: unless-stopped
@@ -182,6 +188,9 @@ services:
       - LMSTUDIO_CONTEXT_LENGTH_deepseek_deepseek_r1_0528_qwen3_8b=4096
       - LMSTUDIO_CONTEXT_LENGTH_qwen_qwen3_4b_2507=16384
       - WORKFLOW_LMSTUDIO_ENABLED=${WORKFLOW_LMSTUDIO_ENABLED:-true}
+      - WORKFLOW_CODEX_ENABLED=${WORKFLOW_CODEX_ENABLED:-false}
+      - WORKFLOW_CODEX_MODEL=${WORKFLOW_CODEX_MODEL:-gpt-5.6-luna}
+      - CODEX_HOME=/var/lib/huntable-codex
       - OCR_INGEST_ENABLED=${OCR_INGEST_ENABLED:-true}
       - PROCEED_WITHOUT_LMSTUDIO=${PROCEED_WITHOUT_LMSTUDIO:-}
     volumes:
@@ -193,12 +202,15 @@ services:
       - ./models:/app/models
       - ./scripts:/app/scripts
       - ./test-results:/app/test-results
+      - codex_auth:/var/lib/huntable-codex
       - ${HOME}/Huntable-SIGMA-Rules:/app/sigma-repo
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      codex_auth_init:
+        condition: service_completed_successfully
     networks:
       - cti_network
     restart: unless-stopped
@@ -247,6 +259,9 @@ services:
       - LMSTUDIO_CONTEXT_LENGTH_deepseek_deepseek_r1_0528_qwen3_8b=4096
       - LMSTUDIO_CONTEXT_LENGTH_qwen_qwen3_4b_2507=16384
       - WORKFLOW_LMSTUDIO_ENABLED=${WORKFLOW_LMSTUDIO_ENABLED:-true}
+      - WORKFLOW_CODEX_ENABLED=${WORKFLOW_CODEX_ENABLED:-false}
+      - WORKFLOW_CODEX_MODEL=${WORKFLOW_CODEX_MODEL:-gpt-5.6-luna}
+      - CODEX_HOME=/var/lib/huntable-codex
       - PROCEED_WITHOUT_LMSTUDIO=${PROCEED_WITHOUT_LMSTUDIO:-}
     volumes:
       - ./src:/app/src
@@ -257,12 +272,15 @@ services:
       - ./models:/app/models
       - ./scripts:/app/scripts
       - ./test-results:/app/test-results
+      - codex_auth:/var/lib/huntable-codex
       - ${HOME}/Huntable-SIGMA-Rules:/app/sigma-repo
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      codex_auth_init:
+        condition: service_completed_successfully
     networks:
       - cti_network
     restart: unless-stopped
@@ -280,6 +298,15 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+
+  # Initialize the shared Codex state volume for the non-root application user.
+  codex_auth_init:
+    image: busybox:1.36.1
+    user: "0:0"
+    volumes:
+      - codex_auth:/var/lib/huntable-codex
+    command: ["sh", "-c", "chown -R 1000:1000 /var/lib/huntable-codex"]
+    restart: "no"
 
   # Celery Beat for Scheduled Tasks
   scheduler:
@@ -477,6 +504,8 @@ volumes:
   langflow_data:
     driver: local
   hf_cache:
+    driver: local
+  codex_auth:
     driver: local
 
 networks:

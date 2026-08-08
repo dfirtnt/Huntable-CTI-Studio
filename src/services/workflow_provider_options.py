@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 import httpx
 
 from src.database.models import AppSettingsTable
+from src.services.codex_app_server_client import CodexAppServerClient, CodexAppServerError
 from src.services.provider_model_catalog import load_catalog
 from src.utils.lmstudio_url import get_lmstudio_base_url
 
@@ -23,6 +24,7 @@ _ENABLED_KEYS = {
     "lmstudio": "WORKFLOW_LMSTUDIO_ENABLED",
     "openai": "WORKFLOW_OPENAI_ENABLED",
     "anthropic": "WORKFLOW_ANTHROPIC_ENABLED",
+    "codex": "WORKFLOW_CODEX_ENABLED",
 }
 
 _API_KEY_SETTINGS = {
@@ -39,6 +41,7 @@ _PROVIDER_DEFAULT_MODELS = {
     "openai": "gpt-4o-mini",
     "anthropic": "claude-sonnet-4-6",
     "lmstudio": "",
+    "codex": "gpt-5.6-luna",
 }
 
 _EMBEDDING_HINTS = ("embedding", "embed", "e5-base", "bge-", "gte-")
@@ -103,6 +106,15 @@ async def _probe_lmstudio() -> tuple[bool, list[str]]:
         logger.debug("LM Studio probe failed: %s", exc)
 
     return False, []
+
+
+async def _probe_codex_models() -> tuple[bool, list[str]]:
+    """Ask Codex for the models available to its managed ChatGPT login."""
+    try:
+        return True, await CodexAppServerClient(timeout=15.0).list_models()
+    except CodexAppServerError as exc:
+        logger.info("Codex model list unavailable: %s", exc)
+        return False, []
 
 
 def _read_settings(db_session) -> dict[str, str]:
@@ -202,6 +214,31 @@ async def get_provider_options(db_session) -> dict:
         reason_unavailable=oa_reason,
     )
 
+    # -- Codex subscription --
+    # Auth remains inside Codex's managed credential store; do not inspect or
+    # copy its token files. Ask app-server for the currently available model IDs.
+    codex_enabled = _is_enabled(settings, "codex")
+    codex_reachable, codex_models = False, []
+    if codex_enabled:
+        codex_reachable, codex_models = await _probe_codex_models()
+    if not codex_enabled:
+        codex_reason: str | None = "Provider is not enabled in settings"
+    elif not codex_reachable:
+        codex_reason = "Codex subscription is not connected"
+    elif not codex_models:
+        codex_reason = "No models are available for this Codex subscription"
+    else:
+        codex_reason = None
+    codex = ProviderStatus(
+        enabled=codex_enabled,
+        configured=codex_reachable,
+        reachable=codex_reachable,
+        has_models=bool(codex_models),
+        models=codex_models,
+        default_model=codex_models[0] if codex_models else _PROVIDER_DEFAULT_MODELS["codex"],
+        reason_unavailable=codex_reason,
+    )
+
     # -- Anthropic --
     an_enabled = _is_enabled(settings, "anthropic")
     an_key = settings.get("WORKFLOW_ANTHROPIC_API_KEY", "")
@@ -228,6 +265,7 @@ async def get_provider_options(db_session) -> dict:
     providers: dict[str, ProviderStatus] = {
         "lmstudio": lmstudio,
         "openai": openai,
+        "codex": codex,
         "anthropic": anthropic,
     }
 

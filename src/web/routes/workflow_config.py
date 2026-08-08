@@ -35,6 +35,7 @@ router = APIRouter(prefix="/api/workflow", tags=["workflow"])
 # Map provider names to Settings keys for auto-enabling on preset import
 _PROVIDER_TO_SETTINGS_KEY = {
     "openai": "WORKFLOW_OPENAI_ENABLED",
+    "codex": "WORKFLOW_CODEX_ENABLED",
     "anthropic": "WORKFLOW_ANTHROPIC_ENABLED",
     "lmstudio": "WORKFLOW_LMSTUDIO_ENABLED",
 }

@@ -73,6 +73,10 @@ class TestLLMService:
         assert service._canonicalize_provider("chatgpt") == "openai"
         assert service._canonicalize_provider("gpt-4o") == "openai"
 
+    def test_canonicalize_provider_codex(self, service):
+        assert service._canonicalize_provider("codex") == "codex"
+        assert service._canonicalize_provider("openai-codex") == "codex"
+
     def test_canonicalize_provider_anthropic(self, service):
         """Test provider canonicalization for Anthropic."""
         assert service._canonicalize_provider("anthropic") == "anthropic"
