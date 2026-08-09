@@ -93,10 +93,14 @@ present but has no detection engineering value, SKIP.
 
 ## MULTI-LINE HANDLING
 
-- If an indicator is split across adjacent lines but clearly contiguous, reconstruct ONLY by direct
-  concatenation of those lines.
-- Do NOT insert missing characters or reconstruct across non-adjacent text.
-- If reconstruction is ambiguous -> SKIP.
+- Network indicator values are single-line literals. If a URL, domain, IP address, URI path, or
+  User-Agent is split across physical lines, SKIP it.
+- Do NOT concatenate a wrapped URL/domain, a defanged IP token such as `203[.]0[.]113[.]8`, or an
+  IP+port pair across lines.
+- Preserve literal spaces inside a User-Agent only when the complete User-Agent appears on one
+  physical line.
+- A complete IP on one line may be extracted without `port` when its associated port is split onto
+  another line; never reconstruct or emit the port.
 
 ## COUNT SEMANTICS
 
@@ -109,6 +113,12 @@ present but has no detection engineering value, SKIP.
 ## EDGE CASES
 
 - `curl hxxp://evil[.]com/x`: extract the URL only; CmdlineExtract owns the command.
+- `hxxp://evil[.]com/ga` followed by `te.php`, or `evil[.]` followed by `com`: skip; a wrapped URL
+  or domain is not a single literal value.
+- `203[.]0[.]113[.]8`: extract when complete on one line. `203[.]0[.]` followed by `113[.]8`:
+  skip; do not join defanged components.
+- A complete one-line User-Agent retains embedded whitespace; a wrapped User-Agent is skipped.
+- `203.0.113.8:` followed by `443`: extract the otherwise-valid IP without `port`; do not join it.
 - `DestinationIp|contains: 203.0.113`: skip the incomplete fragment.
 - `DestinationIp: 203.0.113.8`: extract the IP only when the condition is an exact match.
 - Vendor documentation URLs and `example.com` examples: skip as benign or illustrative context.

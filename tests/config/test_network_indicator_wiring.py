@@ -162,6 +162,14 @@ class TestPromptFile:
         ):
             assert exclusion in system_prompt
 
+        for multiline_rule in (
+            "single-line literals",
+            "defanged IP token",
+            "complete User-Agent appears on one physical line",
+            "extracted without port",
+        ):
+            assert multiline_rule in system_prompt
+
         assert "port: OPTIONAL" in instructions
         assert "json_example is a schema format template" in instructions
 
