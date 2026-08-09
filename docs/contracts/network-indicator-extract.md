@@ -1,4 +1,4 @@
-# NetworkIndicatorExtract -- Prompt v1.0 (Standard-compliant)
+# NetworkIndicatorExtract -- Prompt v2.0 (Extractor Standard v1.1-compliant)
 
 !!! tip "Use this outside Huntable"
     Grab the [drop-in version](network-indicator-extract-dropin.md) — paste it into a Claude or
@@ -64,6 +64,7 @@ Extract literal network indicators:
 - Detection queries and rules -- when a condition carries a **complete**, literal indicator value
   (satisfies this agent's positive scope on its own). **Complete-Artifact Rule:** a `|contains:`,
   `|startswith:`, `|endswith:`, or `|re:` partial-match condition carries a fragment -> SKIP.
+- Commands -- extract a complete embedded network value, never the surrounding command line.
 
 ## NEGATIVE EXTRACTION SCOPE
 
@@ -75,6 +76,8 @@ Do NOT extract:
 - Defensive guidance not tied to observed attacker behavior.
 - Indicators paraphrased rather than quoted.
 - Indicator fragments from partial-match detection conditions -> SKIP.
+- Indicators inside malware source code or appearing only inside a YARA rule.
+- API calls that mention network activity without a literal indicator.
 
 ## DETECTION RELEVANCE GATE
 
@@ -88,12 +91,27 @@ present but has no detection engineering value, SKIP.
 - Preserve original casing, defanging (`hxxp`, `[.]`), and encoding exactly.
 - Do NOT expand, refang, or paraphrase indicator values.
 
+## MULTI-LINE HANDLING
+
+- If an indicator is split across adjacent lines but clearly contiguous, reconstruct ONLY by direct
+  concatenation of those lines.
+- Do NOT insert missing characters or reconstruct across non-adjacent text.
+- If reconstruction is ambiguous -> SKIP.
+
 ## COUNT SEMANTICS
 
 - Unique indicator: each unique (indicator_type + value) pair = ONE item.
 - The same indicator mentioned multiple times = ONE item.
 - Two different indicator_types with the same string = TWO items only if both are literally
   present as distinct indicators.
+- Defanged and refanged forms are distinct entries only when both forms are literally present.
+
+## EDGE CASES
+
+- `curl hxxp://evil[.]com/x`: extract the URL only; CmdlineExtract owns the command.
+- `DestinationIp|contains: 203.0.113`: skip the incomplete fragment.
+- `DestinationIp: 203.0.113.8`: extract the IP only when the condition is an exact match.
+- Vendor documentation URLs and `example.com` examples: skip as benign or illustrative context.
 
 ## VERIFICATION CHECKLIST
 
@@ -104,6 +122,7 @@ Apply to EVERY candidate before including it:
 - [ ] Does it have network detection value (one of the telemetry sources above)?
 - [ ] Is value a literal substring of source_evidence?
 - [ ] Is it NOT owned by a sibling (no command line, rule, registry, service, task, or lineage)?
+- [ ] Is the source not malware source code, YARA-only content, or a partial-match rule predicate?
 - [ ] Are all traceability fields populated (source_evidence, extraction_justification, confidence_score)?
 
 ## OUTPUT SCHEMA
@@ -152,6 +171,5 @@ If no valid network indicators exist, return exactly:
 Precision over recall. Network-telemetry observability overrides completeness.
 Reproduce indicator values EXACTLY, including defanging. When in doubt, OMIT.
 
-_Last updated: 2026-07-17 -- added missing `port` field (FIELD RULES) and VERIFICATION CHECKLIST
-section synced from the live `src/prompts/NetworkIndicatorExtract` seed prompt. Prior note: linked
-companion drop-in prompt._
+_Last updated: 2026-08-09 -- v2 seed-prompt contract alignment: valid-source coverage,
+complete-artifact rule, source-code/YARA exclusions, multi-line handling, and edge cases._

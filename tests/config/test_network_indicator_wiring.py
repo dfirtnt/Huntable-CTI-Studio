@@ -140,6 +140,31 @@ class TestPromptFile:
         assert "network_indicators" in parsed
         assert parsed["network_indicators"][0]["value"], "simple extractor items must carry a non-empty value"
 
+    def test_matches_extractor_standard_network_gates(self):
+        """Pin the v2 rules that distinguish network indicators from adjacent artifacts."""
+        path = _REPO / "src" / "prompts" / "NetworkIndicatorExtract"
+        data = json.loads(path.read_text())
+        system_prompt = data["role"]
+        instructions = data["instructions"]
+
+        for required_section in (
+            "VALID SOURCES",
+            "COMPLETE-ARTIFACT RULE",
+            "MULTI-LINE HANDLING",
+            "EDGE CASES",
+        ):
+            assert required_section in system_prompt
+
+        for exclusion in (
+            "malware source code",
+            "YARA rule",
+            "Partial indicator fragments",
+        ):
+            assert exclusion in system_prompt
+
+        assert "port: OPTIONAL" in instructions
+        assert "json_example is a schema format template" in instructions
+
 
 class TestDefaultAgentPrompts:
     def test_in_agent_prompt_files(self):
