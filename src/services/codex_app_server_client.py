@@ -118,7 +118,9 @@ class CodexAppServerClient:
         visible = [
             item
             for item in models
-            if isinstance(item, dict) and not item.get("hidden") and isinstance(item.get("model") or item.get("id"), str)
+            if isinstance(item, dict)
+            and not item.get("hidden")
+            and isinstance(item.get("model") or item.get("id"), str)
         ]
         visible.sort(key=lambda item: not bool(item.get("isDefault")))
         default_model = next((str(item.get("model") or item["id"]) for item in visible if item.get("isDefault")), "")
@@ -129,7 +131,8 @@ class CodexAppServerClient:
         current_models = [
             item
             for item in visible
-            if not family or str(item.get("model") or item["id"]) in {family, default_model}
+            if not family
+            or str(item.get("model") or item["id"]) in {family, default_model}
             or str(item.get("model") or item["id"]).startswith(f"{family}-")
         ]
         return list(dict.fromkeys(str(item.get("model") or item["id"]) for item in current_models))

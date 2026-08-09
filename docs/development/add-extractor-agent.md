@@ -1,6 +1,6 @@
 # Adding an Extraction Sub-Agent
 
-This page is a companion reference for the **`Create-Huntable-Agent` skill** (invoked as `create-huntable-agent`) — the Claude Code skill that guides you through wiring a new extractor into the LangGraph pipeline.
+This page is a companion reference for the **`Create-Huntable-Agent` skill** (invoked as `create-huntable-agent`) — the Codex skill that guides you through wiring a new extractor into the LangGraph pipeline.
 
 The interactive wiring map below visualises every integration point across all 7 layers, all 17 known pitfalls, and the 4 behaviours that are auto-wired for free once Layers 1–3 are complete.
 
@@ -13,7 +13,7 @@ The interactive wiring map below visualises every integration point across all 7
 | Layer | Files | Key concern |
 |-------|-------|-------------|
 | 1 — Schema & Config | `workflow_config_schema.py`, `workflow_config_loader.py`, `workflow_config_migrate.py`, `subagent_utils.py`, `default_agent_prompts.py` | If these are wrong, nothing downstream works |
-| 2 — Prompt Files | `src/prompts/{Agent}` (new), `src/prompts/{QA}` (new), all existing extractor prompts | Sibling Architecture Context maintenance is mandatory |
+| 2 — Prompt Files | `src/prompts/{Agent}` (new), all existing extractor prompts | Sibling Architecture Context maintenance is mandatory |
 | 3 — Services & Workflow Engine | `llm_service.py`, `lmstudio_model_loader.py`, `eval_bundle_service.py`, `agentic_workflow.py` | LangGraph graph wiring, traceability validation, Langfuse keys |
 | 4 — Web Routes | `workflow_executions.py`, `evaluation_api.py` | 5 locations in evaluation_api.py alone |
 | 5 — UI Templates | `workflow.html` (~40 pts), `workflow-config-display.js`, `agent_evals.html`, `workflow_executions.html`, `base.html`, and more | Most complex layer — cache-busting and dual-template drift are common failure modes |
@@ -28,7 +28,6 @@ Decide all six before writing any code — they must be consistent everywhere:
 | Identifier | Pattern | Example |
 |------------|---------|---------|
 | `AgentName` | `{Name}Extract` | `RegistryExtract` |
-| `QAName` | `{Name}QA` | `RegistryQA` |
 | `canonical_alias` | `{descriptive_snake}` | `registry_artifacts` |
 | UI display name | Human label | `"Registry Artifacts"` |
 | UI scope key | lowercase | `registry` |

@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- **Subscription-backed Codex workflow provider** (2026-08-08): Workflows can use a deployment-managed ChatGPT subscription through Codex app-server instead of an OpenAI API key. The provider is opt-in (`WORKFLOW_CODEX_ENABLED`), uses the shared `codex_auth` volume, exposes a non-inference connectivity check at `POST /api/settings/codex/test`, and creates an ephemeral read-only Codex workspace for each workflow inference request. The workflow provider picker lists the models visible to the managed Codex login.
+
 ### Changed
 - **Removed misleading LM Studio embedding plumbing and corrected its documentation boundary** (2026-08-08): LM Studio remains an optional local LLM provider, not an application or embedding dependency. Embeddings run locally through `EmbeddingService` and sentence-transformers. Removed the unused `LMSTUDIO_EMBEDDING_URL` / `LMSTUDIO_EMBEDDING_MODEL` Compose, setup, Settings, startup, and routing paths; deleted the dead `/api/lmstudio-embedding-models` endpoint and embedding-URL helpers/tests; and updated installation, configuration, Docker architecture, model-selection, and provider docs accordingly.
 

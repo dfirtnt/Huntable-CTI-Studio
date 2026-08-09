@@ -117,9 +117,7 @@ class TestSettingsCodexSubscription:
     @pytest.mark.asyncio
     async def test_codex_subscription_test_rejects_non_chatgpt_auth(self):
         with patch("src.web.routes.settings.CodexAppServerClient") as client_cls:
-            client_cls.return_value.read_account = AsyncMock(
-                return_value={"account": {"type": "apiKey"}}
-            )
+            client_cls.return_value.read_account = AsyncMock(return_value={"account": {"type": "apiKey"}})
             from src.web.routes.settings import test_codex_subscription
 
             result = await test_codex_subscription()

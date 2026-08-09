@@ -102,8 +102,20 @@ Auth, RBAC, and CSRF are configured entirely via environment variables (`AUTH_MO
 | `WORKFLOW_OPENAI_ENABLED` | Enable OpenAI in workflows | DB setting |
 | `WORKFLOW_ANTHROPIC_ENABLED` | Enable Anthropic in workflows | DB setting |
 | `WORKFLOW_LMSTUDIO_ENABLED` | Enable LM Studio in workflows | DB setting |
+| `WORKFLOW_CODEX_ENABLED` | Enable the deployment-managed Codex subscription in workflows | `false` |
 | `WORKFLOW_OPENAI_MODEL` | OpenAI model for workflows | `gpt-4o-mini` |
 | `WORKFLOW_ANTHROPIC_MODEL` | Anthropic model for workflows | `claude-sonnet-4-5` |
+| `WORKFLOW_CODEX_MODEL` | Fallback Codex workflow model when the subscription cannot list models | `gpt-5.6-luna` |
+
+### Optional Codex Subscription Provider
+
+Codex uses its own managed ChatGPT authentication; do not configure a subscription credential as an API key. Set `WORKFLOW_CODEX_ENABLED=true`, then authenticate the shared workflow-worker state volume once:
+
+```bash
+docker compose exec workflow_worker codex login
+```
+
+The workflow configuration UI lists the models available to that login. Use the **Test subscription** control in Settings (or `POST /api/settings/codex/test`) to verify connectivity without running a workflow.
 
 ### Optional LM Studio LLM Provider
 

@@ -1,6 +1,8 @@
 """Unit tests for the isolated Codex app-server adapter."""
 
+import asyncio
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -28,6 +30,22 @@ def test_messages_to_codex_input_preserves_existing_roles():
     assert "<system>\nReturn JSON.\n</system>" in text
     assert "<user>\nExtract commands.\n</user>" in text
     assert "Do not call tools" in text
+
+
+def test_messages_to_codex_input_skips_empty_content_and_carries_token_budget():
+    payload = messages_to_codex_input(
+        [
+            {"role": "user", "content": ""},
+            {"role": "user", "content": None},
+            {"role": "user", "content": "Extract commands."},
+        ],
+        max_tokens=500,
+    )
+
+    text = payload[0]["text"]
+    assert text.count("<user>") == 1
+    assert "Extract commands." in text
+    assert "500" in text
 
 
 def test_normalize_completed_turn_returns_workflow_shape():
@@ -109,3 +127,75 @@ async def test_complete_starts_an_ephemeral_read_only_thread():
             "ephemeral": True,
         },
     )
+
+
+@pytest.mark.asyncio
+async def test_read_completed_turn_uses_pending_agent_message():
+    """An agentMessage notification already buffered wins over turn items."""
+    client = CodexAppServerClient(timeout=15.0)
+    client._pending_notifications = [
+        {"method": "item/completed", "params": {"item": {"type": "agentMessage", "text": "from pending item"}}},
+    ]
+    client._read_message = AsyncMock(
+        return_value={"method": "turn/completed", "params": {"turn": {"status": "completed", "items": []}}}
+    )
+
+    result = await client._read_completed_turn("gpt-5.6-luna")
+
+    assert result["choices"][0]["message"]["content"] == "from pending item"
+    client._read_message.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_read_completed_turn_falls_back_to_turn_items():
+    """Without a buffered agentMessage, extract it from the completed turn's items."""
+    client = CodexAppServerClient(timeout=15.0)
+    client._pending_notifications = []
+    client._read_message = AsyncMock(
+        return_value={
+            "method": "turn/completed",
+            "params": {"turn": {"status": "completed", "items": [{"type": "agentMessage", "text": "from turn items"}]}},
+        }
+    )
+
+    result = await client._read_completed_turn("gpt-5.6-luna")
+
+    assert result["choices"][0]["message"]["content"] == "from turn items"
+
+
+@pytest.mark.asyncio
+async def test_read_completed_turn_rejects_missing_agent_text():
+    client = CodexAppServerClient(timeout=15.0)
+    client._pending_notifications = []
+    client._read_message = AsyncMock(
+        return_value={"method": "turn/completed", "params": {"turn": {"status": "completed", "items": []}}}
+    )
+
+    with pytest.raises(CodexAppServerError, match="without an agent message"):
+        await client._read_completed_turn("gpt-5.6-luna")
+
+
+@pytest.mark.asyncio
+async def test_read_message_rejects_invalid_json_line():
+    client = CodexAppServerClient(timeout=15.0)
+    stdout = asyncio.StreamReader()
+    stdout.feed_data(b"this is not json\n")
+    stdout.feed_eof()
+    client.process = SimpleNamespace(stdout=stdout, stderr=None, returncode=None)
+
+    with pytest.raises(CodexAppServerError, match="invalid JSON-RPC output"):
+        await client._read_message()
+
+
+@pytest.mark.asyncio
+async def test_read_message_reports_stderr_when_process_exits():
+    client = CodexAppServerClient(timeout=15.0)
+    stdout = asyncio.StreamReader()
+    stdout.feed_eof()
+    stderr = asyncio.StreamReader()
+    stderr.feed_data(b"codex: login required\n")
+    stderr.feed_eof()
+    client.process = SimpleNamespace(stdout=stdout, stderr=stderr, returncode=None)
+
+    with pytest.raises(CodexAppServerError, match="login required"):
+        await client._read_message()

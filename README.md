@@ -22,7 +22,7 @@ Aggregates cybersecurity threat intelligence from RSS feeds and web scraping; us
 - **LangGraph**: Orchestrates the 7-step agentic workflow as a linear pipeline with conditional early-exit gates (state machine, checkpointing)
 - **Database-backed workflows**: Articles, workflow executions, Sigma rules, presets, settings, evals, and supporting metadata
 - **Source healing**: operator-invoked Claude Code skill diagnoses failing sources (RSS inspection, sitemap discovery, JS-rendering detection, WP JSON API probing) and proposes a config fix for approval — never auto-applies, never runs on a schedule
-- **Multi-model AI**: OpenAI and Anthropic, with LM Studio available as an optional local LLM provider
+- **Multi-model AI**: OpenAI and Anthropic, an optional local LM Studio provider, and an optional subscription-backed Codex provider for workflows
 
 ## Agentic Workflow
 

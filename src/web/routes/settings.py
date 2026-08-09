@@ -41,11 +41,7 @@ async def test_codex_subscription():
         }
 
     account = result.get("account") if isinstance(result.get("account"), dict) else result
-    auth_mode = (
-        account.get("type") or account.get("authMode")
-        if isinstance(account, dict)
-        else None
-    )
+    auth_mode = account.get("type") or account.get("authMode") if isinstance(account, dict) else None
     plan_type = account.get("planType") if isinstance(account, dict) else None
     if auth_mode != "chatgpt":
         return {

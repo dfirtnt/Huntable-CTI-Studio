@@ -9,6 +9,9 @@ Removed as dead code (no callers in templates, JS, tests, or docs) per the
 - GET  /api/test-route
 - GET  /analytics/hunt-metrics-demo (+ hunt_metrics_demo.html template)
 
+Also removed 2026-08-08 (LM Studio is not an embedding backend):
+- GET  /api/lmstudio-embedding-models
+
 The surviving /api/eval/* endpoints (history, agent-metrics, trends,
 os-detection-manual-results, observables-count-results, rank-agent-benchmarks)
 have live template callers in evaluations.html / agent_evaluation.html and
@@ -46,6 +49,11 @@ class TestRemovedDeadEndpoints:
         paths = _route_paths()
         assert "/api/test-route" not in paths
         assert "/analytics/hunt-metrics-demo" not in paths
+
+    def test_removed_lmstudio_embedding_models_endpoint_is_gone(self):
+        """Regression guard: 2026-08-08 dead-code removal (LM Studio is not an embedding backend)."""
+        paths = _route_paths()
+        assert "/api/lmstudio-embedding-models" not in paths
 
     def test_surviving_eval_endpoints_remain(self):
         """Live /api/eval/* endpoints with template callers must stay."""

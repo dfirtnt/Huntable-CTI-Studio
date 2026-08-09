@@ -69,7 +69,7 @@ All seven extract sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtrac
 
 ## QA
 
-The QA agent subsystem was fully removed in v7.1.0 (2026-05-22). There are no QA agents in the pipeline. All seven extraction sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract, NetworkIndicatorExtract) and the RankAgent output go directly to the next pipeline stage.
+The QA agent subsystem was fully removed in v7.2.0 (2026-05-22; released 2026-05-29). There are no QA agents in the pipeline. All seven extraction sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract, NetworkIndicatorExtract) and the RankAgent output go directly to the next pipeline stage.
 
 ## Versioning and rollback
 
