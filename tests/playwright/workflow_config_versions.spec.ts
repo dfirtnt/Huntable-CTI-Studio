@@ -99,6 +99,38 @@ test.describe('Workflow config Restore by version', () => {
     expect(hasVersions || hasEmpty).toBe(true);
   });
 
+  test('Expand shows version config details and Collapse hides them', async ({ page }) => {
+    const responsePromise = page.waitForResponse(
+      (r) => r.url().includes('/api/workflow/config/versions') && r.request().method() === 'GET',
+      { timeout: 10000 }
+    );
+    await openVersionsModal(page);
+    await responsePromise;
+    await page.waitForSelector('#configVersionListModal', { state: 'visible', timeout: 5000 });
+
+    const expandBtn = page.locator('#configVersionList button:has-text("Expand")').first();
+    const expandVisible = await expandBtn.isVisible({ timeout: 3000 }).catch(() => false);
+    if (!expandVisible) {
+      test.skip();
+      return;
+    }
+
+    await expandBtn.click();
+    await page.waitForResponse(
+      (r) => r.url().match(/\/api\/workflow\/config\/version\/\d+/) && r.request().method() === 'GET',
+      { timeout: 10000 }
+    );
+    await expect(page.locator('#configVersionList button:has-text("Collapse")').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#configVersionList strong:has-text("Ranking Threshold")').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#configVersionList strong:has-text("Junk Filter Threshold")').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#configVersionList strong:has-text("Similarity Threshold")').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#configVersionList strong:has-text("Selected Models")').first()).toBeVisible({ timeout: 5000 });
+
+    await page.locator('#configVersionList button:has-text("Collapse")').first().click();
+    await expect(page.locator('#configVersionList strong:has-text("Ranking Threshold")')).toHaveCount(0, { timeout: 5000 });
+    await expect(page.locator('#configVersionList button:has-text("Expand")').first()).toBeVisible({ timeout: 5000 });
+  });
+
   test('Load version populates form and closes modal', async ({ page }) => {
     const responsePromise = page.waitForResponse(
       (r) => r.url().includes('/api/workflow/config/versions') && r.request().method() === 'GET',

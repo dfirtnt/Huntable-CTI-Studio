@@ -5272,9 +5272,11 @@ async function refreshConfigVersionList() {
                             <div class="text-xs text-gray-500 dark:text-gray-400">Updated: ${updatedStr}</div>
                         </div>
                         <div class="flex space-x-2 ml-4">
+                            <button type="button" onclick="toggleConfigVersionDetails(${v.id}, this)" aria-expanded="false" aria-controls="configVersionDetails-${v.id}" class="px-3 py-1 text-xs border border-gray-600 text-gray-300 hover:text-white rounded-md">Expand</button>
                             <button type="button" onclick="loadConfigByVersion(${v.version})" class="px-3 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-md">Load</button>
                         </div>
                     </div>
+                    <div id="configVersionDetails-${v.id}" role="region" class="hidden mt-3 pt-3 border-t border-gray-300 dark:border-gray-600" data-version="${v.version}" data-updated-at="${v.updated_at}"></div>
                 `;
                 listEl.appendChild(item);
             });
@@ -5294,6 +5296,66 @@ async function refreshConfigVersionList() {
         showNotification('Error loading versions: ' + errorMessage, 'error');
         listEl.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-4">Failed to load versions.</p>';
     }
+}
+
+async function toggleConfigVersionDetails(rowId, btn) {
+    const container = document.getElementById(`configVersionDetails-${rowId}`);
+    if (!container) return;
+    if (!container.classList.contains('hidden')) {
+        container.classList.add('hidden');
+        container.innerHTML = '';
+        delete container.dataset.loaded;
+        btn.textContent = 'Expand';
+        btn.setAttribute('aria-expanded', 'false');
+        return;
+    }
+    btn.setAttribute('aria-expanded', 'true');
+    if (!container.dataset.loaded) {
+        btn.textContent = 'Loading…';
+        btn.disabled = true;
+        try {
+            const version = container.dataset.version;
+            const response = await fetch(`/api/workflow/config/version/${version}`);
+            let data;
+            try {
+                data = await response.json();
+            } catch (jsonError) {
+                throw new Error(`Server error (${response.status}): ${response.statusText || 'Failed to load config'}`);
+            }
+            if (!response.ok) {
+                throw new Error(extractErrorMessage(data, `Failed to load config v${version} (${response.status})`));
+            }
+            const thresholds = data.thresholds || {};
+            const agentPrompts = data.agent_prompts || {};
+            if (data.extract_agent_settings && Array.isArray(data.extract_agent_settings.disabled_agents)) {
+                agentPrompts.ExtractAgentSettings = agentPrompts.ExtractAgentSettings || {};
+                agentPrompts.ExtractAgentSettings.disabled_agents = data.extract_agent_settings.disabled_agents;
+            }
+            const merged = {
+                version,
+                ranking_threshold: thresholds.ranking_threshold ?? 'N/A',
+                junk_filter_threshold: thresholds.junk_filter_threshold ?? 'N/A',
+                similarity_threshold: thresholds.similarity_threshold ?? 'N/A',
+                updated_at: container.dataset.updatedAt,
+                rank_agent_enabled: data.rank_agent_enabled,
+                cmdline_attention_preprocessor_enabled: data.cmdline_attention_preprocessor_enabled,
+                proc_tree_attention_preprocessor_enabled: data.proc_tree_attention_preprocessor_enabled,
+                agent_models: data.agent_models || {},
+                agent_prompts: agentPrompts,
+            };
+            renderWorkflowConfigDisplay(merged, { containerId: container.id, showVersion: false });
+            container.dataset.loaded = '1';
+        } catch (error) {
+            console.error('Error loading config version details:', error);
+            const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
+            showNotification('Error loading config details: ' + errorMessage, 'error');
+            container.innerHTML = `<p class="text-xs text-red-500">Failed to load details: ${escapeHtml(errorMessage)}</p>`;
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Collapse';
+        }
+    }
+    container.classList.remove('hidden');
 }
 
 function searchConfigVersions() {
