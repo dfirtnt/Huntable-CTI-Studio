@@ -300,16 +300,9 @@ ORDER BY SIMILARITY(a1.title, a2.title) DESC;
 
 ### Additional Tables
 
-#### `simhash_buckets`
-- Stores simhash buckets for similarity detection
-- Links to articles via `article_id`
-
 #### `source_checks`
 - Tracks source health checks
 - Links to sources via `source_id`
-
-#### `url_tracking`
-- Tracks URLs for monitoring purposes
 
 ### Useful Views
 

@@ -71,7 +71,6 @@ Comprehensive guide for Huntable CTI Studio backup and restore operations, inclu
   - **agentic_workflow_config**: Agent workflow configuration (thresholds, agent models, prompts)
   - **agent_prompt_versions**: Agent prompt version history
   - **app_settings**: Application settings (user preferences, API keys, LLM configurations)
-  - **agent_evaluations**: Agent evaluation results and performance metrics
   - **sources**: Source configurations (enabled/disabled status, lookback_days, check_frequency, RSS URLs, config JSON)
   - **source_checks**: Source check history and health metrics
   - All other application tables
