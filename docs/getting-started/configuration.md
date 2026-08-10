@@ -150,6 +150,7 @@ Quickstart presets (v2 format, always committed to the repo) are in `config/pres
 | `Quickstart-openai-gpt-4o.json` | OpenAI | gpt-4o | You have `OPENAI_API_KEY` and want gpt-4o. |
 | `Quickstart-openai-gpt-4o-mini.json` | OpenAI | gpt-4o-mini | You have `OPENAI_API_KEY` and want the gpt-4o-mini variant. |
 | `Quickstart-openai-gpt-5.json` | OpenAI | gpt-5 | You have `OPENAI_API_KEY` and want gpt-5. |
+| `Quickstart-codex-gpt-5.6-sol.json` | Codex | gpt-5.6-sol | You have a connected Codex subscription and want gpt-5.6-sol for all agents. |
 | `Quickstart-LMStudio-Qwen3.json` | LM Studio | Qwen 3 (local) | You run LM Studio with a Qwen3-compatible model. |
 | `Quickstart-LMStudio-Gemma4B.json` | LM Studio | Gemma 4B (local) | You run LM Studio with a Gemma 4B-compatible model. |
 
