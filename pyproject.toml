@@ -54,10 +54,10 @@ dependencies = [
     "python-multipart==0.0.32",
     "cryptography==50.0.0",
     # PDF processing
-    "pypdf==6.14.2", # CVE-2026-54530/54531 + GHSA-jm82-fx9c-mx94 fixes
+    "pypdf==6.15.0", # CVE-2026-54530/54531 + GHSA-jm82-fx9c-mx94 + CVE-2026-71852/71870 fixes
     # SIGMA rule validation
     "pysigma==1.3.3",
-    "GitPython==3.1.57",
+    "GitPython==3.1.58", # 5 GHSA advisories fixed in 3.1.58; still zero import sites (flagged for removal)
     # AI/ML
     # torch 2.13.0: bumped from 2.12.1 solely to relax its transitive `setuptools<82` floor
     # (2.13.0 requires setuptools>=77.0.3, no ceiling) so the PYSEC-2026-3447 setuptools fix
@@ -86,7 +86,7 @@ dependencies = [
     "langsmith==0.8.18", # CVE-2026-45134 + GHSA-f4xh-w4cj-qxq8 fixes; exact pin mirrors requirements.txt
     "Mako==1.3.12", # path traversal + CVE-2026-44307 fixes
     "idna==3.16", # CVE-2026-45409 fix; exact pin closes supply-chain window on uv lock re-runs
-    "pymdown-extensions==11.0.0", # CVE-2026-46338 fix; exact pin closes supply-chain window on uv lock re-runs
+    "pymdown-extensions==11.0.1", # CVE-2026-46338 + CVE-2026-67422 fixes; exact pin closes supply-chain window on uv lock re-runs
     "PyJWT==2.13.0", # CVE PYSEC-2026-175/177/178/179; transitive via mcp[cli] (sole parent), exact pin per single-parent convention
     "setuptools>=83.0.0", # PYSEC-2026-3447 fix; >= since spacy/thinc/torch all depend on it (multi-parent, no single floor to == pin)
     # Documentation
