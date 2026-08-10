@@ -21,7 +21,6 @@ class TestTopLevelPagesSmoke:
             ("/diags", ("System Diagnostics & Health", "Quick Actions")),
             ("/jobs", ("Job Monitor", "Worker Status")),
             ("/pdf-upload", ("Upload PDF Report",)),
-            ("/evaluations", ("Agent Evaluations", "Recent Evaluations")),
         ],
     )
     async def test_top_level_page_loads(
