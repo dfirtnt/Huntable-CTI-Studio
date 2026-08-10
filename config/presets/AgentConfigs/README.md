@@ -18,6 +18,8 @@ Pre-exported presets (v2 format) are tracked in git under `quickstart/`. Use **I
 | `Quickstart-openai-gpt-4o-mini.json` | OpenAI | gpt-4o-mini |
 | `Quickstart-openai-gpt-5.json` | OpenAI | gpt-5 |
 | `Quickstart-codex-gpt-5.6-sol.json` | Codex | gpt-5.6-sol |
+| `Quickstart-codex-gpt-5.6-terra.json` | Codex | gpt-5.6-terra |
+| `Quickstart-codex-gpt-5.6-luna.json` | Codex | gpt-5.6-luna |
 
 **Load in the UI**: Workflow page -> **Import from file** -> choose a JSON from `quickstart/`.
 
