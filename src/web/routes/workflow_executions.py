@@ -4,14 +4,13 @@ API routes for agentic workflow execution monitoring.
 
 import asyncio
 import contextlib
-import io
 import json
 import logging
 from datetime import datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, case, func, or_
 from sqlalchemy.orm import Session, defer, joinedload
@@ -644,8 +643,12 @@ def export_workflow_execution_trace_bundle(
             payload = json.dumps(bundle, indent=2, ensure_ascii=False).encode("utf-8")
             suffix = "_slim" if slim else ""
             filename = f"workflow_execution_trace_{execution_id}{suffix}.json"
-            return StreamingResponse(
-                io.BytesIO(payload),
+            # This is an already-materialized JSON document.  Streaming a
+            # BytesIO makes Starlette advance one pretty-printed line at a
+            # time through the threadpool, which can leave browser downloads
+            # spinning for minutes on larger trace bundles.
+            return Response(
+                content=payload,
                 media_type="application/json",
                 headers={"Content-Disposition": f"attachment; filename={filename}"},
             )
