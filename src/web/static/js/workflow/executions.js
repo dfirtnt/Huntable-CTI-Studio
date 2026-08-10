@@ -1272,7 +1272,7 @@ async function viewExecution(executionId) {
                 <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: var(--text-emphasis) !important;">View Queued Rules</summary>
                 <div class="mt-2 w-full max-h-48 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs">
                     <div class="text-gray-700 dark:text-gray-300 mb-2">
-                        <span class="font-semibold text-purple-600 dark:text-purple-400 cursor-pointer hover:underline" onclick="navigateToQueuedRules(${exec.id}, ${JSON.stringify(queuedRuleIds)})">${queuedCount} rule(s) queued for review</span>
+                        <a href="?jobId=${exec.id}#queue" class="font-semibold text-purple-600 dark:text-purple-400 cursor-pointer hover:underline hover:text-purple-700 dark:hover:text-purple-300 transition-colors">${queuedCount} rule(s) queued for review</a>
                     </div>
                     ${queuedRuleIds.length > 0 ? `
                         <div class="space-y-1 mt-2">
