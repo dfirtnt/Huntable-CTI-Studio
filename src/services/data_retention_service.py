@@ -31,14 +31,12 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from src.database.models import (
-    AgentEvaluationTable,
     AgenticWorkflowExecutionTable,
     AppSettingsTable,
     SigmaEvaluationTable,
     SigmaRuleQueueTable,
     SourceCheckTable,
     SubagentEvaluationTable,
-    URLTrackingTable,
 )
 
 logger = logging.getLogger(__name__)
@@ -53,12 +51,11 @@ TERMINAL_STATUSES = ("completed", "failed")
 
 # Tables holding a `workflow_execution_id` FK. An execution referenced by any of
 # them is retained regardless of age: `sigma_rule_queue` cascades on delete, and the
-# three evaluation tables would be orphaned.
+# two evaluation tables would be orphaned.
 _EXECUTION_REFERENCE_TABLES = (
     SigmaRuleQueueTable,
     SubagentEvaluationTable,
     SigmaEvaluationTable,
-    AgentEvaluationTable,
 )
 
 STALE_EXECUTION_SETTING_KEY = "RETENTION_STALE_EXECUTION_HOURS"
@@ -90,17 +87,6 @@ RETENTION_POLICIES: tuple[RetentionPolicy, ...] = (
             "total blackout on 2026-07-19. Two quarters of history keeps incident "
             "forensics possible for an outage nobody has had yet; at the observed "
             "~500 checks/day that is roughly 90k rows."
-        ),
-    ),
-    RetentionPolicy(
-        key="url_tracking",
-        label="HTTP Conditional-Request Cache",
-        setting_key="RETENTION_DAYS_URL_TRACKING",
-        default_days=90,
-        rationale=(
-            "ETag/Last-Modified cache entries. An entry not revalidated in a quarter "
-            "describes a URL the fetcher no longer polls, so it can only produce a "
-            "stale conditional request."
         ),
     ),
     RetentionPolicy(
@@ -228,9 +214,6 @@ def _purge_workflow_executions(session: Session, cutoff: datetime, dry_run: bool
 _PURGE_HANDLERS: dict[str, Callable[[Session, datetime, bool], int]] = {
     "source_checks": lambda session, cutoff, dry_run: _purge_by_age(
         session, SourceCheckTable, SourceCheckTable.check_time, cutoff, dry_run
-    ),
-    "url_tracking": lambda session, cutoff, dry_run: _purge_by_age(
-        session, URLTrackingTable, URLTrackingTable.last_checked, cutoff, dry_run
     ),
     "workflow_executions": _purge_workflow_executions,
 }

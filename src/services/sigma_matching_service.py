@@ -28,13 +28,12 @@ deduplication pipeline uses cosine similarity.  It does not.
 
 import json
 import logging
-from datetime import datetime
 from typing import Any
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
-from src.database.models import ArticleSigmaMatchTable, ArticleTable, ChunkAnalysisResultTable, SigmaRuleTable
+from src.database.models import ArticleTable, ChunkAnalysisResultTable
 from src.services.embedding_service import EmbeddingService
 from src.services.similarity_serialization import alias_engine_label
 
@@ -334,141 +333,6 @@ class SigmaMatchingService:
 
         except Exception as e:
             logger.error(f"Error matching chunks for article {article_id}: {e}")
-            return []
-
-    def store_match(
-        self,
-        article_id: int,
-        sigma_rule_id: int,
-        similarity_score: float,
-        match_level: str,
-        chunk_id: int | None = None,
-        coverage_status: str = "new",
-        coverage_confidence: float | None = None,
-        coverage_reasoning: str | None = None,
-        matched_discriminators: list[str] = None,
-        matched_lolbas: list[str] = None,
-        matched_intelligence: list[str] = None,
-    ) -> ArticleSigmaMatchTable | None:
-        """
-        Store a match between an article and a Sigma rule.
-
-        Args:
-            article_id: Article ID
-            sigma_rule_id: Sigma rule ID
-            similarity_score: Similarity score (0-1)
-            match_level: 'article' or 'chunk'
-            chunk_id: Chunk ID if chunk-level match
-            coverage_status: 'covered', 'extend', or 'new'
-            coverage_confidence: Confidence score for coverage
-            coverage_reasoning: Explanation of coverage classification
-            matched_discriminators: List of matched discriminators
-            matched_lolbas: List of matched LOLBAS
-            matched_intelligence: List of matched intelligence indicators
-
-        Returns:
-            Created or updated match record
-        """
-        try:
-            # Check if match already exists
-            existing_match = (
-                self.db.query(ArticleSigmaMatchTable)
-                .filter_by(
-                    article_id=article_id, sigma_rule_id=sigma_rule_id, match_level=match_level, chunk_id=chunk_id
-                )
-                .first()
-            )
-
-            if existing_match:
-                # Update existing match
-                existing_match.similarity_score = similarity_score
-                existing_match.coverage_status = coverage_status
-                existing_match.coverage_confidence = coverage_confidence
-                existing_match.coverage_reasoning = coverage_reasoning
-                existing_match.matched_discriminators = matched_discriminators or []
-                existing_match.matched_lolbas = matched_lolbas or []
-                existing_match.matched_intelligence = matched_intelligence or []
-                existing_match.updated_at = datetime.now()
-                self.db.commit()
-                return existing_match
-            # Create new match
-            new_match = ArticleSigmaMatchTable(
-                article_id=article_id,
-                sigma_rule_id=sigma_rule_id,
-                similarity_score=similarity_score,
-                match_level=match_level,
-                chunk_id=chunk_id,
-                coverage_status=coverage_status,
-                coverage_confidence=coverage_confidence,
-                coverage_reasoning=coverage_reasoning,
-                matched_discriminators=matched_discriminators or [],
-                matched_lolbas=matched_lolbas or [],
-                matched_intelligence=matched_intelligence or [],
-            )
-            self.db.add(new_match)
-            self.db.commit()
-            return new_match
-
-        except Exception as e:
-            logger.error(f"Error storing match: {e}")
-            self.db.rollback()
-            return None
-
-    def get_article_matches(self, article_id: int, match_level: str | None = None) -> list[dict[str, Any]]:
-        """
-        Get all Sigma rule matches for an article.
-
-        Args:
-            article_id: Article ID
-            match_level: Optional filter by match level ('article' or 'chunk')
-
-        Returns:
-            List of matches with rule details
-        """
-        try:
-            query = (
-                self.db.query(ArticleSigmaMatchTable, SigmaRuleTable)
-                .join(SigmaRuleTable, ArticleSigmaMatchTable.sigma_rule_id == SigmaRuleTable.id)
-                .filter(ArticleSigmaMatchTable.article_id == article_id)
-            )
-
-            if match_level:
-                query = query.filter(ArticleSigmaMatchTable.match_level == match_level)
-
-            query = query.order_by(ArticleSigmaMatchTable.similarity_score.desc())
-
-            results = query.all()
-
-            matches = []
-            for match, rule in results:
-                matches.append(
-                    {
-                        "match_id": match.id,
-                        "rule_id": rule.rule_id,
-                        "title": rule.title,
-                        "description": rule.description,
-                        "logsource": rule.logsource,
-                        "tags": rule.tags,
-                        "level": rule.level,
-                        "status": rule.status,
-                        "file_path": rule.file_path,
-                        "similarity_score": match.similarity_score,
-                        "match_level": match.match_level,
-                        "chunk_id": match.chunk_id,
-                        "coverage_status": match.coverage_status,
-                        "coverage_confidence": match.coverage_confidence,
-                        "coverage_reasoning": match.coverage_reasoning,
-                        "matched_discriminators": match.matched_discriminators,
-                        "matched_lolbas": match.matched_lolbas,
-                        "matched_intelligence": match.matched_intelligence,
-                        "created_at": match.created_at.isoformat() if match.created_at else None,
-                    }
-                )
-
-            return matches
-
-        except Exception as e:
-            logger.error(f"Error getting matches for article {article_id}: {e}")
             return []
 
     def assess_rule_novelty(self, proposed_rule: dict[str, Any], threshold: float = 0.0) -> dict[str, Any]:

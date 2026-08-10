@@ -1126,12 +1126,6 @@ class AsyncDatabaseManager:
                     {"article_id": article_id},
                 )
 
-                # Delete from simhash_buckets table
-                await session.execute(
-                    text("DELETE FROM simhash_buckets WHERE article_id = :article_id"),
-                    {"article_id": article_id},
-                )
-
                 # Delete ALL articles with this ID (handles duplicates)
                 await session.execute(
                     text("DELETE FROM articles WHERE id = :article_id"),

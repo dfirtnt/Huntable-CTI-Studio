@@ -24,7 +24,6 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.database.models import (  # noqa: E402
-    AgentEvaluationTable,
     AgenticWorkflowConfigTable,
     AgenticWorkflowExecutionTable,
     AppSettingsTable,
@@ -35,7 +34,6 @@ from src.database.models import (  # noqa: E402
     SourceCheckTable,
     SourceTable,
     SubagentEvaluationTable,
-    URLTrackingTable,
 )
 from src.services.data_retention_service import (  # noqa: E402
     DEFAULT_STALE_EXECUTION_HOURS,
@@ -64,9 +62,7 @@ _TABLES = (
     SigmaRuleQueueTable,
     SubagentEvaluationTable,
     SigmaEvaluationTable,
-    AgentEvaluationTable,
     SourceCheckTable,
-    URLTrackingTable,
     AppSettingsTable,
 )
 
@@ -186,7 +182,6 @@ class TestExecutionPurgeGuards:
         [
             (SubagentEvaluationTable, "article_url"),
             (SigmaEvaluationTable, "article_url"),
-            (AgentEvaluationTable, "agent_name"),
         ],
     )
     def test_evaluation_referenced_execution_is_never_purged(self, session, model, column):
@@ -197,8 +192,6 @@ class TestExecutionPurgeGuards:
             kwargs.update({"subagent_name": "cmdline", "expected_count": 1})
         if model is SigmaEvaluationTable:
             kwargs.update({"expected_rule_count": 1})
-        if model is AgentEvaluationTable:
-            kwargs.update({"evaluation_type": "baseline", "total_articles": 1, "metrics": {}})
         session.add(model(**kwargs))
         session.flush()
 
@@ -280,7 +273,7 @@ class TestRetentionWindows:
 
 
 class TestRunRetention:
-    def test_purges_source_checks_and_url_tracking_by_age(self, session):
+    def test_purges_source_checks_by_age(self, session):
         source = SourceTable(identifier="s", name="S", url="http://s.test")
         session.add(source)
         session.flush()
@@ -297,22 +290,14 @@ class TestRunRetention:
                 for age in (400, 200, 10)
             ]
         )
-        session.add_all(
-            [
-                URLTrackingTable(url=f"http://s.test/{age}", last_checked=NOW - timedelta(days=age))
-                for age in (400, 200, 10)
-            ]
-        )
         session.flush()
 
         result = run_retention(session, now=NOW)
 
-        # source_checks keeps 180 days; url_tracking keeps 90.
+        # source_checks keeps 180 days.
         # Ages 400 and 200 both exceed the 180-day window, so two checks are purged.
         assert result.deleted["source_checks"] == 2
-        assert result.deleted["url_tracking"] == 2
         assert session.query(SourceCheckTable).count() == 1
-        assert session.query(URLTrackingTable).count() == 1
 
     def test_dry_run_reports_counts_and_deletes_nothing(self, session):
         article_id = _seed_article(session)

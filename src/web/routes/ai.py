@@ -1720,20 +1720,6 @@ async def api_generate_sigma(article_id: int, request: Request):
                     if rule:
                         classification = coverage_service.classify_match(article_id, rule, match["similarity"])
 
-                        # Store match in database
-                        matching_service.store_match(
-                            article_id=article_id,
-                            sigma_rule_id=rule.id,
-                            similarity_score=match["similarity"],
-                            match_level="article",
-                            coverage_status=classification["coverage_status"],
-                            coverage_confidence=classification["coverage_confidence"],
-                            coverage_reasoning=classification["coverage_reasoning"],
-                            matched_discriminators=classification["matched_discriminators"],
-                            matched_lolbas=classification["matched_lolbas"],
-                            matched_intelligence=classification["matched_intelligence"],
-                        )
-
                         matched_rules.append(
                             {
                                 "rule_id": match["rule_id"],
