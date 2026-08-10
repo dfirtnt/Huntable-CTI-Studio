@@ -373,5 +373,3 @@ def api_observables_count_results():
 
         traceback.print_exc()
         return {"success": False, "error": "Internal server error", "results": [], "model_summaries": {}}
-
-
