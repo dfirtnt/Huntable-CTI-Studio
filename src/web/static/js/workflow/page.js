@@ -1211,20 +1211,6 @@ function showHelp(fieldName) {
 // showSimilarRuleDetails / closeSimilarRuleModal moved to shared component:
 // /static/js/components/similar-rule-modal.js
 
-// Navigate to queued rules
-function navigateToQueuedRules(executionId, ruleIds) {
-    if (ruleIds && ruleIds.length > 0) {
-        // Store rule IDs in sessionStorage for the queue page to highlight
-        sessionStorage.setItem('highlightQueuedRules', JSON.stringify(ruleIds));
-        sessionStorage.setItem('highlightExecutionId', executionId.toString());
-        // Navigate to queue page
-        window.location.href = '/workflow#queue';
-    } else {
-        // Fallback to queue page
-        window.location.href = '/workflow#queue';
-    }
-}
-
 // Highlight a specific queued rule (called from link click)
 function highlightQueuedRule(ruleId) {
     // Navigate to queue page with previewId parameter to auto-open preview modal

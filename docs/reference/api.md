@@ -140,7 +140,7 @@ Route module: `src/web/routes/models.py`. Version data is stored in the `ml_mode
 ### Sigma Queue And Evaluation
 
 - `GET /workflow/queue` — HTML page for the Sigma queue console (redirects to `/workflow#queue`; uses `/api/sigma-queue/*` for data).
-- `GET /api/sigma-queue/list` — List queued Sigma rules with pagination. Query params: `status` (optional, values: `pending`, `needs_review`, `approved`, `rejected`, `submitted`), `limit` (default 50, max 500), `offset` (default 0). Response: `{ "items": [...], "total": N, "limit": L, "offset": O }`.
+- `GET /api/sigma-queue/list` — List queued Sigma rules with pagination. Query params: `status` (optional, values: `pending`, `needs_review`, `approved`, `rejected`, `submitted`), `workflow_execution_id` (optional, filter to one workflow job's rules), `limit` (default 50, max 500), `offset` (default 0). Response: `{ "items": [...], "total": N, "limit": L, "offset": O }`.
 - `POST /api/sigma-queue/{queue_id}/validate` — Validate and optionally LLM-enrich a queued rule. Returns `{ "validated_yaml": ... }`.
 - `GET /api/sigma-queue/*` (other endpoints)
 - `GET /api/eval/*` — Evaluation history, agent metrics, trends, OS-detection manual results, observables-count results, and RankAgent benchmarks (route module: `src/web/routes/evaluation.py`)

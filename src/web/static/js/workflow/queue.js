@@ -173,6 +173,20 @@ async function loadQueue() {
         const offset = (queuePage - 1) * queueLimit;
         const params = new URLSearchParams({ limit: String(queueLimit), offset: String(offset) });
         if (statusFilter) params.set('status', statusFilter);
+
+        // Deep-link job filter: ?jobId=<workflow execution id> narrows the queue
+        // to only the rules produced by that job (e.g. from the executions tab's
+        // "N rule(s) queued for review" link).
+        const jobIdRaw = getURLParameter('jobId');
+        let jobId = null;
+        if (jobIdRaw && /^\d+$/.test(jobIdRaw)) {
+            jobId = parseInt(jobIdRaw, 10);
+            params.set('workflow_execution_id', String(jobId));
+        } else if (jobIdRaw) {
+            // Non-numeric jobId is not a valid job reference; drop it.
+            removeURLParameter('jobId');
+        }
+        updateQueueJobFilterBar(jobId);
         const url = `/api/sigma-queue/list?${params.toString()}`;
 
         const response = await fetch(url);
@@ -365,6 +379,29 @@ function goToQueuePage(pageNum) {
     const totalPages = Math.max(1, Math.ceil(queueTotal / queueLimit));
     if (pageNum < 1 || pageNum > totalPages) return;
     queuePage = pageNum;
+    loadQueue();
+}
+
+// Show/hide the "viewing a single job" banner on the queue page. Called from
+// loadQueue() so every reload (tab switch, refresh, pagination, status filter,
+// auto-refresh) reflects the current ?jobId= param.
+function updateQueueJobFilterBar(jobId) {
+    const bar = document.getElementById('queueJobFilterBar');
+    if (!bar) return;
+    if (jobId === null) {
+        bar.classList.add('hidden');
+        return;
+    }
+    const idEl = document.getElementById('queueJobFilterId');
+    if (idEl) idEl.textContent = String(jobId);
+    bar.classList.remove('hidden');
+}
+
+// Clear the ?jobId= deep-link filter and reload the full queue.
+function clearQueueJobFilter() {
+    removeURLParameter('jobId');
+    queuePage = 1;
+    updateQueueJobFilterBar(null);
     loadQueue();
 }
 

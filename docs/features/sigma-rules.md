@@ -535,7 +535,8 @@ In the **Sigma Queue** UI, `needs_review` rows show:
 **`GET /api/sigma-queue/list`**
 
 Optional query params: `?status=needs_review` (or `pending`, `approved`,
-`rejected`, `submitted`)
+`rejected`, `submitted`), `?workflow_execution_id=<id>` (narrow to one workflow
+job's rules).
 
 Response includes `status_counts` broken down by status and `behavioral_matches_found` /
 `total_candidates_evaluated` per row.
