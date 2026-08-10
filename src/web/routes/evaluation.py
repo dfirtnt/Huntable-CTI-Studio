@@ -4,7 +4,7 @@ Evaluation history, agent metrics, and benchmark result endpoints.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
 from src.web.dependencies import logger
 
