@@ -199,7 +199,8 @@ class TestValidateRuleEndpoint:
                 return_value=("openai", "gpt-4o-mini", "sk-test"),
             ):
                 yaml_response = (
-                    "title: Test\nlogsource:\n  category: process_creation\n  product: windows\n"
+                    "title: Queue validation test rule\ndescription: A queue validation test rule description\n"
+                    "logsource:\n  category: process_creation\n  product: windows\n"
                     "detection:\n  selection:\n    EventID: 1\n  condition: selection"
                 )
                 with patch(
@@ -207,10 +208,49 @@ class TestValidateRuleEndpoint:
                     new_callable=AsyncMock,
                     return_value=yaml_response,
                 ):
-                    with patch("src.web.routes.sigma_queue.validate_sigma_rule") as mock_validate:
-                        mock_validate.return_value = MagicMock(valid=True, errors=[])
-                        result = await validate_rule(mock_request, queue_id=1)
+                    result = await validate_rule(mock_request, queue_id=1)
 
             assert result.get("success") is True
             assert result.get("validated_yaml") is not None
             assert result.get("attempts", 0) >= 1
+
+    @pytest.mark.asyncio
+    async def test_validate_use_workflow_sigma_agent_retries_pysigma_modifier_error(self):
+        from starlette.requests import Request
+
+        from src.web.routes.sigma_queue import validate_rule
+
+        mock_request = MagicMock(spec=Request)
+        mock_request.json = AsyncMock(return_value={"use_workflow_sigma_agent": True})
+        mock_request.headers = {}
+
+        mock_rule = MagicMock(id=1, article_id=1, rule_yaml="title: Test")
+        mock_article = MagicMock(id=1, content="", title="", canonical_url="")
+        invalid_yaml = (
+            "title: Queue modifier regression rule\ndescription: A queue modifier regression rule description\n"
+            "logsource:\n  category: process_creation\n"
+            "detection:\n  selection:\n    Image|definitelynotreal: cmd.exe\n  condition: selection\nlevel: medium"
+        )
+
+        with patch("src.web.routes.sigma_queue.DatabaseManager") as mock_db:
+            mock_session = MagicMock()
+            mock_db.return_value.get_session.return_value = mock_session
+            mock_session.query.return_value.filter.return_value.first.side_effect = [mock_rule, mock_article]
+            mock_session.close = MagicMock()
+
+            with patch(
+                "src.web.routes.sigma_queue._get_sigma_agent_llm_from_workflow",
+                return_value=("openai", "gpt-4o-mini", "sk-test"),
+            ):
+                with patch(
+                    "src.services.openai_chat_client.openai_chat_completions",
+                    new_callable=AsyncMock,
+                    return_value=invalid_yaml,
+                ) as mock_completion:
+                    result = await validate_rule(mock_request, queue_id=1)
+
+        assert result["success"] is False
+        assert result["attempts"] == 3
+        assert mock_completion.await_count == 3
+        assert len(result["validation_results"]) == 3
+        assert all(item["errors"][0].startswith("pySigma SigmaModifierError:") for item in result["validation_results"])
