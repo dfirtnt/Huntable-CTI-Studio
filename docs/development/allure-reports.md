@@ -11,7 +11,6 @@ allure-pytest>=2.13.0
 ```
 
 ### Configuration
-<!-- AUDIT: Accuracy -- 2026-06-22: --alluredir was removed from the global pyproject addopts (forcing it globally made every ad-hoc pytest run accumulate allure-results/ unbounded, filling the disk). run_tests.py now adds it per run and clears the dir at start. -->
 Allure is **not** wired into the global pytest `addopts`. Instead, `run_tests.py`
 adds `--alluredir=allure-results` itself for each category it runs, and clears the
 directory at the start of every run (`tests_runner.runner._clear_directory_contents`).

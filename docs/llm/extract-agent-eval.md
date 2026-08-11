@@ -2,8 +2,6 @@
 
 ## Overview
 
-<!-- AUDIT: Clarity -- Original had three nested identical "## Evaluation Framework" headings. Collapsed to one. -->
-
 Evaluation framework for measuring Extract Agent performance. The active eval system runs through the Agent Evals UI (`/mlops/agent-evals`). The CLI-based `eval_extract_agent.py` script was removed in v6.2.0; this document covers the UI pathway and the metrics it uses.
 
 ## Purpose
@@ -49,8 +47,6 @@ Extractor subagent evals (cmdline, process_lineage, hunt_queries, etc.) use **st
 
 ## Running Evaluations
 
-<!-- AUDIT: Accuracy -- The CLI eval script (scripts/eval_extract_agent.py) was deleted in v6.2.0. The examples below replace the previous CLI-based workflow. -->
-
 ### UI Eval (Active)
 
 1. Navigate to **MLOps -> Agent Evals** (`/mlops/agent-evals`)
@@ -60,8 +56,6 @@ Extractor subagent evals (cmdline, process_lineage, hunt_queries, etc.) use **st
 5. Review results in the metrics table: JSON validity, field completeness, observable counts
 
 ### Compare Results
-
-<!-- AUDIT: Accuracy -- scripts/compare_evaluations.py was deleted in the May 2026 stale-scripts purge (commit e48b9246) and has no CLI replacement. Use the UI-based version compare instead. -->
 
 Use the **Version Compare** panel in the Agent Evals UI (`/mlops/agent-evals`) to compare two saved eval versions for a subagent. It calls `GET /api/evaluations/subagent-eval-compare?subagent=<name>&version_a=<id>&version_b=<id>`.
 

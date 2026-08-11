@@ -130,20 +130,14 @@ changes, so zero risk to the running pipeline.
   tokens, `modal-manager.js`, `window.showNotification`, inline SVG icons, locked
   font scale) rather than copying the bespoke `eval-*` CSS.
 - Surfaces: a Run panel (fixture article checkboxes + throttle + Run), a results
-  table (count, logsource P/R, atom P/R badges), and a ModalManager detail modal
+  table (count, logsource P/R, atom P/R, and combined-F1 badges), a config-version
+  filter and baseline/candidate comparison panel, and a ModalManager detail modal
   (matched / missed / extra atoms and logsources). Calls
   `/sigma-eval-articles`, `/run-sigma-eval`, `/sigma-eval-results`.
 - Linked from the MLOps landing page (`src/web/templates/mlops.html`, card M-04).
 - New API: `GET /api/evaluations/sigma-eval-articles` (lists fixture articles).
 - Static verification: `tests/unit/test_sigma_evals_page.py` (template compiles,
   route registered, DOM hooks + endpoint calls present, ASCII, ModalManager use).
-
-<!-- TODO: verify and document: since this Phase 3 landed, the UI gained a
-combined-F1 headline metric (harmonic mean of logsource F1 and atom F1) and
-a config-version comparison panel (`configVersionSelect`, `compareVersionA`
-/ `compareVersionB`) not described in this section -- see
-`src/web/templates/sigma_evals.html` and commits `29dc9a61`, `6fbea9b5`,
-`2d3449fe`, `e645b090` (2026-06-17). -->
 
 - A `has_error`-completion reconciliation gap (executions that finished
   `ainvoke()` with an error in state but no raised exception stranded their

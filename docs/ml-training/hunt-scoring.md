@@ -178,8 +178,6 @@ The ML vs Hunt Comparison Dashboard compares RandomForest predictions against th
 
 ## Classification Timeline Data
 
-<!-- AUDIT: Accuracy -- ml_hunt_comparison.html does not render a dedicated "Classification Trends Chart"; verified no canvas or Chart.js instance for these categories exists in the template. The endpoint response is fetched but only used to align x-axis version numbers for the Accuracy Trends Chart below. -->
-
 `GET /api/model/classification-timeline` computes how ML and hunt score predictions align across model versions, tracking four categories:
 
 | Category | Definition |
@@ -252,8 +250,6 @@ After retraining, new feedback is marked "used." Previously used feedback stays 
 ## Performance Visualization
 
 ### Accuracy Trends Chart
-
-<!-- AUDIT: Accuracy -- no separate radar chart exists; ml_hunt_comparison.html has one canvas (`evalAccuracyChart`, a line chart) plotting all four metrics across versions. -->
 
 A single line chart plots Accuracy %, Precision (Huntable) %, Recall (Huntable) %, and F1 (Huntable) % across model versions (v0, v1, v2, ...). Use this to confirm that retraining is improving the model, not degrading it.
 

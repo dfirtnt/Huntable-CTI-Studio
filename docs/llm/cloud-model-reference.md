@@ -89,6 +89,22 @@ Source: platform.openai.com/docs/models (Jan 2025)
 - **Image**: gpt-image-1.5, gpt-image-1
 - **TTS/Transcribe**: gpt-4o-mini-tts, gpt-4o-transcribe
 
+### Codex Subscription Provider (Workflow Only)
+
+Huntable also supports an optional, deployment-managed Codex subscription for
+workflow inference. This is distinct from the OpenAI API and from the
+API-oriented Codex model identifiers above: it uses Codex-managed ChatGPT
+authentication, not an API key.
+
+Set `WORKFLOW_CODEX_ENABLED=true`, authenticate the shared workflow-worker
+state with `docker compose exec workflow_worker codex login`, and select one of
+the models the managed Codex login reports in the workflow configuration UI.
+`WORKFLOW_CODEX_MODEL` supplies the fallback when that model list is
+unavailable. Use `POST /api/settings/codex/test` to test the subscription
+without running a workflow. See [Configuration](../getting-started/configuration.md#optional-codex-subscription-provider)
+for setup and [API Reference](../reference/api.md#workflow-configuration) for
+provider discovery.
+
 ---
 
 ## Cloud Model Versioning: Bare Names vs. Dated Snapshots

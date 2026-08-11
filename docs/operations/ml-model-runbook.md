@@ -45,7 +45,6 @@ After seeding, the MLOps page at **Settings → MLOps** shows version 1 and a gr
 curl -s http://localhost:8001/api/ml-model-performance/summary | python3 -m json.tool
 ```
 
-<!-- AUDIT: Accuracy -- this endpoint has no `model_loaded` or `current_version` field; corrected to the actual response shape. -->
 Expected response includes a `"summary"` object with `"total_model_versions": 1` (or higher) and a non-null `"eval_set_size"`.
 
 ---

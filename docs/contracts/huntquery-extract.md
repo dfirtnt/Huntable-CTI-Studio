@@ -335,13 +335,6 @@ Domain fields (queries array):
 
 Optional fields omitted entirely when absent -- NOT null, NOT empty string.
 
-<!-- TODO: verify: src/prompts/HuntQueriesExtract's role/system text (COUNT SEMANTICS
-section) still names the envelope field `query_count`, while its instructions/json_example
-and src/workflows/agentic_workflow.py `_extract_actual_count()` (comment: "hunt_queries:
-prefer count (current contract)") treat `count` as canonical. This doc follows the
-instructions/code precedent; the seed prompt's role text appears stale and may need a
-prompt-level fix (out of scope for a docs-only change). -->
-
 ### FAIL-SAFE / EMPTY OUTPUT
 
 If no valid artifacts exist, return exactly:

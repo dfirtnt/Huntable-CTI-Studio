@@ -147,8 +147,6 @@ Use `POST /api/test-lmstudio-connection` from the web UI to validate LMStudio co
 
 ## Benchmark Tooling
 
-<!-- AUDIT: Accuracy -- The "Performance Benchmarks" section that previously appeared here (lines 146-463) documented MLX and llama.cpp as active providers with installation instructions and benchmark timing tables. These providers are NOT implemented in src/. Only LM Studio is active. The section has been removed to prevent user confusion. Scripts exist (scripts/benchmark_llm_providers.py, scripts/setup_local_models.sh) for future use once providers are implemented. -->
-
 `scripts/benchmark_llm_providers.py` runs performance tests against active LLM providers. Currently only LM Studio is an active local provider; MLX and llama.cpp are planned but not implemented.
 
 ```bash

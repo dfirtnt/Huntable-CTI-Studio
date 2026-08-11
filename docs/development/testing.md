@@ -2,16 +2,13 @@
 
 ## Test Pyramid
 
-<!-- TODO: verify: these counts look stale -- tests/integration/ currently has
-     dozens of test functions (not ~20) and tests/unit/ + other stateless dirs
-     have well over 100 (not ~80). Recompute before trusting this diagram. -->
 ```text
         /\
-       /E2E\        <=2 Playwright tests (full analyst workflows)
+       /E2E\        Full analyst workflows
       /------\
-     /Integration\  ~20 tests (cross-component, stateful)
+     /Integration\  Cross-component, stateful
     /------------\
-   /    Unit      \  ~80 tests (pure functions, stateless)
+   /    Unit      \  Pure functions, stateless
   /----------------\
 ```
 

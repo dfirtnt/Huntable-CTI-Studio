@@ -779,14 +779,9 @@ SIGMA_REPO_PATH=sigma-repo
 GITHUB_REPO=owner/repo
 GITHUB_TOKEN=ghp_xxx       # Add in Settings -> GitHub (repo scope)
 
-# Similarity matching threshold
-SIGMA_MATCH_THRESHOLD=0.7
+# Similarity matching threshold (CLI default)
+./run_cli.sh sigma match <article_id> --threshold 0.7
 ```
-
-<!-- TODO: verify: SIGMA_MATCH_THRESHOLD does not appear as an env var anywhere in
-     src/ or .env.example -- 0.7 is a hardcoded Python default (e.g. sigma_commands.py
-     --threshold, sigma_matching_service.py) at several call sites, not something read
-     from the environment. Confirm whether this env var ever existed or should be removed. -->
 
 ### GitHub PR Setup
 

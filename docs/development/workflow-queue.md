@@ -27,18 +27,12 @@ task_queues = {
 ### 2. Docker Compose (`docker-compose.yml`)
 
 **Updated main worker** to exclude workflows queue (note: `collection_immediate` is listed first so user-initiated "Collect Now" tasks are consumed before scheduled collection):
-<!-- AUDIT: Accuracy -- current docker-compose.yml uses `--loglevel=${CELERY_LOG_LEVEL:-info}` (default info, not
-     debug) and adds `--concurrency=${WORKER_CONCURRENCY:-2} --without-gossip --without-mingle --without-heartbeat`.
-     Queue list itself is unchanged. Verified 2026-07-17. -->
 ```yaml
 worker:
   command: celery -A src.worker.celery_app worker --loglevel=${CELERY_LOG_LEVEL:-info} -Q collection_immediate,default,source_checks,maintenance,reports,connectivity,collection --concurrency=${WORKER_CONCURRENCY:-2} --without-gossip --without-mingle --without-heartbeat
 ```
 
 **Added dedicated workflow worker:**
-<!-- AUDIT: Accuracy -- current docker-compose.yml uses `--loglevel=${CELERY_LOG_LEVEL:-info}` (default info, not
-     debug) and `--concurrency=${WORKFLOW_WORKER_CONCURRENCY:-2}` (default 2, not 4), plus
-     `--without-gossip --without-mingle --without-heartbeat`. Verified 2026-07-17. -->
 ```yaml
 workflow_worker:
   container_name: cti_workflow_worker

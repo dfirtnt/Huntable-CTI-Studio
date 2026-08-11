@@ -493,8 +493,6 @@ This comprehensive testing checklist ensures all features of the Huntable CTI St
 
 ---
 
-<!-- AUDIT: Fluff -- "Happy Testing" banner and empty Test Results Summary template removed; no actionable content. Record results in your own notes or issue tracker. -->
-
 
 ---
 

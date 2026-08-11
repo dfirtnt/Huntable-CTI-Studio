@@ -205,8 +205,6 @@ User Action: Import Quickstart-LMStudio-Qwen3.json
 
 ### Test: RankAgent Model Key on Legacy Conversion
 
-<!-- AUDIT: Accuracy -- test_to_legacy_returns_rankagent_model_key (tests/api/test_workflow_preset_lifecycle.py:331) was not previously documented here; added to bring the count in line with the file's actual 9 tests. -->
-
 **Function:** `test_to_legacy_returns_rankagent_model_key`
 
 **Purpose:** Regression test -- a V2 preset with `RankAgent` configured must convert to legacy
