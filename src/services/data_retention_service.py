@@ -81,12 +81,11 @@ RETENTION_POLICIES: tuple[RetentionPolicy, ...] = (
         key="source_checks",
         label="Source Check History",
         setting_key="RETENTION_DAYS_SOURCE_CHECKS",
-        default_days=180,
+        default_days=90,
         rationale=(
-            "The only record of ingestion outages -- it is what surfaced the 11-hour "
-            "total blackout on 2026-07-19. Two quarters of history keeps incident "
-            "forensics possible for an outage nobody has had yet; at the observed "
-            "~500 checks/day that is roughly 90k rows."
+            "The operational history used by dashboard and source-health reporting. "
+            "A 90-day window keeps one quarter of incident context while bounding "
+            "the JSONB-heavy table's growth."
         ),
     ),
     RetentionPolicy(

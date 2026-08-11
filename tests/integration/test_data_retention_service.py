@@ -26,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.database.models import (  # noqa: E402
     AgenticWorkflowConfigTable,
     AgenticWorkflowExecutionTable,
+    AgenticWorkflowExecutionSnapshotTable,
     AppSettingsTable,
     ArticleTable,
     Base,
@@ -58,6 +59,7 @@ _TABLES = (
     SourceTable,
     ArticleTable,
     AgenticWorkflowConfigTable,
+    AgenticWorkflowExecutionSnapshotTable,
     AgenticWorkflowExecutionTable,
     SigmaRuleQueueTable,
     SubagentEvaluationTable,
@@ -294,8 +296,8 @@ class TestRunRetention:
 
         result = run_retention(session, now=NOW)
 
-        # source_checks keeps 180 days.
-        # Ages 400 and 200 both exceed the 180-day window, so two checks are purged.
+        # source_checks keeps 90 days.
+        # Ages 400 and 200 both exceed the 90-day window, so two checks are purged.
         assert result.deleted["source_checks"] == 2
         assert session.query(SourceCheckTable).count() == 1
 
