@@ -463,7 +463,7 @@ class AgenticWorkflowConfigTable(Base):
     # 99.9 score ceiling) so nothing auto-processes until a user consciously lowers it (opt-in).
 
     # Versioning and audit
-    version = Column(Integer, nullable=False, default=1)
+    version = Column(Integer, nullable=False, default=1, unique=True)
     is_active = Column(Boolean, nullable=False, default=True, index=True)
     description = Column(Text, nullable=True)
 

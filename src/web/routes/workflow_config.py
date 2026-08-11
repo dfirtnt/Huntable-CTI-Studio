@@ -8,7 +8,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field, ValidationError
-from sqlalchemy import func
+from sqlalchemy import func, text
 
 from src.config.workflow_config_loader import export_preset_as_canonical_v2, load_workflow_config
 from src.config.workflow_config_schema import (
@@ -114,14 +114,40 @@ def _next_workflow_config_version(db_session) -> int:
 
 def _deactivate_active_workflow_configs(db_session) -> None:
     active_configs = (
-        db_session.query(AgenticWorkflowConfigTable)
-        .filter(AgenticWorkflowConfigTable.is_active == True)
-        .with_for_update()
-        .all()
+        db_session.query(AgenticWorkflowConfigTable).filter(AgenticWorkflowConfigTable.is_active == True).all()
     )
     for config in active_configs:
         config.is_active = False
     db_session.flush()
+
+
+_WORKFLOW_CONFIG_LOCK_KEY = 8412771
+
+
+def _lock_workflow_config(db_session) -> None:
+    """Serialize workflow-config writes for the current transaction."""
+    if db_session.bind is None or db_session.bind.dialect.name != "postgresql":
+        return
+    db_session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": _WORKFLOW_CONFIG_LOCK_KEY})
+
+
+def _load_active_config_for_write(db_session):
+    """Lock before reading so a waiter sees the replacement config row."""
+    _lock_workflow_config(db_session)
+    return _active_workflow_config_query(db_session).first()
+
+
+def _merge_agent_prompts(current: dict[str, Any] | None, incoming: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Merge a partial prompt payload without restoring stale sibling prompts."""
+    if incoming is None:
+        return current
+    merged = dict(current) if current else {}
+    for agent_name, record in incoming.items():
+        if record is None:
+            merged.pop(agent_name, None)
+        else:
+            merged[agent_name] = record
+    return merged
 
 
 def ensure_default_workflow_config(db_session) -> AgenticWorkflowConfigTable:
@@ -359,11 +385,7 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
         db_session = db_manager.get_session()
 
         try:
-            # Deactivate current active config
-            # CRITICAL: Use order_by and lock to prevent race conditions
-            current_config = (
-                _active_workflow_config_query(db_session).with_for_update().first()
-            )  # Lock the row to prevent concurrent updates
+            current_config = _load_active_config_for_write(db_session)
 
             if current_config:
                 _deactivate_active_workflow_configs(db_session)
@@ -463,10 +485,9 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
             final_description = config_update.description or (
                 current_config.description if current_config else "Updated configuration"
             )
-            final_agent_prompts = (
-                config_update.agent_prompts
-                if config_update.agent_prompts is not None
-                else (current_config.agent_prompts if current_config else None)
+            final_agent_prompts = _merge_agent_prompts(
+                current_config.agent_prompts if current_config else None,
+                config_update.agent_prompts,
             )
             final_rank_agent_enabled = (
                 config_update.rank_agent_enabled
@@ -671,7 +692,7 @@ def update_auto_trigger_threshold(request: Request, body: dict[str, Any]):
             # Write to AppSettingsTable first (race-condition-safe source of truth)
             _save_threshold_to_settings(db_session, value)
             # Also update the active config row for backward compat
-            current_config = _active_workflow_config_query(db_session).with_for_update().first()
+            current_config = _load_active_config_for_write(db_session)
             if current_config:
                 current_config.auto_trigger_hunt_score_threshold = value
             db_session.commit()
@@ -1243,12 +1264,7 @@ def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdate):
         db_session = db_manager.get_session()
 
         try:
-            # CRITICAL: Use order_by to ensure we get the latest active config
-            # This prevents race conditions where another operation creates a new config
-            # between when we query and when we update
-            current_config = (
-                _active_workflow_config_query(db_session).with_for_update().first()
-            )  # Lock the row to prevent concurrent updates
+            current_config = _load_active_config_for_write(db_session)
 
             if not current_config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")
@@ -1416,7 +1432,7 @@ def delete_agent_prompt(request: Request, agent_name: str):
         db_session = db_manager.get_session()
 
         try:
-            current_config = _active_workflow_config_query(db_session).with_for_update().first()
+            current_config = _load_active_config_for_write(db_session)
 
             if not current_config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")
@@ -1617,11 +1633,7 @@ def rollback_agent_prompt(request: Request, agent_name: str, rollback_request: R
             if not target_version:
                 raise HTTPException(status_code=404, detail="Version not found")
 
-            # Get current active config
-            # CRITICAL: Use order_by and lock to prevent race conditions
-            current_config = (
-                _active_workflow_config_query(db_session).with_for_update().first()
-            )  # Lock the row to prevent concurrent updates
+            current_config = _load_active_config_for_write(db_session)
 
             if not current_config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")
@@ -1868,10 +1880,7 @@ def bootstrap_prompts_from_files(request: Request):
         db_session = db_manager.get_session()
 
         try:
-            # CRITICAL: Use order_by and lock to prevent race conditions
-            current_config = (
-                _active_workflow_config_query(db_session).with_for_update().first()
-            )  # Lock the row to prevent concurrent updates
+            current_config = _load_active_config_for_write(db_session)
 
             if not current_config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")
@@ -1987,7 +1996,7 @@ def reset_prompts_to_defaults(request: Request, reset_request: ResetPromptsToDef
         db_session = db_manager.get_session()
 
         try:
-            current_config = _active_workflow_config_query(db_session).with_for_update().first()
+            current_config = _load_active_config_for_write(db_session)
 
             if not current_config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")

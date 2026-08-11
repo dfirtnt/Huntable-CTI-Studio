@@ -4103,26 +4103,15 @@ async function performAutoSave() {
         const cmdlineAttentionPreprocessorEnabled = document.getElementById('cmdline-attention-preprocessor-enabled')?.checked !== false;
         const procTreeAttentionPreprocessorEnabled = document.getElementById('proctree-attention-preprocessor-enabled')?.checked !== false;
         
-        // Merge agent_prompts and include disabled extract agents
-        const promptsSource = {
-            ...(currentConfig?.agent_prompts || {}),
-            ...(agentPrompts || {})
-        };
-        const promptsCopy = JSON.parse(JSON.stringify(promptsSource || {}));
-        // Strip the per-agent 'model' sibling -- model selection lives in
-        // agent_models.X and duplicating it inside agent_prompts.X produces
-        // shape-5 records that confuse parse_sigma_agent_prompt_data and
-        // the rank/sigma readers. Skip ExtractAgentSettings (its 'model'
-        // semantic differs -- it's a settings container, not a prompt).
-        for (const key of Object.keys(promptsCopy)) {
-            if (key === 'ExtractAgentSettings') continue;
-            if (promptsCopy[key] && typeof promptsCopy[key] === 'object' && 'model' in promptsCopy[key]) {
-                delete promptsCopy[key].model;
-            }
-        }
-        const extractSettings = promptsCopy.ExtractAgentSettings ? { ...promptsCopy.ExtractAgentSettings } : {};
+        // Autosave fires for settings, not prompt edits. Sending every prompt here
+        // would restore the page-load copy after a prompt was saved elsewhere.
+        const existingExtractSettings =
+            (agentPrompts && agentPrompts.ExtractAgentSettings) ||
+            (currentConfig && currentConfig.agent_prompts && currentConfig.agent_prompts.ExtractAgentSettings) ||
+            {};
+        const extractSettings = { ...existingExtractSettings };
         extractSettings.disabled_agents = disabledFromDOM;
-        promptsCopy.ExtractAgentSettings = extractSettings;
+        const promptsCopy = { ExtractAgentSettings: extractSettings };
         
         // Build update payload with all config fields
         const updateData = {
@@ -6585,13 +6574,19 @@ if (workflowConfigForm) {
         rank_agent_enabled: document.getElementById('rank-agent-enabled')?.checked ?? true
     };
     
-    // Merge agent_prompts and include disabled extract agents
-    const promptsSource = {
+    // Explicit Save persists the complete prompt state, unlike autosave.
+    const promptsCopy = JSON.parse(JSON.stringify({
         ...(currentConfig?.agent_prompts || {}),
         ...(agentPrompts || {})
-    };
-    const extractSettings = promptsSource.ExtractAgentSettings ? { ...promptsSource.ExtractAgentSettings } : {};
-    
+    }));
+    for (const key of Object.keys(promptsCopy)) {
+        if (key === 'ExtractAgentSettings') continue;
+        if (promptsCopy[key] && typeof promptsCopy[key] === 'object' && 'model' in promptsCopy[key]) {
+            delete promptsCopy[key].model;
+        }
+    }
+    const extractSettings = promptsCopy.ExtractAgentSettings ? { ...promptsCopy.ExtractAgentSettings } : {};
+
     // CRITICAL: Read disabled agents directly from DOM checkboxes to ensure accuracy
     // This is the source of truth, not the disabledExtractAgents Set which might be stale
     const disabledFromDOM = [];
@@ -6609,8 +6604,8 @@ if (workflowConfigForm) {
     
     // Store disabledFromDOM in formData for use in response handler
     formData._disabledFromDOM = disabledFromDOM;
-    promptsSource.ExtractAgentSettings = extractSettings;
-    formData.agent_prompts = promptsSource;
+    promptsCopy.ExtractAgentSettings = extractSettings;
+    formData.agent_prompts = promptsCopy;
     
     // Validate RankAgent model is set (only required when Rank Agent is enabled)
     if (formData.rank_agent_enabled && !formData.agent_models.RankAgent) {
