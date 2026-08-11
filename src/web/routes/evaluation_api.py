@@ -37,6 +37,7 @@ from src.services.audit_service import (
 )
 from src.services.eval_bundle_service import EvalBundleService, compute_sha256_json
 from src.services.eval_item_scorer import calculate_f_beta, score_items
+from src.services.execution_snapshot_store import attach_snapshot
 from src.services.llm_service import LLMService
 from src.services.sigma_eval_service import load_sigma_ground_truth
 from src.services.workflow_config_snapshot import build_config_snapshot
@@ -751,9 +752,9 @@ async def run_evaluation(request: Request, eval_request: EvaluationRunRequest):
                     execution = AgenticWorkflowExecutionTable(
                         article_id=article_id,
                         status="pending",
-                        config_snapshot=config_snapshot,
                     )
                     db_session.add(execution)
+                    attach_snapshot(db_session, execution, config_snapshot)
                     db_session.commit()
                     db_session.refresh(execution)
 
@@ -1414,7 +1415,12 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                 execution = AgenticWorkflowExecutionTable(
                     article_id=article_id,
                     status="pending",
-                    config_snapshot=build_config_snapshot(
+                )
+                db_session.add(execution)
+                attach_snapshot(
+                    db_session,
+                    execution,
+                    build_config_snapshot(
                         active_config,
                         extra={
                             "eval_run": True,
@@ -1429,7 +1435,6 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                         },
                     ),
                 )
-                db_session.add(execution)
                 db_session.flush()  # Get execution.id
 
                 # Create SubagentEvaluationTable record
@@ -1617,9 +1622,11 @@ async def run_sigma_eval(request: Request, eval_request: SigmaEvalRunRequest):
                 execution = AgenticWorkflowExecutionTable(
                     article_id=article_id,
                     status="pending",
-                    config_snapshot=_sigma_eval_config_snapshot(active_config, static_entry["content"]),
                 )
                 db_session.add(execution)
+                attach_snapshot(
+                    db_session, execution, _sigma_eval_config_snapshot(active_config, static_entry["content"])
+                )
                 db_session.flush()  # get execution.id
 
                 eval_record = SigmaEvaluationTable(

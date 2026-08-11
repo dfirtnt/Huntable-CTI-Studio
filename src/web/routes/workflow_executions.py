@@ -29,6 +29,7 @@ from src.services.audit_service import (
     initiating_actor_metadata,
 )
 from src.services.eval_bundle_service import EvalBundleService, compute_sha256_json
+from src.services.execution_snapshot_store import attach_snapshot
 from src.services.workflow_config_snapshot import (
     SNAPSHOT_CONFIG_FIELDS,
     build_config_snapshot,
@@ -1090,10 +1091,10 @@ async def retry_workflow_execution(request: Request, execution_id: int):
             new_execution = AgenticWorkflowExecutionTable(
                 article_id=execution.article_id,
                 status="pending",
-                config_snapshot=new_config_snapshot,
                 retry_count=execution.retry_count + 1,
             )
             db_session.add(new_execution)
+            attach_snapshot(db_session, new_execution, new_config_snapshot)
             db_session.flush()
             AuditService.record_mandatory(
                 db_session,

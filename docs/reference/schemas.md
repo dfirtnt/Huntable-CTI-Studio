@@ -84,7 +84,8 @@ Key fields exposed via the workflow APIs:
 - `status`
 - `current_step`
 - `ranking_score`
-- `config_snapshot` — the execution's immutable configuration. Resolved and hashed before dispatch by `src/services/workflow_config_snapshot.py` and persisted in the same transaction as the execution row, so configuration edits made after dispatch cannot alter the run. Carries every behavior-affecting setting (resolved prompts, models and providers, thresholds, toggles), plus `snapshot_schema_version` and a SHA-256 `snapshot_hash` over the canonicalized snapshot. `initiated_by` rides along as provenance and is excluded from the hash. Executions dispatched before this contract hold partial snapshots and fall back to the active configuration at run time; they log a non-reproducibility warning.
+- `config_snapshot_id` — nullable foreign key to `agentic_workflow_execution_snapshots`, the immutable content-addressed configuration payload. New normal, evaluation, and HTTP retry executions resolve and hash their configuration before dispatch, then store the payload once per canonical SHA-256 hash. The workflow runtime hydrates this reference before execution, so later configuration edits cannot affect the run.
+- `config_snapshot` — legacy inline JSON fallback. During the transition, referenced executions retain only `{"snapshot_id": N}` here; older rows may still carry the complete configuration. `scripts/migrate_execution_snapshots.py` is report-only by default and backfills only complete legacy snapshots under explicit `--apply`; it never deletes inline JSON.
 - `termination_reason` (API response field; derived from `error_log` via `extract_termination_info()` — not a direct DB column)
 - `termination_details` (API response field; derived from `error_log` — not a direct DB column)
 - `error_log`

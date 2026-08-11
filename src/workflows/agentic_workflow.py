@@ -31,6 +31,7 @@ from src.database.models import (
     SubagentEvaluationTable,
 )
 from src.services.eval_item_scorer import score_items
+from src.services.execution_snapshot_store import attach_snapshot, hydrate_snapshot
 from src.services.llm_service import LLMService
 from src.services.lmstudio_model_loader import auto_load_workflow_models
 from src.services.sigma_eval_service import (
@@ -3740,9 +3741,9 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
             execution = AgenticWorkflowExecutionTable(
                 article_id=article_id,
                 status="pending",
-                config_snapshot=build_config_snapshot(config_obj),
             )
             db_session.add(execution)
+            attach_snapshot(db_session, execution, build_config_snapshot(config_obj))
             db_session.commit()
             db_session.refresh(execution)
             logger.info(f"Created execution record {execution.id} for article {article_id}")
@@ -3751,7 +3752,7 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                 f"Found existing execution {execution.id} for article {article_id}, status: {execution.status}, has config_snapshot: {execution.config_snapshot is not None}"
             )
 
-        snapshot = execution.config_snapshot if isinstance(execution.config_snapshot, dict) else {}
+        snapshot = hydrate_snapshot(execution)
         # Executions dispatched after the immutable-snapshot change always carry a
         # complete snapshot, so the active config is never read here. The fallback exists
         # only for legacy rows dispatched with a partial snapshot; those cannot be made
@@ -3769,8 +3770,7 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
 
         # Merge config_snapshot from execution (for eval runs and other overrides)
         # Use deep merge for nested dicts like agent_models, agent_prompts
-        if execution.config_snapshot:
-            snapshot = execution.config_snapshot
+        if snapshot:
             # Merge top-level values
             for key, value in snapshot.items():
                 if key in ("agent_models", "agent_prompts") and isinstance(value, dict):

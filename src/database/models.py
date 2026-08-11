@@ -512,6 +512,9 @@ class AgenticWorkflowExecutionTable(Base):
         String(50), nullable=True
     )  # junk_filter, rank_article, extract_agent, generate_sigma, similarity_search, promote_to_queue
     config_snapshot = Column(JSONB, nullable=True)  # Snapshot of config used for this execution
+    config_snapshot_id = Column(
+        Integer, ForeignKey("agentic_workflow_execution_snapshots.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
 
     # Step results (stored as JSONB for flexibility)
     junk_filter_result = Column(JSONB, nullable=True)
@@ -534,9 +537,21 @@ class AgenticWorkflowExecutionTable(Base):
 
     # Relationships
     article = relationship("ArticleTable", backref="workflow_executions")
+    snapshot_record = relationship("AgenticWorkflowExecutionSnapshotTable")
 
     def __repr__(self):
         return f"<AgenticWorkflowExecution(id={self.id}, article_id={self.article_id}, status='{self.status}', step='{self.current_step}')>"
+
+
+class AgenticWorkflowExecutionSnapshotTable(Base):
+    """Immutable, content-addressed workflow configuration used by executions."""
+
+    __tablename__ = "agentic_workflow_execution_snapshots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    content_hash = Column(String(64), nullable=False, unique=True, index=True)
+    payload = Column(JSONB, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=func.now())
 
 
 class SigmaRuleQueueTable(Base):
