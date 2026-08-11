@@ -20,28 +20,55 @@ from src.services.execution_snapshot_store import attach_snapshot
 from src.services.workflow_config_snapshot import snapshot_is_complete
 
 
-def migrate(apply: bool) -> tuple[int, int, int]:
+def migrate(apply: bool, batch_size: int = 100) -> tuple[int, int, int]:
+    """Backfill in bounded batches so JSONB-heavy execution tables stay safe."""
     db = DatabaseManager()
     with db.get_session() as session:
-        executions = (
-            session.query(AgenticWorkflowExecutionTable)
-            .filter(AgenticWorkflowExecutionTable.config_snapshot_id.is_(None))
-            .all()
+        pending = session.query(AgenticWorkflowExecutionTable).filter(
+            AgenticWorkflowExecutionTable.config_snapshot_id.is_(None)
         )
-        eligible = [execution for execution in executions if snapshot_is_complete(execution.config_snapshot)]
-        legacy = len(executions) - len(eligible)
-        if apply:
-            for execution in eligible:
-                attach_snapshot(session, execution, execution.config_snapshot)
-            session.commit()
-        return len(executions), len(eligible), legacy
+        total = pending.count()
+        eligible = 0
+        legacy = 0
+        last_id = 0
+
+        while True:
+            executions = (
+                session.query(AgenticWorkflowExecutionTable)
+                .filter(
+                    AgenticWorkflowExecutionTable.config_snapshot_id.is_(None),
+                    AgenticWorkflowExecutionTable.id > last_id,
+                )
+                .order_by(AgenticWorkflowExecutionTable.id)
+                .limit(batch_size)
+                .all()
+            )
+            if not executions:
+                break
+            last_id = executions[-1].id
+
+            for execution in executions:
+                if not snapshot_is_complete(execution.config_snapshot):
+                    legacy += 1
+                    continue
+                eligible += 1
+                if apply:
+                    attach_snapshot(session, execution, execution.config_snapshot)
+            if apply:
+                session.commit()
+                session.expire_all()
+
+        return total, eligible, legacy
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apply", action="store_true", help="Backfill references; never deletes inline JSON.")
+    parser.add_argument("--batch-size", type=int, default=100, help="Rows loaded per batch (default: 100).")
     args = parser.parse_args()
-    total, eligible, legacy = migrate(args.apply)
+    if args.batch_size < 1:
+        parser.error("--batch-size must be positive")
+    total, eligible, legacy = migrate(args.apply, args.batch_size)
     verb = "Backfilled" if args.apply else "Would backfill"
     print(f"{verb} {eligible} complete snapshots out of {total} legacy executions.")
     print(f"Retained {legacy} incomplete legacy snapshots without a reference.")
