@@ -866,7 +866,8 @@ therefore encodes two texts per rule. (The deprecated
 
 - Check rule format compliance; review the conversation log for per-attempt error detail
 - Common issues: missing required fields (title, logsource, detection), invalid YAML,
-  incorrect field types, missing condition
+  incorrect metadata types, unknown field modifiers, malformed or undefined detection
+  conditions, and Huntable grounding or quality-policy failures
 
 ### Slow Performance
 

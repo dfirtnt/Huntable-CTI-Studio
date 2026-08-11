@@ -1174,7 +1174,7 @@ async function showValidationConversationModal(data, provider, model) {
                         Show Log
                     </button>
                 </div>
-                <div class="text-xs text-gray-600 dark:text-gray-400 mb-2">Shows the iterative validation process between the LLM and pySigma validator</div>
+                <div class="text-xs text-gray-600 dark:text-gray-400 mb-2">Shows the iterative pySigma semantic validation and Huntable policy checks</div>
                 <div id="validationConversationContent" style="display: none;">
                     <div id="validationConversation" class="space-y-4 max-h-96 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900 rounded border">
                         <!-- Filled by script below -->
