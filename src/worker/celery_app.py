@@ -15,7 +15,6 @@ from celery import Celery
 from celery.schedules import crontab
 from celery.signals import worker_process_init
 
-from src.services.scheduled_jobs_service import ScheduledJobsService, cron_expression_to_kwargs
 from src.services.vision_ocr_service import (
     check_tesseract_available,
     ocr_raw_articles,
@@ -76,6 +75,7 @@ celery_app.conf.accept_content = celeryconfig.accept_content
 celery_app.conf.result_serializer = celeryconfig.result_serializer
 celery_app.conf.timezone = celeryconfig.timezone
 celery_app.conf.enable_utc = celeryconfig.enable_utc
+celery_app.conf.beat_scheduler = celeryconfig.beat_scheduler
 celery_app.conf.worker_prefetch_multiplier = celeryconfig.worker_prefetch_multiplier
 celery_app.conf.worker_max_tasks_per_child = celeryconfig.worker_max_tasks_per_child
 celery_app.conf.worker_disable_rate_limits = celeryconfig.worker_disable_rate_limits
@@ -161,28 +161,6 @@ if _runtime_environment() in ("development", "test"):
         import src.worker.tasks.test_agents  # noqa: E402,F401
     except ImportError:
         pass  # test_agents is optional
-
-
-# Define periodic tasks
-def register_configurable_periodic_tasks(sender, jobs, crontab_factory=crontab):
-    """Register UI-managed periodic tasks from persisted schedule config."""
-    configurable_jobs = {
-        "cleanup_old_data": cleanup_old_data.s,
-        "embed_new_articles": embed_new_articles.s,
-        "sync_sigma_rules": sync_sigma_rules.s,
-        "update_provider_model_catalogs": update_provider_model_catalogs.s,
-    }
-
-    for job in jobs:
-        if not job["enabled"]:
-            logger.info("Skipping disabled scheduled job: %s", job["id"])
-            continue
-        signature_factory = configurable_jobs[job["id"]]
-        sender.add_periodic_task(
-            crontab_factory(**cron_expression_to_kwargs(job["cron"])),
-            signature_factory(),
-            name=job["registered_name"],
-        )
 
 
 def _acquire_redis_lock(lock_key: str, ttl_seconds: int) -> str | None:
@@ -313,7 +291,8 @@ def setup_periodic_tasks(sender, **kwargs):
         name="check-all-sources-every-30min",
     )
 
-    register_configurable_periodic_tasks(sender, ScheduledJobsService().get_periodic_jobs())
+    # UI-managed schedules are owned by DatabaseScheduledJobScheduler, which
+    # polls committed configuration without requiring a web-side container restart.
 
     # Index the customer Sigma repo daily so the dedup corpus stays in sync with the
     # customer's deployed detections (SigmaSim index-customer-repo cadence). Reads the

@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import subprocess
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -19,15 +18,11 @@ logger = logging.getLogger(__name__)
 
 SCHEDULED_JOBS_SETTING_KEY = "SCHEDULED_JOBS_CONFIG"
 SCHEDULED_JOBS_TIMEZONE = "UTC"
-SCHEDULER_CONTAINER_NAME = os.getenv("SCHEDULER_CONTAINER_NAME", "cti_scheduler")
+SCHEDULED_JOBS_POLL_INTERVAL_SECONDS = max(1, int(os.getenv("SCHEDULED_JOBS_POLL_INTERVAL_SECONDS", "30")))
 
 
 class ScheduledJobsConfigError(ValueError):
     """Raised when a scheduled job payload is invalid."""
-
-
-class SchedulerReloadError(RuntimeError):
-    """Raised when the scheduler process could not be reloaded."""
 
 
 @dataclass(frozen=True)
@@ -180,9 +175,6 @@ def serialize_scheduled_jobs_state(job_config: dict[str, dict[str, Any]]) -> dic
 class ScheduledJobsService:
     """Read, validate, persist, and apply scheduled job settings."""
 
-    def __init__(self, scheduler_container: str = SCHEDULER_CONTAINER_NAME):
-        self.scheduler_container = scheduler_container
-
     def _load_config_sync(self) -> dict[str, dict[str, Any]]:
         """Load the stored config via the synchronous DB manager for Celery beat startup."""
         manager = DatabaseManager()
@@ -242,8 +234,8 @@ class ScheduledJobsService:
         """Stage the scheduled-job config upsert in a caller-owned session (no commit).
 
         Returns the normalized config. The caller owns the transaction (so it can
-        record a mandatory audit event and commit atomically) and is responsible
-        for calling :meth:`restart_scheduler` afterwards.
+        record a mandatory audit event and commit atomically). Celery Beat polls
+        this setting and applies the committed state without web-side process control.
         """
         from sqlalchemy import select
 
@@ -268,29 +260,10 @@ class ScheduledJobsService:
             )
         return normalized
 
-    def restart_scheduler(self) -> dict[str, Any]:
-        """Restart the Celery beat container so updated schedules take effect immediately."""
-        try:
-            result = subprocess.run(
-                ["docker", "restart", self.scheduler_container],
-                check=False,
-                capture_output=True,
-                text=True,
-                timeout=60,
-            )
-        except FileNotFoundError as exc:
-            raise SchedulerReloadError("Docker CLI is not available in the web container.") from exc
-        except subprocess.TimeoutExpired as exc:
-            raise SchedulerReloadError("Timed out while restarting the scheduler container.") from exc
-        except Exception as exc:  # noqa: BLE001
-            raise SchedulerReloadError(f"Failed to restart scheduler container: {exc}") from exc
-
-        if result.returncode != 0:
-            stderr = (result.stderr or result.stdout or "unknown error").strip()
-            raise SchedulerReloadError(f"Scheduler restart failed: {stderr}")
-
+    def scheduler_refresh_metadata(self) -> dict[str, Any]:
+        """Describe the bounded, database-driven scheduler refresh contract."""
         return {
             "reloaded": True,
-            "container": self.scheduler_container,
-            "output": (result.stdout or "").strip() or self.scheduler_container,
+            "mechanism": "database_poll",
+            "poll_interval_seconds": SCHEDULED_JOBS_POLL_INTERVAL_SECONDS,
         }

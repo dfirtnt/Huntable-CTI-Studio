@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
-
 import pytest
 
 pytestmark = pytest.mark.unit
@@ -89,21 +87,14 @@ def test_get_periodic_jobs_uses_persisted_config(monkeypatch):
     assert next(job for job in jobs if job["id"] == "embed_new_articles")["cron"] == "30 11 * * *"
 
 
-def test_restart_scheduler_returns_reload_metadata(monkeypatch):
-    """Scheduler reload should surface the container restart result."""
-
-    def fake_run(cmd, **kwargs):
-        assert cmd == ["docker", "restart", "cti_scheduler"]
-        return subprocess.CompletedProcess(cmd, 0, stdout="cti_scheduler\n", stderr="")
-
-    monkeypatch.setattr(subprocess, "run", fake_run)
-
-    result = ScheduledJobsService().restart_scheduler()
+def test_scheduler_refresh_metadata_describes_database_polling():
+    """The web API must not need a Docker restart to apply a schedule change."""
+    result = ScheduledJobsService().scheduler_refresh_metadata()
 
     assert result == {
         "reloaded": True,
-        "container": "cti_scheduler",
-        "output": "cti_scheduler",
+        "mechanism": "database_poll",
+        "poll_interval_seconds": 30,
     }
 
 
