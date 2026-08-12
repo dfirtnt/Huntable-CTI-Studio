@@ -61,6 +61,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: web-runtime
     container_name: cti_web
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -161,6 +162,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: ingest-worker-runtime
     container_name: cti_worker
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -230,6 +232,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: workflow-worker-runtime
     container_name: cti_workflow_worker
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -307,6 +310,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: scheduler-runtime
     container_name: cti_scheduler
     environment:
       - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
@@ -347,6 +351,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: semantic-tools-runtime
     container_name: cti_cli
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -400,6 +405,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: semantic-tools-runtime
     container_name: cti_mcp_http
     extra_hosts:
       - "host.docker.internal:host-gateway"

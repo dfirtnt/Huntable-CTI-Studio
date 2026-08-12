@@ -8,12 +8,13 @@ This reflects the current `docker-compose.yml`.
 |--------|----------------|---------|
 | **postgres** | `pgvector/pgvector:pg15` | Primary DB; pgvector extension. Container: `cti_postgres`. |
 | **redis** | `redis:7-alpine` | Cache and Celery broker. Appendonly + `maxmemory` / `allkeys-lru`. Container: `cti_redis`. |
-| **web** | `Dockerfile` | FastAPI app: `uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8001 --workers 2`. Port: 8001 (API/UI). |
-| **worker** | `Dockerfile` | Celery worker queues: `collection_immediate` (user Collect Now), `default`, `source_checks`, `maintenance`, `reports`, `connectivity`, `collection`. |
-| **workflow_worker** | `Dockerfile` | Celery worker for `workflows` queue (agentic/LangGraph tasks). |
+| **web** | `Dockerfile:web-runtime` | FastAPI app: `uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8001 --workers 2`. Port: 8001 (API/UI). |
+| **worker** | `Dockerfile:ingest-worker-runtime` | Celery worker queues: `collection_immediate` (user Collect Now), `default`, `source_checks`, `maintenance`, `reports`, `connectivity`, `collection`. Source collection, OCR, Playwright/Chromium. |
+| **workflow_worker** | `Dockerfile:workflow-worker-runtime` | Celery worker for `workflows` queue (agentic/LangGraph tasks). LangGraph + pinned Codex app-server support; no browser/OCR/Docker CLI. |
 | **codex_auth_init** | `busybox:1.36.1` | One-shot initializer that grants the application user ownership of the shared Codex authentication volume. |
-| **scheduler** | `Dockerfile` | Celery beat: `celery -A src.worker.celery_app beat --loglevel=${CELERY_LOG_LEVEL:-info}`. |
-| **cli** | `Dockerfile` | Profile `tools`. Command: `python -m src.cli.main`. Same Postgres/Redis as app. |
+| **scheduler** | `Dockerfile:scheduler-runtime` | Celery beat: `celery -A src.worker.celery_app beat --loglevel=${CELERY_LOG_LEVEL:-info}`. |
+| **cli** | `Dockerfile:semantic-tools-runtime` | Profile `tools`. Command: `python -m src.cli.main`. Same Postgres/Redis as app. Local embeddings (Torch + sentence-transformers). |
+| **mcp_http** | `Dockerfile:semantic-tools-runtime` | Profile `mcp`. FastMCP over streamable-HTTP. Local embeddings (Torch + sentence-transformers). |
 
 ## Key environment
 
@@ -57,7 +58,13 @@ This reflects the current `docker-compose.yml`.
 
 ## Dockerfiles
 
-- **Dockerfile:** Python 3.11-slim; system deps (Postgres client, Playwright/Chromium, Docker CLI); deps installed via `uv sync --frozen --group test` from `pyproject.toml` + `uv.lock`; non-root user; used by compose for web, worker, workflow_worker, scheduler, cli.
-- **Dockerfile.prod:** Multi-stage build; slimmer runtime (no Playwright/test deps); for production-style images.
+- **Dockerfile:** Python 3.11-slim multi-stage build. The builder creates locked role-specific virtual environments from `pyproject.toml` dependency groups; each runtime target copies only its role environment. Compose targets and their intentional capabilities:
+  - `web-runtime`: FastAPI app. Retains Docker CLI + socket-group access, Codex, and Tesseract because web routes/health checks probe them. Docker-socket removal is a separate task.
+  - `scheduler-runtime`: Celery beat only; inherits the lean web/base Python environment.
+  - `ingest-worker-runtime`: source-collection worker. Playwright/Chromium + Tesseract for scraping/OCR; local Torch + sentence-transformers for extraction. No Codex, no Docker CLI/socket.
+  - `workflow-worker-runtime`: workflow worker. LangGraph + pinned Codex app-server binary (optional provider, shares the `codex_auth` volume). No Playwright/Chromium, no Tesseract/OCR, no Docker CLI/socket.
+  - `semantic-tools-runtime`: CLI + MCP. Torch + sentence-transformers for local embeddings with LM Studio unavailable. No browser, no OCR, no Codex, no Docker CLI (the optional `cli backup` system-backup subcommand needs `docker exec`, which is unavailable here and in the `cli` service's mounts; backups run via the web service or host scripts).
+  - `development-runtime`: compatibility target; no active Compose service uses it yet, but it remains the default for unconverted services.
+- **Dockerfile.prod:** Multi-stage build; slimmer runtime (no Playwright/test deps); for production-style images. Not part of the active Compose/runtime contract here.
 
-_Last updated: 2026-07-05_
+_Last updated: 2026-08-11_
