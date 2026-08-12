@@ -28,10 +28,11 @@ validate_env_for_startup() {
         return 1
     fi
 
-    local openai_key anthropic_key secret_key
+    local openai_key anthropic_key secret_key maintenance_api_token
     openai_key="$(grep -E '^OPENAI_API_KEY=' "$env_file" | head -n1 | cut -d= -f2- || true)"
     anthropic_key="$(grep -E '^ANTHROPIC_API_KEY=' "$env_file" | head -n1 | cut -d= -f2- || true)"
     secret_key="$(grep -E '^SECRET_KEY=' "$env_file" | head -n1 | cut -d= -f2- || true)"
+    maintenance_api_token="$(grep -E '^MAINTENANCE_API_TOKEN=' "$env_file" | head -n1 | cut -d= -f2- || true)"
 
     if [ "$openai_key" = "your_openai_api_key_here" ]; then
         echo "❌ OPENAI_API_KEY is still a template placeholder in .env. Clear it or set a real key."
@@ -43,6 +44,10 @@ validate_env_for_startup() {
     fi
     if [ "$secret_key" = "your-super-secret-key-change-this-in-production" ]; then
         echo "❌ SECRET_KEY is still a template placeholder in .env. Run ./setup.sh to regenerate secrets."
+        return 1
+    fi
+    if [ -z "$maintenance_api_token" ]; then
+        echo "❌ MAINTENANCE_API_TOKEN is missing in .env. Run ./setup.sh to generate the internal backup-service credential."
         return 1
     fi
 }

@@ -24,6 +24,7 @@ _COMPOSE = _REPO / "docker-compose.yml"
 # Every built Compose service and the Dockerfile stage it must target.
 EXPECTED_SERVICE_TARGETS = {
     "web": "web-runtime",
+    "maintenance": "maintenance-runtime",
     "worker": "ingest-worker-runtime",
     "workflow_worker": "workflow-worker-runtime",
     "scheduler": "scheduler-runtime",
@@ -43,6 +44,7 @@ REQUIRED_STAGES = {
     "runtime-os",
     "runtime-app",
     "web-runtime",
+    "maintenance-runtime",
     "scheduler-runtime",
     "ingest-worker-runtime",
     "workflow-worker-runtime",
@@ -147,6 +149,18 @@ def test_role_targets_copy_only_their_role_environment():
 def test_scheduler_inherits_the_web_base_environment():
     text = _DOCKERFILE.read_text()
     assert re.search(r"^FROM\s+runtime-app\s+AS\s+scheduler-runtime$", text, flags=re.MULTILINE)
+
+
+def test_docker_socket_is_confined_to_maintenance_service():
+    data = yaml.safe_load(_COMPOSE.read_text())
+    web_volumes = data["services"]["web"].get("volumes", [])
+    maintenance_volumes = data["services"]["maintenance"].get("volumes", [])
+    assert not any("/var/run/docker.sock" in volume for volume in web_volumes)
+    assert any("/var/run/docker.sock" in volume for volume in maintenance_volumes)
+    web_stage = re.search(
+        r"FROM\s+runtime-os\s+AS\s+web-runtime(.*?)(?=^FROM\s+|\Z)", _DOCKERFILE.read_text(), re.M | re.S
+    )
+    assert web_stage and "docker-ce-cli" not in web_stage.group(1)
 
 
 def test_cli_module_starts_without_browser_imports():

@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-from src.database.models import AuditEventTable
+from src.database.models import AgenticWorkflowExecutionSnapshotTable, AuditEventTable
 from src.services import audit_service
 from src.services.workflow_config_snapshot import SNAPSHOT_HASH_KEY, snapshot_is_complete
 
@@ -44,6 +44,15 @@ def _audit_rows(mock_session) -> list[AuditEventTable]:
     return [c.args[0] for c in mock_session.add.call_args_list if isinstance(c.args[0], AuditEventTable)]
 
 
+def _snapshot_payloads(mock_session) -> list[dict]:
+    """Return content-addressed snapshots staged alongside new executions."""
+    return [
+        c.args[0].payload
+        for c in mock_session.add.call_args_list
+        if isinstance(c.args[0], AgenticWorkflowExecutionSnapshotTable)
+    ]
+
+
 def _session_with_rule(rule) -> MagicMock:
     session = MagicMock()
     session.query.return_value.filter.return_value.first.return_value = rule
@@ -57,7 +66,12 @@ def _chaining_session(all_rows=None, first_row=None) -> MagicMock:
     query.filter.return_value = query
     query.all.return_value = all_rows or []
     query.first.return_value = first_row
-    session.query.return_value = query
+    snapshot_query = MagicMock()
+    snapshot_query.filter.return_value = snapshot_query
+    snapshot_query.first.return_value = None
+    session.query.side_effect = lambda model: (
+        snapshot_query if model is AgenticWorkflowExecutionSnapshotTable else query
+    )
     return session
 
 
@@ -337,7 +351,7 @@ class TestWorkflowAudit:
             c.args[0] for c in session.add.call_args_list if isinstance(c.args[0], AgenticWorkflowExecutionTable)
         ]
         assert len(new_executions) == 1
-        initiated = new_executions[0].config_snapshot["initiated_by"]
+        initiated = _snapshot_payloads(session)[0]["initiated_by"]
         assert initiated["user_id"] == "u1"
         assert initiated["auth_mode"] == "trusted_header"
 
@@ -490,7 +504,7 @@ class TestWorkflowTriggerServiceAudit:
         # The dispatch snapshot is resolved and hashed before dispatch, so it is always
         # complete -- initiated_by rides along as provenance rather than being the whole
         # snapshot (it is excluded from the hash).
-        snapshot = executions[0].config_snapshot
+        snapshot = _snapshot_payloads(session)[0]
         assert snapshot["initiated_by"] == {"user_id": "u1"}
         assert snapshot_is_complete(snapshot)
         assert snapshot[SNAPSHOT_HASH_KEY]
@@ -516,7 +530,7 @@ class TestWorkflowTriggerServiceAudit:
         ]
         # No initiated_by (service-originated trigger), but still a complete, hashed
         # snapshot: a run with no active configuration must stay reproducible too.
-        snapshot = executions[0].config_snapshot
+        snapshot = _snapshot_payloads(session)[0]
         assert "initiated_by" not in snapshot
         assert snapshot_is_complete(snapshot)
         assert snapshot[SNAPSHOT_HASH_KEY]

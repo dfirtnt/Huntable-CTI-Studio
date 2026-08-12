@@ -67,6 +67,7 @@ To resolve conflicts, either stop the conflicting service or change the host por
 |----------|---------|---------|----------|
 | `DATABASE_URL` | PostgreSQL connection string | Built by Docker Compose from `POSTGRES_PASSWORD` (see `.env.example`); not a literal default in repo | Yes |
 | `POSTGRES_PASSWORD` | PostgreSQL password | — | **Yes** |
+| `MAINTENANCE_API_TOKEN` | Shared secret for internal web-to-maintenance backup/restore requests | — | **Yes** when using web backup/restore |
 | `REDIS_URL` | Redis connection | `redis://redis:6379/0` | Yes |
 | `SOURCES_CONFIG` | Path to sources YAML | `config/sources.yaml` | No |
 | `ENVIRONMENT` | Environment name | `development` | No |

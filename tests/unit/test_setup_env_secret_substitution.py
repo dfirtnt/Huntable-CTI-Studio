@@ -86,6 +86,7 @@ class TestSetupEnvSecretSubstitution:
             "POSTGRES_PASSWORD": "test-postgres-pass",
             "REDIS_PASSWORD": "test-redis-pass",
             "SECRET_KEY": "test-secret-key",
+            "MAINTENANCE_API_TOKEN": "test-maintenance-token",
             "OPENAI_API_KEY": "sk-test-openai-key",
             "ANTHROPIC_API_KEY": "sk-test-anthropic-key",
             "USE_LMSTUDIO": "false",
@@ -124,6 +125,11 @@ class TestSetupEnvSecretSubstitution:
         assert result.returncode == 0, f"stderr: {result.stderr}"
         content = (tmp_path / ".env").read_text()
         assert "SECRET_KEY=test-secret-key" in content
+
+    def test_maintenance_token_lands_in_env(self, tmp_path):
+        result = _run_create_env_file(self._base_env(), tmp_path)
+        assert result.returncode == 0, f"stderr: {result.stderr}"
+        assert "MAINTENANCE_API_TOKEN=test-maintenance-token" in (tmp_path / ".env").read_text()
 
     def test_no_dead_placeholders_remain(self):
         """Sanity check on the source .env.example itself, documenting why the

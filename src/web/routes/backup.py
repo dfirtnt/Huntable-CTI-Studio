@@ -4,9 +4,9 @@ Backup management API routes.
 
 from __future__ import annotations
 
+import base64
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +26,7 @@ from src.services.audit_service import (
     build_actor_context,
 )
 from src.services.backup_cron_service import BackupCronService, CronCommandError, CronUnavailableError
+from src.services.maintenance_client import MaintenanceServiceError, run_backup_operation
 from src.utils.backup_config import BackupConfigManager, get_backup_config_manager
 from src.utils.input_validation import (
     ValidationError,
@@ -133,14 +134,6 @@ async def api_create_backup(request: Request):
         compress = payload.get("compress", True)
         verify = payload.get("verify", True)
 
-        project_root = Path(__file__).parent.parent.parent.parent
-        cmd = [sys.executable, str(project_root / "scripts" / "backup_system.py")]
-
-        if not compress:
-            cmd.append("--no-compress")
-        if not verify:
-            cmd.append("--no-verify")
-
         await _audit_backup(
             request,
             ACTION_BACKUP_CREATED,
@@ -151,14 +144,7 @@ async def api_create_backup(request: Request):
         )
 
         try:
-            result = subprocess.run(
-                cmd,
-                cwd=str(project_root),
-                capture_output=True,
-                text=True,
-                timeout=300,
-                check=False,
-            )
+            result = await run_backup_operation("create", {"compress": compress, "verify": verify}, timeout=300)
         except subprocess.TimeoutExpired:
             await _audit_backup(
                 request,
@@ -170,9 +156,9 @@ async def api_create_backup(request: Request):
             )
             raise
 
-        if result.returncode == 0:
+        if result["returncode"] == 0:
             backup_name = None
-            for line in result.stdout.strip().split("\n"):
+            for line in str(result["stdout"]).strip().split("\n"):
                 if "Creating comprehensive system backup:" in line:
                     backup_name = line.split(":")[-1].strip()
                     break
@@ -196,7 +182,7 @@ async def api_create_backup(request: Request):
             ACTION_BACKUP_CREATED,
             None,
             "Backup creation failed",
-            {"returncode": result.returncode},
+            {"returncode": result["returncode"]},
             status=STATUS_FAILURE,
         )
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -205,6 +191,9 @@ async def api_create_backup(request: Request):
         raise HTTPException(status_code=500, detail="Backup timed out") from exc
     except HTTPException:
         raise
+    except MaintenanceServiceError as exc:
+        logger.error("Backup creation maintenance error: %s", exc)
+        raise HTTPException(status_code=503, detail="Backup service unavailable") from exc
     except Exception as exc:  # noqa: BLE001
         logger.error("Backup creation error: %s", exc)
         raise HTTPException(status_code=500, detail="Internal server error") from exc
@@ -493,42 +482,18 @@ async def api_restore_backup(request: Request):
         except (ValueError, OSError) as e:
             raise HTTPException(status_code=400, detail="Invalid backup path") from e
 
-        # Check if it's a system backup directory
-        if backup_path.is_dir() and backup_name.startswith("system_backup_"):
-            script_path = project_root / "scripts" / "restore_system.py"
-            if not script_path.exists():
-                raise HTTPException(status_code=500, detail="System restore script not found")
-
-            cmd = [sys.executable, str(script_path), backup_name, "--backup-dir", backup_dir]
-
-            if components:
-                cmd.extend(["--components", components])
-            # Always pass --force when called from API to skip interactive confirmation
-            # (user already confirmed in UI). Note: --force also skips snapshot creation.
-            cmd.append("--force")
-            # If user explicitly wants to skip snapshot, add --no-snapshot
-            # (though --force already prevents snapshot, this is for clarity)
-            if no_snapshot:
-                cmd.append("--no-snapshot")
-        else:
-            # Use legacy database restore script
-            script_path = project_root / "scripts" / "restore_database.py"
-            if not script_path.exists():
-                raise HTTPException(status_code=500, detail="Database restore script not found")
-
-            cmd = [sys.executable, str(script_path), str(backup_path)]
-
-            # Always pass --force when called from API to skip interactive confirmation
-            cmd.append("--force")
-            if no_snapshot:
-                cmd.append("--no-snapshot")
+        script_name = (
+            "restore_system.py"
+            if backup_path.is_dir() and backup_name.startswith("system_backup_")
+            else "restore_database.py"
+        )
 
         restore_metadata = {
             "backup_name": backup_name,
             "backup_dir": backup_dir,
             "components": components,
             "no_snapshot": no_snapshot,
-            "script": script_path.name,
+            "script": script_name,
         }
         await _audit_backup(
             request,
@@ -540,14 +505,15 @@ async def api_restore_backup(request: Request):
         )
 
         try:
-            # nosemgrep codeql[py/command-line-injection] false positive: all cmd args validated by validate_backup_name/validate_backup_dir/validate_backup_components; list form (no shell=True)
-            result = subprocess.run(
-                cmd,
-                cwd=str(project_root),
-                capture_output=True,
-                text=True,
-                timeout=600,  # Restore can take longer
-                check=False,
+            result = await run_backup_operation(
+                "restore",
+                {
+                    "backup_name": backup_name,
+                    "backup_dir": backup_dir,
+                    "components": components,
+                    "no_snapshot": no_snapshot,
+                },
+                timeout=600,
             )
         except subprocess.TimeoutExpired:
             await _audit_backup(
@@ -560,7 +526,7 @@ async def api_restore_backup(request: Request):
             )
             raise
 
-        if result.returncode == 0:
+        if result["returncode"] == 0:
             await _audit_backup(
                 request,
                 ACTION_BACKUP_RESTORED,
@@ -571,7 +537,7 @@ async def api_restore_backup(request: Request):
             return {
                 "success": True,
                 "message": "Restore completed successfully",
-                "output": result.stdout,
+                "output": result["stdout"],
             }
 
         await _audit_backup(
@@ -579,7 +545,7 @@ async def api_restore_backup(request: Request):
             ACTION_BACKUP_RESTORED,
             backup_name,
             "Database restore failed",
-            {**restore_metadata, "returncode": result.returncode},
+            {**restore_metadata, "returncode": result["returncode"]},
             status=STATUS_FAILURE,
         )
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -588,6 +554,9 @@ async def api_restore_backup(request: Request):
         raise HTTPException(status_code=500, detail="Restore timed out") from exc
     except HTTPException:
         raise
+    except MaintenanceServiceError as exc:
+        logger.error("Backup restore maintenance error: %s", exc)
+        raise HTTPException(status_code=503, detail="Backup service unavailable") from exc
     except Exception as exc:  # noqa: BLE001
         logger.error("Restore error: %s", exc)
         raise HTTPException(status_code=500, detail="Internal server error") from exc
@@ -614,17 +583,8 @@ async def api_restore_from_file(
             detail=f"Invalid file type. Allowed: {', '.join(RESTORE_FILE_SUFFIXES)}",
         )
 
-    project_root = Path(__file__).parent.parent.parent.parent
-    script_path = project_root / "scripts" / "restore_database_v2.py"
-    if not script_path.exists():
-        raise HTTPException(status_code=500, detail="Restore script not found")
-
-    tmp_path: Path | None = None
     try:
         content = await file.read()
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix, prefix="restore_") as f:
-            f.write(content)
-            tmp_path = Path(f.name)
 
         # Audit the uploaded filename and size, never the file contents.
         upload_metadata = {"filename": file.filename, "suffix": suffix, "size_bytes": len(content)}
@@ -637,17 +597,11 @@ async def api_restore_from_file(
             status=STATUS_ATTEMPTED,
         )
 
-        cmd = [sys.executable, str(script_path), str(tmp_path), "--force"]
-        result = subprocess.run(
-            cmd,
-            cwd=str(project_root),
-            capture_output=True,
-            text=True,
-            timeout=600,
-            check=False,
+        result = await run_backup_operation(
+            "restore-file", {"content_base64": base64.b64encode(content).decode("ascii"), "suffix": suffix}, timeout=600
         )
 
-        if result.returncode == 0:
+        if result["returncode"] == 0:
             await _audit_backup(
                 request,
                 ACTION_BACKUP_RESTORED,
@@ -658,19 +612,19 @@ async def api_restore_from_file(
             return {
                 "success": True,
                 "message": "Restore from file completed successfully",
-                "output": result.stdout,
+                "output": result["stdout"],
             }
         await _audit_backup(
             request,
             ACTION_BACKUP_RESTORED,
             file.filename,
             "Database restore from uploaded file failed",
-            {**upload_metadata, "returncode": result.returncode},
+            {**upload_metadata, "returncode": result["returncode"]},
             status=STATUS_FAILURE,
         )
         raise HTTPException(
             status_code=500,
-            detail=result.stderr.strip() or result.stdout.strip() or "Restore failed",
+            detail=str(result["stderr"]).strip() or str(result["stdout"]).strip() or "Restore failed",
         )
     except subprocess.TimeoutExpired as exc:
         await _audit_backup(
@@ -684,12 +638,9 @@ async def api_restore_from_file(
         raise HTTPException(status_code=500, detail="Restore timed out") from exc
     except HTTPException:
         raise
+    except MaintenanceServiceError as exc:
+        logger.error("Backup upload restore maintenance error: %s", exc)
+        raise HTTPException(status_code=503, detail="Backup service unavailable") from exc
     except Exception as exc:  # noqa: BLE001
         logger.error("Restore from file error: %s", exc)
         raise HTTPException(status_code=500, detail="Internal server error") from exc
-    finally:
-        if tmp_path and tmp_path.exists():
-            try:
-                tmp_path.unlink()
-            except OSError as e:
-                logger.warning("Could not remove temp restore file %s: %s", tmp_path, e)

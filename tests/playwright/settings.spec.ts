@@ -62,6 +62,43 @@ test.describe('Settings - Save and Persistence', () => {
 
 });
 
+test.describe('Settings - Backup feedback', () => {
+  test.skip(SKIP_TESTS, 'Settings tests disabled.');
+
+  test('[SETTINGS-024] Backup creation shows in-progress and completion feedback', async ({ page }) => {
+    let completeBackup: (() => Promise<void>) | undefined;
+    await page.route('**/api/backup/create', async (route) => {
+      await new Promise<void>((resolve) => {
+        completeBackup = async () => {
+          await route.fulfill({
+            contentType: 'application/json',
+            body: JSON.stringify({ success: true, backup_name: 'system_backup_test' }),
+          });
+          resolve();
+        };
+      });
+    });
+
+    await page.goto(`${BASE}/settings`);
+    const button = page.locator('#createBackupBtn');
+    const feedback = page.getByTestId('backup-create-feedback');
+    await button.click();
+
+    await expect(button).toBeDisabled();
+    await expect(button).toHaveText('Creating backup…');
+    await expect(feedback).toContainText('Backup is running');
+
+    if (!completeBackup) {
+      throw new Error('Backup request was not intercepted');
+    }
+    await completeBackup();
+
+    await expect(button).toBeEnabled();
+    await expect(button).toHaveText('Create Backup Now');
+    await expect(feedback).toContainText('Backup created successfully: system_backup_test');
+  });
+});
+
 test.describe('Settings - API Keys', () => {
   test.skip(SKIP_TESTS, 'Settings tests disabled.');
 

@@ -14,7 +14,7 @@ os.environ.setdefault("APP_ENV", "test")
 
 
 async def main():
-    from sqlalchemy import text
+    from sqlalchemy import create_engine, inspect, text
     from sqlalchemy.ext.asyncio import create_async_engine
 
     from src.database.async_manager import async_db_manager
@@ -22,6 +22,18 @@ async def main():
     await async_db_manager.create_tables()
     db_url = os.environ.get("TEST_DATABASE_URL")
     if db_url:
+        # ``create_all`` does not add columns to an existing table. Keep the
+        # test database aligned with the execution-snapshot migration so API
+        # and integration tests behave like a migrated deployment.
+        from scripts.migrate_execution_snapshot_schema import apply_plan, build_plan
+
+        sync_engine = create_engine(db_url.replace("postgresql+asyncpg://", "postgresql://"))
+        try:
+            plan = build_plan(inspect(sync_engine))
+            if plan.total():
+                apply_plan(sync_engine, plan)
+        finally:
+            sync_engine.dispose()
         engine = create_async_engine(db_url)
         try:
             async with engine.connect() as conn:

@@ -116,6 +116,8 @@ services:
       - WORKFLOW_CODEX_MODEL=${WORKFLOW_CODEX_MODEL:-gpt-5.6-luna}
       - CODEX_HOME=/var/lib/huntable-codex
       - OCR_INGEST_ENABLED=${OCR_INGEST_ENABLED:-true}
+      - MAINTENANCE_API_URL=http://maintenance:8002
+      - MAINTENANCE_API_TOKEN=${MAINTENANCE_API_TOKEN:-}
       - PROCEED_WITHOUT_LMSTUDIO=${PROCEED_WITHOUT_LMSTUDIO:-}
       - TZ=America/New_York
     ports:
@@ -134,7 +136,6 @@ services:
       - ./scripts:/app/scripts
       - ./test-results:/app/test-results
       - ${HOME}/Huntable-SIGMA-Rules:/app/sigma-repo
-      - /var/run/docker.sock:/var/run/docker.sock
       - /var/db/timezone/zoneinfo/America/New_York:/etc/localtime:ro
       - hf_cache:/root/.cache/huggingface
     depends_on:
@@ -144,6 +145,8 @@ services:
         condition: service_healthy
       codex_auth_init:
         condition: service_completed_successfully
+      maintenance:
+        condition: service_started
     networks:
       - cti_network
     restart: unless-stopped
@@ -156,6 +159,30 @@ services:
     command: >-
       uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8001
       --workers 2
+
+  maintenance:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: maintenance-runtime
+    environment:
+      - MAINTENANCE_API_TOKEN=${MAINTENANCE_API_TOKEN:-}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - TZ=America/New_York
+    volumes:
+      - ./backups:/app/backups
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - ./models:/app/models
+      - ./outputs:/app/outputs
+      - ./scripts:/app/scripts
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - cti_network
+    restart: unless-stopped
 
   # Celery Worker for Background Tasks
   worker:

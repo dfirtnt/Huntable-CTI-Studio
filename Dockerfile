@@ -80,6 +80,7 @@ FROM runtime-os AS runtime-app
 # Copy ownership at layer creation; never recursively chown the application
 # tree in a later layer.
 COPY --from=builder-web --chown=cti_user:cti_user /opt/venvs/web /app/.venv
+RUN mkdir -p /opt/venvs && ln -s /app/.venv /opt/venvs/web
 COPY --chown=cti_user:cti_user . .
 
 USER cti_user
@@ -87,32 +88,20 @@ USER cti_user
 
 FROM runtime-os AS web-runtime
 
-# The web service still invokes Docker-backed backup and management operations.
-# Keep only this capability until the Docker-socket remediation target replaces
-# it with a narrowly scoped mechanism. Browser layers remain excluded; Codex
-# remains because web routes probe its subscription/provider capability, and
-# Tesseract remains because the web health surface probes its live availability.
+# Web has no Docker execution capability. Codex remains because web routes probe
+# its subscription/provider capability; OCR stays in the ingest worker.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        gnupg \
-        lsb-release \
         nodejs \
         npm \
-        tesseract-ocr \
-        tesseract-ocr-eng \
-    && rm -rf /var/lib/apt/lists/* \
-    && curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends docker-ce-cli \
-    && rm -rf /var/lib/apt/lists/* \
-    && usermod -aG root cti_user
+    && rm -rf /var/lib/apt/lists/*
 
 ARG CODEX_VERSION=0.147.0
 RUN npm install --global @openai/codex@${CODEX_VERSION} \
     && npm cache clean --force
 
 COPY --from=builder-web --chown=cti_user:cti_user /opt/venvs/web /app/.venv
+RUN mkdir -p /opt/venvs && ln -s /app/.venv /opt/venvs/web
 COPY --chown=cti_user:cti_user . .
 
 USER cti_user
@@ -123,6 +112,27 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:8001/health || exit 1
 
 CMD ["uvicorn", "src.web.modern_main:app", "--host", "0.0.0.0", "--port", "8001"]
+
+
+FROM runtime-os AS maintenance-runtime
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends gnupg lsb-release \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends docker-ce-cli \
+    && rm -rf /var/lib/apt/lists/* \
+    && usermod -aG root cti_user
+
+COPY --from=builder-web --chown=cti_user:cti_user /opt/venvs/web /app/.venv
+RUN mkdir -p /opt/venvs && ln -s /app/.venv /opt/venvs/web
+COPY --chown=cti_user:cti_user . .
+
+USER cti_user
+
+CMD ["uvicorn", "src.maintenance.main:app", "--host", "0.0.0.0", "--port", "8002"]
 
 
 FROM runtime-app AS scheduler-runtime
@@ -167,6 +177,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder-ingest --chown=cti_user:cti_user /opt/venvs/ingest /app/.venv
+RUN mkdir -p /opt/venvs && ln -s /app/.venv /opt/venvs/ingest
 
 # Run the Playwright-maintained dependency check with the ingest environment
 # present. Do not mask failure: the explicit package list above can drift.
@@ -199,6 +210,7 @@ RUN npm install --global @openai/codex@${CODEX_VERSION} \
     && npm cache clean --force
 
 COPY --from=builder-workflow --chown=cti_user:cti_user /opt/venvs/workflow /app/.venv
+RUN mkdir -p /opt/venvs && ln -s /app/.venv /opt/venvs/workflow
 COPY --chown=cti_user:cti_user . .
 
 USER cti_user
@@ -215,6 +227,7 @@ USER cti_user
 FROM runtime-os AS semantic-tools-runtime
 
 COPY --from=builder-semantic --chown=cti_user:cti_user /opt/venvs/semantic /app/.venv
+RUN mkdir -p /opt/venvs && ln -s /app/.venv /opt/venvs/semantic
 COPY --chown=cti_user:cti_user . .
 
 USER cti_user
@@ -226,6 +239,7 @@ USER cti_user
 FROM runtime-os AS development-runtime
 
 COPY --from=builder-development --chown=cti_user:cti_user /opt/venvs/development /app/.venv
+RUN mkdir -p /opt/venvs && ln -s /app/.venv /opt/venvs/development
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
