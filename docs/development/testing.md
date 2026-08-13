@@ -124,7 +124,10 @@ Individual components in isolation with mocked dependencies. Covers:
 **Command:** `python3 run_tests.py api`  
 **Duration:** ~2 minutes  
 **Path:** `tests/api/`  
-REST API endpoints and responses. Requires application running.
+REST API endpoints and responses. The canonical runner uses the in-process ASGI
+app against the isolated test database. Tests that create Sigma queue rows or
+workflow-config versions use snapshot/restore fixtures so reused test containers
+do not accumulate test artifacts.
 
 ### integration
 **Command:** `python3 run_tests.py integration`  
@@ -245,7 +248,7 @@ All tests are non-impactful to production data and configuration:
 |---|---|---|---|---|
 | Smoke | None | None | None | Yes |
 | Unit | Mocked | Mocked | Mocked | Yes |
-| API | Test DB | Read-only | None | Yes |
+| API | Test DB | Snapshot/restore | None | Yes |
 | Integration | Test DB + Rollback | Read-only | Disabled | Yes |
 | UI | None (via API) | None | None | Yes |
 | E2E | Test DB | Read-only | Disabled | Yes |
@@ -254,6 +257,8 @@ All tests are non-impactful to production data and configuration:
 
 **Safety mechanisms:**
 - Integration tests use `cti_scraper_test` with transaction rollback
+- API tests that mutate the Sigma queue or workflow config restore the affected
+  tables to their pre-test row set, including when a test fails
 - Config files are read-only in tests
 - ML retraining tests are disabled
 - `default_excludes` in `run_tests.py` automatically excludes `infrastructure`,
@@ -268,4 +273,4 @@ All tests are non-impactful to production data and configuration:
   `tests/api/test_audit_*.py`, and `tests/unit/test_security_middleware.py`;
   see [Authentication](../guides/authentication.md).
 
-_Last updated: 2026-07-03_
+_Last updated: 2026-08-13_

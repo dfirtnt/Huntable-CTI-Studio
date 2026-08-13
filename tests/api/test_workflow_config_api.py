@@ -19,7 +19,10 @@ import asyncio
 import httpx
 import pytest
 
-pytestmark = pytest.mark.agent_config_mutation
+pytestmark = [
+    pytest.mark.agent_config_mutation,
+    pytest.mark.usefixtures("preserve_workflow_config_state"),
+]
 
 
 class TestWorkflowConfigCRUD:
