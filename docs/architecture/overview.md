@@ -9,7 +9,8 @@ Huntable CTI Studio is a Docker-first threat intelligence collection and analysi
 | Web app | `src/web/modern_main.py` | FastAPI startup, app wiring, startup seeding, middleware |
 | Route registry | `src/web/routes/__init__.py` | Canonical route/module surface |
 | Workflow engine | `src/workflows/agentic_workflow.py` | LangGraph workflow state and step execution |
-| Workers and schedules | `src/worker/celery_app.py` | Celery broker, task registration, periodic jobs |
+| Workers and static schedules | `src/worker/celery_app.py` | Celery broker, task registration, static periodic jobs |
+| Managed job scheduler | `src/worker/scheduled_jobs_scheduler.py` | Polls database-backed schedules and dispatches configurable jobs |
 | Persistence | `src/database/models.py` | SQLAlchemy tables and stored JSON payloads |
 | Workflow config contract | `src/config/workflow_config_schema.py` | Enforced v2 configuration schema |
 
@@ -21,6 +22,8 @@ The runtime stack is composed of:
 - **PostgreSQL + pgvector** for articles, workflow executions, Sigma metadata, and embeddings
 - **Redis** for Celery broker and cache
 - **Celery workers** for ingestion and background processing
+- **Celery scheduler** for static and database-backed periodic jobs
+- **Maintenance runtime** for Docker-socket operations such as system backup
 - **LangGraph workflow** for multi-step article analysis
 - **MkDocs** for repository documentation
 
@@ -82,12 +85,15 @@ Huntable-CTI-Studio/
 The main Docker Compose stack includes:
 
 - `postgres`
+- `maintenance`
 - `redis`
 - `web`
 - `worker`
 - `workflow_worker`
 - `scheduler`
-- `cli`
+- `codex_auth_init`
+
+The `cli` and `mcp_http` services are opt-in Compose profiles, not part of the default stack.
 
 The isolated test stack is defined separately in `docker-compose.test.yml`.
 
@@ -95,7 +101,7 @@ The isolated test stack is defined separately in `docker-compose.test.yml`.
 
 - The web app verifies tables and performs startup normalization in `src/web/modern_main.py`.
 - Source data is seeded from YAML only for near-empty installs; otherwise the database remains the runtime source of truth.
-- Periodic jobs are registered in `src/worker/celery_app.py`.
+- Static periodic jobs are registered in `src/worker/celery_app.py`; configurable jobs are polled from the database by `src/worker/scheduled_jobs_scheduler.py`.
 - Workflow configuration is validated against the strict v2 schema in `src/config/workflow_config_schema.py`.
 
 ## Related Documentation
@@ -105,4 +111,4 @@ The isolated test stack is defined separately in `docker-compose.test.yml`.
 - [Schemas](../reference/schemas.md)
 - [Agent Orientation](../development/agent-orientation.md)
 
-_Last updated: 2026-07-04_
+_Last updated: 2026-08-13_

@@ -6,7 +6,7 @@ Allure Reports provides interactive, step-by-step test execution reports. `run_t
 
 ### Dependencies
 Allure is included in test dependencies (`requirements-test.txt`):
-```
+```text
 allure-pytest>=2.13.0
 ```
 
@@ -73,7 +73,7 @@ allure open allure-report
 
 ## Output Structure
 
-```
+```text
 allure-results/
 +-- *.json                    # Individual test results
 +-- attachments/              # Screenshots, logs, custom data

@@ -219,7 +219,7 @@ Full system backups provide complete system recovery capability, backing up all 
 # Database-only
 ./scripts/backup_restore.sh create --type database
 
-# Files-only
+# Compatibility option: accepted, but currently follows the full-system path and still includes the database
 ./scripts/backup_restore.sh create --type files
 
 # Custom options
@@ -1074,5 +1074,5 @@ The only requirement is that Docker containers are running with the expected nam
 
 ---
 
-_Last updated: 2026-07-05_
-_Last reviewed: 2026-05-23_
+_Last updated: 2026-08-13_
+_Last reviewed: 2026-08-13_

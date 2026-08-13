@@ -13,7 +13,7 @@ Workflow agent configuration uses a **normalized hierarchical schema (v2)** with
   - **Agents**: All LLM agents (RankAgent, ExtractAgent, SigmaAgent, and sub-agents: CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract, NetworkIndicatorExtract).
   - **Embeddings**: Sigma only (Sigma similarity). `OsDetection` was removed 2026-06-22 — platform detection is deterministic/entity-driven and loads no embedding model.
   - **Features**: SigmaFallbackEnabled, CmdlineAttentionPreprocessorEnabled, ProcTreeAttentionPreprocessorEnabled. (Rank Agent enablement is controlled via `Agents.RankAgent.Enabled`. The `OSDetectionFallback` agent was removed; any stale `Agents.OSDetectionFallback` entries are stripped automatically by the v1→v2 migration.)
-  - **Prompts**: Per-agent prompt/instructions (content unchanged; relocation only).
+  - **Prompts**: Per-agent prompt/instructions for prompt-bearing agents. `ExtractAgent` is excluded because it supplies only model/provider fallback configuration.
   - **Execution**: ExtractAgentSettings.DisabledAgents, OsDetectionSelectedOs.
 - **Naming normalization**: All QA agent names (`RankAgentQA`, `CmdLineQA`, `CmdlineQA`, `ProcTreeQA`, `HuntQueriesQA`, `RegistryQA`, `ServicesQA`, `ScheduledTasksQA`) are automatically removed by the migration. The QA agent subsystem was fully removed in v7.2.0 (commit `b9645305`, 2026-05-22; released 2026-05-29).
 - **No unknown keys**: Schema validation forbids unknown root keys; validation errors are explicit.
@@ -47,7 +47,7 @@ Until those checks pass, these paths are compatibility boundaries, not removable
 
 - **Version field**: v2 config must have `Version: "2.0"`. v1 or missing version triggers migration.
 - **Validation**: Required sections and types are enforced. Invalid types or missing required agent fields raise Pydantic `ValidationError`.
-- **Feature/agent gating**: If a feature is disabled (e.g. RankAgentEnabled false) or an agent has Enabled false, that agent must not execute (enforced by workflow logic; schema documents the contract).
+- **Feature/agent gating**: If an agent is disabled (for example, `Agents.RankAgent.Enabled` is false), that agent must not execute (enforced by workflow logic; schema documents the contract).
 
 ## Example and presets
 
@@ -55,6 +55,6 @@ Until those checks pass, these paths are compatibility boundaries, not removable
 
 ## ExtractAgent
 
-ExtractAgent is the parent config; sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract, NetworkIndicatorExtract) inherit provider/model from ExtractAgent when not configured. The schema types `Agents.ExtractAgent` explicitly; fallback behavior is implemented in the workflow and LLMService.
+ExtractAgent is the parent config; sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract, NetworkIndicatorExtract) inherit provider/model from ExtractAgent when not configured. The schema types `Agents.ExtractAgent` explicitly; fallback behavior is implemented in the workflow and LLMService. It has no key in the v2 `Prompts` section.
 
-_Last updated: 2026-07-04_
+_Last updated: 2026-08-13_

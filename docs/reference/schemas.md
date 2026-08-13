@@ -152,8 +152,8 @@ Top-level sections:
 Important invariants enforced by the schema:
 
 - enabled agents must have provider and model values
-- prompt keys must use canonical agent names
-- prompt blocks must exist for model-backed agents
+- prompt keys must use canonical prompt-bearing agent names
+- prompt blocks must exist for prompt-bearing agents; `ExtractAgent` is excluded because it provides model/provider fallback only
 
 ## Sigma Rules
 
@@ -193,4 +193,4 @@ Operationally important tables include:
 
 Use `src/database/models.py` when you need exact field names, nullability, or relationships.
 
-_Last updated: 2026-07-04_
+_Last updated: 2026-08-13_

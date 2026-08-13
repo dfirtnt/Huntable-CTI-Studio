@@ -1,6 +1,6 @@
 # Edit Agent Prompts
 
-Agent prompts control what each extraction and QA agent asks the LLM to produce. You edit them through the **Workflow Config** UI; every save creates a new version you can roll back to.
+Agent prompts control what each workflow agent asks the LLM to produce. You edit them through the **Workflow Config** UI; every save creates a new version you can roll back to.
 
 This guide covers the day-to-day edit loop. For what the on-disk `src/prompts/` files do (seed defaults, not live prompts), see [`src/prompts/README.md`](https://github.com/dfirtnt/Huntable-CTI-Studio/blob/main/src/prompts/README.md).
 
@@ -54,7 +54,7 @@ See `_normalize_traceability_item` in `src/services/llm_service.py`.
 
 ## Envelope shape
 
-All seven extract sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract, NetworkIndicatorExtract) and ExtractAgent use the standard 4-key envelope. Use this shape for all new and rewritten prompts:
+All seven extract sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract, NetworkIndicatorExtract) use the standard 4-key envelope. Use this shape for all new and rewritten prompts:
 
 | Key | Role |
 |-----|------|
@@ -118,4 +118,4 @@ See [Workflow Presets](../getting-started/configuration.md#workflow-presets) for
 - [Workflow Presets](../getting-started/configuration.md#workflow-presets) -- quickstart preset files and how to import/export configs
 - Contract test: `tests/config/test_subagent_traceability_contract.py` -- authoritative schema enforcement
 
-_Last updated: 2026-07-05_
+_Last updated: 2026-08-13_

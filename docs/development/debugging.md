@@ -53,13 +53,13 @@ From the Workflow Executions page, each execution has a **Debug** button that pr
 
 Direct trace URL:
 
-```
+```text
 https://cloud.langfuse.com/project/{project_id}/traces/{trace_id}
 ```
 
 Search fallback:
 
-```
+```text
 https://cloud.langfuse.com/project/{project_id}/traces?search=workflow_exec_{execution_id}
 ```
 
@@ -132,7 +132,7 @@ Use the database as the durable fallback. Use Langfuse when you need maximum per
 
 If the execution does not have a resolved trace ID or project ID, the UI falls back to Langfuse trace search using the workflow session identifier:
 
-```
+```text
 https://cloud.langfuse.com/project/{project_id}/traces?search=workflow_exec_{execution_id}
 ```
 
@@ -832,22 +832,22 @@ If Langfuse is enabled, check for traces:
 When evaluation runs correctly, you should see:
 
 1. **Workflow Start:**
-   ```
+   ```text
    INFO: Triggering agentic workflow for article 68 (execution_id: XXX)
    ```
 
 2. **Extraction Agent Start:**
-   ```
+   ```text
    INFO: Running extraction agent CmdlineExtract (provider=lmstudio, model_name=qwen2.5-coder-7b)
    ```
 
 3. **LMStudio Request:**
-   ```
+   ```text
    INFO: Attempting LMStudio at http://host.docker.internal:1234/v1 with model {model} (CmdlineExtract extraction attempt 1)
    ```
 
 4. **Response:**
-   ```
+   ```text
    INFO: CmdlineExtract raw response length: XXX chars
    INFO: CmdlineExtract token usage: {...}
    ```

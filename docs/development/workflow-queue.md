@@ -80,7 +80,7 @@ docker logs cti_workflow_worker --tail 50 -f
 
 ## Queue Architecture
 
-```
+```text
 ┌─────────────────┐
 │  Main Worker    │  → Processes: collection_immediate, default, source_checks,
 │  (cti_worker)   │              maintenance, reports, connectivity, collection

@@ -158,10 +158,10 @@ SigmaHQ, classifies coverage, and gates new rule generation.
 - Source tracking: `file_path`, `repo_commit_sha`
 - Canonical fields: `logsource_key`, `canonical_class` (precomputed for novelty scoring)
 
-**`article_sigma_matches`** — stores article-to-rule matches:
-- Similarity scores, match levels (article/chunk)
-- Coverage classification: `covered`, `extend`, `new`
-- Matched behaviors: discriminators, LOLBAS, intelligence indicators
+Similarity results are persisted with each workflow execution in
+`agentic_workflow_executions.similarity_results`. Promoted candidates retain
+their review evidence in `sigma_rule_queue`, including `similarity_scores`,
+`max_similarity`, `behavioral_matches_found`, and `total_candidates_evaluated`.
 
 #### Sigma Sync Service
 
@@ -895,4 +895,4 @@ docker compose exec web python3 -c "from src.services.embedding_service import E
 - [Sigma Similarity Case-Sensitive Atom Matching](../solutions/logic-errors/sigma-similarity-case-sensitive-atom-matching-2026-04-08.md)
 - [Sigma Cross-Field Soft Matching](../solutions/logic-errors/sigma-cross-field-soft-matching-zero-similarity-2026-04-12.md)
 
-_Last updated: 2026-07-05_
+_Last updated: 2026-08-13_

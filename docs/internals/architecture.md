@@ -4,7 +4,7 @@ ASCII diagrams of the main workflows in Huntable CTI Studio. Use these to orient
 
 ## 1. System Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                         Huntable CTI Studio Architecture                        │
 └─────────────────────────────────────────────────────────────────────────────────┘
@@ -29,8 +29,8 @@ ASCII diagrams of the main workflows in Huntable CTI Studio. Use these to orient
 │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘          │
 │                                                                                 │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
-│  │ PostgreSQL  │  │    Redis    │  │     CLI     │  │   Backup    │          │
-│  │   Port 5432 │  │  Port 6379  │  │   Service   │  │   System    │          │
+│  │ PostgreSQL  │  │    Redis    │  │     CLI     │  │ Maintenance │          │
+│  │   Port 5432 │  │  Port 6379  │  │  (profile)  │  │  / Backup   │          │
 │  │  + pgvector │  │             │  │             │  │             │          │
 │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘          │
 └─────────────────────────────────────────────────────────────────────────────────┘
@@ -38,7 +38,7 @@ ASCII diagrams of the main workflows in Huntable CTI Studio. Use these to orient
 
 ## 2. Article Collection Workflow
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                           Article Collection Workflow                           │
 └─────────────────────────────────────────────────────────────────────────────────┘
@@ -87,7 +87,7 @@ ASCII diagrams of the main workflows in Huntable CTI Studio. Use these to orient
 
 ## 3. Content Processing & Deduplication
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                      Content Processing & Deduplication                         │
 └─────────────────────────────────────────────────────────────────────────────────┘
@@ -145,7 +145,7 @@ ASCII diagrams of the main workflows in Huntable CTI Studio. Use these to orient
 
 ## 4. Threat Hunting Scoring System
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                          Threat Hunting Scoring System                          │
 └─────────────────────────────────────────────────────────────────────────────────┘
@@ -197,7 +197,7 @@ Keyword Categories:
 
 ## 5. Web Interface Workflow
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                              Web Interface Workflow                             │
 └─────────────────────────────────────────────────────────────────────────────────┘
@@ -252,7 +252,7 @@ API Endpoints:
 
 ## 6. Background Task Processing
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                          Background Task Processing                             │
 └─────────────────────────────────────────────────────────────────────────────────┘
@@ -262,8 +262,8 @@ API Endpoints:
 │   Scheduler     │
 │                 │
 │ • Every 30min   │
-│ • Daily 2AM     │
-│ • Daily 6AM     │
+│ • Daily jobs    │
+│ • Weekly jobs   │
 └─────────┬───────┘
           │
           ▼
@@ -271,8 +271,11 @@ API Endpoints:
 │   Task Queue    │
 │    (Redis)      │
 │                 │
+│ • default       │
+│ • workflows     │
 │ • source_checks │
-│ • collection    │
+│ • connectivity  │
+│ • collection x2 │
 │ • maintenance   │
 │ • reports       │
 └─────────┬───────┘
@@ -308,7 +311,7 @@ API Endpoints:
 
 ## 7. Database Schema
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                              Database Schema                                    │
 └─────────────────────────────────────────────────────────────────────────────────┘
@@ -374,7 +377,7 @@ API Endpoints:
 
 ## 8. AI-Powered Analysis Workflow
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                          AI-Powered Analysis Workflow                           │
 └─────────────────────────────────────────────────────────────────────────────────┘
@@ -427,7 +430,7 @@ API Endpoints:
 
 ## 9. ML Training Data Annotation System
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                        ML Training Data Annotation System                       │
 └─────────────────────────────────────────────────────────────────────────────────┘
@@ -485,7 +488,7 @@ API Endpoints:
 
 ## 10. Automated Backup System
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                            Automated Backup System                              │
 └─────────────────────────────────────────────────────────────────────────────────┘
@@ -506,21 +509,21 @@ API Endpoints:
 │ • backup_restore.sh│
 │ • Full System   │
 │ • Database Only │
-│ • Files Only    │
+│ • File Archive  │
 └─────────┬───────┘
           │
           ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│ Database Backup │    │ Volume Backup   │    │ File Backup     │
-│                 │    │                 │    │                 │
-│ • PostgreSQL    │    │ • Docker Volumes│    │ • Config Files  │
-│ • pg_dump       │    │ • Stop Containers│   │ • Models        │
-│ • Compression   │    │ • Tar Archive   │    │ • Outputs       │
-└─────────┬───────┘    └─────────┬───────┘    └─────────┬───────┘
-          │                      │                      │
-          └──────────┬───────────┼──────────────────────┘
-                     │           │
-                     ▼           ▼
+┌─────────────────┐                         ┌─────────────────┐
+│ Database Backup │                         │ File Backup     │
+│                 │                         │                 │
+│ • PostgreSQL    │                         │ • Config Files  │
+│ • pg_dump       │                         │ • Models        │
+│ • Compression   │                         │ • Outputs       │
+└─────────┬───────┘                         └─────────┬───────┘
+          │                                         │
+          └──────────────────┬──────────────────────┘
+                             │
+                             ▼
             ┌─────────────────┐    ┌─────────────────┐
             │ Backup Archive  │    │ Retention Policy│
             │                 │    │                 │
@@ -531,12 +534,12 @@ API Endpoints:
             └─────────────────┘    └─────────────────┘
 
 Note: Cron jobs are configured but require Docker to be running.
-Manual backups via CLI: ./run_cli.sh backup create
+Manual system backups run through the authenticated maintenance service or host scripts.
 ```
 
 ## 11. CLI Tool Service Workflow
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                              CLI Tool Service Workflow                         │
 └─────────────────────────────────────────────────────────────────────────────────┘
@@ -546,7 +549,7 @@ Manual backups via CLI: ./run_cli.sh backup create
 │                 │
 │ • ./run_cli.sh  │
 │ • init/collect  │
-│ • backup/export │
+│ • export/search │
 └─────────┬───────┘
           │
           ▼
@@ -564,7 +567,7 @@ Manual backups via CLI: ./run_cli.sh backup create
 │                 │    │                 │    │                 │
 │ • init          │    │ • PostgreSQL    │    │ • Config Files  │
 │ • collect       │    │ • Async Manager │    │ • Export Data   │
-│ • backup        │    │ • Same as Web   │    │ • Log Files     │
+│ • search        │    │ • Same as Web   │    │ • Log Files     │
 │ • rescore       │    │ • Consistency   │    │ • Model Files   │
 └─────────┬───────┘    └─────────┬───────┘    └─────────┬───────┘
           │                      │                      │
@@ -581,7 +584,7 @@ Manual backups via CLI: ./run_cli.sh backup create
 
 ## 12. Browser Extension Workflow
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                              Browser Extension Workflow                        │
 └─────────────────────────────────────────────────────────────────────────────────┘
@@ -642,7 +645,7 @@ Manual backups via CLI: ./run_cli.sh backup create
 
 ## 13. HTTP Client & Rate Limiting
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                        HTTP Client & Rate Limiting                              │
 └─────────────────────────────────────────────────────────────────────────────────┘
@@ -701,4 +704,4 @@ Manual backups via CLI: ./run_cli.sh backup create
 └─────────────────┘
 ```
 
-_Last updated: 2026-07-04_
+_Last updated: 2026-08-13_

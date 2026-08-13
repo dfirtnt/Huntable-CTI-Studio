@@ -18,7 +18,7 @@ Aggregates cybersecurity threat intelligence from RSS feeds and web scraping; us
 
 ## Architecture
 
-- **6 services**: PostgreSQL (pgvector), Redis, FastAPI web app, Celery workers (default + workflow), scheduler
+- **8 default services**: PostgreSQL (pgvector), Redis, FastAPI web app, maintenance runtime, Celery workers (default + workflow), scheduler, and a one-shot Codex auth initializer
 - **LangGraph**: Orchestrates the 7-step agentic workflow as a linear pipeline with conditional early-exit gates (state machine, checkpointing)
 - **Database-backed workflows**: Articles, workflow executions, Sigma rules, presets, settings, evals, and supporting metadata
 - **Source healing**: operator-invoked Claude Code skill diagnoses failing sources (RSS inspection, sitemap discovery, JS-rendering detection, WP JSON API probing) and proposes a config fix for approval — never auto-applies, never runs on a schedule

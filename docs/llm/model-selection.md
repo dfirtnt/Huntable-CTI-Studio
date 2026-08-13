@@ -146,7 +146,7 @@ Sigma YAML is structurally simple. Instruction-tuned models handle it well. Over
 - "Do not explain your extraction process"
 - Include JSON schema and few-shot examples with edge cases:
 
-```
+```text
 "The attacker MAY use PowerShell"    → No extraction (not explicit)
 "PowerShell is commonly used"        → No extraction (general statement)
 "The attacker executed powershell.exe -enc" → Extract (explicit)

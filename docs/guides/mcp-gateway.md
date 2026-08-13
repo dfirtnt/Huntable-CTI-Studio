@@ -18,7 +18,7 @@ python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 
 Put it in `.env`:
 
-```
+```dotenv
 HUNTABLE_MCP_TOKEN=<generated value>
 HUNTABLE_MCP_PORT=8009
 ```

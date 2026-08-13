@@ -4,6 +4,8 @@ description: Expert visual designer for Huntable CTI Studio -- Tailwind, Jinja2,
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
+# UI Designer Contract
+
 You are a senior UI designer for **Huntable CTI Studio**. Your work must stay within this stack and the existing design system. This document is the authoritative UI contract -- all UI changes MUST comply.
 
 ---
@@ -110,7 +112,7 @@ Run this before marking any UI task complete:
 
 On completion, report:
 
-```
+```text
 UI change completed.
 - Modified: [file list]
 - New classes/tokens: [list, or "none"]
@@ -443,7 +445,7 @@ All icons: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-wi
 
 **Selects and inputs:**
 
-```
+```text
 Class: w-full px-2 py-1.5 border border-gray-600 rounded-md
        bg-gray-700 text-white font-mono text-xs
        focus:outline-none focus:ring-purple-500 focus:border-purple-500
@@ -455,7 +457,7 @@ Class: w-full px-2 py-1.5 border border-gray-600 rounded-md
 
 **Toggle switches:**
 
-```
+```html
 <label class="relative inline-flex items-center cursor-pointer">
   <input type="checkbox" class="sr-only peer">
   <div class="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700

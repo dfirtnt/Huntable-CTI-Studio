@@ -59,7 +59,7 @@ curl -X POST http://localhost:8001/api/model/retrain
 
 ### What happens
 
-```
+```text
 Label feedback in UI
        ↓
 POST /api/model/retrain
@@ -98,7 +98,7 @@ The gate **only applies when `eval_set.csv` is present** (`using_curated_eval = 
 
 A rejection message like:
 
-```
+```text
 ❌ RETRAIN REJECTED: recall_huntable=0.08 (min 0.30), f1_huntable=0.12 (min 0.30).
    Staged model discarded; live model unchanged.
 ```
