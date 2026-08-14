@@ -116,6 +116,12 @@
   --action-danger-bg: #fef2f2;    /* red-50 */
   --action-danger-fill: rgba(239, 68, 68, 0.1);
   --action-danger-hover: #b91c1c;
+  /* Status-dot / badge text tints used by eval status chips and MAE arrows */
+  --status-danger-text: #f87171;   /* red-400  */
+  --status-warning-text: #ea580c;  /* orange-600 */
+  --status-info-text: #818cf8;     /* indigo-400 */
+  --status-success-text: #34d399;  /* emerald-400 */
+  --border-amber: #d97706;         /* amber-700 — workflow locked-scaffold accent */
 
 /* ---------------------------------------------------------------------------
    5. STEP COLORS (workflow overview)

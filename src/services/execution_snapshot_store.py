@@ -40,9 +40,7 @@ def hydrate_snapshot(execution: AgenticWorkflowExecutionTable) -> dict:
     return dict(execution.config_snapshot) if isinstance(execution.config_snapshot, dict) else {}
 
 
-async def attach_snapshot_async(
-    session: AsyncSession, execution: AgenticWorkflowExecutionTable, payload: dict
-) -> None:
+async def attach_snapshot_async(session: AsyncSession, execution: AgenticWorkflowExecutionTable, payload: dict) -> None:
     """Async equivalent used by MCP retry writes."""
     content_hash = payload.get(SNAPSHOT_HASH_KEY) or canonical_snapshot_hash(payload)
     result = await session.execute(

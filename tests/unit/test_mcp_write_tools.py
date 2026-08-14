@@ -180,6 +180,7 @@ async def test_retry_workflow_execution_creates_pending_execution_and_enqueues(m
         enqueued.append((article_id, execution_id))
 
     monkeypatch.setattr(workflow, "_enqueue_workflow_retry", fake_enqueue)
+
     async def hydrate(_session, source_execution):
         return dict(source_execution.config_snapshot)
 

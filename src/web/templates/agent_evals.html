@@ -726,8 +726,8 @@
                             <p class="font-semibold mb-1" style="color: var(--text-emphasis);">MAE chart metrics</p>
                             <ul class="space-y-1" style="line-height: 1.6;">
                                 <li><strong>MAE</strong> &mdash; avg(|actual&minus;expected|) in observable units; lower is better</li>
-                                <li><span style="display: inline-block; width: 0.6rem; height: 0.6rem; border-radius: 50%; background: #10b981; vertical-align: middle;" aria-hidden="true"></span> <strong>Green node</strong> &mdash; full eval set completed (every scheduled article reached <code>completed</code>)</li>
-                                <li><span style="display: inline-block; width: 0.6rem; height: 0.6rem; border-radius: 50%; background: #f59e0b; vertical-align: middle;" aria-hidden="true"></span> <strong>Amber node</strong> &mdash; degraded run: subset of eval articles selected, OR records failed/pending, OR any run was rate-limited or quota-exceeded (those keep <code>completed</code> status but the MAE is unreliable). Hover for the breakdown.</li>
+                                <li><span style="display: inline-block; width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--action-execute); vertical-align: middle;" aria-hidden="true"></span> <strong>Green node</strong> &mdash; full eval set completed (every scheduled article reached <code>completed</code>)</li>
+                                <li><span style="display: inline-block; width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--border-warning); vertical-align: middle;" aria-hidden="true"></span> <strong>Amber node</strong> &mdash; degraded run: subset of eval articles selected, OR records failed/pending, OR any run was rate-limited or quota-exceeded (those keep <code>completed</code> status but the MAE is unreliable). Hover for the breakdown.</li>
                             </ul>
                         </div>
                     </div>
@@ -1716,16 +1716,16 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
                     html += `<span class="status-badge ${statusClass} text-xs px-1.5 py-0.5">${result.status}</span>`;
                 }
                 if (result.quota_exceeded) {
-                    html += `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.35rem; line-height: 1.1; background: rgba(220,38,38,0.12); color: #f87171; border-color: rgba(220,38,38,0.35);" title="OpenAI quota exhausted -- billing cap reached. Add credits to your OpenAI account.">no quota</span>`;
+                    html += `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.35rem; line-height: 1.1; background: rgba(220,38,38,0.12); color: var(--status-danger-text); border-color: rgba(220,38,38,0.35);" title="OpenAI quota exhausted -- billing cap reached. Add credits to your OpenAI account.">no quota</span>`;
                 }
                 if (result.throttled) {
                     html += `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.35rem; line-height: 1.1;" title="TPM RATE LIMIT">&#9888;</span>`;
                 }
                 if (result.context_length_exceeded) {
-                    html += `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.35rem; line-height: 1.1; background: rgba(234,88,12,0.12); color: #ea580c; border-color: rgba(234,88,12,0.35);" title="Context window exceeded -- article was too long for the model. No items were extracted.">ctx&#8599;</span>`;
+                    html += `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.35rem; line-height: 1.1; background: rgba(234,88,12,0.12); color: var(--status-warning-text); border-color: rgba(234,88,12,0.35);" title="Context window exceeded -- article was too long for the model. No items were extracted.">ctx&#8599;</span>`;
                 }
                 if (result.infra_not_ready) {
-                    html += `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.35rem; line-height: 1.1; background: rgba(99,102,241,0.12); color: #818cf8; border-color: rgba(99,102,241,0.35);" title="LMStudio was not ready when this ran -- model not loaded. Re-run to get a real result.">no mdl</span>`;
+                    html += `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.35rem; line-height: 1.1; background: rgba(99,102,241,0.12); color: var(--status-info-text); border-color: rgba(99,102,241,0.35);" title="LMStudio was not ready when this ran -- model not loaded. Re-run to get a real result.">no mdl</span>`;
                 }
                 // Placeholder span filled by applyDiagnosisCounts() after table renders
                 if (result.execution_id) {
@@ -2428,7 +2428,7 @@ async function loadAggregateScores() {
             }
             
             const quotaChip = (agg.quota_exceeded && agg.quota_exceeded > 0)
-                ? `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.45rem; margin-left: 0.5rem; background: rgba(220,38,38,0.12); color: #f87171; border-color: rgba(220,38,38,0.35);" title="OpenAI quota exhausted -- ${agg.quota_exceeded} article${agg.quota_exceeded === 1 ? '' : 's'} failed due to billing cap. Add credits to your OpenAI account.">${agg.quota_exceeded} quota exceeded</span>`
+                ? `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.45rem; margin-left: 0.5rem; background: rgba(220,38,38,0.12); color: var(--status-danger-text); border-color: rgba(220,38,38,0.35);" title="OpenAI quota exhausted -- ${agg.quota_exceeded} article${agg.quota_exceeded === 1 ? '' : 's'} failed due to billing cap. Add credits to your OpenAI account.">${agg.quota_exceeded} quota exceeded</span>`
                 : '';
             const throttledChip = (agg.throttled && agg.throttled > 0)
                 ? `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.45rem; margin-left: 0.5rem;" title="TPM RATE LIMIT - ${agg.throttled} article${agg.throttled === 1 ? '' : 's'} were throttled in this run. Raise Concurrency Throttle and re-run.">&#9888; ${agg.throttled} throttled</span>`
@@ -3446,8 +3446,8 @@ function renderCompareResult(data) {
     const maeB = aggB.raw_mae;
     let maeArrow = '';
     if (maeA != null && maeB != null) {
-        if (maeB < maeA) maeArrow = ' <span style="color:#34d399;">(down)</span>';
-        else if (maeB > maeA) maeArrow = ' <span style="color:#f87171;">(up)</span>';
+        if (maeB < maeA) maeArrow = ' <span style="color:var(--status-success-text);">(down)</span>';
+        else if (maeB > maeA) maeArrow = ' <span style="color:var(--status-danger-text);">(up)</span>';
         else maeArrow = ' <span style="color:var(--text-muted);">(same)</span>';
     }
 
