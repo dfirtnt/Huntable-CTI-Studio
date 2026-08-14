@@ -484,7 +484,7 @@
                         <circle class="uptime-ring-bar" id="uptime-ring-bar" cx="50" cy="50" r="35"/>
                     </svg>
                     <div class="uptime-text-wrap">
-                        <span class="uptime-pct" id="uptime-value">—</span>
+                        <span class="uptime-pct" id="uptime-value"> -- </span>
                         <span class="uptime-sublabel">uptime</span>
                     </div>
                 </div>
@@ -499,11 +499,11 @@
 
             <div class="metric-row">
                 <span class="metric-label">Total Sources</span>
-                <span class="metric-val cyan" id="total-sources">—</span>
+                <span class="metric-val cyan" id="total-sources"> -- </span>
             </div>
             <div class="metric-row">
                 <span class="metric-label">Avg Response</span>
-                <span class="metric-val" id="avg-response">—</span>
+                <span class="metric-val" id="avg-response"> -- </span>
             </div>
         </div>
 
@@ -526,7 +526,7 @@
         <div class="intel-card">
             <div class="card-title"><span>Failing Sources</span></div>
             <div id="failing-sources-container" class="scroll-area" style="max-height: 13rem;">
-                <!-- Static fallback — overwritten by JS -->
+                <!-- Static fallback  --  overwritten by JS -->
                 <div class="fail-row">
                     <span class="fail-name">CyberIntelBlog</span>
                     <span style="display:flex;align-items:center;">
@@ -570,7 +570,7 @@
             <div class="card-title"><span>System Stats</span></div>
 
             <div style="text-align:center; margin-bottom:1rem;">
-                <div class="big-stat-val" id="total-articles-big">{{ stats.total_articles if stats else '—' }}</div>
+                <div class="big-stat-val" id="total-articles-big">{{ stats.total_articles if stats else ' -- ' }}</div>
                 <div class="big-stat-label">Articles Indexed</div>
             </div>
 
@@ -580,11 +580,11 @@
             </div>
             <div class="metric-row">
                 <span class="metric-label">Processing Queue</span>
-                <span class="metric-val" id="queue-depth">—</span>
+                <span class="metric-val" id="queue-depth"> -- </span>
             </div>
             <div class="metric-row">
                 <span class="metric-label">Avg Hunt Score</span>
-                <span class="metric-val amber" id="avg-score">—</span>
+                <span class="metric-val amber" id="avg-score"> -- </span>
             </div>
         </div>
 
@@ -744,10 +744,10 @@
 
             const srcEl = document.getElementById('total-sources');
             const rspEl = document.getElementById('avg-response');
-            if (srcEl) srcEl.textContent = health.total_sources ?? '—';
+            if (srcEl) srcEl.textContent = health.total_sources ?? ' -- ';
             if (rspEl) {
                 const rt = health.avg_response_time;
-                rspEl.textContent = rt != null ? rt + 's' : '—';
+                rspEl.textContent = rt != null ? rt + 's' : ' -- ';
             }
 
             // ── Charts ──

@@ -553,7 +553,7 @@
                                     <label for="workflowOpenaiApiKey" class="text-sm font-medium text-gray-700 dark:text-gray-300">
                                         OpenAI API Key
                                     </label>
-                                    <span class="inline-flex flex-shrink-0 text-gray-400 hover:text-gray-300 dark:hover:text-gray-200 cursor-help" role="img" aria-label="Help" title="If you set an API key during setup, it is already in use—no need to enter it here. Add or change a key in this field to override; the value you save here takes precedence.">
+                                    <span class="inline-flex flex-shrink-0 text-gray-400 hover:text-gray-300 dark:hover:text-gray-200 cursor-help" role="img" aria-label="Help" title="If you set an API key during setup, it is already in use -- no need to enter it here. Add or change a key in this field to override; the value you save here takes precedence.">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                     </span>
                                 </div>
@@ -612,7 +612,7 @@
                                     <label for="workflowAnthropicApiKey" class="text-sm font-medium text-gray-700 dark:text-gray-300">
                                         Anthropic API Key
                                     </label>
-                                    <span class="inline-flex flex-shrink-0 text-gray-400 hover:text-gray-300 dark:hover:text-gray-200 cursor-help" role="img" aria-label="Help" title="If you set an API key during setup, it is already in use—no need to enter it here. Add or change a key in this field to override; the value you save here takes precedence.">
+                                    <span class="inline-flex flex-shrink-0 text-gray-400 hover:text-gray-300 dark:hover:text-gray-200 cursor-help" role="img" aria-label="Help" title="If you set an API key during setup, it is already in use -- no need to enter it here. Add or change a key in this field to override; the value you save here takes precedence.">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                     </span>
                                 </div>
@@ -894,10 +894,10 @@
     </div>
 </div>
 
-<!-- Success Notification removed — using global window.showNotification instead -->
+<!-- Success Notification removed  --  using global window.showNotification instead -->
 
 <!-- Restore Backup Modal -->
-<div id="restoreBackupModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
+<div id="restoreBackupModal" role="dialog" aria-modal="true" aria-label="Restore backup" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
     <div class="rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto" style="background:var(--mlops-card-bg); border:1px solid var(--mlops-card-border);">
         <div class="p-6">
             <div class="flex items-center justify-between mb-4">
@@ -1783,8 +1783,8 @@
 
         // Disable button and show loading
         testButton.disabled = true;
-        setTestLabel(testButton, 'Testing…');
-        setTestStatus(statusElement, 'Testing connection…');
+        setTestLabel(testButton, 'Testing...');
+        setTestStatus(statusElement, 'Testing connection...');
 
         try {
             const response = await fetch('/api/test-langfuse-connection', {
@@ -1807,7 +1807,7 @@
                 setTestStatus(statusElement, error.detail || 'Connection test failed', 'error');
             }
         } catch (error) {
-            setTestStatus(statusElement, 'Network error — try again', 'error');
+            setTestStatus(statusElement, 'Network error  --  try again', 'error');
         } finally {
             // Re-enable button
             testButton.disabled = false;
@@ -1973,8 +1973,8 @@
 
         // Disable button and show loading
         testButton.disabled = true;
-        setTestLabel(testButton, 'Testing…');
-        setTestStatus(statusElement, 'Testing connection…');
+        setTestLabel(testButton, 'Testing...');
+        setTestStatus(statusElement, 'Testing connection...');
 
         try {
             // Test by fetching repo info
@@ -1996,7 +1996,7 @@
                 setTestStatus(statusElement, `GitHub returned ${response.status} ${response.statusText}`, 'error');
             }
         } catch (error) {
-            setTestStatus(statusElement, 'Network error — try again', 'error');
+            setTestStatus(statusElement, 'Network error  --  try again', 'error');
         } finally {
             testButton.disabled = false;
             setTestLabel(testButton, 'Test connection');
@@ -2098,8 +2098,8 @@
         // Disable button and show loading
         const idleLabel = provider === 'lmstudio' ? 'Load models' : 'Test API key';
         testButton.disabled = true;
-        setTestLabel(testButton, provider === 'lmstudio' ? 'Loading…' : 'Testing…');
-        setTestStatus(statusElement, provider === 'lmstudio' ? 'Loading models…' : 'Testing API key…');
+        setTestLabel(testButton, provider === 'lmstudio' ? 'Loading...' : 'Testing...');
+        setTestStatus(statusElement, provider === 'lmstudio' ? 'Loading models...' : 'Testing API key...');
 
         let endpoint = '';
         let requestBody = {};
@@ -2147,7 +2147,7 @@
                 }
             }
         }).catch(function(error) {
-            setTestStatus(statusElement, 'Network error — try again', 'error');
+            setTestStatus(statusElement, 'Network error  --  try again', 'error');
         }).finally(function() {
             // Re-enable button
             testButton.disabled = false;
@@ -2159,8 +2159,8 @@
         const button = document.getElementById('testWorkflowCodexSubscription');
         const statusElement = document.getElementById('workflowCodexStatus');
         button.disabled = true;
-        setTestLabel(button, 'Testing…');
-        setTestStatus(statusElement, 'Checking Codex subscription…');
+        setTestLabel(button, 'Testing...');
+        setTestStatus(statusElement, 'Checking Codex subscription...');
 
         fetch('/api/settings/codex/test', { method: 'POST' })
             .then(function(response) { return response.json(); })
@@ -2216,7 +2216,7 @@
     }
 
     
-    // Show success notification — routed through global window.showNotification
+    // Show success notification  --  routed through global window.showNotification
 
     function safeAddListener(id, event, handler) {
         const element = document.getElementById(id);
@@ -2425,7 +2425,7 @@
         }
 
         createButton.disabled = true;
-        createButton.textContent = 'Creating backup…';
+        createButton.textContent = 'Creating backup...';
         feedback.textContent = 'Backup is running. Database backups can take several minutes; keep this page open.';
         feedback.className = 'mt-3 rounded-lg border border-blue-700 bg-blue-900/30 px-3 py-2 text-sm text-blue-200';
 

@@ -364,9 +364,9 @@
                     <div id="modelRetrainingHelpTooltip" role="tooltip" class="mlops-help-tooltip mlops-help-tooltip--start absolute top-8 w-80 rounded-lg shadow-lg p-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all duration-200" style="background: var(--panel-bg-3); border: 1px solid var(--border-subtle);">
                         <div class="text-xs" style="color: var(--text-secondary);">
                             <h4 class="font-semibold mb-1.5" style="color: var(--text-primary);">Retraining Best Practices</h4>
-                            <p class="mb-2">Collect <strong>20-50 user classifications</strong> before retraining. The system uses <strong>cumulative learning</strong> — each cycle builds on all previous data.</p>
+                            <p class="mb-2">Collect <strong>20-50 user classifications</strong> before retraining. The system uses <strong>cumulative learning</strong>  --  each cycle builds on all previous data.</p>
                             <ul class="list-disc list-inside space-y-0.5 mb-2">
-                                <li>No data loss — all feedback is preserved</li>
+                                <li>No data loss  --  all feedback is preserved</li>
                                 <li>Progressive improvement each cycle</li>
                                 <li>Small batches still help</li>
                             </ul>
@@ -439,18 +439,18 @@
             </div>
         </div>
         <div id="modelVersionHistoryBody" class="mlops-panel-body hidden">
-            <p class="text-xs mb-3" style="color: var(--text-muted-slate);">Each trained version is preserved. The <span style="color: var(--action-execute); font-weight: 600;">Active</span> version scores content. Roll back to any prior version — chunk re-scoring runs automatically.</p>
+            <p class="text-xs mb-3" style="color: var(--text-muted-slate);">Each trained version is preserved. The <span style="color: var(--action-execute); font-weight: 600;">Active</span> version scores content. Roll back to any prior version  --  chunk re-scoring runs automatically.</p>
 
             <!-- Rollback progress indicator -->
             <div id="rollbackProgressSection" class="hidden mb-3 p-2.5 rounded-md" style="background: var(--panel-bg-3); border: 1px solid var(--chart-orange);">
                 <div class="flex items-center gap-2.5">
                     <svg class="animate-spin w-3.5 h-3.5 flex-shrink-0" style="color: var(--chart-orange);" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
-                    <span id="rollbackProgressText" class="text-xs" style="color: var(--chart-orange);">Rolling back model…</span>
+                    <span id="rollbackProgressText" class="text-xs" style="color: var(--chart-orange);">Rolling back model...</span>
                 </div>
             </div>
 
             <div id="modelVersionHistoryList" class="space-y-2">
-                <p class="text-sm text-center py-4" style="color: var(--text-muted);">Loading…</p>
+                <p class="text-sm text-center py-4" style="color: var(--text-muted);">Loading...</p>
             </div>
 
             <!-- Pagination controls -->
@@ -467,7 +467,7 @@
     </div>
 
     <!-- Rollback Confirmation Dialog -->
-    <div id="rollbackConfirmModal" class="hidden fixed inset-0 flex items-center justify-center z-50" style="background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);">
+    <div id="rollbackConfirmModal" role="dialog" aria-modal="true" aria-label="Confirm rollback" class="hidden fixed inset-0 flex items-center justify-center z-50" style="background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);">
         <div class="w-full max-w-sm mx-4 rounded-xl overflow-hidden" style="background: var(--panel-bg-2); border: 1px solid var(--border-subtle); box-shadow: 0 24px 80px rgba(0,0,0,0.5);">
             <div class="px-5 pt-5 pb-4">
                 <h3 class="text-sm font-bold mb-2" style="font-family: 'Inter', system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-primary);">Confirm Rollback</h3>
@@ -509,10 +509,10 @@
                     </button>
                     <div id="metricsHelpTooltip" role="tooltip" class="mlops-help-tooltip mlops-help-tooltip--start absolute top-8 w-72 p-3.5 text-xs rounded-lg shadow-lg opacity-0 invisible transition-all duration-200" style="background: var(--panel-bg-3); border: 1px solid var(--border-subtle); color: var(--text-secondary);">
                         <div class="space-y-1.5">
-                            <div><strong style="color: var(--text-primary);">F1</strong> — Balanced; best single metric for classification.</div>
-                            <div><strong style="color: var(--text-primary);">Recall</strong> — When missing positives is costly.</div>
-                            <div><strong style="color: var(--text-primary);">Precision</strong> — When false alarms are costly.</div>
-                            <div><strong style="color: var(--text-primary);">Accuracy</strong> — Often misleading with imbalanced data.</div>
+                            <div><strong style="color: var(--text-primary);">F1</strong>  --  Balanced; best single metric for classification.</div>
+                            <div><strong style="color: var(--text-primary);">Recall</strong>  --  When missing positives is costly.</div>
+                            <div><strong style="color: var(--text-primary);">Precision</strong>  --  When false alarms are costly.</div>
+                            <div><strong style="color: var(--text-primary);">Accuracy</strong>  --  Often misleading with imbalanced data.</div>
                             <div class="pt-1.5" style="border-top: 1px solid var(--border-muted);"><strong style="color: var(--text-primary);">Priority:</strong> F1 &gt; Recall &cong; Precision &gt; Accuracy</div>
                         </div>
                     </div>
@@ -1554,7 +1554,7 @@
                     btn.disabled = false;
                     btn.textContent = 'Retrain Model';
                     
-                    // Reload data — use a short delay so the DB write is
+                    // Reload data  --  use a short delay so the DB write is
                     // visible, then refresh everything that changed:
                     // chart, KPI cards, active-model text, version history.
                     setTimeout(() => {

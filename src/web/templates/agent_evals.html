@@ -569,7 +569,7 @@
     </div>
 
     <!-- ═══ Commandlines Modal ═══ -->
-    <div id="commandlinesModal" class="hidden fixed inset-0 eval-modal-backdrop z-50 flex items-center justify-center">
+    <div id="commandlinesModal" role="dialog" aria-modal="true" aria-label="Command lines" class="hidden fixed inset-0 eval-modal-backdrop z-50 flex items-center justify-center">
         <div class="eval-modal-content max-w-4xl w-full mx-4 max-h-[80vh] flex flex-col">
             <div class="flex justify-between items-center p-6" style="border-bottom: 1px solid rgba(139, 92, 246, 0.08);">
                 <h3 id="commandlinesModalTitle" class="eval-section-title">Extracted Results</h3>
@@ -778,7 +778,7 @@ async function loadActiveConfig() {
         console.error('Error loading active config:', error);
         const configDisplay = document.getElementById('configDisplay');
         if (configDisplay) {
-            // Note: hardcoded error string, no user content — safe use of innerHTML
+            // Note: hardcoded error string, no user content  --  safe use of innerHTML
             configDisplay.innerHTML = '<p class="text-sm text-red-600 dark:text-red-400">Error loading config</p>';
         }
     }
@@ -1084,7 +1084,7 @@ function updateRunButton() {
     const runBtn = document.getElementById('runEvalBtn');
     runBtn.disabled = selectedArticleUrls.size === 0 || !_configIsRunnable;
     if (!_configIsRunnable) {
-        runBtn.title = 'No agents configured — set up models in Settings → Workflow Config first.';
+        runBtn.title = 'No agents configured  --  set up models in Settings → Workflow Config first.';
     } else {
         runBtn.title = '';
     }
@@ -1191,7 +1191,7 @@ function showHelp(fieldName) {
     modal.style.backdropFilter = 'blur(4px)';
     modal.innerHTML = `
         <div class="eval-help-modal-card w-full max-w-3xl max-h-[85vh] overflow-y-auto">
-            <div class="p-6 sm:p-7">
+            <div class="p-6">
                 <div class="flex justify-between items-start gap-4 mb-5">
                     <h3 class="text-lg font-semibold" style="color: var(--text-primary);">${help.title}</h3>
                     <button type="button" onclick="closeAgentEvalsHelpModal()" class="text-gray-400 hover:text-gray-200 focus:outline-none" aria-label="Close help modal">
@@ -1358,7 +1358,7 @@ async function runEvaluation() {
         const executions = data.executions || [];
         
         if (executions.length > 0) {
-            // Some or all articles used workflow executions (DB path) — poll until they complete
+            // Some or all articles used workflow executions (DB path)  --  poll until they complete
             statusText.textContent = `✅ Triggered ${executions.length} executions. Polling for results...`;
             statusText.className = 'text-sm text-gray-600 dark:text-gray-400';
             executionResults = {};
@@ -1373,7 +1373,7 @@ async function runEvaluation() {
             }
             await pollSubagentResults(executions);
         } else {
-            // All articles were evaluated from static files (no workflow executions) — refresh results immediately
+            // All articles were evaluated from static files (no workflow executions)  --  refresh results immediately
             statusText.textContent = `✅ Evaluated ${totalArticles} article(s) from static files. Refreshing results...`;
             statusText.className = 'text-sm text-green-600 dark:text-green-400';
             document.getElementById('evalSpinner').classList.add('hidden');
@@ -1793,7 +1793,7 @@ function renderSubagentResults(results) {
         let articleIdCell;
         if (showTitle) {
             const escapedTitle = result.title.trim().replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-            const displayTitle = escapedTitle.length > 50 ? escapedTitle.substring(0, 47) + '…' : escapedTitle;
+            const displayTitle = escapedTitle.length > 50 ? escapedTitle.substring(0, 47) + '...' : escapedTitle;
             articleIdCell = articleId != null
                 ? `<a href="/articles/${articleId}" class="text-blue-600 dark:text-blue-400 hover:underline" title="${tooltip}">${displayTitle}</a>`
                 : `<span class="text-gray-700 dark:text-gray-300" title="${tooltip}">${displayTitle}</span>`;

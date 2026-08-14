@@ -88,7 +88,7 @@
                 btn.disabled = true;
                 btn.classList.add('opacity-50', 'cursor-not-allowed');
                 btnText.textContent = 'Send to Workflow';
-                btn.title = 'No agents configured — set up models in Settings → Workflow Config first.';
+                btn.title = 'No agents configured  --  set up models in Settings → Workflow Config first.';
                 if (viewLastRunLink) viewLastRunLink.classList.add('hidden');
                 return;
             }
@@ -2859,7 +2859,7 @@ Please provide a detailed analysis based on the article content and the user's s
                         </div>
                     </div>
                     ${lengthMessage ? `<div class="length-guidance ${lengthStatus} mb-4">${lengthMessage}</div>` : ''}
-                    <p class="text-sm text-gray-300 mb-4 break-words whitespace-pre-wrap">"${workingText.substring(0, 200)}${workingText.length > 200 ? '…' : ''}"</p>
+                    <p class="text-sm text-gray-300 mb-4 break-words whitespace-pre-wrap">"${workingText.substring(0, 200)}${workingText.length > 200 ? '...' : ''}"</p>
                     <div class="flex space-x-3">
                         <button id="observable-save-btn" 
                                 class="flex-1 bg-purple-500 hover:bg-purple-600 text-white px-4 py-3 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900">
@@ -6109,7 +6109,7 @@ Please provide a detailed analysis based on the article content and the user's s
         
         const provider = data?.ai_model || data?.metadata?.ai_model || 'unknown';
         const modelName = data?.model_name || data?.metadata?.model_name || null;
-        const modelUsed = modelName ? `${provider} — ${modelName}` : provider;
+        const modelUsed = modelName ? `${provider}  --  ${modelName}` : provider;
         const generatedAt = data?.generated_at || data?.metadata?.generated_at ? new Date(data.generated_at || data.metadata.generated_at).toLocaleString() : 'Unknown';
         const temperature = data?.temperature || data?.metadata?.temperature || '0.2';
         const validationResults = data?.validation_results || data?.metadata?.validation_results || [];
@@ -7677,7 +7677,7 @@ Please provide a detailed analysis based on the article content and the user's s
                         : 'No similar rules found in SigmaHQ or your indexed repo.'}
                     ${matches && matches[0] && matches[0].similarity_method === 'llm_reranked' ? `
                         <div class="mt-1 text-xs text-gray-500">
-                            Analysis by: ${matches[0].llm_provider || 'unknown'}${matches[0].llm_model ? ' — ' + matches[0].llm_model : ''}
+                            Analysis by: ${matches[0].llm_provider || 'unknown'}${matches[0].llm_model ? '  --  ' + matches[0].llm_model : ''}
                         </div>
                     ` : ''}
                 </div>
@@ -9736,7 +9736,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
         
         // Create modal HTML
         const modalHTML = `
-            <div id="comparisonModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div id="comparisonModal" role="dialog" aria-modal="true" aria-label="Comparison" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                 <div class="bg-white rounded-lg p-6 max-w-4xl max-h-[90vh] overflow-y-auto">
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-lg font-bold text-gray-900"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 7.5h10.5v9H6.75v-9z"/></svg> Model Performance Comparison</h2>
@@ -9917,7 +9917,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
         
         // Create feedback comparison modal
         const modalHTML = `
-            <div id="feedbackComparisonModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div id="feedbackComparisonModal" role="dialog" aria-modal="true" aria-label="Feedback comparison" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                 <div class="bg-white rounded-lg p-6 max-w-6xl max-h-[90vh] overflow-y-auto">
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-lg font-bold text-gray-900"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg> Feedback Impact Analysis</h2>

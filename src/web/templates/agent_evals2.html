@@ -442,7 +442,7 @@
     </div>
 
     <!-- Item Detail Modal -->
-    <div id="itemDetailModal" class="hidden fixed inset-0 eval-modal-backdrop z-50 flex items-center justify-center">
+    <div id="itemDetailModal" role="dialog" aria-modal="true" aria-label="Item detail" class="hidden fixed inset-0 eval-modal-backdrop z-50 flex items-center justify-center">
         <div class="eval-modal-content max-w-3xl w-full mx-4 max-h-[80vh] flex flex-col">
             <div class="flex justify-between items-center p-6" style="border-bottom: 1px solid rgba(139, 92, 246, 0.08);">
                 <h3 id="itemDetailTitle" class="eval-section-title">Item-Level Detail</h3>
@@ -770,7 +770,7 @@ function updateRunButton() {
     const btn = document.getElementById('runEvalBtn');
     btn.disabled = selectedArticleUrls.size === 0 || !_configIsRunnable;
     if (!_configIsRunnable) {
-        btn.title = 'No agents configured — set up models in Settings → Workflow Config first.';
+        btn.title = 'No agents configured  --  set up models in Settings → Workflow Config first.';
     } else {
         btn.title = '';
     }
