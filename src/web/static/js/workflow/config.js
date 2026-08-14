@@ -6156,6 +6156,9 @@ async function showGenerateCommandsModal() {
     const modal = document.createElement('div');
     modal.id = 'generateCommandsModal';
     modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', 'Generate LMStudio context commands');
     modal.innerHTML = `
         <div class="card-xl max-w-3xl w-full mx-4 max-h-[80vh] flex flex-col">
             <div class="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">

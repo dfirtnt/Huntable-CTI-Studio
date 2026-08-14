@@ -76,6 +76,9 @@ function showObservableInfoModal(contentId) {
     const modal = document.createElement('div');
     modal.id = 'observableInfoModal';
     modal.className = 'fixed inset-0 bg-black/70 flex items-center justify-center z-[60]';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', 'Observable detail');
     modal.innerHTML = '<div class="bg-gray-800 border border-gray-600 rounded-lg p-4 max-w-lg max-h-[80vh] overflow-y-auto shadow-xl"><div class="flex justify-end mb-2"><button type="button" class="text-gray-400 hover:text-white" onclick="document.getElementById(\'observableInfoModal\').remove()">X</button></div><div class="observable-info-body"></div></div>';
     modal.querySelector('.observable-info-body').innerHTML = inner;
     modal.querySelector('button').onclick = () => modal.remove();
