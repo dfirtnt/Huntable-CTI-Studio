@@ -876,6 +876,9 @@
         const modal = document.createElement('div');
         modal.id = 'helpModal';
         modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-[9999]';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Help');
         
         document.body.appendChild(modal);
         
@@ -1085,6 +1088,9 @@ Generate all applicable SIGMA rules from the threat intelligence above.`;
         const modal = document.createElement('div');
         modal.id = 'helpModal';
         modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-[9999]';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Help');
         
         // Add click outside to close
         modal.addEventListener('click', function(e) {
@@ -2840,6 +2846,9 @@ Please provide a detailed analysis based on the article content and the user's s
             const modal = document.createElement('div');
             modal.id = 'annotationObservableModal';
             modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Annotation observable');
             this.currentModal = modal; // Store reference for reliable closing
 
             modal.addEventListener('click', function(e) {
@@ -3011,6 +3020,9 @@ Please provide a detailed analysis based on the article content and the user's s
             const modal = document.createElement('div');
             modal.id = 'annotationClassificationModal';
             modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Annotation classification');
             this.currentModal = modal; // Store reference for reliable closing
             
             // Add click outside to close
@@ -3361,6 +3373,9 @@ Please provide a detailed analysis based on the article content and the user's s
             // Create modal for classification without auto-expanding
             const modal = document.createElement('div');
             modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Annotation classification');
             this.currentModal = modal; // Store reference for reliable closing
             
             // Add click outside to close
@@ -3699,6 +3714,9 @@ Please provide a detailed analysis based on the article content and the user's s
             // Create modal for removing annotation
             const modal = document.createElement('div');
             modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Remove annotation');
             
             // Add click outside to close
             modal.addEventListener('click', function(e) {
@@ -5041,6 +5059,9 @@ Please provide a detailed analysis based on the article content and the user's s
         const modal = document.createElement('div');
         modal.id = 'aiAssistantModal';
         modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'AI assistant');
         
         // Determine if there is existing generated content to display/regenerate
         const hasExisting = hasSigmaRules || hasRanking;
@@ -5345,6 +5366,9 @@ Please provide a detailed analysis based on the article content and the user's s
             // Create modal dialog
             const modal = document.createElement('div');
             modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Settings');
             modal.innerHTML = `
                 <div class="card shadow-2xl p-6 max-w-md w-full mx-4">
                     <div class="flex justify-between items-center mb-4">
@@ -5462,6 +5486,9 @@ Please provide a detailed analysis based on the article content and the user's s
     function showRemovedChunksDialog(debugInfo) {
         const modal = document.createElement('div');
         modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Removed chunks');
         
         const chunksHtml = debugInfo.removed_chunks.map((chunk, index) => `
             <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded">
@@ -5541,6 +5568,9 @@ Please provide a detailed analysis based on the article content and the user's s
         const modal = document.createElement('div');
         modal.id = 'customPromptModal';
         modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Custom prompt');
         
         // Add click outside to close
         modal.addEventListener('click', function(e) {
@@ -5700,6 +5730,9 @@ Please provide a detailed analysis based on the article content and the user's s
         const loadingModal = document.createElement('div');
         loadingModal.id = 'loadingModal';
         loadingModal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4';
+loadingModal.setAttribute('role', 'dialog');
+loadingModal.setAttribute('aria-modal', 'true');
+loadingModal.setAttribute('aria-label', 'Loading');
         
         // Track if request has started
         let requestStarted = false;
@@ -5847,6 +5880,9 @@ Please provide a detailed analysis based on the article content and the user's s
         const modal = document.createElement('div');
         modal.id = 'customResponseModal';
         modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Custom response');
         
         // Add click outside to close
         modal.addEventListener('click', function(e) {
@@ -5947,6 +5983,9 @@ Please provide a detailed analysis based on the article content and the user's s
         const modal = document.createElement('div');
         modal.id = 'customPromptHistoryModal';
         modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Custom prompt history');
         
         // Add click outside to close
         modal.addEventListener('click', function(e) {
@@ -6090,6 +6129,9 @@ Please provide a detailed analysis based on the article content and the user's s
         const modal = document.createElement('div');
         modal.id = 'sigmaRulesModal';
         modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Sigma rules');
         
         // Add click outside to close
         modal.addEventListener('click', function(e) {
@@ -6550,6 +6592,9 @@ Please provide a detailed analysis based on the article content and the user's s
         const modal = document.createElement('div');
         modal.id = 'iocsModal';
         modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Indicators of compromise');
         
         // Add click outside to close
         modal.addEventListener('click', function(e) {
@@ -6784,6 +6829,9 @@ Please provide a detailed analysis based on the article content and the user's s
         const loadingModal = document.createElement('div');
         loadingModal.id = 'osDetectionLoadingModal';
         loadingModal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4';
+loadingModal.setAttribute('role', 'dialog');
+loadingModal.setAttribute('aria-modal', 'true');
+loadingModal.setAttribute('aria-label', 'Loading');
         
         // Track if request has started
         let osRequestStarted = false;
@@ -6893,6 +6941,9 @@ Please provide a detailed analysis based on the article content and the user's s
             const resultModal = document.createElement('div');
             resultModal.id = 'osDetectionResultModal';
             resultModal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center';
+resultModal.setAttribute('role', 'dialog');
+resultModal.setAttribute('aria-modal', 'true');
+resultModal.setAttribute('aria-label', 'OS detection result');
             
             const osLabel = result.operating_system || 'Unknown';
             const method = result.method || 'unknown';
@@ -7017,6 +7068,9 @@ Please provide a detailed analysis based on the article content and the user's s
             const errorModal = document.createElement('div');
             errorModal.id = 'osDetectionErrorModal';
             errorModal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center';
+errorModal.setAttribute('role', 'dialog');
+errorModal.setAttribute('aria-modal', 'true');
+errorModal.setAttribute('aria-label', 'OS detection error');
             errorModal.innerHTML = `
                 <div class="mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
                     <div class="flex justify-between items-center mb-4">
@@ -7053,6 +7107,9 @@ Please provide a detailed analysis based on the article content and the user's s
         const modal = document.createElement('div');
         modal.id = 'gpt4oRankingModal';
         modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'GPT-4o ranking');
         
         // Add click outside to close
         modal.addEventListener('click', function(e) {
@@ -7466,6 +7523,9 @@ Please provide a detailed analysis based on the article content and the user's s
         const modal = document.createElement('div');
         modal.id = 'similarRulesModal';
         modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Similar rules');
         
         // Add click outside to close
         modal.addEventListener('click', function(e) {
@@ -7785,6 +7845,9 @@ Please provide a detailed analysis based on the article content and the user's s
         const modal = document.createElement('div');
         modal.id = 'sigmaRuleDetailsModal';
         modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Sigma rule details');
         
         // Add click outside to close
         modal.addEventListener('click', function(e) {
@@ -8402,6 +8465,9 @@ ${JSON.stringify(rule.logsource, null, 2)}
         const loadingModal = document.createElement('div');
         loadingModal.id = 'chunkDebugLoadingModal';
         loadingModal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4';
+loadingModal.setAttribute('role', 'dialog');
+loadingModal.setAttribute('aria-modal', 'true');
+loadingModal.setAttribute('aria-label', 'Loading');
         loadingModal.innerHTML = `
             <div class="mx-auto p-5 border border-gray-700 w-96 shadow-lg rounded-md bg-gray-800">
                 <div class="mt-3 text-center">
@@ -8710,6 +8776,9 @@ ${JSON.stringify(rule.logsource, null, 2)}
             
             modal.id = 'chunkDebugModal';
             modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Chunk debug');
             
             // Generate chunk visualization
             let chunkVisualization = '';
