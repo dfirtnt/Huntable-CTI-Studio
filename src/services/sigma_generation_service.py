@@ -20,6 +20,11 @@ from src.utils.llm_optimizer import optimize_article_content
 logger = logging.getLogger(__name__)
 
 SIGMA_RULE_AUTHOR = "Huntable CTI Studio"
+
+# Phase 4 expansion prompt budget. The expansion turn is grounded in the uncovered-category
+# observables, so it does not need the full article body underneath a full observable dump.
+EXPANSION_MAX_CONTENT_CHARS = 12000
+EXPANSION_MAX_PROMPT_CHARS = 40000
 DEFAULT_SIGMA_SYSTEM_PROMPT = (
     "You are a SIGMA rule creation expert. Output ONLY valid YAML starting with 'title:'. Use exact 2-space "
     "indentation. logsource and detection must be nested dictionaries. No markdown, no explanations. IMPORTANT: "
@@ -144,15 +149,26 @@ def _extract_message_text(payload: Any) -> str:
 def _is_reasoning_model(provider: str, model_name: str) -> bool:
     """Identify models likely to spend completion tokens on reasoning before final output."""
     model_lower = (model_name or "").lower()
-    if provider == "openai":
+    if provider in {"openai", "codex"}:
         # In SIGMA generation, OpenAI chat models frequently consume completion budget
         # before emitting final YAML. Treat all OpenAI models as reasoning-style here.
+        # Codex-provider models are the same GPT-5.x reasoning family reached over the
+        # Codex app-server, where max_tokens is a textual output-length instruction —
+        # an 800-token budget caps every article at roughly one rule.
         return True
     return "r1" in model_lower or "reasoning" in model_lower
 
 
-def _build_observables_section(extraction_result: dict[str, Any] | None) -> str:
-    """Build observables list for prompt injection when extraction_result is available."""
+def _build_observables_section(
+    extraction_result: dict[str, Any] | None,
+    *,
+    include_types: set[str] | None = None,
+) -> str:
+    """Build observables list for prompt injection when extraction_result is available.
+
+    ``include_types`` restricts the dump to specific observable types while keeping the
+    original 0-based indices, so ``observables_used`` stays valid against the full list.
+    """
     if not extraction_result or not isinstance(extraction_result, dict):
         return ""
     observables_list = extraction_result.get("observables") or []
@@ -163,6 +179,8 @@ def _build_observables_section(extraction_result: dict[str, Any] | None) -> str:
         if not isinstance(obs, dict):
             continue
         obs_type = obs.get("type", "unknown")
+        if include_types is not None and obs_type not in include_types:
+            continue
         val = obs.get("value")
         if isinstance(val, dict):
             parts = [f"{k}={v}" for k, v in val.items() if v is not None and v != ""]
@@ -521,6 +539,7 @@ class SigmaGenerationService:
             # Phase 4: Optional expansion (artifact-driven)
             expansion_rules = []
             expansion_validation = None
+            expansion_failure: str | None = None
             if enable_multi_rule_expansion and extraction_result:
                 logger.info("Phase 4: Checking for expansion opportunities")
                 expansion_needed, uncovered_categories = self._needs_expansion(
@@ -581,6 +600,9 @@ class SigmaGenerationService:
                         )
                         expansion_rules = []
                         expansion_validation = None
+                        # Keep the reason on the result: a silently swallowed expansion
+                        # failure otherwise reports as a fully successful generation.
+                        expansion_failure = f"{type(expansion_error).__name__}: {expansion_error}"
 
             # Build final rules list and conversation log
             final_rules = []
@@ -694,6 +716,7 @@ class SigmaGenerationService:
                     "valid_rules": len(final_rules),
                     "validation_results": all_validation_results,
                     "conversation_log": conversation_log,
+                    "expansion_error": expansion_failure,
                 },
                 "errors": None if final_rules else "No valid SIGMA rules could be generated after all phases",
             }
@@ -1049,13 +1072,26 @@ class SigmaGenerationService:
         # Use multi-rule generation prompt template
         from src.utils.prompt_loader import format_prompt_async
 
+        # Phase 4 is observable-driven, not article-driven: re-embedding the full article
+        # plus the full observable dump underneath the expansion header pushed prompts past
+        # 75K chars and made every expansion call fail outright. Scope the observables to the
+        # uncovered categories and cap the article excerpt instead.
+        include_types = {
+            obs_type for obs_type, category in observable_to_category.items() if category in uncovered_categories
+        }
+        expansion_content = content_to_analyze or ""
+        if len(expansion_content) > EXPANSION_MAX_CONTENT_CHARS:
+            expansion_content = (
+                expansion_content[:EXPANSION_MAX_CONTENT_CHARS] + "\n\n[Article truncated for expansion phase]"
+            )
+
         base_prompt = await format_prompt_async(
             "sigma_generate_multi",
             title=article_title,
             source=source_name,
             url=url or "N/A",
-            content=content_to_analyze,
-            observables_section=_build_observables_section(extraction_result),
+            content=expansion_content,
+            observables_section=_build_observables_section(extraction_result, include_types=include_types),
             date=_sigma_rule_date(),
             author=SIGMA_RULE_AUTHOR,
         )
@@ -1069,6 +1105,15 @@ These categories have observables available but no rules generated yet:
 {base_prompt}
 
 Focus on generating rules for the uncovered categories listed above."""
+
+        if len(expansion_prompt) > EXPANSION_MAX_PROMPT_CHARS:
+            logger.warning(
+                f"Truncating expansion prompt from {len(expansion_prompt)} to {EXPANSION_MAX_PROMPT_CHARS} chars"
+            )
+            expansion_prompt = (
+                expansion_prompt[:EXPANSION_MAX_PROMPT_CHARS]
+                + "\n\n[Expansion prompt truncated to fit provider limits]"
+            )
 
         return expansion_prompt
 

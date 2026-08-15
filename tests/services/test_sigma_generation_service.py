@@ -7,6 +7,8 @@ import pytest
 import yaml
 
 from src.services.sigma_generation_service import (
+    EXPANSION_MAX_CONTENT_CHARS,
+    EXPANSION_MAX_PROMPT_CHARS,
     SigmaGenerationService,
     _build_observables_section,
     _extract_message_text,
@@ -94,6 +96,12 @@ class TestIsReasoningModelEdgeCases:
     def test_none_model_name_does_not_crash(self):
         assert not _is_reasoning_model("lmstudio", None)
         assert _is_reasoning_model("openai", None)
+
+    def test_codex_provider_models_are_reasoning_style(self):
+        """Codex-provider models must get the reasoning budget, not the 800-token cap."""
+        assert _is_reasoning_model("codex", "gpt-5.6-sol")
+        assert _is_reasoning_model("codex", "gpt-5.6-luna")
+        assert _is_reasoning_model("codex", None)
 
 
 class TestSigmaGenerationService:
@@ -1965,6 +1973,82 @@ class TestSigmaExpansionCoverage:
         assert "conn-6" not in prompt
         assert "Base prompt with observables" in prompt
         assert mock_prompt.await_args.kwargs["observables_section"]
+
+    @pytest.mark.asyncio
+    async def test_build_expansion_prompt_scopes_observables_and_caps_article_content(self):
+        """Expansion must not re-embed the full article under a full observable dump."""
+        service = self._service()
+        extraction_result = {
+            "observables": [
+                {"type": "cmdline", "value": "wmic /namespace:SecurityCenter2"},
+                {"type": "network_connection", "value": "203.0.113.10:443"},
+            ],
+            "subresults": {"network_connection": {"count": 1, "items": ["203.0.113.10:443"]}},
+        }
+
+        with patch("src.utils.prompt_loader.format_prompt_async", new_callable=AsyncMock) as mock_prompt:
+            mock_prompt.return_value = "Base prompt"
+
+            await service._build_expansion_prompt(
+                sigma_prompt_template=None,
+                article_title="Title",
+                source_name="Source",
+                url="https://example.test/report",
+                content_to_analyze="A" * (EXPANSION_MAX_CONTENT_CHARS + 5000),
+                uncovered_categories=["network_connection"],
+                extraction_result=extraction_result,
+            )
+
+        kwargs = mock_prompt.await_args.kwargs
+        assert len(kwargs["content"]) < EXPANSION_MAX_CONTENT_CHARS + 200
+        assert "[Article truncated for expansion phase]" in kwargs["content"]
+        # Only the uncovered category's observables survive, at their original index.
+        assert "[1] network_connection" in kwargs["observables_section"]
+        assert "cmdline" not in kwargs["observables_section"]
+
+    @pytest.mark.asyncio
+    async def test_build_expansion_prompt_truncates_oversized_prompt(self):
+        service = self._service()
+
+        with patch("src.utils.prompt_loader.format_prompt_async", new_callable=AsyncMock) as mock_prompt:
+            mock_prompt.return_value = "B" * (EXPANSION_MAX_PROMPT_CHARS + 10000)
+
+            prompt = await service._build_expansion_prompt(
+                sigma_prompt_template=None,
+                article_title="Title",
+                source_name="Source",
+                url="https://example.test/report",
+                content_to_analyze="content",
+                uncovered_categories=["network_connection"],
+                extraction_result={"observables": [], "subresults": {}},
+            )
+
+        assert len(prompt) < EXPANSION_MAX_PROMPT_CHARS + 200
+        assert prompt.endswith("[Expansion prompt truncated to fit provider limits]")
+
+
+class TestBuildObservablesSectionTypeFilter:
+    """include_types must narrow the dump while preserving full-list 0-based indices."""
+
+    def test_filter_keeps_original_indices(self):
+        extraction_result = {
+            "observables": [
+                {"type": "cmdline", "value": "powershell -enc"},
+                {"type": "registry_keys", "value": "HKLM\\Run"},
+                {"type": "network_connection", "value": "203.0.113.10"},
+            ]
+        }
+
+        section = _build_observables_section(extraction_result, include_types={"network_connection"})
+
+        assert "[2] network_connection: 203.0.113.10" in section
+        assert "cmdline" not in section
+        assert "registry_keys" not in section
+
+    def test_no_filter_returns_every_observable(self):
+        extraction_result = {"observables": [{"type": "cmdline", "value": "whoami"}]}
+
+        assert "[0] cmdline: whoami" in _build_observables_section(extraction_result)
 
 
 # ---------------------------------------------------------------------------

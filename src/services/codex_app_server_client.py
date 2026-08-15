@@ -17,6 +17,12 @@ class CodexAppServerError(RuntimeError):
     """A Codex app-server request could not be completed."""
 
 
+# asyncio's default StreamReader limit is 64 KiB. Codex echoes turn input back in
+# `item/completed` / `turn/completed` notifications, so a large SIGMA prompt produces a
+# single JSON-RPC line well past that and readline() fails the whole turn.
+CODEX_STREAM_LIMIT = 16 * 1024 * 1024
+
+
 def codex_workspace() -> Path:
     """Return the isolated workspace used by subscription-backed workflow turns."""
     workspace = Path("/tmp/huntable-codex-workspace")
@@ -182,6 +188,7 @@ class CodexAppServerClient:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=str(workspace),
+            limit=CODEX_STREAM_LIMIT,
         )
         return workspace
 
@@ -226,7 +233,15 @@ class CodexAppServerClient:
     async def _read_message(self) -> dict[str, Any]:
         if not self.process or not self.process.stdout:
             raise CodexAppServerError("Codex app-server is not running.")
-        line = await self.process.stdout.readline()
+        try:
+            line = await self.process.stdout.readline()
+        except ValueError as exc:
+            # asyncio's StreamReader raises ValueError once a single JSON-RPC line exceeds
+            # the stream limit ("Separator is found, but chunk is longer than limit").
+            raise CodexAppServerError(
+                f"Codex app-server emitted a JSON-RPC line larger than the {CODEX_STREAM_LIMIT}-byte "
+                "stdout buffer. Reduce the prompt size or raise CODEX_STREAM_LIMIT."
+            ) from exc
         if not line:
             stderr = ""
             if self.process.stderr:

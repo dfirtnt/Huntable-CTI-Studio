@@ -3,11 +3,12 @@
 import asyncio
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from src.services.codex_app_server_client import (
+    CODEX_STREAM_LIMIT,
     CodexAppServerClient,
     CodexAppServerError,
     messages_to_codex_input,
@@ -199,3 +200,28 @@ async def test_read_message_reports_stderr_when_process_exits():
 
     with pytest.raises(CodexAppServerError, match="login required"):
         await client._read_message()
+
+
+@pytest.mark.asyncio
+async def test_read_message_reports_oversized_line_instead_of_raw_value_error():
+    """A JSON-RPC line past the stream limit must surface as a Codex error, not ValueError."""
+    client = CodexAppServerClient(timeout=15.0)
+    stdout = asyncio.StreamReader(limit=16)
+    stdout.feed_data(b"x" * 512 + b"\n")
+    client.process = SimpleNamespace(stdout=stdout, stderr=None, returncode=None)
+
+    with pytest.raises(CodexAppServerError, match="larger than the"):
+        await client._read_message()
+
+
+@pytest.mark.asyncio
+async def test_start_raises_the_stdout_buffer_above_the_asyncio_default():
+    """Codex echoes turn input back, so the 64 KiB default truncates large SIGMA prompts."""
+    client = CodexAppServerClient(timeout=15.0)
+
+    with patch("src.services.codex_app_server_client.asyncio.create_subprocess_exec") as spawn:
+        spawn.return_value = SimpleNamespace(stdout=None, stderr=None, stdin=None, returncode=None)
+        await client._start()
+
+    assert spawn.await_args.kwargs["limit"] == CODEX_STREAM_LIMIT
+    assert CODEX_STREAM_LIMIT > 64 * 1024
