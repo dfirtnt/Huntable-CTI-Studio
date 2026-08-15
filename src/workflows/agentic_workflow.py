@@ -2720,6 +2720,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         "observable_indices": group["original_indices"],
                         "generated_rules": len(group_rules),
                         "error": group_error if group_error and not group_rules else None,
+                        # A Phase 4 expansion failure is non-fatal for the group, so it never
+                        # reaches `error`. Carry it separately, otherwise a group that lost every
+                        # expansion rule is indistinguishable from a fully successful one.
+                        "expansion_error": group_metadata.get("expansion_error"),
                     }
                 )
 

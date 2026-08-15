@@ -1029,6 +1029,10 @@ level: medium
                     assert result.get("errors") is None
                     assert len(result["rules"]) == 1
                     assert result["rules"][0]["title"] == "Process Creation Rule"
+                    # ...but the swallowed reason must still be reported, otherwise a run that
+                    # lost every expansion rule looks identical to a fully successful one.
+                    assert "ValueError" in result["metadata"]["expansion_error"]
+                    assert "empty response" in result["metadata"]["expansion_error"]
 
     @pytest.mark.asyncio
     async def test_generate_sigma_rules_rule_scoped_logging(self, service, sample_article_data, sample_sigma_rule):
@@ -1061,6 +1065,9 @@ level: medium
                             source_name=sample_article_data["source_name"],
                             url=sample_article_data["url"],
                         )
+
+                        # A run with no expansion failure must report no expansion error.
+                        assert result["metadata"]["expansion_error"] is None
 
                         # Check rule-scoped logging structure
                         conversation_log = result["metadata"].get("conversation_log", [])
@@ -1300,6 +1307,42 @@ level: low
         assert output.startswith("title: Test Rule")
         request_kwargs = service.llm_service.request_chat.call_args.kwargs
         assert request_kwargs["max_tokens"] == 10000
+
+    @pytest.mark.asyncio
+    async def test_call_provider_for_sigma_codex_uses_reasoning_max_tokens(self, service):
+        """Regression: codex-provider models fell through to the 800-token non-reasoning budget.
+
+        For Codex, max_tokens is not an API cap -- it is rendered into the prompt as an
+        output-length instruction -- so 800 told the model to stop after roughly one rule.
+        """
+        service.llm_service.provider_sigma = "codex"
+        service.llm_service.model_sigma = "gpt-5.6-sol"
+        service.llm_service.provider_defaults = {"codex": "gpt-5.6-luna"}
+        service.llm_service.temperature_sigma = 1.0
+        service.llm_service.top_p_sigma = 1.0
+        service.llm_service.seed = None
+        service.llm_service._convert_messages_for_model = Mock(side_effect=lambda messages, _model: messages)
+        service.llm_service.request_chat = AsyncMock(
+            return_value={
+                "choices": [
+                    {
+                        "message": {"content": "title: Codex Rule\nid: codex-rule\n"},
+                        "finish_reason": "stop",
+                    }
+                ],
+                "usage": {"prompt_tokens": 10, "completion_tokens": 200, "total_tokens": 210},
+            }
+        )
+
+        with (
+            patch("src.services.sigma_generation_service.trace_llm_call", return_value=contextlib.nullcontext(None)),
+            patch("src.services.sigma_generation_service.log_llm_completion"),
+            patch("src.services.sigma_generation_service.log_llm_error"),
+        ):
+            output = await service._call_provider_for_sigma("prompt", provider="codex")
+
+        assert output.startswith("title: Codex Rule")
+        assert service.llm_service.request_chat.call_args.kwargs["max_tokens"] == 10000
 
 
 # ---------------------------------------------------------------------------

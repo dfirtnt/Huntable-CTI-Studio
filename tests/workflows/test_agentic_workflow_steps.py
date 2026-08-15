@@ -608,6 +608,82 @@ class TestGenerateSigmaNode:
         assert execution.error_log["generate_sigma"]["sigma_generation_groups"][1]["platform"] == "linux"
 
     @pytest.mark.asyncio
+    async def test_group_expansion_failure_is_recorded_on_the_execution(self, article, execution, config_obj):
+        """A non-fatal Phase 4 expansion failure must not report as a clean success.
+
+        The group still returns rules, so `error` stays None; without a separate field the
+        run is indistinguishable from one where expansion actually produced rules.
+        """
+        config_obj.agent_prompts = {}
+        config_obj.sigma_fallback_enabled = True
+        db_session = _make_db_session(article, execution)
+        nodes = _capture_nodes(db_session, trigger_service_config=config_obj)
+
+        async def generate_side_effect(*args, **kwargs):
+            return {
+                "rules": [
+                    {
+                        "title": "Windows Process Rule",
+                        "description": "Phase 1 rule",
+                        "logsource": {"product": "windows", "category": "process_creation"},
+                        "detection": {
+                            "selection": {"CommandLine|contains": "cmd.exe /c whoami"},
+                            "condition": "selection",
+                        },
+                        "observables_used": [0],
+                        "platform": "windows",
+                        "telemetry_category": "process_creation",
+                        "generation_basis": "process_creation_generic",
+                        "detection_readiness": "generic",
+                    }
+                ],
+                "metadata": {
+                    "total_attempts": 1,
+                    "valid_rules": 1,
+                    "validation_results": [{"is_valid": True, "errors": [], "warnings": [], "rule_index": 1}],
+                    "conversation_log": [{"event_type": "generation_call", "generated_rule_count": 1}],
+                    "expansion_error": "CodexAppServerError: Codex app-server emitted a JSON-RPC line larger than...",
+                },
+                "errors": None,
+            }
+
+        extraction_result = {
+            "observables": [
+                {
+                    "type": "cmdline",
+                    "value": "cmd.exe /c whoami",
+                    "platform": "windows",
+                    "telemetry_category": "process_creation",
+                    "logsource_hint": {"product": "windows", "category": "process_creation"},
+                }
+            ],
+            "summary": {"count": 1, "platforms_detected": ["windows"]},
+            "discrete_huntables_count": 1,
+            "content": "cmd.exe /c whoami",
+        }
+
+        with patch("src.services.sigma_generation_service.SigmaGenerationService") as mock_sigma_cls:
+            mock_sigma = Mock()
+            mock_sigma.generate_sigma_rules = AsyncMock(side_effect=generate_side_effect)
+            mock_sigma_cls.return_value = mock_sigma
+
+            result = await nodes["generate_sigma"](
+                _default_state(
+                    filtered_content=article.content,
+                    extraction_result=extraction_result,
+                    discrete_huntables_count=1,
+                    config=_snapshot_state_config(config_obj),
+                )
+            )
+
+        assert len(result["sigma_rules"]) == 1
+        summary = execution.error_log["generate_sigma"]["sigma_generation_groups"][0]
+        # The group succeeded, so the fatal-error channel stays empty...
+        assert summary["error"] is None
+        # ...but the swallowed expansion failure is still visible on the execution record.
+        assert "CodexAppServerError" in summary["expansion_error"]
+
+    @pytest.mark.asyncio
     async def test_empty_observables_used_is_inferred_for_grouped_rule(self, article, execution, config_obj):
         config_obj.agent_prompts = {}
         config_obj.sigma_fallback_enabled = False
