@@ -4413,7 +4413,7 @@ function renderAgentPrompts() {
     // Render Rank Agent Prompt
     const rankPromptContainer = document.getElementById('rank-agent-prompt-container');
     if (rankPromptContainer) {
-        const promptData = getOrCreatePromptData('RankAgent');
+        const promptData = getPromptDataForRender('RankAgent');
         rankPromptContainer.innerHTML = renderSinglePrompt('RankAgent', promptData, 'rank-agent');
         setTimeout(() => {
             if (typeof initCollapsiblePanels === 'function') {
@@ -4477,7 +4477,7 @@ function renderAgentPrompts() {
     // Render SIGMA Agent Prompt (always render when container exists, same as Extract/sub-agents)
     const sigmaPromptContainer = document.getElementById('sigma-agent-prompt-container');
     if (sigmaPromptContainer) {
-        const promptData = getOrCreatePromptData('SigmaAgent');
+        const promptData = getPromptDataForRender('SigmaAgent');
         sigmaPromptContainer.innerHTML = renderSinglePrompt('SigmaAgent', promptData, 'sigma-agent');
         setTimeout(() => {
             if (typeof initCollapsiblePanels === 'function') {
@@ -4761,18 +4761,23 @@ function renderSinglePrompt(agentName, promptData, prefix) {
     `;
 }
 
-function getOrCreatePromptData(agentName) {
+// Render-only placeholder for an agent that has no prompt in form state.
+//
+// This MUST NOT write the placeholder back into `agentPrompts`. It used to, and that
+// side effect is how a missing prompt became an explicitly-empty one: rendering a panel
+// for an agent with no prompt materialised {prompt:'', instructions:''} into global
+// state, and the next Save -- which persists the whole blob -- wrote those blanks to the
+// database as though the operator had chosen them. Mirrors the sub-agent render path,
+// which has always used a local default.
+function getPromptDataForRender(agentName) {
     if (!agentPrompts) {
         agentPrompts = {};
     }
-    if (!agentPrompts[agentName]) {
-        agentPrompts[agentName] = {
-            prompt: '',
-            instructions: '',
-            model: getCurrentModelForAgent(agentName) || 'Not configured'
-        };
-    }
-    return agentPrompts[agentName];
+    return agentPrompts[agentName] || {
+        prompt: '',
+        instructions: '',
+        model: getCurrentModelForAgent(agentName) || 'Not configured'
+    };
 }
 
 function getDisabledExtractAgentsFromConfig(config) {
