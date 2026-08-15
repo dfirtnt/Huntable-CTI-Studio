@@ -58,17 +58,17 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js" integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ" crossorigin="anonymous"></script>
 
     <!-- Shared utilities (escapeHtml, date formatting) - load before anything that uses them -->
-    <script src="/static/js/utils.js?v=20260729"></script>
+    <script src="{{ asset_url('js/utils.js') }}"></script>
 
     <!-- Text Annotation System -->
     <script src="/static/js/annotation-manager.js"></script>
     <script src="/static/js/mobile-simple.js"></script>
     
     <!-- Unified Modal Management System -->
-    <script src="/static/js/modal-manager.js?v=20260122"></script>
+    <script src="{{ asset_url('js/modal-manager.js') }}"></script>
     
     <!-- Workflow Configuration Display Component -->
-    <script src="/static/js/components/workflow-config-display.js?v=20260617"></script>
+    <script src="{{ asset_url('js/components/workflow-config-display.js') }}"></script>
     
     <!-- Custom styles (theme vars from theme-variables.css only) -->
     <style>

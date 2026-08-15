@@ -3347,7 +3347,7 @@ END SYSTEM PROMPT</textarea>
 </div>
 
 <script src="/static/js/components/observable-utils.js"></script>
-<script src="/static/js/components/similarity-display.js?v=20260729"></script>
+<script src="{{ asset_url('js/components/similarity-display.js') }}"></script>
 <script src="/static/js/components/similar-rule-modal.js"></script>
 
 <!-- Operator Console + expanded prompt editor. Loads HERE, ahead of the inline
@@ -3355,7 +3355,7 @@ END SYSTEM PROMPT</textarea>
      inline fired before page.js's two registrations and before the column-resize
      listeners at the end of the template. Its only load-time DOM read is #oc-rail,
      which is parsed far above this point. -->
-<script src="/static/js/workflow/prompt-editor.js?v=20260804"></script>
+<script src="{{ asset_url('js/workflow/prompt-editor.js') }}"></script>
 <script>
 // Helper function to parse UTC timestamp and convert to local time
 // Tab Management
@@ -3488,10 +3488,10 @@ window.switchTab = switchTab;
        column-resize listeners below;
      - all four come before the column-resize blocks below, which read
        `window.loadExecutions` / `window.loadQueue` at parse time and wrap them. -->
-<script src="/static/js/workflow/page.js?v=20260729"></script>
-<script src="/static/js/workflow/executions.js?v=20260729"></script>
-<script src="/static/js/workflow/queue.js?v=20260729"></script>
-<script src="/static/js/workflow/config.js?v=20260729"></script>
+<script src="{{ asset_url('js/workflow/page.js') }}"></script>
+<script src="{{ asset_url('js/workflow/executions.js') }}"></script>
+<script src="{{ asset_url('js/workflow/queue.js') }}"></script>
+<script src="{{ asset_url('js/workflow/config.js') }}"></script>
 
 <style>
 .exec-resize-handle {

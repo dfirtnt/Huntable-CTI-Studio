@@ -4,7 +4,7 @@
 
 {% block content %}
 <div class="container mx-auto px-4 pt-4 pb-6">
-    <script src="/static/js/components/similarity-display.js?v=20260729"></script>
+    <script src="{{ asset_url('js/components/similarity-display.js') }}"></script>
     <script>
         // Pre-set annotation mode attribute before paint to avoid flashes of the rich container
         (function() {

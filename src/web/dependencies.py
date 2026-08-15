@@ -13,6 +13,7 @@ import os
 from collections.abc import AsyncGenerator, Generator
 from contextlib import contextmanager
 from functools import lru_cache
+from pathlib import Path
 
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -96,10 +97,35 @@ def _csrf_context(request: Request) -> dict[str, str]:
     return {"csrf_token": issue_csrf_token(cfg.secret_key, subject)}
 
 
+_STATIC_ROOT = Path("src/web/static")
+
+
+def asset_url(path: str) -> str:
+    """Return ``/static/<path>`` with a cache-busting token derived from file mtime.
+
+    Templates previously hardcoded tokens like ``?v=20260729``. Those only invalidate a
+    browser cache when a human remembers to edit the date, and static responses carry no
+    Cache-Control header -- so a shipped JS fix kept being served from cache and looked
+    like it had not worked at all. Deriving the token from mtime makes the URL change
+    whenever the file does, and never otherwise.
+    """
+    relative = path.lstrip("/")
+    if relative.startswith("static/"):
+        relative = relative[len("static/") :]
+    try:
+        stamp = int((_STATIC_ROOT / relative).stat().st_mtime)
+    except OSError:
+        # A missing asset is the template's problem, not this helper's: emit the plain
+        # URL so the 404 surfaces normally instead of being masked by an exception.
+        return f"/static/{relative}"
+    return f"/static/{relative}?v={stamp}"
+
+
 # Template environment with custom filters
 templates = Jinja2Templates(directory="src/web/templates", context_processors=[_csrf_context])
 templates.env.filters["highlight_keywords"] = highlight_keywords
 templates.env.filters["strftime"] = strftime_filter
+templates.env.globals["asset_url"] = asset_url
 
 
 @lru_cache(maxsize=1)
