@@ -146,6 +146,16 @@ def test_is_sigma_eval_execution(snapshot, expected):
 
 
 @pytest.mark.unit
+def test_is_sigma_eval_execution_hydrates_content_addressed_snapshot():
+    execution = SimpleNamespace(
+        config_snapshot={"snapshot_id": 45},
+        snapshot_record=SimpleNamespace(payload={"sigma_eval": True}),
+    )
+
+    assert is_sigma_eval_execution(execution) is True
+
+
+@pytest.mark.unit
 def test_score_and_persist_non_sigma_eval_is_noop():
     execution = SimpleNamespace(id=1, config_snapshot={}, sigma_rules=[])
     db_session = MagicMock()
@@ -190,6 +200,38 @@ def test_score_and_persist_scores_and_commits():
     assert result is eval_record
     assert eval_record.status == "completed"
     assert eval_record.completed_at is not None
+    assert eval_record.actual_rule_count == 1
+    db_session.commit.assert_called_once()
+
+
+@pytest.mark.unit
+@requires_sigma_similarity
+def test_score_and_persist_hydrates_content_addressed_snapshot():
+    eval_record = SimpleNamespace(
+        id=99,
+        article_url="https://x.test/a",
+        expected_rule_count=1,
+        expected_rules=[_RUNDLL32],
+        status="pending",
+        completed_at=None,
+    )
+    execution = SimpleNamespace(
+        id=7,
+        config_snapshot={"snapshot_id": 45},
+        snapshot_record=SimpleNamespace(payload={"sigma_eval": True}),
+        sigma_rules=[_RUNDLL32],
+    )
+    db_session = MagicMock()
+    db_session.query.return_value = _eval_query_returning(eval_record)
+
+    with patch(
+        "src.services.sigma_eval_service.load_sigma_ground_truth",
+        return_value={"https://x.test/a": {"expected_rule_count": 1, "expected_rules": [_RUNDLL32]}},
+    ):
+        result = score_and_persist_execution(execution, db_session)
+
+    assert result is eval_record
+    assert eval_record.status == "completed"
     assert eval_record.actual_rule_count == 1
     db_session.commit.assert_called_once()
 

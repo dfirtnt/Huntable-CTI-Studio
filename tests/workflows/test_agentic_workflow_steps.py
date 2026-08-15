@@ -1022,3 +1022,40 @@ class TestOsDetectionNode:
         assert "macos" in od["platforms_detected"], od["platforms_detected"]
         assert "windows" not in od["platforms_detected"], od["platforms_detected"]
         assert od["detection_method"] == "kb_scoring"
+
+    @pytest.mark.asyncio
+    async def test_inconclusive_adjudication_preserves_unknown_platform(self, article, execution, config_obj):
+        """Weak Windows evidence must not bypass the classifier's evidence floor."""
+        weak_unknown = {
+            "operating_system": "Unknown",
+            "method": "kb_scoring",
+            "confidence": "low",
+            "similarities": {"Windows": 1.0, "Linux": 0.0, "MacOS": 0.0},
+            "platforms_detected": [],
+            "evidence": {"windows": ["powershell"]},
+        }
+        article.content = "The sample invoked powershell during execution."
+        article.article_metadata = {}
+        execution.error_log = None
+        execution.config_snapshot = {}
+        db_session = _make_db_session(article, execution)
+        nodes = _capture_nodes(db_session, trigger_service_config=config_obj)
+
+        with (
+            patch(
+                "src.services.os_detection_service.OSDetectionService.detect_os",
+                new=AsyncMock(return_value=weak_unknown),
+            ),
+            patch(
+                "src.workflows.agentic_workflow._maybe_adjudicate_platform",
+                new=AsyncMock(return_value=(weak_unknown, "Unknown")),
+            ),
+            patch("src.workflows.agentic_workflow.flag_modified"),
+        ):
+            result = await nodes["os_detection"](
+                _default_state(article_id=1, execution_id=100, config={"agent_models": {}, "agent_prompts": {}})
+            )
+
+        assert result["detected_os"] == "Unknown"
+        assert result["platforms_detected"] == ["unknown"]
+        assert execution.error_log["os_detection_result"]["detected_os"] == "Unknown"

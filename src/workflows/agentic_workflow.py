@@ -30,7 +30,7 @@ from src.database.models import (
     SigmaRuleQueueTable,
     SubagentEvaluationTable,
 )
-from src.services.eval_item_scorer import score_items
+from src.services import subagent_eval_service
 from src.services.execution_snapshot_store import attach_snapshot, hydrate_snapshot
 from src.services.llm_service import LLMService
 from src.services.lmstudio_model_loader import auto_load_workflow_models
@@ -63,6 +63,12 @@ from src.workflows.status_utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Backward-compatible private aliases for existing workflow imports and tests.
+_extract_actual_count = subagent_eval_service._extract_actual_count
+_extract_actual_items = subagent_eval_service._extract_actual_items
+_update_single_eval_record = subagent_eval_service._update_single_eval_record
+_update_subagent_eval_on_completion = subagent_eval_service.update_subagent_eval_on_completion
 
 PLATFORM_WINDOWS = "windows"
 PLATFORM_LINUX = "linux"
@@ -169,7 +175,7 @@ def _platforms_from_os_detection(detected_os: Any, os_result: dict[str, Any] | N
     elif detected_platform != PLATFORM_UNKNOWN:
         platforms.append(detected_platform)
 
-    if not platforms:
+    if not platforms and os_data.get("confidence") != "low":
         similarities = os_data.get("similarities", {})
         if isinstance(similarities, dict):
             scored = [
@@ -640,6 +646,15 @@ _INFRA_FAILURE_RE = re.compile(
     re.IGNORECASE,
 )
 
+_NON_EXECUTED_EXTRACTOR_STATUSES = frozenset({"skipped", "skipped_for_eval", "disabled", "blocked_by_eval_filter"})
+
+
+def _subresult_was_executed(subresult: dict[str, Any]) -> bool:
+    """Return False for extractor records produced without an LLM execution."""
+    raw = subresult.get("raw", {})
+    status = raw.get("status") if isinstance(raw, dict) else None
+    return status not in _NON_EXECUTED_EXTRACTOR_STATUSES
+
 
 def _extraction_is_infra_failure(extraction_result: dict | None) -> bool:
     """Return True if every executed (non-skipped) subagent failed with an infra error."""
@@ -653,8 +668,7 @@ def _extraction_is_infra_failure(extraction_result: dict | None) -> bool:
     for sr in subresults.values():
         if not isinstance(sr, dict):
             continue
-        raw = sr.get("raw", {})
-        if isinstance(raw, dict) and raw.get("status") == "skipped_for_eval":
+        if not _subresult_was_executed(sr):
             continue
         executed.append(sr)
 
@@ -688,8 +702,7 @@ def _all_extractors_errored(extraction_result: dict | None) -> tuple[bool, str |
     for sr in subresults.values():
         if not isinstance(sr, dict):
             continue
-        raw = sr.get("raw", {})
-        if isinstance(raw, dict) and raw.get("status") == "skipped_for_eval":
+        if not _subresult_was_executed(sr):
             continue
         executed.append(sr)
 
@@ -874,237 +887,6 @@ def _mark_pending_subagent_evals_as_failed(
         except Exception:  # noqa: BLE001 -- best-effort rollback; original error already logged
             pass
         return 0
-
-
-def _update_subagent_eval_on_completion(
-    execution: AgenticWorkflowExecutionTable,
-    db_session: Session,
-    extraction_result_override: dict[str, Any] | None = None,
-) -> None:
-    """
-    Update SubagentEvaluationTable when workflow execution completes.
-    Extracts count from extraction_result.subresults.{subagent_name} and calculates score.
-    If extraction_result_override is provided (e.g. from workflow state), use it instead of execution.extraction_result.
-    """
-    try:
-        config_snapshot = execution.config_snapshot or {}
-        subagent_name = normalize_subagent_name(config_snapshot.get("subagent_eval"))
-
-        if not subagent_name:
-            # Not an eval run
-            return
-
-        # For hunt_queries, find eval records (hunt_queries, hunt_queries_edr, or hunt_queries_sigma)
-        # run-subagent-eval creates records with subagent_name "hunt_queries"; also support legacy EDR/SIGMA
-        if subagent_name == "hunt_queries":
-            eval_records = (
-                db_session.query(SubagentEvaluationTable)
-                .filter(
-                    SubagentEvaluationTable.workflow_execution_id == execution.id,
-                    SubagentEvaluationTable.subagent_name.in_(
-                        ["hunt_queries", "hunt_queries_edr", "hunt_queries_sigma"]
-                    ),
-                )
-                .all()
-            )
-
-            if not eval_records:
-                logger.warning(f"No SubagentEvaluation records found for execution {execution.id} (hunt_queries)")
-                return
-
-            for eval_record in eval_records:
-                _update_single_eval_record(
-                    eval_record,
-                    execution,
-                    db_session,
-                    extraction_result_override=extraction_result_override,
-                )
-            return
-
-        # Standard single eval record
-        eval_record = (
-            db_session.query(SubagentEvaluationTable)
-            .filter(SubagentEvaluationTable.workflow_execution_id == execution.id)
-            .first()
-        )
-
-        if not eval_record:
-            logger.warning(f"No SubagentEvaluation record found for execution {execution.id}")
-            return
-
-        _update_single_eval_record(
-            eval_record,
-            execution,
-            db_session,
-            extraction_result_override=extraction_result_override,
-        )
-
-    except Exception as e:
-        logger.error(f"Error updating SubagentEvaluation for execution {execution.id}: {e}", exc_info=True)
-        # Don't fail the workflow if eval update fails. Per-record terminal state is
-        # handled inside _update_single_eval_record; here we just keep the session clean
-        # so a partial transaction can't poison later commits.
-        with contextlib.suppress(Exception):
-            db_session.rollback()
-
-
-def _extract_actual_count(subagent_name: str, subresults: dict, execution_id: int) -> int | None:
-    """Extract actual count from subresults based on subagent name."""
-    # Handle historical hunt_queries_edr records (backward compatibility)
-    if subagent_name == "hunt_queries_edr":
-        hunt_queries_result = subresults.get("hunt_queries", {})
-        if not isinstance(hunt_queries_result, dict):
-            logger.warning(f"No hunt_queries result in subresults for execution {execution_id}")
-            return None
-        # Extract EDR query count from old dual-format results
-        query_count = hunt_queries_result.get("query_count")
-        if query_count is None:
-            queries = hunt_queries_result.get("queries", [])
-            query_count = len(queries) if isinstance(queries, list) else 0
-        return query_count
-
-    # hunt_queries: prefer count (current contract), then len(queries/items).
-    if subagent_name == "hunt_queries":
-        hq = subresults.get("hunt_queries", {})
-        if not isinstance(hq, dict):
-            logger.warning(f"No hunt_queries result in subresults for execution {execution_id}")
-            return None
-        n = hq.get("count")
-        if n is not None:
-            return int(n)
-        q = hq.get("queries") or hq.get("items", [])
-        return len(q) if isinstance(q, list) else 0
-
-    # Standard subagent handling (cmdline, process_lineage)
-    subagent_result = subresults.get(subagent_name, {})
-    if not isinstance(subagent_result, dict):
-        logger.warning(f"No {subagent_name} result in subresults for execution {execution_id}")
-        return None
-
-    # Extract count (prefer count field, fallback to items array length)
-    actual_count = subagent_result.get("count")
-    if actual_count is None:
-        items = subagent_result.get("items", [])
-        actual_count = len(items) if isinstance(items, list) else 0
-
-    return actual_count
-
-
-def _extract_actual_items(subagent_name: str, subresults: dict) -> list[str] | None:
-    """Extract the items list from subresults for item-level scoring.
-
-    Returns a list of strings or None if the subagent type doesn't support item lists.
-    """
-    if subagent_name in ("hunt_queries", "hunt_queries_edr", "hunt_queries_sigma"):
-        # Hunt queries produce query text objects, not simple string items
-        return None
-
-    subagent_result = subresults.get(subagent_name, {})
-    if not isinstance(subagent_result, dict):
-        return None
-
-    items = subagent_result.get("items")
-    if not isinstance(items, list):
-        return None
-
-    # Flatten: each item may be a string, or a dict with a "cmdline" / "command" / "value" field
-    flat: list[str] = []
-    for item in items:
-        if isinstance(item, str):
-            flat.append(item)
-        elif isinstance(item, dict):
-            # Try common string payload fields in priority order
-            for field in ("cmdline", "command", "commandline", "value", "name"):
-                v = item.get(field)
-                if isinstance(v, str) and v.strip():
-                    flat.append(v.strip())
-                    break
-    return flat if flat else None
-
-
-def _update_single_eval_record(
-    eval_record: SubagentEvaluationTable,
-    execution: AgenticWorkflowExecutionTable,
-    db_session: Session,
-    extraction_result_override: dict[str, Any] | None = None,
-) -> None:
-    """Update a single eval record with actual count from execution."""
-    try:
-        # Prefer override (e.g. from workflow state) so skip-sigma path has extraction_result
-        extraction_result = (
-            extraction_result_override if extraction_result_override is not None else execution.extraction_result
-        )
-        if not extraction_result or not isinstance(extraction_result, dict):
-            logger.warning(f"No extraction_result for execution {execution.id}")
-            eval_record.status = "failed"
-            db_session.commit()
-            return
-
-        subresults = extraction_result.get("subresults", {})
-        if not isinstance(subresults, dict):
-            logger.warning(f"No subresults in extraction_result for execution {execution.id}")
-            eval_record.status = "failed"
-            db_session.commit()
-            return
-
-        # Extract count based on subagent type
-        actual_count = _extract_actual_count(eval_record.subagent_name, subresults, execution.id)
-
-        if actual_count is None:
-            eval_record.status = "failed"
-            db_session.commit()
-            return
-
-        if not isinstance(actual_count, int):
-            actual_count = int(actual_count) if actual_count else 0
-
-        # Calculate score
-        score = actual_count - eval_record.expected_count
-
-        # Item-level scoring (only when expected_items ground truth is available).
-        # When the model returns zero items, _extract_actual_items returns None to signal
-        # "no items field present at all". For scoring purposes that's identical to an
-        # empty list -- the run completed and produced nothing -- so we coerce here so
-        # the zero-extraction case still scores (matched=0, missed=len(expected), extra=0).
-        if eval_record.expected_items and isinstance(eval_record.expected_items, list):
-            actual_items = _extract_actual_items(eval_record.subagent_name, subresults)
-            if actual_items is None:
-                actual_items = []
-            result = score_items(eval_record.expected_items, actual_items, eval_record.acceptable_items)
-            eval_record.actual_items = actual_items
-            eval_record.matched_count = result.matched_count
-            eval_record.missed_count = result.missed_count
-            eval_record.extra_count = result.extra_count
-            eval_record.neutral_count = result.neutral_count
-
-        # Update eval record
-        eval_record.actual_count = actual_count
-        eval_record.score = score
-        eval_record.status = "completed"
-        eval_record.completed_at = datetime.now()
-
-        # Commit the update
-        db_session.commit()
-
-        logger.info(
-            f"Updated SubagentEvaluation {eval_record.id}: "
-            f"subagent={eval_record.subagent_name}, expected={eval_record.expected_count}, "
-            f"actual={actual_count}, score={score}"
-        )
-    except Exception as e:
-        logger.error(f"Error updating SubagentEvaluation for execution {execution.id}: {e}", exc_info=True)
-        # Don't fail the workflow if eval update fails -- but never leave the record
-        # stranded in 'pending', or the poll loop shows it as permanently "stuck".
-        # Roll back the partial transaction, then write a terminal 'failed' state.
-        try:
-            db_session.rollback()
-            eval_record.status = "failed"
-            db_session.commit()
-        except Exception:
-            logger.error(
-                f"Failed to mark SubagentEvaluation {eval_record.id} as failed after update error",
-                exc_info=True,
-            )
 
 
 # CamelCase-keyed map used by the supervisor loop to resolve agent names to subagent aliases.
@@ -1448,18 +1230,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         state["execution_id"],
                         os_detection_prompt=os_det_prompt,
                         article_id=state["article_id"],
-                    )
-
-            similarities = os_result.get("similarities", {}) if os_result else {}
-            windows_similarity = similarities.get("Windows", 0.0) if isinstance(similarities, dict) else 0.0
-
-            if detected_os == "Unknown" and similarities:
-                max_similarity_os = max(similarities, key=similarities.get)
-                if max_similarity_os == "Windows" and windows_similarity > 0.0:
-                    detected_os = "Windows"
-                    os_result["operating_system"] = "Windows"
-                    logger.info(
-                        f"[Workflow {state['execution_id']}] Overriding detected_os to 'Windows' (highest similarity: {windows_similarity:.1%})"
                     )
 
             platforms_detected = _platforms_from_os_detection(detected_os, os_result)

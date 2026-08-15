@@ -10,6 +10,7 @@ from src.workflows.agentic_workflow import (
     _build_sigma_generation_groups,
     _enrich_observable_metadata,
     _extract_actual_count,
+    _extraction_is_infra_failure,
     _has_sigma_generation_eligible_observables,
     _is_agent_allowed,
     _make_skip_record,
@@ -588,6 +589,31 @@ class TestAllExtractorsErrored:
         all_failed, reason = _all_extractors_errored(None)
         assert all_failed is False
         assert reason is None
+
+    @pytest.mark.parametrize("status", ["skipped", "disabled", "blocked_by_eval_filter"])
+    def test_non_executed_status_does_not_mask_executed_agent_failure(self, status):
+        extraction = {
+            "subresults": {
+                "AgentA": self._sr(error="provider failed"),
+                "AgentB": self._sr(status=status),
+            }
+        }
+
+        all_failed, reason = _all_extractors_errored(extraction)
+
+        assert all_failed is True
+        assert reason == "All 1 extractor(s) failed: provider failed"
+
+    @pytest.mark.parametrize("status", ["skipped", "skipped_for_eval", "disabled", "blocked_by_eval_filter"])
+    def test_non_executed_status_does_not_mask_infra_failure(self, status):
+        extraction = {
+            "subresults": {
+                "AgentA": self._sr(error="openai api key is not configured"),
+                "AgentB": self._sr(status=status),
+            }
+        }
+
+        assert _extraction_is_infra_failure(extraction) is True
 
     def test_empty_subresults_returns_false(self):
         all_failed, reason = _all_extractors_errored({"subresults": {}})

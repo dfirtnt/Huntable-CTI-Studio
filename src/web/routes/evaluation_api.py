@@ -17,6 +17,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from src.config.workflow_config_loader import EXTRACT_AGENTS
 from src.database.manager import DatabaseManager
 from src.database.models import (
     AgenticWorkflowConfigTable,
@@ -40,6 +41,7 @@ from src.services.eval_item_scorer import calculate_f_beta, score_items
 from src.services.execution_snapshot_store import attach_snapshot
 from src.services.llm_service import LLMService
 from src.services.sigma_eval_service import load_sigma_ground_truth
+from src.services.subagent_eval_service import update_subagent_eval_on_completion
 from src.services.workflow_config_snapshot import build_config_snapshot
 from src.utils.subagent_utils import build_subagent_lookup_values, normalize_subagent_name
 from src.worker.celery_app import trigger_agentic_workflow
@@ -1541,6 +1543,34 @@ def _sigma_eval_config_snapshot(active_config: AgenticWorkflowConfigTable, fixtu
     )
 
 
+def _missing_sigma_eval_extractor_prompts(active_config: AgenticWorkflowConfigTable) -> list[str]:
+    """Return enabled extractors that cannot run from the active config.
+
+    Extraction intentionally has no prompt-file fallback. Rejecting an invalid
+    Sigma eval before dispatch prevents completed zero-rule executions from
+    leaving their evaluation rows permanently pending.
+    """
+    prompts = active_config.agent_prompts if isinstance(active_config.agent_prompts, dict) else {}
+    extract_settings = prompts.get("ExtractAgentSettings") or prompts.get("ExtractAgent") or {}
+    disabled = extract_settings.get("disabled_agents") or extract_settings.get("disabled_sub_agents") or []
+    disabled_agents = set(disabled) if isinstance(disabled, (list, tuple, set)) else set()
+
+    missing = []
+    for agent_name in EXTRACT_AGENTS:
+        if agent_name in disabled_agents:
+            continue
+        prompt_record = prompts.get(agent_name)
+        prompt_text = prompt_record.get("prompt") if isinstance(prompt_record, dict) else None
+        if not isinstance(prompt_text, str) or not prompt_text.strip():
+            missing.append(agent_name)
+            continue
+        try:
+            json.loads(prompt_text)
+        except json.JSONDecodeError:
+            missing.append(agent_name)
+    return missing
+
+
 @router.get("/sigma-eval-articles")
 async def get_sigma_eval_articles(request: Request):
     """List the fixture articles available for the Sigma eval (from ground truth)."""
@@ -1581,6 +1611,16 @@ async def run_sigma_eval(request: Request, eval_request: SigmaEvalRunRequest):
             )
             if not active_config:
                 raise HTTPException(status_code=404, detail="No active workflow config found")
+
+            missing_prompts = _missing_sigma_eval_extractor_prompts(active_config)
+            if missing_prompts:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"Active workflow config v{active_config.version} cannot run Sigma evaluations. "
+                        "Missing or invalid prompts for enabled extractors: " + ", ".join(missing_prompts)
+                    ),
+                )
 
             ground_truth = load_sigma_ground_truth()
             urls_list = list(eval_request.article_urls)
@@ -2094,8 +2134,6 @@ async def clear_pending_eval_records(request: Request, subagent: str = Query(...
 async def backfill_eval_records(request: Request, subagent: str = Query(..., description="Subagent name")):
     """Backfill pending eval records for completed workflow executions."""
     try:
-        from src.workflows.agentic_workflow import _update_subagent_eval_on_completion
-
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
 
@@ -2130,7 +2168,7 @@ async def backfill_eval_records(request: Request, subagent: str = Query(..., des
 
                 # Use the existing update function
                 try:
-                    _update_subagent_eval_on_completion(execution, db_session)
+                    update_subagent_eval_on_completion(execution, db_session)
                     # Check if it was updated
                     db_session.refresh(eval_record)
                     if eval_record.status == "completed":
