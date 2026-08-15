@@ -18,6 +18,10 @@ const extractSubAgents = EXTRACT_SUB_AGENTS;
 let disabledExtractAgents = new Set();
 let autoSaveTimeout = null; // Debounce timer for autosave
 let autoSaveModelChangeTimeout = null; // Debounce timer for model-change autosave
+// Agents whose prompt bodies are held in form state but not yet persisted (e.g. loaded
+// from a preset). Autosave deliberately does not transmit prompts, so its response must
+// not overwrite these -- doing so silently discards an import before the user can Save.
+let pendingPromptAgents = new Set();
 let lastValidationWarnAt = 0; // Throttle validation-failure console.warn (avoid spam)
 const VALIDATION_WARN_THROTTLE_MS = 10000; // Log same validation failure at most once per 10s
 let isSavingPrompt = false; // Block autoSave during prompt save to prevent overwriting
@@ -4139,8 +4143,19 @@ async function performAutoSave() {
             
             currentConfig = updatedConfig;
             agentModels = updatedConfig.agent_models || {};
-            agentPrompts = updatedConfig.agent_prompts || agentPrompts || {};
-            
+            // Autosave sends only ExtractAgentSettings, so the response cannot contain any
+            // prompt body still pending in form state. Re-apply those on top of server truth
+            // instead of replacing wholesale -- otherwise an imported preset is destroyed by
+            // the autosave it triggers, 400ms after the user loads it.
+            const serverPrompts = updatedConfig.agent_prompts || agentPrompts || {};
+            const preservedPrompts = { ...serverPrompts };
+            pendingPromptAgents.forEach(agentName => {
+                if (agentPrompts && agentPrompts[agentName] !== undefined) {
+                    preservedPrompts[agentName] = agentPrompts[agentName];
+                }
+            });
+            agentPrompts = preservedPrompts;
+
             // Update disabledExtractAgents from response, but DON'T sync toggles from config
             // The DOM state is already correct (user just changed it), and syncing would overwrite it
             // Only update the internal state to match what was saved
@@ -5004,6 +5019,7 @@ function applySubAgentPreset(preset) {
     applyAgentConfigs(mergedModels);
     if (preset.agent_prompts && Object.keys(preset.agent_prompts).length > 0) {
         agentPrompts = { ...(agentPrompts || {}), ...preset.agent_prompts };
+        Object.keys(preset.agent_prompts).forEach(name => pendingPromptAgents.add(name));
         renderAgentPrompts();
     }
     if (typeof autoSaveModelChange === 'function') autoSaveModelChange();
@@ -5727,6 +5743,7 @@ async function applyPreset(preset) {
         if (preset.agent_prompts && Object.keys(preset.agent_prompts).length > 0) {
             console.log('🔄 Loading agent prompts from preset into form (Save to apply)...');
             agentPrompts = { ...(agentPrompts || {}), ...preset.agent_prompts };
+            Object.keys(preset.agent_prompts).forEach(name => pendingPromptAgents.add(name));
             renderAgentPrompts();
             console.log('✅ Agent prompts loaded from preset. Click Save to make this config active.');
         }
@@ -6625,7 +6642,42 @@ if (workflowConfigForm) {
         }
     }
     formData.agent_models = Object.keys(cleanedAgentModels).length > 0 ? cleanedAgentModels : null;
-    
+
+    // Pre-flight prompt validation. A config saved with an enabled extractor but no prompt
+    // runs to "completed" with zero observables and zero rules and reports no error, so the
+    // loss is only visible by reading worker logs. Surface it here instead.
+    try {
+        const vResponse = await fetch('/api/workflow/config/prompts/validate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agent_prompts: formData.agent_prompts })
+        });
+        if (vResponse.ok) {
+            const { warnings = [] } = await vResponse.json();
+            if (warnings.length > 0) {
+                console.warn('Config save warnings:', warnings);
+                const detail = warnings.map(w => `• ${w}`).join('\n');
+                const proceed = await ModalManager.confirm(
+                    `This configuration has ${warnings.length} prompt issue(s):\n\n${detail}\n\n` +
+                    'Saving it will make these agents fail silently at runtime. Save anyway?',
+                    {
+                        title: 'Prompt Validation Warning',
+                        confirmText: 'Save Anyway',
+                        confirmClass: 'bg-red-600 hover:bg-red-700',
+                        cancelText: 'Cancel'
+                    }
+                );
+                if (!proceed) {
+                    showNotification('Save cancelled - fix the prompt issues above', 'warning');
+                    return;
+                }
+            }
+        }
+    } catch (validationError) {
+        // Validation is advisory: never block a save because the check itself failed.
+        console.warn('Prompt validation check failed, continuing with save:', validationError);
+    }
+
     // Show loading state
     const saveButton = document.getElementById('save-config-button');
     const originalButtonText = saveButton.textContent;
@@ -6646,7 +6698,9 @@ if (workflowConfigForm) {
             // Update currentConfig with the response
             currentConfig = updatedConfig;
             agentModels = updatedConfig.agent_models || {};
-            
+            // Explicit Save transmits the complete prompt state, so nothing is pending anymore.
+            pendingPromptAgents = new Set();
+
             // Re-apply agent configs to ensure Top_P and other values are set correctly
             if (updatedConfig.agent_models) {
                 applyAgentConfigs(updatedConfig.agent_models);

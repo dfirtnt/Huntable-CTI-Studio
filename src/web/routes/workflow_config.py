@@ -14,6 +14,7 @@ from src.config.workflow_config_loader import export_preset_as_canonical_v2, loa
 from src.config.workflow_config_schema import (
     AGENT_DISPLAY_NAMES,
     AGENT_NAMES_SPECIAL,
+    AGENT_NAMES_SUB,
     agent_models_is_nested,
     normalize_agent_models_to_flat,
 )
@@ -711,6 +712,34 @@ def update_auto_trigger_threshold(request: Request, body: dict[str, Any]):
 # top of this file so the preset prompt scanner stays in sync with the runtime validator.
 
 
+def _scan_missing_extractor_prompts(agent_prompts: dict[str, Any]) -> list[str]:
+    """Report enabled extractors that have no usable prompt in this config.
+
+    ``_scan_preset_prompts_for_warnings`` only inspects entries that are present, so a
+    dropped extractor key is invisible to it. Extraction has no prompt-file fallback: an
+    enabled extractor without a prompt is skipped at runtime and the workflow completes
+    "successfully" with zero observables and zero rules.
+    """
+    extract_settings = agent_prompts.get("ExtractAgentSettings")
+    if not isinstance(extract_settings, dict):
+        extract_settings = {}
+    disabled_raw = extract_settings.get("disabled_agents") or extract_settings.get("disabled_sub_agents") or []
+    disabled_agents = set(disabled_raw) if isinstance(disabled_raw, (list, tuple, set)) else set()
+
+    warnings: list[str] = []
+    for agent_name in AGENT_NAMES_SUB:
+        if agent_name in disabled_agents:
+            continue
+        record = agent_prompts.get(agent_name)
+        prompt_text = record.get("prompt") if isinstance(record, dict) else None
+        if isinstance(prompt_text, str) and prompt_text.strip():
+            continue
+        display = AGENT_DISPLAY_NAMES.get(agent_name)
+        label = f"{display} ({agent_name})" if display else agent_name
+        warnings.append(f"{label}: enabled but has no prompt -- it will be skipped at runtime")
+    return warnings
+
+
 def _scan_preset_prompts_for_warnings(agent_prompts: dict[str, Any]) -> list[str]:
     """Scan agent_prompts for issues that would cause runtime failures.
 
@@ -918,6 +947,24 @@ def validate_preset_prompts(preset: dict[str, Any]):
     warnings = _scan_preset_prompts_for_warnings(agent_prompts)
     if warnings:
         logger.warning("Preset validate warnings: %s", warnings)
+    return {"warnings": warnings}
+
+
+@router.post("/config/prompts/validate")
+def validate_config_prompts(payload: dict[str, Any]):
+    """Pre-flight check for the complete config a Save is about to persist.
+
+    Unlike ``/config/preset/validate`` -- which scans partial presets and must not
+    complain about prompts a sub-agent preset never carried -- this endpoint receives the
+    whole ``agent_prompts`` blob that is about to become the active config, so it can also
+    report enabled extractors whose prompt is missing entirely.
+    """
+    agent_prompts = payload.get("agent_prompts") or {}
+    if not isinstance(agent_prompts, dict):
+        return {"warnings": ["agent_prompts payload is not an object"]}
+    warnings = _scan_missing_extractor_prompts(agent_prompts) + _scan_preset_prompts_for_warnings(agent_prompts)
+    if warnings:
+        logger.warning("Config prompt validation warnings: %s", warnings)
     return {"warnings": warnings}
 
 
