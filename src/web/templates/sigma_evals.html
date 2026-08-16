@@ -151,6 +151,12 @@
         border: 1px solid rgba(59, 130, 246, 0.2);
     }
     .eval-btn--accent:hover { background: rgba(59, 130, 246, 0.2); }
+    .eval-btn--danger {
+        background: rgba(220, 38, 38, 0.1);
+        color: #f87171;
+        border: 1px solid rgba(220, 38, 38, 0.15);
+    }
+    .eval-btn--danger:hover { background: rgba(220, 38, 38, 0.2); border-color: rgba(220, 38, 38, 0.3); }
     .eval-btn--sm { font-size: 0.75rem; padding: 0.35rem 0.75rem; border-radius: 6px; }
     .eval-run-btn {
         font-family: 'JetBrains Mono', monospace;
@@ -415,6 +421,9 @@
             <div class="flex items-center gap-3 flex-wrap">
                 <label id="configVersionLabel" class="eval-section-label hidden" for="configVersionSelect">VERSION</label>
                 <select id="configVersionSelect" class="eval-select hidden" title="View Sigma results for a specific config version"></select>
+                <button id="clearPendingBtn" type="button" class="eval-btn eval-btn--danger eval-btn--sm" title="Delete all pending Sigma evaluation records">
+                    Clear Pending
+                </button>
                 <button id="refreshBtn" type="button" class="eval-btn eval-btn--secondary eval-btn--sm">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
@@ -655,6 +664,27 @@
             renderResults();
         } catch (e) {
             container.innerHTML = '<p class="text-sm" style="color: var(--action-danger);">Failed to load results.</p>';
+        }
+    }
+
+    async function clearPending() {
+        if (!window.confirm("Delete all pending Sigma evaluation records? This cannot be undone.")) {
+            return;
+        }
+        var btn = document.getElementById("clearPendingBtn");
+        btn.disabled = true;
+        try {
+            var resp = await fetch(API + "/sigma-eval-clear-pending", { method: "DELETE" });
+            var data = await resp.json();
+            if (!resp.ok || !data || !data.success) {
+                throw new Error((data && data.detail) || "Clear pending failed");
+            }
+            notify("Cleared " + data.deleted_count + " pending Sigma eval record(s)", "success");
+            await loadResults();
+        } catch (e) {
+            notify("Clear pending failed: " + e.message, "error");
+        } finally {
+            btn.disabled = false;
         }
     }
 
@@ -1242,6 +1272,7 @@
             window.ModalManager.register("sigmaDetailModal", { isDynamic: false, hasInput: false });
         }
         document.getElementById("runBtn").addEventListener("click", runEval);
+        document.getElementById("clearPendingBtn").addEventListener("click", clearPending);
         document.getElementById("refreshBtn").addEventListener("click", loadResults);
         document.getElementById("closeSigmaDetail").addEventListener("click", closeDetail);
         document.getElementById("sigmaDetailModal").addEventListener("click", function (event) {

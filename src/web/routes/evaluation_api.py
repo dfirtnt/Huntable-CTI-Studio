@@ -1777,6 +1777,49 @@ async def get_sigma_eval_results(
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+@router.delete("/sigma-eval-clear-pending")
+async def clear_pending_sigma_eval_records(request: Request):
+    """Delete all pending Sigma evaluation records."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        try:
+            pending_records = (
+                db_session.query(SigmaEvaluationTable)
+                .filter(SigmaEvaluationTable.status == "pending")
+                .all()
+            )
+            deleted_ids = [record.id for record in pending_records]
+            for record in pending_records:
+                db_session.delete(record)
+
+            _audit_eval(
+                db_session,
+                request,
+                ACTION_EVAL_RECORDS_CLEARED,
+                "sigma",
+                f"Cleared {len(pending_records)} pending Sigma eval record(s)",
+                {
+                    "eval_kind": "sigma",
+                    "deleted_count": len(pending_records),
+                    "deleted_ids": deleted_ids,
+                },
+                mandatory=True,
+            )
+            db_session.commit()
+
+            return {
+                "success": True,
+                "deleted_count": len(pending_records),
+                "message": f"Deleted {len(pending_records)} pending Sigma eval record(s)",
+            }
+        finally:
+            db_session.close()
+    except Exception as e:
+        logger.error(f"Error clearing pending Sigma eval records: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
 @router.get("/subagent-eval-version-articles")
 async def get_subagent_eval_version_articles(
     request: Request,
