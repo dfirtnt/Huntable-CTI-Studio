@@ -115,6 +115,25 @@ exactly once in the atom union. Not "every observable in the article"
 (sparse GT punishes the higher-recall arm on precision — the documented
 `sparse GT masks precision` failure).
 
+GT spans **all telemetry classes the article supports**, including classes no
+extractor covers. Verified wiring: grouped generation passes the *full* article
+content to every group (`article_content=content_to_use`) and the prompt permits
+rules with `observables_used: []` — the arms differ in observable augmentation
+and in *output filtering*, not input. The multi-extractor arm's
+logsource-containment filter (`_rule_logsource_matches_group`) drops rules
+outside its groups' classes, so uncovered-class GT entries measure that
+suppression cost honestly. Report metrics **per canonical class** so
+covered-turf gains and suppression losses stay attributable: if one-shot wins
+only via uncovered classes, the remedy is a supplementary full-content group,
+not removing extractors.
+
+**2b. Respect shared generation doctrine.** The prompts both arms share define
+what a correct rule may contain — e.g. the "Network Observable Abstraction"
+doctrine (`src/prompts/sigma_generation.txt`) forbids atomic IOCs (bare
+domains, IPs, full User-Agent strings) in selections. GT must not expect atoms
+that doctrine forbids: they are unattainable for both arms by design, and every
+such atom is a guaranteed recall miss that drowns real signal.
+
 **3. Atom format — write Sigma YAML the normalizer can decompose.** Author
 `logsource` + `detection` fragments in normal Sigma style; the scorer folds
 case, wildcards, backslash direction, and taxonomy aliases on both sides, so do
@@ -153,9 +172,13 @@ too mono-logsource to support an architecture conclusion. When expanding:
 
 - **Size:** grow well past 3 (target ≥15–20 detection-rich articles) so the A/B
   delta survives article-to-article and run-to-run variance.
-- **Logsource diversity:** deliberately span classes — process_creation,
-  registry, network, file, image_load, scheduled_task, script/powershell — so the
-  comparison measures more than one telemetry surface.
+- **Logsource diversity, covered-class-dominant:** pick articles whose detection
+  surface is dominated by the five extractor-covered classes (process_creation,
+  registry, service_creation, scheduled_task, network_connection) — that is
+  where extraction can show *gains*. GT authored on those articles still spans
+  every class the article supports (see the completeness standard above);
+  uncovered-class behaviors that appear are priced as suppression cost, not
+  excluded.
 - **Keep, don't replace, the existing articles.** They are real, hygiene-fixed
   CTI; re-scraping eval articles is out of scope. Add to them.
 
