@@ -260,3 +260,65 @@ def test_diagnosis_help_uses_selected_execution_and_requires_confirmation(page: 
 
     page.keyboard.press("Escape")
     expect(modal).not_to_be_visible()
+
+
+@pytest.mark.ui
+def test_poller_survives_transient_fetch_failures(page: Page):
+    """A transient outage (e.g. a dev hot-reload restart -> "Failed to fetch") must
+    NOT abandon a running eval. The poller should show a "Reconnecting" status and
+    recover once the endpoint returns, instead of dead-ending on the red error.
+
+    Regression guard: previously the catch block tore the loop down and printed
+    "Error polling results: Failed to fetch" on the first network throw.
+    """
+    page.goto("http://127.0.0.1:8001/mlops/agent-evals")
+    page.wait_for_load_state("load")
+
+    # Abort the results endpoint the first 3 times (network throw == "Failed to
+    # fetch"), then return a payload marking the synthetic execution completed.
+    calls = {"n": 0}
+
+    def handle(route):
+        calls["n"] += 1
+        if calls["n"] <= 3:
+            route.abort()
+        else:
+            route.fulfill(
+                status=200,
+                body=json.dumps(
+                    {
+                        "results": [
+                            {
+                                "execution_id": 999999,
+                                "article_id": 1,
+                                "status": "completed",
+                                "actual_count": 1,
+                                "expected_count": 1,
+                                "score": 1.0,
+                                "warnings": [],
+                            }
+                        ]
+                    }
+                ),
+                headers={"Content-Type": "application/json"},
+            )
+
+    page.route("**/api/evaluations/subagent-eval-results**", handle)
+
+    # Drive the real poller directly with a synthetic execution (no billed eval run).
+    status = page.locator("#evalStatusText")
+    page.evaluate(
+        """
+        currentSubagent = 'cmdline';
+        pollSubagentResults([
+            { execution_id: 999999, article_id: 1, url: 'http://example.test', eval_record_id: 1 }
+        ]);
+        """
+    )
+
+    # It must reach the transient "Reconnecting" state (proof it did not give up),
+    expect(status).to_contain_text("Reconnecting", timeout=10000)
+    # then recover to the completed/refresh state once the endpoint returns.
+    expect(status).to_contain_text("completed", timeout=15000)
+    # and it must never have shown the fatal "Error polling results" message.
+    assert "Error polling results" not in status.inner_text()

@@ -1398,7 +1398,13 @@ async function pollSubagentResults(executions) {
     let attempts = 0;
     let pollInterval = null;
     let isPolling = true;
-    
+    // Transient-failure tolerance. A dev hot-reload restart can leave the server
+    // unreachable for ~45s; a single failed poll must NOT abandon a live run.
+    // Tolerate this many consecutive failures (~60s at the 2s interval) before
+    // surfacing a hard error, and reset the counter on any successful poll.
+    let consecutiveFailures = 0;
+    const maxConsecutiveFailures = 30;
+
     // Preserve current run's execution map (caller already set executionResults; do not clear)
     if (executions && executions.length > 0) {
         executionResults = {};
@@ -1426,12 +1432,15 @@ async function pollSubagentResults(executions) {
             // Poll subagent eval results instead of individual executions
             const subagent = currentSubagent;
             const response = await fetch(`/api/evaluations/subagent-eval-results?subagent=${subagent}`);
-            
-                        if (!response.ok) {
+
+            if (!response.ok) {
                 console.warn(`Failed to get eval results: ${response.status}`);
+                handlePollFailure(`server returned ${response.status}`);
                 return;
             }
-            
+
+            // Successful reach: clear any transient-failure streak.
+            consecutiveFailures = 0;
             const data = await response.json();
             const results = data.results || [];
             
@@ -1560,19 +1569,47 @@ async function pollSubagentResults(executions) {
                     loadPreviousResults();
                 }, 100);
             } else if (isPolling) {
-                // Schedule next poll
-                pollInterval = setTimeout(pollOnce, 2000);
+                scheduleNext();
             }
         } catch (error) {
-            console.error('Error in polling:', error);
-            if (pollInterval) {
-                clearInterval(pollInterval);
-                pollInterval = null;
+            // Network-level failure (e.g. server mid hot-reload -> "Failed to fetch").
+            // Do NOT tear the loop down: the eval keeps running server-side and the
+            // endpoint recovers within seconds. Retry until the streak cap is hit.
+            console.warn('Transient polling error, will retry:', error);
+            handlePollFailure(error.message);
+        }
+
+        // Schedule the next poll unless the overall attempt budget is exhausted.
+        function scheduleNext() {
+            if (!isPolling) return;
+            if (attempts >= maxAttempts) {
+                isPolling = false;
+                statusText.textContent = `⚠️ Stopped polling after ${maxAttempts} attempts. Use "Load Previous Results" to refresh.`;
+                statusText.className = 'text-sm text-yellow-600 dark:text-yellow-400';
+                document.getElementById('evalSpinner').classList.add('hidden');
+                return;
             }
-            isPolling = false;
-            statusText.textContent = `❌ Error polling results: ${error.message}`;
-            statusText.className = 'text-sm text-red-600 dark:text-red-400';
-            document.getElementById('evalSpinner').classList.add('hidden');
+            pollInterval = setTimeout(pollOnce, 2000);
+        }
+
+        // A failed poll (bad HTTP status or network throw) keeps the run alive across
+        // transient outages; only gives up after maxConsecutiveFailures in a row.
+        function handlePollFailure(reason) {
+            consecutiveFailures++;
+            if (consecutiveFailures >= maxConsecutiveFailures) {
+                if (pollInterval) {
+                    clearTimeout(pollInterval);
+                    pollInterval = null;
+                }
+                isPolling = false;
+                statusText.textContent = `❌ Lost connection to server after ${consecutiveFailures} attempts (${reason}). Use "Load Previous Results" once it is back.`;
+                statusText.className = 'text-sm text-red-600 dark:text-red-400';
+                document.getElementById('evalSpinner').classList.add('hidden');
+                return;
+            }
+            statusText.textContent = `⏳ Reconnecting to server (attempt ${consecutiveFailures}/${maxConsecutiveFailures})…`;
+            statusText.className = 'text-sm text-yellow-600 dark:text-yellow-400';
+            scheduleNext();
         }
     };
 

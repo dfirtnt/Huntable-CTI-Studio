@@ -106,7 +106,7 @@ def run(project_root: Path | None = None) -> tuple[int, int, str]:
     db_manager = DatabaseManager()
     source_id = _get_or_create_eval_source(db_manager)
     articles_by_url = _load_articles_by_url(data_dir)
-    logger.info("Eval articles seed: loaded %d unique URL(s) from static files", len(articles_by_url))
+    logger.info("Eval articles seed: loaded %d eval article(s) from static files", len(articles_by_url))
     if not articles_by_url:
         return 0, 0, "no_config_data"
 

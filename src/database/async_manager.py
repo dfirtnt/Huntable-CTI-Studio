@@ -182,7 +182,36 @@ class AsyncDatabaseManager:
                 "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS detection_fields_embedding",
                 *AUDIT_INDEX_DDLS,
             ]
+            # Lock-free pre-check: on a healthy DB every ADD COLUMN above already
+            # exists, yet each ALTER still takes ACCESS EXCLUSIVE briefly and, under
+            # contention (an eval mid-run holding the table), waits out the full
+            # lock_timeout -- observed as ~3s each on subagent_evaluations at every
+            # reload. information_schema carries no table lock, so we resolve the
+            # no-op ADDs here and never queue for the lock. A genuinely missing
+            # column is simply absent from the set and still runs the ALTER below.
+            existing_cols: set[tuple[str, str]] = set()
+            try:
+                async with self.engine.connect() as conn:
+                    rows = await conn.execute(
+                        text(
+                            "SELECT table_name, column_name FROM information_schema.columns "
+                            "WHERE table_schema = 'public'"
+                        )
+                    )
+                    existing_cols = {(r[0], r[1]) for r in rows}
+            except Exception as introspect_err:
+                logger.warning("Column pre-check failed; will attempt all DDL: %s", introspect_err)
+
+            def _is_noop_add(ddl: str) -> bool:
+                t = ddl.split()
+                # "ALTER TABLE <table> ADD COLUMN IF NOT EXISTS <col> ..."
+                if len(t) >= 9 and t[3:8] == ["ADD", "COLUMN", "IF", "NOT", "EXISTS"]:
+                    return (t[2], t[8]) in existing_cols
+                return False
+
             for col_ddl in col_ddls:
+                if existing_cols and _is_noop_add(col_ddl):
+                    continue
                 try:
                     async with self.engine.begin() as conn:
                         await conn.execute(text("SET LOCAL lock_timeout = '3s'"))
