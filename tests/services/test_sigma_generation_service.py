@@ -919,6 +919,78 @@ level: medium
                                     assert len(log_entry["repair_attempts"]) > 0
 
     @pytest.mark.asyncio
+    async def test_observables_used_survives_repair_of_yaml_invalid_escape(self, service, sample_article_data):
+        """Regression for execution 3778: observables_used must survive Phase 3 repair.
+
+        Reproduces the real-world failure end-to-end (not just at the _validate_all_rules
+        layer): the LLM emits a SIGMA-conventional but YAML-invalid escape
+        (``Image|endswith: "\\powershell.exe"``), which makes both the Phase 2
+        metadata-strip and the real (unmocked) validate_sigma_rule() fail on the exact
+        same "unknown escape character" error, sending the rule to repair. Before the
+        fix, observables_used was already None by the time repair ran and repair never
+        re-derives it, so the final rule_metadata permanently lost the grounding index.
+        """
+        invalid_rule = (
+            'title: "PowerShell DownloadString With Task Cleanup"\n'
+            "id: 8c6f2f6a-3f1c-4d9e-9a4e-5b4c9f6d1e72\n"
+            "status: experimental\n"
+            'description: "Detects PowerShell DownloadString usage."\n'
+            "logsource:\n  category: process_creation\n"
+            "detection:\n"
+            "  selection:\n"
+            '    Image|endswith: "\\powershell.exe"\n'
+            "  condition: selection\n"
+            "level: high\n"
+            "observables_used:\n  - 0\n"
+        )
+        # Mirrors real repair-LLM behavior: the repair prompt only sends validation
+        # errors plus a truncated YAML preview, so the repaired output does not restate
+        # observables_used. The fix must not depend on it being restated here.
+        repaired_rule = (
+            "title: PowerShell DownloadString With Task Cleanup\n"
+            "id: 8c6f2f6a-3f1c-4d9e-9a4e-5b4c9f6d1e72\n"
+            "status: experimental\n"
+            "description: Detects PowerShell DownloadString usage.\n"
+            "logsource:\n  category: process_creation\n"
+            "detection:\n"
+            "  selection:\n"
+            "    Image|endswith: '\\powershell.exe'\n"
+            "  condition: selection\n"
+            "level: high\n"
+        )
+        extraction_result = {"observables": [{"type": "cmdline", "value": "powershell downloadstring"}]}
+
+        with patch("src.services.sigma_generation_service.optimize_article_content") as mock_optimize:
+            mock_optimize.return_value = {
+                "success": True,
+                "filtered_content": sample_article_data["content"],
+                "tokens_saved": 0,
+            }
+
+            with patch("src.utils.prompt_loader.format_prompt_async") as mock_prompt:
+                mock_prompt.return_value = "Generate rule"
+
+                with patch.object(service, "_call_provider_for_sigma") as mock_call:
+                    # First call returns the escape-broken block; repair call fixes the escape.
+                    mock_call.side_effect = [invalid_rule, repaired_rule]
+
+                    # validate_sigma_rule runs for real here (not mocked) so the actual
+                    # YAML-escape failure -> repair transition is exercised, not simulated.
+                    result = await service.generate_sigma_rules(
+                        article_title=sample_article_data["title"],
+                        article_content=sample_article_data["content"],
+                        source_name=sample_article_data["source_name"],
+                        url=sample_article_data["url"],
+                        extraction_result=extraction_result,
+                        enable_multi_rule_expansion=False,
+                        max_repair_attempts_per_rule=1,
+                    )
+
+                    assert len(result["rules"]) == 1
+                    assert result["rules"][0]["observables_used"] == [0]
+                    assert result["rules"][0]["generation_phase"] == "generation"
+
+    @pytest.mark.asyncio
     async def test_generate_sigma_rules_expansion_phase(self, service, sample_article_data):
         """Test artifact-driven expansion phase."""
         extraction_result = {
