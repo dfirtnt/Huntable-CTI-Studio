@@ -391,6 +391,20 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
             if current_config:
                 _deactivate_active_workflow_configs(db_session)
             else:
+                # No active row should be reachable once any config row exists -- every writer
+                # holds the same advisory lock. If it happens anyway, building a new "active" row
+                # from defaults + only this request's fields would silently drop every prompt/model
+                # field an untouched sibling wasn't asked to change (confirmed via config rows 5396
+                # and 7082-7108, where partial autosaves kept forward-merging from an already-gutted
+                # row). Only a genuine fresh install (zero rows ever) is safe to seed from defaults.
+                has_any_config = db_session.query(AgenticWorkflowConfigTable.id).first() is not None
+                if has_any_config:
+                    raise HTTPException(
+                        status_code=503,
+                        detail="No active workflow config found despite existing config rows "
+                        "(unexpected state) - refusing a partial write that would drop untouched "
+                        "fields. Retry the save.",
+                    )
                 db_session.flush()
 
             # Version must be monotonic even if newer inactive rows exist (e.g. tests or fixtures
@@ -663,6 +677,8 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
         finally:
             db_session.close()
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error updating workflow config: {e}")
         raise HTTPException(status_code=500, detail="Internal server error") from e

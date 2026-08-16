@@ -114,6 +114,55 @@ class TestWorkflowConfigCRUD:
         response = await async_client.put("/api/workflow/config", json=invalid_payload)
         assert response.status_code == 422  # Validation error
 
+    @pytest.mark.api
+    @pytest.mark.integration_full
+    @pytest.mark.asyncio
+    async def test_update_with_no_active_row_refuses_partial_write(self, async_client: httpx.AsyncClient):
+        """PUT /config must abort, not silently rebuild from defaults, when no row is active.
+
+        Regression for config rows 5396 and 7082-7108: a partial autosave payload
+        (e.g. {"agent_prompts": {"ExtractAgentSettings": ...}}) landing while
+        ``_load_active_config_for_write`` finds no active row used to fall through to
+        ``_merge_agent_prompts(None, incoming)``, which returns *only* the keys this one
+        request sent -- silently dropping every other agent's prompt/model field from the
+        new "active" row. Once that happens, every later partial autosave forward-merges
+        from the already-degraded row and can never restore what it didn't send, so the
+        corruption is permanent until a full-payload save overwrites it.
+
+        The fix distinguishes a genuine fresh install (zero config rows -- safe to seed
+        from defaults) from "rows exist but none is active" (unexpected/racy -- must
+        raise 503 and refuse the write) so a partial payload can never author a
+        stripped-down "active" config.
+        """
+        from sqlalchemy import text
+
+        from src.database.manager import DatabaseManager
+
+        db_session = DatabaseManager().get_session()
+        try:
+            db_session.execute(text("UPDATE agentic_workflow_config SET is_active = false"))
+            db_session.commit()
+        finally:
+            db_session.close()
+
+        response = await async_client.put(
+            "/api/workflow/config",
+            json={"agent_prompts": {"ExtractAgentSettings": {"disabled_agents": []}}},
+        )
+
+        assert response.status_code == 503, response.text
+        assert "no active" in response.json()["detail"].lower()
+
+        # The refused write must not have created a new (partial) active row.
+        verify_session = DatabaseManager().get_session()
+        try:
+            still_none_active = verify_session.execute(
+                text("SELECT id FROM agentic_workflow_config WHERE is_active = true")
+            ).fetchone()
+        finally:
+            verify_session.close()
+        assert still_none_active is None, "a 503 response must not have inserted a new active row"
+
 
 class TestWorkflowConfigDeduplication:
     """Regression tests for the configs_identical check in PUT /config.
