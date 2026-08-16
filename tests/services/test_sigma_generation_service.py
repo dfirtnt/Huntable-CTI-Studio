@@ -2093,6 +2093,22 @@ class TestBuildObservablesSectionTypeFilter:
 
         assert "[0] cmdline: whoami" in _build_observables_section(extraction_result)
 
+    def test_filter_matching_nothing_drops_the_grounding_contract(self):
+        """Boundary: an empty filter result yields no section at all, not an empty list.
+
+        The section carries the "REQUIRED: ... observables_used" instruction, so when the
+        uncovered category maps to observable types this article does not have, the
+        expansion turn is sent with no grounding contract. Pinned as the documented
+        behavior -- if this is ever judged wrong, the fix belongs in the caller choosing
+        not to expand, not in emitting a header with zero observables under it.
+        """
+        extraction_result = {"observables": [{"type": "cmdline", "value": "whoami"}]}
+
+        section = _build_observables_section(extraction_result, include_types={"registry_keys"})
+
+        assert section == ""
+        assert "REQUIRED" in _build_observables_section(extraction_result)
+
 
 # ---------------------------------------------------------------------------
 # Platform-aware Sigma guidance (Linux pilot follow-up)

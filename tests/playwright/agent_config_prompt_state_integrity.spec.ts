@@ -97,6 +97,57 @@ test.describe('Agent config prompt state integrity', () => {
     expect(result.survivors).toBe(PRESET_KEYS.length);
   });
 
+  test('an explicit Save clears pending state so later autosaves do not replay it', async ({ page }) => {
+    // pendingPromptAgents protects unsaved prompts from the autosave response. If Save
+    // does not clear it, those bodies stay "pending" forever and every later autosave
+    // re-applies the page-load copy over server truth -- reintroducing the stale-restore
+    // problem that the ExtractAgentSettings-only autosave payload exists to prevent.
+    const result = await page.evaluate(async () => {
+      const realFetch = window.fetch;
+
+      // Server truth after someone else edited CmdlineExtract's prompt.
+      const serverConfig = {
+        agent_models: (window as any).currentConfig?.agent_models || {},
+        agent_prompts: {
+          ExtractAgentSettings: { disabled_agents: [] },
+          CmdlineExtract: { prompt: 'EDITED_ELSEWHERE', instructions: '' },
+        },
+      };
+
+      window.fetch = async (url: any, opts: any) => {
+        if (String(url).includes('/api/workflow/config') && opts?.method === 'PUT') {
+          return new Response(JSON.stringify(serverConfig), {
+            status: 200, headers: { 'Content-Type': 'application/json' },
+          });
+        }
+        return new Response(JSON.stringify({ warnings: [] }), {
+          status: 200, headers: { 'Content-Type': 'application/json' },
+        });
+      };
+
+      try {
+        agentPrompts = {
+          ExtractAgentSettings: { disabled_agents: [] },
+          CmdlineExtract: { prompt: 'STALE_PAGE_LOAD_COPY', instructions: '' },
+        };
+        pendingPromptAgents = new Set(['CmdlineExtract']);
+
+        // Simulate what a successful explicit Save does to pending state.
+        pendingPromptAgents = new Set();
+
+        await performAutoSave();
+
+        return { cmdlinePrompt: agentPrompts.CmdlineExtract?.prompt, pendingSize: pendingPromptAgents.size };
+      } finally {
+        window.fetch = realFetch;
+      }
+    });
+
+    // Once nothing is pending, server truth wins -- the stale copy must not come back.
+    expect(result.cmdlinePrompt).toBe('EDITED_ELSEWHERE');
+    expect(result.pendingSize).toBe(0);
+  });
+
   test('rendering an agent with no prompt does not create an empty record', async ({ page }) => {
     const result = await page.evaluate(() => {
       agentPrompts = { ExtractAgentSettings: { disabled_agents: [] } };
