@@ -30,6 +30,7 @@ from src.services.audit_service import (
     ACTION_EVAL_BUNDLE_EXPORTED,
     ACTION_EVAL_RECORDS_BACKFILLED,
     ACTION_EVAL_RECORDS_CLEARED,
+    ACTION_EVAL_RECORDS_RESCORED,
     ACTION_EVAL_RUN_REQUESTED,
     STATUS_SUCCESS,
     AuditEvent,
@@ -41,7 +42,7 @@ from src.services.eval_item_scorer import calculate_f_beta, score_items
 from src.services.execution_snapshot_store import attach_snapshot
 from src.services.llm_service import LLMService
 from src.services.sigma_eval_service import load_sigma_ground_truth
-from src.services.subagent_eval_service import update_subagent_eval_on_completion
+from src.services.subagent_eval_service import rescore_completed_record, update_subagent_eval_on_completion
 from src.services.workflow_config_snapshot import build_config_snapshot
 from src.utils.subagent_utils import build_subagent_lookup_values, normalize_subagent_name
 from src.worker.celery_app import trigger_agentic_workflow
@@ -308,8 +309,15 @@ def _actual_count_from_agent_result(subagent_name: str, agent_result: dict) -> i
     return len(items) if isinstance(items, list) else 0
 
 
-def _actual_items_from_agent_result(subagent_name: str, agent_result: dict) -> list[str]:
-    """Return the literal values from a direct static-eval agent result."""
+def _raw_actual_items_from_agent_result(subagent_name: str, agent_result: dict) -> list:
+    """Return the raw extractor item list from a direct static-eval agent result.
+
+    Canonical identity extraction and normalization happen in
+    ``eval_item_scorer.score_items`` (keyed by ``subagent_name``); this helper
+    only locates the list under the agent-specific or generic key, keeping the
+    structured dicts intact so registry/service/scheduled-task identities are
+    built from their real fields rather than the generic ``value`` field.
+    """
     item_keys = {
         "cmdline": ("cmdline_items", "items"),
         "hunt_queries": ("queries", "items"),
@@ -320,21 +328,7 @@ def _actual_items_from_agent_result(subagent_name: str, agent_result: dict) -> l
         "network_indicators": ("network_indicators", "items"),
     }.get(subagent_name, ("items",))
     raw_items = next((agent_result.get(key) for key in item_keys if isinstance(agent_result.get(key), list)), [])
-    values = []
-    for item in raw_items:
-        value = item
-        if isinstance(item, dict):
-            value = next(
-                (
-                    item.get(field)
-                    for field in ("cmdline", "command", "commandline", "value", "name", "query")
-                    if isinstance(item.get(field), str)
-                ),
-                None,
-            )
-        if isinstance(value, str):
-            values.append(value)
-    return values
+    return raw_items or []
 
 
 logger = logging.getLogger(__name__)
@@ -1351,9 +1345,16 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                             score = actual_count - expected_count
                             expected_items = url_to_expected_items.get(url)
                             acceptable_items = url_to_acceptable_items.get(url)
-                            actual_items = _actual_items_from_agent_result(canonical_subagent_name, agent_result or {})
+                            raw_actual_items = _raw_actual_items_from_agent_result(
+                                canonical_subagent_name, agent_result or {}
+                            )
                             item_score = (
-                                score_items(expected_items, actual_items, acceptable_items)
+                                score_items(
+                                    expected_items,
+                                    raw_actual_items,
+                                    acceptable_items,
+                                    subagent_name=canonical_subagent_name,
+                                )
                                 if isinstance(expected_items, list)
                                 else None
                             )
@@ -1365,7 +1366,7 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                                 expected_items=expected_items,
                                 acceptable_items=acceptable_items,
                                 actual_count=actual_count,
-                                actual_items=actual_items if item_score else None,
+                                actual_items=item_score.actual if item_score else None,
                                 matched_count=item_score.matched_count if item_score else None,
                                 missed_count=item_score.missed_count if item_score else None,
                                 extra_count=item_score.extra_count if item_score else None,
@@ -2209,6 +2210,149 @@ async def backfill_eval_records(request: Request, subagent: str = Query(..., des
             db_session.close()
     except Exception as e:
         logger.error(f"Error backfilling eval records: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+# Canonical agents whose completed count-only records can be repaired from
+# retained extractor output without re-running a paid LLM.
+_RESCORABLE_SUBAGENTS = (
+    "cmdline",
+    "process_lineage",
+    "registry_artifacts",
+    "windows_services",
+    "scheduled_tasks",
+    "network_indicators",
+    "hunt_queries",
+)
+
+
+@router.post("/subagent-eval-rescore")
+async def rescore_eval_records(
+    request: Request,
+    subagent: str = Query(..., description="Subagent name, or 'all' for every supported agent"),
+    apply: bool = Query(False, description="When false (default) run a dry-run that writes nothing"),
+):
+    """Repair completed count-only records that have ground truth but no score.
+
+    Restores item-level precision/recall for records that were completed before
+    item scoring supported the agent's output schema. It scores each record's
+    *retained* extractor output against the ground truth stored on the record,
+    so it never re-runs a paid LLM and never reloads ground truth from disk
+    (no silent ground-truth drift).
+
+    Dry-run by default: reports, per agent, how many records are candidates,
+    scorable, or unrepairable (no retained output), and writes nothing. Pass
+    ``apply=true`` to persist. Idempotent -- scope is restricted to completed
+    records with non-empty ``expected_items`` and a null ``matched_count``, so a
+    second apply updates nothing. Records without item-level ground truth are
+    never touched, preserving legitimate count-only behavior.
+    """
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        try:
+            raw = (subagent or "").strip().lower()
+            if raw in ("all", "*"):
+                targets = list(_RESCORABLE_SUBAGENTS)
+                canonical_label = "all"
+            else:
+                canonical = normalize_subagent_name(subagent)
+                if not canonical:
+                    raise HTTPException(status_code=422, detail=f"Unknown subagent: {subagent}")
+                targets = [canonical]
+                canonical_label = canonical
+
+            per_agent: dict[str, dict] = {}
+            totals = {"candidates": 0, "scorable": 0, "unrepairable_no_output": 0, "updated": 0}
+
+            for canonical in targets:
+                _, lookup_values = build_subagent_lookup_values(canonical)
+                records = (
+                    db_session.query(SubagentEvaluationTable)
+                    .filter(
+                        SubagentEvaluationTable.subagent_name.in_(list(lookup_values) or [canonical]),
+                        SubagentEvaluationTable.status == "completed",
+                        SubagentEvaluationTable.matched_count.is_(None),
+                    )
+                    .all()
+                )
+
+                stats = {"candidates": 0, "scorable": 0, "unrepairable_no_output": 0, "updated": 0}
+                for rec in records:
+                    # Skip records with no item-level ground truth -- legitimately count-only.
+                    if not isinstance(rec.expected_items, list) or len(rec.expected_items) == 0:
+                        continue
+                    stats["candidates"] += 1
+
+                    execution = None
+                    if rec.workflow_execution_id:
+                        execution = (
+                            db_session.query(AgenticWorkflowExecutionTable)
+                            .filter(AgenticWorkflowExecutionTable.id == rec.workflow_execution_id)
+                            .first()
+                        )
+
+                    computed = rescore_completed_record(rec, execution)
+                    if computed is None:
+                        stats["unrepairable_no_output"] += 1
+                        continue
+
+                    stats["scorable"] += 1
+                    if apply:
+                        rec.actual_items = computed["actual_items"]
+                        rec.matched_count = computed["matched_count"]
+                        rec.missed_count = computed["missed_count"]
+                        rec.extra_count = computed["extra_count"]
+                        rec.neutral_count = computed["neutral_count"]
+                        stats["updated"] += 1
+
+                per_agent[canonical] = stats
+                for k in totals:
+                    totals[k] += stats[k]
+
+            verb = "Rescored" if apply else "Dry-run rescore of"
+            _audit_eval(
+                db_session,
+                request,
+                ACTION_EVAL_RECORDS_RESCORED,
+                canonical_label,
+                f"{verb} {totals['scorable']} completed record(s) for {canonical_label}",
+                {"subagent": canonical_label, "apply": apply, **totals, "per_agent": per_agent},
+                mandatory=apply,
+            )
+
+            if apply:
+                db_session.commit()
+
+            logger.info(
+                "Rescore (%s) for %s: candidates=%d scorable=%d unrepairable=%d updated=%d",
+                "apply" if apply else "dry-run",
+                canonical_label,
+                totals["candidates"],
+                totals["scorable"],
+                totals["unrepairable_no_output"],
+                totals["updated"],
+            )
+
+            return {
+                "success": True,
+                "subagent": canonical_label,
+                "apply": apply,
+                "dry_run": not apply,
+                **totals,
+                "per_agent": per_agent,
+                "message": (
+                    f"Updated {totals['updated']} record(s)"
+                    if apply
+                    else f"{totals['scorable']} record(s) would be updated ({totals['unrepairable_no_output']} lack retained output)"
+                ),
+            }
+        finally:
+            db_session.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error rescoring eval records: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 

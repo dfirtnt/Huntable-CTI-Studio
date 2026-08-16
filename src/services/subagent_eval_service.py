@@ -125,30 +125,64 @@ def _extract_actual_count(subagent_name: str, subresults: dict, execution_id: in
     return actual_count
 
 
-def _extract_actual_items(subagent_name: str, subresults: dict) -> list[str] | None:
-    """Extract string items from subresults for item-level scoring."""
-    if subagent_name in ("hunt_queries", "hunt_queries_edr", "hunt_queries_sigma"):
-        return None
+def _raw_actual_items(subagent_name: str, subresults: dict) -> list:
+    """Return the raw extractor item list for a subagent from a completed run.
 
-    subagent_result = subresults.get(subagent_name, {})
+    The items are structured dicts whose schema differs per agent; canonical
+    identity extraction and normalization happen in
+    ``eval_item_scorer.score_items`` (via ``subagent_name``), so this helper
+    only locates the list -- it does not flatten to strings. Hunt-query results
+    live under the ``hunt_queries`` key and may expose their items as ``items``
+    or ``queries``.
+    """
+    key = (
+        "hunt_queries" if subagent_name in ("hunt_queries", "hunt_queries_edr", "hunt_queries_sigma") else subagent_name
+    )
+    subagent_result = subresults.get(key, {})
     if not isinstance(subagent_result, dict):
-        return None
-
+        return []
     items = subagent_result.get("items")
-    if not isinstance(items, list):
-        return None
+    if isinstance(items, list):
+        return items
+    queries = subagent_result.get("queries")
+    return queries if isinstance(queries, list) else []
 
-    flat: list[str] = []
-    for item in items:
-        if isinstance(item, str):
-            flat.append(item)
-        elif isinstance(item, dict):
-            for field in ("cmdline", "command", "commandline", "value", "name"):
-                value = item.get(field)
-                if isinstance(value, str) and value.strip():
-                    flat.append(value.strip())
-                    break
-    return flat if flat else None
+
+def rescore_completed_record(
+    eval_record: SubagentEvaluationTable,
+    execution: AgenticWorkflowExecutionTable | None,
+) -> dict[str, Any] | None:
+    """Recompute item-level metrics for a completed record from retained output.
+
+    Compares the retained extractor output against the ground truth stored on
+    the record itself (never reloaded from disk, so historical repair cannot
+    introduce silent ground-truth drift). Returns the computed item-scoring
+    fields, or ``None`` when the record cannot be scored -- no item-level
+    ground truth, or no usable retained output to score against (repairing it
+    would require re-running a paid extractor, which this path never does).
+    """
+    if not eval_record.expected_items or not isinstance(eval_record.expected_items, list):
+        return None
+    extraction_result = getattr(execution, "extraction_result", None) if execution is not None else None
+    if not isinstance(extraction_result, dict):
+        return None
+    subresults = extraction_result.get("subresults")
+    if not isinstance(subresults, dict):
+        return None
+    raw_items = _raw_actual_items(eval_record.subagent_name, subresults)
+    result = score_items(
+        eval_record.expected_items,
+        raw_items,
+        eval_record.acceptable_items,
+        subagent_name=eval_record.subagent_name,
+    )
+    return {
+        "actual_items": result.actual,
+        "matched_count": result.matched_count,
+        "missed_count": result.missed_count,
+        "extra_count": result.extra_count,
+        "neutral_count": result.neutral_count,
+    }
 
 
 def _update_single_eval_record(
@@ -187,11 +221,14 @@ def _update_single_eval_record(
         score = actual_count - eval_record.expected_count
 
         if eval_record.expected_items and isinstance(eval_record.expected_items, list):
-            actual_items = _extract_actual_items(eval_record.subagent_name, subresults)
-            if actual_items is None:
-                actual_items = []
-            result = score_items(eval_record.expected_items, actual_items, eval_record.acceptable_items)
-            eval_record.actual_items = actual_items
+            raw_items = _raw_actual_items(eval_record.subagent_name, subresults)
+            result = score_items(
+                eval_record.expected_items,
+                raw_items,
+                eval_record.acceptable_items,
+                subagent_name=eval_record.subagent_name,
+            )
+            eval_record.actual_items = result.actual
             eval_record.matched_count = result.matched_count
             eval_record.missed_count = result.missed_count
             eval_record.extra_count = result.extra_count

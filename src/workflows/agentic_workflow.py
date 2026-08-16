@@ -66,7 +66,7 @@ logger = logging.getLogger(__name__)
 
 # Backward-compatible private aliases for existing workflow imports and tests.
 _extract_actual_count = subagent_eval_service._extract_actual_count
-_extract_actual_items = subagent_eval_service._extract_actual_items
+_raw_actual_items = subagent_eval_service._raw_actual_items
 _update_single_eval_record = subagent_eval_service._update_single_eval_record
 _update_subagent_eval_on_completion = subagent_eval_service.update_subagent_eval_on_completion
 
