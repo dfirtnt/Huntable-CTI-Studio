@@ -398,6 +398,25 @@ class TestArticlesBulkSelection:
 
     @pytest.mark.ui
     @pytest.mark.articles
+    def test_article_bulk_select_checkboxes_have_accessible_names(self, page: Page):
+        """Each article bulk-select checkbox identifies its article to assistive tech."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.goto(f"{base_url}/articles")
+        page.wait_for_load_state("load")
+
+        checkboxes = page.locator(".bulk-select-checkbox")
+        expect(checkboxes).not_to_have_count(0)
+
+        first_checkbox = checkboxes.first
+        expect(first_checkbox).to_have_attribute(
+            "aria-label", re.compile(r"^Select article #\d+: .+")
+        )
+        expect(
+            page.get_by_role("checkbox", name=re.compile(r"^Select article #\d+: .+"))
+        ).not_to_have_count(0)
+
+    @pytest.mark.ui
+    @pytest.mark.articles
     def test_select_all_visible_checkbox(self, page: Page):
         """Test select all visible checkbox."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
