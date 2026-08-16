@@ -398,7 +398,9 @@ For each (proposed, candidate) pair:
 - Keyword-list selections (XSS/SSTI/Log4j webserver rules) are modeled on both index and live paths (Conditional B, 2026-06-02).
 - Still unmodeled (Coverage-Chain backlog): cloud/audit telemetry, heterogeneous multi-EID services, `linux.file_event`, `macos.file_event`, assorted singletons. `EventCode` is treated as `EventID`.
 
-Rules whose Sigma syntax exceeds the AST builder (unsupported correlation, DNF expansion limit) return `None` from extraction and are skipped.
+Rules whose Sigma syntax exceeds the AST builder (unsupported correlation, DNF expansion limit) return `None` from extraction and are skipped. The DNF cost guard is exactly 64 branches: a rule that would expand to more than 64 branches is deliberately not atomized. Large value enumerations can hit that guard because they normalize into OR branches; raw detection length is a symptom, not a separate threshold.
+
+The index/backfill path deliberately leaves all four atom fields unset for two common cases: an unresolved canonical telemetry class (including product-only logsources such as `product: azure` or bare `product: windows`) and the DNF expansion limit. This is not evidence that the rule was never indexed; `canonical_json` remains available. The schema does not record a per-rule skip reason, so distinguish those intentional outcomes from unexpected failures with the precompute logs or a `sigma recompute-atoms` run.
 
 **Code labels:** `similarity_engine: "precomputed"` means stored atom columns were used; `"on-the-fly"` means live atom extraction was used because stored atoms were unavailable. Historical rows with the old labels are mapped on read.
 
