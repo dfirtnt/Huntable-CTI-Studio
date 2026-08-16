@@ -578,7 +578,7 @@
                 <div class="prose max-w-none relative">
                 <div class="absolute top-4 right-4 flex items-center space-x-2 z-50">
                     <button id="toggle-annotations-btn" onclick="toggleAnnotationSystem()" 
-                            class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 bg-gray-800 border border-gray-700 shadow-md border border-gray-200 dark:border-gray-700"
+                            class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 shadow-md border border-gray-200 dark:border-gray-700"
                             title="Toggle annotation system">
                         <svg id="toggle-annotations-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
@@ -1109,7 +1109,7 @@ modal.setAttribute('aria-modal', 'true');
         document.addEventListener('keydown', handleEsc);
         
         modal.innerHTML = `
-            <div class="relative top-10 mx-auto p-6 border w-11/12 max-w-6xl shadow-xl rounded-lg bg-gray-800 dark:bg-gray-900 border-gray-700 dark:border-gray-600">
+            <div class="card-elevated relative top-10 mx-auto p-6 w-11/12 max-w-6xl shadow-xl">
                 <div class="flex justify-between items-center mb-5 pb-3 border-b border-gray-700 dark:border-gray-600">
                     <h3 class="text-xl font-semibold text-gray-100 dark:text-white"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg> One Shot - SIGMA Generation Prompt</h3>
                     <button onclick="closeHelpModal()" aria-label="Close" class="text-gray-400 dark:text-gray-500 hover:text-gray-200 dark:hover:text-gray-300 transition-colors">
@@ -8895,8 +8895,8 @@ modal.setAttribute('aria-modal', 'true');
                                     <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
                                 </svg>
                             </button>
-                            <div id="costAnalysisTooltip" role="tooltip" class="article-help-bubble absolute right-0 top-8 p-3 bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg shadow-lg opacity-0 invisible transition-all duration-200 z-50">
-                                <div class="absolute -top-1 right-4 w-2 h-2 bg-gray-800 border-l border-t border-gray-700 transform rotate-45"></div>
+                            <div id="costAnalysisTooltip" role="tooltip" class="article-help-bubble card-elevated absolute right-0 top-8 p-3 text-gray-300 text-sm shadow-lg opacity-0 invisible transition-all duration-200 z-50">
+                                <div class="absolute -top-1 right-4 w-2 h-2 bg-panel-2 border-l border-t border-[var(--border-muted)] transform rotate-45"></div>
                                 These estimates are based on OpenAI API call costs and are not literal when using Local LLM. They represent potential savings if using OpenAI's GPT-4o service.
                             </div>
                         </div>
