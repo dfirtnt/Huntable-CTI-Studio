@@ -266,6 +266,71 @@ level: medium
             assert all("LINUX TARGET GUIDANCE" not in p for p in _prompts(mock_gen))
 
     @pytest.mark.asyncio
+    async def test_generate_sigma_rules_injects_category_guidance(
+        self, service, sample_article_data, sample_sigma_rule
+    ):
+        """Each per-group generation call tells the model which logsource.category it must
+        emit, so it stops returning the same process_creation spread for every group and
+        the caller's group/rule logsource match no longer discards most of the output."""
+
+        def _group(category, product="windows"):
+            ls = {"product": product, "category": category}
+            return {
+                "observables": [
+                    {
+                        "type": "registry_keys",
+                        "value": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+                        "platform": product,
+                        "telemetry_category": category,
+                        "logsource_hint": ls,
+                    }
+                ],
+                "sigma_generation_group": {
+                    "platform": product,
+                    "telemetry_category": category,
+                    "logsource_hint": ls,
+                },
+            }
+
+        def _prompts(mock):
+            return [c.kwargs.get("sigma_prompt", "") for c in mock.await_args_list]
+
+        with (
+            patch("src.services.sigma_generation_service.optimize_article_content") as mock_optimize,
+            patch("src.utils.prompt_loader.format_prompt_async", return_value="Generate SIGMA rules."),
+            patch.object(
+                service, "_generate_multi_rules", new_callable=AsyncMock, return_value=sample_sigma_rule
+            ) as mock_gen,
+        ):
+            mock_optimize.return_value = {
+                "success": True,
+                "filtered_content": sample_article_data["content"],
+                "tokens_saved": 0,
+            }
+
+            await service.generate_sigma_rules(
+                article_title=sample_article_data["title"],
+                article_content=sample_article_data["content"],
+                source_name=sample_article_data["source_name"],
+                url=sample_article_data["url"],
+                extraction_result=_group("registry_event"),
+            )
+            registry_prompts = _prompts(mock_gen)
+            assert any("LOGSOURCE TARGET FOR THIS GROUP" in p for p in registry_prompts)
+            assert any("logsource.category: registry_event" in p for p in registry_prompts)
+            assert any("logsource.product: windows" in p for p in registry_prompts)
+
+            mock_gen.reset_mock()
+            await service.generate_sigma_rules(
+                article_title=sample_article_data["title"],
+                article_content=sample_article_data["content"],
+                source_name=sample_article_data["source_name"],
+                url=sample_article_data["url"],
+                extraction_result=None,
+            )
+            assert all("LOGSOURCE TARGET FOR THIS GROUP" not in p for p in _prompts(mock_gen))
+
+    @pytest.mark.asyncio
     async def test_generate_sigma_rules_with_retry(self, service, sample_article_data):
         """Test SIGMA rule generation with retry logic."""
         # Invalid but parseable rule (missing detection field)

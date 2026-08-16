@@ -77,6 +77,38 @@ def _platform_sigma_guidance(extraction_result: dict[str, Any] | None) -> str:
     return ""
 
 
+def _category_sigma_guidance(extraction_result: dict[str, Any] | None) -> str:
+    """Return logsource-category steering guidance for the group, or empty string.
+
+    Each per-group call feeds the model only that group's observables, but the base
+    prompt never states which logsource.category it should emit -- so the model
+    defaults to its usual process_creation spread and the caller (agentic_workflow's
+    _rule_logsource_matches_group) discards everything that doesn't match the group.
+    Telling the model the target category up front keeps that surplus from being
+    generated in the first place.
+    """
+    group = (extraction_result or {}).get("sigma_generation_group") or {}
+    hint = group.get("logsource_hint") or {}
+    if not isinstance(hint, dict):
+        return ""
+    category = str(hint.get("category") or "").strip()
+    if not category:
+        return ""
+    product = str(hint.get("product") or "").strip()
+    target = f"category: {category}" + (f", product: {product}" if product else "")
+    return (
+        f"\n\nLOGSOURCE TARGET FOR THIS GROUP:\n"
+        f"- The observables above are {target}.\n"
+        f"- Every rule you generate MUST use `logsource.category: {category}`"
+        + (f" and `logsource.product: {product}`" if product else "")
+        + ".\n"
+        "- Do NOT generate rules for any other logsource category (e.g. process_creation, "
+        "network_connection, registry_event, scheduled_task, file_event) -- those are handled by "
+        "separate calls for their own observable groups and any rule with a mismatched logsource "
+        "will be discarded.\n"
+    )
+
+
 def _truncate_trace_text(value: str, max_chars: int) -> str:
     """Bound live-trace payload size without mutating the source value."""
     return value[:max_chars] + "..." if len(value) > max_chars else value
@@ -482,6 +514,10 @@ class SigmaGenerationService:
             platform_guidance = _platform_sigma_guidance(extraction_result)
             if platform_guidance:
                 sigma_prompt = sigma_prompt.rstrip() + platform_guidance
+
+            category_guidance = _category_sigma_guidance(extraction_result)
+            if category_guidance:
+                sigma_prompt = sigma_prompt.rstrip() + category_guidance
 
             # Handle context window limits for LMStudio
             if ai_model == "lmstudio":
