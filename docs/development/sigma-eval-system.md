@@ -69,15 +69,105 @@ actual_rules, expected_rule_count=None) -> SigmaEvalResult`.
   `seed_eval_articles` (globs `*/articles.json`), same as the extractor
   fixtures.
 
-### Authoring strategy
+### Purpose beyond gap-filling: the architecture A/B
 
-1. Hand-author a small high-quality set to prove the scorer and anchor expected
-   detections (current seeds).
-2. Bootstrap the rest from a *vetted* generation run (decompose known-good
-   output, then hand-correct) rather than writing every detection from scratch.
+Scoring generated rules against expected rules is not only a regression gate. The
+primary intended use is an **architecture comparison**: does the multi-extractor
+pipeline (focused subagents feeding observable-driven Sigma generation) actually
+produce better detections than a **one-shot** baseline (the generator reading the
+raw article with no extractor scaffolding)?
 
-The current seed entries are flagged (`_note`) as Phase 1 seeds pending
-security-analyst vetting.
+- The **one-shot arm** already exists in the pipeline: disable all extractors, and
+  `generate_sigma` hits the `full_content_fallback` group
+  (`_build_sigma_full_content_fallback_group`, `agentic_workflow.py`) — full
+  article content in, zero observables. Same generator, same content; the only
+  toggled variable is observable augmentation.
+- Both arms are scored against the **same** ground truth. That makes ground-truth
+  provenance the whole ballgame: if the GT is shaped like one arm's output, the
+  benchmark is rigged toward that arm.
+
+This reframing changes the authoring rules below. In particular it **supersedes**
+the old "bootstrap from a vetted generation run" shortcut: bootstrapping GT from
+the multi-extractor arm's output biases the comparison toward that arm (its
+observables are exactly what drive its Sigma expansion — circular). Bootstrapping
+from generation output is acceptable *only* for a pure regression gate on a single
+fixed pipeline, never for the A/B.
+
+### Ground-truth authoring protocol
+
+Ground truth must be **arm-blind** (sourced from neither pipeline) and
+**complete** (dense enough that a valid detection isn't scored as a false
+positive). The current 3 seed entries are flagged (`_note`) as Phase 1 seeds
+pending this protocol; treat them as a *draft to check against*, not authority.
+
+**1. Arm-blindness.** Author each article's expected rules from the *article
+itself*, before looking at any pipeline output. You may consult either arm's
+generated rules afterward **only** as a miss-check ("did I overlook an obvious
+behavior?"), never as a source of atoms. Do not derive Sigma GT from extractor
+`expected_items` or from a generation run.
+
+**2. Completeness standard.** For each article, enumerate every behavior a
+competent detection engineer would turn into a rule — the bar is a behavior that
+is (a) attacker-controlled, (b) observable in a named telemetry class, and
+(c) reasonably low false-positive as a detection. Represent each such behavior
+exactly once in the atom union. Not "every observable in the article"
+(over-broad, punishes precision on both arms); not "only the headline IOCs"
+(sparse GT punishes the higher-recall arm on precision — the documented
+`sparse GT masks precision` failure).
+
+**3. Atom format — write Sigma YAML the normalizer can decompose.** Author
+`logsource` + `detection` fragments in normal Sigma style; the scorer folds
+case, wildcards, backslash direction, and taxonomy aliases on both sides, so do
+**not** pre-normalize. Constraints for clean decomposition:
+
+- **Logsource must resolve to a canonical class.** Use resolvable pairs like
+  `{category: process_creation, product: windows}`. An unresolved logsource
+  still contributes atoms but is counted as `logsource_unresolved` and produces
+  no class-level signal.
+- **Pick discriminators, not whole command lines.** Model each behavior as the
+  process image plus a distinguishing fragment: `Image|endswith: \rundll32.exe`
+  **and** `CommandLine|contains: .jpg,init` — not the full literal command line
+  as one `CommandLine|contains`. Whole-string atoms are brittle and match
+  nothing the other arm produces.
+- **Use `|contains|all` for multi-substring AND** when a single fragment is too
+  weak: `CommandLine|contains|all: [SecurityCenter2, AntiVirusProduct]`.
+- **Keep detection blocks simple** — `selection` maps + a `condition`. Avoid
+  Sigma features the extractor rejects (aggregations, temporal/near, or wildcard
+  expansions large enough to trip the deterministic expansion limit); such rules
+  decompose to `None` and count as `expected_undecomposable` (a GT authoring
+  bug).
+- **Use taxonomy field names** that alias cleanly: `Image`, `ParentImage`,
+  `CommandLine`, `TargetFilename`, `Image`/`OriginalFileName`, registry
+  `TargetObject`, network `DestinationHostname`, etc.
+
+**4. Validate every entry decomposes.** After authoring, confirm each expected
+rule yields ≥1 positive atom and a resolved canonical class, and that the file
+still parses. The pinned test is
+`tests/unit/test_sigma_ground_truth_files.py`; run it, plus a quick self-score
+(decompose `expected_rules` and assert `expected_undecomposable == 0`).
+
+### Corpus selection (as you scale past the seed set)
+
+The seed corpus is **3 articles, all `windows.process_creation`** — too small and
+too mono-logsource to support an architecture conclusion. When expanding:
+
+- **Size:** grow well past 3 (target ≥15–20 detection-rich articles) so the A/B
+  delta survives article-to-article and run-to-run variance.
+- **Logsource diversity:** deliberately span classes — process_creation,
+  registry, network, file, image_load, scheduled_task, script/powershell — so the
+  comparison measures more than one telemetry surface.
+- **Keep, don't replace, the existing articles.** They are real, hygiene-fixed
+  CTI; re-scraping eval articles is out of scope. Add to them.
+
+### Reporting for the A/B
+
+- Report **precision and recall separately** per arm, not just combined F1 — the
+  arms differ systematically in atom volume (the multi-extractor arm expands →
+  more atoms → higher recall / lower precision), and a blended score hides *why*
+  one wins.
+- Consider **fuzzy atom overlap** (via `sigma_similarity`) rather than exact-set
+  intersection if the exact-match strictness penalizes an arm for expressing the
+  same detection with a differently-normalized atom.
 
 ## Phased rollout
 
