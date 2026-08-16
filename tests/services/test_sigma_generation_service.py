@@ -12,6 +12,7 @@ from src.services.sigma_generation_service import (
     SigmaGenerationService,
     _build_observables_section,
     _extract_message_text,
+    _extract_observables_used_fallback,
     _infer_observables_used,
     _is_reasoning_model,
 )
@@ -1240,6 +1241,7 @@ level: low
 
                         assert len(result["rules"]) == 1
                         assert result["rules"][0].get("observables_used") == [0, 1]
+                        assert result["rules"][0].get("generation_phase") == "generation"
                         assert len(validated_yaml) == 1
                         parsed_validated = yaml.safe_load(validated_yaml[0])
                         assert "observables_used" not in parsed_validated
@@ -1973,6 +1975,77 @@ class TestInferObservablesUsedTokenQuality:
         rule_yaml = self._make_rule("CommandLine|contains: null")
         result = _infer_observables_used(rule_yaml, extraction_result)
         assert result is None
+
+
+class TestExtractObservablesUsedFallback:
+    """Regression tests for the regex-based observables_used recovery path.
+
+    Reproduces the bug found in workflow execution 3778: a block-style
+    ``Image|endswith: "\\powershell.exe"`` value is valid SIGMA convention but an
+    invalid YAML double-quoted escape, so ``yaml.safe_load`` raises and the metadata
+    pop that extracts ``observables_used`` never runs. Because the rule then goes
+    through repair (which only rewrites ``rule_yaml`` and never re-derives
+    ``observables_used``), the field was lost permanently. The fallback must recover
+    it directly from the raw text so it survives independent of whether the rest of
+    the block parses as YAML.
+    """
+
+    def test_recovers_flow_style_list_from_yaml_invalid_block(self):
+        block = (
+            'title: "Bad Escape Rule"\n'
+            "logsource:\n  category: process_creation\n"
+            "detection:\n  selection:\n"
+            '    Image|endswith: "\\powershell.exe"\n'
+            "  condition: selection\n"
+            "observables_used: [0, 3]\n"
+        )
+        assert _extract_observables_used_fallback(block) == [0, 3]
+
+    def test_recovers_block_style_list_from_yaml_invalid_block(self):
+        block = (
+            'title: "Bad Escape Rule"\n'
+            "logsource:\n  category: process_creation\n"
+            "detection:\n  selection:\n"
+            '    Image|endswith: "\\powershell.exe"\n'
+            "  condition: selection\n"
+            "observables_used:\n  - 0\n"
+        )
+        assert _extract_observables_used_fallback(block) == [0]
+
+    def test_recovers_explicit_empty_list(self):
+        block = 'title: "Bad Escape Rule"\nImage|endswith: "\\cmd.exe"\nobservables_used: []\n'
+        assert _extract_observables_used_fallback(block) == []
+
+    def test_returns_none_when_field_absent(self):
+        block = 'title: "Bad Escape Rule"\nImage|endswith: "\\cmd.exe"\n'
+        assert _extract_observables_used_fallback(block) is None
+
+    @pytest.mark.asyncio
+    async def test_phase2_recovers_observables_used_for_yaml_invalid_block(self):
+        """End-to-end: _validate_all_rules must not lose observables_used just because
+        the block also fails full YAML parsing (the real-world failure mode)."""
+        service = SigmaGenerationService.__new__(SigmaGenerationService)
+        generated_yaml = (
+            'title: "PowerShell DownloadString With Task Cleanup"\n'
+            "id: 8c6f2f6a-3f1c-4d9e-9a4e-5b4c9f6d1e72\n"
+            "status: experimental\n"
+            'description: "Detects PowerShell DownloadString usage."\n'
+            "logsource:\n  category: process_creation\n"
+            "detection:\n"
+            "  selection:\n"
+            '    Image|endswith: "\\powershell.exe"\n'
+            "  condition: selection\n"
+            "level: high\n"
+            "observables_used:\n  - 0\n"
+        )
+        extraction_result = {"observables": [{"type": "cmdline", "value": "powershell downloadstring"}]}
+        results = service._validate_all_rules(generated_yaml, extraction_result=extraction_result)
+        assert len(results.all_rules) == 1
+        rule = results.all_rules[0]
+        # The escape issue still fails strict validation (expected -- repair handles that),
+        # but the grounding index must not be silently dropped along with it.
+        assert rule.observables_used == [0]
+        assert rule.observables_used_inferred is False
 
 
 class TestSigmaExpansionCoverage:

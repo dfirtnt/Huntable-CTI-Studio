@@ -5,6 +5,7 @@ Reusable service for generating SIGMA rules from articles using LLM.
 """
 
 import logging
+import re
 import uuid
 from dataclasses import dataclass
 from datetime import date
@@ -329,6 +330,38 @@ class ValidationResults:
     valid_rules: list[RuleValidationResult]
     invalid_rules: list[RuleValidationResult]
     all_rules: list[RuleValidationResult]
+
+
+_OBS_USED_FLOW_RE = re.compile(r"^[ \t]*observables_used[ \t]*:[ \t]*\[([^\]]*)\]", re.MULTILINE)
+_OBS_USED_BLOCK_RE = re.compile(r"^[ \t]*observables_used[ \t]*:[ \t]*\n((?:[ \t]*-[ \t]*\d+[ \t]*\n?)+)", re.MULTILINE)
+
+
+def _extract_observables_used_fallback(text: str) -> list[int] | None:
+    """Best-effort observables_used extraction for blocks that fail full YAML parsing.
+
+    A YAML syntax error unrelated to this field (e.g. an unescaped backslash inside a
+    detection value, which SIGMA-style rules write routinely but plain YAML rejects)
+    makes ``yaml.safe_load`` reject the whole block. That silently drops the LLM's
+    grounding indices before repair ever runs, even though the field itself is present
+    and well-formed. This regex-based fallback recovers both the flow (``[0, 3]``) and
+    block (``- 0``) list styles directly from the raw text.
+    """
+    flow_match = _OBS_USED_FLOW_RE.search(text)
+    if flow_match:
+        raw = flow_match.group(1).strip()
+        if not raw:
+            return []
+        try:
+            return [int(x.strip()) for x in raw.split(",") if x.strip() != ""]
+        except ValueError:
+            return None
+
+    block_match = _OBS_USED_BLOCK_RE.search(text)
+    if block_match:
+        indices = re.findall(r"-\s*(\d+)", block_match.group(1))
+        return [int(x) for x in indices] if indices else None
+
+    return None
 
 
 def _infer_observables_used(rule_yaml: str, extraction_result: dict[str, Any]) -> list[int] | None:
@@ -681,6 +714,7 @@ class SigmaGenerationService:
                                     "status": parsed_yaml.get("status", "experimental"),
                                     "logsource": parsed_yaml.get("logsource", {}),
                                     "detection": detection,
+                                    "generation_phase": rule_result.generation_phase,
                                 }
                                 if rule_result.observables_used is not None:
                                     rule_metadata["observables_used"] = rule_result.observables_used
@@ -802,7 +836,6 @@ class SigmaGenerationService:
         rule_blocks = []
 
         # Strategy 1: Extract from multiple markdown code blocks (backward compatibility)
-        import re
 
         code_block_pattern = r"```(?:yaml|yml)?\s*\n(.*?)```"
         code_blocks = re.findall(code_block_pattern, yaml_content, re.DOTALL)
@@ -879,6 +912,12 @@ class SigmaGenerationService:
                     block_for_validation = yaml.dump(parsed, default_flow_style=False, sort_keys=False)
             except Exception as e:
                 logger.debug(f"Could not parse Sigma grounding metadata from block {i + 1}: {e}")
+                observables_used = _extract_observables_used_fallback(cleaned_block)
+                if observables_used is not None:
+                    logger.debug(
+                        f"Recovered observables_used={observables_used} for block {i + 1} via regex fallback "
+                        "after YAML parse failure"
+                    )
 
             # Inference fallback: if LLM omitted observables_used, infer from detection keyword overlap
             observables_used_inferred = False
