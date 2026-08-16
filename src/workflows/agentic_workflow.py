@@ -903,6 +903,27 @@ _AGENT_NAME_TO_SUBAGENT: dict[str, str] = {
 }
 
 
+def _eval_snapshot(execution: Any) -> dict:
+    """Return the execution's full config payload, resolving externalized snapshots.
+
+    Since snapshot deduplication (commit 6e851943), ``execution.config_snapshot``
+    holds only ``{"snapshot_id": N}`` — the eval flags (``subagent_eval``,
+    ``eval_run``, ``skip_*``) live in the externalized payload. Every eval-flag
+    read must hydrate, or the flag silently reads ``None`` and the run neither
+    isolates to the target subagent nor scores its evaluation rows. Falls back to
+    legacy inline JSON for pre-externalization executions.
+    """
+    if not execution:
+        return {}
+    snapshot = hydrate_snapshot(execution)
+    if isinstance(snapshot, str):
+        try:
+            snapshot = json.loads(snapshot)
+        except (json.JSONDecodeError, ValueError):
+            return {}
+    return snapshot if isinstance(snapshot, dict) else {}
+
+
 def _is_agent_allowed(
     agent_name: str,
     execution: Any,
@@ -919,8 +940,9 @@ def _is_agent_allowed(
     """
     # 1. Re-read subagent_eval from execution config_snapshot (defensive)
     raw_eval = None
-    if execution and getattr(execution, "config_snapshot", None):
-        raw_eval = execution.config_snapshot.get("subagent_eval")
+    snapshot = _eval_snapshot(execution)
+    if snapshot:
+        raw_eval = snapshot.get("subagent_eval")
 
     # Fallback to the variable
     if not raw_eval and subagent_eval:
@@ -1162,14 +1184,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 db_session.commit()
 
             config = state.get("config")
-            config_snapshot = execution.config_snapshot if execution else {}
-            if isinstance(config_snapshot, str):
-                try:
-                    config_snapshot = json.loads(config_snapshot)
-                except (json.JSONDecodeError, ValueError):
-                    config_snapshot = {}
-            if not isinstance(config_snapshot, dict):
-                config_snapshot = {}
+            config_snapshot = _eval_snapshot(execution)
 
             skip_os_detection_flag = _bool_from_value(config_snapshot.get("skip_os_detection", False))
             eval_run_flag = _bool_from_value(config_snapshot.get("eval_run", False))
@@ -1460,7 +1475,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
         )
 
         # Determine bypass reason
-        config_snapshot = execution.config_snapshot if execution else {}
+        config_snapshot = _eval_snapshot(execution)
         eval_run_flag = _bool_from_value(config_snapshot.get("eval_run", False))
         state_eval_run = _bool_from_value(state.get("eval_run", False))
         is_eval_run = state_eval_run or eval_run_flag
@@ -1516,7 +1531,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 }
 
             if execution and execution.config_snapshot:
-                config_snapshot = execution.config_snapshot or {}
+                config_snapshot = _eval_snapshot(execution)
                 skip_rank_agent = _bool_from_value(config_snapshot.get("skip_rank_agent", False)) or _bool_from_value(
                     config_snapshot.get("eval_run", False)
                 )
@@ -1776,7 +1791,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             agent_prompts_config = configured_prompts if isinstance(configured_prompts, dict) else {}
 
             # Check if this is a subagent eval run
-            config_snapshot = execution.config_snapshot if execution else {}
+            config_snapshot = _eval_snapshot(execution)
             subagent_eval = normalize_subagent_name(
                 config_snapshot.get("subagent_eval") or state_config.get("subagent_eval")
             )
@@ -1814,7 +1829,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             max_extraction_retries = 5
             if agent_models:
                 # Check if this is an eval run (check both config_snapshot and state config)
-                config_snapshot = execution.config_snapshot if execution else {}
+                config_snapshot = _eval_snapshot(execution)
                 state_config = state.get("config", {})
                 is_eval_run = (
                     _bool_from_value(config_snapshot.get("eval_run", False))
@@ -1951,7 +1966,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Re-read subagent_eval directly from execution to ensure we have the correct value
             # (config_snapshot was redefined at line 858, so we need to read from execution again)
             if execution:
-                config_snapshot_for_filter = execution.config_snapshot if execution.config_snapshot else {}
+                config_snapshot_for_filter = _eval_snapshot(execution)
             else:
                 config_snapshot_for_filter = config_snapshot
                 logger.warning(
@@ -3338,7 +3353,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
         # Check execution config_snapshot first (most reliable for evals)
         if execution and execution.config_snapshot:
-            config_snapshot = execution.config_snapshot
+            config_snapshot = _eval_snapshot(execution)
             skip_rank_agent = _bool_from_value(config_snapshot.get("skip_rank_agent", False)) or _bool_from_value(
                 config_snapshot.get("eval_run", False)
             )
@@ -3383,7 +3398,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
         )
 
         if execution:
-            config_snapshot = execution.config_snapshot or {}
+            config_snapshot = _eval_snapshot(execution)
             # A Sigma eval needs the full pipeline through generate_sigma, so it
             # overrides the blanket eval_run -> skip-sigma behavior used by the
             # extractor evals.

@@ -19,6 +19,7 @@ from src.database.models import (
     ArticleTable,
     SubagentEvaluationTable,
 )
+from src.services.execution_snapshot_store import hydrate_snapshot
 from src.utils.langfuse_client import get_langfuse_client, is_langfuse_enabled
 
 logger = logging.getLogger(__name__)
@@ -51,6 +52,18 @@ def _coerce_json_dict(raw: Any) -> dict[str, Any]:
         except (json.JSONDecodeError, TypeError):
             return {}
     return {}
+
+
+def _hydrated_config_dict(execution: AgenticWorkflowExecutionTable) -> dict[str, Any]:
+    """Return the execution's config payload, resolving externalized snapshots.
+
+    Since snapshot deduplication (commit 6e851943), ``config_snapshot`` holds only
+    ``{"snapshot_id": N}`` and the real payload lives on the externalized snapshot
+    record. Hydrate that reference, but fall back to the raw ``config_snapshot``
+    (which ``_coerce_json_dict`` also parses from a legacy JSON string) whenever
+    hydration yields nothing, so pre-externalization executions still resolve.
+    """
+    return _coerce_json_dict(hydrate_snapshot(execution) or execution.config_snapshot)
 
 
 class EvalBundleService:
@@ -107,7 +120,7 @@ class EvalBundleService:
         else:
             logger.debug(f"Execution {execution_id} error_log is not a dict: {type(error_log)}")
 
-        config_snapshot_raw = _coerce_json_dict(execution.config_snapshot)
+        config_snapshot_raw = _hydrated_config_dict(execution)
 
         # Fetch article
         article = self.db_session.query(ArticleTable).filter(ArticleTable.id == execution.article_id).first()
@@ -636,7 +649,7 @@ class EvalBundleService:
 
         # Get model/provider from config_snapshot or metadata
         # Ensure config_snapshot is a dict (JSONB might be string)
-        config_snapshot = _coerce_json_dict(execution.config_snapshot)
+        config_snapshot = _hydrated_config_dict(execution)
 
         # Ensure agent_models is a dict
         agent_models = _coerce_json_dict(config_snapshot.get("agent_models", {}))
@@ -1161,7 +1174,7 @@ class EvalBundleService:
         self, execution: AgenticWorkflowExecutionTable, agent_name: str, warnings: list[str]
     ) -> dict[str, Any]:
         """Extract system prompt for agent."""
-        config_snapshot = _coerce_json_dict(execution.config_snapshot)
+        config_snapshot = _hydrated_config_dict(execution)
         agent_prompts = _coerce_json_dict(config_snapshot.get("agent_prompts", {}))
 
         # Map agent names to prompt config keys
@@ -1359,7 +1372,9 @@ class EvalBundleService:
         self, execution: AgenticWorkflowExecutionTable, agent_name: str, warnings: list[str]
     ) -> dict[str, Any] | None:
         """Extract config snapshot filtered to relevant agent."""
-        config_snapshot_raw = execution.config_snapshot
+        # Prefer the externalized payload; fall back to the raw column so a legacy
+        # JSON-string snapshot still parses (and still warns if it is malformed).
+        config_snapshot_raw = hydrate_snapshot(execution) or execution.config_snapshot
         if not config_snapshot_raw:
             return None
 

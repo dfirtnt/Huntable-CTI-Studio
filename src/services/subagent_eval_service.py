@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 from src.database.models import AgenticWorkflowExecutionTable, SubagentEvaluationTable
 from src.services.eval_item_scorer import score_items
+from src.services.execution_snapshot_store import hydrate_snapshot
 from src.utils.subagent_utils import normalize_subagent_name
 
 if TYPE_CHECKING:
@@ -29,7 +30,7 @@ def update_subagent_eval_on_completion(
 ) -> None:
     """Update subagent evaluation rows when a workflow execution completes."""
     try:
-        config_snapshot = execution.config_snapshot or {}
+        config_snapshot = hydrate_snapshot(execution)
         subagent_name = normalize_subagent_name(config_snapshot.get("subagent_eval"))
 
         if not subagent_name:
