@@ -825,26 +825,41 @@ class TestGenerateSigmaNode:
         )
 
     @pytest.mark.asyncio
-    async def test_drops_rule_when_generated_logsource_does_not_match_group(self, article, execution, config_obj):
+    @pytest.mark.parametrize(
+        ("include_matching_rule", "expected_generated", "expected_dropped"),
+        [(False, 0, 1), (True, 1, 1)],
+    )
+    async def test_reports_post_filter_rule_counts(
+        self, article, execution, config_obj, include_matching_rule, expected_generated, expected_dropped
+    ):
         config_obj.agent_prompts = {}
         config_obj.sigma_fallback_enabled = False
         db_session = _make_db_session(article, execution)
         nodes = _capture_nodes(db_session, trigger_service_config=config_obj)
 
         async def generate_side_effect(*args, **kwargs):
+            wrong_rule = {
+                "title": "Defender Disablement From Network Group",
+                "description": "Wrong telemetry escaped the network group",
+                "logsource": {"product": "windows", "category": "process_creation"},
+                "detection": {
+                    "selection": {"CommandLine|contains|all": ["Stop-Service", "WinDefend"]},
+                    "condition": "selection",
+                },
+                "observables_used": [0],
+            }
+            matching_rule = {
+                "title": "Network Connection Rule",
+                "description": "Matching telemetry stayed in the network group",
+                "logsource": {"product": "windows", "category": "network_connection"},
+                "detection": {
+                    "selection": {"DestinationIp|contains": "77.110.122"},
+                    "condition": "selection",
+                },
+                "observables_used": [0],
+            }
             return {
-                "rules": [
-                    {
-                        "title": "Defender Disablement From Network Group",
-                        "description": "Wrong telemetry escaped the network group",
-                        "logsource": {"product": "windows", "category": "process_creation"},
-                        "detection": {
-                            "selection": {"CommandLine|contains|all": ["Stop-Service", "WinDefend"]},
-                            "condition": "selection",
-                        },
-                        "observables_used": [0],
-                    }
-                ],
+                "rules": [wrong_rule] + ([matching_rule] if include_matching_rule else []),
                 "metadata": {
                     "total_attempts": 1,
                     "valid_rules": 1,
@@ -882,8 +897,11 @@ class TestGenerateSigmaNode:
                 )
             )
 
-        assert result["sigma_rules"] == []
+        assert len(result["sigma_rules"]) == expected_generated
         assert mock_sigma.generate_sigma_rules.await_count == 1
+        summary = execution.error_log["generate_sigma"]["sigma_generation_groups"][0]
+        assert summary["generated_rules"] == expected_generated
+        assert summary["dropped_rules"] == expected_dropped
 
 
 # ---------------------------------------------------------------------------

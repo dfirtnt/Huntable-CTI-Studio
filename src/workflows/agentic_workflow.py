@@ -2661,6 +2661,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 group_metadata = generation_result.get("metadata", {}) if generation_result else {}
                 group_rules = generation_result.get("rules", []) if generation_result else []
                 group_error = generation_result.get("errors") if generation_result else "No generation result"
+                kept_group_rules = []
 
                 for rule in group_rules:
                     if not isinstance(rule, dict):
@@ -2672,6 +2673,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             f"{group.get('logsource_hint')}"
                         )
                         continue
+                    kept_group_rules.append(rule)
                     _rebase_group_observable_indices(rule, group["original_indices"])
                     _repair_empty_observable_attribution(
                         rule,
@@ -2718,7 +2720,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         "telemetry_category": group["telemetry_category"],
                         "logsource_hint": group["logsource_hint"],
                         "observable_indices": group["original_indices"],
-                        "generated_rules": len(group_rules),
+                        "generated_rules": len(kept_group_rules),
+                        "dropped_rules": len(group_rules) - len(kept_group_rules),
                         "error": group_error if group_error and not group_rules else None,
                         # A Phase 4 expansion failure is non-fatal for the group, so it never
                         # reaches `error`. Carry it separately, otherwise a group that lost every
