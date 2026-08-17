@@ -366,8 +366,10 @@ class TestArticlesPagination:
         page.goto(f"{base_url}/articles?per_page=20&page=2")
         page.wait_for_load_state("load")
 
-        # Find Previous link
-        previous_link = page.locator("a:has-text('Previous')")
+        # Find Previous link (exact role match -- article titles in the feed can
+        # legitimately contain the substring "previous", which a text-contains
+        # locator would also match).
+        previous_link = page.get_by_role("link", name="Previous", exact=True)
         if previous_link.count() > 0:
             expect(previous_link.first).to_be_visible()
 
@@ -408,12 +410,8 @@ class TestArticlesBulkSelection:
         expect(checkboxes).not_to_have_count(0)
 
         first_checkbox = checkboxes.first
-        expect(first_checkbox).to_have_attribute(
-            "aria-label", re.compile(r"^Select article #\d+: .+")
-        )
-        expect(
-            page.get_by_role("checkbox", name=re.compile(r"^Select article #\d+: .+"))
-        ).not_to_have_count(0)
+        expect(first_checkbox).to_have_attribute("aria-label", re.compile(r"^Select article #\d+: .+"))
+        expect(page.get_by_role("checkbox", name=re.compile(r"^Select article #\d+: .+"))).not_to_have_count(0)
 
     @pytest.mark.ui
     @pytest.mark.articles

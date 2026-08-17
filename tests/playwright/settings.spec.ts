@@ -82,10 +82,11 @@ test.describe('Settings - Backup feedback', () => {
     await page.goto(`${BASE}/settings`);
     const button = page.locator('#createBackupBtn');
     const feedback = page.getByTestId('backup-create-feedback');
+    await page.locator('#backupConfig-header').click();
     await button.click();
 
     await expect(button).toBeDisabled();
-    await expect(button).toHaveText('Creating backup…');
+    await expect(button).toHaveText('Creating backup...');
     await expect(feedback).toContainText('Backup is running');
 
     if (!completeBackup) {

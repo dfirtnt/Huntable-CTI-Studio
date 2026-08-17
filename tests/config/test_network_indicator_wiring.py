@@ -223,7 +223,7 @@ class TestWorkflowHelpers:
         assert _extract_actual_count("network_indicators", subresults, execution_id=1) == 2
 
     def test_extract_actual_items_reads_value(self):
-        from src.workflows.agentic_workflow import _extract_actual_items
+        from src.services.subagent_eval_service import _raw_actual_items
 
         subresults = {
             "network_indicators": {
@@ -231,8 +231,8 @@ class TestWorkflowHelpers:
                 "count": 1,
             }
         }
-        items = _extract_actual_items("network_indicators", subresults)
-        assert items == ["evil[.]com"]
+        items = _raw_actual_items("network_indicators", subresults)
+        assert items == [{"value": "evil[.]com", "indicator_type": "domain"}]
 
 
 class TestPresetFiles:

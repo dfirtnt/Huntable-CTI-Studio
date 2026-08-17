@@ -71,6 +71,11 @@ def _normalize_cmdline(s: str) -> str:
     return _collapse_ws(_defang(s.lower()))
 
 
+# Back-compat alias: pre-refactor generic normalize, still used by
+# tests/unit/test_ground_truth_files.py for cross-subagent reachability checks.
+_normalize = _normalize_cmdline
+
+
 def _normalize_registry(s: str) -> str:
     """Canonicalize a ``hive\\key_path`` registry identity for comparison."""
     s = s.strip().lower().replace("/", "\\")
