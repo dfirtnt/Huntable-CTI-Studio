@@ -20,17 +20,22 @@ def test_modal_manager_prompt_modal_exposes_aria(page: Page):
     page.wait_for_load_state("load")
 
     # Build a prompt modal exactly as the app does at runtime.
+    # NOTE: the call must be wrapped in an arrow function body that returns undefined.
+    # ModalManager.prompt() returns a Promise that only settles on user input, and
+    # page.evaluate() awaits any Promise it is handed -- evaluating the bare expression
+    # blocks forever.
     page.evaluate(
-        "ModalManager.prompt('Rename rule?', '', { title: 'Rename Rule', required: true })"
-        ".catch(() => {})"
+        "() => { ModalManager.prompt('Rename rule?', '', { title: 'Rename Rule', required: true }).catch(() => {}); }"
     )
-    modal = page.locator('[role="dialog"]').first
+    # Scope to the dynamically built modal: pages also carry static template modals
+    # that legitimately expose role="dialog" while hidden.
+    modal = page.locator('[id^="_prompt_"]').first
     expect(modal).to_be_visible()
     assert modal.get_attribute("role") == "dialog"
     assert modal.get_attribute("aria-modal") == "true"
     assert modal.get_attribute("aria-label") == "Rename Rule"
     # Tear down so it does not leak into sibling tests.
-    page.evaluate("() => { const m = document.querySelector('[role=\"dialog\"]'); if (m) m.remove(); }")
+    page.evaluate("() => { document.querySelectorAll('[id^=\"_prompt_\"]').forEach(m => m.remove()); }")
 
 
 @pytest.mark.ui
@@ -39,12 +44,12 @@ def test_modal_manager_confirm_modal_exposes_aria(page: Page):
     page.goto("http://127.0.0.1:8001/mlops/agent-evals")
     page.wait_for_load_state("load")
 
-    page.evaluate(
-        "ModalManager.confirm('Delete this rule?', { title: 'Delete Rule' }).catch(() => {})"
-    )
-    modal = page.locator('[role="dialog"]').first
+    # Arrow-function wrapper: see the note in the prompt test above -- the returned
+    # Promise never settles without user input and would block page.evaluate().
+    page.evaluate("() => { ModalManager.confirm('Delete this rule?', { title: 'Delete Rule' }).catch(() => {}); }")
+    modal = page.locator('[id^="_confirm_"]').first
     expect(modal).to_be_visible()
     assert modal.get_attribute("role") == "dialog"
     assert modal.get_attribute("aria-modal") == "true"
     assert modal.get_attribute("aria-label") == "Delete Rule"
-    page.evaluate("() => { const m = document.querySelector('[role=\"dialog\"]'); if (m) m.remove(); }")
+    page.evaluate("() => { document.querySelectorAll('[id^=\"_confirm_\"]').forEach(m => m.remove()); }")

@@ -27,6 +27,12 @@ Package manager: **uv** (not pip). CI uses `uv sync --frozen`, `uv run`.
 CLI entrypoint: `./run_cli.sh <command>`.
 MCP server: `.mcp.json` at project root auto-wires `scripts/run_mcp_server.sh` for supported clients.
 
+## Local Context
+
+When the user indicates an issue is recurring or previously investigated, search
+`.context/compound-engineering/` for relevant context. It is untracked; code, schemas,
+tests, and tracked docs take precedence.
+
 ---
 
 ## Prompt-Injection Alerting
@@ -158,6 +164,12 @@ no separate "served from main" deployment).
 - **UI changes require browser verification** (API/unit tests alone are insufficient).
   Must read `docs/contracts/ui-designer.md` first -- no exceptions. Card containers use
   `.card` / `.card-elevated` / `.card-interactive`, not raw Tailwind utilities.
+- **Driving `ModalManager` from Playwright**: `prompt()`/`confirm()` return a Promise that
+  only settles on user input, and `page.evaluate()` awaits any Promise handed to it -- pass
+  an arrow-function body that returns undefined, or the call blocks forever. Locate the
+  modal by its generated id prefix (`[id^="_prompt_"]` / `[id^="_confirm_"]`), not by
+  `[role="dialog"]`: pages also carry static template modals that expose that role while
+  hidden. These are not native dialogs, so `page.on('dialog')` never fires.
 - **Sigma deduplication does NOT use pgvector**. Article->Sigma matching (RAG) does.
   Sigma->Sigma dedup uses plain SQL `WHERE canonical_class = ?` + deterministic
   `SigmaNoveltyService.similarity = (Jaccard x Containment) - Filter`. See

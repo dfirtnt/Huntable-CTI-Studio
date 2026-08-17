@@ -90,7 +90,7 @@ detections." Two mechanisms make this concrete:
 The scorer design already supports a fair comparison and should be preserved: it
 ignores rule **count** and compares the set-**union** of detection atoms and
 logsource classes across all of an article's rules
-([`sigma_eval_scorer.py`](../../../src/services/sigma_eval_scorer.py), see
+(`src/services/sigma_eval_scorer.py`, see
 `score_sigma`). That union-based, count-agnostic design is what lets two
 architectures that partition detections into different numbers of rules be
 compared on one GT — so the eval "just looks at observables (and logsources),"
