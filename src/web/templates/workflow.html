@@ -2538,11 +2538,11 @@ tr.q-row-selected td {
         <div class="prompt-exp-body">
           <div>
             <label class="block text-xs font-semibold mb-1" style="color: var(--text-primary);">System Prompt</label>
-            <textarea id="prompt-exp-system" rows="10"></textarea>
+            <textarea id="prompt-exp-system" rows="10" aria-label="System prompt (expanded editor)"></textarea>
           </div>
           <div id="prompt-exp-user-section">
             <label class="block text-xs font-semibold mb-1" style="color: var(--text-primary);">User Prompt</label>
-            <textarea id="prompt-exp-user" rows="8"></textarea>
+            <textarea id="prompt-exp-user" rows="8" aria-label="User prompt (expanded editor)"></textarea>
           </div>
           <div id="prompt-exp-user-locked" style="display: none; border-left: 4px solid var(--border-amber); padding: 0.5rem 0.75rem; font-size: 0.75rem; color: var(--text-muted);">
             User scaffold is locked in runtime and is no longer editable from the UI.
@@ -2579,7 +2579,7 @@ tr.q-row-selected td {
         <div class="prompt-exp-body">
           <div style="display:flex; flex-direction:column; flex:1;">
             <label class="block text-xs font-semibold mb-1" style="color: var(--text-primary);">System Prompt</label>
-            <textarea id="enrich-exp-system" rows="20"></textarea>
+            <textarea id="enrich-exp-system" rows="20" aria-label="Enrichment system prompt (expanded editor)"></textarea>
           </div>
         </div>
         <div class="prompt-exp-footer" style="flex-direction: column; gap: 6px;">
@@ -2623,14 +2623,14 @@ tr.q-row-selected td {
             </button>
             <div class="q-cmd-divider"></div>
             <span class="q-cmd-label">Filter</span>
-            <select id="statusFilter" onchange="filterExecutions()" class="q-cmd-filter">
+            <select id="statusFilter" onchange="filterExecutions()" class="q-cmd-filter" aria-label="Filter executions by status">
                 <option value="">All Status</option>
                 <option value="pending">Pending</option>
                 <option value="running">Running</option>
                 <option value="completed">Completed</option>
                 <option value="failed">Failed</option>
             </select>
-            <select id="stepFilter" onchange="filterExecutions()" class="q-cmd-filter">
+            <select id="stepFilter" onchange="filterExecutions()" class="q-cmd-filter" aria-label="Filter executions by workflow step">
                 <option value="">All Steps</option>
                 <option value="junk_filter">Filter</option>
                 <option value="rank_article">Rank</option>
@@ -2799,7 +2799,7 @@ tr.q-row-selected td {
             </button>
             <div class="q-cmd-divider"></div>
             <span class="q-cmd-label">Filter</span>
-            <select id="queueStatusFilter" onchange="filterQueue()" class="q-cmd-filter">
+            <select id="queueStatusFilter" onchange="filterQueue()" class="q-cmd-filter" aria-label="Filter Sigma queue by status">
                 <option value="">All Status</option>
                 <option value="pending">Pending</option>
                 <option value="approved">Approved</option>
@@ -2945,10 +2945,10 @@ tr.q-row-selected td {
                     </h3>
                     <div class="flex items-center gap-3">
                         <div class="flex items-center gap-2">
-                            <select id="enrichProviderSelect" class="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                            <select id="enrichProviderSelect" class="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white" aria-label="Enrichment LLM provider">
                                 <option value="">Loading...</option>
                             </select>
-                            <select id="enrichModelSelect" class="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white min-w-[200px]">
+                            <select id="enrichModelSelect" class="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white min-w-[200px]" aria-label="Enrichment model">
                                 <option value="">Select model...</option>
                             </select>
                             <button onclick="saveEnrichmentPreset()" class="px-3 py-1.5 text-xs bg-emerald-600 hover:bg-green-700 text-white rounded-md">
@@ -2976,7 +2976,7 @@ tr.q-row-selected td {
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Enrichment Instructions (optional):
                         </label>
-                        <textarea id="enrichInstruction" rows="3" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm">Validate and minimally enrich this SIGMA rule per the enabled directives. Preserve detection logic. Return the JSON output contract only.</textarea>
+                        <textarea id="enrichInstruction" rows="3" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" aria-label="Enrichment instruction">Validate and minimally enrich this SIGMA rule per the enabled directives. Preserve detection logic. Return the JSON output contract only.</textarea>
                     </div>
                     <div>
                         <div class="flex items-center justify-between mb-2">
@@ -3010,7 +3010,7 @@ tr.q-row-selected td {
                         <!-- view mode: blue-bordered display div (hidden in edit mode) -->
                         <div id="enrichSystemPromptDisplay" class="text-sm font-mono border-l-4 border-blue-500 pl-4 p-3 rounded-md whitespace-pre-wrap break-words max-h-96 overflow-y-auto leading-relaxed text-gray-800 dark:text-gray-200 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700"></div>
                         <!-- edit mode: textarea (hidden in view mode) -->
-                        <textarea id="enrichSystemPrompt" rows="30" readonly class="hidden w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm">SYSTEM (GPT-5*)  --  Modular SIGMA Rule Validator/Polisher (7 Toggles)
+                        <textarea id="enrichSystemPrompt" rows="30" readonly class="hidden w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm" aria-label="Enrichment system prompt">SYSTEM (GPT-5*)  --  Modular SIGMA Rule Validator/Polisher (7 Toggles)
 
 You are a SIGMA rule "validation + minimal-polish" agent. Your job is to ensure a provided draft SIGMA rule is:
 - syntactically valid YAML and structurally valid Sigma,
@@ -3167,7 +3167,7 @@ END SYSTEM PROMPT</textarea>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Original Rule:
                         </label>
-                        <textarea id="enrichOriginalRule" readonly rows="15" class="w-full px-3 py-2 rounded-md font-mono text-sm leading-relaxed resize-none" style="background: var(--panel-bg-0); color: var(--text-secondary); border: 1px solid rgba(255,255,255,0.07);"></textarea>
+                        <textarea id="enrichOriginalRule" readonly rows="15" class="w-full px-3 py-2 rounded-md font-mono text-sm leading-relaxed resize-none" style="background: var(--panel-bg-0); color: var(--text-secondary); border: 1px solid rgba(255,255,255,0.07);" aria-label="Original Sigma rule"></textarea>
                     </div>
                     <div id="enrichLoading" class="hidden text-center py-4">
                         <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
@@ -3268,7 +3268,7 @@ END SYSTEM PROMPT</textarea>
                                 </div>
                             </div>
                         </div>
-                        <textarea id="enrichedRuleYaml" rows="20" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-xs"></textarea>
+                        <textarea id="enrichedRuleYaml" rows="20" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-xs" aria-label="Enriched Sigma rule YAML"></textarea>
                         <div class="mt-4">
                             <button onclick="toggleRawResponse()" class="flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-left text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-md border border-gray-300 dark:border-gray-600 cursor-pointer" role="button" aria-expanded="false" id="rawResponseToggle">
                                 <span><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg> Raw LLM Response</span>
