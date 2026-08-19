@@ -66,7 +66,7 @@ dependencies = [
     "tiktoken==0.13.0",
     "pgvector==0.4.2",
     # Required by the web settings connection test and shared tracing client.
-    "langfuse==4.3.1",
+    "langfuse==4.14.4",
     # Agentic workflow
     # Security pins (transitive dependency floors — >= intentional, mirrored in requirements.txt)
     "Authlib==1.7.2",

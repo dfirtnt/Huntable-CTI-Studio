@@ -6,6 +6,9 @@ Source: docs.anthropic.com (2026-06-02). All models support `max_tokens` + `temp
 
 | Model | Context Window | Max Output Tokens | Notes |
 |-------|----------------|-------------------|-------|
+| claude-opus-5 | 1,000,000 | — | 1M default; max output not yet verified |
+| claude-sonnet-5 | 1,000,000 | — | 1M default; max output not yet verified |
+| claude-fable-5 | 1,000,000 | — | 1M default; max output not yet verified |
 | claude-opus-4-8 | 1,000,000 | 128,000 | 1M default — no beta header required |
 | claude-opus-4-7 | 1,000,000 | 64,000 | 1M default |
 | claude-opus-4-6 | 1,000,000 | 64,000 | 1M default |
@@ -19,9 +22,10 @@ Source: docs.anthropic.com (2026-06-02). All models support `max_tokens` + `temp
 
 Older Claude 3.x / 4.0-4.5 models cap at 200K by default; they can be extended to 1M via the `context-1m-2025-08-07` beta header. Opus 4.6+ and Sonnet 4.6+ no longer require it.
 
-<!-- TODO: verify: config/provider_model_catalog.json["anthropic"] also lists claude-fable-5,
-     claude-opus-5, and claude-sonnet-5, none of which appears in this table. Add rows with
-     verified context window / max output token values once confirmed against provider docs. -->
+<!-- TODO: verify: max output tokens for claude-opus-5 / claude-sonnet-5 / claude-fable-5.
+     Context windows above are taken from MODEL_CONTEXT_TOKENS in
+     src/services/provider_model_catalog.py; max output is not recorded anywhere in the repo
+     and must be confirmed against docs.anthropic.com. -->
 
 ---
 
@@ -34,6 +38,9 @@ Source: platform.openai.com/docs/models (Jan 2025)
 | Model | Context Window | Max Output Tokens | API Params |
 |-------|----------------|-------------------|------------|
 | **GPT-5 series** | | | |
+| gpt-5.6-luna | 1,050,000 | — | `max_completion_tokens`, no `temperature`; max output not yet verified |
+| gpt-5.6-sol | 1,050,000 | — | `max_completion_tokens`, no `temperature`; max output not yet verified |
+| gpt-5.6-terra | 1,050,000 | — | `max_completion_tokens`, no `temperature`; max output not yet verified |
 | gpt-5.5 | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
 | gpt-5.5-pro | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
 | gpt-5.4 | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
@@ -70,9 +77,10 @@ Source: platform.openai.com/docs/models (Jan 2025)
 | gpt-4 | 8,192 | 4,096 | `max_tokens`, `temperature` |
 | gpt-3.5-turbo | 16,385 | 4,096 | `max_tokens`, `temperature` |
 
-<!-- TODO: verify: config/provider_model_catalog.json["openai"] also lists gpt-5.6-luna,
-     gpt-5.6-sol, and gpt-5.6-terra, none of which appear in this table. Add rows with
-     verified context window / max output token values once confirmed against provider docs. -->
+<!-- TODO: verify: max output tokens for gpt-5.6-luna / gpt-5.6-sol / gpt-5.6-terra.
+     Context windows above are taken from MODEL_CONTEXT_TOKENS in
+     src/services/provider_model_catalog.py; max output is not recorded anywhere in the repo
+     and must be confirmed against platform.openai.com/docs/models. -->
 
 ### API Parameter Rules
 

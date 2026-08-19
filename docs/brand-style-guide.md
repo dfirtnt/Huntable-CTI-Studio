@@ -2,7 +2,7 @@
 
 *Handoff Document for Presentation / Pitch Deck Agents*
 
-**Product:** Huntable CTI Studio v7.6.0 "Europa"  
+**Product:** Huntable CTI Studio v7.7.0 "Europa"  
 **Category:** Cyber Threat Intelligence (CTI) ML/AI Workbench  
 **Audience:** Security Operations, Threat Hunters, Detection Engineers  
 **Tone:** Precision-tool. Operational. No hype. Quietly confident.

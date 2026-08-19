@@ -77,7 +77,7 @@ Langfuse is an optional tracing integration for workflow and LLM observability.
 Configure Langfuse through the Settings UI or environment variables:
 - `LANGFUSE_PUBLIC_KEY` required
 - `LANGFUSE_SECRET_KEY` required
-- `LANGFUSE_HOST` optional, defaults to `https://cloud.langfuse.com`
+- `LANGFUSE_HOST` optional, defaults to `https://us.cloud.langfuse.com`
 - `LANGFUSE_PROJECT_ID` optional, but recommended for stronger workflow debug links
 
 For the full setup flow, region host selection, verification steps, and troubleshooting, see [Langfuse Setup](../guides/langfuse-setup.md).

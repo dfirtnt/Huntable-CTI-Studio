@@ -44,7 +44,7 @@ This ensures **production config is never permanently changed** by tests.
 **Function:** `test_full_preset_workflow_create_apply_delete`
 
 **Workflow:**
-```
+```text
 1. Modify config  (similarity_threshold = 0.77)
 2. Save as preset
 3. Change config  (similarity_threshold = 0.88)
@@ -68,7 +68,7 @@ This ensures **production config is never permanently changed** by tests.
 **Purpose:** Convert legacy (V1) preset to canonical WorkflowConfigV2 format
 
 **Flow:**
-```
+```text
 V1 Preset (legacy)  ->  POST /config/preset/export  ->  V2 Preset (canonical)
 {                                                     {
   "version": "1.0",                                    "Version": "2.0",
@@ -96,7 +96,7 @@ Note: V2 expands agent configs as flat top-level keys, not nested under a single
 **Purpose:** Convert V2 preset back to legacy format (for backward compatibility)
 
 **Flow:**
-```
+```text
 V2 Preset (canonical)  ->  POST /config/preset/to-legacy  ->  V1 Preset (legacy)
 {                                                             {
   "Version": "2.0",                                            "version": "1.0",
@@ -120,7 +120,7 @@ V2 Preset (canonical)  ->  POST /config/preset/to-legacy  ->  V1 Preset (legacy)
 **Purpose:** Simulate importing a preset JSON file (like those in `config/presets/AgentConfigs/quickstart/`)
 
 **Simulates:**
-```
+```text
 User Action: Import Quickstart-LMStudio-Qwen3.json
    |
 1. Read JSON file
@@ -161,7 +161,7 @@ User Action: Import Quickstart-LMStudio-Qwen3.json
 **Purpose:** Export saved preset to JSON format (for sharing/backup)
 
 **Flow:**
-```
+```text
 1. Create preset in database
 2. GET /config/preset/{id}
 3. Extract config_json
@@ -187,7 +187,7 @@ User Action: Import Quickstart-LMStudio-Qwen3.json
 **Purpose:** Verify saving preset with same name updates (not creates duplicate)
 
 **Workflow:**
-```
+```text
 1. Save preset "My Config" -> ID=1
 2. Save preset "My Config" again with different values -> Still ID=1 (updated)
 3. Verify only one preset exists

@@ -44,6 +44,7 @@ from src.services.llm_service import LLMService
 from src.services.sigma_eval_service import load_sigma_ground_truth
 from src.services.subagent_eval_service import rescore_completed_record, update_subagent_eval_on_completion
 from src.services.workflow_config_snapshot import build_config_snapshot
+from src.utils.langfuse_client import LANGFUSE_DEFAULT_HOST
 from src.utils.subagent_utils import build_subagent_lookup_values, normalize_subagent_name
 from src.worker.celery_app import trigger_agentic_workflow
 
@@ -508,7 +509,7 @@ def get_langfuse_client():
 
     public_key = _get_langfuse_setting("LANGFUSE_PUBLIC_KEY", "LANGFUSE_PUBLIC_KEY")
     secret_key = _get_langfuse_setting("LANGFUSE_SECRET_KEY", "LANGFUSE_SECRET_KEY")
-    host = _get_langfuse_setting("LANGFUSE_HOST", "LANGFUSE_HOST", "https://cloud.langfuse.com")
+    host = _get_langfuse_setting("LANGFUSE_HOST", "LANGFUSE_HOST", LANGFUSE_DEFAULT_HOST)
 
     if not public_key or not secret_key:
         raise ValueError("LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY must be set in Settings or environment variables")
@@ -1785,9 +1786,7 @@ async def clear_pending_sigma_eval_records(request: Request):
         db_session = db_manager.get_session()
         try:
             pending_records = (
-                db_session.query(SigmaEvaluationTable)
-                .filter(SigmaEvaluationTable.status == "pending")
-                .all()
+                db_session.query(SigmaEvaluationTable).filter(SigmaEvaluationTable.status == "pending").all()
             )
             deleted_ids = [record.id for record in pending_records]
             for record in pending_records:

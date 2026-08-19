@@ -153,12 +153,12 @@ Langfuse configuration can be stored in the Settings UI or provided through envi
 ```bash
 LANGFUSE_PUBLIC_KEY=pk-lf-...
 LANGFUSE_SECRET_KEY=sk-lf-...
-LANGFUSE_HOST=https://cloud.langfuse.com
+LANGFUSE_HOST=https://us.cloud.langfuse.com
 LANGFUSE_PROJECT_ID=your-project-id
 ```
 
 - `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` are required to emit traces.
-- `LANGFUSE_HOST` is optional and defaults to `https://cloud.langfuse.com` in the runtime client.
+- `LANGFUSE_HOST` is optional and defaults to `https://us.cloud.langfuse.com` in the runtime client.
 - `LANGFUSE_PROJECT_ID` is optional but recommended because it improves workflow debug deep links.
 - Use the Langfuse Cloud host for your account region. This project does not support local or self-hosted Langfuse deployments.
 

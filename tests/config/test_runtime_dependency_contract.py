@@ -18,5 +18,6 @@ def test_langfuse_is_available_to_the_web_runtime():
     dependencies = set(project["project"]["dependencies"])
     workflow_dependencies = set(project["dependency-groups"]["workflow"])
 
-    assert "langfuse==4.3.1" in dependencies
-    assert "langfuse==4.3.1" not in workflow_dependencies
+    langfuse_pins = {d for d in dependencies if d.startswith("langfuse==")}
+    assert langfuse_pins, f"langfuse must be pinned in base dependencies, got {dependencies}"
+    assert not {d for d in workflow_dependencies if d.startswith("langfuse==")}

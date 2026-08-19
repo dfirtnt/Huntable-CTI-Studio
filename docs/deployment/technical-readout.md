@@ -17,7 +17,7 @@ see [Overview](../architecture/overview.md); for Docker specifics see
 | Layer | Technology |
 |-------|-----------|
 | Backend | Python 3.11, FastAPI, SQLAlchemy (async + sync), Celery + Redis |
-| Frontend | Jinja2, Tailwind CSS, vanilla JS, HTMX |
+| Frontend | Jinja2, Tailwind CSS, vanilla JS |
 | Database | PostgreSQL 15 with pgvector extension |
 | Orchestration | LangGraph (agentic workflow), Celery Beat (scheduling) |
 | Infrastructure | Docker Compose, non-root containers |

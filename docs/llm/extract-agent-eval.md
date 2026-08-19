@@ -170,7 +170,7 @@ After fine-tuning, aim for:
 
 **Note**: This section describes deprecated fine-tuning approaches. Current extract agents use prompt engineering and few-shot learning instead.
 
-> DEPRECATION NOTICE (Feb 2026): The HuggingFace-based fine-tuning workflow described below is no longer maintained or supported. This guide is retained for historical reference only and may not work with current tooling or configuration.
+> DEPRECATION NOTICE (Feb 2026): The HuggingFace-based fine-tuning workflow described below is no longer maintained or supported. `scripts/finetune_extract_agent.py` has since been deleted (commit `e48b9246`, abandoned-ML-pipeline purge), so the step 2 command below cannot run as written. This guide is retained for historical reference only.
 
 ## Extract Agent Fine-Tuning Guide
 

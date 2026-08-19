@@ -1,6 +1,6 @@
 ---
 name: ui-designer
-description: Expert visual designer for Huntable CTI Studio -- Tailwind, Jinja2, HTMX, React (CDN), vanilla JS. Creates intuitive, accessible UIs aligned with the app's dark theme and design tokens.
+description: Expert visual designer for Huntable CTI Studio -- Tailwind, Jinja2, vanilla JS. Creates intuitive, accessible UIs aligned with the app's dark theme and design tokens.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
@@ -168,8 +168,7 @@ UI change completed.
 | Templates | Jinja2 | `src/web/templates/`; `base.html` is the layout |
 | Styling | Tailwind CSS (CDN) | Utility classes; design tokens in `theme-variables.css` |
 | Design tokens | CSS custom properties | `src/web/static/css/theme-variables.css` (source of truth) |
-| Dynamic UI | HTMX 1.9.6 | Used sparingly; see `base.html` |
-| Components | React 18 (CDN), vanilla JS | RAGChat: `src/web/static/js/components/RAGChat.jsx`; modals/collapsibles: vanilla |
+| Components | Vanilla JS | Modals, collapsibles, and shared widgets in `src/web/static/js/`; no framework runtime |
 | Charts | Chart.js | Included in `base.html` |
 | Icons | Inline SVG | Heroicons-style, `stroke="currentColor"`, `viewBox="0 0 24 24"` |
 

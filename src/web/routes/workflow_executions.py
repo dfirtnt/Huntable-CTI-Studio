@@ -35,7 +35,7 @@ from src.services.workflow_config_snapshot import (
     build_config_snapshot,
     rehash_snapshot,
 )
-from src.utils.langfuse_client import get_langfuse_trace_id_for_session
+from src.utils.langfuse_client import LANGFUSE_DEFAULT_HOST, get_langfuse_trace_id_for_session
 from src.workflows.status_utils import extract_termination_info
 
 logger = logging.getLogger(__name__)
@@ -1329,9 +1329,7 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
 
             # Check if Langfuse is configured (preferred for debugging)
             # Priority: database setting > environment variable > default
-            langfuse_host = _get_langfuse_setting(
-                db_session, "LANGFUSE_HOST", "LANGFUSE_HOST", "https://us.cloud.langfuse.com"
-            )
+            langfuse_host = _get_langfuse_setting(db_session, "LANGFUSE_HOST", "LANGFUSE_HOST", LANGFUSE_DEFAULT_HOST)
             langfuse_public_key = _get_langfuse_setting(db_session, "LANGFUSE_PUBLIC_KEY", "LANGFUSE_PUBLIC_KEY")
             langfuse_project_id = _get_langfuse_setting(db_session, "LANGFUSE_PROJECT_ID", "LANGFUSE_PROJECT_ID")
 
@@ -1374,7 +1372,7 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
             )
 
             # Normalize host URL (remove trailing slash)
-            langfuse_host = langfuse_host.rstrip("/") if langfuse_host else "https://us.cloud.langfuse.com"
+            langfuse_host = langfuse_host.rstrip("/") if langfuse_host else LANGFUSE_DEFAULT_HOST
 
             debug_urls = _build_langfuse_debug_urls(
                 langfuse_host,

@@ -20,7 +20,7 @@ from src.database.models import (
     SubagentEvaluationTable,
 )
 from src.services.execution_snapshot_store import hydrate_snapshot
-from src.utils.langfuse_client import get_langfuse_client, is_langfuse_enabled
+from src.utils.langfuse_client import find_trace_id_for_session, get_langfuse_client, is_langfuse_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -937,13 +937,11 @@ class EvalBundleService:
                 # Resolve trace_id from session_id if not already known
                 resolved_trace_id = trace_id
                 if not resolved_trace_id:
-                    try:
-                        traces = lf_api.trace.list(session_id=session_id, limit=1, order_by="timestamp.desc")
-                        if traces and traces.data:
-                            resolved_trace_id = getattr(traces.data[0], "id", None)
-                            logger.debug("Resolved trace_id=%s for session %s", resolved_trace_id, session_id)
-                    except Exception as trace_lookup_error:
-                        logger.warning("Failed to resolve trace_id for session %s: %s", session_id, trace_lookup_error)
+                    resolved_trace_id = find_trace_id_for_session(lf_api, session_id)
+                    if resolved_trace_id:
+                        logger.debug("Resolved trace_id=%s for session %s", resolved_trace_id, session_id)
+                    else:
+                        logger.warning("Failed to resolve trace_id for session %s", session_id)
 
                 # Query observations of type GENERATION by trace_id
                 if resolved_trace_id:

@@ -30,7 +30,9 @@ The application enables tracing only when both of these values are configured:
 - `LANGFUSE_PUBLIC_KEY`
 - `LANGFUSE_SECRET_KEY`
 
-`LANGFUSE_HOST` defaults to `https://cloud.langfuse.com` in the runtime client. `LANGFUSE_PROJECT_ID` is optional, but recommended because it gives the workflow UI enough metadata to build stronger deep links into Langfuse.
+`LANGFUSE_HOST` defaults to `https://us.cloud.langfuse.com` in the runtime client. `LANGFUSE_PROJECT_ID` is optional, but recommended because it gives the workflow UI enough metadata to build stronger deep links into Langfuse.
+
+The app pins the Langfuse Python SDK to `langfuse` 4.14.4 (see `pyproject.toml`), above Langfuse's documented v4 floor of 4.7.0. Trace and session lookups go through the v4 `GET /v2/observations` API (an observations-first model, not the deprecated trace-object API); the legacy `GET /traces` endpoint was removed from Langfuse Cloud on 2026-11-16.
 
 ## Before you start
 
@@ -38,11 +40,11 @@ Create a Langfuse Cloud account and project first. In Langfuse Cloud, generate t
 
 Use the cloud host that matches your Langfuse account region. Common Langfuse Cloud hosts include:
 
-- `https://cloud.langfuse.com`
-- `https://us.cloud.langfuse.com`
+- `https://cloud.langfuse.com` (EU)
+- `https://us.cloud.langfuse.com` (US)
 - `https://hipaa.cloud.langfuse.com`
 
-If your account uses a different cloud region, set `LANGFUSE_HOST` to the hostname shown by Langfuse for that project.
+This project's own Langfuse project is on the **US** region (`https://us.cloud.langfuse.com`) — that's also the app's built-in default. If your account uses a different cloud region, set `LANGFUSE_HOST` to the hostname shown by Langfuse for that project. EU and US are separate Langfuse deployments: keys from one region will not authenticate against the other.
 
 ## Configuration values
 
@@ -50,7 +52,7 @@ If your account uses a different cloud region, set `LANGFUSE_HOST` to the hostna
 | --- | --- | --- |
 | `LANGFUSE_PUBLIC_KEY` | Yes | Enables tracing and authenticates requests to Langfuse Cloud |
 | `LANGFUSE_SECRET_KEY` | Yes | Secret credential paired with the public key |
-| `LANGFUSE_HOST` | No | Langfuse Cloud host; defaults to `https://cloud.langfuse.com` |
+| `LANGFUSE_HOST` | No | Langfuse Cloud host; defaults to `https://us.cloud.langfuse.com` |
 | `LANGFUSE_PROJECT_ID` | No | Improves workflow debug links and trace deep-linking in the UI |
 
 ## Configure Huntable CTI Studio
@@ -81,7 +83,7 @@ Set these in `.env` before starting the stack:
 ```bash
 LANGFUSE_PUBLIC_KEY=pk-lf-...
 LANGFUSE_SECRET_KEY=sk-lf-...
-LANGFUSE_HOST=https://cloud.langfuse.com
+LANGFUSE_HOST=https://us.cloud.langfuse.com
 LANGFUSE_PROJECT_ID=your-project-id
 ```
 
@@ -131,4 +133,4 @@ Traces only exist for executions that ran while Langfuse tracing was enabled. If
 - [Configuration](../getting-started/configuration.md)
 - [Debugging](../development/debugging.md)
 
-_Last updated: 2026-07-05_
+_Last updated: 2026-08-18_

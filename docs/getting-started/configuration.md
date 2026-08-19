@@ -192,14 +192,14 @@ python3 scripts/build_baseline_presets.py
 |----------|---------|-------|
 | `LANGFUSE_PUBLIC_KEY` | Langfuse public key | Required to enable tracing |
 | `LANGFUSE_SECRET_KEY` | Langfuse secret key | Required to enable tracing |
-| `LANGFUSE_HOST` | Langfuse Cloud host URL | Optional; runtime default is `https://cloud.langfuse.com` |
+| `LANGFUSE_HOST` | Langfuse Cloud host URL | Optional; runtime default is `https://us.cloud.langfuse.com` |
 | `LANGFUSE_PROJECT_ID` | Langfuse project ID | Optional; improves workflow trace deep links in the UI |
 
 Configure Langfuse through environment variables or the Settings UI. Settings stored in the web UI take precedence over the same values in the environment.
 
 Huntable CTI Studio supports **Langfuse Cloud only**. Local or self-hosted Langfuse deployments are outside this project's supported and tested configurations.
 
-Set `LANGFUSE_HOST` to the correct Langfuse Cloud region for your account. If unset, the runtime defaults to `https://cloud.langfuse.com`. Common cloud hosts: `https://cloud.langfuse.com`, `https://us.cloud.langfuse.com`, `https://hipaa.cloud.langfuse.com`.
+Set `LANGFUSE_HOST` to the correct Langfuse Cloud region for your account. If unset, the runtime defaults to `https://us.cloud.langfuse.com` (US). Common cloud hosts: `https://cloud.langfuse.com` (EU), `https://us.cloud.langfuse.com` (US), `https://hipaa.cloud.langfuse.com`. EU and US are separate Langfuse deployments -- keys from one region will not authenticate against the other.
 
 Security note: Langfuse receives workflow and LLM telemetry. Depending on the workflow path, traces may contain prompts, article content, extracted observables, outputs, and metadata. Enable Langfuse only where external cloud tracing is acceptable for your data.
 

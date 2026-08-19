@@ -22,7 +22,7 @@ from src.services.llm_provider_clients import (
     post_anthropic_with_retry,
 )
 from src.services.provider_model_catalog import load_catalog, update_provider_models
-from src.utils.langfuse_client import log_llm_completion, log_llm_error, trace_llm_call
+from src.utils.langfuse_client import LANGFUSE_DEFAULT_HOST, log_llm_completion, log_llm_error, trace_llm_call
 from src.utils.model_validation import (
     filter_anthropic_models_latest_only,
     filter_openai_models_latest_only,
@@ -892,7 +892,7 @@ async def api_test_langfuse_connection(request: Request):
 
             public_key = await _get_langfuse_setting("LANGFUSE_PUBLIC_KEY", "LANGFUSE_PUBLIC_KEY")
             secret_key = await _get_langfuse_setting("LANGFUSE_SECRET_KEY", "LANGFUSE_SECRET_KEY")
-            host = await _get_langfuse_setting("LANGFUSE_HOST", "LANGFUSE_HOST", "https://cloud.langfuse.com")
+            host = await _get_langfuse_setting("LANGFUSE_HOST", "LANGFUSE_HOST", LANGFUSE_DEFAULT_HOST)
             project_id = await _get_langfuse_setting("LANGFUSE_PROJECT_ID", "LANGFUSE_PROJECT_ID")
 
             # Validate required settings

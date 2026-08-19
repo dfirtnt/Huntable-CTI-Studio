@@ -19,6 +19,7 @@ from langfuse import Evaluation, Langfuse
 from langfuse.experiment import ExperimentItem
 
 from src.services.llm_service import LLMService
+from src.utils.langfuse_client import LANGFUSE_DEFAULT_HOST
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,7 +29,7 @@ def get_langfuse_client() -> Langfuse:
     """Initialize Langfuse client from environment variables."""
     public_key = os.getenv("LANGFUSE_PUBLIC_KEY")
     secret_key = os.getenv("LANGFUSE_SECRET_KEY")
-    host = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
+    host = os.getenv("LANGFUSE_HOST", LANGFUSE_DEFAULT_HOST)
 
     if not public_key or not secret_key:
         raise ValueError("LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY must be set")

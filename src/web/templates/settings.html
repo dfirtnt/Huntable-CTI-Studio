@@ -716,9 +716,9 @@
                          </label>
                          <input type="text"
                                 id="langfuseHost"
-                                placeholder="https://cloud.langfuse.com"
+                                placeholder="https://us.cloud.langfuse.com"
                                 class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Optional: Defaults to https://cloud.langfuse.com</p>
+                         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Optional: Defaults to https://us.cloud.langfuse.com</p>
                      </div>
 
                      <!-- Langfuse Project ID -->
@@ -1163,11 +1163,11 @@
                 document.getElementById('langfuseHost').value = data.value;
             } else {
                 // Fallback to localStorage or default
-                document.getElementById('langfuseHost').value = settings.langfuseHost || 'https://cloud.langfuse.com';
+                document.getElementById('langfuseHost').value = settings.langfuseHost || 'https://us.cloud.langfuse.com';
             }
         } catch (error) {
             console.log('Could not fetch LANGFUSE_HOST from database:', error);
-            document.getElementById('langfuseHost').value = settings.langfuseHost || 'https://cloud.langfuse.com';
+            document.getElementById('langfuseHost').value = settings.langfuseHost || 'https://us.cloud.langfuse.com';
         }
         
         // Langfuse Project ID - check database first

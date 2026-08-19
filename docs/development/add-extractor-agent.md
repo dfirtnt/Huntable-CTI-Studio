@@ -16,7 +16,7 @@ The interactive wiring map below visualises every integration point across all 7
 | 2 — Prompt Files | `src/prompts/{Agent}` (new), all existing extractor prompts | Sibling Architecture Context maintenance is mandatory |
 | 3 — Services & Workflow Engine | `llm_service.py`, `lmstudio_model_loader.py`, `eval_bundle_service.py`, `agentic_workflow.py` | LangGraph graph wiring, traceability validation, Langfuse keys |
 | 4 — Web Routes | `workflow_executions.py`, `evaluation_api.py` | 5 locations in evaluation_api.py alone |
-| 5 — UI Templates | `workflow.html` (~40 pts), `workflow-config-display.js`, `agent_evals.html`, `workflow_executions.html`, `base.html`, and more | Most complex layer — cache-busting and dual-template drift are common failure modes |
+| 5 — UI Templates | `workflow.html` (~40 pts), `static/js/components/workflow-config-display.js`, `agent_evals.html`, `base.html`, and more | Most complex layer — cache-busting is a common failure mode |
 | 6 — Config & Data | All 9 quickstart presets (full prompt embedding), eval articles directory | Preset `Prompt.prompt = ""` silently breaks every user who imports the preset |
 | 7 — Tests | 1 new wiring test + 8 existing files to update | `TestSubAgentsRenderingArray` and `TestPresetFiles` are the key regression guards |
 | 8 — Sigma `canonical_class` *(conditional)* | `canonical_logsource.py`, both `FIELD_ALIAS_MAP`s, `test_canonical_class.py` | Only if the extractor's telemetry generates Sigma rules — see below |
@@ -45,7 +45,7 @@ These five pitfalls are flagged **High** because they produce silent failures �
 2. **Prompt File Seeds DB Once Only** — `src/prompts/{Agent}` is read only on first DB seed. After that the DB is authoritative. Refresh via preset re-import (only if embedded prompt was regenerated) or manual paste.
 3. **Preset `Prompt.prompt` Left Empty** — use the checklist script to embed prompts; do not hand-write. `TestPresetFiles` must assert the value is truthy.
 4. **Sibling Preset Embedded Prompts Go Stale** — editing disk prompts does not update the JSON-encoded strings in all 9 preset files. Run the regeneration script after any disk prompt change.
-5. **Dual-Template Execution Card Drift** — `workflow.html` (Category 11) and `workflow_executions.html` both maintain a `subAgents` rendering array. Missing from `workflow.html` silently drops the execution detail card. `TestSubAgentsRenderingArray` locks both.
+5. **Execution Card Rendering Array Drift** — `workflow.html` (Category 11) maintains the `subAgents` rendering array that drives the execution-detail cards. Missing an entry there silently drops the extractor's execution detail card. `TestSubAgentsRenderingArray` locks the array, including its exact entry count.
 
 ## Sigma `canonical_class` (conditional Layer 8)
 
