@@ -171,3 +171,36 @@ def test_cli_module_starts_without_browser_imports():
         text=True,
     )
     assert result.returncode == 0, result.stderr
+
+
+class TestDockerSocketBoundary:
+    """The Docker socket is the maintenance service's alone.
+
+    Moving backup/restore behind the token-authenticated maintenance service is
+    only a real privilege boundary if no other service can reach the socket. The
+    auxiliary stacks shipped for three releases still mounting it into ``web``
+    is what this pins: a published, auth-disabled web port sharing a container
+    with the socket is host root on the LAN.
+    """
+
+    _COMPOSE_FILES = sorted(_REPO.glob("docker-compose*.yml"))
+
+    def test_every_compose_file_is_covered(self):
+        """Guard the guard: a new stack must not slip past this test silently."""
+        names = {p.name for p in self._COMPOSE_FILES}
+        assert "docker-compose.yml" in names
+        assert len(names) >= 4, f"expected the main stack plus auxiliaries, found {sorted(names)}"
+
+    @pytest.mark.parametrize("compose_path", _COMPOSE_FILES, ids=lambda p: p.name)
+    def test_only_maintenance_mounts_the_docker_socket(self, compose_path):
+        compose = yaml.safe_load(compose_path.read_text()) or {}
+        offenders = []
+        for name, service in (compose.get("services") or {}).items():
+            volumes = service.get("volumes") or []
+            mounts_socket = any("/var/run/docker.sock" in str(v) for v in volumes)
+            if mounts_socket and name != "maintenance":
+                offenders.append(name)
+        assert offenders == [], (
+            f"{compose_path.name}: service(s) {offenders} mount the Docker socket. "
+            "Only 'maintenance' may hold it -- see docs/deployment/docker-architecture.md."
+        )

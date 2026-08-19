@@ -86,7 +86,6 @@ services:
       - ./models:/app/models
       - ./outputs:/app/outputs
       - ./scripts:/app/scripts
-      - /var/run/docker.sock:/var/run/docker.sock
       - /var/db/timezone/zoneinfo/America/New_York:/etc/localtime:ro
     ports:
       - "8001:8001"

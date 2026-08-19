@@ -31,6 +31,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from src.database.models import (
+    AgenticWorkflowExecutionSnapshotTable,
     AgenticWorkflowExecutionTable,
     AppSettingsTable,
     SigmaEvaluationTable,
@@ -193,6 +194,18 @@ def purgeable_execution_ids(session: Session, cutoff: datetime) -> list[int]:
                 False,
             )
             == False  # noqa: E712 -- SQL boolean comparison, not a Python identity test
+        )
+        # Snapshot externalization moved the payload off the execution row, which
+        # now carries only {"snapshot_id": N} -- the containment test above matches
+        # legacy inline rows only. Without this second exclusion every eval run
+        # written after externalization ages straight out of the corpus.
+        .filter(
+            ~session.query(AgenticWorkflowExecutionSnapshotTable.id)
+            .filter(
+                AgenticWorkflowExecutionSnapshotTable.id == AgenticWorkflowExecutionTable.config_snapshot_id,
+                AgenticWorkflowExecutionSnapshotTable.payload.contains({"eval_run": True}),
+            )
+            .exists()
         )
     )
     for table in _EXECUTION_REFERENCE_TABLES:

@@ -45,6 +45,7 @@ from src.services.data_retention_service import (  # noqa: E402
     resolve_retention_days,
     run_retention,
 )
+from src.services.execution_snapshot_store import attach_snapshot  # noqa: E402
 from tests.utils.test_database_url import build_test_database_url  # noqa: E402
 
 pytestmark = pytest.mark.integration
@@ -144,6 +145,18 @@ def _add_execution(session, article_id: int, *, age_days: float, status: str = "
     return execution
 
 
+def _add_execution_with_external_snapshot(session, article_id: int, *, age_days: float, payload: dict):
+    """Build an execution whose config lives in the snapshot table, as attach_snapshot does.
+
+    Post-externalization the execution row only carries {"snapshot_id": N}; the
+    eval_run flag it is guarded by is on the snapshot payload.
+    """
+    execution = _add_execution(session, article_id, age_days=age_days)
+    attach_snapshot(session, execution, payload)
+    session.flush()
+    return execution
+
+
 class TestExecutionPurgeGuards:
     """The exclusions that keep an age purge from destroying irreplaceable rows."""
 
@@ -158,6 +171,25 @@ class TestExecutionPurgeGuards:
         _add_execution(session, article_id, age_days=365, snapshot={"eval_run": True})
 
         assert purgeable_execution_ids(session, NOW - timedelta(days=90)) == []
+
+    def test_externalized_eval_run_is_never_purged(self, session):
+        """The guard must follow the snapshot reference, not just the inline JSON.
+
+        After snapshot externalization config_snapshot is only {"snapshot_id": N},
+        so a containment test against it can never match and the eval corpus loses
+        its age-purge protection.
+        """
+        article_id = _seed_article(session)
+        _add_execution_with_external_snapshot(session, article_id, age_days=365, payload={"eval_run": True})
+
+        assert purgeable_execution_ids(session, NOW - timedelta(days=90)) == []
+
+    def test_externalized_non_eval_run_is_still_purgeable(self, session):
+        """Following the reference must not over-protect ordinary runs."""
+        article_id = _seed_article(session)
+        normal = _add_execution_with_external_snapshot(session, article_id, age_days=365, payload={"eval_run": False})
+
+        assert purgeable_execution_ids(session, NOW - timedelta(days=90)) == [normal.id]
 
     def test_queue_referenced_execution_is_never_purged(self, session):
         """The load-bearing guard: this FK is ON DELETE CASCADE."""
