@@ -45,11 +45,17 @@ class TestEvalArticleDataIntegrity:
         assert missing == [], f"{set_name}: {len(missing)} article(s) have empty title: {missing}"
 
     def test_all_entries_have_non_negative_expected_count(self, articles):
+        """expected_count must be a non-negative int -- except for sigma, where GT is
+        authored one article at a time under the arm-blind protocol (see
+        docs/CHANGELOG.md 2026-08-16) and unauthored entries carry expected_count=None
+        by design until their rules are hand-written."""
         set_name, data = articles
+        allow_none = set_name == "sigma"
         bad = [
             a.get("url", f"index:{i}")
             for i, a in enumerate(data)
-            if not isinstance(a.get("expected_count"), int) or a["expected_count"] < 0
+            if not (allow_none and a.get("expected_count") is None)
+            and (not isinstance(a.get("expected_count"), int) or a["expected_count"] < 0)
         ]
         assert bad == [], f"{set_name}: {len(bad)} article(s) have invalid expected_count: {bad}"
 

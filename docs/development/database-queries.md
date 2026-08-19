@@ -41,7 +41,6 @@ psql postgresql://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
 
 ### View All Sources
 
-<!-- AUDIT: Accuracy -- `sources` has no `tier` column (verified against src/database/models.py SourceTable); removed from the "Only active sources" SELECT below. -->
 ```sql
 -- All sources with their details
 SELECT id, name, url, rss_url, active, created_at
@@ -131,9 +130,6 @@ ORDER BY date DESC;
 
 ### Source Management
 
-<!-- AUDIT: Accuracy -- INSERT column list previously had 8 names but 10 values (SQL error). Column list below
-     corrected to match the existing values and src/database/models.py SourceTable field types
-     (lookback_days: Integer, average_response_time: Float, check_frequency: Integer). -->
 ```sql
 -- Add a new source (id is auto-increment, use identifier for the string key)
 INSERT INTO sources (identifier, name, url, rss_url, lookback_days, average_response_time, check_frequency, active, created_at, updated_at)
@@ -300,16 +296,9 @@ ORDER BY SIMILARITY(a1.title, a2.title) DESC;
 
 ### Additional Tables
 
-#### `simhash_buckets`
-- Stores simhash buckets for similarity detection
-- Links to articles via `article_id`
-
 #### `source_checks`
 - Tracks source health checks
 - Links to sources via `source_id`
-
-#### `url_tracking`
-- Tracks URLs for monitoring purposes
 
 ### Useful Views
 

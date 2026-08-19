@@ -26,6 +26,7 @@ accept_content = ["json"]
 result_serializer = "json"
 timezone = "UTC"
 enable_utc = True
+beat_scheduler = "src.worker.scheduled_jobs_scheduler:DatabaseScheduledJobScheduler"
 
 # Worker settings
 worker_prefetch_multiplier = 1

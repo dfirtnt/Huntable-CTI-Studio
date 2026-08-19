@@ -33,9 +33,9 @@ VAR_FALLBACK_HEX_RE = re.compile(r"var\(--[\w-]+,\s*#[0-9a-fA-F]{3,6}\)")
 # check can be enabled without a mass cleanup. Lower these as files are
 # fixed; do not raise them to accommodate new violations.
 BASELINE = {
-    "agent_evals.html": {"card_stack": 0, "hardcoded_hex": 8},
-    "article_detail.html": {"card_stack": 3, "hardcoded_hex": 0},
-    "workflow.html": {"card_stack": 1, "hardcoded_hex": 1},
+    "agent_evals.html": {"card_stack": 0, "hardcoded_hex": 0},
+    "article_detail.html": {"card_stack": 0, "hardcoded_hex": 0},
+    "workflow.html": {"card_stack": 0, "hardcoded_hex": 0},
 }
 
 

@@ -8,12 +8,13 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field, ValidationError
-from sqlalchemy import func
+from sqlalchemy import func, text
 
 from src.config.workflow_config_loader import export_preset_as_canonical_v2, load_workflow_config
 from src.config.workflow_config_schema import (
     AGENT_DISPLAY_NAMES,
     AGENT_NAMES_SPECIAL,
+    AGENT_NAMES_SUB,
     agent_models_is_nested,
     normalize_agent_models_to_flat,
 )
@@ -35,6 +36,7 @@ router = APIRouter(prefix="/api/workflow", tags=["workflow"])
 # Map provider names to Settings keys for auto-enabling on preset import
 _PROVIDER_TO_SETTINGS_KEY = {
     "openai": "WORKFLOW_OPENAI_ENABLED",
+    "codex": "WORKFLOW_CODEX_ENABLED",
     "anthropic": "WORKFLOW_ANTHROPIC_ENABLED",
     "lmstudio": "WORKFLOW_LMSTUDIO_ENABLED",
 }
@@ -113,14 +115,40 @@ def _next_workflow_config_version(db_session) -> int:
 
 def _deactivate_active_workflow_configs(db_session) -> None:
     active_configs = (
-        db_session.query(AgenticWorkflowConfigTable)
-        .filter(AgenticWorkflowConfigTable.is_active == True)
-        .with_for_update()
-        .all()
+        db_session.query(AgenticWorkflowConfigTable).filter(AgenticWorkflowConfigTable.is_active == True).all()
     )
     for config in active_configs:
         config.is_active = False
     db_session.flush()
+
+
+_WORKFLOW_CONFIG_LOCK_KEY = 8412771
+
+
+def _lock_workflow_config(db_session) -> None:
+    """Serialize workflow-config writes for the current transaction."""
+    if db_session.bind is None or db_session.bind.dialect.name != "postgresql":
+        return
+    db_session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": _WORKFLOW_CONFIG_LOCK_KEY})
+
+
+def _load_active_config_for_write(db_session):
+    """Lock before reading so a waiter sees the replacement config row."""
+    _lock_workflow_config(db_session)
+    return _active_workflow_config_query(db_session).first()
+
+
+def _merge_agent_prompts(current: dict[str, Any] | None, incoming: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Merge a partial prompt payload without restoring stale sibling prompts."""
+    if incoming is None:
+        return current
+    merged = dict(current) if current else {}
+    for agent_name, record in incoming.items():
+        if record is None:
+            merged.pop(agent_name, None)
+        else:
+            merged[agent_name] = record
+    return merged
 
 
 def ensure_default_workflow_config(db_session) -> AgenticWorkflowConfigTable:
@@ -358,16 +386,27 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
         db_session = db_manager.get_session()
 
         try:
-            # Deactivate current active config
-            # CRITICAL: Use order_by and lock to prevent race conditions
-            current_config = (
-                _active_workflow_config_query(db_session).with_for_update().first()
-            )  # Lock the row to prevent concurrent updates
+            current_config = _load_active_config_for_write(db_session)
 
             if current_config:
                 _deactivate_active_workflow_configs(db_session)
             else:
-                db_session.flush()
+                # No active row should be reachable once any config row exists -- every writer
+                # holds the same advisory lock. If it happens anyway, recover by using the
+                # most recent config row (inactive or not) to avoid dropping untouched fields.
+                most_recent = (
+                    db_session.query(AgenticWorkflowConfigTable)
+                    .order_by(AgenticWorkflowConfigTable.version.desc(), AgenticWorkflowConfigTable.id.desc())
+                    .first()
+                )
+                if most_recent:
+                    # Use most recent config for merging, then deactivate it for replacement
+                    current_config = most_recent
+                    most_recent.is_active = False
+                    db_session.flush()
+                else:
+                    # Genuine fresh install (zero rows ever) - safe to seed from defaults
+                    db_session.flush()
 
             # Version must be monotonic even if newer inactive rows exist (e.g. tests or fixtures
             # that temporarily activate a higher version then restore an older version).
@@ -462,10 +501,9 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
             final_description = config_update.description or (
                 current_config.description if current_config else "Updated configuration"
             )
-            final_agent_prompts = (
-                config_update.agent_prompts
-                if config_update.agent_prompts is not None
-                else (current_config.agent_prompts if current_config else None)
+            final_agent_prompts = _merge_agent_prompts(
+                current_config.agent_prompts if current_config else None,
+                config_update.agent_prompts,
             )
             final_rank_agent_enabled = (
                 config_update.rank_agent_enabled
@@ -640,6 +678,8 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
         finally:
             db_session.close()
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error updating workflow config: {e}")
         raise HTTPException(status_code=500, detail="Internal server error") from e
@@ -670,7 +710,7 @@ def update_auto_trigger_threshold(request: Request, body: dict[str, Any]):
             # Write to AppSettingsTable first (race-condition-safe source of truth)
             _save_threshold_to_settings(db_session, value)
             # Also update the active config row for backward compat
-            current_config = _active_workflow_config_query(db_session).with_for_update().first()
+            current_config = _load_active_config_for_write(db_session)
             if current_config:
                 current_config.auto_trigger_hunt_score_threshold = value
             db_session.commit()
@@ -687,6 +727,34 @@ def update_auto_trigger_threshold(request: Request, body: dict[str, Any]):
 
 # _TRACEABILITY_REQUIRED and _TRACEABILITY_FIELDS are imported from llm_service at the
 # top of this file so the preset prompt scanner stays in sync with the runtime validator.
+
+
+def _scan_missing_extractor_prompts(agent_prompts: dict[str, Any]) -> list[str]:
+    """Report enabled extractors that have no usable prompt in this config.
+
+    ``_scan_preset_prompts_for_warnings`` only inspects entries that are present, so a
+    dropped extractor key is invisible to it. Extraction has no prompt-file fallback: an
+    enabled extractor without a prompt is skipped at runtime and the workflow completes
+    "successfully" with zero observables and zero rules.
+    """
+    extract_settings = agent_prompts.get("ExtractAgentSettings")
+    if not isinstance(extract_settings, dict):
+        extract_settings = {}
+    disabled_raw = extract_settings.get("disabled_agents") or extract_settings.get("disabled_sub_agents") or []
+    disabled_agents = set(disabled_raw) if isinstance(disabled_raw, (list, tuple, set)) else set()
+
+    warnings: list[str] = []
+    for agent_name in AGENT_NAMES_SUB:
+        if agent_name in disabled_agents:
+            continue
+        record = agent_prompts.get(agent_name)
+        prompt_text = record.get("prompt") if isinstance(record, dict) else None
+        if isinstance(prompt_text, str) and prompt_text.strip():
+            continue
+        display = AGENT_DISPLAY_NAMES.get(agent_name)
+        label = f"{display} ({agent_name})" if display else agent_name
+        warnings.append(f"{label}: enabled but has no prompt -- it will be skipped at runtime")
+    return warnings
 
 
 def _scan_preset_prompts_for_warnings(agent_prompts: dict[str, Any]) -> list[str]:
@@ -896,6 +964,24 @@ def validate_preset_prompts(preset: dict[str, Any]):
     warnings = _scan_preset_prompts_for_warnings(agent_prompts)
     if warnings:
         logger.warning("Preset validate warnings: %s", warnings)
+    return {"warnings": warnings}
+
+
+@router.post("/config/prompts/validate")
+def validate_config_prompts(payload: dict[str, Any]):
+    """Pre-flight check for the complete config a Save is about to persist.
+
+    Unlike ``/config/preset/validate`` -- which scans partial presets and must not
+    complain about prompts a sub-agent preset never carried -- this endpoint receives the
+    whole ``agent_prompts`` blob that is about to become the active config, so it can also
+    report enabled extractors whose prompt is missing entirely.
+    """
+    agent_prompts = payload.get("agent_prompts") or {}
+    if not isinstance(agent_prompts, dict):
+        return {"warnings": ["agent_prompts payload is not an object"]}
+    warnings = _scan_missing_extractor_prompts(agent_prompts) + _scan_preset_prompts_for_warnings(agent_prompts)
+    if warnings:
+        logger.warning("Config prompt validation warnings: %s", warnings)
     return {"warnings": warnings}
 
 
@@ -1242,12 +1328,7 @@ def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdate):
         db_session = db_manager.get_session()
 
         try:
-            # CRITICAL: Use order_by to ensure we get the latest active config
-            # This prevents race conditions where another operation creates a new config
-            # between when we query and when we update
-            current_config = (
-                _active_workflow_config_query(db_session).with_for_update().first()
-            )  # Lock the row to prevent concurrent updates
+            current_config = _load_active_config_for_write(db_session)
 
             if not current_config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")
@@ -1415,7 +1496,7 @@ def delete_agent_prompt(request: Request, agent_name: str):
         db_session = db_manager.get_session()
 
         try:
-            current_config = _active_workflow_config_query(db_session).with_for_update().first()
+            current_config = _load_active_config_for_write(db_session)
 
             if not current_config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")
@@ -1616,11 +1697,7 @@ def rollback_agent_prompt(request: Request, agent_name: str, rollback_request: R
             if not target_version:
                 raise HTTPException(status_code=404, detail="Version not found")
 
-            # Get current active config
-            # CRITICAL: Use order_by and lock to prevent race conditions
-            current_config = (
-                _active_workflow_config_query(db_session).with_for_update().first()
-            )  # Lock the row to prevent concurrent updates
+            current_config = _load_active_config_for_write(db_session)
 
             if not current_config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")
@@ -1867,10 +1944,7 @@ def bootstrap_prompts_from_files(request: Request):
         db_session = db_manager.get_session()
 
         try:
-            # CRITICAL: Use order_by and lock to prevent race conditions
-            current_config = (
-                _active_workflow_config_query(db_session).with_for_update().first()
-            )  # Lock the row to prevent concurrent updates
+            current_config = _load_active_config_for_write(db_session)
 
             if not current_config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")
@@ -1986,7 +2060,7 @@ def reset_prompts_to_defaults(request: Request, reset_request: ResetPromptsToDef
         db_session = db_manager.get_session()
 
         try:
-            current_config = _active_workflow_config_query(db_session).with_for_update().first()
+            current_config = _load_active_config_for_write(db_session)
 
             if not current_config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")

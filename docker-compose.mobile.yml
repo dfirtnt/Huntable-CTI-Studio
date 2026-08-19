@@ -76,8 +76,6 @@ services:
       - LMSTUDIO_MODEL_RANK=${LMSTUDIO_MODEL_RANK:-qwen/qwen3-4b-2507}
       - LMSTUDIO_MODEL_EXTRACT=${LMSTUDIO_MODEL_EXTRACT:-qwen/qwen3-4b-2507}
       - LMSTUDIO_MODEL_SIGMA=${LMSTUDIO_MODEL_SIGMA:-qwen/qwen3-4b-2507}
-      - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
-      - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
       - TZ=America/New_York
     volumes:
       - ./src:/app/src
@@ -88,7 +86,6 @@ services:
       - ./models:/app/models
       - ./outputs:/app/outputs
       - ./scripts:/app/scripts
-      - /var/run/docker.sock:/var/run/docker.sock
       - /var/db/timezone/zoneinfo/America/New_York:/etc/localtime:ro
     ports:
       - "8001:8001"
@@ -135,8 +132,6 @@ services:
       - LMSTUDIO_MODEL_RANK=${LMSTUDIO_MODEL_RANK:-qwen/qwen3-4b-2507}
       - LMSTUDIO_MODEL_EXTRACT=${LMSTUDIO_MODEL_EXTRACT:-qwen/qwen3-4b-2507}
       - LMSTUDIO_MODEL_SIGMA=${LMSTUDIO_MODEL_SIGMA:-qwen/qwen3-4b-2507}
-      - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
-      - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
     volumes:
       - ./src:/app/src
       - ./config:/app/config

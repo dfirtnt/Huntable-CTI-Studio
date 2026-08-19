@@ -61,13 +61,6 @@ This comprehensive testing checklist ensures all features of the Huntable CTI St
   - [ ] Test source validation
   - [ ] Monitor error rates
 
-- [ ] **Source Auto-Healing**
-  - [ ] Click "Heal Now" on a failing source
-  - [ ] Verify healing history panel shows rounds with validation details
-  - [ ] Check that healed source collects articles after fix
-  - [ ] Verify "Reset" button clears healing_exhausted state
-  - [ ] Confirm healing stops after max_attempts if unfixable
-
 ### **Content Collection**
 
 - [ ] **RSS Feed Processing**
@@ -499,8 +492,6 @@ This comprehensive testing checklist ensures all features of the Huntable CTI St
   5. **Report bugs** with detailed reproduction steps
 
 ---
-
-<!-- AUDIT: Fluff -- "Happy Testing" banner and empty Test Results Summary template removed; no actionable content. Record results in your own notes or issue tracker. -->
 
 
 ---

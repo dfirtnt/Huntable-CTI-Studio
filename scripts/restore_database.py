@@ -454,67 +454,8 @@ def verify_restore(backup_metadata: dict[str, Any] | None = None) -> None:
         except Exception as e:
             print(f"⚠️  Error verifying source tables: {e}")
 
-        # Verify observable evaluation tables
+        # Verify agentic workflow tables
         try:
-            # Check observable_model_metrics
-            observable_metrics_cmd = get_docker_exec_cmd(
-                "cti_postgres",
-                f'psql -U {DB_CONFIG["user"]} -d {DB_CONFIG["database"]} -c "SELECT COUNT(*) FROM observable_model_metrics;" -t',
-            )
-            observable_metrics_result = subprocess.run(
-                observable_metrics_cmd, capture_output=True, text=True, check=True
-            )
-            observable_metrics_count = observable_metrics_result.stdout.strip()
-            print(f"📈 Observable Model Metrics restored: {observable_metrics_count} metric(s)")
-            # Compare with backup metadata if available
-            if backup_metadata and "observable_model_metrics_count" in backup_metadata:
-                expected_count = backup_metadata["observable_model_metrics_count"].strip()
-                if observable_metrics_count == expected_count:
-                    print(f"   ✅ Count matches backup: {observable_metrics_count}")
-                else:
-                    print(f"   ⚠️  Count mismatch: restored {observable_metrics_count}, expected {expected_count}")
-
-            # Check observable_evaluation_failures
-            observable_failures_cmd = get_docker_exec_cmd(
-                "cti_postgres",
-                f'psql -U {DB_CONFIG["user"]} -d {DB_CONFIG["database"]} -c "SELECT COUNT(*) FROM observable_evaluation_failures;" -t',
-            )
-            observable_failures_result = subprocess.run(
-                observable_failures_cmd, capture_output=True, text=True, check=True
-            )
-            observable_failures_count = observable_failures_result.stdout.strip()
-            print(f"🔍 Observable Evaluation Failures restored: {observable_failures_count} failure record(s)")
-            # Compare with backup metadata if available
-            if backup_metadata and "observable_evaluation_failures_count" in backup_metadata:
-                expected_count = backup_metadata["observable_evaluation_failures_count"].strip()
-                if observable_failures_count == expected_count:
-                    print(f"   ✅ Count matches backup: {observable_failures_count}")
-                else:
-                    print(f"   ⚠️  Count mismatch: restored {observable_failures_count}, expected {expected_count}")
-
-        except subprocess.CalledProcessError:
-            print("⚠️  Could not verify observable evaluation tables (tables may not exist in backup)")
-        except Exception as e:
-            print(f"⚠️  Error verifying observable evaluation tables: {e}")
-
-        # Verify agent evaluation and workflow tables
-        try:
-            # Check agent_evaluations
-            agent_eval_cmd = get_docker_exec_cmd(
-                "cti_postgres",
-                f'psql -U {DB_CONFIG["user"]} -d {DB_CONFIG["database"]} -c "SELECT COUNT(*) FROM agent_evaluations;" -t',
-            )
-            agent_eval_result = subprocess.run(agent_eval_cmd, capture_output=True, text=True, check=True)
-            agent_eval_count = agent_eval_result.stdout.strip()
-            print(f"📊 Agent Evaluations restored: {agent_eval_count} evaluation(s)")
-            # Compare with backup metadata if available
-            if backup_metadata and "agent_evaluations_count" in backup_metadata:
-                expected_count = backup_metadata["agent_evaluations_count"].strip()
-                if agent_eval_count == expected_count:
-                    print(f"   ✅ Count matches backup: {agent_eval_count}")
-                else:
-                    print(f"   ⚠️  Count mismatch: restored {agent_eval_count}, expected {expected_count}")
-
             # Check agentic_workflow_executions
             workflow_exec_cmd = get_docker_exec_cmd(
                 "cti_postgres",
@@ -532,9 +473,9 @@ def verify_restore(backup_metadata: dict[str, Any] | None = None) -> None:
                     print(f"   ⚠️  Count mismatch: restored {workflow_exec_count}, expected {expected_count}")
 
         except subprocess.CalledProcessError:
-            print("⚠️  Could not verify agent evaluation/workflow tables (tables may not exist in backup)")
+            print("⚠️  Could not verify agentic workflow tables (tables may not exist in backup)")
         except Exception as e:
-            print(f"⚠️  Error verifying agent evaluation/workflow tables: {e}")
+            print(f"⚠️  Error verifying agentic workflow tables: {e}")
 
         # Verify SIGMA-related tables
         try:
@@ -553,22 +494,6 @@ def verify_restore(backup_metadata: dict[str, Any] | None = None) -> None:
                     print(f"   ✅ Count matches backup: {sigma_rules_count}")
                 else:
                     print(f"   ⚠️  Count mismatch: restored {sigma_rules_count}, expected {expected_count}")
-
-            # Check article_sigma_matches
-            sigma_matches_cmd = get_docker_exec_cmd(
-                "cti_postgres",
-                f'psql -U {DB_CONFIG["user"]} -d {DB_CONFIG["database"]} -c "SELECT COUNT(*) FROM article_sigma_matches;" -t',
-            )
-            sigma_matches_result = subprocess.run(sigma_matches_cmd, capture_output=True, text=True, check=True)
-            sigma_matches_count = sigma_matches_result.stdout.strip()
-            print(f"🔗 Article-Sigma Matches restored: {sigma_matches_count} match(es)")
-            # Compare with backup metadata if available
-            if backup_metadata and "article_sigma_matches_count" in backup_metadata:
-                expected_count = backup_metadata["article_sigma_matches_count"].strip()
-                if sigma_matches_count == expected_count:
-                    print(f"   ✅ Count matches backup: {sigma_matches_count}")
-                else:
-                    print(f"   ⚠️  Count mismatch: restored {sigma_matches_count}, expected {expected_count}")
 
             # Check sigma_rule_queue
             sigma_queue_cmd = get_docker_exec_cmd(

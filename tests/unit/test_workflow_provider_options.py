@@ -429,7 +429,7 @@ class TestGetProviderOptionsDefaultProviderPriority:
         assert result["default_provider"] == "openai"
 
     @pytest.mark.asyncio
-    async def test_response_shape_has_all_three_providers(self):
+    async def test_response_shape_has_all_four_providers(self):
         session = _make_db_session([])
 
         with (
@@ -438,7 +438,7 @@ class TestGetProviderOptionsDefaultProviderPriority:
         ):
             result = await get_provider_options(session)
 
-        assert set(result["providers"].keys()) == {"lmstudio", "openai", "anthropic"}
+        assert set(result["providers"].keys()) == {"lmstudio", "openai", "codex", "anthropic"}
         for provider_data in result["providers"].values():
             required_keys = {
                 "enabled",
@@ -450,3 +450,26 @@ class TestGetProviderOptionsDefaultProviderPriority:
                 "reason_unavailable",
             }
             assert required_keys == set(provider_data.keys())
+
+
+class TestGetProviderOptionsCodex:
+    @pytest.mark.asyncio
+    async def test_codex_enabled_without_api_key(self):
+        session = _make_db_session([("WORKFLOW_CODEX_ENABLED", "true")])
+
+        with (
+            patch("src.services.workflow_provider_options.load_catalog", return_value={}),
+            patch("src.services.workflow_provider_options._probe_lmstudio", new=AsyncMock(return_value=(False, []))),
+            patch(
+                "src.services.workflow_provider_options._probe_codex_models",
+                new=AsyncMock(return_value=(True, ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"])),
+            ),
+        ):
+            result = await get_provider_options(session)
+
+        codex = result["providers"]["codex"]
+        assert codex["enabled"] is True
+        assert codex["configured"] is True
+        assert codex["models"] == ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]
+        assert codex["default_model"] == "gpt-5.6-luna"
+        assert result["default_provider"] == "codex"

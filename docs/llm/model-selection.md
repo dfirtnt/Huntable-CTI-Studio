@@ -4,7 +4,7 @@
 
 This guide answers one question: **which LLM model do I use for each Huntable CTI Studio agent, and why?**
 
-It covers local models (LM Studio / GGUF) and cloud models (OpenAI, Anthropic) for the three-stage pipeline:
+It covers cloud models (OpenAI, Anthropic), the optional local LM Studio provider, and the optional subscription-backed Codex provider for the three-stage pipeline. LM Studio is not required by the application or its embedding features.
 
 1. **Rank Agent** — Evaluates article quality and huntability (1–10 score)
 2. **Extractor Agents** — Extracts observables (command lines, process trees, registry keys, services, hunt queries, scheduled tasks, network indicators)
@@ -20,7 +20,7 @@ It covers local models (LM Studio / GGUF) and cloud models (OpenAI, Anthropic) f
 
 Start here. Optimize from measured bottlenecks, not theory.
 
-### Local Models (LM Studio)
+### Optional Local Models (LM Studio)
 
 | Agent | Model | Size | Quant | VRAM | Temp | Context |
 |-------|-------|------|-------|------|------|---------|
@@ -36,6 +36,7 @@ Start here. Optimize from measured bottlenecks, not theory.
 |-------|-----------|-------------|-------|
 | **Extract** | gpt-4o | gpt-4o-mini | mini needs heavier guardrail prompts |
 | **Sigma Gen** | claude-sonnet-4-6 | gpt-4o | Use bare model names for production |
+| **Any workflow stage** | Codex subscription model | — | Optional deployment-managed ChatGPT subscription; the workflow UI lists models available to its Codex login |
 
 **Default starting point:** Qwen3-14B-Instruct across all stages. Optimize from there.
 
@@ -145,7 +146,7 @@ Sigma YAML is structurally simple. Instruction-tuned models handle it well. Over
 - "Do not explain your extraction process"
 - Include JSON schema and few-shot examples with edge cases:
 
-```
+```text
 "The attacker MAY use PowerShell"    → No extraction (not explicit)
 "PowerShell is commonly used"        → No extraction (general statement)
 "The attacker executed powershell.exe -enc" → Extract (explicit)

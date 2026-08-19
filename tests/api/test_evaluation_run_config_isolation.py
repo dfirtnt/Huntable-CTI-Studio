@@ -48,6 +48,14 @@ def _session_for(article: ArticleTable, config: AgenticWorkflowConfigTable) -> M
     return session
 
 
+def _capture_snapshot(captured: list[dict]):
+    def capture(_session, execution, payload):
+        captured.append(payload)
+        execution.config_snapshot = {"snapshot_id": 45}
+
+    return capture
+
+
 @pytest.mark.asyncio
 async def test_full_eval_keeps_active_config_unchanged_and_snapshots_fixture_content():
     active_config = _config(10, is_active=True)
@@ -56,10 +64,12 @@ async def test_full_eval_keeps_active_config_unchanged_and_snapshots_fixture_con
     session = _session_for(article, eval_config)
     db_manager = MagicMock()
     db_manager.get_session.return_value = session
+    captured_snapshots: list[dict] = []
 
     with (
         patch("src.web.routes.evaluation_api.DatabaseManager", return_value=db_manager),
         patch("src.web.routes.evaluation_api._load_static_eval_fixture_by_url", return_value="committed fixture"),
+        patch("src.web.routes.evaluation_api.attach_snapshot", side_effect=_capture_snapshot(captured_snapshots)),
         patch("src.web.routes.evaluation_api.trigger_agentic_workflow.apply_async") as apply_async,
     ):
         result = await run_evaluation(
@@ -75,11 +85,12 @@ async def test_full_eval_keeps_active_config_unchanged_and_snapshots_fixture_con
     added = [call.args[0] for call in session.add.call_args_list]
     executions_added = [obj for obj in added if isinstance(obj, AgenticWorkflowExecutionTable)]
     assert len(executions_added) == 1
-    execution = executions_added[0]
-    assert execution.config_snapshot["config_id"] == 20
-    assert execution.config_snapshot["junk_filter_threshold"] == 0.7
-    assert execution.config_snapshot["eval_fixture_content"] == "committed fixture"
-    assert execution.config_snapshot["eval_fixture_content_sha256"] == hashlib.sha256(b"committed fixture").hexdigest()
+    assert len(captured_snapshots) == 1
+    snapshot = captured_snapshots[0]
+    assert snapshot["config_id"] == 20
+    assert snapshot["junk_filter_threshold"] == 0.7
+    assert snapshot["eval_fixture_content"] == "committed fixture"
+    assert snapshot["eval_fixture_content_sha256"] == hashlib.sha256(b"committed fixture").hexdigest()
     apply_async.assert_called_once_with(args=[100, 501], countdown=0.0)
     # One commit for the execution row, one for the best-effort audit event that
     # records who requested the run.
@@ -95,10 +106,12 @@ async def test_full_eval_dispatch_failure_cannot_change_active_config():
     session = _session_for(article, eval_config)
     db_manager = MagicMock()
     db_manager.get_session.return_value = session
+    captured_snapshots: list[dict] = []
 
     with (
         patch("src.web.routes.evaluation_api.DatabaseManager", return_value=db_manager),
         patch("src.web.routes.evaluation_api._load_static_eval_fixture_by_url", return_value=None),
+        patch("src.web.routes.evaluation_api.attach_snapshot", side_effect=_capture_snapshot(captured_snapshots)),
         patch(
             "src.web.routes.evaluation_api.trigger_agentic_workflow.apply_async",
             side_effect=RuntimeError("broker down"),

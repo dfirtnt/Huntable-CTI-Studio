@@ -44,7 +44,7 @@ This spec organizes those findings into independently shippable items, each with
 **Goal.** Remove dead code that pretends to detect Playwright's check/cross glyphs but does not.
 
 **Problem.** `[run_tests.py:1498`](../../run_tests.py) reads:
-```
+```python
 if any(w in line.lower() for w in ["passed", "failed", "skipped", "\xe2\x9c\x93", "\xc3\x97"]):
 ```
 The two `\x..\x..\x..` strings are 3-character Python `str` values (each byte becomes its own code-point: U+00E2, U+009C, U+0093), not the U+2713 / U+00D7 glyphs they were meant to be. They will never match Playwright output. Verified via `python3 -c 'print(len("\xe2\x9c\x93"))'` -> `3`.
@@ -175,7 +175,7 @@ Use at both call sites.
 
 All seven items above ship as **one commit** on a feature branch:
 
-```
+```text
 fix(run_tests): correctness pass on bug-class issues
 
 - Drop dead Unicode byte-literals from Playwright result detection (T1.1)
@@ -301,7 +301,7 @@ T2.3 is gated on T2.2 because `--dry-run` is the easiest way to verify T2.3 didn
 **Design.** Use `rich.live.Live` (already a transitive dependency via pytest-html in many setups; verify and add to `pyproject.toml`'s `test` group if needed).
 
 Layout:
-```
+```text
 +---------- pytest output (scrolling) ----------+
 | tests/foo.py::test_bar PASSED                 |
 | tests/foo.py::test_baz PASSED                 |
@@ -335,7 +335,7 @@ Layout:
 **Problem.** Single file mixes: env loading, container management, pytest command building, Playwright command building, TUI, output parsing, report writing, CLI. Any change requires reading thousands of lines of unrelated code to confirm safety.
 
 **Design.** Target structure:
-```
+```text
 tests_runner/
   __init__.py          # exports main()
   cli.py               # argparse, parse_arguments(), shared --dry-run logic
@@ -477,6 +477,6 @@ The spec is implementable when:
 
 All references in this spec point to `run_tests.py` at the commit in which it was reviewed (see Background). Before implementing, re-grep to confirm the lines have not moved:
 
-```
+```bash
 grep -n "_save_failure_log\|in_ci = \|--no-validate\|\\\\xe2\\\\x9c\\\\x93\|self.config.timeout - " run_tests.py
 ```

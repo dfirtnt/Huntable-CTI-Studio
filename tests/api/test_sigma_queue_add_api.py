@@ -7,6 +7,8 @@ ids 30/42/43 during the 2026-06-01 queue replay.
 
 import pytest
 
+pytestmark = [pytest.mark.api, pytest.mark.usefixtures("preserve_sigma_queue_state")]
+
 BAD_YAML_CASES = [
     (
         "raw_commandline_string",
@@ -47,7 +49,6 @@ level: high
 """
 
 
-@pytest.mark.api
 class TestAddRuleToQueueYamlValidation:
     """Inserter-side YAML validation: non-dict YAML is rejected with 400 before DB write."""
 

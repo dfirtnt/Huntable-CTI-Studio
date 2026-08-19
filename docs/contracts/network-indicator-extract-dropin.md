@@ -86,6 +86,16 @@ indicator is technically present but has no detection engineering value, SKIP.
 - Preserve original casing, defanging (hxxp, [.]), and encoding exactly.
 - Do NOT expand, refang, or paraphrase indicator values.
 
+## MULTI-LINE HANDLING
+- Network indicator values are single-line literals. If a URL, domain, IP address, URI path, or
+  User-Agent is split across physical lines, skip it.
+- Do NOT concatenate a wrapped URL/domain, a defanged IP token such as `203[.]0[.]113[.]8`, or an
+  IP+port pair across lines.
+- Preserve literal spaces inside a User-Agent only when the complete User-Agent appears on one
+  physical line.
+- A complete IP on one line may be extracted without `port` when its associated port is split onto
+  another line; never reconstruct or emit the port.
+
 ## COUNT SEMANTICS
 - Unique indicator: each unique (indicator_type + value) pair = ONE item.
 - The same indicator mentioned multiple times = ONE item.
@@ -93,6 +103,15 @@ indicator is technically present but has no detection engineering value, SKIP.
   literally present as distinct indicators.
 - Defanged and refanged forms of the same indicator that BOTH appear literally in the
   text are distinct entries (exact character-for-character uniqueness).
+
+## EDGE CASES
+- `hxxp://evil[.]com/ga` followed by `te.php`, or `evil[.]` followed by `com`: skip; the value is
+  wrapped across lines.
+- `203[.]0[.]113[.]8` is valid when complete on one line; do not join defanged IP components
+  separated by a line break.
+- A complete one-line User-Agent retains embedded whitespace; a wrapped User-Agent is skipped.
+- If `203.0.113.8:` and `443` appear on separate lines, extract the otherwise-valid IP without
+  `port`; do not join them.
 
 ## VERIFICATION CHECKLIST
 Apply to EVERY candidate before including it:

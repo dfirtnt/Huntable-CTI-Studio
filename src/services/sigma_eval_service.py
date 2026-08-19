@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from src.database.models import SigmaEvaluationTable
+from src.services.execution_snapshot_store import hydrate_snapshot
 from src.services.sigma_eval_scorer import SigmaEvalResult, score_sigma
 
 if TYPE_CHECKING:
@@ -105,7 +106,7 @@ def build_eval_values(actual_rules: list[dict[str, Any]], gt_entry: dict[str, An
 
 def is_sigma_eval_execution(execution: AgenticWorkflowExecutionTable) -> bool:
     """True if the execution was launched as a Sigma eval run."""
-    snapshot = getattr(execution, "config_snapshot", None) or {}
+    snapshot = hydrate_snapshot(execution)
     return bool(snapshot.get("sigma_eval"))
 
 

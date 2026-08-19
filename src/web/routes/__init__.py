@@ -23,14 +23,12 @@ from . import (
     embeddings,
     evaluation,
     evaluation_api,
-    evaluation_ui,
     export,
     feedback,
     health,
     metrics,
     ml_hunt_comparison,
     models,
-    observable_evaluation,
     observable_training,
     pages,
     pdf,
@@ -84,14 +82,12 @@ def register_routes(app: FastAPI) -> None:
     app.include_router(actions.router)
     app.include_router(ml_hunt_comparison.router)
     app.include_router(observable_training.router)
-    app.include_router(observable_evaluation.router)
     app.include_router(settings.router)
     app.include_router(scheduled_jobs.router)
     app.include_router(llm_optimized_router)
     app.include_router(workflow_config.router)
     app.include_router(workflow_executions.router)
     app.include_router(workflow_ui.router)
-    app.include_router(evaluation_ui.router)
     app.include_router(evaluation_api.router)
     app.include_router(sigma_ab_test.router)
     app.include_router(sigma_similarity_test.router)

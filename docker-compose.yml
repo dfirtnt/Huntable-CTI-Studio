@@ -61,6 +61,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: web-runtime
     container_name: cti_web
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -105,15 +106,18 @@ services:
       - LMSTUDIO_MODEL_RANK=qwen/qwen3-4b-2507
       - LMSTUDIO_MODEL_EXTRACT=${LMSTUDIO_MODEL_EXTRACT:-qwen/qwen3-4b-2507}
       - LMSTUDIO_MODEL_SIGMA=${LMSTUDIO_MODEL_SIGMA:-qwen/qwen3-4b-2507}
-      - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
-      - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
       # Context length overrides (LM Studio API doesn't report actual configured context)
       - LMSTUDIO_CONTEXT_LENGTH_gemma_3n_e4b_it_text=16384
       - LMSTUDIO_CONTEXT_LENGTH_deepseek_deepseek_r1_0528_qwen3_8b=16384
       - LMSTUDIO_CONTEXT_LENGTH_qwen_qwen3_4b_2507=16384
       # - LANGGRAPH_SERVER_URL=${LANGGRAPH_SERVER_URL:-http://langgraph-server:2024}
       - WORKFLOW_LMSTUDIO_ENABLED=${WORKFLOW_LMSTUDIO_ENABLED:-true}
+      - WORKFLOW_CODEX_ENABLED=${WORKFLOW_CODEX_ENABLED:-false}
+      - WORKFLOW_CODEX_MODEL=${WORKFLOW_CODEX_MODEL:-gpt-5.6-luna}
+      - CODEX_HOME=/var/lib/huntable-codex
       - OCR_INGEST_ENABLED=${OCR_INGEST_ENABLED:-true}
+      - MAINTENANCE_API_URL=http://maintenance:8002
+      - MAINTENANCE_API_TOKEN=${MAINTENANCE_API_TOKEN:-}
       - PROCEED_WITHOUT_LMSTUDIO=${PROCEED_WITHOUT_LMSTUDIO:-}
       - TZ=America/New_York
     ports:
@@ -128,10 +132,10 @@ services:
       - ./backups:/app/backups
       - ./models:/app/models
       - ./outputs:/app/outputs
+      - codex_auth:/var/lib/huntable-codex
       - ./scripts:/app/scripts
       - ./test-results:/app/test-results
       - ${HOME}/Huntable-SIGMA-Rules:/app/sigma-repo
-      - /var/run/docker.sock:/var/run/docker.sock
       - /var/db/timezone/zoneinfo/America/New_York:/etc/localtime:ro
       - hf_cache:/root/.cache/huggingface
     depends_on:
@@ -139,6 +143,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      codex_auth_init:
+        condition: service_completed_successfully
+      maintenance:
+        condition: service_started
     networks:
       - cti_network
     restart: unless-stopped
@@ -152,11 +160,36 @@ services:
       uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8001
       --workers 2
 
+  maintenance:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: maintenance-runtime
+    environment:
+      - MAINTENANCE_API_TOKEN=${MAINTENANCE_API_TOKEN:-}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - TZ=America/New_York
+    volumes:
+      - ./backups:/app/backups
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - ./models:/app/models
+      - ./outputs:/app/outputs
+      - ./scripts:/app/scripts
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - cti_network
+    restart: unless-stopped
+
   # Celery Worker for Background Tasks
   worker:
     build:
       context: .
       dockerfile: Dockerfile
+      target: ingest-worker-runtime
     container_name: cti_worker
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -175,13 +208,14 @@ services:
       - LMSTUDIO_MODEL_RANK=qwen/qwen3-4b-2507
       - LMSTUDIO_MODEL_EXTRACT=${LMSTUDIO_MODEL_EXTRACT:-qwen/qwen3-4b-2507}
       - LMSTUDIO_MODEL_SIGMA=${LMSTUDIO_MODEL_SIGMA:-qwen/qwen3-4b-2507}
-      - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
-      - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
       # Context length overrides (LM Studio API doesn't report actual configured context)
       - LMSTUDIO_CONTEXT_LENGTH_gemma_3n_e4b_it_text=16384
       - LMSTUDIO_CONTEXT_LENGTH_deepseek_deepseek_r1_0528_qwen3_8b=4096
       - LMSTUDIO_CONTEXT_LENGTH_qwen_qwen3_4b_2507=16384
       - WORKFLOW_LMSTUDIO_ENABLED=${WORKFLOW_LMSTUDIO_ENABLED:-true}
+      - WORKFLOW_CODEX_ENABLED=${WORKFLOW_CODEX_ENABLED:-false}
+      - WORKFLOW_CODEX_MODEL=${WORKFLOW_CODEX_MODEL:-gpt-5.6-luna}
+      - CODEX_HOME=/var/lib/huntable-codex
       - OCR_INGEST_ENABLED=${OCR_INGEST_ENABLED:-true}
       - PROCEED_WITHOUT_LMSTUDIO=${PROCEED_WITHOUT_LMSTUDIO:-}
     volumes:
@@ -193,12 +227,15 @@ services:
       - ./models:/app/models
       - ./scripts:/app/scripts
       - ./test-results:/app/test-results
+      - codex_auth:/var/lib/huntable-codex
       - ${HOME}/Huntable-SIGMA-Rules:/app/sigma-repo
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      codex_auth_init:
+        condition: service_completed_successfully
     networks:
       - cti_network
     restart: unless-stopped
@@ -222,6 +259,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: workflow-worker-runtime
     container_name: cti_workflow_worker
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -240,13 +278,14 @@ services:
       - LMSTUDIO_MODEL_RANK=qwen/qwen3-4b-2507
       - LMSTUDIO_MODEL_EXTRACT=${LMSTUDIO_MODEL_EXTRACT:-qwen/qwen3-4b-2507}
       - LMSTUDIO_MODEL_SIGMA=${LMSTUDIO_MODEL_SIGMA:-qwen/qwen3-4b-2507}
-      - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
-      - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
       # Context length overrides (LM Studio API doesn't report actual configured context)
       - LMSTUDIO_CONTEXT_LENGTH_gemma_3n_e4b_it_text=16384
       - LMSTUDIO_CONTEXT_LENGTH_deepseek_deepseek_r1_0528_qwen3_8b=4096
       - LMSTUDIO_CONTEXT_LENGTH_qwen_qwen3_4b_2507=16384
       - WORKFLOW_LMSTUDIO_ENABLED=${WORKFLOW_LMSTUDIO_ENABLED:-true}
+      - WORKFLOW_CODEX_ENABLED=${WORKFLOW_CODEX_ENABLED:-false}
+      - WORKFLOW_CODEX_MODEL=${WORKFLOW_CODEX_MODEL:-gpt-5.6-luna}
+      - CODEX_HOME=/var/lib/huntable-codex
       - PROCEED_WITHOUT_LMSTUDIO=${PROCEED_WITHOUT_LMSTUDIO:-}
     volumes:
       - ./src:/app/src
@@ -257,12 +296,15 @@ services:
       - ./models:/app/models
       - ./scripts:/app/scripts
       - ./test-results:/app/test-results
+      - codex_auth:/var/lib/huntable-codex
       - ${HOME}/Huntable-SIGMA-Rules:/app/sigma-repo
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      codex_auth_init:
+        condition: service_completed_successfully
     networks:
       - cti_network
     restart: unless-stopped
@@ -281,11 +323,21 @@ services:
       retries: 3
       start_period: 30s
 
+  # Initialize the shared Codex state volume for the non-root application user.
+  codex_auth_init:
+    image: busybox:1.36.1
+    user: "0:0"
+    volumes:
+      - codex_auth:/var/lib/huntable-codex
+    command: ["sh", "-c", "chown -R 1000:1000 /var/lib/huntable-codex"]
+    restart: "no"
+
   # Celery Beat for Scheduled Tasks
   scheduler:
     build:
       context: .
       dockerfile: Dockerfile
+      target: scheduler-runtime
     container_name: cti_scheduler
     environment:
       - DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
@@ -326,6 +378,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: semantic-tools-runtime
     container_name: cti_cli
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -337,8 +390,6 @@ services:
       - SOURCES_CONFIG=/app/config/sources.yaml
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CHATGPT_API_KEY=${CHATGPT_API_KEY}
-      - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
-      - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
       - OCR_INGEST_ENABLED=${OCR_INGEST_ENABLED:-true}
     volumes:
       - ./src:/app/src
@@ -381,6 +432,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: semantic-tools-runtime
     container_name: cti_mcp_http
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -397,8 +449,6 @@ services:
       - HUNTABLE_MCP_PORT=8009
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CHATGPT_API_KEY=${CHATGPT_API_KEY}
-      - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
-      - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
     ports:
       - "127.0.0.1:${HUNTABLE_MCP_PORT:-8009}:8009"
     volumes:
@@ -445,8 +495,6 @@ services:
     #   - LMSTUDIO_API_URL=${LMSTUDIO_API_URL:-http://host.docker.internal:1234/v1}
     #   - LMSTUDIO_MODEL=${LMSTUDIO_MODEL:-deepseek/deepseek-r1-0528-qwen3-8b}
     #   - LMSTUDIO_API_KEY=dummy
-    #   - LMSTUDIO_EMBEDDING_URL=${LMSTUDIO_EMBEDDING_URL:-http://host.docker.internal:1234/v1/embeddings}
-    #   - LMSTUDIO_EMBEDDING_MODEL=${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-e5-base-v2}
     #   - TZ=America/New_York
     # ports:
     #   - "${LANGFLOW_PORT:-7860}:7860"
@@ -477,6 +525,8 @@ volumes:
   langflow_data:
     driver: local
   hf_cache:
+    driver: local
+  codex_auth:
     driver: local
 
 networks:

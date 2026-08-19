@@ -1,4 +1,4 @@
-The previous SIGMA rule failed pySIGMA validation. You MUST fix the following issues:
+The previous SIGMA rule failed deterministic pySigma or Huntable policy validation. You MUST fix the following issues:
 
 **Validation Errors:**
 {validation_errors}

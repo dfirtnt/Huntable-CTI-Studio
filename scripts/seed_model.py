@@ -125,7 +125,7 @@ def build_training_dataframe(fixture_articles: list[dict], cf: ContentFilter) ->
     return pd.DataFrame(rows)
 
 
-async def register_version(model_path: str, training_result: dict, sample_count: int) -> int | None:
+async def register_version(model_path: str, training_result: dict) -> int | None:
     """Save a version record to the DB. Returns version id or None on failure."""
     import shutil
 
@@ -216,7 +216,7 @@ def main() -> None:
 
     if not args.no_register:
         print("\n📝  Registering model version in database...")
-        version_id = asyncio.run(register_version(model_path, training_result, len(df)))
+        version_id = asyncio.run(register_version(model_path, training_result))
         if version_id:
             print(f"    Version id: {version_id}")
 

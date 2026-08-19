@@ -8,24 +8,27 @@ This reflects the current `docker-compose.yml`.
 |--------|----------------|---------|
 | **postgres** | `pgvector/pgvector:pg15` | Primary DB; pgvector extension. Container: `cti_postgres`. |
 | **redis** | `redis:7-alpine` | Cache and Celery broker. Appendonly + `maxmemory` / `allkeys-lru`. Container: `cti_redis`. |
-| **web** | `Dockerfile` | FastAPI app: `uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8001 --workers 2`. Port: 8001 (API/UI). |
-| **worker** | `Dockerfile` | Celery worker queues: `collection_immediate` (user Collect Now), `default`, `source_checks`, `maintenance`, `reports`, `connectivity`, `collection`. |
-| **workflow_worker** | `Dockerfile` | Celery worker for `workflows` queue (agentic/LangGraph tasks). |
-| **scheduler** | `Dockerfile` | Celery beat: `celery -A src.worker.celery_app beat --loglevel=${CELERY_LOG_LEVEL:-info}`. |
-| **cli** | `Dockerfile` | Profile `tools`. Command: `python -m src.cli.main`. Same Postgres/Redis as app. |
+| **web** | `Dockerfile:web-runtime` | FastAPI app: `uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8001 --workers 2`. Port: 8001 (API/UI). No Docker socket or Docker CLI. |
+| **maintenance** | `Dockerfile:maintenance-runtime` | Internal-only allowlisted backup/restore executor. It is the sole runtime with the Docker socket and CLI. |
+| **worker** | `Dockerfile:ingest-worker-runtime` | Celery worker queues: `collection_immediate` (user Collect Now), `default`, `source_checks`, `maintenance`, `reports`, `connectivity`, `collection`. Source collection, OCR, Playwright/Chromium. |
+| **workflow_worker** | `Dockerfile:workflow-worker-runtime` | Celery worker for `workflows` queue (agentic/LangGraph tasks). LangGraph + pinned Codex app-server support; no browser/OCR/Docker CLI. |
+| **codex_auth_init** | `busybox:1.36.1` | One-shot initializer that grants the application user ownership of the shared Codex authentication volume. |
+| **scheduler** | `Dockerfile:scheduler-runtime` | Celery beat: `celery -A src.worker.celery_app beat --loglevel=${CELERY_LOG_LEVEL:-info}`. |
+| **cli** | `Dockerfile:semantic-tools-runtime` | Profile `tools`. Command: `python -m src.cli.main`. Same Postgres/Redis as app. Local embeddings (Torch + sentence-transformers). |
+| **mcp_http** | `Dockerfile:semantic-tools-runtime` | Profile `mcp`. FastMCP over streamable-HTTP. Local embeddings (Torch + sentence-transformers). |
 
 ## Key environment
 
 - **DB:** `POSTGRES_PASSWORD` required. `DATABASE_URL=postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper`.
 - **Broker:** `REDIS_URL=redis://redis:6379/0`.
-- **AI/LLM:** `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `CHATGPT_API_KEY`; `LMSTUDIO_API_URL` (default `http://host.docker.internal:1234/v1`), `LMSTUDIO_MODEL*`, `LMSTUDIO_EMBEDDING_*`. Langfuse (`LANGFUSE_*`) is optional but is **not** declared in `docker-compose.yml`'s `environment:` blocks, so it is not forwarded from a host `.env` file into these containers; configure it via the Settings UI instead (see [Langfuse Setup](../guides/langfuse-setup.md)).
+- **AI/LLM:** `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `CHATGPT_API_KEY`; optional local-LLM support uses `LMSTUDIO_API_URL` (default `http://host.docker.internal:1234/v1`) and `LMSTUDIO_MODEL*`. The optional Codex workflow provider uses `WORKFLOW_CODEX_ENABLED`, `WORKFLOW_CODEX_MODEL`, and the shared `codex_auth` volume; its ChatGPT login stays inside Codex rather than in an API-key environment variable. LM Studio is not required by the application or by embeddings; embeddings run locally through sentence-transformers. Langfuse (`LANGFUSE_*`) is optional but is **not** declared in `docker-compose.yml`'s `environment:` blocks, so it is not forwarded from a host `.env` file into these containers; configure it via the Settings UI instead (see [Langfuse Setup](../guides/langfuse-setup.md)).
 - **Timezone:** `TZ=America/New_York`.
 
 ## Volumes and mounts
 
-- **Named volumes:** `postgres_data`, `redis_data`, `langflow_data` (defined; LangFlow service is commented out), `hf_cache` (Hugging Face model cache; mounted on `web` and `cli`).
+- **Named volumes:** `postgres_data`, `redis_data`, `langflow_data` (defined; LangFlow service is commented out), `hf_cache` (Hugging Face model cache; mounted on `web` and `cli`), and `codex_auth` (shared Codex-managed ChatGPT authentication for web and workers).
 - **Postgres init:** `./init-scripts` is mounted at `/docker-entrypoint-initdb.d` (all scripts there run on first init).
-- **App bind mounts (web / workers):** `./src`, `./config`, `./logs`, `./tests`, `./models`, `./outputs`, `./scripts`, `./test-results`, `${HOME}/Huntable-SIGMA-Rules` → `/app/sigma-repo`. Web only: `./docs/contracts`, `./data/diagnoses`, `./backups`, Docker socket `/var/run/docker.sock`, host timezone at `/etc/localtime`, and the `hf_cache` volume. The Sigma repo is set up during `./setup.sh` (clone or create with rules structure); see [Configuration](../getting-started/configuration.md) (SIGMA / GitHub Integration).
+- **App bind mounts (web / workers):** `./src`, `./config`, `./logs`, `./tests`, `./models`, `./outputs`, `./scripts`, `./test-results`, `${HOME}/Huntable-SIGMA-Rules` → `/app/sigma-repo`. Web only: `./docs/contracts`, `./data/diagnoses`, `./backups`, host timezone at `/etc/localtime`, and the `hf_cache` volume. The maintenance service alone mounts `/var/run/docker.sock`. The Sigma repo is set up during `./setup.sh` (clone or create with rules structure); see [Configuration](../getting-started/configuration.md) (SIGMA / GitHub Integration).
 - **CLI:** `./src`, `./config`, `./scripts`, `./logs`, `./tests`, `./data`, `${HOME}/Huntable-SIGMA-Rules` → `/app/sigma-repo`, `./backups`, and the `hf_cache` volume.
 
 ## Resource limits (env-overridable)
@@ -56,7 +59,14 @@ This reflects the current `docker-compose.yml`.
 
 ## Dockerfiles
 
-- **Dockerfile:** Python 3.11-slim; system deps (Postgres client, Playwright/Chromium, Docker CLI); deps installed via `uv sync --frozen --group test` from `pyproject.toml` + `uv.lock`; non-root user; used by compose for web, worker, workflow_worker, scheduler, cli.
-- **Dockerfile.prod:** Multi-stage build; slimmer runtime (no Playwright/test deps); for production-style images.
+- **Dockerfile:** Python 3.11-slim multi-stage build. The builder creates locked role-specific virtual environments from `pyproject.toml` dependency groups; each runtime target copies only its role environment. Compose targets and their intentional capabilities:
+  - `web-runtime`: FastAPI app. Excludes Docker CLI/socket and OCR; it retains Codex because web routes probe its subscription/provider capability.
+  - `maintenance-runtime`: authenticated, internal-only allowlisted backup/restore operations; this is the privileged Docker-socket boundary.
+  - `scheduler-runtime`: Celery beat only; inherits the lean web/base Python environment.
+  - `ingest-worker-runtime`: source-collection worker. Playwright/Chromium + Tesseract for scraping/OCR; local Torch + sentence-transformers for extraction. No Codex, no Docker CLI/socket.
+  - `workflow-worker-runtime`: workflow worker. LangGraph + pinned Codex app-server binary (optional provider, shares the `codex_auth` volume). No Playwright/Chromium, no Tesseract/OCR, no Docker CLI/socket.
+  - `semantic-tools-runtime`: CLI + MCP. Torch + sentence-transformers for local embeddings with LM Studio unavailable. No browser, no OCR, no Codex, no Docker CLI (the optional `cli backup` system-backup subcommand needs `docker exec`, which is unavailable here and in the `cli` service's mounts; backups run via the web service or host scripts).
+  - `development-runtime`: compatibility target; no active Compose service uses it yet, but it remains the default for unconverted services.
+- **Dockerfile.prod:** Multi-stage build; slimmer runtime (no Playwright/test deps); for production-style images. Not part of the active Compose/runtime contract here.
 
-_Last updated: 2026-07-05_
+_Last updated: 2026-08-11_

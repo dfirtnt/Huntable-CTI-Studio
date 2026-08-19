@@ -21,10 +21,37 @@ from src.services.audit_service import (
     is_sensitive_audit_key,
     redacted_secret_change,
 )
+from src.services.codex_app_server_client import CodexAppServerClient, CodexAppServerError
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/settings", tags=["Settings"])
+
+
+@router.post("/codex/test")
+async def test_codex_subscription():
+    """Test the deployment-managed Codex login without invoking a workflow model."""
+    try:
+        result = await CodexAppServerClient(timeout=15.0).read_account()
+    except CodexAppServerError as exc:
+        logger.warning("Codex subscription test failed: %s", exc)
+        return {
+            "valid": False,
+            "message": "Codex subscription is not connected. Ask an administrator to connect it.",
+        }
+
+    account = result.get("account") if isinstance(result.get("account"), dict) else result
+    auth_mode = account.get("type") or account.get("authMode") if isinstance(account, dict) else None
+    plan_type = account.get("planType") if isinstance(account, dict) else None
+    if auth_mode != "chatgpt":
+        return {
+            "valid": False,
+            "message": "Codex subscription is not connected. Ask an administrator to connect it.",
+        }
+    message = "Codex subscription is ready"
+    if isinstance(plan_type, str) and plan_type:
+        message += f" ({plan_type})"
+    return {"valid": True, "message": message, "plan_type": plan_type}
 
 
 class SettingUpdate(BaseModel):
@@ -42,8 +69,8 @@ class SettingsBulkUpdate(BaseModel):
 
 # Env keys merged into GET /api/settings so start.sh "proceed without LMStudio" is visible to UI
 _SETTINGS_ENV_OVERRIDE_KEYS = ("WORKFLOW_LMSTUDIO_ENABLED", "PROCEED_WITHOUT_LMSTUDIO")
-# LM Studio URL keys: merged from env so UI can show/save them (Settings can override .env)
-_LMSTUDIO_URL_KEYS = ("LMSTUDIO_API_URL", "LMSTUDIO_EMBEDDING_URL")
+# Optional LM Studio LLM URL: merged from env so Settings can override .env.
+_LMSTUDIO_URL_KEYS = ("LMSTUDIO_API_URL",)
 # Langfuse credential keys: changing any of these must reset the in-memory client singleton
 _LANGFUSE_KEYS = frozenset({"LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "LANGFUSE_HOST"})
 _SENSITIVE_KEYS = frozenset(

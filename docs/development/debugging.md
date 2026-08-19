@@ -53,13 +53,13 @@ From the Workflow Executions page, each execution has a **Debug** button that pr
 
 Direct trace URL:
 
-```
+```text
 https://cloud.langfuse.com/project/{project_id}/traces/{trace_id}
 ```
 
 Search fallback:
 
-```
+```text
 https://cloud.langfuse.com/project/{project_id}/traces?search=workflow_exec_{execution_id}
 ```
 
@@ -76,11 +76,6 @@ Each workflow execution creates:
 The Langfuse integration is implemented in `src/utils/langfuse_client.py`
 (`_LangfuseWorkflowTrace.__enter__`):
 
-<!-- AUDIT: Accuracy -- snippet was stale: current code uses `propagate_attributes(session_id=..., user_id=..., ...)`
-     as a separate context manager to set session/user on the OTEL context, not a `TraceContext(session_id=...,
-     user_id=...)` passed into `start_as_current_observation`. The current code's own comment notes
-     "TraceContext only carries trace_id / parent_span_id for span linkage" -- session_id/user_id no longer go
-     through TraceContext. Verified against src/utils/langfuse_client.py lines 155-224. -->
 ```python
 from langfuse import propagate_attributes
 
@@ -137,7 +132,7 @@ Use the database as the durable fallback. Use Langfuse when you need maximum per
 
 If the execution does not have a resolved trace ID or project ID, the UI falls back to Langfuse trace search using the workflow session identifier:
 
-```
+```text
 https://cloud.langfuse.com/project/{project_id}/traces?search=workflow_exec_{execution_id}
 ```
 
@@ -158,12 +153,12 @@ Langfuse configuration can be stored in the Settings UI or provided through envi
 ```bash
 LANGFUSE_PUBLIC_KEY=pk-lf-...
 LANGFUSE_SECRET_KEY=sk-lf-...
-LANGFUSE_HOST=https://cloud.langfuse.com
+LANGFUSE_HOST=https://us.cloud.langfuse.com
 LANGFUSE_PROJECT_ID=your-project-id
 ```
 
 - `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` are required to emit traces.
-- `LANGFUSE_HOST` is optional and defaults to `https://cloud.langfuse.com` in the runtime client.
+- `LANGFUSE_HOST` is optional and defaults to `https://us.cloud.langfuse.com` in the runtime client.
 - `LANGFUSE_PROJECT_ID` is optional but recommended because it improves workflow debug deep links.
 - Use the Langfuse Cloud host for your account region. This project does not support local or self-hosted Langfuse deployments.
 
@@ -178,10 +173,6 @@ For setup, host selection, security guidance, and troubleshooting, see [Langfuse
 
 ### Code References
 
-<!-- AUDIT: Accuracy -- 2026-08-02: re-verified against current source. Trace creation lines still match.
-     `run_workflow` opens the trace via `trace_workflow_execution(...)` at line 3957, not 3887 (3887 is
-     execution-status bookkeeping earlier in the same function). Debug link function line range corrected
-     to match current file (function defs now at 1272 / 1296, unchanged). -->
 - **Trace creation**: `src/utils/langfuse_client.py` (`_LangfuseWorkflowTrace.__enter__`, lines 155-224; `trace_workflow_execution`, line 327)
 - **Workflow execution**: `src/workflows/agentic_workflow.py` (`run_workflow`, defined at line 3651; trace opened via `trace_workflow_execution(...)` at line 3957)
 - **Debug link generation**: `src/web/routes/workflow_executions.py` (`_build_langfuse_debug_urls` at line 1272 / `get_workflow_debug_info` at line 1296)
@@ -841,38 +832,31 @@ If Langfuse is enabled, check for traces:
 When evaluation runs correctly, you should see:
 
 1. **Workflow Start:**
-   ```
+   ```text
    INFO: Triggering agentic workflow for article 68 (execution_id: XXX)
    ```
 
 2. **Extraction Agent Start:**
-   ```
+   ```text
    INFO: Running extraction agent CmdlineExtract (provider=lmstudio, model_name=qwen2.5-coder-7b)
    ```
 
 3. **LMStudio Request:**
-   ```
+   ```text
    INFO: Attempting LMStudio at http://host.docker.internal:1234/v1 with model {model} (CmdlineExtract extraction attempt 1)
    ```
 
 4. **Response:**
-   ```
+   ```text
    INFO: CmdlineExtract raw response length: XXX chars
    INFO: CmdlineExtract token usage: {...}
    ```
 
 ## Quick Fixes
 
-### Force LLM Extraction (Disable Hybrid)
-<!-- AUDIT: Relevancy -- `use_hybrid_extractor` no longer exists in the codebase (see note above); this
-     snippet describes removed functionality and has no current effect. -->
-Set in workflow config or execution snapshot:
-```python
-config_snapshot = {
-    ...
-    'use_hybrid_extractor': False,  # Force LLM extraction
-}
-```
+### Former Hybrid Extraction Setting
+
+`use_hybrid_extractor` was removed and no longer has any effect on workflow configuration or execution snapshots.
 
 ### Enable Debug Logging
 ```bash
@@ -889,10 +873,6 @@ POST /api/workflow/executions/{execution_id}/retry
 ```
 
 ## Related Files
-<!-- AUDIT: Accuracy -- 2026-08-02: re-verified against current source. `trace_llm_call` call sites are at
-     llm_service.py:468 (rank_article) and :1051, not 2529-2536 (that range is unrelated error-handling code).
-     The "Attempting LMStudio at {url}..." log line has moved out of llm_service.py entirely -- it now lives
-     in src/services/llm_provider_clients.py:215. -->
 - `src/services/llm_service.py:468` and `:1051` - LLM calls with tracing (`trace_llm_call`)
 - `src/services/llm_provider_clients.py:215` - LMStudio request logging (`Attempting LMStudio at {url}...`)
 
@@ -900,123 +880,18 @@ POST /api/workflow/executions/{execution_id}/retry
 
 ## Troubleshooting: Evaluation Executions Stuck in Pending
 
-<!-- AUDIT: Accuracy -- 2026-08-02: the root cause described below (workflow tasks sharing a worker/queue with
-     long-running check_all_sources tasks) has been fixed since this section was written. `celeryconfig.py`
-     already routes `trigger_agentic_workflow` to a dedicated `workflows` queue (task_routes, line 43), and
-     `docker-compose.yml` runs a separate `cti_workflow_worker` container consuming only `-Q workflows`
-     (commit de0543e9, "Add dedicated workflow worker queue"), independent from `cti_worker` (which handles
-     collection_immediate/default/source_checks/maintenance/reports/connectivity/collection). "Option 2:
-     Dedicated Workflow Queue" below is not a recommendation -- it describes the current architecture. Worker
-     concurrency in docker-compose.yml also defaults to 2 per worker (env `WORKER_CONCURRENCY` /
-     `WORKFLOW_WORKER_CONCURRENCY`), not the "12" cited below. If evals are still stuck in pending, look
-     elsewhere first (worker container down, queue misrouting, DB lock) before assuming queue contention. -->
 
-## Root Cause
-
-**Issue:** Evaluation executions are created with `status='pending'` but never start processing, resulting in no LMStudio logs.
-
-**Root Cause (historical):** Celery worker is at capacity processing other tasks, preventing `trigger_agentic_workflow` tasks from being picked up. This applied before workflow tasks got their own dedicated worker/queue -- see the audit note above.
-
-## Evidence
-
-### 1. Tasks Queued But Not Processing
-```bash
-docker exec cti_worker celery -A src.worker.celery_app inspect reserved
-```
-
-Shows multiple `trigger_agentic_workflow` tasks in the `workflows` or `default` queue:
-- All have `'time_start': None` and `'worker_pid': None`
-- Tasks are queued but not being executed
-
-### 2. Worker Capacity
-- **Max concurrency:** 12 workers
-- **Prefetch count:** 12 tasks
-- **Active tasks:** Worker slots are filled with long-running tasks (especially `check_all_sources`)
-
-### 3. Task Routing
-- `trigger_agentic_workflow` → `workflows` queue (as configured in `src/worker/celeryconfig.py`). Default queue used when no specific routing is set.
-- `check_all_sources` → `source_checks` queue
-- Worker processes both queues, but `source_checks` tasks are long-running and block capacity
-
-## Why This Happens
-
-1. **Source check tasks are long-running** - They scrape websites, which can take minutes
-2. **Worker prefetch fills up** - Worker reserves 12 tasks, but if they're all long-running, new tasks wait
-3. **No priority mechanism** - Workflow tasks have same priority as source checks
-4. **Sequential processing** - Tasks are processed in order, so workflow tasks wait behind source checks
-
-## Solutions
-
-### Option 1: Increase Worker Concurrency (Quick Fix)
-```bash
-# In docker-compose.yml, increase worker concurrency
-celery -A src.worker.celery_app worker --concurrency=24
-```
-
-**Pros:** More capacity for parallel processing
-**Cons:** Higher memory usage
-
-### Option 2: Dedicated Workflow Queue (Recommended)
-Create a separate queue for workflow tasks with dedicated workers:
-
-**In `src/worker/celeryconfig.py`:**
-```python
-task_routes = {
-    'src.worker.celery_app.check_all_sources': {'queue': 'source_checks'},
-    'src.worker.celery_app.trigger_agentic_workflow': {'queue': 'workflows'},  # Add this
-    # ... other routes
-}
-
-task_queues = {
-    # ... existing queues
-    'workflows': {
-        'exchange': 'workflows',
-        'routing_key': 'workflows',
-    },
-}
-```
-
-**Start dedicated worker:**
-```bash
-celery -A src.worker.celery_app worker -Q workflows --concurrency=4
-```
-
-**Pros:** Workflow tasks never blocked by source checks
-**Cons:** Requires additional worker process
-
-### Option 3: Reduce Prefetch Multiplier
-**In `src/worker/celeryconfig.py`:**
-```python
-worker_prefetch_multiplier = 1  # Already set, but ensure it's low
-```
-
-Lower prefetch means worker doesn't reserve as many tasks, allowing faster task rotation.
-
-### Option 4: Priority Queue (Advanced)
-Use Celery priority queues to give workflow tasks higher priority than source checks.
-
-### Option 5: Manual Trigger (Workaround)
-For immediate needs, manually trigger stuck executions:
-```python
-from src.worker.celery_app import trigger_agentic_workflow
-trigger_agentic_workflow.delay(article_id)
-```
+Workflow executions are routed to a dedicated `workflows` queue and consumed by
+`cti_workflow_worker`; source checks run on the main worker's `source_checks`
+queue. A pending evaluation therefore indicates a worker-health, routing, or
+database problem rather than normal source-check contention.
 
 ## Diagnostic Commands
 
-### Check Queued Tasks
 ```bash
-docker exec cti_worker celery -A src.worker.celery_app inspect reserved | grep trigger_agentic_workflow
-```
-
-### Check Active Tasks
-```bash
-docker exec cti_worker celery -A src.worker.celery_app inspect active
-```
-
-### Check Worker Stats
-```bash
-docker exec cti_worker celery -A src.worker.celery_app inspect stats
+docker exec cti_workflow_worker celery -A src.worker.celery_app inspect active
+docker exec cti_workflow_worker celery -A src.worker.celery_app inspect reserved
+docker exec cti_workflow_worker celery -A src.worker.celery_app inspect stats
 ```
 
 ### Check Pending Executions
@@ -1027,36 +902,7 @@ WHERE status = 'pending'
 ORDER BY created_at DESC;
 ```
 
-## Immediate Workaround
-
-If executions are stuck, manually trigger them:
-```python
-from src.database.manager import DatabaseManager
-from src.database.models import AgenticWorkflowExecutionTable
-from src.worker.celery_app import trigger_agentic_workflow
-
-db = DatabaseManager()
-session = db.get_session()
-pending = session.query(AgenticWorkflowExecutionTable).filter(
-    AgenticWorkflowExecutionTable.status == 'pending'
-).all()
-
-for exec in pending:
-    trigger_agentic_workflow.delay(exec.article_id)
-```
-
-## Prevention
-
-1. **Monitor queue depth** - Alert when `default` queue has > 10 tasks
-2. **Separate queues** - Use dedicated queue for workflow tasks
-3. **Task timeouts** - Set reasonable timeouts for long-running tasks
-4. **Worker scaling** - Scale workers based on queue depth
-
 ## Related Files
-<!-- AUDIT: Accuracy -- 2026-08-02: re-verified against current source. trigger_agentic_workflow still defined
-     at line 799. evaluation_api.py's three trigger_agentic_workflow.apply_async() dispatch sites have drifted
-     to lines 770, 1486, 1670 since the 2026-07-17 pass (line numbers are approximate and will drift again --
-     grep the symbol rather than trusting exact line numbers). -->
 - `src/worker/celeryconfig.py` - Celery configuration
 - `src/worker/celery_app.py:799` - `trigger_agentic_workflow` task definition
 - `src/web/routes/evaluation_api.py` - Task dispatch in eval API (`trigger_agentic_workflow.apply_async(...)` at lines ~770, ~1486, ~1670)

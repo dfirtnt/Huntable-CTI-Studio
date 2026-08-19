@@ -611,6 +611,7 @@ def list_queued_rules(
     request: Request,
     status: str | None = None,
     keyword: str | None = None,
+    workflow_execution_id: int | None = None,
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
 ):
@@ -625,6 +626,8 @@ def list_queued_rules(
                 base = base.filter(SigmaRuleQueueTable.status == status)
             if keyword:
                 base = base.filter(SigmaRuleQueueTable.rule_yaml.ilike(f"%{keyword}%"))
+            if workflow_execution_id is not None:
+                base = base.filter(SigmaRuleQueueTable.workflow_execution_id == workflow_execution_id)
 
             total = base.with_entities(func.count(SigmaRuleQueueTable.id)).scalar() or 0
 
@@ -633,6 +636,8 @@ def list_queued_rules(
                 data_query = data_query.filter(SigmaRuleQueueTable.status == status)
             if keyword:
                 data_query = data_query.filter(SigmaRuleQueueTable.rule_yaml.ilike(f"%{keyword}%"))
+            if workflow_execution_id is not None:
+                data_query = data_query.filter(SigmaRuleQueueTable.workflow_execution_id == workflow_execution_id)
             rules = data_query.order_by(SigmaRuleQueueTable.created_at.desc()).offset(offset).limit(limit).all()
 
             result = []

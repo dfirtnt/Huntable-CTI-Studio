@@ -8,6 +8,7 @@ from typing import Any
 
 import httpx
 
+from src.services.codex_app_server_client import CodexAppServerClient
 from src.services.llm_prompting import PreprocessInvariantError
 from src.services.llm_provider_clients import LMStudioChatClient, parse_retry_after, post_anthropic_with_retry
 from src.utils.model_validation import clamp_temperature_for_provider, model_supports_variable_temperature
@@ -20,7 +21,7 @@ class LLMClientMixin:
         if not provider:
             raise RuntimeError(
                 "No LLM provider configured for this agent. "
-                "Set Provider to 'anthropic', 'openai', or 'lmstudio' in workflow settings."
+                "Set Provider to 'anthropic', 'openai', 'codex', or 'lmstudio' in workflow settings."
             )
         if provider == "openai":
             if not self.workflow_openai_enabled:
@@ -30,6 +31,12 @@ class LLMClientMixin:
                 )
             if not self.openai_api_key:
                 raise RuntimeError("OpenAI API key is not configured for agentic workflows.")
+        elif provider == "codex":
+            if not self.workflow_codex_enabled:
+                raise RuntimeError(
+                    "Codex subscription provider is disabled for agentic workflows "
+                    "(enable WORKFLOW_CODEX_ENABLED in Settings)."
+                )
         elif provider == "anthropic":
             if not self.workflow_anthropic_enabled:
                 raise RuntimeError(
@@ -125,6 +132,13 @@ class LLMClientMixin:
                 max_tokens=max_tokens,
                 timeout=timeout,
             )
+        if provider == "codex":
+            return await self._call_codex_chat(
+                messages=messages,
+                model_name=resolved_model,
+                max_tokens=max_tokens,
+                timeout=timeout,
+            )
         if provider == "anthropic":
             return await self._call_anthropic_chat(
                 messages=messages,
@@ -134,6 +148,17 @@ class LLMClientMixin:
                 timeout=timeout,
             )
         raise RuntimeError(f"Provider '{provider}' is not implemented for agentic workflows.")
+
+    async def _call_codex_chat(
+        self, *, messages: list, model_name: str, max_tokens: int, timeout: float
+    ) -> dict[str, Any]:
+        if not messages:
+            raise PreprocessInvariantError("LLM invoked with empty messages (Codex path)")
+        return await CodexAppServerClient(timeout=timeout).complete(
+            messages=messages,
+            model_name=model_name,
+            max_tokens=max_tokens,
+        )
 
     async def _call_openai_chat(
         self, *, messages: list, model_name: str, temperature: float, max_tokens: int, timeout: float

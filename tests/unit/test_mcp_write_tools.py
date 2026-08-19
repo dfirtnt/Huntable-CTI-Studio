@@ -180,6 +180,16 @@ async def test_retry_workflow_execution_creates_pending_execution_and_enqueues(m
         enqueued.append((article_id, execution_id))
 
     monkeypatch.setattr(workflow, "_enqueue_workflow_retry", fake_enqueue)
+
+    async def hydrate(_session, source_execution):
+        return dict(source_execution.config_snapshot)
+
+    async def attach(_session, target_execution, _snapshot):
+        target_execution.config_snapshot_id = 77
+        target_execution.config_snapshot = {"snapshot_id": 77}
+
+    monkeypatch.setattr(workflow, "hydrate_snapshot_async", hydrate)
+    monkeypatch.setattr(workflow, "attach_snapshot_async", attach)
     tools = _tools_from_register(workflow.register, _db_with_session(session))
 
     result = await tools["retry_workflow_execution"].fn(execution_id=12)
@@ -193,8 +203,8 @@ async def test_retry_workflow_execution_creates_pending_execution_and_enqueues(m
     assert new_executions[0].article_id == 99
     assert new_executions[0].status == "pending"
     assert new_executions[0].retry_count == 3
-    assert new_executions[0].config_snapshot["agent_models"] == current_config.agent_models
-    assert new_executions[0].config_snapshot["rank_agent_enabled"] is True
+    assert new_executions[0].config_snapshot == {"snapshot_id": 77}
+    assert new_executions[0].config_snapshot_id == 77
     assert enqueued == [(99, 1000)]
     audits = _audit_rows(session)
     assert len(audits) == 1

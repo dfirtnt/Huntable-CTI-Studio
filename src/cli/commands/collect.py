@@ -1,14 +1,14 @@
 """Collect command for CLI."""
 
+from __future__ import annotations
+
 import asyncio
 
 import click
 from rich.progress import Progress
 
 from models.source import SourceFilter
-from src.core.fetcher import ContentFetcher
 from src.core.processor import ContentProcessor
-from src.services.vision_ocr_service import ocr_raw_articles, resolve_ocr_config
 
 from ..context import CLIContext, get_managers
 from ..utils import _display_fetch_results, console
@@ -25,6 +25,11 @@ def collect(ctx: CLIContext, source: str | None, force: bool, dry_run: bool):
     """Collect content from sources."""
 
     async def _collect():
+        # Keep browser and OCR imports collection-only so the semantic CLI/MCP
+        # runtime does not require Playwright or Tesseract merely to start.
+        from src.core.fetcher import ContentFetcher
+        from src.services.vision_ocr_service import ocr_raw_articles, resolve_ocr_config
+
         db_manager, http_client, source_manager = await get_managers(ctx)
 
         try:

@@ -15,6 +15,7 @@ from src.database.models import (
 )
 from src.huntable_mcp.tools.write_support import record_mcp_audit
 from src.services.audit_service import ACTION_WORKFLOW_CANCELLED, ACTION_WORKFLOW_RETRIED
+from src.services.execution_snapshot_store import attach_snapshot_async, hydrate_snapshot_async
 from src.services.workflow_config_snapshot import (
     SNAPSHOT_CONFIG_FIELDS,
     build_config_snapshot,
@@ -118,7 +119,7 @@ def register(mcp: FastMCP, db: AsyncDatabaseManager) -> None:
                         "Only failed or completed executions can be retried."
                     )
 
-                new_config_snapshot = dict(execution.config_snapshot or {})
+                new_config_snapshot = await hydrate_snapshot_async(session, execution)
                 config_result = await session.execute(
                     select(AgenticWorkflowConfigTable)
                     .where(AgenticWorkflowConfigTable.is_active)
@@ -149,10 +150,10 @@ def register(mcp: FastMCP, db: AsyncDatabaseManager) -> None:
                 new_execution = AgenticWorkflowExecutionTable(
                     article_id=article_id,
                     status="pending",
-                    config_snapshot=new_config_snapshot,
                     retry_count=(execution.retry_count or 0) + 1,
                 )
                 session.add(new_execution)
+                await attach_snapshot_async(session, new_execution, new_config_snapshot)
                 await session.flush()
                 new_execution_id = new_execution.id
                 await record_mcp_audit(

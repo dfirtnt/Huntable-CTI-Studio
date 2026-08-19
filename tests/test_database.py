@@ -215,6 +215,54 @@ class TestDatabaseManager:
         assert "ADD PRIMARY KEY" in executed_sql
         assert manager is not None
 
+    def test_create_tables_precheck_skips_existing_add_columns(self):
+        """The lock-free information_schema pre-check must skip ADD COLUMN statements
+        for columns that already exist, so no ALTER queues for ACCESS EXCLUSIVE on a
+        healthy DB (the ~3s-per-column lock wait seen at every reload). Non-ADD DDL
+        (DROP COLUMN, ADD PRIMARY KEY) still runs."""
+        existing = [
+            ("subagent_evaluations", "expected_items"),
+            ("subagent_evaluations", "acceptable_items"),
+            ("subagent_evaluations", "actual_items"),
+            ("subagent_evaluations", "matched_count"),
+            ("subagent_evaluations", "missed_count"),
+            ("subagent_evaluations", "extra_count"),
+            ("subagent_evaluations", "neutral_count"),
+            ("sigma_rule_queue", "behavioral_matches_found"),
+            ("sigma_rule_queue", "total_candidates_evaluated"),
+        ]
+
+        connect_conn = Mock()
+        connect_conn.__enter__ = Mock(return_value=connect_conn)
+        connect_conn.__exit__ = Mock(return_value=False)
+        connect_conn.execute = Mock(return_value=existing)
+
+        begin_conn = Mock()
+        begin_conn.__enter__ = Mock(return_value=begin_conn)
+        begin_conn.__exit__ = Mock(return_value=False)
+
+        mock_engine = Mock()
+        mock_engine.connect.return_value = connect_conn
+        mock_engine.begin.return_value = begin_conn
+        mock_engine.url = Mock()
+        mock_engine.url.drivername = "postgresql"
+
+        with (
+            patch("src.database.manager.create_engine", return_value=mock_engine),
+            patch("src.database.manager.Base.metadata.create_all"),
+        ):
+            # Unique URL so the class-level engine cache doesn't skip create_tables().
+            manager = DatabaseManager(database_url="postgresql://u:p@h/db_precheck")
+
+        executed_sql = " ".join(str(call.args[0]) for call in begin_conn.execute.call_args_list)
+        # Every pre-existing ADD COLUMN was skipped -- no ALTER issued for it.
+        assert "expected_items" not in executed_sql
+        assert "behavioral_matches_found" not in executed_sql
+        # Genuinely-needed non-ADD DDL still ran.
+        assert "ADD PRIMARY KEY" in executed_sql
+        assert "DROP COLUMN IF EXISTS canonical_text" in executed_sql
+        assert manager is not None
+
     def test_create_tables_executes_pk_ddl_for_two_tables(self):
         """create_tables() must execute idempotent ADD PRIMARY KEY DDL for sources, subagent_evaluations."""
         mock_conn = Mock()

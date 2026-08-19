@@ -14,7 +14,6 @@ These agents have both a seed file in `src/prompts/` and a database entry in wor
 
 | Seed File | DB Agent Name | Notes |
 |-----------|---------------|-------|
-| `ExtractAgent` | `ExtractAgent` | Parent config for all extract sub-agents (model/provider fallback) |
 | `lmstudio_sigma_ranking.txt` | `RankAgent` | Primary ranking seed; the canonical `AGENT_PROMPT_FILES["RankAgent"]` entry (`src/utils/default_agent_prompts.py`) |
 | `rank_article.txt` | `RankAgent` | Fallback user-message template for `LLMService.rank_article()` when the workflow config supplies no `prompt_template` (see `src/services/llm_service.py`) |
 | `sigma_generation.txt` | `SigmaAgent` | Sigma rule generation |
@@ -27,11 +26,13 @@ These agents have both a seed file in `src/prompts/` and a database entry in wor
 | `ScheduledTasksExtract` | `ScheduledTasksExtract` | Scheduled tasks extraction |
 | `NetworkIndicatorExtract` | `NetworkIndicatorExtract` | Network indicators extraction |
 
+`src/prompts/ExtractAgent` remains on disk but is not mapped into the v2 `Prompts` section or loaded by prompt bootstrap. `Agents.ExtractAgent` is model/provider fallback configuration only.
+
 ## Platform Detection Prompt
 
 | Seed File | Usage |
 |-----------|-------|
-| `OSDetectionAgent` | Seeded via `AGENT_PROMPT_FILES["OSDetectionAgent"]`. Platform detection is deterministic (entity/keyword registry), but the low-confidence tail is adjudicated by an LLM: `os_detection_node` resolves `agent_prompts["OSDetectionAgent"]` from the workflow config and passes it as the adjudicator's system prompt (`src/workflows/agentic_workflow.py`, `src/services/platform_adjudicator.py`) |
+| `OSDetectionAgent` | Seeded via `AGENT_PROMPT_FILES["OSDetectionAgent"]`. Platform detection is deterministic (entity/keyword registry), but the low-confidence tail is adjudicated by an LLM: `os_detection_node` resolves the legacy database/display key `agent_prompts["OSDetectionAgent"]` and passes it as the adjudicator's system prompt (`src/workflows/agentic_workflow.py`, `src/services/platform_adjudicator.py`). This compatibility key is not an `ALL_AGENT_NAMES` or v2 `Prompts` key. |
 
 ## Sigma Support Prompts
 
@@ -46,4 +47,4 @@ These agents have both a seed file in `src/prompts/` and a database entry in wor
 1. **Database** (workflow config `agent_prompts`) -- takes precedence
 2. **Seed file** (`src/prompts/`) -- fallback on bootstrap or reset
 
-_Last updated: 2026-07-04_
+_Last updated: 2026-08-13_

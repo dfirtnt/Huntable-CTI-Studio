@@ -45,7 +45,6 @@ After seeding, the MLOps page at **Settings → MLOps** shows version 1 and a gr
 curl -s http://localhost:8001/api/ml-model-performance/summary | python3 -m json.tool
 ```
 
-<!-- AUDIT: Accuracy -- this endpoint has no `model_loaded` or `current_version` field; corrected to the actual response shape. -->
 Expected response includes a `"summary"` object with `"total_model_versions": 1` (or higher) and a non-null `"eval_set_size"`.
 
 ---
@@ -60,7 +59,7 @@ curl -X POST http://localhost:8001/api/model/retrain
 
 ### What happens
 
-```
+```text
 Label feedback in UI
        ↓
 POST /api/model/retrain
@@ -99,7 +98,7 @@ The gate **only applies when `eval_set.csv` is present** (`using_curated_eval = 
 
 A rejection message like:
 
-```
+```text
 ❌ RETRAIN REJECTED: recall_huntable=0.08 (min 0.30), f1_huntable=0.12 (min 0.30).
    Staged model discarded; live model unchanged.
 ```

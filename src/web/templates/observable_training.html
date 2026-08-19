@@ -134,7 +134,7 @@
                 </thead>
                 <tbody class="bg-gray-800 border border-gray-700 divide-y divide-gray-200 dark:divide-gray-700" id="artifactTableBody">
                     <tr>
-                        <td colspan="5" class="px-4 py-4 text-center text-gray-500 dark:text-gray-400">Loading artifacts…</td>
+                        <td colspan="5" class="px-4 py-4 text-center text-gray-500 dark:text-gray-400">Loading artifacts...</td>
                     </tr>
                 </tbody>
             </table>
@@ -175,7 +175,7 @@
                 </thead>
                 <tbody class="bg-gray-800 border border-gray-700 divide-y divide-gray-200 dark:divide-gray-700" id="annotationsTableBody">
                     <tr>
-                        <td colspan="7" class="px-4 py-4 text-center text-gray-500 dark:text-gray-400">Loading annotations…</td>
+                        <td colspan="7" class="px-4 py-4 text-center text-gray-500 dark:text-gray-400">Loading annotations...</td>
                     </tr>
                 </tbody>
             </table>
@@ -321,7 +321,7 @@
 
         button.disabled = true;
         status.classList.remove("hidden");
-        status.textContent = `Submitting ${currentObservableType} training task…`;
+        status.textContent = `Submitting ${currentObservableType} training task...`;
         alertBox.classList.add("hidden");
 
         try {
@@ -488,6 +488,9 @@
         
         const modal = document.createElement("div");
         modal.className = "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50";
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Annotation');
         modal.innerHTML = `
             <div class="card-xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
                 <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Annotation ${id}</h3>
@@ -527,6 +530,9 @@
         editingAnnotationId = id;
         const modal = document.createElement("div");
         modal.className = "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50";
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Edit annotation');
         modal.innerHTML = `
             <div class="card-xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
                 <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Edit Annotation ${id}</h3>

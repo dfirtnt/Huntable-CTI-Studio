@@ -24,7 +24,7 @@ All scheduled/periodic jobs (Celery Beat + host crontab).
 |-----------------|------|-------------------|-------|
 | `embed-annotations-weekly` | `generate_annotation_embeddings` | Sunday 04:00 UTC | (default) |
 
-**Source:** `src/worker/celery_app.py` (`setup_periodic_tasks`), `src/worker/celeryconfig.py` (task_routes, task_queues).
+**Source:** `src/worker/celery_app.py` (`setup_periodic_tasks`) for jobs 1 and 6; `src/services/scheduled_jobs_service.py` and `src/worker/scheduled_jobs_scheduler.py` for configurable jobs 2–5; `src/worker/celeryconfig.py` for routes and queues.
 
 ---
 
@@ -54,11 +54,12 @@ without a restart:
 - `GET /api/scheduled-jobs` — returns the persisted state (enabled flag + cron expression) for
   each configurable job.
 - `PUT /api/scheduled-jobs` — body `{"jobs": {"<job_id>": {"enabled": bool, "cron": "<crontab expr>"}}}`.
-  Persists the config and an audit event (`scheduled_jobs.updated`) in one transaction, then
-  reloads Celery beat. `check_all_sources` and `index_customer_repo` are registered directly in
-  code (Section 1) and are not editable through this endpoint.
+  Persists the config and an audit event (`scheduled_jobs.updated`) in one transaction. The
+  database-backed scheduler polls for changes (every 30 seconds by default), so no process
+  restart or Celery Beat reload is required. `check_all_sources` and `index_customer_repo` are
+  registered directly in code (Section 1) and are not editable through this endpoint.
 
-**Source:** `src/web/routes/scheduled_jobs.py`, `src/services/scheduled_jobs_service.py`.
+**Source:** `src/web/routes/scheduled_jobs.py`, `src/services/scheduled_jobs_service.py`, `src/worker/scheduled_jobs_scheduler.py`.
 
 ---
 
@@ -74,8 +75,8 @@ without a restart:
 
 ## 4. Quick reference
 
-- **Celery Beat:** `src/worker/celery_app.py` (periodic registration), `src/worker/celeryconfig.py` (queues/routes).
+- **Celery scheduler:** `src/worker/celery_app.py` (static periodic registration), `src/worker/scheduled_jobs_scheduler.py` (database-backed schedules), `src/worker/celeryconfig.py` (queues/routes).
 - **Backup cron:** `src/services/backup_cron_service.py`, `config/backup.yaml`, `src/cli/commands/backup.py` (`backup cron`), `src/web/routes/backup.py` (`/api/backup/cron`).
 - **Generic crontab:** `src/cli/commands/cron.py` (`cron show` / `cron set`), `src/web/routes/cron.py` (`/api/cron`).
 
-_Last updated: 2026-07-05_
+_Last updated: 2026-08-13_

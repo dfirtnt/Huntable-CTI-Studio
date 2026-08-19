@@ -238,7 +238,6 @@ database automatically.
 ## Testing
 
 ### Updated Test Files
-<!-- AUDIT: Accuracy -- tests/api/test_ml_feedback.py and tests/integration/test_retraining_integration.py do not exist in the repo; replaced with the current equivalents. -->
 - `tests/api/test_model_endpoints_api.py` - API contract tests (`/api/model/retrain-status`, `/retrain`, `/eval-chunk-count`, `/feedback-count`, `/versions`)
 - `tests/scripts/test_retrain_fallback.py` - Retrain baseline/fallback workflow tests
 

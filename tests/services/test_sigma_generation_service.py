@@ -7,9 +7,12 @@ import pytest
 import yaml
 
 from src.services.sigma_generation_service import (
+    EXPANSION_MAX_CONTENT_CHARS,
+    EXPANSION_MAX_PROMPT_CHARS,
     SigmaGenerationService,
     _build_observables_section,
     _extract_message_text,
+    _extract_observables_used_fallback,
     _infer_observables_used,
     _is_reasoning_model,
 )
@@ -94,6 +97,12 @@ class TestIsReasoningModelEdgeCases:
     def test_none_model_name_does_not_crash(self):
         assert not _is_reasoning_model("lmstudio", None)
         assert _is_reasoning_model("openai", None)
+
+    def test_codex_provider_models_are_reasoning_style(self):
+        """Codex-provider models must get the reasoning budget, not the 800-token cap."""
+        assert _is_reasoning_model("codex", "gpt-5.6-sol")
+        assert _is_reasoning_model("codex", "gpt-5.6-luna")
+        assert _is_reasoning_model("codex", None)
 
 
 class TestSigmaGenerationService:
@@ -256,6 +265,71 @@ level: medium
                 extraction_result=_group("windows"),
             )
             assert all("LINUX TARGET GUIDANCE" not in p for p in _prompts(mock_gen))
+
+    @pytest.mark.asyncio
+    async def test_generate_sigma_rules_injects_category_guidance(
+        self, service, sample_article_data, sample_sigma_rule
+    ):
+        """Each per-group generation call tells the model which logsource.category it must
+        emit, so it stops returning the same process_creation spread for every group and
+        the caller's group/rule logsource match no longer discards most of the output."""
+
+        def _group(category, product="windows"):
+            ls = {"product": product, "category": category}
+            return {
+                "observables": [
+                    {
+                        "type": "registry_keys",
+                        "value": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+                        "platform": product,
+                        "telemetry_category": category,
+                        "logsource_hint": ls,
+                    }
+                ],
+                "sigma_generation_group": {
+                    "platform": product,
+                    "telemetry_category": category,
+                    "logsource_hint": ls,
+                },
+            }
+
+        def _prompts(mock):
+            return [c.kwargs.get("sigma_prompt", "") for c in mock.await_args_list]
+
+        with (
+            patch("src.services.sigma_generation_service.optimize_article_content") as mock_optimize,
+            patch("src.utils.prompt_loader.format_prompt_async", return_value="Generate SIGMA rules."),
+            patch.object(
+                service, "_generate_multi_rules", new_callable=AsyncMock, return_value=sample_sigma_rule
+            ) as mock_gen,
+        ):
+            mock_optimize.return_value = {
+                "success": True,
+                "filtered_content": sample_article_data["content"],
+                "tokens_saved": 0,
+            }
+
+            await service.generate_sigma_rules(
+                article_title=sample_article_data["title"],
+                article_content=sample_article_data["content"],
+                source_name=sample_article_data["source_name"],
+                url=sample_article_data["url"],
+                extraction_result=_group("registry_event"),
+            )
+            registry_prompts = _prompts(mock_gen)
+            assert any("LOGSOURCE TARGET FOR THIS GROUP" in p for p in registry_prompts)
+            assert any("logsource.category: registry_event" in p for p in registry_prompts)
+            assert any("logsource.product: windows" in p for p in registry_prompts)
+
+            mock_gen.reset_mock()
+            await service.generate_sigma_rules(
+                article_title=sample_article_data["title"],
+                article_content=sample_article_data["content"],
+                source_name=sample_article_data["source_name"],
+                url=sample_article_data["url"],
+                extraction_result=None,
+            )
+            assert all("LOGSOURCE TARGET FOR THIS GROUP" not in p for p in _prompts(mock_gen))
 
     @pytest.mark.asyncio
     async def test_generate_sigma_rules_with_retry(self, service, sample_article_data):
@@ -845,6 +919,78 @@ level: medium
                                     assert len(log_entry["repair_attempts"]) > 0
 
     @pytest.mark.asyncio
+    async def test_observables_used_survives_repair_of_yaml_invalid_escape(self, service, sample_article_data):
+        """Regression for execution 3778: observables_used must survive Phase 3 repair.
+
+        Reproduces the real-world failure end-to-end (not just at the _validate_all_rules
+        layer): the LLM emits a SIGMA-conventional but YAML-invalid escape
+        (``Image|endswith: "\\powershell.exe"``), which makes both the Phase 2
+        metadata-strip and the real (unmocked) validate_sigma_rule() fail on the exact
+        same "unknown escape character" error, sending the rule to repair. Before the
+        fix, observables_used was already None by the time repair ran and repair never
+        re-derives it, so the final rule_metadata permanently lost the grounding index.
+        """
+        invalid_rule = (
+            'title: "PowerShell DownloadString With Task Cleanup"\n'
+            "id: 8c6f2f6a-3f1c-4d9e-9a4e-5b4c9f6d1e72\n"
+            "status: experimental\n"
+            'description: "Detects PowerShell DownloadString usage."\n'
+            "logsource:\n  category: process_creation\n"
+            "detection:\n"
+            "  selection:\n"
+            '    Image|endswith: "\\powershell.exe"\n'
+            "  condition: selection\n"
+            "level: high\n"
+            "observables_used:\n  - 0\n"
+        )
+        # Mirrors real repair-LLM behavior: the repair prompt only sends validation
+        # errors plus a truncated YAML preview, so the repaired output does not restate
+        # observables_used. The fix must not depend on it being restated here.
+        repaired_rule = (
+            "title: PowerShell DownloadString With Task Cleanup\n"
+            "id: 8c6f2f6a-3f1c-4d9e-9a4e-5b4c9f6d1e72\n"
+            "status: experimental\n"
+            "description: Detects PowerShell DownloadString usage.\n"
+            "logsource:\n  category: process_creation\n"
+            "detection:\n"
+            "  selection:\n"
+            "    Image|endswith: '\\powershell.exe'\n"
+            "  condition: selection\n"
+            "level: high\n"
+        )
+        extraction_result = {"observables": [{"type": "cmdline", "value": "powershell downloadstring"}]}
+
+        with patch("src.services.sigma_generation_service.optimize_article_content") as mock_optimize:
+            mock_optimize.return_value = {
+                "success": True,
+                "filtered_content": sample_article_data["content"],
+                "tokens_saved": 0,
+            }
+
+            with patch("src.utils.prompt_loader.format_prompt_async") as mock_prompt:
+                mock_prompt.return_value = "Generate rule"
+
+                with patch.object(service, "_call_provider_for_sigma") as mock_call:
+                    # First call returns the escape-broken block; repair call fixes the escape.
+                    mock_call.side_effect = [invalid_rule, repaired_rule]
+
+                    # validate_sigma_rule runs for real here (not mocked) so the actual
+                    # YAML-escape failure -> repair transition is exercised, not simulated.
+                    result = await service.generate_sigma_rules(
+                        article_title=sample_article_data["title"],
+                        article_content=sample_article_data["content"],
+                        source_name=sample_article_data["source_name"],
+                        url=sample_article_data["url"],
+                        extraction_result=extraction_result,
+                        enable_multi_rule_expansion=False,
+                        max_repair_attempts_per_rule=1,
+                    )
+
+                    assert len(result["rules"]) == 1
+                    assert result["rules"][0]["observables_used"] == [0]
+                    assert result["rules"][0]["generation_phase"] == "generation"
+
+    @pytest.mark.asyncio
     async def test_generate_sigma_rules_expansion_phase(self, service, sample_article_data):
         """Test artifact-driven expansion phase."""
         extraction_result = {
@@ -1021,6 +1167,10 @@ level: medium
                     assert result.get("errors") is None
                     assert len(result["rules"]) == 1
                     assert result["rules"][0]["title"] == "Process Creation Rule"
+                    # ...but the swallowed reason must still be reported, otherwise a run that
+                    # lost every expansion rule looks identical to a fully successful one.
+                    assert "ValueError" in result["metadata"]["expansion_error"]
+                    assert "empty response" in result["metadata"]["expansion_error"]
 
     @pytest.mark.asyncio
     async def test_generate_sigma_rules_rule_scoped_logging(self, service, sample_article_data, sample_sigma_rule):
@@ -1053,6 +1203,9 @@ level: medium
                             source_name=sample_article_data["source_name"],
                             url=sample_article_data["url"],
                         )
+
+                        # A run with no expansion failure must report no expansion error.
+                        assert result["metadata"]["expansion_error"] is None
 
                         # Check rule-scoped logging structure
                         conversation_log = result["metadata"].get("conversation_log", [])
@@ -1160,6 +1313,7 @@ level: low
 
                         assert len(result["rules"]) == 1
                         assert result["rules"][0].get("observables_used") == [0, 1]
+                        assert result["rules"][0].get("generation_phase") == "generation"
                         assert len(validated_yaml) == 1
                         parsed_validated = yaml.safe_load(validated_yaml[0])
                         assert "observables_used" not in parsed_validated
@@ -1292,6 +1446,42 @@ level: low
         assert output.startswith("title: Test Rule")
         request_kwargs = service.llm_service.request_chat.call_args.kwargs
         assert request_kwargs["max_tokens"] == 10000
+
+    @pytest.mark.asyncio
+    async def test_call_provider_for_sigma_codex_uses_reasoning_max_tokens(self, service):
+        """Regression: codex-provider models fell through to the 800-token non-reasoning budget.
+
+        For Codex, max_tokens is not an API cap -- it is rendered into the prompt as an
+        output-length instruction -- so 800 told the model to stop after roughly one rule.
+        """
+        service.llm_service.provider_sigma = "codex"
+        service.llm_service.model_sigma = "gpt-5.6-sol"
+        service.llm_service.provider_defaults = {"codex": "gpt-5.6-luna"}
+        service.llm_service.temperature_sigma = 1.0
+        service.llm_service.top_p_sigma = 1.0
+        service.llm_service.seed = None
+        service.llm_service._convert_messages_for_model = Mock(side_effect=lambda messages, _model: messages)
+        service.llm_service.request_chat = AsyncMock(
+            return_value={
+                "choices": [
+                    {
+                        "message": {"content": "title: Codex Rule\nid: codex-rule\n"},
+                        "finish_reason": "stop",
+                    }
+                ],
+                "usage": {"prompt_tokens": 10, "completion_tokens": 200, "total_tokens": 210},
+            }
+        )
+
+        with (
+            patch("src.services.sigma_generation_service.trace_llm_call", return_value=contextlib.nullcontext(None)),
+            patch("src.services.sigma_generation_service.log_llm_completion"),
+            patch("src.services.sigma_generation_service.log_llm_error"),
+        ):
+            output = await service._call_provider_for_sigma("prompt", provider="codex")
+
+        assert output.startswith("title: Codex Rule")
+        assert service.llm_service.request_chat.call_args.kwargs["max_tokens"] == 10000
 
 
 # ---------------------------------------------------------------------------
@@ -1859,6 +2049,77 @@ class TestInferObservablesUsedTokenQuality:
         assert result is None
 
 
+class TestExtractObservablesUsedFallback:
+    """Regression tests for the regex-based observables_used recovery path.
+
+    Reproduces the bug found in workflow execution 3778: a block-style
+    ``Image|endswith: "\\powershell.exe"`` value is valid SIGMA convention but an
+    invalid YAML double-quoted escape, so ``yaml.safe_load`` raises and the metadata
+    pop that extracts ``observables_used`` never runs. Because the rule then goes
+    through repair (which only rewrites ``rule_yaml`` and never re-derives
+    ``observables_used``), the field was lost permanently. The fallback must recover
+    it directly from the raw text so it survives independent of whether the rest of
+    the block parses as YAML.
+    """
+
+    def test_recovers_flow_style_list_from_yaml_invalid_block(self):
+        block = (
+            'title: "Bad Escape Rule"\n'
+            "logsource:\n  category: process_creation\n"
+            "detection:\n  selection:\n"
+            '    Image|endswith: "\\powershell.exe"\n'
+            "  condition: selection\n"
+            "observables_used: [0, 3]\n"
+        )
+        assert _extract_observables_used_fallback(block) == [0, 3]
+
+    def test_recovers_block_style_list_from_yaml_invalid_block(self):
+        block = (
+            'title: "Bad Escape Rule"\n'
+            "logsource:\n  category: process_creation\n"
+            "detection:\n  selection:\n"
+            '    Image|endswith: "\\powershell.exe"\n'
+            "  condition: selection\n"
+            "observables_used:\n  - 0\n"
+        )
+        assert _extract_observables_used_fallback(block) == [0]
+
+    def test_recovers_explicit_empty_list(self):
+        block = 'title: "Bad Escape Rule"\nImage|endswith: "\\cmd.exe"\nobservables_used: []\n'
+        assert _extract_observables_used_fallback(block) == []
+
+    def test_returns_none_when_field_absent(self):
+        block = 'title: "Bad Escape Rule"\nImage|endswith: "\\cmd.exe"\n'
+        assert _extract_observables_used_fallback(block) is None
+
+    @pytest.mark.asyncio
+    async def test_phase2_recovers_observables_used_for_yaml_invalid_block(self):
+        """End-to-end: _validate_all_rules must not lose observables_used just because
+        the block also fails full YAML parsing (the real-world failure mode)."""
+        service = SigmaGenerationService.__new__(SigmaGenerationService)
+        generated_yaml = (
+            'title: "PowerShell DownloadString With Task Cleanup"\n'
+            "id: 8c6f2f6a-3f1c-4d9e-9a4e-5b4c9f6d1e72\n"
+            "status: experimental\n"
+            'description: "Detects PowerShell DownloadString usage."\n'
+            "logsource:\n  category: process_creation\n"
+            "detection:\n"
+            "  selection:\n"
+            '    Image|endswith: "\\powershell.exe"\n'
+            "  condition: selection\n"
+            "level: high\n"
+            "observables_used:\n  - 0\n"
+        )
+        extraction_result = {"observables": [{"type": "cmdline", "value": "powershell downloadstring"}]}
+        results = service._validate_all_rules(generated_yaml, extraction_result=extraction_result)
+        assert len(results.all_rules) == 1
+        rule = results.all_rules[0]
+        # The escape issue still fails strict validation (expected -- repair handles that),
+        # but the grounding index must not be silently dropped along with it.
+        assert rule.observables_used == [0]
+        assert rule.observables_used_inferred is False
+
+
 class TestSigmaExpansionCoverage:
     """Expansion helpers should lock uncovered observable categories without LLM calls."""
 
@@ -1965,6 +2226,98 @@ class TestSigmaExpansionCoverage:
         assert "conn-6" not in prompt
         assert "Base prompt with observables" in prompt
         assert mock_prompt.await_args.kwargs["observables_section"]
+
+    @pytest.mark.asyncio
+    async def test_build_expansion_prompt_scopes_observables_and_caps_article_content(self):
+        """Expansion must not re-embed the full article under a full observable dump."""
+        service = self._service()
+        extraction_result = {
+            "observables": [
+                {"type": "cmdline", "value": "wmic /namespace:SecurityCenter2"},
+                {"type": "network_connection", "value": "203.0.113.10:443"},
+            ],
+            "subresults": {"network_connection": {"count": 1, "items": ["203.0.113.10:443"]}},
+        }
+
+        with patch("src.utils.prompt_loader.format_prompt_async", new_callable=AsyncMock) as mock_prompt:
+            mock_prompt.return_value = "Base prompt"
+
+            await service._build_expansion_prompt(
+                sigma_prompt_template=None,
+                article_title="Title",
+                source_name="Source",
+                url="https://example.test/report",
+                content_to_analyze="A" * (EXPANSION_MAX_CONTENT_CHARS + 5000),
+                uncovered_categories=["network_connection"],
+                extraction_result=extraction_result,
+            )
+
+        kwargs = mock_prompt.await_args.kwargs
+        assert len(kwargs["content"]) < EXPANSION_MAX_CONTENT_CHARS + 200
+        assert "[Article truncated for expansion phase]" in kwargs["content"]
+        # Only the uncovered category's observables survive, at their original index.
+        assert "[1] network_connection" in kwargs["observables_section"]
+        assert "cmdline" not in kwargs["observables_section"]
+
+    @pytest.mark.asyncio
+    async def test_build_expansion_prompt_truncates_oversized_prompt(self):
+        service = self._service()
+
+        with patch("src.utils.prompt_loader.format_prompt_async", new_callable=AsyncMock) as mock_prompt:
+            mock_prompt.return_value = "B" * (EXPANSION_MAX_PROMPT_CHARS + 10000)
+
+            prompt = await service._build_expansion_prompt(
+                sigma_prompt_template=None,
+                article_title="Title",
+                source_name="Source",
+                url="https://example.test/report",
+                content_to_analyze="content",
+                uncovered_categories=["network_connection"],
+                extraction_result={"observables": [], "subresults": {}},
+            )
+
+        assert len(prompt) < EXPANSION_MAX_PROMPT_CHARS + 200
+        assert prompt.endswith("[Expansion prompt truncated to fit provider limits]")
+
+
+class TestBuildObservablesSectionTypeFilter:
+    """include_types must narrow the dump while preserving full-list 0-based indices."""
+
+    def test_filter_keeps_original_indices(self):
+        extraction_result = {
+            "observables": [
+                {"type": "cmdline", "value": "powershell -enc"},
+                {"type": "registry_keys", "value": "HKLM\\Run"},
+                {"type": "network_connection", "value": "203.0.113.10"},
+            ]
+        }
+
+        section = _build_observables_section(extraction_result, include_types={"network_connection"})
+
+        assert "[2] network_connection: 203.0.113.10" in section
+        assert "cmdline" not in section
+        assert "registry_keys" not in section
+
+    def test_no_filter_returns_every_observable(self):
+        extraction_result = {"observables": [{"type": "cmdline", "value": "whoami"}]}
+
+        assert "[0] cmdline: whoami" in _build_observables_section(extraction_result)
+
+    def test_filter_matching_nothing_drops_the_grounding_contract(self):
+        """Boundary: an empty filter result yields no section at all, not an empty list.
+
+        The section carries the "REQUIRED: ... observables_used" instruction, so when the
+        uncovered category maps to observable types this article does not have, the
+        expansion turn is sent with no grounding contract. Pinned as the documented
+        behavior -- if this is ever judged wrong, the fix belongs in the caller choosing
+        not to expand, not in emitting a header with zero observables under it.
+        """
+        extraction_result = {"observables": [{"type": "cmdline", "value": "whoami"}]}
+
+        section = _build_observables_section(extraction_result, include_types={"registry_keys"})
+
+        assert section == ""
+        assert "REQUIRED" in _build_observables_section(extraction_result)
 
 
 # ---------------------------------------------------------------------------

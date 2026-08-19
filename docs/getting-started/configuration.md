@@ -67,6 +67,7 @@ To resolve conflicts, either stop the conflicting service or change the host por
 |----------|---------|---------|----------|
 | `DATABASE_URL` | PostgreSQL connection string | Built by Docker Compose from `POSTGRES_PASSWORD` (see `.env.example`); not a literal default in repo | Yes |
 | `POSTGRES_PASSWORD` | PostgreSQL password | — | **Yes** |
+| `MAINTENANCE_API_TOKEN` | Shared secret for internal web-to-maintenance backup/restore requests | — | **Yes** when using web backup/restore |
 | `REDIS_URL` | Redis connection | `redis://redis:6379/0` | Yes |
 | `SOURCES_CONFIG` | Path to sources YAML | `config/sources.yaml` | No |
 | `ENVIRONMENT` | Environment name | `development` | No |
@@ -102,10 +103,24 @@ Auth, RBAC, and CSRF are configured entirely via environment variables (`AUTH_MO
 | `WORKFLOW_OPENAI_ENABLED` | Enable OpenAI in workflows | DB setting |
 | `WORKFLOW_ANTHROPIC_ENABLED` | Enable Anthropic in workflows | DB setting |
 | `WORKFLOW_LMSTUDIO_ENABLED` | Enable LM Studio in workflows | DB setting |
+| `WORKFLOW_CODEX_ENABLED` | Enable the deployment-managed Codex subscription in workflows | `false` |
 | `WORKFLOW_OPENAI_MODEL` | OpenAI model for workflows | `gpt-4o-mini` |
 | `WORKFLOW_ANTHROPIC_MODEL` | Anthropic model for workflows | `claude-sonnet-4-5` |
+| `WORKFLOW_CODEX_MODEL` | Fallback Codex workflow model when the subscription cannot list models | `gpt-5.6-luna` |
 
-### LM Studio Configuration
+### Optional Codex Subscription Provider
+
+Codex uses its own managed ChatGPT authentication; do not configure a subscription credential as an API key. Set `WORKFLOW_CODEX_ENABLED=true`, then authenticate the shared workflow-worker state volume once:
+
+```bash
+docker compose exec workflow_worker codex login
+```
+
+The workflow configuration UI lists the models available to that login. Use the **Test subscription** control in Settings (or `POST /api/settings/codex/test`) to verify connectivity without running a workflow.
+
+### Optional LM Studio LLM Provider
+
+LM Studio is not an application dependency. Configure this section only if you choose LM Studio for LLM inference. Embeddings are generated inside the application with sentence-transformers and do not call LM Studio.
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
@@ -114,14 +129,12 @@ Auth, RBAC, and CSRF are configured entirely via environment variables (`AUTH_MO
 | `LMSTUDIO_MODEL_RANK` | Model for ranking agent | `qwen/qwen3-4b-2507` (hardcoded in `docker-compose.yml`; `.env` value is not passed through) |
 | `LMSTUDIO_MODEL_EXTRACT` | Model for extraction agent | `qwen/qwen3-4b-2507` |
 | `LMSTUDIO_MODEL_SIGMA` | Model for Sigma generation | `qwen/qwen3-4b-2507` |
-| `LMSTUDIO_EMBEDDING_URL` | Embedding API URL | `http://host.docker.internal:1234/v1/embeddings` |
-| `LMSTUDIO_EMBEDDING_MODEL` | Embedding model | `text-embedding-e5-base-v2` |
 | `LMSTUDIO_TEMPERATURE` | LLM temperature | — |
 | `LMSTUDIO_TOP_P` | Top-p sampling | — |
 | `LMSTUDIO_SEED` | Random seed for reproducibility | — |
 | `LMSTUDIO_MAX_CONTEXT` | Max context window size | — |
 
-**Note**: LM Studio runs on your host machine. The `host.docker.internal` hostname allows Docker containers to reach services on the host. You can also set `LMSTUDIO_API_URL` and `LMSTUDIO_EMBEDDING_URL` in **Settings -> Agentic Workflow Configuration** (LM Studio section); those values override `.env`. Context length is configured per-model via `LMSTUDIO_CONTEXT_LENGTH_<model_slug>` in `docker-compose.yml` and can differ between web and worker services. See [LM Studio Integration](../llm/lmstudio.md#context-length) for details.
+**Note**: When the optional LM Studio LLM provider is enabled, it runs on your host machine. The `host.docker.internal` hostname allows Docker containers to reach that host service. Set `LMSTUDIO_API_URL` in **Settings -> Agentic Workflow Configuration**. Context length is configured per model via `LMSTUDIO_CONTEXT_LENGTH_<model_slug>` in `docker-compose.yml` and can differ between web and worker services. Old `.env` entries named `LMSTUDIO_EMBEDDING_URL` or `LMSTUDIO_EMBEDDING_MODEL` are obsolete and can be deleted. See [LM Studio Integration](../llm/lmstudio.md#context-length) for details.
 
 ## Workflow Presets
 
@@ -138,6 +151,9 @@ Quickstart presets (v2 format, always committed to the repo) are in `config/pres
 | `Quickstart-openai-gpt-4o.json` | OpenAI | gpt-4o | You have `OPENAI_API_KEY` and want gpt-4o. |
 | `Quickstart-openai-gpt-4o-mini.json` | OpenAI | gpt-4o-mini | You have `OPENAI_API_KEY` and want the gpt-4o-mini variant. |
 | `Quickstart-openai-gpt-5.json` | OpenAI | gpt-5 | You have `OPENAI_API_KEY` and want gpt-5. |
+| `Quickstart-codex-gpt-5.6-sol.json` | Codex | gpt-5.6-sol | You have a connected Codex subscription and want gpt-5.6-sol for all agents. |
+| `Quickstart-codex-gpt-5.6-terra.json` | Codex | gpt-5.6-terra | You have a connected Codex subscription and want gpt-5.6-terra for all agents. |
+| `Quickstart-codex-gpt-5.6-luna.json` | Codex | gpt-5.6-luna | You have a connected Codex subscription and want gpt-5.6-luna for all agents. |
 | `Quickstart-LMStudio-Qwen3.json` | LM Studio | Qwen 3 (local) | You run LM Studio with a Qwen3-compatible model. |
 | `Quickstart-LMStudio-Gemma4B.json` | LM Studio | Gemma 4B (local) | You run LM Studio with a Gemma 4B-compatible model. |
 
@@ -176,14 +192,14 @@ python3 scripts/build_baseline_presets.py
 |----------|---------|-------|
 | `LANGFUSE_PUBLIC_KEY` | Langfuse public key | Required to enable tracing |
 | `LANGFUSE_SECRET_KEY` | Langfuse secret key | Required to enable tracing |
-| `LANGFUSE_HOST` | Langfuse Cloud host URL | Optional; runtime default is `https://cloud.langfuse.com` |
+| `LANGFUSE_HOST` | Langfuse Cloud host URL | Optional; runtime default is `https://us.cloud.langfuse.com` |
 | `LANGFUSE_PROJECT_ID` | Langfuse project ID | Optional; improves workflow trace deep links in the UI |
 
 Configure Langfuse through environment variables or the Settings UI. Settings stored in the web UI take precedence over the same values in the environment.
 
 Huntable CTI Studio supports **Langfuse Cloud only**. Local or self-hosted Langfuse deployments are outside this project's supported and tested configurations.
 
-Set `LANGFUSE_HOST` to the correct Langfuse Cloud region for your account. If unset, the runtime defaults to `https://cloud.langfuse.com`. Common cloud hosts: `https://cloud.langfuse.com`, `https://us.cloud.langfuse.com`, `https://hipaa.cloud.langfuse.com`.
+Set `LANGFUSE_HOST` to the correct Langfuse Cloud region for your account. If unset, the runtime defaults to `https://us.cloud.langfuse.com` (US). Common cloud hosts: `https://cloud.langfuse.com` (EU), `https://us.cloud.langfuse.com` (US), `https://hipaa.cloud.langfuse.com`. EU and US are separate Langfuse deployments -- keys from one region will not authenticate against the other.
 
 Security note: Langfuse receives workflow and LLM telemetry. Depending on the workflow path, traces may contain prompts, article content, extracted observables, outputs, and metadata. Enable Langfuse only where external cloud tracing is acceptable for your data.
 

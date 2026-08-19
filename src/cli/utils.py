@@ -1,9 +1,14 @@
 """CLI utility functions."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from rich.console import Console
 from rich.table import Table
 
-from src.core.fetcher import FetchResult
+if TYPE_CHECKING:
+    from src.core.fetcher import FetchResult
 
 console = Console()
 

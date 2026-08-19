@@ -569,7 +569,7 @@
     </div>
 
     <!-- ═══ Commandlines Modal ═══ -->
-    <div id="commandlinesModal" class="hidden fixed inset-0 eval-modal-backdrop z-50 flex items-center justify-center">
+    <div id="commandlinesModal" role="dialog" aria-modal="true" aria-label="Command lines" class="hidden fixed inset-0 eval-modal-backdrop z-50 flex items-center justify-center">
         <div class="eval-modal-content max-w-4xl w-full mx-4 max-h-[80vh] flex flex-col">
             <div class="flex justify-between items-center p-6" style="border-bottom: 1px solid rgba(139, 92, 246, 0.08);">
                 <h3 id="commandlinesModalTitle" class="eval-section-title">Extracted Results</h3>
@@ -726,8 +726,8 @@
                             <p class="font-semibold mb-1" style="color: var(--text-emphasis);">MAE chart metrics</p>
                             <ul class="space-y-1" style="line-height: 1.6;">
                                 <li><strong>MAE</strong> &mdash; avg(|actual&minus;expected|) in observable units; lower is better</li>
-                                <li><span style="display: inline-block; width: 0.6rem; height: 0.6rem; border-radius: 50%; background: #10b981; vertical-align: middle;" aria-hidden="true"></span> <strong>Green node</strong> &mdash; full eval set completed (every scheduled article reached <code>completed</code>)</li>
-                                <li><span style="display: inline-block; width: 0.6rem; height: 0.6rem; border-radius: 50%; background: #f59e0b; vertical-align: middle;" aria-hidden="true"></span> <strong>Amber node</strong> &mdash; degraded run: subset of eval articles selected, OR records failed/pending, OR any run was rate-limited or quota-exceeded (those keep <code>completed</code> status but the MAE is unreliable). Hover for the breakdown.</li>
+                                <li><span style="display: inline-block; width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--action-execute); vertical-align: middle;" aria-hidden="true"></span> <strong>Green node</strong> &mdash; full eval set completed (every scheduled article reached <code>completed</code>)</li>
+                                <li><span style="display: inline-block; width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--border-warning); vertical-align: middle;" aria-hidden="true"></span> <strong>Amber node</strong> &mdash; degraded run: subset of eval articles selected, OR records failed/pending, OR any run was rate-limited or quota-exceeded (those keep <code>completed</code> status but the MAE is unreliable). Hover for the breakdown.</li>
                             </ul>
                         </div>
                     </div>
@@ -778,7 +778,7 @@ async function loadActiveConfig() {
         console.error('Error loading active config:', error);
         const configDisplay = document.getElementById('configDisplay');
         if (configDisplay) {
-            // Note: hardcoded error string, no user content — safe use of innerHTML
+            // Note: hardcoded error string, no user content  --  safe use of innerHTML
             configDisplay.innerHTML = '<p class="text-sm text-red-600 dark:text-red-400">Error loading config</p>';
         }
     }
@@ -1084,7 +1084,7 @@ function updateRunButton() {
     const runBtn = document.getElementById('runEvalBtn');
     runBtn.disabled = selectedArticleUrls.size === 0 || !_configIsRunnable;
     if (!_configIsRunnable) {
-        runBtn.title = 'No agents configured — set up models in Settings → Workflow Config first.';
+        runBtn.title = 'No agents configured  --  set up models in Settings → Workflow Config first.';
     } else {
         runBtn.title = '';
     }
@@ -1191,7 +1191,7 @@ function showHelp(fieldName) {
     modal.style.backdropFilter = 'blur(4px)';
     modal.innerHTML = `
         <div class="eval-help-modal-card w-full max-w-3xl max-h-[85vh] overflow-y-auto">
-            <div class="p-6 sm:p-7">
+            <div class="p-6">
                 <div class="flex justify-between items-start gap-4 mb-5">
                     <h3 class="text-lg font-semibold" style="color: var(--text-primary);">${help.title}</h3>
                     <button type="button" onclick="closeAgentEvalsHelpModal()" class="text-gray-400 hover:text-gray-200 focus:outline-none" aria-label="Close help modal">
@@ -1358,7 +1358,7 @@ async function runEvaluation() {
         const executions = data.executions || [];
         
         if (executions.length > 0) {
-            // Some or all articles used workflow executions (DB path) — poll until they complete
+            // Some or all articles used workflow executions (DB path)  --  poll until they complete
             statusText.textContent = `✅ Triggered ${executions.length} executions. Polling for results...`;
             statusText.className = 'text-sm text-gray-600 dark:text-gray-400';
             executionResults = {};
@@ -1373,7 +1373,7 @@ async function runEvaluation() {
             }
             await pollSubagentResults(executions);
         } else {
-            // All articles were evaluated from static files (no workflow executions) — refresh results immediately
+            // All articles were evaluated from static files (no workflow executions)  --  refresh results immediately
             statusText.textContent = `✅ Evaluated ${totalArticles} article(s) from static files. Refreshing results...`;
             statusText.className = 'text-sm text-green-600 dark:text-green-400';
             document.getElementById('evalSpinner').classList.add('hidden');
@@ -1398,7 +1398,13 @@ async function pollSubagentResults(executions) {
     let attempts = 0;
     let pollInterval = null;
     let isPolling = true;
-    
+    // Transient-failure tolerance. A dev hot-reload restart can leave the server
+    // unreachable for ~45s; a single failed poll must NOT abandon a live run.
+    // Tolerate this many consecutive failures (~60s at the 2s interval) before
+    // surfacing a hard error, and reset the counter on any successful poll.
+    let consecutiveFailures = 0;
+    const maxConsecutiveFailures = 30;
+
     // Preserve current run's execution map (caller already set executionResults; do not clear)
     if (executions && executions.length > 0) {
         executionResults = {};
@@ -1426,12 +1432,15 @@ async function pollSubagentResults(executions) {
             // Poll subagent eval results instead of individual executions
             const subagent = currentSubagent;
             const response = await fetch(`/api/evaluations/subagent-eval-results?subagent=${subagent}`);
-            
-                        if (!response.ok) {
+
+            if (!response.ok) {
                 console.warn(`Failed to get eval results: ${response.status}`);
+                handlePollFailure(`server returned ${response.status}`);
                 return;
             }
-            
+
+            // Successful reach: clear any transient-failure streak.
+            consecutiveFailures = 0;
             const data = await response.json();
             const results = data.results || [];
             
@@ -1560,19 +1569,47 @@ async function pollSubagentResults(executions) {
                     loadPreviousResults();
                 }, 100);
             } else if (isPolling) {
-                // Schedule next poll
-                pollInterval = setTimeout(pollOnce, 2000);
+                scheduleNext();
             }
         } catch (error) {
-            console.error('Error in polling:', error);
-            if (pollInterval) {
-                clearInterval(pollInterval);
-                pollInterval = null;
+            // Network-level failure (e.g. server mid hot-reload -> "Failed to fetch").
+            // Do NOT tear the loop down: the eval keeps running server-side and the
+            // endpoint recovers within seconds. Retry until the streak cap is hit.
+            console.warn('Transient polling error, will retry:', error);
+            handlePollFailure(error.message);
+        }
+
+        // Schedule the next poll unless the overall attempt budget is exhausted.
+        function scheduleNext() {
+            if (!isPolling) return;
+            if (attempts >= maxAttempts) {
+                isPolling = false;
+                statusText.textContent = `⚠️ Stopped polling after ${maxAttempts} attempts. Use "Load Previous Results" to refresh.`;
+                statusText.className = 'text-sm text-yellow-600 dark:text-yellow-400';
+                document.getElementById('evalSpinner').classList.add('hidden');
+                return;
             }
-            isPolling = false;
-            statusText.textContent = `❌ Error polling results: ${error.message}`;
-            statusText.className = 'text-sm text-red-600 dark:text-red-400';
-            document.getElementById('evalSpinner').classList.add('hidden');
+            pollInterval = setTimeout(pollOnce, 2000);
+        }
+
+        // A failed poll (bad HTTP status or network throw) keeps the run alive across
+        // transient outages; only gives up after maxConsecutiveFailures in a row.
+        function handlePollFailure(reason) {
+            consecutiveFailures++;
+            if (consecutiveFailures >= maxConsecutiveFailures) {
+                if (pollInterval) {
+                    clearTimeout(pollInterval);
+                    pollInterval = null;
+                }
+                isPolling = false;
+                statusText.textContent = `❌ Lost connection to server after ${consecutiveFailures} attempts (${reason}). Use "Load Previous Results" once it is back.`;
+                statusText.className = 'text-sm text-red-600 dark:text-red-400';
+                document.getElementById('evalSpinner').classList.add('hidden');
+                return;
+            }
+            statusText.textContent = `⏳ Reconnecting to server (attempt ${consecutiveFailures}/${maxConsecutiveFailures})…`;
+            statusText.className = 'text-sm text-yellow-600 dark:text-yellow-400';
+            scheduleNext();
         }
     };
 
@@ -1716,16 +1753,16 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
                     html += `<span class="status-badge ${statusClass} text-xs px-1.5 py-0.5">${result.status}</span>`;
                 }
                 if (result.quota_exceeded) {
-                    html += `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.35rem; line-height: 1.1; background: rgba(220,38,38,0.12); color: #f87171; border-color: rgba(220,38,38,0.35);" title="OpenAI quota exhausted -- billing cap reached. Add credits to your OpenAI account.">no quota</span>`;
+                    html += `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.35rem; line-height: 1.1; background: rgba(220,38,38,0.12); color: var(--status-danger-text); border-color: rgba(220,38,38,0.35);" title="OpenAI quota exhausted -- billing cap reached. Add credits to your OpenAI account.">no quota</span>`;
                 }
                 if (result.throttled) {
                     html += `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.35rem; line-height: 1.1;" title="TPM RATE LIMIT">&#9888;</span>`;
                 }
                 if (result.context_length_exceeded) {
-                    html += `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.35rem; line-height: 1.1; background: rgba(234,88,12,0.12); color: #ea580c; border-color: rgba(234,88,12,0.35);" title="Context window exceeded -- article was too long for the model. No items were extracted.">ctx&#8599;</span>`;
+                    html += `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.35rem; line-height: 1.1; background: rgba(234,88,12,0.12); color: var(--status-warning-text); border-color: rgba(234,88,12,0.35);" title="Context window exceeded -- article was too long for the model. No items were extracted.">ctx&#8599;</span>`;
                 }
                 if (result.infra_not_ready) {
-                    html += `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.35rem; line-height: 1.1; background: rgba(99,102,241,0.12); color: #818cf8; border-color: rgba(99,102,241,0.35);" title="LMStudio was not ready when this ran -- model not loaded. Re-run to get a real result.">no mdl</span>`;
+                    html += `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.35rem; line-height: 1.1; background: rgba(99,102,241,0.12); color: var(--status-info-text); border-color: rgba(99,102,241,0.35);" title="LMStudio was not ready when this ran -- model not loaded. Re-run to get a real result.">no mdl</span>`;
                 }
                 // Placeholder span filled by applyDiagnosisCounts() after table renders
                 if (result.execution_id) {
@@ -1793,7 +1830,7 @@ function renderSubagentResults(results) {
         let articleIdCell;
         if (showTitle) {
             const escapedTitle = result.title.trim().replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-            const displayTitle = escapedTitle.length > 50 ? escapedTitle.substring(0, 47) + '…' : escapedTitle;
+            const displayTitle = escapedTitle.length > 50 ? escapedTitle.substring(0, 47) + '...' : escapedTitle;
             articleIdCell = articleId != null
                 ? `<a href="/articles/${articleId}" class="text-blue-600 dark:text-blue-400 hover:underline" title="${tooltip}">${displayTitle}</a>`
                 : `<span class="text-gray-700 dark:text-gray-300" title="${tooltip}">${displayTitle}</span>`;
@@ -2428,7 +2465,7 @@ async function loadAggregateScores() {
             }
             
             const quotaChip = (agg.quota_exceeded && agg.quota_exceeded > 0)
-                ? `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.45rem; margin-left: 0.5rem; background: rgba(220,38,38,0.12); color: #f87171; border-color: rgba(220,38,38,0.35);" title="OpenAI quota exhausted -- ${agg.quota_exceeded} article${agg.quota_exceeded === 1 ? '' : 's'} failed due to billing cap. Add credits to your OpenAI account.">${agg.quota_exceeded} quota exceeded</span>`
+                ? `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.45rem; margin-left: 0.5rem; background: rgba(220,38,38,0.12); color: var(--status-danger-text); border-color: rgba(220,38,38,0.35);" title="OpenAI quota exhausted -- ${agg.quota_exceeded} article${agg.quota_exceeded === 1 ? '' : 's'} failed due to billing cap. Add credits to your OpenAI account.">${agg.quota_exceeded} quota exceeded</span>`
                 : '';
             const throttledChip = (agg.throttled && agg.throttled > 0)
                 ? `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.45rem; margin-left: 0.5rem;" title="TPM RATE LIMIT - ${agg.throttled} article${agg.throttled === 1 ? '' : 's'} were throttled in this run. Raise Concurrency Throttle and re-run.">&#9888; ${agg.throttled} throttled</span>`
@@ -3446,8 +3483,8 @@ function renderCompareResult(data) {
     const maeB = aggB.raw_mae;
     let maeArrow = '';
     if (maeA != null && maeB != null) {
-        if (maeB < maeA) maeArrow = ' <span style="color:#34d399;">(down)</span>';
-        else if (maeB > maeA) maeArrow = ' <span style="color:#f87171;">(up)</span>';
+        if (maeB < maeA) maeArrow = ' <span style="color:var(--status-success-text);">(down)</span>';
+        else if (maeB > maeA) maeArrow = ' <span style="color:var(--status-danger-text);">(up)</span>';
         else maeArrow = ' <span style="color:var(--text-muted);">(same)</span>';
     }
 

@@ -73,6 +73,10 @@ class TestLLMService:
         assert service._canonicalize_provider("chatgpt") == "openai"
         assert service._canonicalize_provider("gpt-4o") == "openai"
 
+    def test_canonicalize_provider_codex(self, service):
+        assert service._canonicalize_provider("codex") == "codex"
+        assert service._canonicalize_provider("openai-codex") == "codex"
+
     def test_canonicalize_provider_anthropic(self, service):
         """Test provider canonicalization for Anthropic."""
         assert service._canonicalize_provider("anthropic") == "anthropic"
@@ -370,6 +374,58 @@ class TestLLMService:
                 temperature=0.7,
                 timeout=30.0,
                 failure_context="test_empty_messages",
+            )
+
+    @pytest.mark.asyncio
+    async def test_request_chat_codex_disabled_raises(self, service):
+        """Codex provider must be gated on WORKFLOW_CODEX_ENABLED like the others."""
+        with pytest.raises(RuntimeError, match="Codex subscription provider is disabled"):
+            await service.request_chat(
+                provider="codex",
+                model_name="gpt-5.6-luna",
+                messages=[{"role": "user", "content": "hello"}],
+                max_tokens=128,
+                temperature=0.7,
+                timeout=30.0,
+                failure_context="codex-disabled",
+            )
+
+    @pytest.mark.asyncio
+    async def test_request_chat_codex_routes_to_app_server_client(self, service):
+        """Enabled Codex provider must dispatch through the isolated app-server client."""
+        service.workflow_codex_enabled = True
+        with patch("src.services.llm_client.CodexAppServerClient") as client_cls:
+            client_cls.return_value.complete = AsyncMock(
+                return_value={"choices": [{"message": {"content": "ok"}}], "model": "gpt-5.6-luna"}
+            )
+
+            result = await service.request_chat(
+                provider="codex",
+                model_name="gpt-5.6-luna",
+                messages=[{"role": "user", "content": "hello"}],
+                max_tokens=128,
+                temperature=0.7,
+                timeout=30.0,
+                failure_context="codex-route",
+            )
+
+        assert result["choices"][0]["message"]["content"] == "ok"
+        client_cls.assert_called_once_with(timeout=30.0)
+        client_cls.return_value.complete.assert_awaited_once()
+        kwargs = client_cls.return_value.complete.await_args.kwargs
+        assert kwargs["model_name"] == "gpt-5.6-luna"
+        assert kwargs["max_tokens"] == 128
+        assert kwargs["messages"] == [{"role": "user", "content": "hello"}]
+
+    @pytest.mark.asyncio
+    async def test_call_codex_chat_empty_messages_raises(self, service):
+        """Defense-in-depth circuit breaker at the Codex dispatch seam."""
+        with pytest.raises(PreprocessInvariantError, match="Codex path"):
+            await service._call_codex_chat(
+                messages=[],
+                model_name="gpt-5.6-luna",
+                max_tokens=128,
+                timeout=30.0,
             )
 
     def test_truncate_content(self, service):

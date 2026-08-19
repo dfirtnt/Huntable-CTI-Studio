@@ -47,7 +47,7 @@ The **MAE by Config Version** chart tracks extraction accuracy over time.
 
 ### MAE — Mean Absolute Error
 
-```
+```text
 MAE = mean( |actual - expected| )  in observable units
 ```
 
@@ -91,7 +91,7 @@ staggers their start times so they don't all hit the LLM simultaneously.
 
 **How the stagger works:**
 
-```
+```text
 countdown(article N) = N x (0.2 s base + concurrency_throttle_seconds)
 ```
 
@@ -105,7 +105,7 @@ top of that floor and is the primary knob for controlling LLM fan-out.
 
 **Estimating the dispatch window:**
 
-```
+```text
 window = (article_count - 1) x (0.2 + throttle_seconds)
 ```
 
@@ -166,7 +166,7 @@ A contract test (`tests/quality/test_eval_articles_sync.py`) enforces the sync a
 4. **Run the contract test** to confirm both files agree:
 
    ```bash
-   python3 run_tests.py -k test_eval_articles_sync
+   python3 run_tests.py unit --paths tests/quality/test_eval_articles_sync.py
    ```
 
 5. **Commit** both the updated `articles.json` and `eval_articles.yaml`.
@@ -182,7 +182,7 @@ A contract test (`tests/quality/test_eval_articles_sync.py`) enforces the sync a
 3. **Run the contract test** to confirm no drift remains:
 
    ```bash
-   python3 run_tests.py -k test_eval_articles_sync
+   python3 run_tests.py unit --paths tests/quality/test_eval_articles_sync.py
    ```
 
 4. **Commit** both files.
@@ -199,10 +199,10 @@ Edit `config/eval_articles.yaml` only — change the `expected_count` value for 
 
 ### Quick checklist
 
-```
+```text
 [ ] Change made in eval_articles.yaml
 [ ] Matching change made in articles.json (add/remove only; count changes skip this)
-[ ] python3 run_tests.py -k test_eval_articles_sync  ->  passes
+[ ] python3 run_tests.py unit --paths tests/quality/test_eval_articles_sync.py  ->  passes
 [ ] Both files committed together
 ```
 
@@ -471,4 +471,4 @@ config version without manually re-selecting articles.
 | Zero-count cells with no error | Model ran but returned empty array; inspect `_llm_response` in the execution detail |
 | Same article appearing in multiple versions with identical output | Idempotency not enforced; manual re-runs use the force flag to bypass |
 
-_Last updated: 2026-08-03_
+_Last updated: 2026-08-13_

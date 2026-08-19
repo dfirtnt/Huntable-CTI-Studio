@@ -7,7 +7,13 @@ model returned no items but expected_items still has ground truth).
 
 import pytest
 
-from src.services.eval_item_scorer import ItemScorerResult, calculate_f_beta, score_items
+from src.services.eval_item_scorer import (
+    ItemScorerResult,
+    calculate_f_beta,
+    item_candidates,
+    normalize_identity,
+    score_items,
+)
 
 
 @pytest.mark.unit
@@ -159,3 +165,128 @@ def test_acceptable_item_requires_justification_and_cannot_mask_expected_item():
         score_items([], ["tasklist /svc"], [{"value": "tasklist /svc"}])
     with pytest.raises(ValueError, match="must not duplicate expected"):
         score_items(["tasklist /svc"], ["tasklist /svc"], [{"value": "tasklist /svc", "justification": "No."}])
+
+
+# ---------------------------------------------------------------------------
+# Agent-aware canonical identities (structured extractor output)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_registry_hive_abbreviation_canonicalizes_across_forms():
+    """HKLM and HKEY_LOCAL_MACHINE are the same hive; casing/slashes ignored."""
+    assert normalize_identity("registry_artifacts", "HKLM\\System\\CurrentControlSet\\Control\\Lsa") == (
+        normalize_identity("registry_artifacts", "HKEY_LOCAL_MACHINE\\system\\currentcontrolset\\control\\lsa")
+    )
+
+
+@pytest.mark.unit
+def test_registry_structured_item_scores_against_path_ground_truth():
+    """The regression: the item's `value` is a stringified dict that must be
+    ignored; identity is built from registry_hive + registry_key_path."""
+    expected = ["HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest"]
+    actual = [
+        {
+            "value": "{'registry_hive': 'HKEY_LOCAL_MACHINE', 'registry_key_path': 'SYSTEM\\\\...'}",
+            "registry_hive": "HKEY_LOCAL_MACHINE",
+            "registry_key_path": "SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest",
+            "registry_value_name": None,
+        }
+    ]
+    result = score_items(expected, actual, subagent_name="registry_artifacts")
+    assert result.matched_count == 1
+    assert result.missed_count == 0
+    assert result.extra_count == 0
+
+
+@pytest.mark.unit
+def test_registry_stringified_value_dict_never_false_matches_without_subagent():
+    """Without agent-aware identity the stringified dict cannot match a clean
+    GT path -- documents the pre-fix failure mode as a guard."""
+    expected = ["HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest"]
+    actual = [{"value": "{'registry_hive': 'HKEY_LOCAL_MACHINE', 'registry_key_path': 'SYSTEM\\\\...'}"}]
+    result = score_items(expected, actual, subagent_name="registry_artifacts")
+    # The item has no structured fields, so it yields no candidate -> missed, not a false match.
+    assert result.matched_count == 0
+    assert result.missed_count == 1
+
+
+@pytest.mark.unit
+def test_registry_value_name_candidate_matches_gt_with_trailing_value():
+    expected = ["HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\App"]
+    actual = [
+        {
+            "registry_hive": "HKCU",
+            "registry_key_path": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+            "registry_value_name": "App",
+        }
+    ]
+    result = score_items(expected, actual, subagent_name="registry_artifacts")
+    assert result.matched_count == 1
+
+
+@pytest.mark.unit
+def test_windows_services_match_on_service_name():
+    expected = ["SecurityHealthService", "WinDefend"]
+    actual = [
+        {"service_name": "securityhealthservice", "value": "{'service_name': 'SecurityHealthService', ...}"},
+        {"service_name": "WinDefend", "binary_path": "C:\\x.exe"},
+    ]
+    result = score_items(expected, actual, subagent_name="windows_services")
+    assert result.matched_count == 2
+    assert result.extra_count == 0
+
+
+@pytest.mark.unit
+def test_scheduled_tasks_match_by_name_or_path_and_freetext_is_missed():
+    expected = ["WinUpdate", "\\Microsoft\\Windows\\App\\Task2", "QBot scheduled task description"]
+    actual = [
+        {"task_name": "WinUpdate", "task_path": "\\Microsoft\\Windows\\Update"},
+        {"task_name": "Task2", "task_path": "\\Microsoft\\Windows\\App\\Task2"},
+    ]
+    result = score_items(expected, actual, subagent_name="scheduled_tasks")
+    assert result.matched_count == 2  # WinUpdate by name, Task2 by path
+    assert result.missed_count == 1  # free-text description has no structured counterpart
+    assert result.extra_count == 0
+
+
+@pytest.mark.unit
+def test_network_indicator_defang_hxxp_and_brackets():
+    expected = ["https://evil.com/a"]
+    actual = [{"value": "hxxps://evil[.]com/a", "indicator_type": "url"}]
+    result = score_items(expected, actual, subagent_name="network_indicators")
+    assert result.matched_count == 1
+
+
+@pytest.mark.unit
+def test_process_lineage_from_value_and_from_fields():
+    expected = ["wsusservice.exe -> cmd.exe", "w3wp.exe -> powershell.exe"]
+    actual = [
+        {"value": "wsusservice.exe -> cmd.exe"},
+        {"parent": "w3wp.exe", "child": "powershell.exe"},
+    ]
+    result = score_items(expected, actual, subagent_name="process_lineage")
+    assert result.matched_count == 2
+
+
+@pytest.mark.unit
+def test_hunt_queries_match_on_query_field():
+    expected = ["title: Keychain access\ndetection:\n  sel:\n    cmdline: security"]
+    actual = [{"query": "title: Keychain access detection: sel: cmdline: security", "type": "sigma"}]
+    result = score_items(expected, actual, subagent_name="hunt_queries")
+    assert result.matched_count == 1
+
+
+@pytest.mark.unit
+def test_item_candidates_ignore_generic_value_for_structured_agents():
+    stringified = {"value": "{'service_name': 'X'}"}
+    assert item_candidates("windows_services", stringified) == []
+    assert item_candidates("registry_artifacts", {"value": "{'registry_hive': 'HKLM'}"}) == []
+
+
+@pytest.mark.unit
+def test_score_items_populates_resolved_actual_list():
+    expected = ["a", "b"]
+    actual = ["a", "z"]
+    result = score_items(expected, actual)
+    assert sorted(result.actual) == ["a", "z"]

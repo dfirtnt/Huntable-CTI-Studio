@@ -65,6 +65,22 @@ class TestPrecomputeSemanticFields:
         result = precompute_atom_fields(rule)
         assert result is None
 
+    def test_dnf_expansion_over_64_branches_returns_none(self):
+        """The deliberate DNF cost guard skips rules that exceed 64 branches."""
+        if not is_sigma_similarity_available():
+            pytest.skip("sigma_similarity not installed")
+
+        selections = {f"selection_{index}": {"CommandLine|contains": str(index)} for index in range(65)}
+        rule = {
+            "logsource": {"product": "windows", "category": "process_creation"},
+            "detection": {
+                **selections,
+                "condition": " or ".join(selections),
+            },
+        }
+
+        assert precompute_atom_fields(rule) is None
+
 
 class TestExtractSemanticFields:
     """Tests for extract_atom_fields and its require_canonical_class flag."""

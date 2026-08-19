@@ -19,6 +19,39 @@
         return div.innerHTML;
     }
 
+    // Derive a human-readable dialog label from a modal id (ARIA contract).
+    function humanizeModalId(id) {
+        if (!id) return 'Dialog';
+        var s = id
+            .replace(/^_confirm_.*/i, 'Confirm')
+            .replace(/^_prompt_.*/i, 'Input')
+            .replace(/Modal$/i, '')
+            .replace(/[-_]/g, ' ')
+            .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+            .replace(/\s+/g, ' ')
+            .trim();
+        return s || 'Dialog';
+    }
+
+    // Apply ARIA dialog semantics to a modal element (idempotent: never clobbers
+    // explicit static/template attributes already set by the UI contract).
+    function ensureModalAria(modal) {
+        if (!modal || !modal.setAttribute) return;
+        if (!modal.hasAttribute('role')) {
+            modal.setAttribute('role', 'dialog');
+        }
+        if (!modal.hasAttribute('aria-modal')) {
+            modal.setAttribute('aria-modal', 'true');
+        }
+        if (!modal.hasAttribute('aria-label') && !modal.hasAttribute('aria-labelledby')) {
+            var heading = modal.querySelector('h1, h2, h3, h4, [role="heading"]');
+            var label = heading ? heading.textContent.trim() : humanizeModalId(modal.id);
+            if (label) {
+                modal.setAttribute('aria-label', label);
+            }
+        }
+    }
+
     // Global modal stack
     const modalStack = [];
     const modalRegistry = new Map(); // modalId -> { element, submitButton, isDynamic }
@@ -37,6 +70,9 @@
             console.warn(`Modal ${modalId} not found`);
             return;
         }
+
+        // Accessibility contract: every registered modal must present as a dialog to AT.
+        ensureModalAria(modal);
 
         // If already registered, silently skip to prevent duplicate registration warnings
         // Only update if explicitly requested via options.forceUpdate

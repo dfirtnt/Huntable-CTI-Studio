@@ -92,7 +92,7 @@
     </div>
 </div>
 
-<script src="/static/js/components/similarity-display.js?v=20260729"></script>
+<script src="{{ asset_url('js/components/similarity-display.js') }}"></script>
 <script>
     // Example rule for testing
     const exampleRule = `title: Suspicious PowerShell Execution
@@ -272,7 +272,7 @@ tags:
                     <div class="mt-3 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded">
                         <div class="text-xs font-bold text-green-900 dark:text-green-300 mb-1">🤖 LLM Reranking:</div>
                         <div class="text-xs text-gray-700 dark:text-gray-300 mb-1">
-                            <span class="font-medium">Model:</span> ${match.llm_rerank.provider || 'unknown'}${match.llm_rerank.model ? ' — ' + match.llm_rerank.model : ''}
+                            <span class="font-medium">Model:</span> ${match.llm_rerank.provider || 'unknown'}${match.llm_rerank.model ? '  --  ' + match.llm_rerank.model : ''}
                         </div>
                         <div class="text-xs text-gray-700 dark:text-gray-300 mb-1">
                             <span class="font-medium">Reranked Similarity:</span> <span class="font-bold text-green-700 dark:text-green-400">${(match.llm_rerank.similarity * 100).toFixed(1)}%</span>

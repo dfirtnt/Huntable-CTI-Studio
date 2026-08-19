@@ -7,7 +7,7 @@ early-exit gates, and state) and **triggered via Celery tasks**. State is
 persisted to `agentic_workflow_executions`, with extraction results feeding
 Sigma generation and similarity matching.
 
-```
+```text
 +---------------------------------------------------------------------------+
 |                         WORKFLOW EXECUTION FLOW                           |
 +---------------------------------------------------------------------------+
@@ -94,7 +94,7 @@ Sigma generation and similarity matching.
 
 ## Execution Order Summary
 
-```
+```text
 0. Platform Detection       -> Detect Windows/Linux/macOS/multiple/Unknown; routes extractors, does not terminate
 1. Junk Filter              -> Content quality filtering
 2. LLM Ranking              -> Article scoring (continue if >= threshold)

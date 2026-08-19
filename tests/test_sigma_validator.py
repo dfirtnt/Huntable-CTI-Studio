@@ -78,11 +78,10 @@ class TestSigmaRule:
         rule = SigmaRule(rule_data)
         assert rule.logsource["category"] == "process_creation"
 
-        # Invalid logsource category
+        # Sigma categories are extensible and are validated by pySigma on YAML input.
         rule_data["logsource"]["category"] = "invalid_category"
-
-        with pytest.raises(ValidationError, match="Invalid logsource category"):
-            SigmaRule(rule_data)
+        rule = SigmaRule(rule_data)
+        assert rule.logsource["category"] == "invalid_category"
 
     def test_validate_detection(self):
         """Test detection validation."""
@@ -257,19 +256,18 @@ class TestSigmaValidator:
         assert result.is_valid is False
         assert any("detection" in error.lower() for error in result.errors)
 
-    def test_validate_rule_invalid_logsource_category(self, validator):
-        """Test validation of rule with invalid logsource category."""
+    def test_validate_rule_permits_extensible_logsource_category(self, validator):
+        """Huntable policy does not restrict pySigma-compatible categories."""
         rule_data = {
-            "title": "Rule with invalid logsource",
+            "title": "Rule with webserver logsource",
             "description": "Test rule",
-            "logsource": {"category": "invalid_category"},
+            "logsource": {"category": "webserver"},
             "detection": {"selection": {}, "condition": "selection"},
         }
 
         result = validator.validate_rule(rule_data)
 
-        assert result.is_valid is False
-        assert any("logsource" in error.lower() for error in result.errors)
+        assert result.is_valid is True
 
     def test_validate_rule_invalid_level(self, validator):
         """Test validation of rule with invalid level."""

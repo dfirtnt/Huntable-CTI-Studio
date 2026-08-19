@@ -14,6 +14,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
+from langfuse import Langfuse
 
 pytestmark = pytest.mark.unit
 
@@ -389,13 +390,19 @@ class TestGetActiveTraceId:
 
 
 class TestScoreLangfuseTrace:
-    """Verify score_langfuse_trace calls client.score() correctly and fails open."""
+    """Verify score_langfuse_trace calls client.create_score() correctly and fails open.
 
-    def test_calls_client_score_with_correct_args(self):
-        """When enabled, score() should be called with trace_id, name, value, data_type."""
+    Mocks are spec'd against the real ``Langfuse`` client so a call to a
+    method that doesn't exist on the v4 SDK (e.g. the removed ``.score()``)
+    raises AttributeError instead of silently succeeding against an
+    auto-created MagicMock attribute.
+    """
+
+    def test_calls_client_create_score_with_correct_args(self):
+        """When enabled, create_score() should be called with trace_id, name, value, data_type."""
         import src.utils.langfuse_client as mod
 
-        mock_client = MagicMock()
+        mock_client = MagicMock(spec=Langfuse)
 
         with (
             patch.object(mod, "_langfuse_enabled", True),
@@ -403,7 +410,7 @@ class TestScoreLangfuseTrace:
         ):
             mod.score_langfuse_trace(trace_id="trace-abc", name="sigma_repair_attempts", value=3.0)
 
-        mock_client.score.assert_called_once_with(
+        mock_client.create_score.assert_called_once_with(
             trace_id="trace-abc",
             name="sigma_repair_attempts",
             value=3.0,
@@ -414,7 +421,7 @@ class TestScoreLangfuseTrace:
     def test_includes_comment_when_provided(self):
         import src.utils.langfuse_client as mod
 
-        mock_client = MagicMock()
+        mock_client = MagicMock(spec=Langfuse)
 
         with (
             patch.object(mod, "_langfuse_enabled", True),
@@ -427,13 +434,13 @@ class TestScoreLangfuseTrace:
                 comment="execution_id=7 rules=2",
             )
 
-        call_kwargs = mock_client.score.call_args.kwargs
+        call_kwargs = mock_client.create_score.call_args.kwargs
         assert call_kwargs["comment"] == "execution_id=7 rules=2"
 
     def test_no_op_when_langfuse_disabled(self):
         import src.utils.langfuse_client as mod
 
-        mock_client = MagicMock()
+        mock_client = MagicMock(spec=Langfuse)
 
         with (
             patch.object(mod, "_langfuse_enabled", False),
@@ -442,12 +449,12 @@ class TestScoreLangfuseTrace:
         ):
             mod.score_langfuse_trace(trace_id="trace-abc", name="sigma_repair_attempts", value=1.0)
 
-        mock_client.score.assert_not_called()
+        mock_client.create_score.assert_not_called()
 
     def test_no_op_when_trace_id_is_none(self):
         import src.utils.langfuse_client as mod
 
-        mock_client = MagicMock()
+        mock_client = MagicMock(spec=Langfuse)
 
         with (
             patch.object(mod, "_langfuse_enabled", True),
@@ -455,12 +462,12 @@ class TestScoreLangfuseTrace:
         ):
             mod.score_langfuse_trace(trace_id=None, name="sigma_repair_attempts", value=2.0)
 
-        mock_client.score.assert_not_called()
+        mock_client.create_score.assert_not_called()
 
     def test_no_op_when_trace_id_is_empty_string(self):
         import src.utils.langfuse_client as mod
 
-        mock_client = MagicMock()
+        mock_client = MagicMock(spec=Langfuse)
 
         with (
             patch.object(mod, "_langfuse_enabled", True),
@@ -468,14 +475,14 @@ class TestScoreLangfuseTrace:
         ):
             mod.score_langfuse_trace(trace_id="", name="sigma_repair_attempts", value=2.0)
 
-        mock_client.score.assert_not_called()
+        mock_client.create_score.assert_not_called()
 
     def test_fails_open_when_score_raises(self):
-        """An exception from client.score() must not propagate to the caller."""
+        """An exception from client.create_score() must not propagate to the caller."""
         import src.utils.langfuse_client as mod
 
-        mock_client = MagicMock()
-        mock_client.score.side_effect = RuntimeError("Langfuse unreachable")
+        mock_client = MagicMock(spec=Langfuse)
+        mock_client.create_score.side_effect = RuntimeError("Langfuse unreachable")
 
         with (
             patch.object(mod, "_langfuse_enabled", True),
@@ -488,7 +495,7 @@ class TestScoreLangfuseTrace:
         """Integer values should be accepted and coerced to float for the score call."""
         import src.utils.langfuse_client as mod
 
-        mock_client = MagicMock()
+        mock_client = MagicMock(spec=Langfuse)
 
         with (
             patch.object(mod, "_langfuse_enabled", True),
@@ -496,6 +503,16 @@ class TestScoreLangfuseTrace:
         ):
             mod.score_langfuse_trace(trace_id="trace-abc", name="sigma_repair_attempts", value=4)
 
-        call_kwargs = mock_client.score.call_args.kwargs
+        call_kwargs = mock_client.create_score.call_args.kwargs
         assert isinstance(call_kwargs["value"], float)
         assert call_kwargs["value"] == 4.0
+
+    def test_reverting_to_removed_score_method_fails(self):
+        """Regression guard: calling the removed v3 `.score()` method must raise,
+        not silently succeed. This is what a spec'd mock buys over a bare MagicMock —
+        it would have caught the original bug where score_langfuse_trace called
+        client.score(), a method that doesn't exist on the v4 Langfuse client."""
+        mock_client = MagicMock(spec=Langfuse)
+
+        with pytest.raises(AttributeError):
+            mock_client.score(trace_id="trace-abc", name="x", value=1.0, data_type="NUMERIC")

@@ -195,38 +195,6 @@ def _prevent_annotation_usage_change(_mapper, connection, target):
             raise ValueError("Annotation usage cannot be modified once set.")
 
 
-class SimHashBucketTable(Base):
-    """Database table for SimHash bucket tracking (for near-duplicate detection)."""
-
-    __tablename__ = "simhash_buckets"
-
-    id = Column(Integer, primary_key=True, index=True)
-    bucket_id = Column(Integer, nullable=False, index=True)  # SimHash bucket number
-    simhash = Column(Numeric(20, 0), nullable=False, index=True)  # 64-bit SimHash value
-    article_id = Column(Integer, ForeignKey("articles.id"), nullable=False)
-    first_seen = Column(DateTime, nullable=False, default=func.now())
-
-    def __repr__(self):
-        return f"<SimHashBucket(bucket={self.bucket_id}, simhash={self.simhash}, article_id={self.article_id})>"
-
-
-class URLTrackingTable(Base):
-    """Database table for tracking processed URLs (for conditional requests)."""
-
-    __tablename__ = "url_tracking"
-
-    id = Column(Integer, primary_key=True, index=True)
-    url = Column(Text, nullable=False, unique=True, index=True)
-    last_checked = Column(DateTime, nullable=False, default=func.now())
-    etag = Column(String(255), nullable=True)
-    last_modified = Column(String(255), nullable=True)
-    status_code = Column(Integer, nullable=True)
-    content_length = Column(Integer, nullable=True)
-
-    def __repr__(self):
-        return f"<URLTracking(url='{self.url[:50]}...', last_checked={self.last_checked})>"
-
-
 class MLModelVersionTable(Base):
     """Database table for tracking ML model versions and performance metrics."""
 
@@ -311,35 +279,6 @@ class ChunkAnalysisResultTable(Base):
         )
 
 
-class ChatLogTable(Base):
-    """Database table for RAG chat logs and evaluation."""
-
-    __tablename__ = "chat_logs"
-
-    id = Column(Integer, primary_key=True, index=True)
-    session_id = Column(String(255), nullable=True, index=True)
-    query = Column(Text, nullable=False)
-    retrieved_chunks = Column(JSON, nullable=True)  # List of chunk IDs and metadata
-    llm_response = Column(Text, nullable=True)
-    model_used = Column(String(100), nullable=True)
-    urls = Column(JSON, nullable=True)  # List of source URLs
-    similarity_scores = Column(JSON, nullable=True)  # List of similarity scores
-    response_time_ms = Column(Integer, nullable=True)
-
-    # Evaluation fields
-    relevance_score = Column(Float, nullable=True)  # User rating 1-5
-    hallucination_detected = Column(Boolean, nullable=True)
-    accuracy_rating = Column(Float, nullable=True)  # User rating 1-5
-    user_feedback = Column(Text, nullable=True)
-
-    # Timestamps
-    created_at = Column(DateTime, nullable=False, default=func.now(), index=True)
-    updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
-
-    def __repr__(self):
-        return f"<ChatLog(id={self.id}, session_id='{self.session_id}', query='{self.query[:50]}...')>"
-
-
 class ChunkClassificationFeedbackTable(Base):
     """Database table for chunk classification feedback."""
 
@@ -422,46 +361,8 @@ class SigmaRuleTable(Base):
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
 
-    # Relationships
-    article_matches = relationship("ArticleSigmaMatchTable", back_populates="sigma_rule", cascade="all, delete-orphan")
-
     def __repr__(self):
         return f"<SigmaRule(id={self.id}, rule_id='{self.rule_id}', title='{self.title[:50]}...')>"
-
-
-class ArticleSigmaMatchTable(Base):
-    """Database table for article-to-Sigma rule matches with coverage analysis."""
-
-    __tablename__ = "article_sigma_matches"
-
-    id = Column(Integer, primary_key=True, index=True)
-    article_id = Column(Integer, ForeignKey("articles.id", ondelete="CASCADE"), nullable=False, index=True)
-    sigma_rule_id = Column(Integer, ForeignKey("sigma_rules.id", ondelete="CASCADE"), nullable=False, index=True)
-
-    # Match metadata
-    similarity_score = Column(Float, nullable=False)
-    match_level = Column(String(20), nullable=False, index=True)
-    chunk_id = Column(Integer, nullable=True)
-
-    # Coverage classification
-    coverage_status = Column(String(20), nullable=False, index=True)
-    coverage_confidence = Column(Float, nullable=True)
-    coverage_reasoning = Column(Text, nullable=True)
-
-    # Behavior extraction from chunk_analysis_results
-    matched_discriminators = Column(ARRAY(String), nullable=False, default=list)
-    matched_lolbas = Column(ARRAY(String), nullable=False, default=list)
-    matched_intelligence = Column(ARRAY(String), nullable=False, default=list)
-
-    created_at = Column(DateTime, nullable=False, default=func.now())
-    updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
-
-    # Relationships
-    article = relationship("ArticleTable", backref="sigma_matches")
-    sigma_rule = relationship("SigmaRuleTable", back_populates="article_matches")
-
-    def __repr__(self):
-        return f"<ArticleSigmaMatch(id={self.id}, article_id={self.article_id}, sigma_rule_id={self.sigma_rule_id}, coverage='{self.coverage_status}')>"
 
 
 class AppSettingsTable(Base):
@@ -562,7 +463,7 @@ class AgenticWorkflowConfigTable(Base):
     # 99.9 score ceiling) so nothing auto-processes until a user consciously lowers it (opt-in).
 
     # Versioning and audit
-    version = Column(Integer, nullable=False, default=1)
+    version = Column(Integer, nullable=False, default=1, unique=True)
     is_active = Column(Boolean, nullable=False, default=True, index=True)
     description = Column(Text, nullable=True)
 
@@ -611,6 +512,9 @@ class AgenticWorkflowExecutionTable(Base):
         String(50), nullable=True
     )  # junk_filter, rank_article, extract_agent, generate_sigma, similarity_search, promote_to_queue
     config_snapshot = Column(JSONB, nullable=True)  # Snapshot of config used for this execution
+    config_snapshot_id = Column(
+        Integer, ForeignKey("agentic_workflow_execution_snapshots.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
 
     # Step results (stored as JSONB for flexibility)
     junk_filter_result = Column(JSONB, nullable=True)
@@ -633,9 +537,21 @@ class AgenticWorkflowExecutionTable(Base):
 
     # Relationships
     article = relationship("ArticleTable", backref="workflow_executions")
+    snapshot_record = relationship("AgenticWorkflowExecutionSnapshotTable")
 
     def __repr__(self):
         return f"<AgenticWorkflowExecution(id={self.id}, article_id={self.article_id}, status='{self.status}', step='{self.current_step}')>"
+
+
+class AgenticWorkflowExecutionSnapshotTable(Base):
+    """Immutable, content-addressed workflow configuration used by executions."""
+
+    __tablename__ = "agentic_workflow_execution_snapshots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    content_hash = Column(String(64), nullable=False, unique=True, index=True)
+    payload = Column(JSONB, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=func.now())
 
 
 class SigmaRuleQueueTable(Base):
@@ -705,96 +621,6 @@ class AgentPromptVersionTable(Base):
 
     def __repr__(self):
         return f"<AgentPromptVersion(id={self.id}, agent_name='{self.agent_name}', version={self.version})>"
-
-
-class AgentEvaluationTable(Base):
-    """Database table for storing agent evaluation results for performance tracking over time."""
-
-    __tablename__ = "agent_evaluations"
-
-    id = Column(Integer, primary_key=True, index=True)
-    agent_name = Column(String(50), nullable=False, index=True)  # ExtractAgent, SigmaAgent, RankAgent, OSDetection
-    evaluation_type = Column(String(50), nullable=False)  # baseline, finetuned, v2, etc.
-    model_version = Column(String(255), nullable=True)
-    workflow_config_version = Column(Integer, nullable=True)
-
-    # Evaluation metadata
-    test_dataset_path = Column(String(500), nullable=True)
-    article_ids = Column(JSONB, nullable=True)  # Array of article IDs tested
-    total_articles = Column(Integer, nullable=False)
-
-    # Agent-specific metrics (JSONB for flexibility)
-    metrics = Column(JSONB, nullable=False)
-
-    # Full results (can be large, may be null if too large)
-    results = Column(JSONB, nullable=True)
-
-    # Timestamps
-    created_at = Column(DateTime, nullable=False, default=func.now(), index=True)
-    evaluated_at = Column(DateTime, nullable=False, default=func.now())
-
-    # Relationships
-    workflow_execution_id = Column(Integer, ForeignKey("agentic_workflow_executions.id"), nullable=True)
-
-    def __repr__(self):
-        return (
-            f"<AgentEvaluation(id={self.id}, agent_name='{self.agent_name}', evaluation_type='{self.evaluation_type}')>"
-        )
-
-
-class ObservableModelMetricsTable(Base):
-    """Database table for observable extraction model metrics (eval and gold)."""
-
-    __tablename__ = "observable_model_metrics"
-
-    id = Column(Integer, primary_key=True, index=True)
-    model_name = Column(String(255), nullable=False, index=True)
-    model_version = Column(String(255), nullable=False, index=True)
-    observable_type = Column(String(50), nullable=False, index=True)
-    dataset_usage = Column(Enum("eval", "gold", name="dataset_usage"), nullable=False, index=True)
-    metric_name = Column(String(100), nullable=False, index=True)
-    metric_value = Column(Float, nullable=False)
-    sample_count = Column(Integer, nullable=False)
-    computed_at = Column(DateTime, nullable=False, default=func.now(), index=True)
-
-    # Composite index for efficient queries
-    # Partitioning: set __table_args__ = ({"postgresql_partition_by": "RANGE (computed_at)"},) when needed
-    __table_args__ = ()
-
-    def __repr__(self):
-        return f"<ObservableModelMetrics(id={self.id}, model='{self.model_name}', version='{self.model_version}', type='{self.observable_type}', usage='{self.dataset_usage}', metric='{self.metric_name}')>"
-
-
-class ObservableEvaluationFailureTable(Base):
-    """Database table for storing failure taxonomy per article during gold evaluation."""
-
-    __tablename__ = "observable_evaluation_failures"
-
-    id = Column(Integer, primary_key=True, index=True)
-    model_name = Column(String(255), nullable=False, index=True)
-    model_version = Column(String(255), nullable=False, index=True)
-    observable_type = Column(String(50), nullable=False, index=True)
-    article_id = Column(Integer, ForeignKey("articles.id"), nullable=False, index=True)
-
-    # Failure categories
-    failure_type = Column(
-        String(50), nullable=False, index=True
-    )  # merged_commands, truncated_span, argument_hallucination, context_bleed, etc.
-    failure_count = Column(Integer, nullable=False, default=0)
-    failure_details = Column(JSON, nullable=True)  # Store specific examples, spans, etc.
-
-    # Article-level flags
-    zero_fp_pass = Column(Boolean, nullable=False, default=True)  # True if article passed zero-FP check
-    total_predictions = Column(Integer, nullable=False, default=0)
-    total_gold_spans = Column(Integer, nullable=False, default=0)
-
-    computed_at = Column(DateTime, nullable=False, default=func.now(), index=True)
-
-    # Relationships
-    article = relationship("ArticleTable", backref="observable_evaluation_failures")
-
-    def __repr__(self):
-        return f"<ObservableEvaluationFailure(id={self.id}, model='{self.model_name}', version='{self.model_version}', article_id={self.article_id}, failure_type='{self.failure_type}')>"
 
 
 class SubagentEvaluationTable(Base):
@@ -910,69 +736,6 @@ class SigmaEvaluationTable(Base):
             f"<SigmaEvaluation(id={self.id}, url='{self.article_url[:50]}...', "
             f"expected={self.expected_rule_count}, actual={self.actual_rule_count}, status='{self.status}')>"
         )
-
-
-class EvalPresetSnapshotTable(Base):
-    """Database table for immutable preset snapshots used in evaluation."""
-
-    __tablename__ = "eval_preset_snapshots"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    original_preset_id = Column(Integer, ForeignKey("agentic_workflow_config.id"), nullable=False, index=True)
-    original_preset_version = Column(Integer, nullable=False)
-
-    # Full snapshot (immutable)
-    snapshot_data = Column(JSONB, nullable=False)  # Complete config + resolved prompts
-
-    # Snapshot hash for deduplication and auditability
-    # SHA-256 hash of canonicalized snapshot_data JSON
-    snapshot_hash = Column(Text, unique=True, nullable=False, index=True)
-
-    # Metadata
-    created_at = Column(DateTime, nullable=False, default=func.now(), index=True)
-    created_by = Column(String(255), nullable=True)
-    description = Column(Text, nullable=True)
-
-    def __repr__(self):
-        return f"<EvalPresetSnapshot(id={self.id}, original_preset_id={self.original_preset_id}, version={self.original_preset_version})>"
-
-
-class EvalRunTable(Base):
-    """Database table for tracking evaluation runs."""
-
-    __tablename__ = "eval_runs"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    preset_snapshot_id = Column(UUID(as_uuid=True), ForeignKey("eval_preset_snapshots.id"), nullable=False, index=True)
-    dataset_name = Column(String(255), nullable=False, index=True)
-
-    # Progress tracking
-    status = Column(String(50), nullable=False, default="queued", index=True)  # queued → running → completed/failed
-    completed_items = Column(Integer, nullable=False, default=0)
-    total_items = Column(Integer, nullable=False, default=0)  # Set immediately after dataset load
-
-    # Langfuse references
-    langfuse_experiment_id = Column(String(255), nullable=True)
-    langfuse_experiment_name = Column(String(500), nullable=True)
-
-    # Results (aggregated)
-    accuracy = Column(Float, nullable=True)
-    mean_count_diff = Column(Float, nullable=True)
-    passed = Column(Boolean, nullable=True)  # accuracy == 1.0
-
-    # Error handling
-    error_message = Column(Text, nullable=True)
-
-    # Timestamps
-    created_at = Column(DateTime, nullable=False, default=func.now(), index=True)
-    started_at = Column(DateTime, nullable=True)
-    completed_at = Column(DateTime, nullable=True)
-
-    # Relationships
-    preset_snapshot = relationship("EvalPresetSnapshotTable", backref="eval_runs")
-
-    def __repr__(self):
-        return f"<EvalRun(id={self.id}, status='{self.status}', completed_items={self.completed_items}/{self.total_items})>"
 
 
 class EnrichmentPromptVersionTable(Base):

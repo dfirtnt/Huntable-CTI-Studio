@@ -7,6 +7,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
+from src.services.codex_app_server_client import CodexAppServerError
+
 
 def _fake_request():
     return SimpleNamespace(
@@ -17,14 +19,13 @@ def _fake_request():
 
 
 @pytest.mark.api
-class TestSettingsAPILMStudioURLs:
-    """Test that GET /api/settings merges LM Studio URL keys from env and bulk update accepts them."""
+class TestSettingsAPILMStudioURL:
+    """Test that Settings synchronizes the optional LM Studio LLM URL."""
 
     @pytest.mark.asyncio
-    async def test_get_settings_includes_lmstudio_url_keys_from_env(self, monkeypatch):
-        """GET /api/settings merges LMSTUDIO_API_URL and LMSTUDIO_EMBEDDING_URL from env when not in DB."""
+    async def test_get_settings_includes_lmstudio_url_from_env(self, monkeypatch):
+        """GET /api/settings merges LMSTUDIO_API_URL from env when absent from the DB."""
         monkeypatch.setenv("LMSTUDIO_API_URL", "http://192.168.1.65:1234/v1")
-        monkeypatch.setenv("LMSTUDIO_EMBEDDING_URL", "http://192.168.1.65:1234/v1/embeddings")
 
         mock_session = MagicMock()
         mock_result = MagicMock()
@@ -51,17 +52,13 @@ class TestSettingsAPILMStudioURLs:
         assert payload["success"] is True
         settings = payload.get("settings") or {}
         assert settings.get("LMSTUDIO_API_URL") == "http://192.168.1.65:1234/v1"
-        assert settings.get("LMSTUDIO_EMBEDDING_URL") == "http://192.168.1.65:1234/v1/embeddings"
 
     @pytest.mark.asyncio
-    async def test_bulk_update_lmstudio_url_keys_syncs_env(self, monkeypatch):
-        """Bulk update of LMSTUDIO_* keys updates os.environ so runtime sees new values."""
+    async def test_bulk_update_lmstudio_url_syncs_env(self, monkeypatch):
+        """Bulk update of LMSTUDIO_API_URL updates os.environ for provider clients."""
         import os
 
-        settings_dict = {
-            "LMSTUDIO_API_URL": "http://localhost:1234/v1",
-            "LMSTUDIO_EMBEDDING_URL": "http://localhost:1234/v1/embeddings",
-        }
+        settings_dict = {"LMSTUDIO_API_URL": "http://localhost:1234/v1"}
         mock_session = MagicMock()
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
@@ -85,12 +82,48 @@ class TestSettingsAPILMStudioURLs:
 
             assert result["success"] is True
             assert "LMSTUDIO_API_URL" in result["updated_keys"]
-            assert "LMSTUDIO_EMBEDDING_URL" in result["updated_keys"]
             assert os.environ.get("LMSTUDIO_API_URL") == "http://localhost:1234/v1"
-            assert os.environ.get("LMSTUDIO_EMBEDDING_URL") == "http://localhost:1234/v1/embeddings"
         finally:
             os.environ.pop("LMSTUDIO_API_URL", None)
-            os.environ.pop("LMSTUDIO_EMBEDDING_URL", None)
+
+
+@pytest.mark.api
+class TestSettingsCodexSubscription:
+    @pytest.mark.asyncio
+    async def test_codex_subscription_test_reports_chatgpt_plan(self):
+        with patch("src.web.routes.settings.CodexAppServerClient") as client_cls:
+            client_cls.return_value.read_account = AsyncMock(
+                return_value={"account": {"type": "chatgpt", "planType": "plus"}}
+            )
+            from src.web.routes.settings import test_codex_subscription
+
+            result = await test_codex_subscription()
+
+        assert result == {"valid": True, "message": "Codex subscription is ready (plus)", "plan_type": "plus"}
+
+    @pytest.mark.asyncio
+    async def test_codex_subscription_test_reports_login_error(self):
+        with patch("src.web.routes.settings.CodexAppServerClient") as client_cls:
+            client_cls.return_value.read_account = AsyncMock(side_effect=CodexAppServerError("Login required"))
+            from src.web.routes.settings import test_codex_subscription
+
+            result = await test_codex_subscription()
+
+        assert result == {
+            "valid": False,
+            "message": "Codex subscription is not connected. Ask an administrator to connect it.",
+        }
+
+    @pytest.mark.asyncio
+    async def test_codex_subscription_test_rejects_non_chatgpt_auth(self):
+        with patch("src.web.routes.settings.CodexAppServerClient") as client_cls:
+            client_cls.return_value.read_account = AsyncMock(return_value={"account": {"type": "apiKey"}})
+            from src.web.routes.settings import test_codex_subscription
+
+            result = await test_codex_subscription()
+
+        assert result["valid"] is False
+        assert result["message"] == "Codex subscription is not connected. Ask an administrator to connect it."
 
 
 def _make_settings_db_ctx(existing_value=None):

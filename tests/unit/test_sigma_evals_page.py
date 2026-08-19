@@ -33,10 +33,21 @@ def test_route_registered():
 def test_page_has_required_hooks():
     src = _TEMPLATE.read_text(encoding="utf-8")
     # Controls and containers the page JS wires up.
-    for hook in ('id="runBtn"', 'id="resultsContainer"', 'id="articleList"', 'id="sigmaDetailModal"'):
+    for hook in (
+        'id="runBtn"',
+        'id="clearPendingBtn"',
+        'id="resultsContainer"',
+        'id="articleList"',
+        'id="sigmaDetailModal"',
+    ):
         assert hook in src, f"missing DOM hook: {hook}"
     # API endpoints the page calls (must match evaluation_api routes).
-    for endpoint in ("/sigma-eval-articles", "/run-sigma-eval", "/sigma-eval-results"):
+    for endpoint in (
+        "/sigma-eval-articles",
+        "/run-sigma-eval",
+        "/sigma-eval-results",
+        "/sigma-eval-clear-pending",
+    ):
         assert endpoint in src, f"page does not call expected endpoint: {endpoint}"
 
 

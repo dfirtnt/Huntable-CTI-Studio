@@ -32,7 +32,6 @@ LMSTUDIO_APPSETTING_KEYS = (
     "LMSTUDIO_MODEL_RANK",
     "LMSTUDIO_MODEL_EXTRACT",
     "LMSTUDIO_MODEL_SIGMA",
-    "LMSTUDIO_EMBEDDING_MODEL",
     "LMSTUDIO_TEMPERATURE",
     "LMSTUDIO_TOP_P",
     "LMSTUDIO_SEED",
@@ -59,6 +58,8 @@ class LLMRoutingMixin:
         normalized = (provider or "").strip().lower()
         if normalized in {"openai", "chatgpt", "gpt4o", "gpt-4o", "gpt-4o-mini"}:
             return "openai"
+        if normalized in {"codex", "openai_codex", "openai-codex"}:
+            return "codex"
         if normalized in {"anthropic", "claude", "claude-sonnet-4-5"}:
             return "anthropic"
         if normalized in {"lmstudio", "local", "local_llm", "deepseek", "auto"}:
@@ -72,11 +73,11 @@ class LLMRoutingMixin:
         if not normalized:
             raise ValueError(
                 "No provider configured for one of the workflow agents. "
-                "Set an explicit provider (openai/anthropic) in the workflow config, "
+                "Set an explicit provider (openai/codex/anthropic) in the workflow config, "
                 "or enable LMStudio via setup.sh / WORKFLOW_LMSTUDIO_ENABLED=true."
             )
         raise ValueError(
-            f"Unknown provider '{provider}'. Valid providers: openai, anthropic"
+            f"Unknown provider '{provider}'. Valid providers: openai, codex, anthropic"
             + (", lmstudio" if self._is_lmstudio_enabled() else "")
             + "."
         )

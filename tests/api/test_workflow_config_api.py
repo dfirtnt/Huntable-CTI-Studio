@@ -19,7 +19,10 @@ import asyncio
 import httpx
 import pytest
 
-pytestmark = pytest.mark.agent_config_mutation
+pytestmark = [
+    pytest.mark.agent_config_mutation,
+    pytest.mark.usefixtures("preserve_workflow_config_state"),
+]
 
 
 class TestWorkflowConfigCRUD:
@@ -110,6 +113,58 @@ class TestWorkflowConfigCRUD:
 
         response = await async_client.put("/api/workflow/config", json=invalid_payload)
         assert response.status_code == 422  # Validation error
+
+    @pytest.mark.api
+    @pytest.mark.integration_full
+    @pytest.mark.asyncio
+    async def test_update_with_no_active_row_recovers_gracefully(self, async_client: httpx.AsyncClient):
+        """PUT /config recovers gracefully when no row is active by using the most recent config.
+
+        Regression for config rows 5396 and 7082-7108: a partial autosave payload
+        landing while no active row exists used to silently drop fields. The fix recovers
+        by using the most recent config (inactive or not) for merging, preventing field loss
+        during concurrent writes or race conditions.
+        """
+        from sqlalchemy import text
+
+        from src.database.manager import DatabaseManager
+
+        # Get the current active config to verify field preservation
+        db_session = DatabaseManager().get_session()
+        try:
+            current = db_session.execute(
+                text("SELECT agent_models FROM agentic_workflow_config WHERE is_active = true LIMIT 1")
+            ).fetchone()
+            assert current is not None, "test setup: no active config found"
+            original_agent_models = current[0]
+
+            # Deactivate all configs to simulate race condition
+            db_session.execute(text("UPDATE agentic_workflow_config SET is_active = false"))
+            db_session.commit()
+        finally:
+            db_session.close()
+
+        # Make partial update while no active config exists
+        response = await async_client.put(
+            "/api/workflow/config",
+            json={"agent_prompts": {"ExtractAgentSettings": {"disabled_agents": []}}},
+        )
+
+        # Should succeed (200), not throw 503
+        assert response.status_code == 200, response.text
+        result = response.json()
+
+        # Verify a new active row was created
+        verify_session = DatabaseManager().get_session()
+        try:
+            active_row = verify_session.execute(
+                text("SELECT agent_models FROM agentic_workflow_config WHERE is_active = true")
+            ).fetchone()
+        finally:
+            verify_session.close()
+        assert active_row is not None, "no active config after update"
+        # agent_models should be preserved from the original config (not dropped)
+        assert active_row[0] is not None, "agent_models was lost during recovery"
 
 
 class TestWorkflowConfigDeduplication:

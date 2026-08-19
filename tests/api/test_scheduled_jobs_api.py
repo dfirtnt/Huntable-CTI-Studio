@@ -10,7 +10,7 @@ from fastapi import HTTPException
 
 from src.database.models import AuditEventTable
 from src.services import audit_service
-from src.services.scheduled_jobs_service import ScheduledJobsConfigError, SchedulerReloadError
+from src.services.scheduled_jobs_service import ScheduledJobsConfigError
 from src.web.routes import scheduled_jobs as scheduled_jobs_routes
 
 
@@ -96,16 +96,16 @@ async def test_get_scheduled_jobs_returns_state(monkeypatch):
 
 @pytest.mark.api
 @pytest.mark.asyncio
-async def test_update_scheduled_jobs_persists_audits_and_reloads(monkeypatch):
-    """PUT persists config + audit atomically, then reloads the scheduler."""
+async def test_update_scheduled_jobs_persists_audits_and_reports_polling(monkeypatch):
+    """PUT persists config + audit atomically and reports Beat's poll contract."""
 
     class FakeService:
         async def persist_config(self, session, jobs):
             assert jobs["cleanup_old_data"] == {"enabled": False, "cron": "15 1 * * *"}
             return {"cleanup_old_data": {"enabled": False, "cron": "15 1 * * *"}}
 
-        def restart_scheduler(self):
-            return {"reloaded": True, "container": "cti_scheduler", "output": "cti_scheduler"}
+        def scheduler_refresh_metadata(self):
+            return {"reloaded": True, "mechanism": "database_poll", "poll_interval_seconds": 30}
 
     monkeypatch.setattr(scheduled_jobs_routes, "ScheduledJobsService", lambda: FakeService())
     session = _audit_session()
@@ -121,6 +121,7 @@ async def test_update_scheduled_jobs_persists_audits_and_reloads(monkeypatch):
 
     assert result["success"] is True
     assert result["scheduler_reload"]["reloaded"] is True
+    assert result["scheduler_reload"]["mechanism"] == "database_poll"
     rows = _audit_rows(session)
     assert len(rows) == 1
     assert rows[0].action == audit_service.ACTION_SCHEDULED_JOBS_UPDATED
@@ -150,34 +151,3 @@ async def test_update_scheduled_jobs_maps_validation_errors(monkeypatch):
 
     assert exc_info.value.status_code == 422
     session.commit.assert_not_awaited()
-
-
-@pytest.mark.api
-@pytest.mark.asyncio
-async def test_update_scheduled_jobs_maps_reload_errors(monkeypatch):
-    """A post-commit scheduler reload failure should become a 500 (config already audited)."""
-
-    class FakeService:
-        async def persist_config(self, session, jobs):
-            return {"cleanup_old_data": {"enabled": True, "cron": "0 2 * * *"}}
-
-        def restart_scheduler(self):
-            raise SchedulerReloadError("restart failed")
-
-    monkeypatch.setattr(scheduled_jobs_routes, "ScheduledJobsService", lambda: FakeService())
-    session = _audit_session()
-    _patch_session(monkeypatch, session)
-    _patch_serialize(monkeypatch)
-
-    with pytest.raises(HTTPException) as exc_info:
-        await scheduled_jobs_routes.api_update_scheduled_jobs(
-            _req(),
-            scheduled_jobs_routes.ScheduledJobsUpdateRequest(
-                jobs={"cleanup_old_data": scheduled_jobs_routes.ScheduledJobUpdate(enabled=True, cron="0 2 * * *")}
-            ),
-        )
-
-    assert exc_info.value.status_code == 500
-    # The persist transaction committed with its audit event before the reload failed.
-    assert len(_audit_rows(session)) == 1
-    session.commit.assert_awaited_once()

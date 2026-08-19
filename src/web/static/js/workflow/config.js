@@ -18,6 +18,10 @@ const extractSubAgents = EXTRACT_SUB_AGENTS;
 let disabledExtractAgents = new Set();
 let autoSaveTimeout = null; // Debounce timer for autosave
 let autoSaveModelChangeTimeout = null; // Debounce timer for model-change autosave
+// Agents whose prompt bodies are held in form state but not yet persisted (e.g. loaded
+// from a preset). Autosave deliberately does not transmit prompts, so its response must
+// not overwrite these -- doing so silently discards an import before the user can Save.
+let pendingPromptAgents = new Set();
 let lastValidationWarnAt = 0; // Throttle validation-failure console.warn (avoid spam)
 const VALIDATION_WARN_THROTTLE_MS = 10000; // Log same validation failure at most once per 10s
 let isSavingPrompt = false; // Block autoSave during prompt save to prevent overwriting
@@ -52,6 +56,7 @@ function __dbgLog(hypothesisId, message, data) {
 const allProviderOptions = [
     { value: 'lmstudio', label: 'LMStudio (Local)' },
     { value: 'openai', label: 'OpenAI (Cloud)' },
+    { value: 'codex', label: 'Codex Subscription' },
     { value: 'anthropic', label: 'Anthropic Claude (Cloud)' }
 ];
 
@@ -62,6 +67,7 @@ let providerOptions = [...allProviderOptions];
 let enabledProviders = {
     lmstudio: true,  // LMStudio always available (local) when enabled
     openai: true,
+    codex: false,
     anthropic: true
 };
 
@@ -72,6 +78,7 @@ function getDefaultProvider() {
 
 const providerDefaults = {
     openai: 'gpt-4o-mini',
+    codex: 'gpt-5.6-luna',
     anthropic: 'claude-sonnet-4-5'
 };
 
@@ -94,6 +101,7 @@ async function loadEnabledProviders() {
         enabledProviders = {
             lmstudio: !!(providers.lmstudio && providers.lmstudio.enabled),
             openai: !!(providers.openai && providers.openai.enabled),
+            codex: !!(providers.codex && providers.codex.enabled),
             anthropic: !!(providers.anthropic && providers.anthropic.enabled),
         };
 
@@ -102,7 +110,7 @@ async function loadEnabledProviders() {
 
         // Populate commercialModelCatalog from unified response (avoids second fetch)
         const newCatalog = {};
-        ['openai', 'anthropic'].forEach(p => {
+        ['openai', 'anthropic', 'codex'].forEach(p => {
             if (providers[p] && Array.isArray(providers[p].models) && providers[p].models.length > 0) {
                 newCatalog[p] = providers[p].models;
             }
@@ -126,6 +134,11 @@ async function loadEnabledProviders() {
 
         // Refresh all provider dropdowns
         refreshProviderDropdowns();
+        // loadConfig can render before this live provider request completes.
+        // Re-render now so Codex uses its populated model select, not its text fallback.
+        if (typeof refreshAllProviderBlocks === 'function') {
+            refreshAllProviderBlocks();
+        }
     } catch (error) {
         console.error('Error loading provider options:', error);
     }
@@ -175,6 +188,7 @@ function refreshProviderDropdowns() {
 // Allow-list style checks to keep provider dropdowns focused on valid models
 const providerModelGuards = {
     openai: /^(gpt|o\d|text-|davinci|curie|babbage|ada|whisper|omni|turbo|codex)/i,
+    codex: /^(gpt|o\d|codex)/i,
     anthropic: /^claude/i
 };
 
@@ -183,6 +197,7 @@ function inferProviderFromModel(modelId) {
     const trimmed = modelId.trim();
     if (!trimmed) return null;
     if (providerModelGuards.openai && providerModelGuards.openai.test(trimmed)) return 'openai';
+    if (providerModelGuards.codex && providerModelGuards.codex.test(trimmed)) return 'codex';
     if (providerModelGuards.anthropic && providerModelGuards.anthropic.test(trimmed)) return 'anthropic';
     return null;
 }
@@ -340,6 +355,11 @@ function validateProviderModelCombination(agentPrefix, provider, modelId) {
                 errorMessage = validation.error || `Model "${trimmed}" is not a valid chat completion model`;
                 suggestion = validation.suggestion;
             }
+        }
+    } else if (normalizedProvider === 'codex') {
+        if (!isModelAllowedForProvider('codex', trimmed)) {
+            isValid = false;
+            errorMessage = `Invalid model for Codex subscription. Model "${trimmed}" must be a Codex-available OpenAI model.`;
         }
     } else if (normalizedProvider === 'anthropic') {
         if (!isModelAllowedForProvider('anthropic', trimmed)) {
@@ -1256,6 +1276,7 @@ function buildAgentProviderModelUI(agentPrefix, currentProvider = 'lmstudio', cu
     
     // Build commercial provider inputs
     const openaiInput = buildCommercialProviderInput(agentPrefix, 'openai', currentProvider, currentModel);
+    const codexInput = buildCommercialProviderInput(agentPrefix, 'codex', currentProvider, currentModel);
     const anthropicInput = buildCommercialProviderInput(agentPrefix, 'anthropic', currentProvider, currentModel);
     
     // Build temperature and top_p sliders on same row if needed
@@ -1286,6 +1307,9 @@ function buildAgentProviderModelUI(agentPrefix, currentProvider = 'lmstudio', cu
                 <div data-agent-prefix="${agentPrefix}" data-provider="openai" class="hidden">
                     ${openaiInput}
                 </div>
+                <div data-agent-prefix="${agentPrefix}" data-provider="codex" class="hidden">
+                    ${codexInput}
+                </div>
                 <div data-agent-prefix="${agentPrefix}" data-provider="anthropic" class="hidden">
                     ${anthropicInput}
                 </div>
@@ -1305,13 +1329,20 @@ function getCommercialProviderModels(provider) {
 }
 
 function buildCommercialProviderInput(agentPrefix, provider, currentProvider, currentModel) {
-    const placeholder = provider === 'openai' ? 'Select an OpenAI model' : 'Select a Claude model';
+    const placeholder = provider === 'openai'
+        ? 'Select an OpenAI model'
+        : provider === 'codex'
+            ? 'Select a Codex model'
+            : 'Select a Claude model';
     const baseClass = 'w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs';
     const fallbackValue = providerDefaults[provider] || '';
-    const eligibleCurrentModel = (currentProvider === provider && currentModel && isModelAllowedForProvider(provider, currentModel)) ? currentModel : '';
+    const catalog = getCommercialProviderModels(provider);
+    const eligibleCurrentModel = (currentProvider === provider && currentModel &&
+        (provider === 'codex' && catalog ? catalog.includes(currentModel) : isModelAllowedForProvider(provider, currentModel)))
+        ? currentModel
+        : '';
     const selectedModel = eligibleCurrentModel || fallbackValue || '';
     const elementId = `${agentPrefix}-model-${provider}`;
-    const catalog = getCommercialProviderModels(provider);
 
     // Determine the name attribute for form submission using unified AGENT_CONFIG
     const config = getAgentConfig(agentPrefix);
@@ -1328,7 +1359,7 @@ function buildCommercialProviderInput(agentPrefix, provider, currentProvider, cu
                    aria-label="${ariaLabel}"
                    class="${baseClass}"
                    value="${escapeHtml(eligibleCurrentModel || '')}"
-                   placeholder="${provider === 'openai' ? 'gpt-4o-mini' : 'claude-sonnet-4-5'}"
+                   placeholder="${provider === 'openai' ? 'gpt-4o-mini' : provider === 'codex' ? 'gpt-5.6-luna' : 'claude-sonnet-4-5'}"
                    oninput="validateAgentModelOnChange('${agentPrefix}'); autoSaveModelChange()"
                    onchange="validateAgentModelOnChange('${agentPrefix}'); autoSaveModelChange()">
         `;
@@ -1674,7 +1705,7 @@ if (typeof window !== 'undefined') {
         const providerSelect = document.getElementById(`${agentPrefix}-provider`);
         const provider = (providerSelect?.value || getDefaultProvider()).toString().trim().toLowerCase();
 
-        ['openai', 'anthropic'].forEach(p => {
+        ['openai', 'codex', 'anthropic'].forEach(p => {
             const container = document.querySelector(`[data-agent-prefix="${agentPrefix}"][data-provider="${p}"]`);
             if (!container) return;
 
@@ -1703,6 +1734,7 @@ function onAgentProviderChange(agentPrefix) {
     const modelSelect = document.getElementById(`${agentPrefix}-model-2`) || document.getElementById(`${agentPrefix}-model`);
     const modelInputs = [
         document.getElementById(`${agentPrefix}-model-openai`),
+        document.getElementById(`${agentPrefix}-model-codex`),
         document.getElementById(`${agentPrefix}-model-anthropic`)
     ].filter(Boolean);
     
@@ -1787,8 +1819,9 @@ function refreshAllProviderBlocks() {
             // Last-resort visibility only
             const lm = document.querySelector(`[data-agent-prefix="${prefix}"][data-provider="lmstudio"]`);
             const openai = document.querySelector(`[data-agent-prefix="${prefix}"][data-provider="openai"]`);
+            const codex = document.querySelector(`[data-agent-prefix="${prefix}"][data-provider="codex"]`);
             const anthropic = document.querySelector(`[data-agent-prefix="${prefix}"][data-provider="anthropic"]`);
-            [lm, openai, anthropic].forEach(el => {
+            [lm, openai, codex, anthropic].forEach(el => {
                 if (!el || !el.dataset.provider) return;
                 const gp = el.dataset.provider.toString().trim().toLowerCase();
                 if (gp === provider) {
@@ -3146,6 +3179,9 @@ function renderAgentModels(lmstudioModels) {
                         <div data-agent-prefix="rankagent" data-provider="openai" class="hidden">
                             ${buildCommercialProviderInput('rankagent', 'openai', currentProvider, currentModel)}
                         </div>
+                        <div data-agent-prefix="rankagent" data-provider="codex" class="hidden">
+                            ${buildCommercialProviderInput('rankagent', 'codex', currentProvider, currentModel)}
+                        </div>
                         <div data-agent-prefix="rankagent" data-provider="anthropic" class="hidden">
                             ${buildCommercialProviderInput('rankagent', 'anthropic', currentProvider, currentModel)}
                         </div>
@@ -3237,6 +3273,9 @@ function renderAgentModels(lmstudioModels) {
                         <div data-agent-prefix="extractagent" data-provider="openai" class="hidden">
                             ${buildCommercialProviderInput('extractagent', 'openai', currentProvider, currentModel)}
                         </div>
+                        <div data-agent-prefix="extractagent" data-provider="codex" class="hidden">
+                            ${buildCommercialProviderInput('extractagent', 'codex', currentProvider, currentModel)}
+                        </div>
                         <div data-agent-prefix="extractagent" data-provider="anthropic" class="hidden">
                             ${buildCommercialProviderInput('extractagent', 'anthropic', currentProvider, currentModel)}
                         </div>
@@ -3297,6 +3336,9 @@ function renderAgentModels(lmstudioModels) {
                         </div>
                         <div data-agent-prefix="sigmaagent" data-provider="openai" class="hidden">
                             ${buildCommercialProviderInput('sigmaagent', 'openai', currentProvider, currentModel)}
+                        </div>
+                        <div data-agent-prefix="sigmaagent" data-provider="codex" class="hidden">
+                            ${buildCommercialProviderInput('sigmaagent', 'codex', currentProvider, currentModel)}
                         </div>
                         <div data-agent-prefix="sigmaagent" data-provider="anthropic" class="hidden">
                             ${buildCommercialProviderInput('sigmaagent', 'anthropic', currentProvider, currentModel)}
@@ -4065,26 +4107,15 @@ async function performAutoSave() {
         const cmdlineAttentionPreprocessorEnabled = document.getElementById('cmdline-attention-preprocessor-enabled')?.checked !== false;
         const procTreeAttentionPreprocessorEnabled = document.getElementById('proctree-attention-preprocessor-enabled')?.checked !== false;
         
-        // Merge agent_prompts and include disabled extract agents
-        const promptsSource = {
-            ...(currentConfig?.agent_prompts || {}),
-            ...(agentPrompts || {})
-        };
-        const promptsCopy = JSON.parse(JSON.stringify(promptsSource || {}));
-        // Strip the per-agent 'model' sibling -- model selection lives in
-        // agent_models.X and duplicating it inside agent_prompts.X produces
-        // shape-5 records that confuse parse_sigma_agent_prompt_data and
-        // the rank/sigma readers. Skip ExtractAgentSettings (its 'model'
-        // semantic differs -- it's a settings container, not a prompt).
-        for (const key of Object.keys(promptsCopy)) {
-            if (key === 'ExtractAgentSettings') continue;
-            if (promptsCopy[key] && typeof promptsCopy[key] === 'object' && 'model' in promptsCopy[key]) {
-                delete promptsCopy[key].model;
-            }
-        }
-        const extractSettings = promptsCopy.ExtractAgentSettings ? { ...promptsCopy.ExtractAgentSettings } : {};
+        // Autosave fires for settings, not prompt edits. Sending every prompt here
+        // would restore the page-load copy after a prompt was saved elsewhere.
+        const existingExtractSettings =
+            (agentPrompts && agentPrompts.ExtractAgentSettings) ||
+            (currentConfig && currentConfig.agent_prompts && currentConfig.agent_prompts.ExtractAgentSettings) ||
+            {};
+        const extractSettings = { ...existingExtractSettings };
         extractSettings.disabled_agents = disabledFromDOM;
-        promptsCopy.ExtractAgentSettings = extractSettings;
+        const promptsCopy = { ExtractAgentSettings: extractSettings };
         
         // Build update payload with all config fields
         const updateData = {
@@ -4112,8 +4143,19 @@ async function performAutoSave() {
             
             currentConfig = updatedConfig;
             agentModels = updatedConfig.agent_models || {};
-            agentPrompts = updatedConfig.agent_prompts || agentPrompts || {};
-            
+            // Autosave sends only ExtractAgentSettings, so the response cannot contain any
+            // prompt body still pending in form state. Re-apply those on top of server truth
+            // instead of replacing wholesale -- otherwise an imported preset is destroyed by
+            // the autosave it triggers, 400ms after the user loads it.
+            const serverPrompts = updatedConfig.agent_prompts || agentPrompts || {};
+            const preservedPrompts = { ...serverPrompts };
+            pendingPromptAgents.forEach(agentName => {
+                if (agentPrompts && agentPrompts[agentName] !== undefined) {
+                    preservedPrompts[agentName] = agentPrompts[agentName];
+                }
+            });
+            agentPrompts = preservedPrompts;
+
             // Update disabledExtractAgents from response, but DON'T sync toggles from config
             // The DOM state is already correct (user just changed it), and syncing would overwrite it
             // Only update the internal state to match what was saved
@@ -4371,7 +4413,7 @@ function renderAgentPrompts() {
     // Render Rank Agent Prompt
     const rankPromptContainer = document.getElementById('rank-agent-prompt-container');
     if (rankPromptContainer) {
-        const promptData = getOrCreatePromptData('RankAgent');
+        const promptData = getPromptDataForRender('RankAgent');
         rankPromptContainer.innerHTML = renderSinglePrompt('RankAgent', promptData, 'rank-agent');
         setTimeout(() => {
             if (typeof initCollapsiblePanels === 'function') {
@@ -4435,7 +4477,7 @@ function renderAgentPrompts() {
     // Render SIGMA Agent Prompt (always render when container exists, same as Extract/sub-agents)
     const sigmaPromptContainer = document.getElementById('sigma-agent-prompt-container');
     if (sigmaPromptContainer) {
-        const promptData = getOrCreatePromptData('SigmaAgent');
+        const promptData = getPromptDataForRender('SigmaAgent');
         sigmaPromptContainer.innerHTML = renderSinglePrompt('SigmaAgent', promptData, 'sigma-agent');
         setTimeout(() => {
             if (typeof initCollapsiblePanels === 'function') {
@@ -4719,18 +4761,23 @@ function renderSinglePrompt(agentName, promptData, prefix) {
     `;
 }
 
-function getOrCreatePromptData(agentName) {
+// Render-only placeholder for an agent that has no prompt in form state.
+//
+// This MUST NOT write the placeholder back into `agentPrompts`. It used to, and that
+// side effect is how a missing prompt became an explicitly-empty one: rendering a panel
+// for an agent with no prompt materialised {prompt:'', instructions:''} into global
+// state, and the next Save -- which persists the whole blob -- wrote those blanks to the
+// database as though the operator had chosen them. Mirrors the sub-agent render path,
+// which has always used a local default.
+function getPromptDataForRender(agentName) {
     if (!agentPrompts) {
         agentPrompts = {};
     }
-    if (!agentPrompts[agentName]) {
-        agentPrompts[agentName] = {
-            prompt: '',
-            instructions: '',
-            model: getCurrentModelForAgent(agentName) || 'Not configured'
-        };
-    }
-    return agentPrompts[agentName];
+    return agentPrompts[agentName] || {
+        prompt: '',
+        instructions: '',
+        model: getCurrentModelForAgent(agentName) || 'Not configured'
+    };
 }
 
 function getDisabledExtractAgentsFromConfig(config) {
@@ -4977,6 +5024,7 @@ function applySubAgentPreset(preset) {
     applyAgentConfigs(mergedModels);
     if (preset.agent_prompts && Object.keys(preset.agent_prompts).length > 0) {
         agentPrompts = { ...(agentPrompts || {}), ...preset.agent_prompts };
+        Object.keys(preset.agent_prompts).forEach(name => pendingPromptAgents.add(name));
         renderAgentPrompts();
     }
     if (typeof autoSaveModelChange === 'function') autoSaveModelChange();
@@ -5234,9 +5282,11 @@ async function refreshConfigVersionList() {
                             <div class="text-xs text-gray-500 dark:text-gray-400">Updated: ${updatedStr}</div>
                         </div>
                         <div class="flex space-x-2 ml-4">
+                            <button type="button" onclick="toggleConfigVersionDetails(${v.id}, this)" aria-expanded="false" aria-controls="configVersionDetails-${v.id}" class="px-3 py-1 text-xs border border-gray-600 text-gray-300 hover:text-white rounded-md">Expand</button>
                             <button type="button" onclick="loadConfigByVersion(${v.version})" class="px-3 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-md">Load</button>
                         </div>
                     </div>
+                    <div id="configVersionDetails-${v.id}" role="region" class="hidden mt-3 pt-3 border-t border-gray-300 dark:border-gray-600" data-version="${v.version}" data-updated-at="${v.updated_at}"></div>
                 `;
                 listEl.appendChild(item);
             });
@@ -5256,6 +5306,66 @@ async function refreshConfigVersionList() {
         showNotification('Error loading versions: ' + errorMessage, 'error');
         listEl.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-4">Failed to load versions.</p>';
     }
+}
+
+async function toggleConfigVersionDetails(rowId, btn) {
+    const container = document.getElementById(`configVersionDetails-${rowId}`);
+    if (!container) return;
+    if (!container.classList.contains('hidden')) {
+        container.classList.add('hidden');
+        container.innerHTML = '';
+        delete container.dataset.loaded;
+        btn.textContent = 'Expand';
+        btn.setAttribute('aria-expanded', 'false');
+        return;
+    }
+    btn.setAttribute('aria-expanded', 'true');
+    if (!container.dataset.loaded) {
+        btn.textContent = 'Loading…';
+        btn.disabled = true;
+        try {
+            const version = container.dataset.version;
+            const response = await fetch(`/api/workflow/config/version/${version}`);
+            let data;
+            try {
+                data = await response.json();
+            } catch (jsonError) {
+                throw new Error(`Server error (${response.status}): ${response.statusText || 'Failed to load config'}`);
+            }
+            if (!response.ok) {
+                throw new Error(extractErrorMessage(data, `Failed to load config v${version} (${response.status})`));
+            }
+            const thresholds = data.thresholds || {};
+            const agentPrompts = data.agent_prompts || {};
+            if (data.extract_agent_settings && Array.isArray(data.extract_agent_settings.disabled_agents)) {
+                agentPrompts.ExtractAgentSettings = agentPrompts.ExtractAgentSettings || {};
+                agentPrompts.ExtractAgentSettings.disabled_agents = data.extract_agent_settings.disabled_agents;
+            }
+            const merged = {
+                version,
+                ranking_threshold: thresholds.ranking_threshold ?? 'N/A',
+                junk_filter_threshold: thresholds.junk_filter_threshold ?? 'N/A',
+                similarity_threshold: thresholds.similarity_threshold ?? 'N/A',
+                updated_at: container.dataset.updatedAt,
+                rank_agent_enabled: data.rank_agent_enabled,
+                cmdline_attention_preprocessor_enabled: data.cmdline_attention_preprocessor_enabled,
+                proc_tree_attention_preprocessor_enabled: data.proc_tree_attention_preprocessor_enabled,
+                agent_models: data.agent_models || {},
+                agent_prompts: agentPrompts,
+            };
+            renderWorkflowConfigDisplay(merged, { containerId: container.id, showVersion: false });
+            container.dataset.loaded = '1';
+        } catch (error) {
+            console.error('Error loading config version details:', error);
+            const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
+            showNotification('Error loading config details: ' + errorMessage, 'error');
+            container.innerHTML = `<p class="text-xs text-red-500">Failed to load details: ${escapeHtml(errorMessage)}</p>`;
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Collapse';
+        }
+    }
+    container.classList.remove('hidden');
 }
 
 function searchConfigVersions() {
@@ -5638,6 +5748,7 @@ async function applyPreset(preset) {
         if (preset.agent_prompts && Object.keys(preset.agent_prompts).length > 0) {
             console.log('🔄 Loading agent prompts from preset into form (Save to apply)...');
             agentPrompts = { ...(agentPrompts || {}), ...preset.agent_prompts };
+            Object.keys(preset.agent_prompts).forEach(name => pendingPromptAgents.add(name));
             renderAgentPrompts();
             console.log('✅ Agent prompts loaded from preset. Click Save to make this config active.');
         }
@@ -6067,6 +6178,9 @@ async function showGenerateCommandsModal() {
     const modal = document.createElement('div');
     modal.id = 'generateCommandsModal';
     modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', 'Generate LMStudio context commands');
     modal.innerHTML = `
         <div class="card-xl max-w-3xl w-full mx-4 max-h-[80vh] flex flex-col">
             <div class="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
@@ -6485,13 +6599,19 @@ if (workflowConfigForm) {
         rank_agent_enabled: document.getElementById('rank-agent-enabled')?.checked ?? true
     };
     
-    // Merge agent_prompts and include disabled extract agents
-    const promptsSource = {
+    // Explicit Save persists the complete prompt state, unlike autosave.
+    const promptsCopy = JSON.parse(JSON.stringify({
         ...(currentConfig?.agent_prompts || {}),
         ...(agentPrompts || {})
-    };
-    const extractSettings = promptsSource.ExtractAgentSettings ? { ...promptsSource.ExtractAgentSettings } : {};
-    
+    }));
+    for (const key of Object.keys(promptsCopy)) {
+        if (key === 'ExtractAgentSettings') continue;
+        if (promptsCopy[key] && typeof promptsCopy[key] === 'object' && 'model' in promptsCopy[key]) {
+            delete promptsCopy[key].model;
+        }
+    }
+    const extractSettings = promptsCopy.ExtractAgentSettings ? { ...promptsCopy.ExtractAgentSettings } : {};
+
     // CRITICAL: Read disabled agents directly from DOM checkboxes to ensure accuracy
     // This is the source of truth, not the disabledExtractAgents Set which might be stale
     const disabledFromDOM = [];
@@ -6509,8 +6629,8 @@ if (workflowConfigForm) {
     
     // Store disabledFromDOM in formData for use in response handler
     formData._disabledFromDOM = disabledFromDOM;
-    promptsSource.ExtractAgentSettings = extractSettings;
-    formData.agent_prompts = promptsSource;
+    promptsCopy.ExtractAgentSettings = extractSettings;
+    formData.agent_prompts = promptsCopy;
     
     // Validate RankAgent model is set (only required when Rank Agent is enabled)
     if (formData.rank_agent_enabled && !formData.agent_models.RankAgent) {
@@ -6527,7 +6647,42 @@ if (workflowConfigForm) {
         }
     }
     formData.agent_models = Object.keys(cleanedAgentModels).length > 0 ? cleanedAgentModels : null;
-    
+
+    // Pre-flight prompt validation. A config saved with an enabled extractor but no prompt
+    // runs to "completed" with zero observables and zero rules and reports no error, so the
+    // loss is only visible by reading worker logs. Surface it here instead.
+    try {
+        const vResponse = await fetch('/api/workflow/config/prompts/validate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agent_prompts: formData.agent_prompts })
+        });
+        if (vResponse.ok) {
+            const { warnings = [] } = await vResponse.json();
+            if (warnings.length > 0) {
+                console.warn('Config save warnings:', warnings);
+                const detail = warnings.map(w => `• ${w}`).join('\n');
+                const proceed = await ModalManager.confirm(
+                    `This configuration has ${warnings.length} prompt issue(s):\n\n${detail}\n\n` +
+                    'Saving it will make these agents fail silently at runtime. Save anyway?',
+                    {
+                        title: 'Prompt Validation Warning',
+                        confirmText: 'Save Anyway',
+                        confirmClass: 'bg-red-600 hover:bg-red-700',
+                        cancelText: 'Cancel'
+                    }
+                );
+                if (!proceed) {
+                    showNotification('Save cancelled - fix the prompt issues above', 'warning');
+                    return;
+                }
+            }
+        }
+    } catch (validationError) {
+        // Validation is advisory: never block a save because the check itself failed.
+        console.warn('Prompt validation check failed, continuing with save:', validationError);
+    }
+
     // Show loading state
     const saveButton = document.getElementById('save-config-button');
     const originalButtonText = saveButton.textContent;
@@ -6548,7 +6703,9 @@ if (workflowConfigForm) {
             // Update currentConfig with the response
             currentConfig = updatedConfig;
             agentModels = updatedConfig.agent_models || {};
-            
+            // Explicit Save transmits the complete prompt state, so nothing is pending anymore.
+            pendingPromptAgents = new Set();
+
             // Re-apply agent configs to ensure Top_P and other values are set correctly
             if (updatedConfig.agent_models) {
                 applyAgentConfigs(updatedConfig.agent_models);
@@ -6678,7 +6835,12 @@ if (workflowConfigForm) {
 // --- Global fallback definitions to ensure sub-agent provider inputs always render ---
 const subAgentModelKeysGlobal = {
     cmdlineextract: 'CmdlineExtract_model',
-    proctreeextract: 'ProcTreeExtract_model'
+    proctreeextract: 'ProcTreeExtract_model',
+    huntqueriesextract: 'HuntQueriesExtract_model',
+    registryextract: 'RegistryExtract_model',
+    servicesextract: 'ServicesExtract_model',
+    scheduledtasksextract: 'ScheduledTasksExtract_model',
+    networkindicatorextract: 'NetworkIndicatorExtract_model'
 };
 
 function renderSubAgentCommercialInputsGlobal(agentPrefix) {
@@ -6689,7 +6851,7 @@ function renderSubAgentCommercialInputsGlobal(agentPrefix) {
     const currentModel = agentModels?.[modelKey] || '';
 
     // Always use buildCommercialProviderInput for consistency with main agents
-    ['openai', 'anthropic'].forEach(p => {
+    ['openai', 'codex', 'anthropic'].forEach(p => {
         const container = document.querySelector(`[data-agent-prefix="${agentPrefix}"][data-provider="${p}"]`);
         if (!container) {
             console.warn(`Container not found for ${agentPrefix} provider ${p}`);
@@ -6704,7 +6866,7 @@ function renderSubAgentCommercialInputsGlobal(agentPrefix) {
             container.innerHTML = html;
         } else {
             // Fallback to manual input if buildCommercialProviderInput not available
-            const placeholder = p === 'openai' ? 'gpt-4o-mini' : 'claude-sonnet-4-5';
+            const placeholder = p === 'openai' ? 'gpt-4o-mini' : p === 'codex' ? 'gpt-5.6-luna' : 'claude-sonnet-4-5';
             container.innerHTML = `
                 <input type="text"
                        id="${agentPrefix}-model-${p}"

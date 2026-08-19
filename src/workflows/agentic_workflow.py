@@ -30,7 +30,8 @@ from src.database.models import (
     SigmaRuleQueueTable,
     SubagentEvaluationTable,
 )
-from src.services.eval_item_scorer import score_items
+from src.services import subagent_eval_service
+from src.services.execution_snapshot_store import attach_snapshot, hydrate_snapshot
 from src.services.llm_service import LLMService
 from src.services.lmstudio_model_loader import auto_load_workflow_models
 from src.services.sigma_eval_service import (
@@ -62,6 +63,12 @@ from src.workflows.status_utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Backward-compatible private aliases for existing workflow imports and tests.
+_extract_actual_count = subagent_eval_service._extract_actual_count
+_raw_actual_items = subagent_eval_service._raw_actual_items
+_update_single_eval_record = subagent_eval_service._update_single_eval_record
+_update_subagent_eval_on_completion = subagent_eval_service.update_subagent_eval_on_completion
 
 PLATFORM_WINDOWS = "windows"
 PLATFORM_LINUX = "linux"
@@ -168,7 +175,7 @@ def _platforms_from_os_detection(detected_os: Any, os_result: dict[str, Any] | N
     elif detected_platform != PLATFORM_UNKNOWN:
         platforms.append(detected_platform)
 
-    if not platforms:
+    if not platforms and os_data.get("confidence") != "low":
         similarities = os_data.get("similarities", {})
         if isinstance(similarities, dict):
             scored = [
@@ -639,6 +646,15 @@ _INFRA_FAILURE_RE = re.compile(
     re.IGNORECASE,
 )
 
+_NON_EXECUTED_EXTRACTOR_STATUSES = frozenset({"skipped", "skipped_for_eval", "disabled", "blocked_by_eval_filter"})
+
+
+def _subresult_was_executed(subresult: dict[str, Any]) -> bool:
+    """Return False for extractor records produced without an LLM execution."""
+    raw = subresult.get("raw", {})
+    status = raw.get("status") if isinstance(raw, dict) else None
+    return status not in _NON_EXECUTED_EXTRACTOR_STATUSES
+
 
 def _extraction_is_infra_failure(extraction_result: dict | None) -> bool:
     """Return True if every executed (non-skipped) subagent failed with an infra error."""
@@ -652,8 +668,7 @@ def _extraction_is_infra_failure(extraction_result: dict | None) -> bool:
     for sr in subresults.values():
         if not isinstance(sr, dict):
             continue
-        raw = sr.get("raw", {})
-        if isinstance(raw, dict) and raw.get("status") == "skipped_for_eval":
+        if not _subresult_was_executed(sr):
             continue
         executed.append(sr)
 
@@ -687,8 +702,7 @@ def _all_extractors_errored(extraction_result: dict | None) -> tuple[bool, str |
     for sr in subresults.values():
         if not isinstance(sr, dict):
             continue
-        raw = sr.get("raw", {})
-        if isinstance(raw, dict) and raw.get("status") == "skipped_for_eval":
+        if not _subresult_was_executed(sr):
             continue
         executed.append(sr)
 
@@ -875,237 +889,6 @@ def _mark_pending_subagent_evals_as_failed(
         return 0
 
 
-def _update_subagent_eval_on_completion(
-    execution: AgenticWorkflowExecutionTable,
-    db_session: Session,
-    extraction_result_override: dict[str, Any] | None = None,
-) -> None:
-    """
-    Update SubagentEvaluationTable when workflow execution completes.
-    Extracts count from extraction_result.subresults.{subagent_name} and calculates score.
-    If extraction_result_override is provided (e.g. from workflow state), use it instead of execution.extraction_result.
-    """
-    try:
-        config_snapshot = execution.config_snapshot or {}
-        subagent_name = normalize_subagent_name(config_snapshot.get("subagent_eval"))
-
-        if not subagent_name:
-            # Not an eval run
-            return
-
-        # For hunt_queries, find eval records (hunt_queries, hunt_queries_edr, or hunt_queries_sigma)
-        # run-subagent-eval creates records with subagent_name "hunt_queries"; also support legacy EDR/SIGMA
-        if subagent_name == "hunt_queries":
-            eval_records = (
-                db_session.query(SubagentEvaluationTable)
-                .filter(
-                    SubagentEvaluationTable.workflow_execution_id == execution.id,
-                    SubagentEvaluationTable.subagent_name.in_(
-                        ["hunt_queries", "hunt_queries_edr", "hunt_queries_sigma"]
-                    ),
-                )
-                .all()
-            )
-
-            if not eval_records:
-                logger.warning(f"No SubagentEvaluation records found for execution {execution.id} (hunt_queries)")
-                return
-
-            for eval_record in eval_records:
-                _update_single_eval_record(
-                    eval_record,
-                    execution,
-                    db_session,
-                    extraction_result_override=extraction_result_override,
-                )
-            return
-
-        # Standard single eval record
-        eval_record = (
-            db_session.query(SubagentEvaluationTable)
-            .filter(SubagentEvaluationTable.workflow_execution_id == execution.id)
-            .first()
-        )
-
-        if not eval_record:
-            logger.warning(f"No SubagentEvaluation record found for execution {execution.id}")
-            return
-
-        _update_single_eval_record(
-            eval_record,
-            execution,
-            db_session,
-            extraction_result_override=extraction_result_override,
-        )
-
-    except Exception as e:
-        logger.error(f"Error updating SubagentEvaluation for execution {execution.id}: {e}", exc_info=True)
-        # Don't fail the workflow if eval update fails. Per-record terminal state is
-        # handled inside _update_single_eval_record; here we just keep the session clean
-        # so a partial transaction can't poison later commits.
-        with contextlib.suppress(Exception):
-            db_session.rollback()
-
-
-def _extract_actual_count(subagent_name: str, subresults: dict, execution_id: int) -> int | None:
-    """Extract actual count from subresults based on subagent name."""
-    # Handle historical hunt_queries_edr records (backward compatibility)
-    if subagent_name == "hunt_queries_edr":
-        hunt_queries_result = subresults.get("hunt_queries", {})
-        if not isinstance(hunt_queries_result, dict):
-            logger.warning(f"No hunt_queries result in subresults for execution {execution_id}")
-            return None
-        # Extract EDR query count from old dual-format results
-        query_count = hunt_queries_result.get("query_count")
-        if query_count is None:
-            queries = hunt_queries_result.get("queries", [])
-            query_count = len(queries) if isinstance(queries, list) else 0
-        return query_count
-
-    # hunt_queries: prefer count (current contract), then len(queries/items).
-    if subagent_name == "hunt_queries":
-        hq = subresults.get("hunt_queries", {})
-        if not isinstance(hq, dict):
-            logger.warning(f"No hunt_queries result in subresults for execution {execution_id}")
-            return None
-        n = hq.get("count")
-        if n is not None:
-            return int(n)
-        q = hq.get("queries") or hq.get("items", [])
-        return len(q) if isinstance(q, list) else 0
-
-    # Standard subagent handling (cmdline, process_lineage)
-    subagent_result = subresults.get(subagent_name, {})
-    if not isinstance(subagent_result, dict):
-        logger.warning(f"No {subagent_name} result in subresults for execution {execution_id}")
-        return None
-
-    # Extract count (prefer count field, fallback to items array length)
-    actual_count = subagent_result.get("count")
-    if actual_count is None:
-        items = subagent_result.get("items", [])
-        actual_count = len(items) if isinstance(items, list) else 0
-
-    return actual_count
-
-
-def _extract_actual_items(subagent_name: str, subresults: dict) -> list[str] | None:
-    """Extract the items list from subresults for item-level scoring.
-
-    Returns a list of strings or None if the subagent type doesn't support item lists.
-    """
-    if subagent_name in ("hunt_queries", "hunt_queries_edr", "hunt_queries_sigma"):
-        # Hunt queries produce query text objects, not simple string items
-        return None
-
-    subagent_result = subresults.get(subagent_name, {})
-    if not isinstance(subagent_result, dict):
-        return None
-
-    items = subagent_result.get("items")
-    if not isinstance(items, list):
-        return None
-
-    # Flatten: each item may be a string, or a dict with a "cmdline" / "command" / "value" field
-    flat: list[str] = []
-    for item in items:
-        if isinstance(item, str):
-            flat.append(item)
-        elif isinstance(item, dict):
-            # Try common string payload fields in priority order
-            for field in ("cmdline", "command", "commandline", "value", "name"):
-                v = item.get(field)
-                if isinstance(v, str) and v.strip():
-                    flat.append(v.strip())
-                    break
-    return flat if flat else None
-
-
-def _update_single_eval_record(
-    eval_record: SubagentEvaluationTable,
-    execution: AgenticWorkflowExecutionTable,
-    db_session: Session,
-    extraction_result_override: dict[str, Any] | None = None,
-) -> None:
-    """Update a single eval record with actual count from execution."""
-    try:
-        # Prefer override (e.g. from workflow state) so skip-sigma path has extraction_result
-        extraction_result = (
-            extraction_result_override if extraction_result_override is not None else execution.extraction_result
-        )
-        if not extraction_result or not isinstance(extraction_result, dict):
-            logger.warning(f"No extraction_result for execution {execution.id}")
-            eval_record.status = "failed"
-            db_session.commit()
-            return
-
-        subresults = extraction_result.get("subresults", {})
-        if not isinstance(subresults, dict):
-            logger.warning(f"No subresults in extraction_result for execution {execution.id}")
-            eval_record.status = "failed"
-            db_session.commit()
-            return
-
-        # Extract count based on subagent type
-        actual_count = _extract_actual_count(eval_record.subagent_name, subresults, execution.id)
-
-        if actual_count is None:
-            eval_record.status = "failed"
-            db_session.commit()
-            return
-
-        if not isinstance(actual_count, int):
-            actual_count = int(actual_count) if actual_count else 0
-
-        # Calculate score
-        score = actual_count - eval_record.expected_count
-
-        # Item-level scoring (only when expected_items ground truth is available).
-        # When the model returns zero items, _extract_actual_items returns None to signal
-        # "no items field present at all". For scoring purposes that's identical to an
-        # empty list -- the run completed and produced nothing -- so we coerce here so
-        # the zero-extraction case still scores (matched=0, missed=len(expected), extra=0).
-        if eval_record.expected_items and isinstance(eval_record.expected_items, list):
-            actual_items = _extract_actual_items(eval_record.subagent_name, subresults)
-            if actual_items is None:
-                actual_items = []
-            result = score_items(eval_record.expected_items, actual_items, eval_record.acceptable_items)
-            eval_record.actual_items = actual_items
-            eval_record.matched_count = result.matched_count
-            eval_record.missed_count = result.missed_count
-            eval_record.extra_count = result.extra_count
-            eval_record.neutral_count = result.neutral_count
-
-        # Update eval record
-        eval_record.actual_count = actual_count
-        eval_record.score = score
-        eval_record.status = "completed"
-        eval_record.completed_at = datetime.now()
-
-        # Commit the update
-        db_session.commit()
-
-        logger.info(
-            f"Updated SubagentEvaluation {eval_record.id}: "
-            f"subagent={eval_record.subagent_name}, expected={eval_record.expected_count}, "
-            f"actual={actual_count}, score={score}"
-        )
-    except Exception as e:
-        logger.error(f"Error updating SubagentEvaluation for execution {execution.id}: {e}", exc_info=True)
-        # Don't fail the workflow if eval update fails -- but never leave the record
-        # stranded in 'pending', or the poll loop shows it as permanently "stuck".
-        # Roll back the partial transaction, then write a terminal 'failed' state.
-        try:
-            db_session.rollback()
-            eval_record.status = "failed"
-            db_session.commit()
-        except Exception:
-            logger.error(
-                f"Failed to mark SubagentEvaluation {eval_record.id} as failed after update error",
-                exc_info=True,
-            )
-
-
 # CamelCase-keyed map used by the supervisor loop to resolve agent names to subagent aliases.
 # Canonical source: src/utils/subagent_utils.py (lowercase keys).  This copy uses CamelCase
 # because the workflow loop iterates with CamelCase agent names.
@@ -1118,6 +901,27 @@ _AGENT_NAME_TO_SUBAGENT: dict[str, str] = {
     "ScheduledTasksExtract": "scheduled_tasks",
     "NetworkIndicatorExtract": "network_indicators",
 }
+
+
+def _eval_snapshot(execution: Any) -> dict:
+    """Return the execution's full config payload, resolving externalized snapshots.
+
+    Since snapshot deduplication (commit 6e851943), ``execution.config_snapshot``
+    holds only ``{"snapshot_id": N}`` — the eval flags (``subagent_eval``,
+    ``eval_run``, ``skip_*``) live in the externalized payload. Every eval-flag
+    read must hydrate, or the flag silently reads ``None`` and the run neither
+    isolates to the target subagent nor scores its evaluation rows. Falls back to
+    legacy inline JSON for pre-externalization executions.
+    """
+    if not execution:
+        return {}
+    snapshot = hydrate_snapshot(execution)
+    if isinstance(snapshot, str):
+        try:
+            snapshot = json.loads(snapshot)
+        except (json.JSONDecodeError, ValueError):
+            return {}
+    return snapshot if isinstance(snapshot, dict) else {}
 
 
 def _is_agent_allowed(
@@ -1136,8 +940,9 @@ def _is_agent_allowed(
     """
     # 1. Re-read subagent_eval from execution config_snapshot (defensive)
     raw_eval = None
-    if execution and getattr(execution, "config_snapshot", None):
-        raw_eval = execution.config_snapshot.get("subagent_eval")
+    snapshot = _eval_snapshot(execution)
+    if snapshot:
+        raw_eval = snapshot.get("subagent_eval")
 
     # Fallback to the variable
     if not raw_eval and subagent_eval:
@@ -1379,14 +1184,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 db_session.commit()
 
             config = state.get("config")
-            config_snapshot = execution.config_snapshot if execution else {}
-            if isinstance(config_snapshot, str):
-                try:
-                    config_snapshot = json.loads(config_snapshot)
-                except (json.JSONDecodeError, ValueError):
-                    config_snapshot = {}
-            if not isinstance(config_snapshot, dict):
-                config_snapshot = {}
+            config_snapshot = _eval_snapshot(execution)
 
             skip_os_detection_flag = _bool_from_value(config_snapshot.get("skip_os_detection", False))
             eval_run_flag = _bool_from_value(config_snapshot.get("eval_run", False))
@@ -1447,18 +1245,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         state["execution_id"],
                         os_detection_prompt=os_det_prompt,
                         article_id=state["article_id"],
-                    )
-
-            similarities = os_result.get("similarities", {}) if os_result else {}
-            windows_similarity = similarities.get("Windows", 0.0) if isinstance(similarities, dict) else 0.0
-
-            if detected_os == "Unknown" and similarities:
-                max_similarity_os = max(similarities, key=similarities.get)
-                if max_similarity_os == "Windows" and windows_similarity > 0.0:
-                    detected_os = "Windows"
-                    os_result["operating_system"] = "Windows"
-                    logger.info(
-                        f"[Workflow {state['execution_id']}] Overriding detected_os to 'Windows' (highest similarity: {windows_similarity:.1%})"
                     )
 
             platforms_detected = _platforms_from_os_detection(detected_os, os_result)
@@ -1689,7 +1475,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
         )
 
         # Determine bypass reason
-        config_snapshot = execution.config_snapshot if execution else {}
+        config_snapshot = _eval_snapshot(execution)
         eval_run_flag = _bool_from_value(config_snapshot.get("eval_run", False))
         state_eval_run = _bool_from_value(state.get("eval_run", False))
         is_eval_run = state_eval_run or eval_run_flag
@@ -1745,7 +1531,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 }
 
             if execution and execution.config_snapshot:
-                config_snapshot = execution.config_snapshot or {}
+                config_snapshot = _eval_snapshot(execution)
                 skip_rank_agent = _bool_from_value(config_snapshot.get("skip_rank_agent", False)) or _bool_from_value(
                     config_snapshot.get("eval_run", False)
                 )
@@ -2005,7 +1791,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             agent_prompts_config = configured_prompts if isinstance(configured_prompts, dict) else {}
 
             # Check if this is a subagent eval run
-            config_snapshot = execution.config_snapshot if execution else {}
+            config_snapshot = _eval_snapshot(execution)
             subagent_eval = normalize_subagent_name(
                 config_snapshot.get("subagent_eval") or state_config.get("subagent_eval")
             )
@@ -2043,7 +1829,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             max_extraction_retries = 5
             if agent_models:
                 # Check if this is an eval run (check both config_snapshot and state config)
-                config_snapshot = execution.config_snapshot if execution else {}
+                config_snapshot = _eval_snapshot(execution)
                 state_config = state.get("config", {})
                 is_eval_run = (
                     _bool_from_value(config_snapshot.get("eval_run", False))
@@ -2180,7 +1966,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Re-read subagent_eval directly from execution to ensure we have the correct value
             # (config_snapshot was redefined at line 858, so we need to read from execution again)
             if execution:
-                config_snapshot_for_filter = execution.config_snapshot if execution.config_snapshot else {}
+                config_snapshot_for_filter = _eval_snapshot(execution)
             else:
                 config_snapshot_for_filter = config_snapshot
                 logger.warning(
@@ -2890,6 +2676,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 group_metadata = generation_result.get("metadata", {}) if generation_result else {}
                 group_rules = generation_result.get("rules", []) if generation_result else []
                 group_error = generation_result.get("errors") if generation_result else "No generation result"
+                kept_group_rules = []
 
                 for rule in group_rules:
                     if not isinstance(rule, dict):
@@ -2901,6 +2688,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             f"{group.get('logsource_hint')}"
                         )
                         continue
+                    kept_group_rules.append(rule)
                     _rebase_group_observable_indices(rule, group["original_indices"])
                     _repair_empty_observable_attribution(
                         rule,
@@ -2947,8 +2735,13 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         "telemetry_category": group["telemetry_category"],
                         "logsource_hint": group["logsource_hint"],
                         "observable_indices": group["original_indices"],
-                        "generated_rules": len(group_rules),
+                        "generated_rules": len(kept_group_rules),
+                        "dropped_rules": len(group_rules) - len(kept_group_rules),
                         "error": group_error if group_error and not group_rules else None,
+                        # A Phase 4 expansion failure is non-fatal for the group, so it never
+                        # reaches `error`. Carry it separately, otherwise a group that lost every
+                        # expansion rule is indistinguishable from a fully successful one.
+                        "expansion_error": group_metadata.get("expansion_error"),
                     }
                 )
 
@@ -3560,7 +3353,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
         # Check execution config_snapshot first (most reliable for evals)
         if execution and execution.config_snapshot:
-            config_snapshot = execution.config_snapshot
+            config_snapshot = _eval_snapshot(execution)
             skip_rank_agent = _bool_from_value(config_snapshot.get("skip_rank_agent", False)) or _bool_from_value(
                 config_snapshot.get("eval_run", False)
             )
@@ -3605,7 +3398,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
         )
 
         if execution:
-            config_snapshot = execution.config_snapshot or {}
+            config_snapshot = _eval_snapshot(execution)
             # A Sigma eval needs the full pipeline through generate_sigma, so it
             # overrides the blanket eval_run -> skip-sigma behavior used by the
             # extractor evals.
@@ -3740,9 +3533,9 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
             execution = AgenticWorkflowExecutionTable(
                 article_id=article_id,
                 status="pending",
-                config_snapshot=build_config_snapshot(config_obj),
             )
             db_session.add(execution)
+            attach_snapshot(db_session, execution, build_config_snapshot(config_obj))
             db_session.commit()
             db_session.refresh(execution)
             logger.info(f"Created execution record {execution.id} for article {article_id}")
@@ -3751,7 +3544,7 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                 f"Found existing execution {execution.id} for article {article_id}, status: {execution.status}, has config_snapshot: {execution.config_snapshot is not None}"
             )
 
-        snapshot = execution.config_snapshot if isinstance(execution.config_snapshot, dict) else {}
+        snapshot = hydrate_snapshot(execution)
         # Executions dispatched after the immutable-snapshot change always carry a
         # complete snapshot, so the active config is never read here. The fallback exists
         # only for legacy rows dispatched with a partial snapshot; those cannot be made
@@ -3769,8 +3562,7 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
 
         # Merge config_snapshot from execution (for eval runs and other overrides)
         # Use deep merge for nested dicts like agent_models, agent_prompts
-        if execution.config_snapshot:
-            snapshot = execution.config_snapshot
+        if snapshot:
             # Merge top-level values
             for key, value in snapshot.items():
                 if key in ("agent_models", "agent_prompts") and isinstance(value, dict):

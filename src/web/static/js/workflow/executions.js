@@ -916,7 +916,7 @@ async function viewExecution(executionId) {
                                         <svg id="log-exit-fullscreen-icon-${exec.id}" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25"/></svg>
                                     </button>
                                 </summary>
-                                <div class="text-xs text-gray-600 dark:text-white mb-2 mt-2">Shows the iterative validation process between the LLM and pySigma validator</div>
+                                <div class="text-xs text-gray-600 dark:text-white mb-2 mt-2">Shows the iterative pySigma semantic validation and Huntable policy checks</div>
                                 <div id="log-${exec.id}" class="space-y-3 max-h-96 overflow-y-auto p-3 bg-gray-50 dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white">
                                     ${ruleCardsHtml}
                                 </div>
@@ -937,7 +937,7 @@ async function viewExecution(executionId) {
                                     </svg>
                                 </button>
                             </summary>
-                            <div class="text-xs text-gray-600 dark:text-white mb-2 mt-2">Shows the iterative validation process between the LLM and pySigma validator</div>
+                            <div class="text-xs text-gray-600 dark:text-white mb-2 mt-2">Shows the iterative pySigma semantic validation and Huntable policy checks</div>
                             <div id="log-${exec.id}" class="space-y-3 max-h-96 overflow-y-auto p-3 bg-gray-50 dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white">
                             ${conversationLog.map((entry, idx) => {
                                 const attempt = entry.attempt || (idx + 1);
@@ -1021,7 +1021,7 @@ async function viewExecution(executionId) {
                             <summary class="cursor-pointer text-sm font-semibold text-gray-900 dark:text-white hover:text-gray-700 dark:hover:text-gray-100 mb-2 flex items-center justify-between">
                                 <span class="text-gray-900 dark:text-white">🔄 pySigma Validation Results (${validationResults.length} attempt${validationResults.length !== 1 ? 's' : ''})</span>
                             </summary>
-                            <div class="text-xs text-gray-600 dark:text-white mb-2 mt-2">Shows the validation process between the LLM and pySigma validator</div>
+                            <div class="text-xs text-gray-600 dark:text-white mb-2 mt-2">Shows pySigma semantic validation and Huntable policy checks</div>
                             <div class="space-y-3 max-h-96 overflow-y-auto p-3 bg-gray-50 dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white">
                                 ${validationResults.map((vr, idx) => {
                                     const validationIcon = vr.is_valid ? '✅' : '❌';
@@ -1272,7 +1272,7 @@ async function viewExecution(executionId) {
                 <summary class="cursor-pointer text-xs text-gray-700 dark:text-white hover:text-gray-900 dark:hover:text-gray-100" style="color: var(--text-emphasis) !important;">View Queued Rules</summary>
                 <div class="mt-2 w-full max-h-48 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded p-2 border text-xs">
                     <div class="text-gray-700 dark:text-gray-300 mb-2">
-                        <span class="font-semibold text-purple-600 dark:text-purple-400 cursor-pointer hover:underline" onclick="navigateToQueuedRules(${exec.id}, ${JSON.stringify(queuedRuleIds)})">${queuedCount} rule(s) queued for review</span>
+                        <a href="?jobId=${exec.id}#queue" class="font-semibold text-purple-600 dark:text-purple-400 cursor-pointer hover:underline hover:text-purple-700 dark:hover:text-purple-300 transition-colors">${queuedCount} rule(s) queued for review</a>
                     </div>
                     ${queuedRuleIds.length > 0 ? `
                         <div class="space-y-1 mt-2">

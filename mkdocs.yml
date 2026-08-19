@@ -87,6 +87,7 @@ nav:
       - Docker MCP Gateway: guides/mcp-gateway.md
   - Architecture:
       - Overview: architecture/overview.md
+      - Evidence-First Extractor Routing: architecture/evidence-first-extractor-routing.md
       - Architecture Diagrams: internals/architecture.md
       - Agent Config Schema: architecture/agent-config-schema.md
       - Workflow Data Flow: architecture/workflow-data-flow.md

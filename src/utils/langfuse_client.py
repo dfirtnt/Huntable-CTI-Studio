@@ -7,12 +7,20 @@ workflow execution, and agent interactions.
 Migrated to Langfuse Python SDK v4 (observations-first API).
 """
 
+import json
 import logging
 import os
 from contextlib import AbstractContextManager, contextmanager
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# Canonical fallback host when LANGFUSE_HOST is unset. This deployment's
+# Langfuse Cloud project lives in the US region -- do not change this to
+# the EU default (https://cloud.langfuse.com) without also rotating the
+# API keys, since the two regions are separate Langfuse deployments.
+LANGFUSE_DEFAULT_HOST = "https://us.cloud.langfuse.com"
 
 # LangFuse client singleton
 _langfuse_client = None
@@ -112,7 +120,7 @@ def get_langfuse_client():
     # Check if LangFuse is enabled - check database settings first, then environment variables
     public_key = _get_langfuse_setting("LANGFUSE_PUBLIC_KEY", "LANGFUSE_PUBLIC_KEY")
     secret_key = _get_langfuse_setting("LANGFUSE_SECRET_KEY", "LANGFUSE_SECRET_KEY")
-    host = _get_langfuse_setting("LANGFUSE_HOST", "LANGFUSE_HOST", "https://cloud.langfuse.com")
+    host = _get_langfuse_setting("LANGFUSE_HOST", "LANGFUSE_HOST", LANGFUSE_DEFAULT_HOST)
 
     if not public_key or not secret_key:
         logger.info(
@@ -349,7 +357,7 @@ def _get_langfuse_api():
     """
     public_key = _get_langfuse_setting("LANGFUSE_PUBLIC_KEY", "LANGFUSE_PUBLIC_KEY")
     secret_key = _get_langfuse_setting("LANGFUSE_SECRET_KEY", "LANGFUSE_SECRET_KEY")
-    host = _get_langfuse_setting("LANGFUSE_HOST", "LANGFUSE_HOST", "https://cloud.langfuse.com")
+    host = _get_langfuse_setting("LANGFUSE_HOST", "LANGFUSE_HOST", LANGFUSE_DEFAULT_HOST)
     if not public_key or not secret_key:
         return None
     try:
@@ -357,8 +365,55 @@ def _get_langfuse_api():
 
         return LangfuseAPI(base_url=host, username=public_key, password=secret_key)
     except Exception as e:
-        logger.debug("Could not build LangfuseAPI query client: %s", e)
+        # Fail open (callers treat None as "trace lookup unavailable"), but a client
+        # build failure here silently disables both the workflow debug-link resolution
+        # and eval-bundle export -- log loud enough to notice, not just debug.
+        logger.warning("Could not build LangfuseAPI query client: %s", e)
         return None
+
+
+def find_trace_id_for_session(api: Any, session_id: str) -> str | None:
+    """Resolve the most recent trace_id for a session via ``GET /v2/observations``.
+
+    This is the v4 replacement for the deprecated ``GET /traces`` endpoint
+    (removed from Langfuse Cloud on 2026-11-16). v2 has no native
+    session/trace grouping, so this filters observation rows on the
+    ``sessionId`` column and takes the first row -- v2 always sorts by
+    ``startTime`` descending, so that row is the most recent.
+
+    Only ``to_start_time`` is bounded (to "now", with a small clock-skew
+    buffer); ``from_start_time`` is intentionally left open. A live check
+    against the project showed a sessionId-filtered query completes in under
+    a second even fully unbounded -- the filter is selective enough that
+    Langfuse doesn't need a time window to serve it quickly. Bounding
+    ``from_start_time`` to e.g. "N days ago" would silently break lookups for
+    older workflow executions, since debug links and eval-bundle exports can
+    be requested for a run from any point in time, not just recent ones.
+
+    Shared by ``get_langfuse_trace_id_for_session`` (below) and
+    ``EvalBundleService`` -- both used to duplicate this lookup inline via
+    the now-deprecated ``api.trace.list(...)``.
+
+    Returns ``None`` if ``api`` is ``None``, no matching observation exists,
+    or the request fails.
+    """
+    if api is None:
+        return None
+    try:
+        response = api.observations.get_many(
+            filter=json.dumps([{"type": "string", "column": "sessionId", "operator": "=", "value": session_id}]),
+            limit=1,
+            to_start_time=datetime.now(UTC) + timedelta(days=1),
+            fields="core,basic",
+        )
+        if response and response.data:
+            return getattr(response.data[0], "trace_id", None)
+    except Exception as e:
+        # Fail open, but at warning: after the trace.list migration this is the only
+        # signal that a future v2/observations API break is silently killing deep
+        # links and eval-bundle export, rather than "session not found yet".
+        logger.warning("Failed to resolve trace_id for session %s via v2/observations: %s", session_id, e)
+    return None
 
 
 def get_langfuse_trace_id_for_session(session_id: str) -> str | None:
@@ -381,19 +436,10 @@ def get_langfuse_trace_id_for_session(session_id: str) -> str | None:
         return cached
 
     api = _get_langfuse_api()
-    if api is None:
-        return None
-
-    try:
-        traces = api.trace.list(session_id=session_id, limit=1, order_by="timestamp.desc")
-        if traces and traces.data:
-            trace = traces.data[0]
-            trace_id = getattr(trace, "id", None)
-            if trace_id:
-                logger.debug("Found LangFuse trace %s for session %s", trace_id, session_id)
-                return trace_id
-    except Exception as e:
-        logger.debug("Failed to lookup LangFuse trace for session %s: %s", session_id, e)
+    trace_id = find_trace_id_for_session(api, session_id)
+    if trace_id:
+        logger.debug("Found LangFuse trace %s for session %s", trace_id, session_id)
+        return trace_id
 
     return None
 
@@ -747,7 +793,7 @@ def score_langfuse_trace(
         }
         if comment:
             kwargs["comment"] = comment
-        client.score(**kwargs)
+        client.create_score(**kwargs)
         client.flush()
     except Exception as e:
         logger.debug("Failed to score Langfuse trace %s (%s=%s): %s", trace_id, name, value, e)

@@ -4,7 +4,7 @@
 
 Huntable CTI Studio is an AI-assisted workbench for detection engineers and threat hunters. It ingests open-source threat intelligence from RSS feeds and web scraping, extracts platform-aware observables (command lines, process trees, registry keys, services, scheduled tasks, network indicators, hunt queries) across Windows, Linux, and macOS, and turns them into Sigma rules you can validate, review, and ship.
 
-With full transparency, each article moves through an explicit LangGraph pipeline, execution state is checkpointed in PostgreSQL, configuration is versioned through presets, and novelty is enforced by similarity search against 3,000+ community Sigma rules. Bring your own model using OpenAI, Anthropic, or local LM Studio.
+With full transparency, each article moves through an explicit LangGraph pipeline, execution state is checkpointed in PostgreSQL, configuration is versioned through presets, and novelty is enforced by similarity search against 3,000+ community Sigma rules. Bring your own model using OpenAI or Anthropic; LM Studio is available as an optional local LLM provider, and Codex can use a deployment-managed ChatGPT subscription for workflow inference.
 
 ## Who Is This For?
 
@@ -85,11 +85,12 @@ Train, evaluate, and roll back the content-filtering model through the MLOps con
 
 ## LLM Support
 
-Huntable CTI Studio works with multiple LLM providers:
+Huntable CTI Studio works with multiple LLM providers. LM Studio is strictly optional: the application starts and operates without it, and all embedding features use local sentence-transformers rather than LM Studio.
 
 - **OpenAI** — gpt-4o, gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, o3, gpt-5 (and pattern-matched successors)
 - **Anthropic** — claude-haiku-4-5, claude-sonnet-4-6, and compatible variants
-- **LM Studio** — local models (Gemma 4B, Qwen3, etc.)
+- **LM Studio (optional)** — local LLMs (Gemma 4B, Qwen3, etc.)
+- **Codex (optional)** — deployment-managed ChatGPT subscription for workflow inference; authenticate in the workflow worker, not with an API key
 
 See [Local Model Selection Guide](llm/model-selection.md) for recommendations.
 

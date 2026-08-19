@@ -141,10 +141,16 @@ class LLMService(LLMRoutingMixin, LLMClientMixin):
             "WORKFLOW_LMSTUDIO_ENABLED",
             False,
         )
+        self.workflow_codex_enabled = _enabled(
+            WORKFLOW_PROVIDER_APPSETTING_KEYS["codex_enabled"],
+            "WORKFLOW_CODEX_ENABLED",
+            False,
+        )
 
         self.provider_defaults = {
             "lmstudio": default_model,
             "openai": os.getenv("WORKFLOW_OPENAI_MODEL", "gpt-4o-mini"),
+            "codex": os.getenv("WORKFLOW_CODEX_MODEL", "gpt-5.6-luna"),
             "anthropic": os.getenv("WORKFLOW_ANTHROPIC_MODEL", "claude-sonnet-4-5"),
         }
 

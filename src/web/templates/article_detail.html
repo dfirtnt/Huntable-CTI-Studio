@@ -4,7 +4,7 @@
 
 {% block content %}
 <div class="container mx-auto px-4 pt-4 pb-6">
-    <script src="/static/js/components/similarity-display.js?v=20260729"></script>
+    <script src="{{ asset_url('js/components/similarity-display.js') }}"></script>
     <script>
         // Pre-set annotation mode attribute before paint to avoid flashes of the rich container
         (function() {
@@ -88,7 +88,7 @@
                 btn.disabled = true;
                 btn.classList.add('opacity-50', 'cursor-not-allowed');
                 btnText.textContent = 'Send to Workflow';
-                btn.title = 'No agents configured — set up models in Settings → Workflow Config first.';
+                btn.title = 'No agents configured  --  set up models in Settings → Workflow Config first.';
                 if (viewLastRunLink) viewLastRunLink.classList.add('hidden');
                 return;
             }
@@ -578,7 +578,7 @@
                 <div class="prose max-w-none relative">
                 <div class="absolute top-4 right-4 flex items-center space-x-2 z-50">
                     <button id="toggle-annotations-btn" onclick="toggleAnnotationSystem()" 
-                            class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 bg-gray-800 border border-gray-700 shadow-md border border-gray-200 dark:border-gray-700"
+                            class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 shadow-md border border-gray-200 dark:border-gray-700"
                             title="Toggle annotation system">
                         <svg id="toggle-annotations-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
@@ -876,6 +876,9 @@
         const modal = document.createElement('div');
         modal.id = 'helpModal';
         modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-[9999]';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Help');
         
         document.body.appendChild(modal);
         
@@ -1085,6 +1088,9 @@ Generate all applicable SIGMA rules from the threat intelligence above.`;
         const modal = document.createElement('div');
         modal.id = 'helpModal';
         modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-[9999]';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Help');
         
         // Add click outside to close
         modal.addEventListener('click', function(e) {
@@ -1103,7 +1109,7 @@ Generate all applicable SIGMA rules from the threat intelligence above.`;
         document.addEventListener('keydown', handleEsc);
         
         modal.innerHTML = `
-            <div class="relative top-10 mx-auto p-6 border w-11/12 max-w-6xl shadow-xl rounded-lg bg-gray-800 dark:bg-gray-900 border-gray-700 dark:border-gray-600">
+            <div class="card-elevated relative top-10 mx-auto p-6 w-11/12 max-w-6xl shadow-xl">
                 <div class="flex justify-between items-center mb-5 pb-3 border-b border-gray-700 dark:border-gray-600">
                     <h3 class="text-xl font-semibold text-gray-100 dark:text-white"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg> One Shot - SIGMA Generation Prompt</h3>
                     <button onclick="closeHelpModal()" aria-label="Close" class="text-gray-400 dark:text-gray-500 hover:text-gray-200 dark:hover:text-gray-300 transition-colors">
@@ -2840,6 +2846,9 @@ Please provide a detailed analysis based on the article content and the user's s
             const modal = document.createElement('div');
             modal.id = 'annotationObservableModal';
             modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Annotation observable');
             this.currentModal = modal; // Store reference for reliable closing
 
             modal.addEventListener('click', function(e) {
@@ -2859,7 +2868,7 @@ Please provide a detailed analysis based on the article content and the user's s
                         </div>
                     </div>
                     ${lengthMessage ? `<div class="length-guidance ${lengthStatus} mb-4">${lengthMessage}</div>` : ''}
-                    <p class="text-sm text-gray-300 mb-4 break-words whitespace-pre-wrap">"${workingText.substring(0, 200)}${workingText.length > 200 ? '…' : ''}"</p>
+                    <p class="text-sm text-gray-300 mb-4 break-words whitespace-pre-wrap">"${workingText.substring(0, 200)}${workingText.length > 200 ? '...' : ''}"</p>
                     <div class="flex space-x-3">
                         <button id="observable-save-btn" 
                                 class="flex-1 bg-purple-500 hover:bg-purple-600 text-white px-4 py-3 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900">
@@ -3011,6 +3020,9 @@ Please provide a detailed analysis based on the article content and the user's s
             const modal = document.createElement('div');
             modal.id = 'annotationClassificationModal';
             modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Annotation classification');
             this.currentModal = modal; // Store reference for reliable closing
             
             // Add click outside to close
@@ -3361,6 +3373,9 @@ Please provide a detailed analysis based on the article content and the user's s
             // Create modal for classification without auto-expanding
             const modal = document.createElement('div');
             modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Annotation classification');
             this.currentModal = modal; // Store reference for reliable closing
             
             // Add click outside to close
@@ -3699,6 +3714,9 @@ Please provide a detailed analysis based on the article content and the user's s
             // Create modal for removing annotation
             const modal = document.createElement('div');
             modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Remove annotation');
             
             // Add click outside to close
             modal.addEventListener('click', function(e) {
@@ -5041,6 +5059,9 @@ Please provide a detailed analysis based on the article content and the user's s
         const modal = document.createElement('div');
         modal.id = 'aiAssistantModal';
         modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'AI assistant');
         
         // Determine if there is existing generated content to display/regenerate
         const hasExisting = hasSigmaRules || hasRanking;
@@ -5345,6 +5366,9 @@ Please provide a detailed analysis based on the article content and the user's s
             // Create modal dialog
             const modal = document.createElement('div');
             modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Settings');
             modal.innerHTML = `
                 <div class="card shadow-2xl p-6 max-w-md w-full mx-4">
                     <div class="flex justify-between items-center mb-4">
@@ -5462,6 +5486,9 @@ Please provide a detailed analysis based on the article content and the user's s
     function showRemovedChunksDialog(debugInfo) {
         const modal = document.createElement('div');
         modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Removed chunks');
         
         const chunksHtml = debugInfo.removed_chunks.map((chunk, index) => `
             <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded">
@@ -5541,6 +5568,9 @@ Please provide a detailed analysis based on the article content and the user's s
         const modal = document.createElement('div');
         modal.id = 'customPromptModal';
         modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Custom prompt');
         
         // Add click outside to close
         modal.addEventListener('click', function(e) {
@@ -5700,6 +5730,9 @@ Please provide a detailed analysis based on the article content and the user's s
         const loadingModal = document.createElement('div');
         loadingModal.id = 'loadingModal';
         loadingModal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4';
+loadingModal.setAttribute('role', 'dialog');
+loadingModal.setAttribute('aria-modal', 'true');
+loadingModal.setAttribute('aria-label', 'Loading');
         
         // Track if request has started
         let requestStarted = false;
@@ -5847,6 +5880,9 @@ Please provide a detailed analysis based on the article content and the user's s
         const modal = document.createElement('div');
         modal.id = 'customResponseModal';
         modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Custom response');
         
         // Add click outside to close
         modal.addEventListener('click', function(e) {
@@ -5947,6 +5983,9 @@ Please provide a detailed analysis based on the article content and the user's s
         const modal = document.createElement('div');
         modal.id = 'customPromptHistoryModal';
         modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Custom prompt history');
         
         // Add click outside to close
         modal.addEventListener('click', function(e) {
@@ -6090,6 +6129,9 @@ Please provide a detailed analysis based on the article content and the user's s
         const modal = document.createElement('div');
         modal.id = 'sigmaRulesModal';
         modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Sigma rules');
         
         // Add click outside to close
         modal.addEventListener('click', function(e) {
@@ -6109,7 +6151,7 @@ Please provide a detailed analysis based on the article content and the user's s
         
         const provider = data?.ai_model || data?.metadata?.ai_model || 'unknown';
         const modelName = data?.model_name || data?.metadata?.model_name || null;
-        const modelUsed = modelName ? `${provider} — ${modelName}` : provider;
+        const modelUsed = modelName ? `${provider}  --  ${modelName}` : provider;
         const generatedAt = data?.generated_at || data?.metadata?.generated_at ? new Date(data.generated_at || data.metadata.generated_at).toLocaleString() : 'Unknown';
         const temperature = data?.temperature || data?.metadata?.temperature || '0.2';
         const validationResults = data?.validation_results || data?.metadata?.validation_results || [];
@@ -6268,7 +6310,7 @@ Please provide a detailed analysis based on the article content and the user's s
                             Show Log
                         </button>
                     </div>
-                    <div class="text-xs text-gray-600 mb-2">Shows the iterative validation process between the LLM and pySigma validator</div>
+                    <div class="text-xs text-gray-600 mb-2">Shows the iterative pySigma semantic validation and Huntable policy checks</div>
                     <div id="sigmaConversationContent" style="display: none;">
                         <div id="sigmaConversation" class="space-y-4 max-h-96 overflow-y-auto p-4 bg-gray-50 rounded border">
                             <!-- Filled by script below -->
@@ -6550,6 +6592,9 @@ Please provide a detailed analysis based on the article content and the user's s
         const modal = document.createElement('div');
         modal.id = 'iocsModal';
         modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Indicators of compromise');
         
         // Add click outside to close
         modal.addEventListener('click', function(e) {
@@ -6784,6 +6829,9 @@ Please provide a detailed analysis based on the article content and the user's s
         const loadingModal = document.createElement('div');
         loadingModal.id = 'osDetectionLoadingModal';
         loadingModal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4';
+loadingModal.setAttribute('role', 'dialog');
+loadingModal.setAttribute('aria-modal', 'true');
+loadingModal.setAttribute('aria-label', 'Loading');
         
         // Track if request has started
         let osRequestStarted = false;
@@ -6893,6 +6941,9 @@ Please provide a detailed analysis based on the article content and the user's s
             const resultModal = document.createElement('div');
             resultModal.id = 'osDetectionResultModal';
             resultModal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center';
+resultModal.setAttribute('role', 'dialog');
+resultModal.setAttribute('aria-modal', 'true');
+resultModal.setAttribute('aria-label', 'OS detection result');
             
             const osLabel = result.operating_system || 'Unknown';
             const method = result.method || 'unknown';
@@ -7017,6 +7068,9 @@ Please provide a detailed analysis based on the article content and the user's s
             const errorModal = document.createElement('div');
             errorModal.id = 'osDetectionErrorModal';
             errorModal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center';
+errorModal.setAttribute('role', 'dialog');
+errorModal.setAttribute('aria-modal', 'true');
+errorModal.setAttribute('aria-label', 'OS detection error');
             errorModal.innerHTML = `
                 <div class="mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
                     <div class="flex justify-between items-center mb-4">
@@ -7053,6 +7107,9 @@ Please provide a detailed analysis based on the article content and the user's s
         const modal = document.createElement('div');
         modal.id = 'gpt4oRankingModal';
         modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'GPT-4o ranking');
         
         // Add click outside to close
         modal.addEventListener('click', function(e) {
@@ -7466,6 +7523,9 @@ Please provide a detailed analysis based on the article content and the user's s
         const modal = document.createElement('div');
         modal.id = 'similarRulesModal';
         modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Similar rules');
         
         // Add click outside to close
         modal.addEventListener('click', function(e) {
@@ -7677,7 +7737,7 @@ Please provide a detailed analysis based on the article content and the user's s
                         : 'No similar rules found in SigmaHQ or your indexed repo.'}
                     ${matches && matches[0] && matches[0].similarity_method === 'llm_reranked' ? `
                         <div class="mt-1 text-xs text-gray-500">
-                            Analysis by: ${matches[0].llm_provider || 'unknown'}${matches[0].llm_model ? ' — ' + matches[0].llm_model : ''}
+                            Analysis by: ${matches[0].llm_provider || 'unknown'}${matches[0].llm_model ? '  --  ' + matches[0].llm_model : ''}
                         </div>
                     ` : ''}
                 </div>
@@ -7785,6 +7845,9 @@ Please provide a detailed analysis based on the article content and the user's s
         const modal = document.createElement('div');
         modal.id = 'sigmaRuleDetailsModal';
         modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Sigma rule details');
         
         // Add click outside to close
         modal.addEventListener('click', function(e) {
@@ -8402,6 +8465,9 @@ ${JSON.stringify(rule.logsource, null, 2)}
         const loadingModal = document.createElement('div');
         loadingModal.id = 'chunkDebugLoadingModal';
         loadingModal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4';
+loadingModal.setAttribute('role', 'dialog');
+loadingModal.setAttribute('aria-modal', 'true');
+loadingModal.setAttribute('aria-label', 'Loading');
         loadingModal.innerHTML = `
             <div class="mx-auto p-5 border border-gray-700 w-96 shadow-lg rounded-md bg-gray-800">
                 <div class="mt-3 text-center">
@@ -8710,6 +8776,9 @@ ${JSON.stringify(rule.logsource, null, 2)}
             
             modal.id = 'chunkDebugModal';
             modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Chunk debug');
             
             // Generate chunk visualization
             let chunkVisualization = '';
@@ -8826,8 +8895,8 @@ ${JSON.stringify(rule.logsource, null, 2)}
                                     <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
                                 </svg>
                             </button>
-                            <div id="costAnalysisTooltip" role="tooltip" class="article-help-bubble absolute right-0 top-8 p-3 bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg shadow-lg opacity-0 invisible transition-all duration-200 z-50">
-                                <div class="absolute -top-1 right-4 w-2 h-2 bg-gray-800 border-l border-t border-gray-700 transform rotate-45"></div>
+                            <div id="costAnalysisTooltip" role="tooltip" class="article-help-bubble card-elevated absolute right-0 top-8 p-3 text-gray-300 text-sm shadow-lg opacity-0 invisible transition-all duration-200 z-50">
+                                <div class="absolute -top-1 right-4 w-2 h-2 bg-panel-2 border-l border-t border-[var(--border-muted)] transform rotate-45"></div>
                                 These estimates are based on OpenAI API call costs and are not literal when using Local LLM. They represent potential savings if using OpenAI's GPT-4o service.
                             </div>
                         </div>
@@ -9736,7 +9805,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
         
         // Create modal HTML
         const modalHTML = `
-            <div id="comparisonModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div id="comparisonModal" role="dialog" aria-modal="true" aria-label="Comparison" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                 <div class="bg-white rounded-lg p-6 max-w-4xl max-h-[90vh] overflow-y-auto">
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-lg font-bold text-gray-900"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 7.5h10.5v9H6.75v-9z"/></svg> Model Performance Comparison</h2>
@@ -9917,7 +9986,7 @@ ${JSON.stringify(rule.logsource, null, 2)}
         
         // Create feedback comparison modal
         const modalHTML = `
-            <div id="feedbackComparisonModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div id="feedbackComparisonModal" role="dialog" aria-modal="true" aria-label="Feedback comparison" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                 <div class="bg-white rounded-lg p-6 max-w-6xl max-h-[90vh] overflow-y-auto">
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-lg font-bold text-gray-900"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg> Feedback Impact Analysis</h2>

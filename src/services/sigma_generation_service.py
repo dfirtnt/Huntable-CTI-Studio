@@ -5,6 +5,7 @@ Reusable service for generating SIGMA rules from articles using LLM.
 """
 
 import logging
+import re
 import uuid
 from dataclasses import dataclass
 from datetime import date
@@ -20,6 +21,11 @@ from src.utils.llm_optimizer import optimize_article_content
 logger = logging.getLogger(__name__)
 
 SIGMA_RULE_AUTHOR = "Huntable CTI Studio"
+
+# Phase 4 expansion prompt budget. The expansion turn is grounded in the uncovered-category
+# observables, so it does not need the full article body underneath a full observable dump.
+EXPANSION_MAX_CONTENT_CHARS = 12000
+EXPANSION_MAX_PROMPT_CHARS = 40000
 DEFAULT_SIGMA_SYSTEM_PROMPT = (
     "You are a SIGMA rule creation expert. Output ONLY valid YAML starting with 'title:'. Use exact 2-space "
     "indentation. logsource and detection must be nested dictionaries. No markdown, no explanations. IMPORTANT: "
@@ -70,6 +76,38 @@ def _platform_sigma_guidance(extraction_result: dict[str, Any] | None) -> str:
     if group.get("platform") == "linux":
         return LINUX_SIGMA_GUIDANCE
     return ""
+
+
+def _category_sigma_guidance(extraction_result: dict[str, Any] | None) -> str:
+    """Return logsource-category steering guidance for the group, or empty string.
+
+    Each per-group call feeds the model only that group's observables, but the base
+    prompt never states which logsource.category it should emit -- so the model
+    defaults to its usual process_creation spread and the caller (agentic_workflow's
+    _rule_logsource_matches_group) discards everything that doesn't match the group.
+    Telling the model the target category up front keeps that surplus from being
+    generated in the first place.
+    """
+    group = (extraction_result or {}).get("sigma_generation_group") or {}
+    hint = group.get("logsource_hint") or {}
+    if not isinstance(hint, dict):
+        return ""
+    category = str(hint.get("category") or "").strip()
+    if not category:
+        return ""
+    product = str(hint.get("product") or "").strip()
+    target = f"category: {category}" + (f", product: {product}" if product else "")
+    return (
+        f"\n\nLOGSOURCE TARGET FOR THIS GROUP:\n"
+        f"- The observables above are {target}.\n"
+        f"- Every rule you generate MUST use `logsource.category: {category}`"
+        + (f" and `logsource.product: {product}`" if product else "")
+        + ".\n"
+        "- Do NOT generate rules for any other logsource category (e.g. process_creation, "
+        "network_connection, registry_event, scheduled_task, file_event) -- those are handled by "
+        "separate calls for their own observable groups and any rule with a mismatched logsource "
+        "will be discarded.\n"
+    )
 
 
 def _truncate_trace_text(value: str, max_chars: int) -> str:
@@ -144,15 +182,26 @@ def _extract_message_text(payload: Any) -> str:
 def _is_reasoning_model(provider: str, model_name: str) -> bool:
     """Identify models likely to spend completion tokens on reasoning before final output."""
     model_lower = (model_name or "").lower()
-    if provider == "openai":
+    if provider in {"openai", "codex"}:
         # In SIGMA generation, OpenAI chat models frequently consume completion budget
         # before emitting final YAML. Treat all OpenAI models as reasoning-style here.
+        # Codex-provider models are the same GPT-5.x reasoning family reached over the
+        # Codex app-server, where max_tokens is a textual output-length instruction —
+        # an 800-token budget caps every article at roughly one rule.
         return True
     return "r1" in model_lower or "reasoning" in model_lower
 
 
-def _build_observables_section(extraction_result: dict[str, Any] | None) -> str:
-    """Build observables list for prompt injection when extraction_result is available."""
+def _build_observables_section(
+    extraction_result: dict[str, Any] | None,
+    *,
+    include_types: set[str] | None = None,
+) -> str:
+    """Build observables list for prompt injection when extraction_result is available.
+
+    ``include_types`` restricts the dump to specific observable types while keeping the
+    original 0-based indices, so ``observables_used`` stays valid against the full list.
+    """
     if not extraction_result or not isinstance(extraction_result, dict):
         return ""
     observables_list = extraction_result.get("observables") or []
@@ -163,6 +212,8 @@ def _build_observables_section(extraction_result: dict[str, Any] | None) -> str:
         if not isinstance(obs, dict):
             continue
         obs_type = obs.get("type", "unknown")
+        if include_types is not None and obs_type not in include_types:
+            continue
         val = obs.get("value")
         if isinstance(val, dict):
             parts = [f"{k}={v}" for k, v in val.items() if v is not None and v != ""]
@@ -279,6 +330,38 @@ class ValidationResults:
     valid_rules: list[RuleValidationResult]
     invalid_rules: list[RuleValidationResult]
     all_rules: list[RuleValidationResult]
+
+
+_OBS_USED_FLOW_RE = re.compile(r"^[ \t]*observables_used[ \t]*:[ \t]*\[([^\]]*)\]", re.MULTILINE)
+_OBS_USED_BLOCK_RE = re.compile(r"^[ \t]*observables_used[ \t]*:[ \t]*\n((?:[ \t]*-[ \t]*\d+[ \t]*\n?)+)", re.MULTILINE)
+
+
+def _extract_observables_used_fallback(text: str) -> list[int] | None:
+    """Best-effort observables_used extraction for blocks that fail full YAML parsing.
+
+    A YAML syntax error unrelated to this field (e.g. an unescaped backslash inside a
+    detection value, which SIGMA-style rules write routinely but plain YAML rejects)
+    makes ``yaml.safe_load`` reject the whole block. That silently drops the LLM's
+    grounding indices before repair ever runs, even though the field itself is present
+    and well-formed. This regex-based fallback recovers both the flow (``[0, 3]``) and
+    block (``- 0``) list styles directly from the raw text.
+    """
+    flow_match = _OBS_USED_FLOW_RE.search(text)
+    if flow_match:
+        raw = flow_match.group(1).strip()
+        if not raw:
+            return []
+        try:
+            return [int(x.strip()) for x in raw.split(",") if x.strip() != ""]
+        except ValueError:
+            return None
+
+    block_match = _OBS_USED_BLOCK_RE.search(text)
+    if block_match:
+        indices = re.findall(r"-\s*(\d+)", block_match.group(1))
+        return [int(x) for x in indices] if indices else None
+
+    return None
 
 
 def _infer_observables_used(rule_yaml: str, extraction_result: dict[str, Any]) -> list[int] | None:
@@ -465,6 +548,10 @@ class SigmaGenerationService:
             if platform_guidance:
                 sigma_prompt = sigma_prompt.rstrip() + platform_guidance
 
+            category_guidance = _category_sigma_guidance(extraction_result)
+            if category_guidance:
+                sigma_prompt = sigma_prompt.rstrip() + category_guidance
+
             # Handle context window limits for LMStudio
             if ai_model == "lmstudio":
                 lmstudio_model_name = self.llm_service.lmstudio_model
@@ -521,6 +608,7 @@ class SigmaGenerationService:
             # Phase 4: Optional expansion (artifact-driven)
             expansion_rules = []
             expansion_validation = None
+            expansion_failure: str | None = None
             if enable_multi_rule_expansion and extraction_result:
                 logger.info("Phase 4: Checking for expansion opportunities")
                 expansion_needed, uncovered_categories = self._needs_expansion(
@@ -581,6 +669,9 @@ class SigmaGenerationService:
                         )
                         expansion_rules = []
                         expansion_validation = None
+                        # Keep the reason on the result: a silently swallowed expansion
+                        # failure otherwise reports as a fully successful generation.
+                        expansion_failure = f"{type(expansion_error).__name__}: {expansion_error}"
 
             # Build final rules list and conversation log
             final_rules = []
@@ -623,6 +714,7 @@ class SigmaGenerationService:
                                     "status": parsed_yaml.get("status", "experimental"),
                                     "logsource": parsed_yaml.get("logsource", {}),
                                     "detection": detection,
+                                    "generation_phase": rule_result.generation_phase,
                                 }
                                 if rule_result.observables_used is not None:
                                     rule_metadata["observables_used"] = rule_result.observables_used
@@ -694,6 +786,7 @@ class SigmaGenerationService:
                     "valid_rules": len(final_rules),
                     "validation_results": all_validation_results,
                     "conversation_log": conversation_log,
+                    "expansion_error": expansion_failure,
                 },
                 "errors": None if final_rules else "No valid SIGMA rules could be generated after all phases",
             }
@@ -743,7 +836,6 @@ class SigmaGenerationService:
         rule_blocks = []
 
         # Strategy 1: Extract from multiple markdown code blocks (backward compatibility)
-        import re
 
         code_block_pattern = r"```(?:yaml|yml)?\s*\n(.*?)```"
         code_blocks = re.findall(code_block_pattern, yaml_content, re.DOTALL)
@@ -820,6 +912,12 @@ class SigmaGenerationService:
                     block_for_validation = yaml.dump(parsed, default_flow_style=False, sort_keys=False)
             except Exception as e:
                 logger.debug(f"Could not parse Sigma grounding metadata from block {i + 1}: {e}")
+                observables_used = _extract_observables_used_fallback(cleaned_block)
+                if observables_used is not None:
+                    logger.debug(
+                        f"Recovered observables_used={observables_used} for block {i + 1} via regex fallback "
+                        "after YAML parse failure"
+                    )
 
             # Inference fallback: if LLM omitted observables_used, infer from detection keyword overlap
             observables_used_inferred = False
@@ -1049,13 +1147,26 @@ class SigmaGenerationService:
         # Use multi-rule generation prompt template
         from src.utils.prompt_loader import format_prompt_async
 
+        # Phase 4 is observable-driven, not article-driven: re-embedding the full article
+        # plus the full observable dump underneath the expansion header pushed prompts past
+        # 75K chars and made every expansion call fail outright. Scope the observables to the
+        # uncovered categories and cap the article excerpt instead.
+        include_types = {
+            obs_type for obs_type, category in observable_to_category.items() if category in uncovered_categories
+        }
+        expansion_content = content_to_analyze or ""
+        if len(expansion_content) > EXPANSION_MAX_CONTENT_CHARS:
+            expansion_content = (
+                expansion_content[:EXPANSION_MAX_CONTENT_CHARS] + "\n\n[Article truncated for expansion phase]"
+            )
+
         base_prompt = await format_prompt_async(
             "sigma_generate_multi",
             title=article_title,
             source=source_name,
             url=url or "N/A",
-            content=content_to_analyze,
-            observables_section=_build_observables_section(extraction_result),
+            content=expansion_content,
+            observables_section=_build_observables_section(extraction_result, include_types=include_types),
             date=_sigma_rule_date(),
             author=SIGMA_RULE_AUTHOR,
         )
@@ -1069,6 +1180,15 @@ These categories have observables available but no rules generated yet:
 {base_prompt}
 
 Focus on generating rules for the uncovered categories listed above."""
+
+        if len(expansion_prompt) > EXPANSION_MAX_PROMPT_CHARS:
+            logger.warning(
+                f"Truncating expansion prompt from {len(expansion_prompt)} to {EXPANSION_MAX_PROMPT_CHARS} chars"
+            )
+            expansion_prompt = (
+                expansion_prompt[:EXPANSION_MAX_PROMPT_CHARS]
+                + "\n\n[Expansion prompt truncated to fit provider limits]"
+            )
 
         return expansion_prompt
 

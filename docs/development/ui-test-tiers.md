@@ -1,11 +1,6 @@
 # UI Test Tiers
 
-<!-- AUDIT: Accuracy -- 2026-07-17: counts below were stale (from before the "UI test diet" commits that cut
-     the suite, e.g. 1a490501, f1e1db0e, 24d78955). Re-measured directly: `pytest --collect-only tests/ui/`
-     collects 116 tests; `npx playwright test --config tests/playwright.config.ts --list` reports
-     "218 tests in 33 files" for the default (non-quarantine) project set. Time estimates in the table below
-     are not re-verified (would require a full ~45min run) and are left as-is. -->
-The UI suite (116 pytest browser tests + 218 Playwright specs across 33 files)
+The UI suite (117 pytest browser tests + 235 Playwright specs across 35 files)
 takes ~45 minutes end to end. The tier system below lets you pick the right
 slice for the moment so you do not pay the full cost on every change.
 
@@ -34,12 +29,6 @@ slice for the moment so you do not pay the full cost on every change.
 Defined in `tests/playwright.config.ts` as projects. Each project owns a
 disjoint set of spec files:
 
-<!-- AUDIT: Accuracy -- file counts re-measured 2026-07-17 via `npx playwright test --config tests/playwright.config.ts --list`,
-     grouped by project. Previous counts (and some "what it covers" descriptions) referenced spec files removed by
-     the UI test-suite reduction commits (e.g. navigation.spec.ts, chat.spec.ts, chunk_coverage.spec.ts,
-     agent_evals_hunt_query.spec.ts, observables_selection.spec.ts) that no longer exist on disk; the config's
-     `testMatch` patterns for those files are now dead (match zero files), including all three `quarantine`
-     patterns. -->
 | Area           | Files | What it covers                                             |
 |----------------|-------|------------------------------------------------------------|
 | `agent-config` | 14    | `agent_config_*.spec.ts` -- presets, validation, autosave  |
@@ -55,11 +44,7 @@ or via the runner: `python3 run_tests.py ui-fast --area=sources`.
 
 ## Tags and exclusions
 
-- `@pytest.mark.slow` -- mobile responsiveness, accessibility, performance.
-  <!-- AUDIT: Accuracy -- `pytest --collect-only -m slow tests/ui/` collects 0 tests as of 2026-07-17 (6 tests
-       repo-wide carry the marker, none under tests/ui/); the "~76 tests" figure is stale. Excluding this marker
-       from tiers 1-3 is currently a no-op for the pytest side. -->
-  Excluded from tiers 1-3, included in tier 4.
+- `@pytest.mark.slow` -- mobile responsiveness, accessibility, performance. No current UI tests carry this marker; it remains excluded from tiers 1-3 and included in tier 4.
 - `@pytest.mark.ui_smoke` -- ~10 critical browser smoke tests, hand-tagged.
 - `@pytest.mark.smoke` -- ~30 fast httpx-based page-load checks.
 - `@pytest.mark.agent_config_mutation` -- tests that mutate live agent/workflow

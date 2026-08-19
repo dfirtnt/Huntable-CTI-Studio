@@ -17,6 +17,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from src.config.workflow_config_loader import EXTRACT_AGENTS
 from src.database.manager import DatabaseManager
 from src.database.models import (
     AgenticWorkflowConfigTable,
@@ -29,6 +30,7 @@ from src.services.audit_service import (
     ACTION_EVAL_BUNDLE_EXPORTED,
     ACTION_EVAL_RECORDS_BACKFILLED,
     ACTION_EVAL_RECORDS_CLEARED,
+    ACTION_EVAL_RECORDS_RESCORED,
     ACTION_EVAL_RUN_REQUESTED,
     STATUS_SUCCESS,
     AuditEvent,
@@ -37,9 +39,12 @@ from src.services.audit_service import (
 )
 from src.services.eval_bundle_service import EvalBundleService, compute_sha256_json
 from src.services.eval_item_scorer import calculate_f_beta, score_items
+from src.services.execution_snapshot_store import attach_snapshot
 from src.services.llm_service import LLMService
 from src.services.sigma_eval_service import load_sigma_ground_truth
+from src.services.subagent_eval_service import rescore_completed_record, update_subagent_eval_on_completion
 from src.services.workflow_config_snapshot import build_config_snapshot
+from src.utils.langfuse_client import LANGFUSE_DEFAULT_HOST
 from src.utils.subagent_utils import build_subagent_lookup_values, normalize_subagent_name
 from src.worker.celery_app import trigger_agentic_workflow
 
@@ -305,8 +310,15 @@ def _actual_count_from_agent_result(subagent_name: str, agent_result: dict) -> i
     return len(items) if isinstance(items, list) else 0
 
 
-def _actual_items_from_agent_result(subagent_name: str, agent_result: dict) -> list[str]:
-    """Return the literal values from a direct static-eval agent result."""
+def _raw_actual_items_from_agent_result(subagent_name: str, agent_result: dict) -> list:
+    """Return the raw extractor item list from a direct static-eval agent result.
+
+    Canonical identity extraction and normalization happen in
+    ``eval_item_scorer.score_items`` (keyed by ``subagent_name``); this helper
+    only locates the list under the agent-specific or generic key, keeping the
+    structured dicts intact so registry/service/scheduled-task identities are
+    built from their real fields rather than the generic ``value`` field.
+    """
     item_keys = {
         "cmdline": ("cmdline_items", "items"),
         "hunt_queries": ("queries", "items"),
@@ -317,21 +329,7 @@ def _actual_items_from_agent_result(subagent_name: str, agent_result: dict) -> l
         "network_indicators": ("network_indicators", "items"),
     }.get(subagent_name, ("items",))
     raw_items = next((agent_result.get(key) for key in item_keys if isinstance(agent_result.get(key), list)), [])
-    values = []
-    for item in raw_items:
-        value = item
-        if isinstance(item, dict):
-            value = next(
-                (
-                    item.get(field)
-                    for field in ("cmdline", "command", "commandline", "value", "name", "query")
-                    if isinstance(item.get(field), str)
-                ),
-                None,
-            )
-        if isinstance(value, str):
-            values.append(value)
-    return values
+    return raw_items or []
 
 
 logger = logging.getLogger(__name__)
@@ -511,7 +509,7 @@ def get_langfuse_client():
 
     public_key = _get_langfuse_setting("LANGFUSE_PUBLIC_KEY", "LANGFUSE_PUBLIC_KEY")
     secret_key = _get_langfuse_setting("LANGFUSE_SECRET_KEY", "LANGFUSE_SECRET_KEY")
-    host = _get_langfuse_setting("LANGFUSE_HOST", "LANGFUSE_HOST", "https://cloud.langfuse.com")
+    host = _get_langfuse_setting("LANGFUSE_HOST", "LANGFUSE_HOST", LANGFUSE_DEFAULT_HOST)
 
     if not public_key or not secret_key:
         raise ValueError("LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY must be set in Settings or environment variables")
@@ -751,9 +749,9 @@ async def run_evaluation(request: Request, eval_request: EvaluationRunRequest):
                     execution = AgenticWorkflowExecutionTable(
                         article_id=article_id,
                         status="pending",
-                        config_snapshot=config_snapshot,
                     )
                     db_session.add(execution)
+                    attach_snapshot(db_session, execution, config_snapshot)
                     db_session.commit()
                     db_session.refresh(execution)
 
@@ -1348,9 +1346,16 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                             score = actual_count - expected_count
                             expected_items = url_to_expected_items.get(url)
                             acceptable_items = url_to_acceptable_items.get(url)
-                            actual_items = _actual_items_from_agent_result(canonical_subagent_name, agent_result or {})
+                            raw_actual_items = _raw_actual_items_from_agent_result(
+                                canonical_subagent_name, agent_result or {}
+                            )
                             item_score = (
-                                score_items(expected_items, actual_items, acceptable_items)
+                                score_items(
+                                    expected_items,
+                                    raw_actual_items,
+                                    acceptable_items,
+                                    subagent_name=canonical_subagent_name,
+                                )
                                 if isinstance(expected_items, list)
                                 else None
                             )
@@ -1362,7 +1367,7 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                                 expected_items=expected_items,
                                 acceptable_items=acceptable_items,
                                 actual_count=actual_count,
-                                actual_items=actual_items if item_score else None,
+                                actual_items=item_score.actual if item_score else None,
                                 matched_count=item_score.matched_count if item_score else None,
                                 missed_count=item_score.missed_count if item_score else None,
                                 extra_count=item_score.extra_count if item_score else None,
@@ -1414,7 +1419,12 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                 execution = AgenticWorkflowExecutionTable(
                     article_id=article_id,
                     status="pending",
-                    config_snapshot=build_config_snapshot(
+                )
+                db_session.add(execution)
+                attach_snapshot(
+                    db_session,
+                    execution,
+                    build_config_snapshot(
                         active_config,
                         extra={
                             "eval_run": True,
@@ -1429,7 +1439,6 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                         },
                     ),
                 )
-                db_session.add(execution)
                 db_session.flush()  # Get execution.id
 
                 # Create SubagentEvaluationTable record
@@ -1536,6 +1545,34 @@ def _sigma_eval_config_snapshot(active_config: AgenticWorkflowConfigTable, fixtu
     )
 
 
+def _missing_sigma_eval_extractor_prompts(active_config: AgenticWorkflowConfigTable) -> list[str]:
+    """Return enabled extractors that cannot run from the active config.
+
+    Extraction intentionally has no prompt-file fallback. Rejecting an invalid
+    Sigma eval before dispatch prevents completed zero-rule executions from
+    leaving their evaluation rows permanently pending.
+    """
+    prompts = active_config.agent_prompts if isinstance(active_config.agent_prompts, dict) else {}
+    extract_settings = prompts.get("ExtractAgentSettings") or prompts.get("ExtractAgent") or {}
+    disabled = extract_settings.get("disabled_agents") or extract_settings.get("disabled_sub_agents") or []
+    disabled_agents = set(disabled) if isinstance(disabled, (list, tuple, set)) else set()
+
+    missing = []
+    for agent_name in EXTRACT_AGENTS:
+        if agent_name in disabled_agents:
+            continue
+        prompt_record = prompts.get(agent_name)
+        prompt_text = prompt_record.get("prompt") if isinstance(prompt_record, dict) else None
+        if not isinstance(prompt_text, str) or not prompt_text.strip():
+            missing.append(agent_name)
+            continue
+        try:
+            json.loads(prompt_text)
+        except json.JSONDecodeError:
+            missing.append(agent_name)
+    return missing
+
+
 @router.get("/sigma-eval-articles")
 async def get_sigma_eval_articles(request: Request):
     """List the fixture articles available for the Sigma eval (from ground truth)."""
@@ -1577,6 +1614,16 @@ async def run_sigma_eval(request: Request, eval_request: SigmaEvalRunRequest):
             if not active_config:
                 raise HTTPException(status_code=404, detail="No active workflow config found")
 
+            missing_prompts = _missing_sigma_eval_extractor_prompts(active_config)
+            if missing_prompts:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"Active workflow config v{active_config.version} cannot run Sigma evaluations. "
+                        "Missing or invalid prompts for enabled extractors: " + ", ".join(missing_prompts)
+                    ),
+                )
+
             ground_truth = load_sigma_ground_truth()
             urls_list = list(eval_request.article_urls)
             url_to_id = resolve_articles_by_urls(urls_list)
@@ -1617,9 +1664,11 @@ async def run_sigma_eval(request: Request, eval_request: SigmaEvalRunRequest):
                 execution = AgenticWorkflowExecutionTable(
                     article_id=article_id,
                     status="pending",
-                    config_snapshot=_sigma_eval_config_snapshot(active_config, static_entry["content"]),
                 )
                 db_session.add(execution)
+                attach_snapshot(
+                    db_session, execution, _sigma_eval_config_snapshot(active_config, static_entry["content"])
+                )
                 db_session.flush()  # get execution.id
 
                 eval_record = SigmaEvaluationTable(
@@ -1726,6 +1775,47 @@ async def get_sigma_eval_results(
             db_session.close()
     except Exception as e:
         logger.error(f"Error fetching sigma eval results: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@router.delete("/sigma-eval-clear-pending")
+async def clear_pending_sigma_eval_records(request: Request):
+    """Delete all pending Sigma evaluation records."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        try:
+            pending_records = (
+                db_session.query(SigmaEvaluationTable).filter(SigmaEvaluationTable.status == "pending").all()
+            )
+            deleted_ids = [record.id for record in pending_records]
+            for record in pending_records:
+                db_session.delete(record)
+
+            _audit_eval(
+                db_session,
+                request,
+                ACTION_EVAL_RECORDS_CLEARED,
+                "sigma",
+                f"Cleared {len(pending_records)} pending Sigma eval record(s)",
+                {
+                    "eval_kind": "sigma",
+                    "deleted_count": len(pending_records),
+                    "deleted_ids": deleted_ids,
+                },
+                mandatory=True,
+            )
+            db_session.commit()
+
+            return {
+                "success": True,
+                "deleted_count": len(pending_records),
+                "message": f"Deleted {len(pending_records)} pending Sigma eval record(s)",
+            }
+        finally:
+            db_session.close()
+    except Exception as e:
+        logger.error(f"Error clearing pending Sigma eval records: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -2087,8 +2177,6 @@ async def clear_pending_eval_records(request: Request, subagent: str = Query(...
 async def backfill_eval_records(request: Request, subagent: str = Query(..., description="Subagent name")):
     """Backfill pending eval records for completed workflow executions."""
     try:
-        from src.workflows.agentic_workflow import _update_subagent_eval_on_completion
-
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
 
@@ -2123,7 +2211,7 @@ async def backfill_eval_records(request: Request, subagent: str = Query(..., des
 
                 # Use the existing update function
                 try:
-                    _update_subagent_eval_on_completion(execution, db_session)
+                    update_subagent_eval_on_completion(execution, db_session)
                     # Check if it was updated
                     db_session.refresh(eval_record)
                     if eval_record.status == "completed":
@@ -2164,6 +2252,149 @@ async def backfill_eval_records(request: Request, subagent: str = Query(..., des
             db_session.close()
     except Exception as e:
         logger.error(f"Error backfilling eval records: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+# Canonical agents whose completed count-only records can be repaired from
+# retained extractor output without re-running a paid LLM.
+_RESCORABLE_SUBAGENTS = (
+    "cmdline",
+    "process_lineage",
+    "registry_artifacts",
+    "windows_services",
+    "scheduled_tasks",
+    "network_indicators",
+    "hunt_queries",
+)
+
+
+@router.post("/subagent-eval-rescore")
+async def rescore_eval_records(
+    request: Request,
+    subagent: str = Query(..., description="Subagent name, or 'all' for every supported agent"),
+    apply: bool = Query(False, description="When false (default) run a dry-run that writes nothing"),
+):
+    """Repair completed count-only records that have ground truth but no score.
+
+    Restores item-level precision/recall for records that were completed before
+    item scoring supported the agent's output schema. It scores each record's
+    *retained* extractor output against the ground truth stored on the record,
+    so it never re-runs a paid LLM and never reloads ground truth from disk
+    (no silent ground-truth drift).
+
+    Dry-run by default: reports, per agent, how many records are candidates,
+    scorable, or unrepairable (no retained output), and writes nothing. Pass
+    ``apply=true`` to persist. Idempotent -- scope is restricted to completed
+    records with non-empty ``expected_items`` and a null ``matched_count``, so a
+    second apply updates nothing. Records without item-level ground truth are
+    never touched, preserving legitimate count-only behavior.
+    """
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        try:
+            raw = (subagent or "").strip().lower()
+            if raw in ("all", "*"):
+                targets = list(_RESCORABLE_SUBAGENTS)
+                canonical_label = "all"
+            else:
+                canonical = normalize_subagent_name(subagent)
+                if not canonical:
+                    raise HTTPException(status_code=422, detail=f"Unknown subagent: {subagent}")
+                targets = [canonical]
+                canonical_label = canonical
+
+            per_agent: dict[str, dict] = {}
+            totals = {"candidates": 0, "scorable": 0, "unrepairable_no_output": 0, "updated": 0}
+
+            for canonical in targets:
+                _, lookup_values = build_subagent_lookup_values(canonical)
+                records = (
+                    db_session.query(SubagentEvaluationTable)
+                    .filter(
+                        SubagentEvaluationTable.subagent_name.in_(list(lookup_values) or [canonical]),
+                        SubagentEvaluationTable.status == "completed",
+                        SubagentEvaluationTable.matched_count.is_(None),
+                    )
+                    .all()
+                )
+
+                stats = {"candidates": 0, "scorable": 0, "unrepairable_no_output": 0, "updated": 0}
+                for rec in records:
+                    # Skip records with no item-level ground truth -- legitimately count-only.
+                    if not isinstance(rec.expected_items, list) or len(rec.expected_items) == 0:
+                        continue
+                    stats["candidates"] += 1
+
+                    execution = None
+                    if rec.workflow_execution_id:
+                        execution = (
+                            db_session.query(AgenticWorkflowExecutionTable)
+                            .filter(AgenticWorkflowExecutionTable.id == rec.workflow_execution_id)
+                            .first()
+                        )
+
+                    computed = rescore_completed_record(rec, execution)
+                    if computed is None:
+                        stats["unrepairable_no_output"] += 1
+                        continue
+
+                    stats["scorable"] += 1
+                    if apply:
+                        rec.actual_items = computed["actual_items"]
+                        rec.matched_count = computed["matched_count"]
+                        rec.missed_count = computed["missed_count"]
+                        rec.extra_count = computed["extra_count"]
+                        rec.neutral_count = computed["neutral_count"]
+                        stats["updated"] += 1
+
+                per_agent[canonical] = stats
+                for k in totals:
+                    totals[k] += stats[k]
+
+            verb = "Rescored" if apply else "Dry-run rescore of"
+            _audit_eval(
+                db_session,
+                request,
+                ACTION_EVAL_RECORDS_RESCORED,
+                canonical_label,
+                f"{verb} {totals['scorable']} completed record(s) for {canonical_label}",
+                {"subagent": canonical_label, "apply": apply, **totals, "per_agent": per_agent},
+                mandatory=apply,
+            )
+
+            if apply:
+                db_session.commit()
+
+            logger.info(
+                "Rescore (%s) for %s: candidates=%d scorable=%d unrepairable=%d updated=%d",
+                "apply" if apply else "dry-run",
+                canonical_label,
+                totals["candidates"],
+                totals["scorable"],
+                totals["unrepairable_no_output"],
+                totals["updated"],
+            )
+
+            return {
+                "success": True,
+                "subagent": canonical_label,
+                "apply": apply,
+                "dry_run": not apply,
+                **totals,
+                "per_agent": per_agent,
+                "message": (
+                    f"Updated {totals['updated']} record(s)"
+                    if apply
+                    else f"{totals['scorable']} record(s) would be updated ({totals['unrepairable_no_output']} lack retained output)"
+                ),
+            }
+        finally:
+            db_session.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error rescoring eval records: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 

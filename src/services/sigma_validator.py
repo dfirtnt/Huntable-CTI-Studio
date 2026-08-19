@@ -7,14 +7,15 @@ Validates LLM-generated SIGMA rules for syntax, structure, and best practices.
 import logging
 import re
 from dataclasses import dataclass
-from importlib.util import find_spec
 from typing import Any
 
 import yaml
 
 try:
-    PYSIGMA_AVAILABLE = find_spec("sigma") is not None and find_spec("sigma.rule") is not None
-except ModuleNotFoundError:
+    from sigma.collection import SigmaCollection
+
+    PYSIGMA_AVAILABLE = True
+except ImportError:
     PYSIGMA_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
@@ -24,33 +25,6 @@ class ValidationError(Exception):
     """Custom exception for validation errors."""
 
     pass
-
-
-VALID_LOGSOURCE_CATEGORIES: frozenset[str] = frozenset(
-    [
-        "process_creation",
-        "process_access",
-        "file_access",
-        "file_change",
-        "file_delete",
-        "file_rename",
-        "file_write",
-        "file_event",
-        "image_load",
-        "driver_load",
-        "network_connection",
-        "dns_query",
-        "http_request",
-        "registry_access",
-        "registry_change",
-        "registry_delete",
-        "registry_rename",
-        "powershell",
-        "ps_script",
-        "ps_module",
-        "wmi",
-    ]
-)
 
 
 def clean_sigma_rule(rule_content: str) -> str:
@@ -283,10 +257,6 @@ class SigmaRule:
         if not logsource:
             raise ValidationError("Logsource section is empty")
 
-        category = logsource.get("category")
-        if category and category not in VALID_LOGSOURCE_CATEGORIES:
-            raise ValidationError(f"Invalid logsource category: {category}")
-
     def _validate_detection(self):
         """Validate detection logic."""
         detection = self.rule_data.get("detection", {})
@@ -335,20 +305,12 @@ class SigmaRule:
 
 
 class SigmaValidator:
-    """SIGMA rule validation service using pySigma"""
+    """Huntable policy checks applied after pySigma validates a rule."""
 
     def __init__(self):
-        self.validator = None
         self.custom_validators = {}
         self.whitelists = {}
         self.blacklists = {}
-
-        if PYSIGMA_AVAILABLE:
-            try:
-                # Initialize pySigma validator
-                self.validator = None  # pySigma doesn't have a built-in validator
-            except Exception as e:
-                logger.warning(f"Failed to initialize SIGMA validator: {e}")
 
     def add_validator(self, name: str, validator_func):
         """Add a custom validator function."""
@@ -507,10 +469,6 @@ class SigmaValidator:
         if "category" not in logsource and "product" not in logsource and "service" not in logsource:
             warnings.append("Logsource should specify category, product, or service")
 
-        category = logsource.get("category")
-        if category and category not in VALID_LOGSOURCE_CATEGORIES:
-            errors.append(f"Invalid logsource category: {category}")
-
     def _validate_metadata(self, rule_data: dict, errors: list[str], warnings: list[str]):
         """Validate rule metadata"""
         # Check title length
@@ -657,5 +615,32 @@ def validate_sigma_rule(rule_yaml: str) -> ValidationResult:
             content_preview=content_preview,
         )
 
-    validator = SigmaValidator()
-    return validator.validate_rule(rule_data)
+    if not PYSIGMA_AVAILABLE:
+        return ValidationResult(
+            False,
+            ["pySigma is not available; Sigma validation cannot proceed"],
+            [],
+            metadata={
+                "pysigma": {"valid": False, "errors": [{"type": "ImportError", "message": "pySigma unavailable"}]}
+            },
+        )
+
+    try:
+        collection = SigmaCollection.from_yaml(cleaned_content)
+        for sigma_rule in collection.rules:
+            for condition in sigma_rule.detection.parsed_condition:
+                _ = condition.parsed
+    except Exception as exc:
+        error_type = type(exc).__name__
+        error_message = str(exc)
+        logger.debug("pySigma rejected rule: %s: %s", error_type, error_message)
+        return ValidationResult(
+            False,
+            [f"pySigma {error_type}: {error_message}"],
+            [],
+            metadata={"pysigma": {"valid": False, "errors": [{"type": error_type, "message": error_message}]}},
+        )
+
+    policy_result = SigmaValidator().validate_rule(rule_data)
+    policy_result.metadata["pysigma"] = {"valid": True, "errors": []}
+    return policy_result

@@ -14,6 +14,15 @@ import httpx
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def mock_codex_model_list():
+    with patch(
+        "src.services.workflow_provider_options._probe_codex_models",
+        new=AsyncMock(return_value=(False, [])),
+    ):
+        yield
+
+
 class TestProviderOptionsContract:
     """Response always has the correct shape regardless of provider state."""
 
@@ -41,14 +50,14 @@ class TestProviderOptionsContract:
 
     @pytest.mark.api
     @pytest.mark.asyncio
-    async def test_all_three_providers_present(self, async_client: httpx.AsyncClient):
+    async def test_all_four_providers_present(self, async_client: httpx.AsyncClient):
         with patch(
             "src.services.workflow_provider_options._probe_lmstudio",
             new=AsyncMock(return_value=(False, [])),
         ):
             response = await async_client.get("/api/workflow/provider-options")
         providers = response.json()["providers"]
-        assert set(providers.keys()) == {"lmstudio", "openai", "anthropic"}
+        assert set(providers.keys()) == {"lmstudio", "openai", "codex", "anthropic"}
 
     @pytest.mark.api
     @pytest.mark.asyncio
@@ -134,6 +143,46 @@ class TestProviderOptionsLMStudioStates:
         assert lm["has_models"] is True
         assert lm["models"] == chat_models
         assert response.json()["default_provider"] == "lmstudio"
+
+
+class TestProviderOptionsCodexStates:
+    """Codex returns its live subscription model list through the API."""
+
+    @pytest.mark.api
+    @pytest.mark.asyncio
+    async def test_codex_enabled_returns_live_models_and_default(self, async_client: httpx.AsyncClient):
+        codex_models = ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]
+
+        with (
+            patch(
+                "src.services.workflow_provider_options._probe_lmstudio",
+                new=AsyncMock(return_value=(False, [])),
+            ),
+            patch(
+                "src.services.workflow_provider_options._probe_codex_models",
+                new=AsyncMock(return_value=(True, codex_models)),
+            ),
+            patch(
+                "src.services.workflow_provider_options._read_settings",
+                return_value={
+                    "WORKFLOW_LMSTUDIO_ENABLED": "false",
+                    "WORKFLOW_OPENAI_ENABLED": "false",
+                    "WORKFLOW_CODEX_ENABLED": "true",
+                    "WORKFLOW_ANTHROPIC_ENABLED": "false",
+                    "WORKFLOW_OPENAI_API_KEY": "",
+                    "WORKFLOW_ANTHROPIC_API_KEY": "",
+                },
+            ),
+        ):
+            response = await async_client.get("/api/workflow/provider-options")
+
+        assert response.status_code == 200
+        codex = response.json()["providers"]["codex"]
+        assert codex["configured"] is True
+        assert codex["reachable"] is True
+        assert codex["models"] == codex_models
+        assert codex["default_model"] == "gpt-5.6-luna"
+        assert response.json()["default_provider"] == "codex"
 
 
 class TestProviderOptionsDefaultProvider:

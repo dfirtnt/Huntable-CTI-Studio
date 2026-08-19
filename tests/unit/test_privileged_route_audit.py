@@ -13,7 +13,6 @@ api-marked suite is pointed at an ASGI transport or a live server.
 
 from __future__ import annotations
 
-import subprocess
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -79,9 +78,9 @@ class TestBackupRestoreAudit:
         with (
             patch.object(backup_routes.AsyncAuditService, "record_out_of_band", spy),
             patch.object(
-                backup_routes.subprocess,
-                "run",
-                return_value=Mock(returncode=0, stdout="restore ok", stderr=""),
+                backup_routes,
+                "run_backup_operation",
+                AsyncMock(return_value={"returncode": 0, "stdout": "restore ok", "stderr": ""}),
             ),
         ):
             result = await backup_routes.api_restore_backup(request)
@@ -110,9 +109,9 @@ class TestBackupRestoreAudit:
         with (
             patch.object(backup_routes.AsyncAuditService, "record_out_of_band", spy),
             patch.object(
-                backup_routes.subprocess,
-                "run",
-                return_value=Mock(returncode=1, stdout="", stderr="boom"),
+                backup_routes,
+                "run_backup_operation",
+                AsyncMock(return_value={"returncode": 1, "stdout": "", "stderr": "boom"}),
             ),
             pytest.raises(backup_routes.HTTPException),
         ):
@@ -130,9 +129,9 @@ class TestBackupRestoreAudit:
         with (
             patch.object(backup_routes.AsyncAuditService, "record_out_of_band", spy),
             patch.object(
-                backup_routes.subprocess,
-                "run",
-                side_effect=subprocess.TimeoutExpired(cmd="restore", timeout=600),
+                backup_routes,
+                "run_backup_operation",
+                AsyncMock(side_effect=backup_routes.subprocess.TimeoutExpired(cmd="restore", timeout=600)),
             ),
             pytest.raises(backup_routes.HTTPException),
         ):

@@ -109,6 +109,9 @@ async function checkSimilarRulesForQueue() {
     const loadingMsg = document.createElement('div');
     loadingMsg.id = 'similarRulesLoading';
     loadingMsg.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 z-50 flex items-center justify-center';
+    loadingMsg.setAttribute('role', 'status');
+    loadingMsg.setAttribute('aria-live', 'polite');
+    loadingMsg.setAttribute('aria-label', 'Searching for similar rules');
     loadingMsg.innerHTML = `
         <div class="card p-6">
             <div class="text-center">
@@ -1211,20 +1214,6 @@ function showHelp(fieldName) {
 // showSimilarRuleDetails / closeSimilarRuleModal moved to shared component:
 // /static/js/components/similar-rule-modal.js
 
-// Navigate to queued rules
-function navigateToQueuedRules(executionId, ruleIds) {
-    if (ruleIds && ruleIds.length > 0) {
-        // Store rule IDs in sessionStorage for the queue page to highlight
-        sessionStorage.setItem('highlightQueuedRules', JSON.stringify(ruleIds));
-        sessionStorage.setItem('highlightExecutionId', executionId.toString());
-        // Navigate to queue page
-        window.location.href = '/workflow#queue';
-    } else {
-        // Fallback to queue page
-        window.location.href = '/workflow#queue';
-    }
-}
-
 // Highlight a specific queued rule (called from link click)
 function highlightQueuedRule(ruleId) {
     // Navigate to queue page with previewId parameter to auto-open preview modal
@@ -1244,6 +1233,9 @@ function openLiveExecutionView(executionId) {
     const modal = document.createElement('div');
     modal.id = 'liveExecutionModal';
     modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', 'Live execution view');
     modal.innerHTML = `
         <div class="bg-gray-900 dark:bg-gray-800 rounded-lg shadow-xl w-11/12 max-w-6xl h-5/6 flex flex-col">
             <div class="flex justify-between items-center p-4 border-b border-gray-700">

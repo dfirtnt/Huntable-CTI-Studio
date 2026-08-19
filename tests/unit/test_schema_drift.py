@@ -174,3 +174,23 @@ class TestLogDriftNeverRaises:
         assert report.has_drift() is True
         assert any("SCHEMA DRIFT DETECTED" in record.message for record in caplog.records)
         assert any("NO PRIMARY KEY" in record.message for record in caplog.records)
+
+    def test_foreign_key_only_drift_is_a_single_warning(self, caplog, monkeypatch):
+        """FK-only drift (no missing tables/PKs/columns) must log ONE warning, not an
+        ERROR wall -- adding FKs is often blocked by orphan rows (operator decision)."""
+        import src.database.schema_drift as module
+
+        monkeypatch.setattr(
+            module,
+            "detect_drift",
+            lambda bind: DriftReport(missing_foreign_keys=[("source_checks", ("source_id",), "sources")]),
+        )
+        with caplog.at_level("WARNING"):
+            report = log_drift(object())
+
+        assert report.has_drift() is True
+        drift_records = [r for r in caplog.records if "does not match models.py" in r.message]
+        assert len(drift_records) == 1
+        assert drift_records[0].levelname == "WARNING"
+        # Never escalate FK-only drift to the loud ERROR headline.
+        assert not any("SCHEMA DRIFT DETECTED" in r.message for r in caplog.records)

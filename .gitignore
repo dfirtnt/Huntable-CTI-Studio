@@ -60,6 +60,7 @@ venv.bak/
 !.claude/agents/**
 .opencode/
 .context/
+.hermes/
 .vscode/
 .idea/
 *.swp
@@ -305,3 +306,6 @@ deploy/sso/nginx.conf
 deploy/sso/oauth2-proxy.env
 deploy/sso/tls/
 deploy/sso/local/oauth2-proxy.env
+tests/static/js/jsdom_venv/
+tests/static/js/_aria_driver.js
+tests/static/js/_obs_driver.js

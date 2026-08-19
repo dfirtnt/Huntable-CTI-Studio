@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from src.services.maintenance_client import MaintenanceServiceError
 from src.web.routes import backup as backup_routes
 
 
@@ -167,40 +168,37 @@ async def test_restore_from_file_rejects_invalid_extension():
 
 @pytest.mark.api
 @pytest.mark.asyncio
+async def test_create_backup_returns_json_http_error_when_maintenance_is_unavailable(monkeypatch):
+    """A maintenance outage must not leak an HTML 500 page to the UI."""
+    request = _audit_request()
+    request.json = AsyncMock(return_value={})
+
+    async def unavailable(*args, **kwargs):
+        raise MaintenanceServiceError("connection failed")
+
+    monkeypatch.setattr(backup_routes, "run_backup_operation", unavailable)
+
+    with pytest.raises(backup_routes.HTTPException) as exc_info:
+        await backup_routes.api_create_backup(request)
+
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.detail == "Backup service unavailable"
+
+
+@pytest.mark.api
+@pytest.mark.asyncio
 async def test_restore_from_file_accepts_sql_extension(monkeypatch, tmp_path):
     """A .sql file should pass extension validation and proceed to script invocation."""
-    import subprocess
     from io import BytesIO
 
     from fastapi import UploadFile
 
-    fake_script = tmp_path / "restore_database_v2.py"
-    fake_script.touch()
+    async def fake_operation(operation, payload, *, timeout):
+        assert operation == "restore-file"
+        assert payload["suffix"] == ".sql"
+        return {"returncode": 0, "stdout": "restored", "stderr": ""}
 
-    monkeypatch.setattr(
-        backup_routes,
-        "Path",
-        lambda *args: fake_script.parent if args == () else __import__("pathlib").Path(*args),
-    )
-
-    run_calls: list = []
-
-    def fake_run(cmd, **kwargs):
-        run_calls.append(cmd)
-        return subprocess.CompletedProcess(cmd, 0, stdout="restored", stderr="")
-
-    monkeypatch.setattr(subprocess, "run", fake_run)
-
-    # Patch project_root resolution inside the handler
-    original_path = backup_routes.Path
-
-    def patched_path(*args):
-        p = original_path(*args)
-        if str(p).endswith("restore_database_v2.py"):
-            return fake_script
-        return p
-
-    monkeypatch.setattr(backup_routes, "Path", patched_path)
+    monkeypatch.setattr(backup_routes, "run_backup_operation", fake_operation)
 
     sql_file = UploadFile(filename="backup.sql", file=BytesIO(b"SELECT 1"))
     result = await backup_routes.api_restore_from_file(_audit_request(), file=sql_file)
@@ -211,27 +209,16 @@ async def test_restore_from_file_accepts_sql_extension(monkeypatch, tmp_path):
 @pytest.mark.asyncio
 async def test_restore_from_file_accepts_sql_gz_extension(monkeypatch, tmp_path):
     """A .sql.gz file should pass extension validation."""
-    import subprocess
     from io import BytesIO
 
     from fastapi import UploadFile
 
-    fake_script = tmp_path / "restore_database_v2.py"
-    fake_script.touch()
-    original_path = backup_routes.Path
+    async def fake_operation(operation, payload, *, timeout):
+        assert operation == "restore-file"
+        assert payload["suffix"] == ".sql.gz"
+        return {"returncode": 0, "stdout": "restored", "stderr": ""}
 
-    def patched_path(*args):
-        p = original_path(*args)
-        if str(p).endswith("restore_database_v2.py"):
-            return fake_script
-        return p
-
-    monkeypatch.setattr(backup_routes, "Path", patched_path)
-
-    def fake_run(cmd, **kwargs):
-        return subprocess.CompletedProcess(cmd, 0, stdout="restored", stderr="")
-
-    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(backup_routes, "run_backup_operation", fake_operation)
 
     gz_file = UploadFile(filename="backup.sql.gz", file=BytesIO(b"\x1f\x8b"))
     result = await backup_routes.api_restore_from_file(_audit_request(), file=gz_file)

@@ -5,31 +5,50 @@
     "_note": "SEED fixture (Phase 1) -- hand-authored from article command lines to validate the scorer. Requires security-analyst vetting before being treated as authoritative ground truth.",
     "expected_rules": [
       {
-        "logsource": {"category": "process_creation", "product": "windows"},
+        "logsource": {
+          "category": "process_creation",
+          "product": "windows"
+        },
         "level": "high",
         "detection": {
-          "selection": {"Image|endswith": "\\rundll32.exe", "CommandLine|contains": ".jpg,init"},
-          "condition": "selection"
-        }
-      },
-      {
-        "logsource": {"category": "process_creation", "product": "windows"},
-        "level": "medium",
-        "detection": {
           "selection": {
-            "Image|endswith": "\\AnyDesk.exe",
-            "CommandLine|contains": ["--install", "--start-with-win", "--silent"]
+            "Image|endswith": "\\rundll32.exe",
+            "CommandLine|contains": ".jpg,init"
           },
           "condition": "selection"
         }
       },
       {
-        "logsource": {"category": "process_creation", "product": "windows"},
+        "logsource": {
+          "category": "process_creation",
+          "product": "windows"
+        },
+        "level": "medium",
+        "detection": {
+          "selection": {
+            "Image|endswith": "\\AnyDesk.exe",
+            "CommandLine|contains": [
+              "--install",
+              "--start-with-win",
+              "--silent"
+            ]
+          },
+          "condition": "selection"
+        }
+      },
+      {
+        "logsource": {
+          "category": "process_creation",
+          "product": "windows"
+        },
         "level": "medium",
         "detection": {
           "selection": {
             "Image|endswith": "\\WMIC.exe",
-            "CommandLine|contains|all": ["SecurityCenter2", "AntiVirusProduct"]
+            "CommandLine|contains|all": [
+              "SecurityCenter2",
+              "AntiVirusProduct"
+            ]
           },
           "condition": "selection"
         }
@@ -42,7 +61,10 @@
     "_note": "SEED fixture (Phase 1) -- hand-authored from article command lines to validate the scorer. Requires security-analyst vetting before being treated as authoritative ground truth.",
     "expected_rules": [
       {
-        "logsource": {"category": "process_creation", "product": "windows"},
+        "logsource": {
+          "category": "process_creation",
+          "product": "windows"
+        },
         "level": "high",
         "detection": {
           "selection": {
@@ -60,23 +82,107 @@
     "_note": "SEED fixture (Phase 1) -- hand-authored from article command lines to validate the scorer. Requires security-analyst vetting before being treated as authoritative ground truth.",
     "expected_rules": [
       {
-        "logsource": {"category": "process_creation", "product": "windows"},
+        "logsource": {
+          "category": "process_creation",
+          "product": "windows"
+        },
         "level": "high",
         "detection": {
           "selection": {
             "Image|endswith": "\\ssh.exe",
-            "CommandLine|contains|all": ["StrictHostKeyChecking=no", "-R"]
+            "CommandLine|contains|all": [
+              "StrictHostKeyChecking=no",
+              "-R"
+            ]
           },
           "condition": "selection"
         }
       },
       {
-        "logsource": {"category": "process_creation", "product": "windows"},
+        "logsource": {
+          "category": "process_creation",
+          "product": "windows"
+        },
         "level": "medium",
         "detection": {
           "selection": {
             "Image|endswith": "\\reg.exe",
-            "CommandLine|contains|all": ["delete", "Terminal Server Client"]
+            "CommandLine|contains|all": [
+              "delete",
+              "Terminal Server Client"
+            ]
+          },
+          "condition": "selection"
+        }
+      }
+    ]
+  },
+  {
+    "url": "https://www.sekoia.com/blog/nobeliums-envyscout-infection-chain-goes-in-the-registry-targeting-embassies",
+    "expected_rule_count": 4,
+    "_note": "Authored 2026-08-16 under the arm-blind GT protocol (docs/development/sigma-eval-system.md); operator-approved. Source: article text only (incl. embedded Sekoia Sigma rule and OCR'd HTA extract), no pipeline output consulted. Network C2 domains / UA deliberately excluded per the shared no-atomic-IOC generation doctrine (sigma_generation.txt 'Network Observable Abstraction'). The ps_script rule is an uncovered-class entry by design: it probes the multi-extractor arm's logsource-containment suppression cost; report per-class.",
+    "expected_rules": [
+      {
+        "logsource": {
+          "category": "process_creation",
+          "product": "windows"
+        },
+        "level": "high",
+        "detection": {
+          "selection": {
+            "Image|endswith": "\\powershell.exe",
+            "CommandLine|contains|all": [
+              "Invoke-Expression",
+              "gp HKCU:\\SOFTWARE\\"
+            ]
+          },
+          "condition": "selection"
+        }
+      },
+      {
+        "logsource": {
+          "category": "registry_set",
+          "product": "windows"
+        },
+        "level": "high",
+        "detection": {
+          "selection": {
+            "Image|endswith": "\\mshta.exe",
+            "TargetObject|contains": [
+              "\\SOFTWARE\\MSOffice\\",
+              "\\SOFTWARE\\JavaSoft\\Ver"
+            ]
+          },
+          "condition": "selection"
+        }
+      },
+      {
+        "logsource": {
+          "category": "process_creation",
+          "product": "windows"
+        },
+        "level": "high",
+        "detection": {
+          "selection": {
+            "ParentImage|endswith": "\\mshta.exe",
+            "Image|endswith": "\\powershell.exe"
+          },
+          "condition": "selection"
+        }
+      },
+      {
+        "logsource": {
+          "category": "ps_script",
+          "product": "windows"
+        },
+        "level": "high",
+        "detection": {
+          "selection": {
+            "ScriptBlockText|contains|all": [
+              "FromBase64String((gp HKCU:\\SOFTWARE\\",
+              "Remove-ItemProperty HKCU:\\SOFTWARE\\",
+              "Invoke([IntPtr]::Zero)"
+            ]
           },
           "condition": "selection"
         }

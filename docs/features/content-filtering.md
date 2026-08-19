@@ -17,7 +17,7 @@ The system uses a hybrid approach combining:
    using 20 features per chunk (v3 extractor; see Feature Extractor Versions
    below)
 
-```
+```text
 Article Content
       |
 Chunking (1000 chars, 200 overlap) — overlap-only tail chunks suppressed
@@ -321,7 +321,7 @@ print('Model loaded' if cf.model else 'Model failed to load')
 ## Troubleshooting
 
 **Model not found / "ML model not available" in UI:**
-```
+```text
 Error: [Errno 2] No such file or directory: 'models/content_filter.pkl'
 ```
 Seed the model from the bundled fixtures, then restart the server:

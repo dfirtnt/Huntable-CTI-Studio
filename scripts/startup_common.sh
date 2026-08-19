@@ -94,7 +94,6 @@ startup_disable_lmstudio() {
     startup_set_env_key "$env_file" "WORKFLOW_LMSTUDIO_ENABLED" "false"
     startup_set_env_key "$env_file" "PROCEED_WITHOUT_LMSTUDIO" "1"
     startup_set_env_key "$env_file" "LMSTUDIO_API_URL" ""
-    startup_set_env_key "$env_file" "LMSTUDIO_EMBEDDING_URL" ""
 }
 
 startup_apply_platform_compatibility() {

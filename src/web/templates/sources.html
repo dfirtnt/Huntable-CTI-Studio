@@ -261,7 +261,7 @@
     <div class="filter-bar">
         <div class="src-search-wrap">
             <span class="src-search-icon"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg></span>
-            <input class="src-search-input" type="text" id="sourceSearch" placeholder="Search sources…" oninput="filterSources()" aria-label="Search sources">
+            <input class="src-search-input" type="text" id="sourceSearch" placeholder="Search sources..." oninput="filterSources()" aria-label="Search sources">
         </div>
         <select class="src-filter-select" id="statusFilter" onchange="syncChipHighlight(); filterSources()" aria-label="Filter by status">
             <option value="all">All status</option>
@@ -344,11 +344,11 @@
 
             {% if source.consecutive_failures and source.consecutive_failures >= 3 %}
             <div class="failure-note crit">
-                🔴 {{ source.consecutive_failures }} consecutive failures{% if source.last_success %} — last success {{ source.last_success.strftime('%b %d') }}{% endif %}
+                🔴 {{ source.consecutive_failures }} consecutive failures{% if source.last_success %}  --  last success {{ source.last_success.strftime('%b %d') }}{% endif %}
             </div>
             {% elif source.consecutive_failures and source.consecutive_failures >= 1 %}
             <div class="failure-note warn">
-                ⚠ {{ source.consecutive_failures }} consecutive failure{{ 's' if source.consecutive_failures > 1 else '' }}{% if source.last_success %} — last success {{ source.last_success.strftime('%b %d') }}{% endif %}
+                ⚠ {{ source.consecutive_failures }} consecutive failure{{ 's' if source.consecutive_failures > 1 else '' }}{% if source.last_success %}  --  last success {{ source.last_success.strftime('%b %d') }}{% endif %}
             </div>
             {% endif %}
 
@@ -398,7 +398,7 @@
         {% endif %}
         {% endfor %}
 
-        {# Manual source — integrated into grid (card hidden in UI; DB source unchanged) #}
+        {# Manual source  --  integrated into grid (card hidden in UI; DB source unchanged) #}
         {% for source in sources %}
         {% if source.name.lower() == 'manual' %}
         <div class="source-card health-ok"
@@ -476,7 +476,7 @@
 </div><!-- /container -->
 
 <!-- Result modal -->
-<div id="resultModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50">
+<div id="resultModal" role="dialog" aria-modal="true" aria-label="Result" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50">
     <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <div class="fixed inset-0 transition-opacity" aria-hidden="true"><div class="absolute inset-0 bg-black/60"></div></div>
         <div class="inline-block align-bottom rounded-xl shadow-2xl text-left overflow-hidden transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full" style="background-color:var(--mlops-card-bg); border:1px solid var(--mlops-card-border);">
@@ -492,7 +492,7 @@
 </div>
 
 <!-- Source Configuration Modal -->
-<div id="sourceConfigModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50">
+<div id="sourceConfigModal" role="dialog" aria-modal="true" aria-label="Source configuration" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50">
     <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <div class="fixed inset-0 transition-opacity" aria-hidden="true"><div class="absolute inset-0 bg-black/60"></div></div>
         <div class="inline-block align-bottom rounded-xl shadow-2xl text-left overflow-hidden transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full" style="background-color:var(--mlops-card-bg); border:1px solid var(--mlops-card-border);">
@@ -760,7 +760,7 @@ async function toggleSourceStatus(sourceId) {
             showModal('Source Status Updated', content);
 
             if (result.database_updated) {
-                // In-place DOM update — no page reload
+                // In-place DOM update  --  no page reload
                 const card = document.querySelector(`[data-source-id="${sourceId}"]`);
                 if (card) {
                     const newActive = result.new_status;
@@ -837,7 +837,7 @@ function saveSourceConfig() {
     const ocrValue = ocrSel === 'on' ? true : (ocrSel === 'off' ? false : null);
     const saveBtn = document.getElementById('saveSourceConfigBtn');
     const originalText = saveBtn.textContent;
-    saveBtn.textContent = 'Saving…';
+    saveBtn.textContent = 'Saving...';
     saveBtn.disabled = true;
     Promise.all([
         fetch(`/api/sources/${currentSourceId}/lookback`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({lookback_days:days}) }),
@@ -925,12 +925,12 @@ function monitorTaskProgress(taskId, sourceId, sourceName) {
             const elapsedSec = Math.floor((Date.now() - pollStartTime) / 1000);
             const elapsedStr = elapsedSec >= 60 ? `${Math.floor(elapsedSec/60)}m ${elapsedSec%60}s` : `${elapsedSec}s`;
             if (data.status === 'PENDING') {
-                statusText.textContent = `Collection queued for ${sourceName}… (${elapsedStr} — start collection worker if nothing happens)`;
+                statusText.textContent = `Collection queued for ${sourceName}... (${elapsedStr}  --  start collection worker if nothing happens)`;
             } else if (data.status === 'RETRY') {
                 const errHint = (data.info && String(data.info).trim()) ? String(data.info).trim().replace(/\s+/g,' ').substring(0,120) : null;
                 statusText.textContent = errHint
-                    ? `Collection retrying for ${sourceName}… (${elapsedStr}) — ${errHint}${errHint.length>=120?'…':''}`
-                    : `Collection retrying for ${sourceName}… (${elapsedStr})`;
+                    ? `Collection retrying for ${sourceName}... (${elapsedStr})  --  ${errHint}${errHint.length>=120?'...':''}`
+                    : `Collection retrying for ${sourceName}... (${elapsedStr})`;
             }
             const statusChanged = data.status !== lastStatus;
             const isTerminal = data.ready || ['SUCCESS','FAILURE','REVOKED'].includes(data.status);
@@ -1195,7 +1195,7 @@ function handleAdhocUrlSubmit(event) {
 })();
 </script>
 
-    <!-- Collection Status Toast — Fixed Position -->
+    <!-- Collection Status Toast  --  Fixed Position -->
     <div id="collectionStatus" class="fixed top-4 right-4 z-50 w-96 hidden">
         <div class="rounded-md p-4 shadow-lg" style="background-color: var(--border-muted); border: 1px solid var(--border-subtle);">
             <div class="flex items-center justify-between mb-3">

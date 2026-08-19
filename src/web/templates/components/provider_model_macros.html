@@ -28,6 +28,7 @@
     <select id="{{ prefix }}-provider" name="agent_models[{{ provider_key }}]" onchange="onAgentProviderChange('{{ prefix }}')" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
       <option value="lmstudio">LMStudio (Local)</option>
       <option value="openai">OpenAI (Cloud)</option>
+      <option value="codex">Codex Subscription</option>
       <option value="anthropic">Anthropic Claude (Cloud)</option>
     </select>
   </div>
@@ -48,6 +49,13 @@
       <select id="{{ prefix }}-model-anthropic" name="agent_models[{{ model_key }}]" data-catalog-provider="anthropic" onchange="{% if validate %}validateAgentModelOnChange('{{ prefix }}'); {% endif %}autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs"></select>
       {% else %}
       <input type="text" id="{{ prefix }}-model-anthropic" name="agent_models[{{ model_key }}]" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs" placeholder="claude-sonnet-4-6" onchange="{% if validate %}validateAgentModelOnChange('{{ prefix }}'); {% endif %}autoSaveModelChange()" oninput="{% if validate %}validateAgentModelOnChange('{{ prefix }}'); {% endif %}autoSaveModelChange()">
+      {% endif %}
+    </div>
+    <div data-agent-prefix="{{ prefix }}" data-provider="codex" class="hidden">
+      {% if use_select %}
+      <select id="{{ prefix }}-model-codex" name="agent_models[{{ model_key }}]" data-catalog-provider="codex" onchange="{% if validate %}validateAgentModelOnChange('{{ prefix }}'); {% endif %}autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs"></select>
+      {% else %}
+      <input type="text" id="{{ prefix }}-model-codex" name="agent_models[{{ model_key }}]" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs" placeholder="gpt-5.5" onchange="{% if validate %}validateAgentModelOnChange('{{ prefix }}'); {% endif %}autoSaveModelChange()" oninput="{% if validate %}validateAgentModelOnChange('{{ prefix }}'); {% endif %}autoSaveModelChange()">
       {% endif %}
     </div>
   </div>

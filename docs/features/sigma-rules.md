@@ -158,10 +158,10 @@ SigmaHQ, classifies coverage, and gates new rule generation.
 - Source tracking: `file_path`, `repo_commit_sha`
 - Canonical fields: `logsource_key`, `canonical_class` (precomputed for novelty scoring)
 
-**`article_sigma_matches`** — stores article-to-rule matches:
-- Similarity scores, match levels (article/chunk)
-- Coverage classification: `covered`, `extend`, `new`
-- Matched behaviors: discriminators, LOLBAS, intelligence indicators
+Similarity results are persisted with each workflow execution in
+`agentic_workflow_executions.similarity_results`. Promoted candidates retain
+their review evidence in `sigma_rule_queue`, including `similarity_scores`,
+`max_similarity`, `behavioral_matches_found`, and `total_candidates_evaluated`.
 
 #### Sigma Sync Service
 
@@ -398,7 +398,9 @@ For each (proposed, candidate) pair:
 - Keyword-list selections (XSS/SSTI/Log4j webserver rules) are modeled on both index and live paths (Conditional B, 2026-06-02).
 - Still unmodeled (Coverage-Chain backlog): cloud/audit telemetry, heterogeneous multi-EID services, `linux.file_event`, `macos.file_event`, assorted singletons. `EventCode` is treated as `EventID`.
 
-Rules whose Sigma syntax exceeds the AST builder (unsupported correlation, DNF expansion limit) return `None` from extraction and are skipped.
+Rules whose Sigma syntax exceeds the AST builder (unsupported correlation, DNF expansion limit) return `None` from extraction and are skipped. The DNF cost guard is exactly 64 branches: a rule that would expand to more than 64 branches is deliberately not atomized. Large value enumerations can hit that guard because they normalize into OR branches; raw detection length is a symptom, not a separate threshold.
+
+The index/backfill path deliberately leaves all four atom fields unset for two common cases: an unresolved canonical telemetry class (including product-only logsources such as `product: azure` or bare `product: windows`) and the DNF expansion limit. This is not evidence that the rule was never indexed; `canonical_json` remains available. The schema does not record a per-rule skip reason, so distinguish those intentional outcomes from unexpected failures with the precompute logs or a `sigma recompute-atoms` run.
 
 **Code labels:** `similarity_engine: "precomputed"` means stored atom columns were used; `"on-the-fly"` means live atom extraction was used because stored atoms were unavailable. Historical rows with the old labels are mapped on read.
 
@@ -535,7 +537,8 @@ In the **Sigma Queue** UI, `needs_review` rows show:
 **`GET /api/sigma-queue/list`**
 
 Optional query params: `?status=needs_review` (or `pending`, `approved`,
-`rejected`, `submitted`)
+`rejected`, `submitted`), `?workflow_execution_id=<id>` (narrow to one workflow
+job's rules).
 
 Response includes `status_counts` broken down by status and `behavioral_matches_found` /
 `total_candidates_evaluated` per row.
@@ -778,14 +781,9 @@ SIGMA_REPO_PATH=sigma-repo
 GITHUB_REPO=owner/repo
 GITHUB_TOKEN=ghp_xxx       # Add in Settings -> GitHub (repo scope)
 
-# Similarity matching threshold
-SIGMA_MATCH_THRESHOLD=0.7
+# Similarity matching threshold (CLI default)
+./run_cli.sh sigma match <article_id> --threshold 0.7
 ```
-
-<!-- TODO: verify: SIGMA_MATCH_THRESHOLD does not appear as an env var anywhere in
-     src/ or .env.example -- 0.7 is a hardcoded Python default (e.g. sigma_commands.py
-     --threshold, sigma_matching_service.py) at several call sites, not something read
-     from the environment. Confirm whether this env var ever existed or should be removed. -->
 
 ### GitHub PR Setup
 
@@ -815,11 +813,10 @@ PR submission refuses to operate when the configured repository's `origin` is `S
 
 Indexing uses `intfloat/e5-base-v2` via local sentence-transformers (no LMStudio
 required). Run `sigma index-metadata` first, then `sigma index-embeddings` to
-enable similarity search. The `SigmaEmbeddingModel` workflow config key and the
-legacy `LMSTUDIO_EMBEDDING_MODEL` app setting are retained for import/export
-fidelity only -- LM Studio was never wired up as an embedding backend (the
-dead-code `LMStudioEmbeddingClient` was removed 2026-05-04); the embedding
-model is hardcoded to `intfloat/e5-base-v2`.
+enable similarity search. The `SigmaEmbeddingModel` workflow config key is
+retained for import/export fidelity only. LM Studio is not an embedding backend;
+the obsolete `LMSTUDIO_EMBEDDING_MODEL` setting and dead client plumbing have
+been removed. The active embedding model is hardcoded to `intfloat/e5-base-v2`.
 
 Each rule stores **two** `Vector(768)` embeddings: `embedding` (whole-rule text)
 and `logsource_embedding` (the combined "signature" — logsource + detection
@@ -866,7 +863,8 @@ therefore encodes two texts per rule. (The deprecated
 
 - Check rule format compliance; review the conversation log for per-attempt error detail
 - Common issues: missing required fields (title, logsource, detection), invalid YAML,
-  incorrect field types, missing condition
+  incorrect metadata types, unknown field modifiers, malformed or undefined detection
+  conditions, and Huntable grounding or quality-policy failures
 
 ### Slow Performance
 
@@ -899,4 +897,4 @@ docker compose exec web python3 -c "from src.services.embedding_service import E
 - [Sigma Similarity Case-Sensitive Atom Matching](../solutions/logic-errors/sigma-similarity-case-sensitive-atom-matching-2026-04-08.md)
 - [Sigma Cross-Field Soft Matching](../solutions/logic-errors/sigma-cross-field-soft-matching-zero-similarity-2026-04-12.md)
 
-_Last updated: 2026-07-05_
+_Last updated: 2026-08-13_

@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from src.database.models import AgenticWorkflowConfigTable, AgenticWorkflowExecutionTable, ArticleTable
 from src.services.audit_service import AuditEvent, AuditService
+from src.services.execution_snapshot_store import attach_snapshot
 from src.services.workflow_config_snapshot import build_config_snapshot
 from src.utils.default_agent_prompts import get_default_agent_prompts
 
@@ -238,9 +239,9 @@ class WorkflowTriggerService:
             execution = AgenticWorkflowExecutionTable(
                 article_id=article_id,
                 status="pending",
-                config_snapshot=config_snapshot,
             )
             self.db.add(execution)
+            attach_snapshot(self.db, execution, config_snapshot)
             self.db.flush()
             if audit_event_factory is not None:
                 try:

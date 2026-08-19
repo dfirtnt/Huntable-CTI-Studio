@@ -847,6 +847,45 @@
   text-transform: uppercase;
 }
 
+/* ─── Job Filter Banner (deep-linked ?jobId=) ─────────────── */
+.q-job-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  margin-bottom: 14px;
+  font-size: 12px;
+  color: var(--purple-light);
+  background: var(--panel-bg-3);
+  border: 1px solid var(--purple-border-25);
+  border-radius: 8px;
+}
+.q-job-filter-text {
+  flex: 1;
+  color: var(--text-primary);
+}
+.q-job-filter-text strong {
+  color: var(--purple-light);
+}
+.q-job-filter-clear {
+  padding: 4px 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted-slate);
+  background: transparent;
+  border: 1px solid var(--purple-border-25);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.q-job-filter-clear:hover {
+  color: var(--text-primary);
+  border-color: var(--purple-border-50);
+}
+
 /* ─── Stat Cards ──────────────────────────────────────── */
 .q-stats-grid {
   display: grid;
@@ -1805,7 +1844,7 @@ tr.q-row-selected td {
 <script>
     window.initialCommercialModelCatalog = {{ provider_model_catalog | tojson | safe }};
 </script>
-<div class="container mx-auto px-4 pt-4 pb-8">
+<div class="container mx-auto px-4 pt-4 pb-6">
     <!-- Compact header: breadcrumb + title + tabs -->
     <div class="flex items-center gap-3 mb-3">
         <img src="/static/icons/agents-icon.svg" alt="Agents" class="w-9 h-9" />
@@ -1937,7 +1976,7 @@ tr.q-row-selected td {
                       </div>
                       <input type="range" id="junkFilterThreshold" name="junk_filter_threshold" min="0" max="1" step="0.05" value="0.8" required class="threshold-slider-input w-full" oninput="updateThresholdDisplay('junkFilterThreshold'); validateThreshold(this, 0, 1); autoSaveConfig()">
                       <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1"><span>0.0</span><span>1.0</span></div>
-                      <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Min confidence for content filtering — higher = more aggressive</p>
+                      <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Min confidence for content filtering  --  higher = more aggressive</p>
                       <p id="junkFilterThreshold-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
                     </div>
                   </div>
@@ -1997,7 +2036,7 @@ tr.q-row-selected td {
                       </div>
                       <input type="range" id="rankingThreshold" name="ranking_threshold" min="0" max="10" step="0.1" value="6" required class="threshold-slider-input w-full" oninput="updateThresholdDisplay('rankingThreshold'); validateThreshold(this, 0, 10); autoSaveConfig()">
                       <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1"><span>0</span><span>10</span></div>
-                      <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Minimum LLM score to continue workflow — articles below this are dropped</p>
+                      <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Minimum LLM score to continue workflow  --  articles below this are dropped</p>
                       <p id="rankingThreshold-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
                     </div>
 
@@ -2026,7 +2065,7 @@ tr.q-row-selected td {
 
                     <!-- Sub-Agents accordion -->
                     <div class="pt-4 border-t border-yellow-700/40">
-                      <h4 class="text-xs font-semibold mb-3" style="color: var(--text-secondary) !important;">SUB-AGENTS — Execution Order</h4>
+                      <h4 class="text-xs font-semibold mb-3" style="color: var(--text-secondary) !important;">SUB-AGENTS  --  Execution Order</h4>
 
                       <!-- CmdlineExtract -->
                       <div id="sa-cmdline" class="sa-item">
@@ -2069,7 +2108,7 @@ tr.q-row-selected td {
                               <p class="text-[10px] text-gray-500 dark:text-gray-400">Surface high-likelihood command snippets before full article (LOLBAS anchors)</p>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
-                              <input type="checkbox" id="cmdline-attention-preprocessor-enabled" name="cmdline_attention_preprocessor_enabled" class="sr-only peer" onchange="autoSaveConfig();">
+                              <input type="checkbox" id="cmdline-attention-preprocessor-enabled" name="cmdline_attention_preprocessor_enabled" class="sr-only peer" onchange="autoSaveConfig();" aria-label="Enable command-line attention preprocessor">
                               <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
                             </label>
                           </div>
@@ -2114,7 +2153,7 @@ tr.q-row-selected td {
                               <p class="text-[10px] text-gray-500 dark:text-gray-400">Surface high-likelihood process lineage snippets before full article</p>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
-                              <input type="checkbox" id="proctree-attention-preprocessor-enabled" name="proc_tree_attention_preprocessor_enabled" class="sr-only peer" onchange="autoSaveConfig();">
+                              <input type="checkbox" id="proctree-attention-preprocessor-enabled" name="proc_tree_attention_preprocessor_enabled" class="sr-only peer" onchange="autoSaveConfig();" aria-label="Enable process-tree attention preprocessor">
                               <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
                             </label>
                           </div>
@@ -2355,7 +2394,7 @@ tr.q-row-selected td {
                       </div>
                       <input type="range" id="similarityThreshold" name="similarity_threshold" min="0" max="1" step="0.05" value="0.5" required class="threshold-slider-input w-full" oninput="updateThresholdDisplay('similarityThreshold'); validateThreshold(this, 0, 1); autoSaveConfig()">
                       <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1"><span>0.0</span><span>1.0</span></div>
-                      <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Max similarity to queue a rule — rules above this are considered duplicates</p>
+                      <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">Max similarity to queue a rule  --  rules above this are considered duplicates</p>
                       <p id="similarityThreshold-error" class="text-xs text-red-500 dark:text-red-400 mt-1 hidden"></p>
                     </div>
                   </div>
@@ -2420,7 +2459,7 @@ tr.q-row-selected td {
         </form>
 
         <!-- Config Preset List Modal -->
-        <div id="configPresetListModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[70]">
+        <div id="configPresetListModal" role="dialog" aria-modal="true" aria-label="Configuration presets" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[70]">
             <div class="card relative top-20 mx-auto p-5 w-11/12 max-w-4xl shadow-lg">
                 <div class="mt-3">
                     <div class="flex items-center justify-between mb-4">
@@ -2443,7 +2482,7 @@ tr.q-row-selected td {
         </div>
 
         <!-- Config Version List Modal (Restore by version #) -->
-        <div id="configVersionListModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[70]">
+        <div id="configVersionListModal" role="dialog" aria-modal="true" aria-label="Configuration versions" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[70]">
             <div class="card relative top-20 mx-auto p-5 w-11/12 max-w-4xl shadow-lg">
                 <div class="mt-3">
                     <div class="flex items-center justify-between mb-4">
@@ -2453,7 +2492,7 @@ tr.q-row-selected td {
                     <p class="text-sm text-gray-400 mb-3">Load a full config (thresholds, models, QA, prompts) from a prior version into the form. Save to make it active.</p>
                     <div class="flex gap-2 mb-3">
                         <input id="configVersionSearch" type="number" min="1" step="1"
-                            placeholder="Search by version number…"
+                            placeholder="Search by version number..."
                             class="flex-1 px-3 py-2 text-sm rounded-md border border-gray-600 bg-gray-900 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                             onkeydown="if(event.key==='Enter') searchConfigVersions()" />
                         <button type="button" onclick="searchConfigVersions()"
@@ -2505,7 +2544,7 @@ tr.q-row-selected td {
             <label class="block text-xs font-semibold mb-1" style="color: var(--text-primary);">User Prompt</label>
             <textarea id="prompt-exp-user" rows="8"></textarea>
           </div>
-          <div id="prompt-exp-user-locked" style="display: none; border-left: 4px solid #d97706; padding: 0.5rem 0.75rem; font-size: 0.75rem; color: var(--text-muted);">
+          <div id="prompt-exp-user-locked" style="display: none; border-left: 4px solid var(--border-amber); padding: 0.5rem 0.75rem; font-size: 0.75rem; color: var(--text-muted);">
             User scaffold is locked in runtime and is no longer editable from the UI.
           </div>
           <div id="prompt-exp-validate-result" style="display: none;" class="mt-2"></div>
@@ -2529,7 +2568,7 @@ tr.q-row-selected td {
       <div id="enrich-expanded-panel">
         <div class="prompt-exp-header">
           <div class="flex items-center gap-3">
-            <span class="text-sm font-semibold" style="color: var(--text-primary);">Sigma Enhance — System Prompt</span>
+            <span class="text-sm font-semibold" style="color: var(--text-primary);">Sigma Enhance  --  System Prompt</span>
             <span id="enrich-exp-mode-badge" class="text-[10px] px-1.5 py-0.5 rounded" style="background: var(--panel-bg-3); color: var(--text-muted);">Read-only</span>
           </div>
           <div class="flex items-center gap-2">
@@ -2560,7 +2599,7 @@ tr.q-row-selected td {
     <!-- Executions Tab -->
     <div id="tab-content-executions" class="tab-content hidden">
 
-        <!-- Command Strip — Actions -->
+        <!-- Command Strip  --  Actions -->
         <div class="q-command-strip" style="flex-wrap:wrap; gap:8px;">
             <button onclick="refreshExecutions()" class="q-cmd-btn refresh">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
@@ -2673,7 +2712,7 @@ tr.q-row-selected td {
         </div>
 
         <!-- Execution Detail Modal -->
-        <div id="executionModal" class="hidden fixed inset-0 overflow-y-auto h-full w-full z-50 q-modal-overlay">
+        <div id="executionModal" role="dialog" aria-modal="true" aria-label="Execution details" class="hidden fixed inset-0 overflow-y-auto h-full w-full z-50 q-modal-overlay">
             <div id="executionModalContent" class="relative top-16 mx-auto w-11/12 md:w-3/4 lg:w-1/2 q-modal-panel transition-all duration-300">
                 <div class="q-modal-header">
                     <div class="q-modal-title-group">
@@ -2707,7 +2746,7 @@ tr.q-row-selected td {
         </div>
 
         <!-- Trigger Workflow Modal -->
-        <div id="triggerWorkflowModal" class="hidden fixed inset-0 overflow-y-auto h-full w-full z-50 q-modal-overlay">
+        <div id="triggerWorkflowModal" role="dialog" aria-modal="true" aria-label="Trigger workflow" class="hidden fixed inset-0 overflow-y-auto h-full w-full z-50 q-modal-overlay">
             <div class="relative top-20 mx-auto w-11/12 md:w-2/3 lg:w-1/2 q-modal-panel q-modal-compact">
                 <div class="q-modal-header">
                     <div class="q-modal-title-group">
@@ -2768,6 +2807,13 @@ tr.q-row-selected td {
                 <option value="submitted">Submitted</option>
                 <option value="needs_review">Needs Review</option>
             </select>
+        </div>
+
+        <!-- Job Filter Banner (shown when arriving via ?jobId= deep-link) -->
+        <div id="queueJobFilterBar" class="q-job-filter-bar hidden">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            <span class="q-job-filter-text">Showing rules from job <strong id="queueJobFilterId"></strong></span>
+            <button type="button" onclick="clearQueueJobFilter()" class="q-job-filter-clear" title="Clear job filter and show all rules">Clear filter</button>
         </div>
 
         <!-- Bulk Action Bar -->
@@ -2851,7 +2897,7 @@ tr.q-row-selected td {
         </div>
 
         <!-- Rule Preview Modal -->
-        <div id="ruleModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div id="ruleModal" role="dialog" aria-modal="true" aria-label="Rule" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
             <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-4/5 lg:w-3/4 shadow-lg rounded-md bg-gray-800 border border-gray-700 max-h-[90vh]">
                 <div class="flex justify-between items-center mb-4 sticky top-0 bg-gray-800 border border-gray-700 pb-2 border-b">
                     <h3 id="ruleModalTitle" class="text-xl font-bold text-gray-900 dark:text-white">SIGMA Rule Preview</h3>
@@ -2889,7 +2935,7 @@ tr.q-row-selected td {
         </div>
 
         <!-- Enrich Rule Modal -->
-        <div id="enrichModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm overflow-y-auto h-full w-full z-[60]">
+        <div id="enrichModal" role="dialog" aria-modal="true" aria-label="Enrich" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm overflow-y-auto h-full w-full z-[60]">
             <div class="relative top-10 mx-auto p-5 w-11/12 md:w-4/5 lg:w-3/4 shadow-xl rounded-lg max-h-[90vh]" style="background: var(--panel-bg-1); border: 1px solid rgba(255,255,255,0.08);">
                 <div class="flex justify-between items-center mb-4 sticky top-0 pb-3 border-b" style="background: var(--panel-header); border-color: rgba(255,255,255,0.08);">
                     <h3 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/></svg> AI-Assisted Rule Enrichment
@@ -2964,7 +3010,7 @@ tr.q-row-selected td {
                         <!-- view mode: blue-bordered display div (hidden in edit mode) -->
                         <div id="enrichSystemPromptDisplay" class="text-sm font-mono border-l-4 border-blue-500 pl-4 p-3 rounded-md whitespace-pre-wrap break-words max-h-96 overflow-y-auto leading-relaxed text-gray-800 dark:text-gray-200 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700"></div>
                         <!-- edit mode: textarea (hidden in view mode) -->
-                        <textarea id="enrichSystemPrompt" rows="30" readonly class="hidden w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm">SYSTEM (GPT-5*) — Modular SIGMA Rule Validator/Polisher (7 Toggles)
+                        <textarea id="enrichSystemPrompt" rows="30" readonly class="hidden w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm">SYSTEM (GPT-5*)  --  Modular SIGMA Rule Validator/Polisher (7 Toggles)
 
 You are a SIGMA rule "validation + minimal-polish" agent. Your job is to ensure a provided draft SIGMA rule is:
 - syntactically valid YAML and structurally valid Sigma,
@@ -3253,7 +3299,7 @@ END SYSTEM PROMPT</textarea>
         </div>
         
         <!-- Prompt History Modal -->
-        <div id="promptHistoryModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[70]">
+        <div id="promptHistoryModal" role="dialog" aria-modal="true" aria-label="Prompt history" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[70]">
             <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-gray-800 border border-gray-700">
                 <div class="mt-3">
                     <div class="flex items-center justify-between mb-4">
@@ -3275,7 +3321,7 @@ END SYSTEM PROMPT</textarea>
         </div>
         
         <!-- Preset List Modal -->
-        <div id="presetListModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[70]">
+        <div id="presetListModal" role="dialog" aria-modal="true" aria-label="Presets" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[70]">
             <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-gray-800 border border-gray-700">
                 <div class="mt-3">
                     <div class="flex items-center justify-between mb-4">
@@ -3301,7 +3347,7 @@ END SYSTEM PROMPT</textarea>
 </div>
 
 <script src="/static/js/components/observable-utils.js"></script>
-<script src="/static/js/components/similarity-display.js?v=20260729"></script>
+<script src="{{ asset_url('js/components/similarity-display.js') }}"></script>
 <script src="/static/js/components/similar-rule-modal.js"></script>
 
 <!-- Operator Console + expanded prompt editor. Loads HERE, ahead of the inline
@@ -3309,7 +3355,7 @@ END SYSTEM PROMPT</textarea>
      inline fired before page.js's two registrations and before the column-resize
      listeners at the end of the template. Its only load-time DOM read is #oc-rail,
      which is parsed far above this point. -->
-<script src="/static/js/workflow/prompt-editor.js?v=20260804"></script>
+<script src="{{ asset_url('js/workflow/prompt-editor.js') }}"></script>
 <script>
 // Helper function to parse UTC timestamp and convert to local time
 // Tab Management
@@ -3335,7 +3381,7 @@ function agentDisplayName(id) { return AGENT_DISPLAY_NAMES[id] || id; }
 const EXTRACT_SUB_AGENTS = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'RegistryExtract', 'ServicesExtract', 'ScheduledTasksExtract', 'NetworkIndicatorExtract'];
 const MAIN_AGENTS = ['RankAgent', 'ExtractAgent', 'SigmaAgent'];
 const ALL_CONFIG_AGENTS = ['RankAgent', 'OSDetectionAgent', 'ExtractAgent', ...EXTRACT_SUB_AGENTS, 'SigmaAgent'];
-// Pipeline display order (agents shown in the execution pipeline rail — excludes Registry/Services)
+// Pipeline display order (agents shown in the execution pipeline rail  --  excludes Registry/Services)
 const PIPELINE_AGENTS = ['OSDetectionAgent', 'RankAgent', 'CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'SigmaAgent'];
 
 // Executions data - declared early to avoid "before initialization" errors
@@ -3442,10 +3488,10 @@ window.switchTab = switchTab;
        column-resize listeners below;
      - all four come before the column-resize blocks below, which read
        `window.loadExecutions` / `window.loadQueue` at parse time and wrap them. -->
-<script src="/static/js/workflow/page.js?v=20260729"></script>
-<script src="/static/js/workflow/executions.js?v=20260729"></script>
-<script src="/static/js/workflow/queue.js?v=20260729"></script>
-<script src="/static/js/workflow/config.js?v=20260729"></script>
+<script src="{{ asset_url('js/workflow/page.js') }}"></script>
+<script src="{{ asset_url('js/workflow/executions.js') }}"></script>
+<script src="{{ asset_url('js/workflow/queue.js') }}"></script>
+<script src="{{ asset_url('js/workflow/config.js') }}"></script>
 
 <style>
 .exec-resize-handle {

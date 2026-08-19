@@ -9,7 +9,9 @@ from src.workflows.agentic_workflow import (
     _build_sigma_full_content_fallback_group,
     _build_sigma_generation_groups,
     _enrich_observable_metadata,
+    _eval_snapshot,
     _extract_actual_count,
+    _extraction_is_infra_failure,
     _has_sigma_generation_eligible_observables,
     _is_agent_allowed,
     _make_skip_record,
@@ -482,11 +484,21 @@ class TestParseAgentResult:
 # ---------------------------------------------------------------------------
 
 
+class _FakeSnapshotRecord:
+    """Stand-in for the externalized AgenticWorkflowExecutionSnapshotTable row."""
+
+    def __init__(self, payload):
+        self.payload = payload
+
+
 class _FakeExecution:
     """Minimal stand-in for AgenticWorkflowExecutionTable."""
 
-    def __init__(self, config_snapshot=None):
+    def __init__(self, config_snapshot=None, snapshot_record=None):
         self.config_snapshot = config_snapshot
+        # Post-externalization executions carry the real payload here and leave
+        # only {"snapshot_id": N} on config_snapshot.
+        self.snapshot_record = snapshot_record
 
 
 class TestIsAgentAllowed:
@@ -525,6 +537,40 @@ class TestIsAgentAllowed:
         """Empty string subagent_eval is treated as no filter."""
         exec_ = _FakeExecution(config_snapshot={"subagent_eval": ""})
         assert _is_agent_allowed("ProcTreeExtract", exec_, "", None, 1) is True
+
+    def test_externalized_snapshot_blocks_non_matching_agent(self):
+        """Regression: subagent_eval read from an externalized snapshot still isolates.
+
+        Post-externalization the eval filter lives in ``snapshot_record.payload``
+        while ``config_snapshot`` holds only the pointer and the ``subagent_eval``
+        variable is ``None`` (the router read it from the same broken pointer).
+        Reading the pointer raw would allow every agent -- the v6887 symptom where
+        an isolated cmdline eval silently ran all seven extractors.
+        """
+        exec_ = _FakeExecution(
+            config_snapshot={"snapshot_id": 42},
+            snapshot_record=_FakeSnapshotRecord({"subagent_eval": "cmdline"}),
+        )
+        assert _is_agent_allowed("CmdlineExtract", exec_, None, None, 1) is True
+        assert _is_agent_allowed("ProcTreeExtract", exec_, None, None, 1) is False
+
+
+class TestEvalSnapshot:
+    """_eval_snapshot -- the shared hydration accessor for eval-flag reads."""
+
+    def test_returns_empty_for_missing_execution(self):
+        assert _eval_snapshot(None) == {}
+
+    def test_prefers_externalized_payload_over_pointer(self):
+        exec_ = _FakeExecution(
+            config_snapshot={"snapshot_id": 7},
+            snapshot_record=_FakeSnapshotRecord({"subagent_eval": "cmdline", "eval_run": True}),
+        )
+        assert _eval_snapshot(exec_) == {"subagent_eval": "cmdline", "eval_run": True}
+
+    def test_falls_back_to_legacy_inline_snapshot(self):
+        exec_ = _FakeExecution(config_snapshot={"subagent_eval": "registry_artifacts"})
+        assert _eval_snapshot(exec_) == {"subagent_eval": "registry_artifacts"}
 
 
 class TestAllExtractorsErrored:
@@ -588,6 +634,31 @@ class TestAllExtractorsErrored:
         all_failed, reason = _all_extractors_errored(None)
         assert all_failed is False
         assert reason is None
+
+    @pytest.mark.parametrize("status", ["skipped", "disabled", "blocked_by_eval_filter"])
+    def test_non_executed_status_does_not_mask_executed_agent_failure(self, status):
+        extraction = {
+            "subresults": {
+                "AgentA": self._sr(error="provider failed"),
+                "AgentB": self._sr(status=status),
+            }
+        }
+
+        all_failed, reason = _all_extractors_errored(extraction)
+
+        assert all_failed is True
+        assert reason == "All 1 extractor(s) failed: provider failed"
+
+    @pytest.mark.parametrize("status", ["skipped", "skipped_for_eval", "disabled", "blocked_by_eval_filter"])
+    def test_non_executed_status_does_not_mask_infra_failure(self, status):
+        extraction = {
+            "subresults": {
+                "AgentA": self._sr(error="openai api key is not configured"),
+                "AgentB": self._sr(status=status),
+            }
+        }
+
+        assert _extraction_is_infra_failure(extraction) is True
 
     def test_empty_subresults_returns_false(self):
         all_failed, reason = _all_extractors_errored({"subresults": {}})

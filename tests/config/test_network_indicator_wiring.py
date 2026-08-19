@@ -140,6 +140,39 @@ class TestPromptFile:
         assert "network_indicators" in parsed
         assert parsed["network_indicators"][0]["value"], "simple extractor items must carry a non-empty value"
 
+    def test_matches_extractor_standard_network_gates(self):
+        """Pin the v2 rules that distinguish network indicators from adjacent artifacts."""
+        path = _REPO / "src" / "prompts" / "NetworkIndicatorExtract"
+        data = json.loads(path.read_text())
+        system_prompt = data["role"]
+        instructions = data["instructions"]
+
+        for required_section in (
+            "VALID SOURCES",
+            "COMPLETE-ARTIFACT RULE",
+            "MULTI-LINE HANDLING",
+            "EDGE CASES",
+        ):
+            assert required_section in system_prompt
+
+        for exclusion in (
+            "malware source code",
+            "YARA rule",
+            "Partial indicator fragments",
+        ):
+            assert exclusion in system_prompt
+
+        for multiline_rule in (
+            "single-line literals",
+            "defanged IP token",
+            "complete User-Agent appears on one physical line",
+            "extracted without port",
+        ):
+            assert multiline_rule in system_prompt
+
+        assert "port: OPTIONAL" in instructions
+        assert "json_example is a schema format template" in instructions
+
 
 class TestDefaultAgentPrompts:
     def test_in_agent_prompt_files(self):
@@ -190,7 +223,7 @@ class TestWorkflowHelpers:
         assert _extract_actual_count("network_indicators", subresults, execution_id=1) == 2
 
     def test_extract_actual_items_reads_value(self):
-        from src.workflows.agentic_workflow import _extract_actual_items
+        from src.services.subagent_eval_service import _raw_actual_items
 
         subresults = {
             "network_indicators": {
@@ -198,8 +231,8 @@ class TestWorkflowHelpers:
                 "count": 1,
             }
         }
-        items = _extract_actual_items("network_indicators", subresults)
-        assert items == ["evil[.]com"]
+        items = _raw_actual_items("network_indicators", subresults)
+        assert items == [{"value": "evil[.]com", "indicator_type": "domain"}]
 
 
 class TestPresetFiles:

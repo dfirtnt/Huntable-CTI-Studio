@@ -4,20 +4,24 @@ API routes for agentic workflow execution monitoring.
 
 import asyncio
 import contextlib
-import io
 import json
 import logging
 from datetime import datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, case, func, or_
 from sqlalchemy.orm import Session, defer, joinedload
 
 from src.database.manager import DatabaseManager
-from src.database.models import AgenticWorkflowExecutionTable, AppSettingsTable, ArticleTable
+from src.database.models import (
+    AgenticWorkflowExecutionSnapshotTable,
+    AgenticWorkflowExecutionTable,
+    AppSettingsTable,
+    ArticleTable,
+)
 from src.services.audit_service import (
     ACTION_WORKFLOW_CANCELLED,
     ACTION_WORKFLOW_RETRIED,
@@ -30,12 +34,13 @@ from src.services.audit_service import (
     initiating_actor_metadata,
 )
 from src.services.eval_bundle_service import EvalBundleService, compute_sha256_json
+from src.services.execution_snapshot_store import attach_snapshot, hydrate_snapshot
 from src.services.workflow_config_snapshot import (
     SNAPSHOT_CONFIG_FIELDS,
     build_config_snapshot,
     rehash_snapshot,
 )
-from src.utils.langfuse_client import get_langfuse_trace_id_for_session
+from src.utils.langfuse_client import LANGFUSE_DEFAULT_HOST, get_langfuse_trace_id_for_session
 from src.workflows.status_utils import extract_termination_info
 
 logger = logging.getLogger(__name__)
@@ -306,7 +311,7 @@ def _build_execution_detail_response(
         current_step=execution.current_step,
         ranking_score=execution.ranking_score,
         ranking_reasoning=execution.ranking_reasoning,
-        config_snapshot=execution.config_snapshot,
+        config_snapshot=hydrate_snapshot(execution),
         error_message=execution.error_message,
         retry_count=execution.retry_count,
         started_at=_to_local_iso(execution.started_at),
@@ -515,6 +520,8 @@ def list_workflow_executions(
             # Filtered query for results: defer heavy columns not needed for list view
             query = db_session.query(E).options(
                 joinedload(E.article).load_only(ArticleTable.title, ArticleTable.canonical_url),
+                # Eager-load so hydrate_snapshot() below stays one query, not one per row.
+                joinedload(E.snapshot_record),
                 defer(E.junk_filter_result),
                 defer(E.ranking_reasoning),
                 defer(E.sigma_rules),
@@ -527,12 +534,24 @@ def list_workflow_executions(
             if step:
                 query = query.filter(E.current_step == step)
             if exclude_evals:
+                # Two shapes to exclude: legacy rows carry eval_run inline, post-
+                # externalization rows carry only {"snapshot_id": N} and hold the
+                # flag on the referenced snapshot payload. Testing the inline JSON
+                # alone silently stopped excluding anything.
+                externalized_eval = (
+                    db_session.query(AgenticWorkflowExecutionSnapshotTable.id)
+                    .filter(
+                        AgenticWorkflowExecutionSnapshotTable.id == E.config_snapshot_id,
+                        AgenticWorkflowExecutionSnapshotTable.payload.contains({"eval_run": True}),
+                    )
+                    .exists()
+                )
                 query = query.filter(
                     or_(
                         E.config_snapshot.is_(None),
                         E.config_snapshot["eval_run"].astext.is_distinct_from("true"),
                     )
-                )
+                ).filter(~externalized_eval)
 
             # Sort
             order_col = _SORT_COLUMNS.get(sort_by, E.created_at)
@@ -569,7 +588,7 @@ def list_workflow_executions(
                         status=execution.status,
                         current_step=execution.current_step,
                         ranking_score=execution.ranking_score,
-                        config_snapshot=execution.config_snapshot,
+                        config_snapshot=hydrate_snapshot(execution),
                         error_message=execution.error_message,
                         retry_count=execution.retry_count,
                         started_at=to_local_iso(execution.started_at),
@@ -644,8 +663,12 @@ def export_workflow_execution_trace_bundle(
             payload = json.dumps(bundle, indent=2, ensure_ascii=False).encode("utf-8")
             suffix = "_slim" if slim else ""
             filename = f"workflow_execution_trace_{execution_id}{suffix}.json"
-            return StreamingResponse(
-                io.BytesIO(payload),
+            # This is an already-materialized JSON document.  Streaming a
+            # BytesIO makes Starlette advance one pretty-printed line at a
+            # time through the threadpool, which can leave browser downloads
+            # spinning for minutes on larger trace bundles.
+            return Response(
+                content=payload,
                 media_type="application/json",
                 headers={"Content-Disposition": f"attachment; filename={filename}"},
             )
@@ -1038,8 +1061,11 @@ async def retry_workflow_execution(request: Request, execution_id: int):
             trigger_service = WorkflowTriggerService(db_session)
             current_config = trigger_service.get_active_config()
 
-            # Start with old snapshot (preserves eval flags, subagent_eval, etc.)
-            new_config_snapshot = execution.config_snapshot.copy() if execution.config_snapshot else {}
+            # Start with old snapshot (preserves eval flags, subagent_eval, etc.).
+            # Must hydrate: post-externalization execution.config_snapshot is only
+            # {"snapshot_id": N}, so copying it drops eval_run/subagent_eval/skip_*
+            # and silently turns an eval retry into a full seven-extractor run.
+            new_config_snapshot = hydrate_snapshot(execution)
 
             # Refresh agent_models from current config so preset changes (e.g. LMStudio→OpenAI) apply on retry
             if current_config and getattr(current_config, "agent_models", None):
@@ -1051,9 +1077,10 @@ async def retry_workflow_execution(request: Request, execution_id: int):
 
             # Update rank_agent_enabled from current active config (if available)
             if current_config and hasattr(current_config, "rank_agent_enabled"):
+                previous_rank_agent_enabled = new_config_snapshot.get("rank_agent_enabled", "N/A")
                 new_config_snapshot["rank_agent_enabled"] = bool(current_config.rank_agent_enabled)
                 logger.info(
-                    f"Retry execution {execution_id}: Updated rank_agent_enabled to {new_config_snapshot['rank_agent_enabled']} (was {execution.config_snapshot.get('rank_agent_enabled') if execution.config_snapshot else 'N/A'}) from current active config"
+                    f"Retry execution {execution_id}: Updated rank_agent_enabled to {new_config_snapshot['rank_agent_enabled']} (was {previous_rank_agent_enabled}) from current active config"
                 )
             elif "rank_agent_enabled" not in new_config_snapshot:
                 # Fallback: ensure it exists even if not in old snapshot
@@ -1087,10 +1114,10 @@ async def retry_workflow_execution(request: Request, execution_id: int):
             new_execution = AgenticWorkflowExecutionTable(
                 article_id=execution.article_id,
                 status="pending",
-                config_snapshot=new_config_snapshot,
                 retry_count=execution.retry_count + 1,
             )
             db_session.add(new_execution)
+            attach_snapshot(db_session, new_execution, new_config_snapshot)
             db_session.flush()
             AuditService.record_mandatory(
                 db_session,
@@ -1325,9 +1352,7 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
 
             # Check if Langfuse is configured (preferred for debugging)
             # Priority: database setting > environment variable > default
-            langfuse_host = _get_langfuse_setting(
-                db_session, "LANGFUSE_HOST", "LANGFUSE_HOST", "https://us.cloud.langfuse.com"
-            )
+            langfuse_host = _get_langfuse_setting(db_session, "LANGFUSE_HOST", "LANGFUSE_HOST", LANGFUSE_DEFAULT_HOST)
             langfuse_public_key = _get_langfuse_setting(db_session, "LANGFUSE_PUBLIC_KEY", "LANGFUSE_PUBLIC_KEY")
             langfuse_project_id = _get_langfuse_setting(db_session, "LANGFUSE_PROJECT_ID", "LANGFUSE_PROJECT_ID")
 
@@ -1370,7 +1395,7 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
             )
 
             # Normalize host URL (remove trailing slash)
-            langfuse_host = langfuse_host.rstrip("/") if langfuse_host else "https://us.cloud.langfuse.com"
+            langfuse_host = langfuse_host.rstrip("/") if langfuse_host else LANGFUSE_DEFAULT_HOST
 
             debug_urls = _build_langfuse_debug_urls(
                 langfuse_host,

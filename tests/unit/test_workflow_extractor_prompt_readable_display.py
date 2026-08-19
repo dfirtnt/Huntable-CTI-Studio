@@ -27,8 +27,12 @@ pytestmark = pytest.mark.unit
 TEMPLATE = read_workflow_src()
 
 # renderSinglePrompt body: from its definition up to the next top-level function.
+# NOTE: the lookahead names whichever function follows renderSinglePrompt in the source.
+# Renaming that neighbour silently empties this body and fails every check below with a
+# "not found" message that points at renderSinglePrompt rather than the real cause --
+# which is exactly what happened when getOrCreatePromptData became getPromptDataForRender.
 _RENDER_SINGLE_MATCH = re.search(
-    r"function renderSinglePrompt\(.+?(?=function getOrCreatePromptData)",
+    r"function renderSinglePrompt\(.+?(?=function getPromptDataForRender)",
     TEMPLATE,
     re.DOTALL,
 )

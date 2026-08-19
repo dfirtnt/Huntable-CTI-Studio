@@ -9,14 +9,14 @@ The search system supports boolean operators for complex queries:
 - **AND**: Both terms must be present (e.g., `ransomware AND encryption`)
 - **OR**: Either term must be present (e.g., `malware OR trojan`)
 - **NOT**: Exclude term (e.g., `exploit NOT patched`)
-- **Parentheses**: <!-- AUDIT: Accuracy -- verified against src/utils/search_parser.py (BooleanSearchParser.parse_query) and confirmed empirically: the term regex `[^\s"()]+` excludes parentheses, so they are silently stripped rather than used for grouping. `(ransomware OR malware) AND windows` parses to three flat terms (ransomware/OR, malware/OR, windows/AND) with no bracketing. Parentheses appearing in the examples below have no effect on evaluation order. --> Not functionally supported for grouping; `(` and `)` are silently stripped from the query
+- **Parentheses**: Not functionally supported for grouping; `(` and `)` are silently stripped from the query
 - **Quotes**: Exact phrase match (e.g., `"remote code execution"`)
 
 ## Example Windows Threat Queries
 
 ### Malware Indicators
 
-```
+```text
 "rundll32" OR "comspec" OR "msiexec" OR "wmic" OR "iex" OR "findstr" OR 
 "hkey" OR "hklm" OR "appdata" OR "programdata" OR 
 "\\temp\\" OR 
@@ -44,20 +44,20 @@ The search system supports boolean operators for complex queries:
 
 ### Process Injection Patterns
 
-```
+```text
 ("createremotethread" OR "virtualallocex" OR "writeprocessmemory") AND "injection"
 ```
 
 ### Registry Manipulation
 
-```
+```text
 ("HKEY_LOCAL_MACHINE" OR "HKLM" OR "HKEY_CURRENT_USER" OR "HKCU") AND 
 ("CurrentVersion\\Run" OR "RunOnce" OR "RunServices")
 ```
 
 ### Network Activity
 
-```
+```text
 ("connect" OR "socket" OR "wininet" OR "urlmon") AND 
 ("C2" OR "command and control" OR "exfiltration")
 ```
@@ -81,24 +81,24 @@ Searches are case-insensitive by default. No need to provide multiple case varia
 ## Advanced Patterns
 
 ### File System Operations
-```
+```text
 (".tmp" OR ".temp" OR "\\temp\\") AND ("write" OR "create" OR "modify")
 ```
 
 ### Credential Access
-```
+```text
 ("lsass" OR "sam" OR "ntds.dit" OR "credential" OR "password") AND 
 ("dump" OR "extract" OR "steal")
 ```
 
 ### Lateral Movement
-```
+```text
 ("psexec" OR "wmi" OR "dcom" OR "rdp" OR "smb") AND 
 ("lateral" OR "movement" OR "propagation")
 ```
 
 ### Data Staging
-```
+```text
 ("rar" OR "zip" OR "7z" OR "archive") AND 
 ("staging" OR "compress" OR "prepare")
 ```

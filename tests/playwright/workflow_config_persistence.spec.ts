@@ -198,12 +198,19 @@ test.describe('Workflow Config Persistence', () => {
       const verifyBody = await verifyResp.json();
       expect(verifyBody.rank_agent_enabled).toBe(expectedValue);
 
-      // Secondary check: reload and confirm the UI reflects what was saved.
-      // This has a wider race window (~3-4s for the reload) so retries protect it.
+      // Secondary check: reload and confirm the UI reflects the configuration it
+      // actually reloaded. Another parallel spec may legitimately save a newer
+      // version after the primary GET above, so compare the DOM to that reload's
+      // backing API value rather than an already stale expectation.
       await reloadWorkflowConfig(page);
       await ensureRankAgentPanel(page);
 
-      await expect(page.locator('#rank-agent-enabled')).toHaveJSProperty('checked', expectedValue);
+      const reloadedResponse = await page.request.get(`${BASE}/api/workflow/config`);
+      const reloadedConfig = await reloadedResponse.json();
+      await expect(page.locator('#rank-agent-enabled')).toHaveJSProperty(
+        'checked',
+        reloadedConfig.rank_agent_enabled
+      );
     } finally {
       const restorePromise = page.waitForResponse(
         response => response.url().includes('/api/workflow/config') && response.request().method() === 'PUT',

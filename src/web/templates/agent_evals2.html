@@ -442,7 +442,7 @@
     </div>
 
     <!-- Item Detail Modal -->
-    <div id="itemDetailModal" class="hidden fixed inset-0 eval-modal-backdrop z-50 flex items-center justify-center">
+    <div id="itemDetailModal" role="dialog" aria-modal="true" aria-label="Item detail" class="hidden fixed inset-0 eval-modal-backdrop z-50 flex items-center justify-center">
         <div class="eval-modal-content max-w-3xl w-full mx-4 max-h-[80vh] flex flex-col">
             <div class="flex justify-between items-center p-6" style="border-bottom: 1px solid rgba(139, 92, 246, 0.08);">
                 <h3 id="itemDetailTitle" class="eval-section-title">Item-Level Detail</h3>
@@ -467,6 +467,7 @@
                 <label id="configVersionLabel" class="eval-section-label" for="configVersionSelect" style="display: none;">VERSION</label>
                 <select id="configVersionSelect" class="eval-select" style="display: none; min-width: 12rem;" title="View item-level results for a specific config version"></select>
                 <button id="backfillEvalBtn" class="eval-btn eval-btn--accent eval-btn--sm">Update Pending</button>
+                <button id="rescoreEvalBtn" class="eval-btn eval-btn--accent eval-btn--sm" title="Repair completed records that have ground truth but no item-level score, using retained output (no paid LLM). Dry-run first.">Rescore Completed</button>
                 <button id="clearPendingBtn" class="eval-btn eval-btn--danger eval-btn--sm">Clear Pending</button>
                 <button id="loadPreviousResultsBtn" class="eval-btn eval-btn--secondary eval-btn--sm">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
@@ -500,16 +501,17 @@
                                 <li><span class="metric-value metric-value--good">90%+</span> &mdash; Excellent</li>
                                 <li><span class="metric-value metric-value--ok">70&ndash;89%</span> &mdash; Good</li>
                                 <li><span class="metric-value metric-value--bad">&lt;70%</span> &mdash; Needs work</li>
-                                <li><span class="metric-value metric-value--na">n/a</span> &mdash; No human-validated ground truth or pending</li>
+                                <li><span class="metric-value metric-value--na">n/a</span> &mdash; not scored (see <span class="status-dim status-badge text-[10px]">count only</span> / <span class="status-pending status-badge text-[10px]">unscored</span> below)</li>
                             </ul>
                         </div>
                         <div>
                             <p class="font-semibold mb-2" style="color: var(--text-emphasis);">Notes</p>
                             <ul class="space-y-1" style="line-height: 1.7;">
                                 <li>Click any completed row to see missed and extra item lists.</li>
-                                <li>Only the most recent completed run per article is shown, for the selected config <strong>version</strong> (default: latest across all runs). Use the <strong>VERSION</strong> dropdown to step back through past runs.</li>
-                                <li>Matching normalizes to lowercase, defangs <code>[.]</code>&rarr;<code>.</code>, collapses whitespace.</li>
-                                <li><span class="status-dim status-badge text-[10px]">count only</span> &mdash; article has no <code>expected_items</code> ground truth established yet.</li>
+                                <li>Only the most recent completed run per article is shown, for the selected config <strong>version</strong>. <strong>Latest (all runs)</strong> picks the newest record per article independently, so a single view may combine records from different runs and config versions. Use the <strong>VERSION</strong> dropdown to pin one version.</li>
+                                <li>Matching uses each agent's canonical identity (e.g. registry <code>hive\key</code>, service name, <code>parent&nbsp;-&gt;&nbsp;child</code>), normalized to lowercase and defanged.</li>
+                                <li><span class="status-dim status-badge text-[10px]">count only</span> &mdash; article has no <code>expected_items</code> ground truth, so only counts are compared.</li>
+                                <li><span class="status-pending status-badge text-[10px]">unscored</span> &mdash; article <em>has</em> ground truth but this run predates item-level scoring. Use <strong>Rescore Completed</strong> to repair it from retained output.</li>
                             </ul>
                         </div>
                     </div>
@@ -770,7 +772,7 @@ function updateRunButton() {
     const btn = document.getElementById('runEvalBtn');
     btn.disabled = selectedArticleUrls.size === 0 || !_configIsRunnable;
     if (!_configIsRunnable) {
-        btn.title = 'No agents configured — set up models in Settings → Workflow Config first.';
+        btn.title = 'No agents configured  --  set up models in Settings → Workflow Config first.';
     } else {
         btn.title = '';
     }
@@ -1321,13 +1323,21 @@ function renderItemLevelTable(rows) {
         if (r.context_length_exceeded) addChip('Context window exceeded', 'ctx↗', 'background: rgba(234,88,12,0.12); color: #ea580c; border-color: rgba(234,88,12,0.35);');
         if (r.infra_not_ready) addChip('LMStudio not ready', 'no mdl', 'background: rgba(99,102,241,0.12); color: #818cf8; border-color: rgba(99,102,241,0.35);');
 
-        // count-only badge for articles without ground truth
+        // Distinguish "no ground truth" (legitimately count-only) from
+        // "has ground truth but not yet scored" (repairable via Rescore Completed).
         if (isCompleted && !hasItemScoring && !r.quota_exceeded && !r.context_length_exceeded && !r.infra_not_ready) {
+            const hasGroundTruth = Array.isArray(r.expected_items) && r.expected_items.length > 0;
             const ctag = document.createElement('span');
-            ctag.className = 'status-badge status-dim';
             ctag.style.cssText = 'font-size: 0.6rem; padding: 0.1rem 0.4rem; margin-left: 0.25rem;';
-            ctag.title = 'No human-validated ground truth for this article';
-            ctag.textContent = 'count only';
+            if (hasGroundTruth) {
+                ctag.className = 'status-badge status-pending';
+                ctag.title = 'Has human-validated ground truth but predates item-level scoring. Use "Rescore Completed" to repair.';
+                ctag.textContent = 'unscored';
+            } else {
+                ctag.className = 'status-badge status-dim';
+                ctag.title = 'No human-validated ground truth for this article';
+                ctag.textContent = 'count only';
+            }
             tdStatus.appendChild(ctag);
         }
 
@@ -1635,6 +1645,52 @@ async function clearPendingRecords() {
     }
 }
 
+async function rescoreCompletedRecords() {
+    const subagentVal = document.getElementById('subagentSelect').value;
+    const resultsEl = document.getElementById('resultsTable');
+    const showMsg = function(text, color) {
+        while (resultsEl.firstChild) resultsEl.removeChild(resultsEl.firstChild);
+        const p = document.createElement('p');
+        p.className = 'eval-mono';
+        p.style.cssText = 'color: ' + color + '; font-size: 0.75rem;';
+        p.textContent = text;
+        resultsEl.appendChild(p);
+    };
+    showMsg('Checking which completed records can be rescored (dry-run)...', 'var(--text-muted-slate)');
+    try {
+        // Step 1: dry-run -- writes nothing, reports what would change.
+        const dryResp = await fetch('/api/evaluations/subagent-eval-rescore?subagent=' + encodeURIComponent(subagentVal) + '&apply=false', { method: 'POST' });
+        if (!dryResp.ok) { const e = await dryResp.json().catch(() => ({ detail: dryResp.statusText })); throw new Error(e.detail || ('HTTP ' + dryResp.status)); }
+        const dry = await dryResp.json();
+        if (dry.scorable === 0) {
+            showMsg(dry.candidates > 0
+                ? (dry.candidates + ' record(s) have ground truth but no retained output to rescore from (would need a re-run).')
+                : 'No completed records need rescoring for ' + subagentVal + '.', 'var(--text-muted-slate)');
+            return;
+        }
+        const perAgentLines = Object.keys(dry.per_agent || {})
+            .filter(function(a) { return dry.per_agent[a].scorable > 0 || dry.per_agent[a].unrepairable_no_output > 0; })
+            .map(function(a) { const s = dry.per_agent[a]; return a + ': ' + s.scorable + ' scorable, ' + s.unrepairable_no_output + ' no output'; })
+            .join('\n');
+        const confirmMsg = 'Rescore ' + dry.scorable + ' completed record(s) for ' + subagentVal + ' from retained output?\n\n'
+            + perAgentLines + '.\n\n'
+            + 'This recomputes precision/recall against the ground truth already stored on each record. It does not re-run any paid LLM and does not change ground truth.';
+        if (!await ModalManager.confirm(confirmMsg, { title: 'Rescore Completed Records', confirmText: 'Apply', cancelText: 'Cancel' })) {
+            showMsg('Rescore cancelled. No records were changed.', 'var(--text-muted-slate)');
+            return;
+        }
+        // Step 2: apply.
+        showMsg('Rescoring ' + dry.scorable + ' record(s)...', 'var(--text-muted-slate)');
+        const resp = await fetch('/api/evaluations/subagent-eval-rescore?subagent=' + encodeURIComponent(subagentVal) + '&apply=true', { method: 'POST' });
+        if (!resp.ok) { const e = await resp.json().catch(() => ({ detail: resp.statusText })); throw new Error(e.detail || ('HTTP ' + resp.status)); }
+        const data = await resp.json();
+        showMsg(data.message, '#34d399');
+        setTimeout(loadPreviousResults, 1000);
+    } catch (e) {
+        showMsg('Error: ' + e.message, '#f87171');
+    }
+}
+
 // ─── Event listeners ──────────────────────────────────────────────────────────
 
 document.getElementById('loadEvalArticlesBtn').addEventListener('click', loadEvalArticles);
@@ -1644,6 +1700,7 @@ document.getElementById('configVersionSelect').addEventListener('change', functi
     renderResultsForVersion(this.value);
 });
 document.getElementById('backfillEvalBtn').addEventListener('click', backfillEvalRecords);
+document.getElementById('rescoreEvalBtn').addEventListener('click', rescoreCompletedRecords);
 document.getElementById('clearPendingBtn').addEventListener('click', clearPendingRecords);
 document.getElementById('closeItemDetailModal').addEventListener('click', closeItemDetailModal);
 

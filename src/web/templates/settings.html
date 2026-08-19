@@ -30,16 +30,48 @@
   display:inline-flex; align-items:center; gap:0.3rem;
   padding:0.4rem 0.9rem; background:var(--purple-primary); color:#fff;
   border:none; border-radius:6px; font-size: 0.75rem; font-weight:600;
-  cursor:pointer; font-family:'DM Sans',sans-serif; transition:background 0.15s;
+  cursor:pointer; font-family:'DM Sans',sans-serif; line-height:1rem; transition:background 0.15s;
 }
 .settings-btn-primary:hover { background:var(--purple-hover); }
 .settings-btn-secondary {
   display:inline-flex; align-items:center; gap:0.3rem;
   padding:0.4rem 0.9rem; background:var(--panel-bg-4); color:var(--text-primary);
   border:1px solid var(--border-muted); border-radius:6px; font-size: 0.75rem; font-weight:500;
-  cursor:pointer; font-family:'DM Sans',sans-serif; transition:border-color 0.15s, background 0.15s;
+  cursor:pointer; font-family:'DM Sans',sans-serif; line-height:1rem; transition:border-color 0.15s, background 0.15s;
 }
 .settings-btn-secondary:hover { background:var(--panel-bg-5); border-color:var(--border-subtle); }
+.settings-btn-primary:focus-visible,
+.settings-btn-secondary:focus-visible,
+.settings-btn-danger:focus-visible { outline:2px solid var(--purple-primary); outline-offset:2px; }
+.settings-btn-primary:disabled,
+.settings-btn-secondary:disabled,
+.settings-btn-danger:disabled { opacity:0.55; cursor:progress; }
+/* Connection-test actions: one row shape everywhere — button, then its result. */
+.settings-test-row {
+  display:flex; align-items:center; flex-wrap:wrap; gap:0.5rem 0.75rem; margin-top:0.75rem;
+}
+.settings-test-status {
+  font-size:0.75rem; font-family:'DM Sans',sans-serif; color:var(--text-muted-slate);
+}
+.settings-test-status.is-ok { color:#34d399; }
+.settings-test-status.is-warn { color:#fbbf24; }
+.settings-test-status.is-error { color:#f87171; }
+/* One panel per provider: the enable control and that provider's own
+   configuration live together, so turning a provider on reveals its setup
+   in place instead of in a separate block further down the page. */
+.provider-panel {
+  border:1px solid var(--border-muted); border-radius:8px;
+  background:var(--panel-bg-4); overflow:hidden; transition:border-color 0.15s;
+}
+.provider-panel:has(input[type="checkbox"]:checked) { border-color:var(--purple-primary); }
+.provider-head {
+  display:flex; align-items:center; gap:0.6rem;
+  padding:0.7rem 0.9rem; cursor:pointer; margin:0;
+}
+.provider-head:hover { background:var(--panel-bg-5); }
+.provider-name { font-size:0.875rem; font-weight:600; color:var(--text-primary); }
+.provider-note { margin-left:auto; font-size:0.75rem; color:var(--text-muted-slate); }
+.provider-body { padding:0.9rem; border-top:1px solid var(--border-muted); }
 .settings-btn-danger {
   padding:0.4rem 0.9rem; background:var(--action-danger); color:#fff;
   border:none; border-radius:6px; font-size: 0.75rem; font-weight:600;
@@ -49,6 +81,17 @@
 .settings-muted { color:var(--text-muted-slate); }
 .settings-code { background:var(--panel-bg-5); padding:0.15rem 0.4rem; border-radius:4px; font-family:'JetBrains Mono',monospace; font-size:0.8em; }
 </style>
+
+{#- One markup shape for every connection test on this page: button + result slot. -#}
+{% macro test_action(button_id, status_id, label) %}
+<div class="settings-test-row">
+    <button type="button" id="{{ button_id }}" class="settings-btn-secondary">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5"/></svg>
+        <span class="btn-label">{{ label }}</span>
+    </button>
+    <span id="{{ status_id }}" class="settings-test-status" role="status" aria-live="polite"></span>
+</div>
+{% endmacro %}
 <div class="container mx-auto px-4 pt-4 pb-6">
     <nav class="flex mb-6" aria-label="Breadcrumb">
         <ol class="inline-flex items-center space-x-1 md:space-x-3">
@@ -308,11 +351,12 @@
                 <div>
                     <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg> Backup Actions</h3>
                     <div class="flex flex-wrap gap-3">
-                        <button id="createBackupBtn" class="settings-btn-primary">Create Backup Now</button>
+                        <button id="createBackupBtn" type="button" class="settings-btn-primary">Create Backup Now</button>
                         <button id="listBackupsBtn" class="settings-btn-secondary">List Backups</button>
                         <button id="backupStatusBtn" class="settings-btn-secondary">Check Status</button>
                         <button id="restoreBackupBtn" class="settings-btn-danger">Restore from Backup</button>
                     </div>
+                    <div id="backupCreateFeedback" data-testid="backup-create-feedback" class="hidden mt-3 rounded-lg border px-3 py-2 text-sm" role="status" aria-live="polite"></div>
                 </div>
 
                 <!-- Restore from backup file -->
@@ -495,128 +539,128 @@
 
                     <div class="space-y-3">
                         <!-- OpenAI Provider -->
-                        <div class="flex items-center">
-                            <input type="checkbox"
-                                   id="workflowOpenaiEnabled"
-                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                            <label for="workflowOpenaiEnabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                                OpenAI
+                        <div class="provider-panel">
+                            <label class="provider-head">
+                                <input type="checkbox"
+                                       id="workflowOpenaiEnabled"
+                                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                <span class="provider-name">OpenAI</span>
+                                <span class="provider-note">API key</span>
                             </label>
+
+                            <div id="workflowOpenaiApiKeySection" class="provider-body" style="display: none;">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <label for="workflowOpenaiApiKey" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        OpenAI API Key
+                                    </label>
+                                    <span class="inline-flex flex-shrink-0 text-gray-400 hover:text-gray-300 dark:hover:text-gray-200 cursor-help" role="img" aria-label="Help" title="If you set an API key during setup, it is already in use -- no need to enter it here. Add or change a key in this field to override; the value you save here takes precedence.">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    </span>
+                                </div>
+                                <div class="relative">
+                                    <input type="password"
+                                           id="workflowOpenaiApiKey"
+                                           placeholder="sk-..."
+                                           class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                                    <button type="button"
+                                            id="toggleWorkflowOpenaiApiKey"
+                                            class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
+                                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Required for OpenAI-powered agentic workflows</p>
+                                {{ test_action('testWorkflowOpenaiApiKey', 'workflowOpenaiApiKeyStatus', 'Test API key') }}
+                            </div>
+                        </div>
+
+                        <!-- Codex Subscription Provider -->
+                        <div class="provider-panel">
+                            <label class="provider-head">
+                                <input type="checkbox"
+                                       id="workflowCodexEnabled"
+                                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                <span class="provider-name">Codex Subscription</span>
+                                <span class="provider-note">Shared subscription</span>
+                            </label>
+
+                            <div id="workflowCodexSection" class="provider-body hidden text-sm text-gray-400">
+                                <p>Use a shared Codex subscription instead of an API key.</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">Connection is managed by an administrator.</p>
+                                <details class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                    <summary class="cursor-pointer">Administrator setup</summary>
+                                    <p class="mt-1">After rebuilding, run <code>docker compose exec workflow_worker codex login --device-auth</code>.</p>
+                                </details>
+                                {{ test_action('testWorkflowCodexSubscription', 'workflowCodexStatus', 'Test subscription') }}
+                            </div>
                         </div>
 
                         <!-- Anthropic Provider -->
-                        <div class="flex items-center">
-                            <input type="checkbox"
-                                   id="workflowAnthropicEnabled"
-                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                            <label for="workflowAnthropicEnabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                                Anthropic
+                        <div class="provider-panel">
+                            <label class="provider-head">
+                                <input type="checkbox"
+                                       id="workflowAnthropicEnabled"
+                                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                <span class="provider-name">Anthropic</span>
+                                <span class="provider-note">API key</span>
                             </label>
+
+                            <div id="workflowAnthropicApiKeySection" class="provider-body" style="display: none;">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <label for="workflowAnthropicApiKey" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Anthropic API Key
+                                    </label>
+                                    <span class="inline-flex flex-shrink-0 text-gray-400 hover:text-gray-300 dark:hover:text-gray-200 cursor-help" role="img" aria-label="Help" title="If you set an API key during setup, it is already in use -- no need to enter it here. Add or change a key in this field to override; the value you save here takes precedence.">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    </span>
+                                </div>
+                                <div class="relative">
+                                    <input type="password"
+                                           id="workflowAnthropicApiKey"
+                                           placeholder="sk-ant-..."
+                                           class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                                    <button type="button"
+                                            id="toggleWorkflowAnthropicApiKey"
+                                            class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
+                                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Required for Anthropic-powered agentic workflows</p>
+                                {{ test_action('testWorkflowAnthropicApiKey', 'workflowAnthropicApiKeyStatus', 'Test API key') }}
+                            </div>
                         </div>
 
                         <!-- LMStudio Provider (hidden when user chose not to use LMStudio during Setup.sh) -->
-                        <div id="workflowLmstudioRow" class="flex items-center">
-                            <input type="checkbox"
-                                   id="workflowLmstudioEnabled"
-                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                            <label for="workflowLmstudioEnabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                                LMStudio (Local)
+                        <div id="workflowLmstudioRow" class="provider-panel">
+                            <label class="provider-head">
+                                <input type="checkbox"
+                                       id="workflowLmstudioEnabled"
+                                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                <span class="provider-name">LMStudio (Local)</span>
+                                <span class="provider-note">Local server</span>
                             </label>
+
+                            <div id="workflowLmstudioApiKeySection" class="provider-body" style="display: none;">
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">LM Studio runs locally and doesn't require API keys. Set the server URL if it's not on the default host/port (e.g. different IP).</p>
+                                <div class="mb-4">
+                                    <label for="lmstudioApiUrl" class="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">LM Studio server URL (base)</label>
+                                    <input type="text"
+                                           id="lmstudioApiUrl"
+                                           placeholder="http://localhost:1234/v1 or http://192.168.1.65:1234/v1"
+                                           class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Chat/completions and models endpoint. Leave blank for default (host.docker.internal or localhost).</p>
+                                </div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Loading models confirms the server is reachable.</p>
+                                {{ test_action('testWorkflowLmstudioApiKey', 'workflowLmstudioApiKeyStatus', 'Load models') }}
+                            </div>
                         </div>
                     </div>
                 </div>
-
-                <!-- OpenAI API Key Section -->
-                <div id="workflowOpenaiApiKeySection" style="display: none;">
-                    <div class="flex items-center gap-2 mb-2">
-                        <label for="workflowOpenaiApiKey" class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            OpenAI API Key
-                        </label>
-                        <span class="inline-flex flex-shrink-0 text-gray-400 hover:text-gray-300 dark:hover:text-gray-200 cursor-help" role="img" aria-label="Help" title="If you set an API key during setup, it is already in use—no need to enter it here. Add or change a key in this field to override; the value you save here takes precedence.">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        </span>
-                    </div>
-                    <div class="relative">
-                        <input type="password"
-                               id="workflowOpenaiApiKey"
-                               placeholder="sk-..."
-                               class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                        <button type="button"
-                                id="toggleWorkflowOpenaiApiKey"
-                                class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
-                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                            </svg>
-                        </button>
-                    </div>
-                    <div class="flex items-center justify-between mt-2">
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Required for OpenAI-powered agentic workflows</p>
-                        <button id="testWorkflowOpenaiApiKey"
-                                class="inline-flex items-center px-3 py-1 text-xs border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
-                            Test
-                        </button>
-                    </div>
-                    <span id="workflowOpenaiApiKeyStatus" class="text-sm"></span>
-                </div>
-
-                <!-- Anthropic API Key Section -->
-                <div id="workflowAnthropicApiKeySection" style="display: none;">
-                    <div class="flex items-center gap-2 mb-2">
-                        <label for="workflowAnthropicApiKey" class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Anthropic API Key
-                        </label>
-                        <span class="inline-flex flex-shrink-0 text-gray-400 hover:text-gray-300 dark:hover:text-gray-200 cursor-help" role="img" aria-label="Help" title="If you set an API key during setup, it is already in use—no need to enter it here. Add or change a key in this field to override; the value you save here takes precedence.">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        </span>
-                    </div>
-                    <div class="relative">
-                        <input type="password"
-                               id="workflowAnthropicApiKey"
-                               placeholder="sk-ant-..."
-                               class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                        <button type="button"
-                                id="toggleWorkflowAnthropicApiKey"
-                                class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
-                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                            </svg>
-                        </button>
-                    </div>
-                    <div class="flex items-center justify-between mt-2">
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Required for Anthropic-powered agentic workflows</p>
-                        <button id="testWorkflowAnthropicApiKey"
-                                class="inline-flex items-center px-3 py-1 text-xs border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
-                            Test
-                        </button>
-                    </div>
-                    <span id="workflowAnthropicApiKeyStatus" class="text-sm"></span>
-                </div>
-
-                 <!-- LMStudio API Key Section -->
-                 <div id="workflowLmstudioApiKeySection" style="display: none;">
-                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                         LM Studio Configuration
-                     </label>
-                     <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">LM Studio runs locally and doesn't require API keys. Set the server URL if it's not on the default host/port (e.g. different IP).</p>
-                     <div class="mb-4">
-                         <label for="lmstudioApiUrl" class="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">LM Studio server URL (base)</label>
-                         <input type="text"
-                                id="lmstudioApiUrl"
-                                placeholder="http://localhost:1234/v1 or http://192.168.1.65:1234/v1"
-                                class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Chat/completions and models endpoint. Leave blank for default (host.docker.internal or localhost).</p>
-                     </div>
-                     <div class="flex items-center justify-between mt-4">
-                         <p class="text-sm text-gray-500 dark:text-gray-400">Test connection to local LM Studio server</p>
-                         <button id="testWorkflowLmstudioApiKey"
-                                 class="inline-flex items-center px-3 py-1 text-xs border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
-                             Get Models
-                         </button>
-                     </div>
-                     <span id="workflowLmstudioApiKeyStatus" class="text-sm"></span>
-                 </div>
 
                  <!-- Langfuse Configuration -->
                  <div id="langfuseApiKeySection" class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
@@ -672,9 +716,9 @@
                          </label>
                          <input type="text"
                                 id="langfuseHost"
-                                placeholder="https://cloud.langfuse.com"
+                                placeholder="https://us.cloud.langfuse.com"
                                 class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Optional: Defaults to https://cloud.langfuse.com</p>
+                         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Optional: Defaults to https://us.cloud.langfuse.com</p>
                      </div>
 
                      <!-- Langfuse Project ID -->
@@ -691,10 +735,7 @@
 
                      <!-- Langfuse Test Button -->
                      <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                         <button type="button" id="testLangfuseConnection" class="settings-btn-secondary">
-                             <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5"/></svg> Test Langfuse Connection
-                         </button>
-                         <span id="langfuseTestStatus" class="ml-3 text-sm"></span>
+                         {{ test_action('testLangfuseConnection', 'langfuseTestStatus', 'Test connection') }}
                      </div>
                      </form>
                   </div>
@@ -731,13 +772,6 @@
                           </p>
                           <p id="autoTriggerThresholdStatus" class="text-sm mt-2"></p>
                       </div>
-                  </div>
-
-                  <!-- Evals Diagnosis -->
-                  <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                      <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Evals Diagnosis</h3>
-                      <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">Eval diagnosis runs through the <code class="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">huntable-cti-studio</code> MCP server and the <code class="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">huntable-eval-diagnosis</code> agent skill. There is no provider or model to configure here &mdash; the connected agent does the reasoning, so no API key is used and no tokens are billed by this app.</p>
-                      <p class="text-xs text-gray-400 dark:text-gray-500">Saved diagnoses appear in the execution detail modal on <a href="/agent-evals" class="text-purple-500 hover:text-purple-400 underline">Agent Evals</a>. See <code class="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">docs/features/agent-evals.md</code>.</p>
                   </div>
               </div>
         </div>
@@ -845,10 +879,7 @@
 
                 <!-- Test Connection Button -->
                 <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                    <button type="button" id="testGitHubConnection" class="settings-btn-secondary">
-                        <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5"/></svg> Test GitHub Connection
-                    </button>
-                    <span id="githubTestStatus" class="ml-3 text-sm"></span>
+                    {{ test_action('testGitHubConnection', 'githubTestStatus', 'Test connection') }}
                 </div>
                 </form>
             </div>
@@ -863,10 +894,10 @@
     </div>
 </div>
 
-<!-- Success Notification removed — using global window.showNotification instead -->
+<!-- Success Notification removed  --  using global window.showNotification instead -->
 
 <!-- Restore Backup Modal -->
-<div id="restoreBackupModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
+<div id="restoreBackupModal" role="dialog" aria-modal="true" aria-label="Restore backup" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
     <div class="rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto" style="background:var(--mlops-card-bg); border:1px solid var(--mlops-card-border);">
         <div class="p-6">
             <div class="flex items-center justify-between mb-4">
@@ -931,6 +962,7 @@
 <script>
     const WORKFLOW_PROVIDER_SETTING_KEYS = {
         openaiEnabled: 'WORKFLOW_OPENAI_ENABLED',
+        codexEnabled: 'WORKFLOW_CODEX_ENABLED',
         openaiApiKey: 'WORKFLOW_OPENAI_API_KEY',
         anthropicEnabled: 'WORKFLOW_ANTHROPIC_ENABLED',
         anthropicApiKey: 'WORKFLOW_ANTHROPIC_API_KEY',
@@ -992,6 +1024,13 @@
         );
         document.getElementById('workflowOpenaiEnabled').checked = workflowOpenaiEnabled;
 
+        const workflowCodexEnabled = parseWorkflowBooleanSetting(
+            workflowAppSettings,
+            WORKFLOW_PROVIDER_SETTING_KEYS.codexEnabled,
+            settings.workflowCodexEnabled || false
+        );
+        document.getElementById('workflowCodexEnabled').checked = workflowCodexEnabled;
+
         const workflowAnthropicEnabled = parseWorkflowBooleanSetting(
             workflowAppSettings,
             WORKFLOW_PROVIDER_SETTING_KEYS.anthropicEnabled,
@@ -1035,9 +1074,6 @@
 
         // Update workflow API key visibility
         updateWorkflowApiKeyVisibility();
-
-        // Eval diagnosis has no provider/model settings -- it runs through MCP
-        // plus the huntable-eval-diagnosis agent skill, not a server-side LLM call.
 
         // Load auto-trigger hunt score threshold from workflow config API
         await loadAutoTriggerThreshold();
@@ -1127,11 +1163,11 @@
                 document.getElementById('langfuseHost').value = data.value;
             } else {
                 // Fallback to localStorage or default
-                document.getElementById('langfuseHost').value = settings.langfuseHost || 'https://cloud.langfuse.com';
+                document.getElementById('langfuseHost').value = settings.langfuseHost || 'https://us.cloud.langfuse.com';
             }
         } catch (error) {
             console.log('Could not fetch LANGFUSE_HOST from database:', error);
-            document.getElementById('langfuseHost').value = settings.langfuseHost || 'https://cloud.langfuse.com';
+            document.getElementById('langfuseHost').value = settings.langfuseHost || 'https://us.cloud.langfuse.com';
         }
         
         // Langfuse Project ID - check database first
@@ -1621,6 +1657,7 @@
             langfuseHost: document.getElementById('langfuseHost').value.trim() || '',
             langfuseProjectId: document.getElementById('langfuseProjectId').value.trim() || '',
             workflowOpenaiEnabled: document.getElementById('workflowOpenaiEnabled').checked,
+            workflowCodexEnabled: document.getElementById('workflowCodexEnabled').checked,
             workflowAnthropicEnabled: document.getElementById('workflowAnthropicEnabled').checked,
             workflowLmstudioEnabled: document.getElementById('workflowLmstudioEnabled').checked,
             lmstudioApiUrl: document.getElementById('lmstudioApiUrl')?.value.trim() || '',
@@ -1632,6 +1669,7 @@
         const lmstudioEnabledForSave = window.__proceedWithoutLmstudio ? false : settings.workflowLmstudioEnabled;
         const workflowSettingsPayload = {
             [WORKFLOW_PROVIDER_SETTING_KEYS.openaiEnabled]: settings.workflowOpenaiEnabled ? 'true' : 'false',
+            [WORKFLOW_PROVIDER_SETTING_KEYS.codexEnabled]: settings.workflowCodexEnabled ? 'true' : 'false',
             [WORKFLOW_PROVIDER_SETTING_KEYS.anthropicEnabled]: settings.workflowAnthropicEnabled ? 'true' : 'false',
             [WORKFLOW_PROVIDER_SETTING_KEYS.lmstudioEnabled]: lmstudioEnabledForSave ? 'true' : 'false',
             [WORKFLOW_PROVIDER_SETTING_KEYS.openaiApiKey]: document.getElementById('workflowOpenaiApiKey').value.trim() || '',
@@ -1722,17 +1760,32 @@
     }
     
     
+    // Connection tests share one label slot and one status vocabulary so the icon
+    // survives the busy state and every result reads the same.
+    function setTestLabel(button, label) {
+        const slot = button.querySelector('.btn-label');
+        if (slot) {
+            slot.textContent = label;
+        } else {
+            button.textContent = label;
+        }
+    }
+
+    function setTestStatus(element, message, state) {
+        element.textContent = message;
+        element.className = 'settings-test-status' + (state ? ' is-' + state : '');
+    }
+
     // Test Langfuse connection
     async function testLangfuseConnection() {
         const statusElement = document.getElementById('langfuseTestStatus');
         const testButton = document.getElementById('testLangfuseConnection');
-        
+
         // Disable button and show loading
         testButton.disabled = true;
-        testButton.textContent = '🧪 Testing...';
-        statusElement.textContent = '⏳ Testing Langfuse connection...';
-        statusElement.className = 'ml-3 text-sm text-gray-600 dark:text-gray-400';
-        
+        setTestLabel(testButton, 'Testing...');
+        setTestStatus(statusElement, 'Testing connection...');
+
         try {
             const response = await fetch('/api/test-langfuse-connection', {
                 method: 'POST',
@@ -1745,24 +1798,20 @@
             if (response.ok) {
                 const result = await response.json();
                 if (result.valid) {
-                    statusElement.textContent = `✅ ${result.message}`;
-                    statusElement.className = 'ml-3 text-sm text-green-600 dark:text-green-400';
+                    setTestStatus(statusElement, result.message, 'ok');
                 } else {
-                    statusElement.textContent = `❌ ${result.message}`;
-                    statusElement.className = 'ml-3 text-sm text-red-600 dark:text-red-400';
+                    setTestStatus(statusElement, result.message, 'error');
                 }
             } else {
                 const error = await response.json();
-                statusElement.textContent = `❌ ${error.detail || 'Connection test failed'}`;
-                statusElement.className = 'ml-3 text-sm text-red-600 dark:text-red-400';
+                setTestStatus(statusElement, error.detail || 'Connection test failed', 'error');
             }
         } catch (error) {
-            statusElement.textContent = '❌ Network error - please try again';
-            statusElement.className = 'ml-3 text-sm text-red-600 dark:text-red-400';
+            setTestStatus(statusElement, 'Network error  --  try again', 'error');
         } finally {
             // Re-enable button
             testButton.disabled = false;
-            testButton.textContent = '🧪 Test Langfuse Connection';
+            setTestLabel(testButton, 'Test connection');
         }
     }
     
@@ -1913,23 +1962,20 @@
         const repo = document.getElementById('githubRepo').value.trim();
         
         if (!token) {
-            statusElement.textContent = 'Please enter a GitHub token first';
-            statusElement.className = 'text-sm text-red-600';
+            setTestStatus(statusElement, 'Enter a GitHub token first', 'error');
             return;
         }
-        
+
         if (!repo || !repo.includes('/')) {
-            statusElement.textContent = 'Please enter a valid repository (owner/repo)';
-            statusElement.className = 'text-sm text-red-600';
+            setTestStatus(statusElement, 'Enter a repository as owner/repo', 'error');
             return;
         }
-        
+
         // Disable button and show loading
         testButton.disabled = true;
-        testButton.textContent = 'Testing...';
-        statusElement.textContent = 'Testing connection...';
-        statusElement.className = 'text-sm text-gray-600';
-        
+        setTestLabel(testButton, 'Testing...');
+        setTestStatus(statusElement, 'Testing connection...');
+
         try {
             // Test by fetching repo info
             const [owner, repoName] = repo.split('/');
@@ -1941,24 +1987,19 @@
             });
             
             if (response.ok) {
-                statusElement.textContent = '✅ Connection successful!';
-                statusElement.className = 'text-sm text-green-600';
+                setTestStatus(statusElement, 'Connected', 'ok');
             } else if (response.status === 401) {
-                statusElement.textContent = '❌ Invalid token or insufficient permissions';
-                statusElement.className = 'text-sm text-red-600';
+                setTestStatus(statusElement, 'Token is invalid or lacks repo access', 'error');
             } else if (response.status === 404) {
-                statusElement.textContent = '❌ Repository not found or no access';
-                statusElement.className = 'text-sm text-red-600';
+                setTestStatus(statusElement, 'Repository not found, or the token cannot see it', 'error');
             } else {
-                statusElement.textContent = `❌ Error: ${response.status} ${response.statusText}`;
-                statusElement.className = 'text-sm text-red-600';
+                setTestStatus(statusElement, `GitHub returned ${response.status} ${response.statusText}`, 'error');
             }
         } catch (error) {
-            statusElement.textContent = '❌ Network error - please try again';
-            statusElement.className = 'text-sm text-red-600';
+            setTestStatus(statusElement, 'Network error  --  try again', 'error');
         } finally {
             testButton.disabled = false;
-            testButton.textContent = '🧪 Test GitHub Connection';
+            setTestLabel(testButton, 'Test connection');
         }
     }
     
@@ -2015,17 +2056,20 @@
     // Update workflow API key sections visibility based on checkbox selections
     function updateWorkflowApiKeyVisibility() {
         const openaiEnabled = document.getElementById('workflowOpenaiEnabled').checked;
+        const codexEnabled = document.getElementById('workflowCodexEnabled').checked;
         const anthropicEnabled = document.getElementById('workflowAnthropicEnabled').checked;
         const lmstudioEnabled = document.getElementById('workflowLmstudioEnabled').checked;
 
         const openaiSection = document.getElementById('workflowOpenaiApiKeySection');
         const anthropicSection = document.getElementById('workflowAnthropicApiKeySection');
         const lmstudioSection = document.getElementById('workflowLmstudioApiKeySection');
+        const codexSection = document.getElementById('workflowCodexSection');
 
         // Show/hide sections based on checkbox state
         openaiSection.style.display = openaiEnabled ? 'block' : 'none';
         anthropicSection.style.display = anthropicEnabled ? 'block' : 'none';
         lmstudioSection.style.display = (window.__proceedWithoutLmstudio || !lmstudioEnabled) ? 'none' : 'block';
+        codexSection.classList.toggle('hidden', !codexEnabled);
     }
 
     // Test workflow API key for specific provider
@@ -2052,10 +2096,10 @@
         }
 
         // Disable button and show loading
+        const idleLabel = provider === 'lmstudio' ? 'Load models' : 'Test API key';
         testButton.disabled = true;
-        testButton.textContent = 'Testing...';
-        statusElement.textContent = (provider === 'lmstudio' ? 'Getting models' : 'Testing API key') + '...';
-        statusElement.className = 'text-sm text-gray-600';
+        setTestLabel(testButton, provider === 'lmstudio' ? 'Loading...' : 'Testing...');
+        setTestStatus(statusElement, provider === 'lmstudio' ? 'Loading models...' : 'Testing API key...');
 
         let endpoint = '';
         let requestBody = {};
@@ -2086,35 +2130,50 @@
         }).then(function(result) {
             if (provider === 'lmstudio') {
                 if (result.success && result.models && result.models.length > 0) {
-                    statusElement.textContent = 'Found ' + result.models.length + ' model' + (result.models.length === 1 ? '' : 's');
-                    statusElement.className = 'text-sm text-green-600';
+                    setTestStatus(statusElement, 'Found ' + result.models.length + ' model' + (result.models.length === 1 ? '' : 's'), 'ok');
                 } else if (result.success && (!result.models || result.models.length === 0)) {
-                    statusElement.textContent = 'LMStudio running but no models found';
-                    statusElement.className = 'text-sm text-yellow-600';
+                    setTestStatus(statusElement, 'Server is reachable, but has no models loaded', 'warn');
                 } else {
-                    statusElement.textContent = result.message || 'Failed to get models';
-                    statusElement.className = 'text-sm text-red-600';
+                    setTestStatus(statusElement, result.message || 'Could not load models', 'error');
                 }
             } else {
                 if (result.valid) {
-                    statusElement.textContent = 'API key is valid' + describeModelUpdate(result);
-                    statusElement.className = 'text-sm text-green-600';
+                    setTestStatus(statusElement, 'API key is valid' + describeModelUpdate(result), 'ok');
                     if (result.catalog) {
                         cacheWorkflowProviderCatalog(result.catalog);
                     }
                 } else {
-                    statusElement.textContent = result.message;
-                    statusElement.className = 'text-sm text-red-600';
+                    setTestStatus(statusElement, result.message, 'error');
                 }
             }
         }).catch(function(error) {
-            statusElement.textContent = 'Network error - please try again';
-            statusElement.className = 'text-sm text-red-600';
+            setTestStatus(statusElement, 'Network error  --  try again', 'error');
         }).finally(function() {
             // Re-enable button
             testButton.disabled = false;
-            testButton.textContent = provider === 'lmstudio' ? 'Get Models' : 'Test';
+            setTestLabel(testButton, idleLabel);
         });
+    }
+
+    function testCodexSubscription() {
+        const button = document.getElementById('testWorkflowCodexSubscription');
+        const statusElement = document.getElementById('workflowCodexStatus');
+        button.disabled = true;
+        setTestLabel(button, 'Testing...');
+        setTestStatus(statusElement, 'Checking Codex subscription...');
+
+        fetch('/api/settings/codex/test', { method: 'POST' })
+            .then(function(response) { return response.json(); })
+            .then(function(result) {
+                setTestStatus(statusElement, result.message || 'Codex subscription test failed', result.valid ? 'ok' : 'error');
+            })
+            .catch(function(error) {
+                setTestStatus(statusElement, error.message || 'Codex subscription test failed', 'error');
+            })
+            .finally(function() {
+                button.disabled = false;
+                setTestLabel(button, 'Test subscription');
+            });
     }
 
     // Toggle workflow API key visibility functions
@@ -2157,7 +2216,7 @@
     }
 
     
-    // Show success notification — routed through global window.showNotification
+    // Show success notification  --  routed through global window.showNotification
 
     function safeAddListener(id, event, handler) {
         const element = document.getElementById(id);
@@ -2185,7 +2244,7 @@
         });
 
         // Workflow provider checkboxes
-        ['workflowOpenaiEnabled', 'workflowAnthropicEnabled', 'workflowLmstudioEnabled'].forEach(function(id) {
+        ['workflowOpenaiEnabled', 'workflowCodexEnabled', 'workflowAnthropicEnabled', 'workflowLmstudioEnabled'].forEach(function(id) {
             safeAddListener(id, 'change', function() {
                 updateWorkflowApiKeyVisibility();
             });
@@ -2225,6 +2284,8 @@
         safeAddListener('testWorkflowLmstudioApiKey', 'click', function() {
             testWorkflowApiKey('lmstudio');
         });
+
+        safeAddListener('testWorkflowCodexSubscription', 'click', testCodexSubscription);
 
         // Backup configuration fields
         ['backupTime', 'cleanupTime', 'dailyRetention', 'weeklyRetention', 'monthlyRetention', 'maxSizeGb'].forEach(function(id) {
@@ -2353,9 +2414,20 @@
     });
 
     async function createBackup() {
+        const createButton = document.getElementById('createBackupBtn');
+        const feedback = document.getElementById('backupCreateFeedback');
         const backupType = document.getElementById('backupType').value;
         const compress = document.getElementById('enableCompression').checked;
         const verify = document.getElementById('enableVerification').checked;
+
+        if (createButton.disabled) {
+            return;
+        }
+
+        createButton.disabled = true;
+        createButton.textContent = 'Creating backup...';
+        feedback.textContent = 'Backup is running. Database backups can take several minutes; keep this page open.';
+        feedback.className = 'mt-3 rounded-lg border border-blue-700 bg-blue-900/30 px-3 py-2 text-sm text-blue-200';
 
         try {
             const response = await fetch('/api/backup/create', {
@@ -2372,13 +2444,24 @@
 
             if (response.ok) {
                 const result = await response.json();
+                feedback.textContent = `Backup created successfully: ${result.backup_name}`;
+                feedback.className = 'mt-3 rounded-lg border border-green-700 bg-green-900/30 px-3 py-2 text-sm text-green-200';
                 showNotification(`Backup created successfully: ${result.backup_name}`, 'success');
             } else {
-                const error = await response.json();
-                showNotification(`Backup failed: ${error.detail}`, 'error');
+                const error = await response.json().catch(() => ({}));
+                const message = error.detail || `Request failed (${response.status})`;
+                feedback.textContent = `Backup failed: ${message}`;
+                feedback.className = 'mt-3 rounded-lg border border-red-700 bg-red-900/30 px-3 py-2 text-sm text-red-200';
+                showNotification(`Backup failed: ${message}`, 'error');
             }
         } catch (error) {
-            showNotification(`Backup failed: ${error.message}`, 'error');
+            const message = error.message || 'Network error';
+            feedback.textContent = `Backup failed: ${message}`;
+            feedback.className = 'mt-3 rounded-lg border border-red-700 bg-red-900/30 px-3 py-2 text-sm text-red-200';
+            showNotification(`Backup failed: ${message}`, 'error');
+        } finally {
+            createButton.disabled = false;
+            createButton.textContent = 'Create Backup Now';
         }
     }
 

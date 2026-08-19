@@ -10,7 +10,7 @@ For hardened deployments, an optional enterprise boundary is available: SSO thro
 Even when hardened, the phase-one audit log is database-backed and mutable by database administrators (forward exports to a SIEM for higher assurance), and the app is not intended to store classified or proprietary threat intelligence at this time.
 ##
 
-**Huntable CTI Studio v7.7.0 "Europa"** - A Cyber Threat Intelligence ML/AI workbench that automates collection, extraction, and detection rule generation from 38 seeded OSINT sources (see `config/sources.yaml`; runtime may add or replace rows after DB sync).
+**Huntable CTI Studio v7.8.0 "Europa"** - A Cyber Threat Intelligence ML/AI workbench that automates collection, extraction, and detection rule generation from 38 seeded OSINT sources (see `config/sources.yaml`; runtime may add or replace rows after DB sync).
 
 ## Purpose
 
@@ -18,11 +18,11 @@ Aggregates cybersecurity threat intelligence from RSS feeds and web scraping; us
 
 ## Architecture
 
-- **6 services**: PostgreSQL (pgvector), Redis, FastAPI web app, Celery workers (default + workflow), scheduler
+- **8 default services**: PostgreSQL (pgvector), Redis, FastAPI web app, maintenance runtime, Celery workers (default + workflow), scheduler, and a one-shot Codex auth initializer
 - **LangGraph**: Orchestrates the 7-step agentic workflow as a linear pipeline with conditional early-exit gates (state machine, checkpointing)
 - **Database-backed workflows**: Articles, workflow executions, Sigma rules, presets, settings, evals, and supporting metadata
 - **Source healing**: operator-invoked Claude Code skill diagnoses failing sources (RSS inspection, sitemap discovery, JS-rendering detection, WP JSON API probing) and proposes a config fix for approval — never auto-applies, never runs on a schedule
-- **Multi-model AI**: OpenAI, Anthropic, LM Studio
+- **Multi-model AI**: OpenAI and Anthropic, an optional local LM Studio provider, and an optional subscription-backed Codex provider for workflows
 
 ## Agentic Workflow
 

@@ -167,9 +167,22 @@ def log_drift(bind: Engine | Connection) -> DriftReport:
         logger.info("Schema drift check: database matches models.py")
         return report
 
-    # ERROR, not WARNING: this state is invisible by design -- create_all reports
-    # success while the schema is missing constraints. Silence is what let 25 of 29
-    # tables drift unnoticed.
+    # Severity split. Missing tables, primary keys, or columns are app-breaking and
+    # invisible by design (create_all reports success while the schema is wrong) --
+    # those stay a loud, itemized ERROR; silence is what let 25 of 29 tables drift
+    # unnoticed. Missing indexes and foreign keys are an integrity/perf gap, not a
+    # crash risk, and adding the FKs is commonly blocked by historical orphan rows
+    # that need an operator decision -- so drift limited to those logs a single
+    # WARNING instead of an ERROR wall on every boot.
+    severe = report.missing_tables or report.missing_primary_keys or report.missing_columns
+    if not severe:
+        logger.warning(
+            "Schema drift (non-fatal): database does not match models.py (%s). "
+            "Run `python scripts/migrate_reconcile_schema.py --apply --include-foreign-keys` to reconcile.",
+            report.summary(),
+        )
+        return report
+
     logger.error(
         "SCHEMA DRIFT DETECTED: database does not match models.py (%s). "
         "Run `python scripts/migrate_reconcile_schema.py` to review, then --apply to fix.",

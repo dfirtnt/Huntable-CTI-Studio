@@ -178,7 +178,35 @@ class DatabaseManager:
                 """,
             ]
 
+            # Lock-free pre-check (Postgres only): resolve no-op ADD COLUMNs against
+            # information_schema, which carries no table lock, so an already-present
+            # column never queues for ACCESS EXCLUSIVE and waits out the lock_timeout
+            # under contention. A genuinely missing column is absent from the set and
+            # still runs its ALTER below.
+            existing_cols: set[tuple[str, str]] = set()
+            if is_postgres:
+                try:
+                    with self.engine.connect() as conn:
+                        rows = conn.execute(
+                            text(
+                                "SELECT table_name, column_name FROM information_schema.columns "
+                                "WHERE table_schema = 'public'"
+                            )
+                        )
+                        existing_cols = {(r[0], r[1]) for r in rows}
+                except Exception as introspect_err:
+                    logger.warning("Column pre-check failed; will attempt all DDL: %s", introspect_err)
+
+            def _is_noop_add(ddl: str) -> bool:
+                t = ddl.split()
+                # "ALTER TABLE <table> ADD COLUMN IF NOT EXISTS <col> ..."
+                if len(t) >= 9 and t[3:8] == ["ADD", "COLUMN", "IF", "NOT", "EXISTS"]:
+                    return (t[2], t[8]) in existing_cols
+                return False
+
             for ddl in col_ddls + pk_ddls:
+                if existing_cols and _is_noop_add(ddl):
+                    continue
                 try:
                     with self.engine.begin() as conn:
                         if is_postgres:

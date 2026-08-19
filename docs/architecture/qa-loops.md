@@ -35,9 +35,10 @@ Historical pipeline steps:
 From [Sigma Detection Rules](../features/sigma-rules.md):
 
 - **pySigma validation (deterministic -- no LLM)**: Every generated rule is
-  validated by `validate_sigma_rule` (`src/services/sigma_validator.py`): a
-  deterministic structural/metadata gate. No model is called here -- this is a
-  pure-Python gate, so its verdict is reproducible.
+  parsed by `validate_sigma_rule` (`src/services/sigma_validator.py`) with
+  pySigma, including detection modifiers and condition references. Huntable
+  then applies its separate grounding and quality policy checks. No model is
+  called here -- this is a pure-Python gate, so its verdict is reproducible.
 - **Iterative repair (LLM)**: Up to 3 attempts per rule
   (`max_repair_attempts_per_rule`, default 3). On failure, `_repair_rules`
   (`src/services/sigma_generation_service.py`) injects the deterministic

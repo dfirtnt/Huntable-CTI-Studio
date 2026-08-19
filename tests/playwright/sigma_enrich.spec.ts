@@ -248,10 +248,10 @@ test.describe('Sigma enrich modal — no duplicate Original Rule', () => {
     await page.locator('#enrichFurtherBtn').click();
     await expect(page.getByRole('heading', { name: 'Enrich Rule' })).toBeVisible();
     await page.locator('.prompt-input').fill('add MITRE technique mapping');
-    // Use the unique id, not a role-name substring match: the page-level
-    // "Enrich" button (opens the modal) and "Enrich Further" both contain
-    // "Enrich", so getByRole('button', { name: 'Enrich' }) is ambiguous.
-    await page.locator('#enrichFurtherBtn').click();
+    // Submit via ModalManager.prompt's confirm button (dynamic modal, id ^= "_prompt_").
+    // Not #enrichFurtherBtn (hidden under the modal) and not role-name matching,
+    // which is ambiguous: "Enrich" and "Enrich Further" both match.
+    await page.locator('[id^="_prompt_"] .confirm-btn').click();
     await expect(page.locator('#enrichIterationInfo')).toContainText(
       'iteration #2',
     );

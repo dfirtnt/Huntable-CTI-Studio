@@ -51,6 +51,14 @@ The engine compares two rules only if both resolve to the same canonical telemet
 
 If a rule fails to map, the engine raises `UnknownTelemetryClassError`. The caller (here, `SigmaNoveltyService.assess_novelty`) catches it, marks the rule unassessable, and routes it to `needs_review` rather than silently calling it NOVEL (`75d2eca5`). Class mismatch — both rules resolve, but to different classes — is *not* an error: the engine returns `similarity=0.0` with `reason_flags=["canonical_class_mismatch"]`.
 
+### Index-time atom-precompute skip contract
+
+The stored atom fields are deliberately stricter than the live comparison fallback. `precompute_atom_fields` requires a rule to resolve through `CANONICAL_CLASS_REGISTRY`; a rule with a product-only logsource such as `product: azure` or `product: windows` has no category, service, or recognized event identifier to map to a canonical telemetry class. It is therefore intentionally stored with `canonical_class`, `positive_atoms`, `negative_atoms`, and `surface_score` unset. This prevents atom sets from unrelated telemetry from becoming comparable merely because their field names look alike. A category-only rule is supported only when its tuple is explicitly registered, for example `category: webserver` and `category: proxy`.
+
+Precomputation also has a deterministic logical-cost guard: DNF normalization refuses any rule that would expand to more than 64 branches (`MAX_DNF_BRANCHES`). This is intentional. Large value enumerations often become many OR branches during normalization, so detection-block length is a useful symptom but not the governing threshold. Rules at or below 64 branches are decomposed; rules above it are skipped rather than spending unbounded CPU and storage on a low-value comparison representation.
+
+These skips preserve the rule and its `canonical_json`; they only leave the four derived atom fields unset. A null atom field is consequently not, by itself, evidence of an indexing failure. The current schema does not persist a per-rule skip reason, so operators needing to distinguish an intentional skip from an unexpected failure must use the precompute logs or rerun the rule through `sigma recompute-atoms`. Any future persisted status must retain these two distinct intentional outcomes: `logsource_unresolved` and `dnf_expansion_limit`.
+
 ### Jaccard
 
 Once both rules resolve to the same class and the atom sets are extracted, the engine computes Jaccard over positive atoms:

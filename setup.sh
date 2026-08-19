@@ -248,11 +248,13 @@ create_env_file() {
     # so sed substitutions on placeholder strings would silently no-op and drop
     # these values.
     startup_set_env_key ".env" "SECRET_KEY" "${SECRET_KEY:-$(generate_password 32)}"
+    startup_set_env_key ".env" "MAINTENANCE_API_TOKEN" "${MAINTENANCE_API_TOKEN:-$(generate_password 48)}"
     startup_set_env_key ".env" "OPENAI_API_KEY" "${OPENAI_API_KEY:-}"
     startup_set_env_key ".env" "ANTHROPIC_API_KEY" "${ANTHROPIC_API_KEY:-}"
     startup_set_env_key ".env" "REDIS_PASSWORD" "${REDIS_PASSWORD:-}"
 
-    # Update LM Studio URLs based on LLM choice (and optional server URL)
+    # Configure the optional LM Studio LLM endpoint. Embeddings are local and
+    # intentionally have no LM Studio configuration.
     if [[ "$USE_LMSTUDIO" == "true" ]]; then
         local base_url
         if [[ -n "${LMSTUDIO_SERVER_URL:-}" ]]; then
@@ -261,9 +263,7 @@ create_env_file() {
         else
             base_url="http://host.docker.internal:1234/v1"
         fi
-        local embed_url="${base_url%/v1}/v1/embeddings"
         startup_set_env_key ".env" "LMSTUDIO_API_URL" "${base_url}"
-        startup_set_env_key ".env" "LMSTUDIO_EMBEDDING_URL" "${embed_url}"
         startup_set_env_key ".env" "WORKFLOW_LMSTUDIO_ENABLED" "true"
         startup_set_env_key ".env" "PROCEED_WITHOUT_LMSTUDIO" "0"
     else
@@ -276,6 +276,19 @@ create_env_file() {
 
     # Optional enterprise SSO wiring (no-op in non-interactive / local mode).
     configure_enterprise_auth
+}
+
+# Add the internal maintenance credential when an older .env is retained.
+# The value is never printed; web and maintenance share it only over the Docker
+# network for allowlisted backup/restore operations.
+ensure_maintenance_api_token() {
+    local env_file="${1:-.env}"
+    local token
+    token="$(grep -E '^MAINTENANCE_API_TOKEN=' "$env_file" | head -n1 | cut -d= -f2- || true)"
+    if [[ -z "$token" ]]; then
+        startup_set_env_key "$env_file" "MAINTENANCE_API_TOKEN" "$(generate_password 48)"
+        print_status "Generated internal maintenance service credential"
+    fi
 }
 
 # scaffold_sso_proxy() and configure_enterprise_auth() now live in
@@ -687,6 +700,7 @@ main() {
     if [[ "$SKIP_ENV_CREATION" != "true" ]]; then
         create_env_file
     fi
+    ensure_maintenance_api_token ".env"
     
     # Setup environment
     setup_environment

@@ -420,8 +420,7 @@ def backfill_metadata_cmd(force: bool):
 @sigma_group.command("match")
 @click.argument("article_id", type=int)
 @click.option("--threshold", default=0.7, help="Similarity threshold (0-1)")
-@click.option("--save", is_flag=True, help="Save matches to database")
-def match_article(article_id: int, threshold: float, save: bool):
+def match_article(article_id: int, threshold: float):
     """Match a single article to Sigma rules."""
     console.print(f"[bold blue]Matching article {article_id} to Sigma rules...[/bold blue]")
 
@@ -465,23 +464,6 @@ def match_article(article_id: int, threshold: float, save: bool):
                 classification = coverage_service.classify_match(article_id, rule, match["similarity"])
 
                 coverage_status = classification["coverage_status"]
-
-                # Save if requested
-                if save:
-                    match_level = "chunk" if "chunk_id" in match else "article"
-                    matching_service.store_match(
-                        article_id=article_id,
-                        sigma_rule_id=rule.id,
-                        similarity_score=match["similarity"],
-                        match_level=match_level,
-                        chunk_id=match.get("chunk_id"),
-                        coverage_status=coverage_status,
-                        coverage_confidence=classification["coverage_confidence"],
-                        coverage_reasoning=classification["coverage_reasoning"],
-                        matched_discriminators=classification["matched_discriminators"],
-                        matched_lolbas=classification["matched_lolbas"],
-                        matched_intelligence=classification["matched_intelligence"],
-                    )
             else:
                 coverage_status = "unknown"
 
@@ -494,9 +476,6 @@ def match_article(article_id: int, threshold: float, save: bool):
             )
 
         console.print(table)
-
-        if save:
-            console.print(f"[bold green]✓[/bold green] Saved {len(all_matches)} matches to database")
 
         session.close()
 
@@ -533,11 +512,6 @@ def show_stats():
             session.query(SigmaRuleTable.level, func.count(SigmaRuleTable.id)).group_by(SigmaRuleTable.level).all()
         )
 
-        # Count matches
-        from src.database.models import ArticleSigmaMatchTable
-
-        total_matches = session.query(ArticleSigmaMatchTable).count()
-
         # Display statistics
         table = Table(title="Sigma Rule Index Statistics")
         table.add_column("Metric", style="cyan")
@@ -546,7 +520,6 @@ def show_stats():
         table.add_row("Total Rules", str(total_rules))
         table.add_row("Rules with Embeddings", str(embedded_rules))
         table.add_row("From your repo (similarity search)", str(customer_rules))
-        table.add_row("Total Matches", str(total_matches))
 
         console.print(table)
 

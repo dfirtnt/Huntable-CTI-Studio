@@ -525,3 +525,113 @@ class TestErrorPropagationPolicy:
         self._failing_session(manager)
 
         assert await getattr(manager, method_name)(**kwargs) == []
+
+
+def _async_cm(conn):
+    """Wrap a mock connection as an async context manager (for engine.begin/connect)."""
+    cm = MagicMock()
+    cm.__aenter__ = AsyncMock(return_value=conn)
+    cm.__aexit__ = AsyncMock(return_value=None)
+    return cm
+
+
+@pytest.mark.asyncio
+async def test_create_tables_precheck_skips_existing_add_columns():
+    """Async create_tables (the live web-startup path) must skip the idempotent
+    ADD COLUMN ensures for columns that already exist, via the lock-free
+    information_schema pre-check -- so no ALTER queues for ACCESS EXCLUSIVE and
+    waits out the 3s lock_timeout on a healthy DB. Mirrors the sync guard in
+    tests/test_database.py::test_create_tables_precheck_skips_existing_add_columns.
+    """
+    import src.database.async_manager as amod
+
+    existing = [
+        ("ml_model_versions", "is_current"),
+        ("subagent_evaluations", "expected_items"),
+        ("subagent_evaluations", "acceptable_items"),
+        ("subagent_evaluations", "actual_items"),
+        ("subagent_evaluations", "matched_count"),
+        ("subagent_evaluations", "missed_count"),
+        ("subagent_evaluations", "extra_count"),
+        ("subagent_evaluations", "neutral_count"),
+        ("sigma_rule_queue", "behavioral_matches_found"),
+        ("sigma_rule_queue", "total_candidates_evaluated"),
+    ]
+
+    # connect() is used twice: the pre-check SELECT (returns the existing columns)
+    # and the trailing run_sync(log_drift). One conn serves both.
+    connect_conn = AsyncMock()
+    connect_conn.execute = AsyncMock(return_value=existing)
+    connect_conn.run_sync = AsyncMock()
+
+    # begin() is used for create_all and for every schema-ensure DDL; capture the
+    # SQL each ALTER actually issues.
+    executed: list[str] = []
+    begin_conn = AsyncMock()
+    begin_conn.run_sync = AsyncMock()
+
+    async def _capture(stmt, *a, **k):
+        executed.append(str(stmt))
+        return MagicMock()
+
+    begin_conn.execute = AsyncMock(side_effect=_capture)
+
+    engine = MagicMock()
+    engine.begin = MagicMock(side_effect=lambda: _async_cm(begin_conn))
+    engine.connect = MagicMock(side_effect=lambda: _async_cm(connect_conn))
+
+    with (
+        patch.object(amod, "create_async_engine", return_value=engine),
+        patch.object(amod, "async_sessionmaker", return_value=MagicMock()),
+    ):
+        manager = AsyncDatabaseManager(database_url="postgresql+asyncpg://u:p@h/db_async_precheck")
+        manager.engine = engine
+        await manager.create_tables()
+
+    joined = " ".join(executed)
+    # Every pre-existing ADD COLUMN was skipped -- its ALTER never issued.
+    assert "expected_items" not in joined
+    assert "behavioral_matches_found" not in joined
+    assert "is_current" not in joined
+    # Non-ADD schema-ensure DDL (a DROP COLUMN) still ran.
+    assert "canonical_text" in joined
+    # The pre-check itself queried information_schema without taking a table lock.
+    connect_conn.execute.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_create_tables_precheck_failure_falls_back_to_all_ddl():
+    """If the information_schema pre-check errors, create_tables must fall back to
+    attempting every ADD COLUMN (never silently skip a genuinely-missing column)."""
+    import src.database.async_manager as amod
+
+    connect_conn = AsyncMock()
+    connect_conn.execute = AsyncMock(side_effect=RuntimeError("introspection boom"))
+    connect_conn.run_sync = AsyncMock()
+
+    executed: list[str] = []
+    begin_conn = AsyncMock()
+    begin_conn.run_sync = AsyncMock()
+
+    async def _capture(stmt, *a, **k):
+        executed.append(str(stmt))
+        return MagicMock()
+
+    begin_conn.execute = AsyncMock(side_effect=_capture)
+
+    engine = MagicMock()
+    engine.begin = MagicMock(side_effect=lambda: _async_cm(begin_conn))
+    engine.connect = MagicMock(side_effect=lambda: _async_cm(connect_conn))
+
+    with (
+        patch.object(amod, "create_async_engine", return_value=engine),
+        patch.object(amod, "async_sessionmaker", return_value=MagicMock()),
+    ):
+        manager = AsyncDatabaseManager(database_url="postgresql+asyncpg://u:p@h/db_async_precheck_fail")
+        manager.engine = engine
+        await manager.create_tables()
+
+    joined = " ".join(executed)
+    # Pre-check unusable -> the ADD COLUMN ensures are still attempted.
+    assert "expected_items" in joined
+    assert "behavioral_matches_found" in joined

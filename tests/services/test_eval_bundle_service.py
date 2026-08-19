@@ -1,6 +1,7 @@
 """Tests for EvalBundleService."""
 
 from datetime import datetime, timedelta
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import pytest
@@ -98,6 +99,33 @@ class TestEvalBundleArticleTextInput:
         assert article_input["snapshot_sha256"] == config_snapshot["eval_fixture_content_sha256"]
         assert article_input["length_chars"] == len(fixture_content)
         assert "EVAL_FIXTURE_CONTENT_SHA256_MISMATCH" not in bundle["integrity"]["warnings"]
+
+    def test_generate_bundle_reads_fixture_from_externalized_snapshot(self):
+        """Regression: an externalized snapshot ({"snapshot_id"}) still hydrates.
+
+        Since snapshot deduplication (commit 6e851943), ``config_snapshot`` holds
+        only the pointer and the real payload lives on ``snapshot_record``. If the
+        bundle read the pointer raw it would find no ``eval_fixture_content`` and
+        silently fall back to flattened Postgres text -- scoring the wrong input.
+        """
+        fixture_content = "committed fixture content\nwith preserved line breaks"
+        payload = {
+            "eval_run": True,
+            "eval_fixture_content": fixture_content,
+            "eval_fixture_content_sha256": compute_sha256(fixture_content),
+        }
+        execution = _bundle_execution({"snapshot_id": 77})
+        execution.snapshot_record = SimpleNamespace(payload=payload)
+        article = _bundle_article("flattened postgres content that was not scored")
+        db_session = _mock_bundle_session(execution, article)
+
+        with patch("src.services.eval_bundle_service.is_langfuse_enabled", return_value=False):
+            bundle = EvalBundleService(db_session).generate_bundle(execution_id=1, agent_name="CmdlineExtract")
+
+        article_input = bundle["inputs"][0]
+        assert article_input["source"] == "eval_fixture"
+        assert article_input["text"] == fixture_content
+        assert article_input["sha256"] == payload["eval_fixture_content_sha256"]
 
     def test_generate_bundle_falls_back_to_postgres_article_text_without_fixture_content(self):
         article_content = "postgres article content"
@@ -412,7 +440,9 @@ class TestEvalBundleServiceHelpers:
         mock_api.trace.list.assert_not_called()
 
     def test_fetch_langfuse_generation_resolves_trace_via_session_when_no_trace_id(self):
-        """When trace_id is absent from error_log, falls back to trace.list(session_id=...) then observations."""
+        """When trace_id is absent from error_log, falls back to a sessionId-filtered
+        observations.get_many(...) call (via find_trace_id_for_session), then observations
+        by trace_id. The deprecated trace.list(...) must never be reached."""
         service = EvalBundleService(Mock())
 
         matching_gen = Mock()
@@ -426,13 +456,19 @@ class TestEvalBundleServiceHelpers:
             def __init__(self, data):
                 self.data = data
 
-        class TraceResponse:
-            def __init__(self, trace_id):
-                self.data = [Mock(id=trace_id)]
+        session_lookup_response = ObsResponse([Mock(trace_id="resolved-trace-id")])
+        generation_response = ObsResponse([matching_gen])
+
+        def get_many_side_effect(**kwargs):
+            # find_trace_id_for_session's sessionId lookup passes `filter`;
+            # the generation fetch passes `trace_id` + type=GENERATION.
+            if "filter" in kwargs:
+                return session_lookup_response
+            return generation_response
 
         mock_api = Mock()
-        mock_api.trace.list.return_value = TraceResponse("resolved-trace-id")
-        mock_api.observations.get_many.return_value = ObsResponse([matching_gen])
+        mock_api.observations.get_many.side_effect = get_many_side_effect
+        mock_api.trace.list = Mock()  # the removed v3 attribute must never be reached
 
         execution = Mock()
         execution.error_log = {}  # no langfuse_trace_id
@@ -450,8 +486,13 @@ class TestEvalBundleServiceHelpers:
             )
 
         assert result is not None
-        mock_api.trace.list.assert_called_once_with(session_id="workflow_exec_456", limit=1, order_by="timestamp.desc")
-        mock_api.observations.get_many.assert_called_once_with(
+        mock_api.trace.list.assert_not_called()
+        assert mock_api.observations.get_many.call_count == 2
+        session_lookup_kwargs = mock_api.observations.get_many.call_args_list[0].kwargs
+        assert session_lookup_kwargs["limit"] == 1
+        assert '"column": "sessionId"' in session_lookup_kwargs["filter"]
+        assert '"value": "workflow_exec_456"' in session_lookup_kwargs["filter"]
+        mock_api.observations.get_many.assert_called_with(
             trace_id="resolved-trace-id",
             type="GENERATION",
             limit=100,

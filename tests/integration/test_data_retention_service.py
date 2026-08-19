@@ -24,8 +24,8 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.database.models import (  # noqa: E402
-    AgentEvaluationTable,
     AgenticWorkflowConfigTable,
+    AgenticWorkflowExecutionSnapshotTable,
     AgenticWorkflowExecutionTable,
     AppSettingsTable,
     ArticleTable,
@@ -35,7 +35,6 @@ from src.database.models import (  # noqa: E402
     SourceCheckTable,
     SourceTable,
     SubagentEvaluationTable,
-    URLTrackingTable,
 )
 from src.services.data_retention_service import (  # noqa: E402
     DEFAULT_STALE_EXECUTION_HOURS,
@@ -46,6 +45,7 @@ from src.services.data_retention_service import (  # noqa: E402
     resolve_retention_days,
     run_retention,
 )
+from src.services.execution_snapshot_store import attach_snapshot  # noqa: E402
 from tests.utils.test_database_url import build_test_database_url  # noqa: E402
 
 pytestmark = pytest.mark.integration
@@ -60,13 +60,12 @@ _TABLES = (
     SourceTable,
     ArticleTable,
     AgenticWorkflowConfigTable,
+    AgenticWorkflowExecutionSnapshotTable,
     AgenticWorkflowExecutionTable,
     SigmaRuleQueueTable,
     SubagentEvaluationTable,
     SigmaEvaluationTable,
-    AgentEvaluationTable,
     SourceCheckTable,
-    URLTrackingTable,
     AppSettingsTable,
 )
 
@@ -146,6 +145,18 @@ def _add_execution(session, article_id: int, *, age_days: float, status: str = "
     return execution
 
 
+def _add_execution_with_external_snapshot(session, article_id: int, *, age_days: float, payload: dict):
+    """Build an execution whose config lives in the snapshot table, as attach_snapshot does.
+
+    Post-externalization the execution row only carries {"snapshot_id": N}; the
+    eval_run flag it is guarded by is on the snapshot payload.
+    """
+    execution = _add_execution(session, article_id, age_days=age_days)
+    attach_snapshot(session, execution, payload)
+    session.flush()
+    return execution
+
+
 class TestExecutionPurgeGuards:
     """The exclusions that keep an age purge from destroying irreplaceable rows."""
 
@@ -160,6 +171,25 @@ class TestExecutionPurgeGuards:
         _add_execution(session, article_id, age_days=365, snapshot={"eval_run": True})
 
         assert purgeable_execution_ids(session, NOW - timedelta(days=90)) == []
+
+    def test_externalized_eval_run_is_never_purged(self, session):
+        """The guard must follow the snapshot reference, not just the inline JSON.
+
+        After snapshot externalization config_snapshot is only {"snapshot_id": N},
+        so a containment test against it can never match and the eval corpus loses
+        its age-purge protection.
+        """
+        article_id = _seed_article(session)
+        _add_execution_with_external_snapshot(session, article_id, age_days=365, payload={"eval_run": True})
+
+        assert purgeable_execution_ids(session, NOW - timedelta(days=90)) == []
+
+    def test_externalized_non_eval_run_is_still_purgeable(self, session):
+        """Following the reference must not over-protect ordinary runs."""
+        article_id = _seed_article(session)
+        normal = _add_execution_with_external_snapshot(session, article_id, age_days=365, payload={"eval_run": False})
+
+        assert purgeable_execution_ids(session, NOW - timedelta(days=90)) == [normal.id]
 
     def test_queue_referenced_execution_is_never_purged(self, session):
         """The load-bearing guard: this FK is ON DELETE CASCADE."""
@@ -186,7 +216,6 @@ class TestExecutionPurgeGuards:
         [
             (SubagentEvaluationTable, "article_url"),
             (SigmaEvaluationTable, "article_url"),
-            (AgentEvaluationTable, "agent_name"),
         ],
     )
     def test_evaluation_referenced_execution_is_never_purged(self, session, model, column):
@@ -197,8 +226,6 @@ class TestExecutionPurgeGuards:
             kwargs.update({"subagent_name": "cmdline", "expected_count": 1})
         if model is SigmaEvaluationTable:
             kwargs.update({"expected_rule_count": 1})
-        if model is AgentEvaluationTable:
-            kwargs.update({"evaluation_type": "baseline", "total_articles": 1, "metrics": {}})
         session.add(model(**kwargs))
         session.flush()
 
@@ -280,7 +307,7 @@ class TestRetentionWindows:
 
 
 class TestRunRetention:
-    def test_purges_source_checks_and_url_tracking_by_age(self, session):
+    def test_purges_source_checks_by_age(self, session):
         source = SourceTable(identifier="s", name="S", url="http://s.test")
         session.add(source)
         session.flush()
@@ -297,22 +324,14 @@ class TestRunRetention:
                 for age in (400, 200, 10)
             ]
         )
-        session.add_all(
-            [
-                URLTrackingTable(url=f"http://s.test/{age}", last_checked=NOW - timedelta(days=age))
-                for age in (400, 200, 10)
-            ]
-        )
         session.flush()
 
         result = run_retention(session, now=NOW)
 
-        # source_checks keeps 180 days; url_tracking keeps 90.
-        # Ages 400 and 200 both exceed the 180-day window, so two checks are purged.
+        # source_checks keeps 90 days.
+        # Ages 400 and 200 both exceed the 90-day window, so two checks are purged.
         assert result.deleted["source_checks"] == 2
-        assert result.deleted["url_tracking"] == 2
         assert session.query(SourceCheckTable).count() == 1
-        assert session.query(URLTrackingTable).count() == 1
 
     def test_dry_run_reports_counts_and_deletes_nothing(self, session):
         article_id = _seed_article(session)
