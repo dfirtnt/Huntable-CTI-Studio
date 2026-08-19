@@ -51,12 +51,12 @@ jobs:
           enable-cache: true
 
       - name: Install locked dependencies
-        run: uv sync --frozen --no-group test --no-group dev
+        run: uv sync --frozen --no-group test --no-group dev --group docs
 
       # ---- Pull requests: validate the PR ref only (strict), never deploy. ----
       - name: Build (PR validation, strict)
         if: github.event_name == 'pull_request'
-        run: uv run --frozen --no-group test --no-group dev mkdocs build --strict
+        run: uv run --frozen --no-group test --no-group dev --group docs mkdocs build --strict
 
       # ---- Push / manual dispatch: assemble the COMBINED site. ----
       # Check out both publishable refs into sibling paths and build each into the
@@ -78,11 +78,11 @@ jobs:
 
       - name: Build main -> site root (strict)
         if: github.event_name != 'pull_request'
-        run: uv run --frozen --no-group test --no-group dev mkdocs build --strict -f docs-src/main/mkdocs.yml --site-dir "$GITHUB_WORKSPACE/_site"
+        run: uv run --frozen --no-group test --no-group dev --group docs mkdocs build --strict -f docs-src/main/mkdocs.yml --site-dir "$GITHUB_WORKSPACE/_site"
 
       - name: Build europa-dev -> /europa (strict)
         if: github.event_name != 'pull_request'
-        run: uv run --frozen --no-group test --no-group dev mkdocs build --strict -f docs-src/europa/mkdocs.yml --site-dir "$GITHUB_WORKSPACE/_site/europa"
+        run: uv run --frozen --no-group test --no-group dev --group docs mkdocs build --strict -f docs-src/europa/mkdocs.yml --site-dir "$GITHUB_WORKSPACE/_site/europa"
 
       - name: Upload pages artifact
         if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/europa-dev'))
