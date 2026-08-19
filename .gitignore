@@ -60,6 +60,7 @@ venv.bak/
 !.claude/agents/**
 .opencode/
 .context/
+.hermes/
 .vscode/
 .idea/
 *.swp
