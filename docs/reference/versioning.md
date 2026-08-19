@@ -13,9 +13,9 @@ Huntable CTI Studio uses a combination of semantic versioning and planetary moon
 
 ## Current Version
 
-**v7.7.0 "Europa"** - Current stable release
-**v7.6.0 "Europa"** - Previous stable release
-**v7.5.0 "Europa"** - Earlier stable release
+**v7.8.0 "Europa"** - Current stable release
+**v7.7.0 "Europa"** - Previous stable release
+**v7.6.0 "Europa"** - Earlier stable release
 
 ## Planetary Moon Naming System
 
@@ -49,6 +49,12 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 - Europa (v7.0 - v7.6)
 
 ## Version History
+
+### v7.8.0 "Europa" (2026-08-19)
+<!-- TODO: fill Significance and Features before merging to main; pull content from docs/CHANGELOG.md [7.8.0] section. -->
+- **Named After**: <fill>
+- **Significance**: <fill>
+- **Features**: <fill>
 
 ### v7.7.0 "Europa" (2026-08-06)
 <!-- TODO: fill Significance and Features before merging to main; pull content from docs/CHANGELOG.md [7.7.0] section. -->
