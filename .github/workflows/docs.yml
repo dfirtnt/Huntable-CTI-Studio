@@ -15,10 +15,14 @@ on:
     paths:
       - 'docs/**'
       - 'mkdocs.yml'
+      # Include this workflow so a change to the build commands is exercised by
+      # the workflow it changes; without it, a broken build command ships green.
+      - '.github/workflows/docs.yml'
   pull_request:
     paths:
       - 'docs/**'
       - 'mkdocs.yml'
+      - '.github/workflows/docs.yml'
 
 permissions:
   contents: read
