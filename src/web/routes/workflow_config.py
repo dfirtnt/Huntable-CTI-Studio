@@ -224,6 +224,10 @@ class WorkflowConfigUpdate(BaseModel):
     rank_agent_enabled: bool | None = None
     cmdline_attention_preprocessor_enabled: bool | None = None
     proc_tree_attention_preprocessor_enabled: bool | None = None
+    # Opt-in escape hatch for the UI's "Save Anyway" confirmation. Without it a payload
+    # that carries agent_prompts is rejected when a prompt issue would make an agent fail
+    # silently at runtime -- the client-side confirm is advisory and bypassable.
+    allow_prompt_warnings: bool = False
 
 
 class AgentPromptUpdate(BaseModel):
@@ -558,6 +562,40 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                                     status_code=400,
                                     detail=f"Invalid JSON format for {agent_name} prompt in workflow config. Please fix the prompt in the UI. Error: {e}",
                                 ) from e
+
+            # A config saved with an enabled extractor but no prompt runs to "completed"
+            # with zero observables and zero rules and reports no error, so the loss is
+            # only visible in worker logs. The browser confirm is advisory and bypassable,
+            # so enforce the same scan here.
+            #
+            # Only payloads that actually edit prompts are checked. A threshold-only PUT,
+            # or an autosave that merely flips a ``disabled_agents`` toggle, must not be
+            # refused because the config it lands on was already prompt-deficient -- see
+            # the no-active-row recovery path, which sends exactly that shape.
+            payload_touches_prompts = any(key != "ExtractAgentSettings" for key in (config_update.agent_prompts or {}))
+            if payload_touches_prompts and not config_update.allow_prompt_warnings:
+                scanned_prompts = dict(final_agent_prompts or {})
+                if not final_rank_agent_enabled:
+                    # A disabled Rank Agent never runs, so its empty prompt is not a defect.
+                    # _scan_missing_extractor_prompts already honours disabled_agents for the
+                    # sub-agents; RankAgent's switch is a top-level column instead.
+                    scanned_prompts.pop("RankAgent", None)
+                prompt_warnings = _scan_missing_extractor_prompts(scanned_prompts) + _scan_preset_prompts_for_warnings(
+                    scanned_prompts
+                )
+                if prompt_warnings:
+                    logger.warning("Rejecting config save with %d prompt issue(s)", len(prompt_warnings))
+                    raise HTTPException(
+                        status_code=400,
+                        detail={
+                            "message": (
+                                f"Configuration has {len(prompt_warnings)} prompt issue(s) that would make "
+                                "these agents fail silently at runtime."
+                            ),
+                            "warnings": prompt_warnings,
+                            "override_field": "allow_prompt_warnings",
+                        },
+                    )
 
             # Check if the new config would be identical to the current one
             if current_config:

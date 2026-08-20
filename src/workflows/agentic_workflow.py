@@ -480,6 +480,10 @@ def _rebase_group_observable_indices(rule: dict[str, Any], original_indices: lis
     for idx in raw_indices:
         if isinstance(idx, int) and 0 <= idx < len(original_indices):
             rebased.append(original_indices[idx])
+    if raw_indices and not rebased:
+        # The model cited observables that do not exist in this group. Collapsing to []
+        # silently would be indistinguishable from a rule that never claimed any.
+        _append_observable_attribution_warning(rule, "out_of_range_observable_indices")
     rule["observables_used"] = rebased
 
 
@@ -522,6 +526,7 @@ def _metadata_without_grounding_fields(rule: dict[str, Any]) -> dict[str, Any]:
     grounding_fields = {
         "observables_used",
         "observables_used_inferred",
+        "observable_attribution",
         "platform",
         "telemetry_category",
         "generation_basis",
@@ -546,23 +551,47 @@ def _repair_empty_observable_attribution(
     group_original_indices: list[int],
     group_logsource_hint: dict[str, Any] | None,
 ) -> None:
-    """Recover traceability when a grouped Sigma rule explicitly returned observables_used: []."""
+    """Recover traceability when a grouped Sigma rule did not tie itself to observables.
+
+    Also stamps ``observable_attribution`` on every rule so an untied rule stays
+    diagnosable after the fact. A rule generated from raw article content -- the
+    full-content fallback the operator turns on in config -- is a different outcome from
+    one where the group did offer observables and the tie-back failed. Both previously
+    surfaced as nothing more than an absent ``observables_used``, so the failure was
+    indistinguishable from the configured behaviour.
+    """
     rule_logsource = rule.get("logsource") if isinstance(rule.get("logsource"), dict) else {}
     rule_category = rule_logsource.get("category")
     group_category = group_logsource_hint.get("category") if isinstance(group_logsource_hint, dict) else None
     if rule_category and group_category and rule_category != group_category:
         _append_observable_attribution_warning(rule, "logsource_mismatch")
 
-    if rule.get("observables_used") != [] or not group_original_indices:
+    raw_indices = rule.get("observables_used")
+    if isinstance(raw_indices, list) and raw_indices:
+        rule["observable_attribution"] = "grounded"
         return
+
+    if not group_original_indices:
+        # This group carried no observables to cite (full-content fallback), so an untied
+        # rule is the configured outcome rather than a lost attribution.
+        rule["observable_attribution"] = "untied_by_design"
+        return
+
+    if not isinstance(raw_indices, list):
+        # The key is absent or malformed. Returning early here used to leave the rule
+        # looking exactly like one that was attributed successfully.
+        _append_observable_attribution_warning(rule, "missing_observables_used")
+        rule["observables_used"] = []
 
     inferred = _infer_observables_used(yaml.dump(_metadata_without_grounding_fields(rule)), extraction_result or {})
     if inferred:
         rule["observables_used"] = inferred
         rule["observables_used_inferred"] = True
+        rule["observable_attribution"] = "inferred"
         return
 
     _append_observable_attribution_warning(rule, "empty_for_observable_group")
+    rule["observable_attribution"] = "attribution_failed"
 
 
 def _detection_leaf_values(detection: Any) -> frozenset[str]:
@@ -3151,6 +3180,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             non_sigma_metadata_fields = {
                                 "observables_used",
                                 "observables_used_inferred",
+                                "observable_attribution",
                                 "platform",
                                 "telemetry_category",
                                 "generation_basis",
@@ -3188,6 +3218,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                                 rule_meta["observables_used"] = rule["observables_used"]
                             for metadata_key in (
                                 "observables_used_inferred",
+                                "observable_attribution",
                                 "platform",
                                 "telemetry_category",
                                 "generation_basis",

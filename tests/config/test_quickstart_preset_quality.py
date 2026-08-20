@@ -94,6 +94,37 @@ def test_quickstart_base_agent_prompts_complete(preset_path: Path):
 
 
 @pytest.mark.parametrize("preset_path", _QUICKSTART_PRESETS, ids=lambda p: p.stem)
+def test_quickstart_import_round_trip_delivers_every_prompt(preset_path: Path):
+    """Prompts in the file must survive the import path, not just exist on disk.
+
+    ``test_quickstart_base_agent_prompts_complete`` reads the JSON directly, so it stays
+    green even if the loader or the to-legacy conversion drops prompts on the way to the
+    browser. This runs the exact chain ``POST /config/preset/to-legacy`` runs and asserts
+    the payload the UI receives still carries a non-empty prompt for every enabled agent
+    -- the regression that let a preset import while applying no prompts at all.
+    """
+    config = load_workflow_config(_load(preset_path))
+    agent_prompts = _v2_to_legacy_preset_dict(config)["agent_prompts"]
+
+    assert agent_prompts, f"{preset_path.name}: import delivers no agent prompts at all"
+
+    disabled = set(config.Execution.ExtractAgentSettings.DisabledAgents)
+    missing = [
+        name
+        for name, agent in config.Agents.items()
+        # ExtractAgent is a model/provider fallback key by contract and carries no prompt.
+        if name != "ExtractAgent"
+        and agent.Enabled
+        and name not in disabled
+        and not (agent_prompts.get(name, {}).get("prompt") or "").strip()
+    ]
+
+    assert not missing, (
+        f"{preset_path.name}: enabled agents arrive from the import path with no prompt: {', '.join(sorted(missing))}"
+    )
+
+
+@pytest.mark.parametrize("preset_path", _QUICKSTART_PRESETS, ids=lambda p: p.stem)
 def test_quickstart_description_not_stale(preset_path: Path):
     """Description must not be the stale 'Exported preset' default."""
     data = _load(preset_path)

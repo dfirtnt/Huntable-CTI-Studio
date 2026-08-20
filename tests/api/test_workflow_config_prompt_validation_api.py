@@ -1,7 +1,9 @@
 """API coverage for Save-time prompt validation and asset cache-busting wiring.
 
-Both behaviors are read-only: these tests never write a workflow config version, so the
-module carries no ``agent_config_mutation`` marker.
+The validation and cache-busting tests are read-only and carry no marker. The
+Save-rejection class is marked ``agent_config_mutation``: a rejected PUT commits nothing,
+but it is still a PUT /api/workflow/config, and against a dev app running code without
+the server-side refusal it would be accepted and would rewrite the live config.
 
 Context: a config that lost every extractor prompt ran to ``status: completed`` with zero
 observables and zero rules and reported no error -- the loss was visible only in worker
@@ -109,3 +111,114 @@ class TestAssetCacheBustingWiring:
 
         assert "?v=20260729" not in response.text
         assert "?v=20260804" not in response.text
+
+
+@pytest.mark.agent_config_mutation
+class TestSaveIsRefusedServerSide:
+    """PUT /api/workflow/config
+
+    The pre-flight endpoint above is advisory: the browser shows a confirm with a "Save
+    Anyway" button and swallows its own failures, so a config that loses every extractor
+    prompt could still be persisted. These tests pin the server-side refusal, which is
+    the only gate a script, a stale tab, or a dismissed dialog cannot walk past.
+    """
+
+    @pytest.mark.api
+    @pytest.mark.asyncio
+    async def test_save_that_drops_every_extractor_prompt_is_rejected(self, async_client: httpx.AsyncClient):
+        """An explicit null removes a prompt from the merged config -- the shape that wiped them.
+
+        A merely absent key is preserved by ``_merge_agent_prompts``, so removal is the
+        only payload that can leave an enabled extractor with nothing to run.
+        """
+        response = await async_client.put(
+            "/api/workflow/config",
+            json={
+                "agent_prompts": {
+                    **{agent: None for agent in EXTRACTORS},
+                    "ExtractAgentSettings": {"disabled_agents": []},
+                }
+            },
+        )
+
+        assert response.status_code == 400
+        detail = response.json()["detail"]
+        assert detail["override_field"] == "allow_prompt_warnings"
+        for agent in EXTRACTORS:
+            assert any(agent in w for w in detail["warnings"]), f"{agent} not reported"
+
+    @pytest.mark.api
+    @pytest.mark.asyncio
+    async def test_save_with_an_empty_prompt_body_is_rejected(self, async_client: httpx.AsyncClient):
+        """An empty string is the shape the expanded prompt editor actually persisted."""
+        response = await async_client.put(
+            "/api/workflow/config",
+            json={
+                "agent_prompts": {
+                    "ExtractAgentSettings": {"disabled_agents": EXTRACTORS},
+                    "SigmaAgent": {"prompt": ""},
+                }
+            },
+        )
+
+        assert response.status_code == 400
+        warnings = response.json()["detail"]["warnings"]
+        assert any("SigmaAgent" in w and "empty" in w for w in warnings)
+
+    @pytest.mark.api
+    @pytest.mark.asyncio
+    async def test_rejection_does_not_persist_a_new_version(self, async_client: httpx.AsyncClient):
+        """A refused Save must leave the active config untouched, not half-applied."""
+        before = (await async_client.get("/api/workflow/config")).json()
+
+        rejected = await async_client.put(
+            "/api/workflow/config",
+            json={
+                "agent_prompts": {
+                    **{agent: None for agent in EXTRACTORS},
+                    "ExtractAgentSettings": {"disabled_agents": []},
+                }
+            },
+        )
+        assert rejected.status_code == 400
+
+        after = (await async_client.get("/api/workflow/config")).json()
+        assert after["version"] == before["version"]
+        assert after["agent_prompts"] == before["agent_prompts"]
+
+    @pytest.mark.api
+    @pytest.mark.asyncio
+    async def test_settings_only_autosave_is_not_blocked(self, async_client: httpx.AsyncClient):
+        """A disabled_agents toggle is not a prompt edit and must not be refused.
+
+        Guards the narrowing: an earlier version of this check rejected the partial
+        autosave payload used by the no-active-row recovery path.
+        """
+        response = await async_client.put(
+            "/api/workflow/config",
+            json={"agent_prompts": {"ExtractAgentSettings": {"disabled_agents": []}}},
+        )
+
+        assert response.status_code != 400, response.text
+
+    @pytest.mark.api
+    @pytest.mark.asyncio
+    async def test_a_disabled_rank_agent_with_no_prompt_does_not_block(self, async_client: httpx.AsyncClient):
+        """A switched-off agent never runs, so its empty prompt is not a runtime defect.
+
+        Found on the live config: RankAgent was disabled and carried an empty prompt, which
+        would otherwise have refused every prompt-touching save until the operator clicked
+        through the override.
+        """
+        response = await async_client.put(
+            "/api/workflow/config",
+            json={
+                "rank_agent_enabled": False,
+                "agent_prompts": {
+                    "ExtractAgentSettings": {"disabled_agents": EXTRACTORS},
+                    "RankAgent": {"prompt": ""},
+                },
+            },
+        )
+
+        assert response.status_code != 400, response.text

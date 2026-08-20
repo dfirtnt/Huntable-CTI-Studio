@@ -251,6 +251,7 @@ def test_repair_empty_observable_attribution_infers_execution_wide_indices():
 
     assert rule["observables_used"] == [0]
     assert rule["observables_used_inferred"] is True
+    assert rule["observable_attribution"] == "inferred"
     assert "logsource_mismatch" in rule["observable_attribution_warnings"]
 
 
@@ -272,6 +273,7 @@ def test_repair_empty_observable_attribution_warns_when_no_match():
 
     assert rule["observables_used"] == []
     assert rule["observable_attribution_warnings"] == ["empty_for_observable_group"]
+    assert rule["observable_attribution"] == "attribution_failed"
 
 
 def test_sigma_full_content_fallback_group_preserves_legacy_content_path():
@@ -733,3 +735,104 @@ class TestDeadCodeRemoval:
         assert not re.search(r'"novelty_results"\s*:\s*novelty_results.*New key', src), (
             '"novelty_results" duplicate state key still present'
         )
+
+
+class TestObservableAttributionIsDiagnosable:
+    """A Sigma rule with no observables has three very different causes.
+
+    It can be untied *by design* -- the operator turned on full-article generation, so the
+    group carried no observables to cite -- or the group did offer observables and the
+    tie-back failed, or the model never emitted the field at all. All three used to leave
+    the rule looking identical: no ``observables_used``, no warning, nothing queryable.
+    ``observable_attribution`` separates them.
+    """
+
+    @staticmethod
+    def _rule(**overrides) -> dict:
+        rule = {
+            "title": "Generic Rule",
+            "logsource": {"product": "windows", "category": "process_creation"},
+            "detection": {"selection": {"CommandLine|contains": "not-present"}, "condition": "selection"},
+        }
+        rule.update(overrides)
+        return rule
+
+    _EXTRACTION = {"observables": [{"type": "cmdline", "value": "powershell.exe -enc abc"}]}
+
+    def test_full_content_group_is_untied_by_design(self):
+        """SigmaFallbackEnabled generation: no observables were offered, so none are owed."""
+        rule = self._rule()
+
+        _repair_empty_observable_attribution(
+            rule,
+            extraction_result=self._EXTRACTION,
+            group_original_indices=[],
+            group_logsource_hint=None,
+        )
+
+        assert rule["observable_attribution"] == "untied_by_design"
+        assert "observable_attribution_warnings" not in rule
+
+    def test_absent_field_on_an_observable_group_is_a_failure_not_a_design_choice(self):
+        """The model omitted the field entirely; this used to return early and warn nothing."""
+        rule = self._rule()
+
+        _repair_empty_observable_attribution(
+            rule,
+            extraction_result=self._EXTRACTION,
+            group_original_indices=[0],
+            group_logsource_hint={"product": "windows", "category": "process_creation"},
+        )
+
+        assert rule["observable_attribution"] == "attribution_failed"
+        assert "missing_observables_used" in rule["observable_attribution_warnings"]
+
+    def test_a_cited_rule_is_marked_grounded(self):
+        rule = self._rule(observables_used=[3])
+
+        _repair_empty_observable_attribution(
+            rule,
+            extraction_result=self._EXTRACTION,
+            group_original_indices=[3],
+            group_logsource_hint={"product": "windows", "category": "process_creation"},
+        )
+
+        assert rule["observable_attribution"] == "grounded"
+        assert rule["observables_used"] == [3]
+
+    def test_the_two_untied_outcomes_are_distinguishable(self):
+        """The whole point: same empty attribution, two different stamps."""
+        by_design = self._rule()
+        _repair_empty_observable_attribution(
+            by_design, extraction_result=self._EXTRACTION, group_original_indices=[], group_logsource_hint=None
+        )
+        failed = self._rule(observables_used=[])
+        _repair_empty_observable_attribution(
+            failed,
+            extraction_result=self._EXTRACTION,
+            group_original_indices=[0],
+            group_logsource_hint={"product": "windows", "category": "process_creation"},
+        )
+
+        assert by_design.get("observables_used") in (None, [])
+        assert failed["observables_used"] == []
+        assert by_design["observable_attribution"] != failed["observable_attribution"]
+
+
+def test_rebase_flags_indices_that_do_not_exist_in_the_group():
+    """Every cited index was out of range: collapsing to [] silently hid the miscitation."""
+    rule = {"observables_used": [7, 9]}
+
+    _rebase_group_observable_indices(rule, [3, 8])
+
+    assert rule["observables_used"] == []
+    assert rule["observable_attribution_warnings"] == ["out_of_range_observable_indices"]
+
+
+def test_rebase_does_not_flag_a_partially_valid_citation():
+    rule = {"observables_used": [0, 99]}
+
+    _rebase_group_observable_indices(rule, [3, 8])
+
+    assert rule["observables_used"] == [3]
+    assert "observable_attribution_warnings" not in rule

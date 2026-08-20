@@ -6676,6 +6676,9 @@ if (workflowConfigForm) {
                     showNotification('Save cancelled - fix the prompt issues above', 'warning');
                     return;
                 }
+                // The server runs the same scan and rejects the save by default. Carry the
+                // operator's explicit "Save Anyway" through so the override is deliberate.
+                formData.allow_prompt_warnings = true;
             }
         }
     } catch (validationError) {
@@ -6805,6 +6808,11 @@ if (workflowConfigForm) {
                     }).join('\n');
                 } else if (typeof error.detail === 'string') {
                     errorMessage = error.detail;
+                } else if (error.detail.message && Array.isArray(error.detail.warnings)) {
+                    // Server-side prompt-validation rejection: render the warning list
+                    // rather than dumping raw JSON at the operator.
+                    errorMessage = error.detail.message + '\n' +
+                        error.detail.warnings.map(w => `\u2022 ${w}`).join('\n');
                 } else {
                     errorMessage = JSON.stringify(error.detail, null, 2);
                 }
