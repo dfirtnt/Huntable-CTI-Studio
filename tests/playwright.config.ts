@@ -73,6 +73,7 @@ const featureProjects = [
     use: browser,
     testMatch: [
       /playwright\/collapsible_sections\.spec\.ts$/,
+      /playwright\/diags_.*\.spec\.ts$/,
       /playwright\/modal_.*\.spec\.ts$/,
       /playwright\/settings\.spec\.ts$/,
     ],

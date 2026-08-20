@@ -1,0 +1,87 @@
+import { test, expect } from '@playwright/test';
+
+const BASE = process.env.CTI_SCRAPER_URL || 'http://localhost:8001';
+
+/**
+ * Regression tests for two Diags page ("System Diagnostics & Health",
+ * src/web/templates/diags.html) fixes shipped together in a72c3a31:
+ *
+ * 1. DOM-XSS: updateOverallHealthStatus() interpolated `data.error` directly
+ *    into `content.innerHTML` (line ~624), unlike every sibling health-card
+ *    updater which already used escapeHtml()/textContent. A health endpoint
+ *    (or a caught fetch error whose message reflects response content)
+ *    returning an `error` string containing markup would execute it. Fixed
+ *    by wrapping the interpolation in escapeHtml().
+ *
+ * 2. Batch overlay/button: "Run All Health Checks" issues five sequential
+ *    health-check calls, each of which independently showed/hid the single
+ *    #loadingOverlay and never disabled the trigger button -- so the overlay
+ *    could flicker between checks and a second click mid-run could start an
+ *    overlapping batch. Fixed by having the click handler own the overlay
+ *    for the whole batch (each update*Health() call takes a suppressOverlay
+ *    flag) and disable/re-enable the button around the run.
+ */
+const XSS_PAYLOAD = '<img src=x onerror="window.__diags_xss_fired=true">';
+
+test.describe('Diags health check regression', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(`${BASE}/diags`);
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('#runAllHealthChecks')).toBeVisible();
+  });
+
+  test('[DIAGS-XSS-001] overall health status escapes error markup instead of executing it', async ({ page }) => {
+    await page.route('**/api/health', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ status: 'error', error: XSS_PAYLOAD, timestamp: new Date().toISOString() }),
+      });
+    });
+    // Sibling checks aren't under test here; stub them healthy so the batch
+    // completes quickly and doesn't depend on live worker/DB/service state.
+    await page.route('**/api/health/**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'healthy' }) });
+    });
+
+    await page.locator('#runAllHealthChecks').click();
+    await expect(page.locator('#loadingOverlay')).toBeHidden({ timeout: 10000 });
+
+    const content = page.locator('#overallHealthStatus');
+    await expect(content).toContainText('img src=x onerror=');
+
+    const result = await content.evaluate((el) => ({
+      imgCount: el.querySelectorAll('img').length,
+      hasOnError: Array.from(el.querySelectorAll('*')).some((node) => node.hasAttribute('onerror')),
+    }));
+    expect(result.imgCount).toBe(0);
+    expect(result.hasOnError).toBe(false);
+
+    const xssFired = await page.evaluate(() => (window as any).__diags_xss_fired === true);
+    expect(xssFired).toBe(false);
+  });
+
+  test('[DIAGS-BATCH-001] batch run shows a single overlay and disables the trigger button', async ({ page }) => {
+    await page.route('**/api/health**', async (route) => {
+      // Hold each response open briefly so the mid-run state is observable.
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'healthy', timestamp: new Date().toISOString() }) });
+    });
+
+    const button = page.locator('#runAllHealthChecks');
+    const overlay = page.locator('#loadingOverlay');
+
+    await expect(overlay).toBeHidden();
+    await button.click();
+
+    await expect(overlay).toBeVisible();
+    await expect(button).toBeDisabled();
+    // The overlay is a single singleton element -- assert only one is ever
+    // shown, and that a second click while running doesn't re-open it.
+    await expect(page.locator('#loadingOverlay')).toHaveCount(1);
+    await button.click({ force: true }); // no-op while disabled
+
+    await expect(overlay).toBeHidden({ timeout: 10000 });
+    await expect(button).toBeEnabled();
+  });
+});
