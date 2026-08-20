@@ -35,6 +35,8 @@
   cursor:pointer; font-family:'DM Sans',sans-serif; transition:background 0.15s;
 }
 .diag-action-bar .btn-primary:hover { background:var(--purple-hover); }
+.diag-action-bar .btn-primary:disabled { opacity:0.55; cursor:not-allowed; }
+.diag-action-bar .btn-primary:disabled:hover { background:var(--purple-primary); }
 .diag-action-bar .btn-secondary {
   display:inline-flex; align-items:center; gap:0.3rem;
   padding:0.4rem 0.9rem; background:var(--panel-bg-4); color:var(--text-primary);
@@ -51,7 +53,7 @@
 .diag-action-bar .checkbox-wrap span { font-size: 0.75rem; color:var(--text-muted-slate); }
 
 /* Card grid (sources source-grid pattern) */
-.diag-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(420px,1fr)); gap:0.875rem; }
+.diag-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(420px,100%),1fr)); gap:0.875rem; }
 
 /* Card (source-card pattern with left accent) */
 .diag-card {
@@ -198,7 +200,7 @@
         <div class="diag-card health-neutral" id="cardSystemHealth">
             <h2 class="diag-card-title">System Health</h2>
             <p class="diag-card-meta">Overall status · last check</p>
-            <div id="overallHealthStatus" class="diag-muted text-sm">
+            <div id="overallHealthStatus" class="diag-muted text-sm" aria-live="polite">
                 Click "Run All Health Checks" to get system status
             </div>
         </div>
@@ -207,7 +209,7 @@
         <div class="diag-card health-neutral" id="cardWorkerStatus">
             <h2 class="diag-card-title">Worker Status</h2>
             <p class="diag-card-meta">Celery workers · pool</p>
-            <div id="workerStatus" class="space-y-3">
+            <div id="workerStatus" class="space-y-3" aria-live="polite">
                 <div class="animate-pulse">
                     <div class="h-4 rounded w-3/4" style="background:var(--border-muted);"></div>
                     <div class="h-4 rounded w-1/2 mt-2" style="background:var(--border-muted);"></div>
@@ -219,7 +221,7 @@
         <div class="diag-card health-neutral" id="cardDatabase">
             <h2 class="diag-card-title">Database Health</h2>
             <p class="diag-card-meta">Connection · integrity</p>
-            <div id="databaseHealthContent" class="diag-muted text-sm">
+            <div id="databaseHealthContent" class="diag-muted text-sm" aria-live="polite">
                 Click "Run All Health Checks" to check database status
             </div>
         </div>
@@ -228,7 +230,7 @@
         <div class="diag-card health-neutral" id="cardServices">
             <h2 class="diag-card-title">External Services</h2>
             <p class="diag-card-meta">Redis · LMStudio · Langfuse</p>
-            <div id="servicesHealthContent" class="diag-muted text-sm">
+            <div id="servicesHealthContent" class="diag-muted text-sm" aria-live="polite">
                 Click "Run All Health Checks" to check external services
             </div>
         </div>
@@ -238,7 +240,7 @@
             <h2 class="diag-card-title">Queue Status</h2>
             <p class="diag-card-meta">Pending tasks · consumers</p>
             <p class="text-xs diag-muted mb-3">Shows pending tasks per queue and which worker(s) consume each queue</p>
-            <div id="queueStatus" class="space-y-3">
+            <div id="queueStatus" class="space-y-3" aria-live="polite">
                 <div class="animate-pulse">
                     <div class="h-4 rounded w-3/4" style="background:var(--border-muted);"></div>
                     <div class="h-4 rounded w-1/2 mt-2" style="background:var(--border-muted);"></div>
@@ -251,7 +253,7 @@
             <h2 class="diag-card-title">Active Tasks</h2>
             <p class="diag-card-meta">Currently running</p>
             <p class="text-xs diag-muted mb-3">Tasks in progress across all workers</p>
-            <div id="activeTasks" class="space-y-3">
+            <div id="activeTasks" class="space-y-3" aria-live="polite">
                 <div class="animate-pulse">
                     <div class="h-4 rounded w-full" style="background:var(--border-muted);"></div>
                     <div class="h-4 rounded w-2/3 mt-2" style="background:var(--border-muted);"></div>
@@ -263,7 +265,7 @@
         <div class="diag-card health-neutral" id="cardDedup">
             <h2 class="diag-card-title">Deduplication System</h2>
             <p class="diag-card-meta">Exact · near-duplicates</p>
-            <div id="deduplicationHealthContent" class="diag-muted text-sm">
+            <div id="deduplicationHealthContent" class="diag-muted text-sm" aria-live="polite">
                 Click "Run All Health Checks" to check deduplication status
             </div>
         </div>
@@ -272,7 +274,7 @@
         <div class="diag-card health-neutral" id="cardCelery">
             <h2 class="diag-card-title">Celery Workers</h2>
             <p class="diag-card-meta">Broker · result backend</p>
-            <div id="celeryHealthContent" class="diag-muted text-sm">
+            <div id="celeryHealthContent" class="diag-muted text-sm" aria-live="polite">
                 Click "Run All Health Checks" to check background task processing
             </div>
         </div>
@@ -287,7 +289,7 @@
             </div>
             <span id="job-history-toggle" class="chevron">▼</span>
         </div>
-        <div id="job-history-content" class="space-y-3 pt-4">
+        <div id="job-history-content" class="space-y-3 pt-4" aria-live="polite">
             <div class="animate-pulse">
                 <div class="h-4 rounded w-full" style="background:var(--border-muted);"></div>
                 <div class="h-4 rounded w-3/4 mt-2" style="background:var(--border-muted);"></div>
@@ -320,6 +322,7 @@
 <script>
 let autoRefreshInterval;
 let isAutoRefresh = true;
+const AUTO_REFRESH_STORAGE_KEY = 'diags.autoRefresh';
 
 document.addEventListener('DOMContentLoaded', function() {
     const workerStatus = document.getElementById('workerStatus');
@@ -328,6 +331,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const jobHistoryContent = document.getElementById('job-history-content');
 
     if (workerStatus && queueStatus && activeTasks && jobHistoryContent) {
+        const storedPref = localStorage.getItem(AUTO_REFRESH_STORAGE_KEY);
+        if (storedPref !== null) {
+            isAutoRefresh = storedPref === 'true';
+            const autoRefreshEl = document.getElementById('autoRefresh');
+            if (autoRefreshEl) autoRefreshEl.checked = isAutoRefresh;
+        }
         loadJobData();
         setupAutoRefresh();
         setupEventListeners();
@@ -345,6 +354,7 @@ function setupEventListeners() {
     if (autoRefreshEl) {
         autoRefreshEl.addEventListener('change', function(e) {
             isAutoRefresh = e.target.checked;
+            localStorage.setItem(AUTO_REFRESH_STORAGE_KEY, String(isAutoRefresh));
             if (isAutoRefresh) setupAutoRefresh();
             else clearInterval(autoRefreshInterval);
         });
@@ -352,18 +362,34 @@ function setupEventListeners() {
     if (refreshBtn) refreshBtn.addEventListener('click', loadJobData);
     if (runAllHealthBtn) {
         runAllHealthBtn.addEventListener('click', async () => {
-            await updateOverallHealthStatus();
-            await updateDatabaseHealth();
-            await updateDeduplicationHealth();
-            await updateServicesHealth();
-            await updateCeleryHealth();
+            runAllHealthBtn.disabled = true;
+            document.getElementById('loadingMessage').textContent = 'Running all health checks...';
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            try {
+                await updateOverallHealthStatus(true);
+                await updateDatabaseHealth(true);
+                await updateDeduplicationHealth(true);
+                await updateServicesHealth(true);
+                await updateCeleryHealth(true);
+            } finally {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+                runAllHealthBtn.disabled = false;
+            }
         });
     }
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            clearInterval(autoRefreshInterval);
+        } else if (isAutoRefresh) {
+            loadJobData();
+            setupAutoRefresh();
+        }
+    });
 }
 
 function setupAutoRefresh() {
     if (autoRefreshInterval) clearInterval(autoRefreshInterval);
-    if (isAutoRefresh) autoRefreshInterval = setInterval(loadJobData, 5000);
+    if (isAutoRefresh && !document.hidden) autoRefreshInterval = setInterval(loadJobData, 5000);
 }
 
 function updateStatsBar(data) {
@@ -577,16 +603,27 @@ function updateJobHistory(data) {
     container.innerHTML = html;
 }
 
-async function runHealthCheck(endpoint, loadingMessage) {
-    document.getElementById('loadingMessage').textContent = loadingMessage;
-    document.getElementById('loadingOverlay').classList.remove('hidden');
+async function runHealthCheck(endpoint, loadingMessage, suppressOverlay) {
+    if (!suppressOverlay) {
+        document.getElementById('loadingMessage').textContent = loadingMessage;
+        document.getElementById('loadingOverlay').classList.remove('hidden');
+    }
     try {
         const response = await fetch(`/api/health${endpoint}`);
-        const data = await response.json();
-        document.getElementById('loadingOverlay').classList.add('hidden');
-        return data;
+        let data = null;
+        try {
+            data = await response.json();
+        } catch (parseError) {
+            data = null;
+        }
+        if (!suppressOverlay) document.getElementById('loadingOverlay').classList.add('hidden');
+        if (!response.ok) {
+            const detail = (data && (data.error || data.detail || data.message)) || response.statusText || `HTTP ${response.status}`;
+            return { status: 'error', error: `HTTP ${response.status}: ${detail}` };
+        }
+        return data || { status: 'error', error: 'Empty response body' };
     } catch (error) {
-        document.getElementById('loadingOverlay').classList.add('hidden');
+        if (!suppressOverlay) document.getElementById('loadingOverlay').classList.add('hidden');
         console.error(`Health check failed for ${endpoint}:`, error);
         return { status: 'error', error: error.message };
     }
@@ -597,8 +634,8 @@ function getHealthIcon(s) { return s === 'healthy' ? '✓' : s === 'unhealthy' |
 function getHealthColor(s) { return s === 'healthy' ? 'diag-status-success' : s === 'unhealthy' || s === 'error' ? 'diag-status-error' : 'diag-muted'; }
 // escapeHtml now lives in /static/js/utils.js (loaded from base.html).
 
-async function updateOverallHealthStatus() {
-    const data = await runHealthCheck('', 'Checking overall system status...');
+async function updateOverallHealthStatus(suppressOverlay) {
+    const data = await runHealthCheck('', 'Checking overall system status...', suppressOverlay);
     const content = document.getElementById('overallHealthStatus');
     const card = document.getElementById('cardSystemHealth');
     if (card) card.className = 'diag-card ' + (data.status === 'healthy' ? 'health-ok' : data.status === 'unhealthy' || data.status === 'error' ? 'health-bad' : 'health-neutral');
@@ -621,11 +658,11 @@ async function updateOverallHealthStatus() {
                 </div>
             </div>
         </div>
-    </div>${data.error ? `<div class="mt-3 diag-inner-panel diag-status-error text-sm">${data.error}</div>` : ''}`;
+    </div>${data.error ? `<div class="mt-3 diag-inner-panel diag-status-error text-sm">${escapeHtml(data.error)}</div>` : ''}`;
 }
 
-async function updateDatabaseHealth() {
-    const data = await runHealthCheck('/database', 'Checking database health...');
+async function updateDatabaseHealth(suppressOverlay) {
+    const data = await runHealthCheck('/database', 'Checking database health...', suppressOverlay);
     const content = document.getElementById('databaseHealthContent');
     const card = document.getElementById('cardDatabase');
     if (card) card.className = 'diag-card ' + (data.status === 'healthy' ? 'health-ok' : 'health-bad');
@@ -650,8 +687,8 @@ async function updateDatabaseHealth() {
     }
 }
 
-async function updateDeduplicationHealth() {
-    const data = await runHealthCheck('/deduplication', 'Checking deduplication system...');
+async function updateDeduplicationHealth(suppressOverlay) {
+    const data = await runHealthCheck('/deduplication', 'Checking deduplication system...', suppressOverlay);
     const content = document.getElementById('deduplicationHealthContent');
     const card = document.getElementById('cardDedup');
     if (card) card.className = 'diag-card ' + (data.status === 'healthy' ? 'health-ok' : 'health-bad');
@@ -668,8 +705,8 @@ async function updateDeduplicationHealth() {
     }
 }
 
-async function updateServicesHealth() {
-    const data = await runHealthCheck('/services', 'Checking external services...');
+async function updateServicesHealth(suppressOverlay) {
+    const data = await runHealthCheck('/services', 'Checking external services...', suppressOverlay);
     const content = document.getElementById('servicesHealthContent');
     const card = document.getElementById('cardServices');
     if (card) card.className = 'diag-card ' + (data.status === 'healthy' ? 'health-ok' : 'health-bad');
@@ -697,8 +734,8 @@ async function updateServicesHealth() {
     }
 }
 
-async function updateCeleryHealth() {
-    const data = await runHealthCheck('/celery', 'Checking Celery workers...');
+async function updateCeleryHealth(suppressOverlay) {
+    const data = await runHealthCheck('/celery', 'Checking Celery workers...', suppressOverlay);
     const content = document.getElementById('celeryHealthContent');
     const card = document.getElementById('cardCelery');
     if (card) card.className = 'diag-card ' + (data.status === 'healthy' ? 'health-ok' : 'health-bad');
