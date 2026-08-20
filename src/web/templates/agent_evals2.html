@@ -1188,13 +1188,13 @@ function renderItemLevelTable(rows) {
         const actual = r.actual_count != null ? r.actual_count : null;
         const expected = r.expected_count != null ? r.expected_count : null;
 
-        let precision = null;
-        let recall = null;
-        let f05 = null;
-        const scoredActual = hasItemScoring ? r.matched_count + r.extra_count : actual;
-        if (hasItemScoring && scoredActual > 0) precision = r.matched_count / scoredActual;
-        if (hasItemScoring && expected != null && expected > 0) recall = r.matched_count / expected;
-        if (precision != null && recall != null) f05 = calculateFBeta(precision, recall, AGENT_EVAL_F_BETA);
+        // Single source of truth for the degenerate case -- see scoredArticleMetrics.
+        const rowMetrics = scoredArticleMetrics(r);
+        const precision = rowMetrics ? rowMetrics.precision : null;
+        const recall = rowMetrics ? rowMetrics.recall : null;
+        const f05 = (precision != null && recall != null)
+            ? calculateFBeta(precision, recall, AGENT_EVAL_F_BETA)
+            : null;
 
         const tr = document.createElement('tr');
         if (isCompleted && r.execution_id != null) {
@@ -1359,27 +1359,97 @@ function renderItemLevelTable(rows) {
     });
 }
 
+// ─── Per-article metrics ──────────────────────────────────────────────────────
+
+/**
+ * Precision/recall for one evaluation row, or null if the row was never
+ * item-scored.
+ *
+ * An unscored row (no ground truth) is genuinely undefined and must stay out of
+ * every aggregate -- callers render it as n/a.
+ *
+ * A SCORED row with an empty denominator -- an extractor that emitted nothing --
+ * scores 0, NOT 1. Returning 1 made silence the highest-scoring strategy: an
+ * extractor emitting zero items for every article averaged 100% precision, which
+ * is the exact failure an eval harness exists to catch. Measured on the live
+ * corpus at the time of this fix, 223 of 911 scored rows (24%) hit this branch --
+ * including windows_services at 3/3, scoring a displayed 100% while producing
+ * nothing at all.
+ *
+ * 0 is also the server's convention (`evaluation_api.py` per-config aggregates,
+ * `eval_item_scorer.py`), so the SYS.03 strip and the server-computed SYS.04
+ * trend chart can no longer report different numbers for the same rows.
+ *
+ * Every consumer -- table cell, summary strip, and item-detail modal -- must go
+ * through this function. They previously disagreed three ways on the same row:
+ * the cell showed n/a, the strip counted 1.0, and the modal displayed "100%
+ * (0/0)".
+ */
+function scoredArticleMetrics(row) {
+    if (!row || row.status !== 'completed' || row.matched_count == null) return null;
+
+    const matched = row.matched_count || 0;
+    const extra = row.extra_count || 0;
+    const expected = row.expected_count != null ? row.expected_count : 0;
+
+    const precisionDenom = matched + extra;
+    const recallDenom = expected;
+
+    return {
+        precision: precisionDenom > 0 ? matched / precisionDenom : 0,
+        recall: recallDenom > 0 ? matched / recallDenom : 0,
+        precisionDenom: precisionDenom,
+        recallDenom: recallDenom,
+    };
+}
+
 // ─── Aggregate summary ────────────────────────────────────────────────────────
+
+/**
+ * Macro-average precision/recall over the scored rows, or null if none are scored.
+ *
+ * Pure: no DOM. The displayed headline number is the thing most worth pinning in
+ * a test, and it cannot be pinned while it is computed inside a render function.
+ *
+ * Membership is decided ONLY by scoredArticleMetrics returning non-null. An
+ * earlier version filtered rows with a duplicated copy of that condition and
+ * then divided by the filtered length -- so if the two ever drifted, a skipped
+ * row would still count in the divisor and silently understate the mean.
+ */
+function aggregateScoredMetrics(rows) {
+    const scored = (rows || [])
+        .map(function(r) { return scoredArticleMetrics(r); })
+        .filter(function(m) { return m !== null; });
+
+    if (scored.length === 0) return null;
+
+    let totalP = 0, totalR = 0, perfectRecall = 0;
+    scored.forEach(function(m) {
+        totalP += m.precision;
+        totalR += m.recall;
+        // An article with no ground truth to recall is not a perfect recall.
+        if (m.recallDenom > 0 && m.recall >= 1.0) perfectRecall++;
+    });
+
+    return {
+        avgPrecision: totalP / scored.length,
+        avgRecall: totalR / scored.length,
+        perfectRecall: perfectRecall,
+        scoredCount: scored.length,
+    };
+}
 
 function renderAggregateSummary(rows) {
     const strip = document.getElementById('aggregateSummary');
-    const annotated = rows.filter(function(r) { return r.status === 'completed' && r.matched_count != null; });
+    const agg = aggregateScoredMetrics(rows);
 
-    if (annotated.length === 0) {
+    if (agg === null) {
         strip.classList.add('hidden');
         return;
     }
 
-    let totalP = 0, totalR = 0, perfectRecall = 0;
-    annotated.forEach(function(r) {
-        const p = ((r.matched_count + r.extra_count) > 0) ? r.matched_count / (r.matched_count + r.extra_count) : 1;
-        const rc = (r.expected_count > 0) ? r.matched_count / r.expected_count : 1;
-        totalP += p;
-        totalR += rc;
-        if (rc >= 1.0) perfectRecall++;
-    });
-    const avgP = totalP / annotated.length;
-    const avgR = totalR / annotated.length;
+    const avgP = agg.avgPrecision;
+    const avgR = agg.avgRecall;
 
     document.getElementById('aggTotal').textContent = rows.length;
 
@@ -1391,7 +1461,7 @@ function renderAggregateSummary(rows) {
     rEl.textContent = (avgR * 100).toFixed(1) + '%';
     rEl.className = 'eval-mono text-lg font-bold metric-value ' + metricColorClass(avgR);
 
-    document.getElementById('aggPerfect').textContent = perfectRecall + '/' + annotated.length;
+    document.getElementById('aggPerfect').textContent = agg.perfectRecall + '/' + agg.scoredCount;
 
     strip.classList.remove('hidden');
 }
@@ -1417,7 +1487,11 @@ function showItemDetail(row) {
     // Clear content
     while (content.firstChild) content.removeChild(content.firstChild);
 
-    if (row.matched_count == null) {
+    // One authoritative check for "is this row scored?", shared with the table
+    // and the summary strip. Deriving it separately here risked the three
+    // drifting apart -- and left the metrics below dereferencing a null.
+    const modalMetrics = scoredArticleMetrics(row);
+    if (modalMetrics === null) {
         const p = document.createElement('p');
         p.className = 'eval-mono';
         p.style.cssText = 'color: var(--text-muted-slate); font-size: 0.8rem;';
@@ -1435,9 +1509,9 @@ function showItemDetail(row) {
     const missed = row.missed_count || 0;
     const extra = row.extra_count || 0;
     const neutral = row.neutral_count || 0;
-    const scoredActual = matched + extra;
-    const precision = scoredActual > 0 ? matched / scoredActual : 1;
-    const recall = expected > 0 ? matched / expected : 1;
+    const scoredActual = modalMetrics.precisionDenom;
+    const precision = modalMetrics.precision;
+    const recall = modalMetrics.recall;
     const f05 = calculateFBeta(precision, recall, AGENT_EVAL_F_BETA);
 
     // Score summary bar

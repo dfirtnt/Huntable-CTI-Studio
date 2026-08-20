@@ -77,7 +77,7 @@ The workflow engine writes its state into `agentic_workflow_executions` and expo
 ### Workflow Configuration
 
 - `GET /api/workflow/config`
-- `PUT /api/workflow/config`
+- `PUT /api/workflow/config` — Rejects a config whose **enabled** extractors have no prompt (HTTP 400), because such a config produces runs that complete with zero observables and no error. Send `allow_prompt_warnings: true` to override deliberately ("Save Anyway"). Settings-only autosaves and disabled agents are exempt. See `src/web/routes/workflow_config.py`.
 - `GET /api/workflow/config/prompts`
 - `GET /api/workflow/config/prompts/{agent_name}`
 - `PUT /api/workflow/config/prompts`
