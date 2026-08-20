@@ -484,7 +484,7 @@
                     <!-- Subagent Selection -->
                     <div>
                         <label class="eval-section-label block mb-2">EXTRACTOR SUBAGENT</label>
-                        <select id="subagentSelect" class="eval-select">
+                        <select id="subagentSelect" class="eval-select" aria-label="Select sub-agent to evaluate">
                             <option value="cmdline">CommandLine</option>
                             <option value="process_lineage">Process Lineage</option>
                             <option value="hunt_queries">Hunt Queries</option>
@@ -677,13 +677,13 @@
                     <div class="flex items-end gap-3 flex-wrap mb-4">
                         <div>
                             <label class="block text-[10px] font-medium mb-1" style="color: var(--text-muted-slate);">Baseline</label>
-                            <select id="compareVersionA" class="px-2 py-1.5 border border-gray-600 rounded-md text-xs font-mono dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" style="min-width: 7rem;">
+                            <select id="compareVersionA" class="px-2 py-1.5 border border-gray-600 rounded-md text-xs font-mono dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" style="min-width: 7rem;" aria-label="Compare: config version A">
                                 <option value="">-- version --</option>
                             </select>
                         </div>
                         <div>
                             <label class="block text-[10px] font-medium mb-1" style="color: var(--text-muted-slate);">Candidate</label>
-                            <select id="compareVersionB" class="px-2 py-1.5 border border-gray-600 rounded-md text-xs font-mono dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" style="min-width: 7rem;">
+                            <select id="compareVersionB" class="px-2 py-1.5 border border-gray-600 rounded-md text-xs font-mono dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" style="min-width: 7rem;" aria-label="Compare: config version B">
                                 <option value="">-- version --</option>
                             </select>
                         </div>

@@ -30,7 +30,6 @@ from src.database.models import (  # noqa: E402
     AppSettingsTable,
     ArticleTable,
     Base,
-    SigmaEvaluationTable,
     SigmaRuleQueueTable,
     SourceCheckTable,
     SourceTable,
@@ -64,7 +63,6 @@ _TABLES = (
     AgenticWorkflowExecutionTable,
     SigmaRuleQueueTable,
     SubagentEvaluationTable,
-    SigmaEvaluationTable,
     SourceCheckTable,
     AppSettingsTable,
 )
@@ -215,7 +213,6 @@ class TestExecutionPurgeGuards:
         "model,column",
         [
             (SubagentEvaluationTable, "article_url"),
-            (SigmaEvaluationTable, "article_url"),
         ],
     )
     def test_evaluation_referenced_execution_is_never_purged(self, session, model, column):
@@ -224,8 +221,6 @@ class TestExecutionPurgeGuards:
         kwargs = {"workflow_execution_id": execution.id, column: "x"}
         if model is SubagentEvaluationTable:
             kwargs.update({"subagent_name": "cmdline", "expected_count": 1})
-        if model is SigmaEvaluationTable:
-            kwargs.update({"expected_rule_count": 1})
         session.add(model(**kwargs))
         session.flush()
 

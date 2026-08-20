@@ -224,7 +224,7 @@ See the [ML Model Operations Runbook](../operations/ml-model-runbook.md) for ret
 
 **MLOps → Agent evals** (Load Eval Articles, run subagent evals) use article snapshots committed in the repo under `config/eval_articles_data/{subagent}/articles.json`. No network fetch is required: the web app seeds these files into the DB at startup, and `start.sh` also runs the seed. If "Load Eval Articles" shows no articles, ensure you have the latest repo so the committed JSON files are present.
 
-The committed eval article directories cover all seven extraction sub-agents, plus the end-to-end Sigma eval:
+The committed eval article directories cover all seven extraction sub-agents:
 
 | Directory | Sub-agent |
 |-----------|-----------|
@@ -235,7 +235,6 @@ The committed eval article directories cover all seven extraction sub-agents, pl
 | `config/eval_articles_data/windows_services/` | ServicesExtract |
 | `config/eval_articles_data/scheduled_tasks/` | ScheduledTasksExtract |
 | `config/eval_articles_data/network_indicators/` | NetworkIndicatorExtract |
-| `config/eval_articles_data/sigma/` | End-to-end Sigma rule eval (not a sub-agent) |
 
 ## Next Steps
 
@@ -245,4 +244,4 @@ The committed eval article directories cover all seven extraction sub-agents, pl
 
 ---
 
-_Last updated: 2026-07-04_
+_Last updated: 2026-08-19_
