@@ -24,6 +24,18 @@ src/services/evaluation/ (EvaluationTracker):
 - GET  /api/eval/trends
 - GET  /api/eval/rank-agent-benchmarks
 
+Also removed 2026-08-19 (Sigma eval decommission -- the eval scored generated
+Sigma rules against hand-authored ground truth, a metric that measures
+resemblance to one analyst's rule set rather than detection quality; its
+defensible signal duplicated the extractor evals). This deleted
+sigma_evals.html, sigma_eval_scorer.py, sigma_eval_service.py, the
+`sigma_evaluations` table, and config/eval_articles_data/sigma/:
+- GET    /api/evaluations/sigma-eval-articles
+- POST   /api/evaluations/run-sigma-eval
+- GET    /api/evaluations/sigma-eval-results
+- DELETE /api/evaluations/sigma-eval-clear-pending
+- GET    /mlops/sigma-evals
+
 The surviving /api/eval/* endpoints (os-detection-manual-results,
 observables-count-results) read from other sources (result files / DB
 tables unrelated to AgentEvaluationTable) and must remain registered.
@@ -56,6 +68,22 @@ class TestRemovedDeadEndpoints:
         assert "/api/eval/relevance" not in paths
         assert "/api/eval/metrics" not in paths
         assert "/api/eval/comparison" not in paths
+
+    def test_removed_sigma_eval_endpoints_are_gone(self):
+        paths = _route_paths()
+        assert "/api/evaluations/sigma-eval-articles" not in paths
+        assert "/api/evaluations/run-sigma-eval" not in paths
+        assert "/api/evaluations/sigma-eval-results" not in paths
+        assert "/api/evaluations/sigma-eval-clear-pending" not in paths
+        assert "/mlops/sigma-evals" not in paths
+
+    def test_subagent_eval_endpoints_survive_sigma_removal(self):
+        """Eval1/Eval2 routes must be untouched by the Sigma eval decommission."""
+        paths = _route_paths()
+        assert "/api/evaluations/subagent-eval-articles" in paths
+        assert "/api/evaluations/run-subagent-eval" in paths
+        assert "/api/evaluations/subagent-eval-results" in paths
+        assert "/api/evaluations/subagent-eval-clear-pending" in paths
 
     def test_removed_debug_and_demo_routes_are_gone(self):
         paths = _route_paths()

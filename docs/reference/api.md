@@ -144,7 +144,7 @@ Route module: `src/web/routes/models.py`. Version data is stored in the `ml_mode
 - `POST /api/sigma-queue/{queue_id}/validate` — Validate and optionally LLM-enrich a queued rule. Returns `{ "validated_yaml": ... }`.
 - `GET /api/sigma-queue/*` (other endpoints)
 - `GET /api/eval/os-detection-manual-results` and `GET /api/eval/observables-count-results` — remaining legacy evaluation result routes (`src/web/routes/evaluation.py`)
-- `/mlops/agent-evals`, `/mlops/agent-evals2`, and `/mlops/sigma-evals` — HTML evaluation pages registered in `src/web/routes/pages.py`
+- `/mlops/agent-evals` and `/mlops/agent-evals2` — HTML evaluation pages registered in `src/web/routes/pages.py`
 
 #### Subagent Evaluation Endpoints
 

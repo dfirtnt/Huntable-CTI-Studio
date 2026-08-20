@@ -4,8 +4,8 @@ The article "From OneNote to RansomNote" (thedfirreport.com/2024/04/01/…) has
 a known split-identity:
   - Live DB row (articles.id=7): 0 newlines — scraped before the html_to_text
     newline-preservation fix and never re-scraped.
-  - Eval fixtures (cmdline, process_lineage, sigma articles.json): 1,549
-    newlines — captured when the fixture was authored from a correct scrape.
+  - Eval fixtures (cmdline, process_lineage articles.json): 1,549 newlines —
+    captured when the fixture was authored from a correct scrape.
 
 If anyone re-syncs a fixture from the DB they destroy the fixture's newline
 structure and break run-to-run score comparability.  This test pins the
@@ -68,21 +68,9 @@ def test_process_lineage_onenote_fixture_has_newlines():
 
 
 @pytest.mark.unit
-def test_sigma_onenote_fixture_has_newlines():
-    """sigma eval fixture OneNote article must not have been re-synced from DB."""
-    article = _onenote_article("sigma")
-    assert article is not None, "OneNote article not found in sigma/articles.json"
-    newline_count = article["content"].count("\n")
-    assert newline_count >= MIN_NEWLINES, (
-        f"sigma fixture OneNote article has {newline_count} newlines "
-        f"(expected >= {MIN_NEWLINES}). DB re-sync suspected — see test module docstring."
-    )
-
-
-@pytest.mark.unit
 def test_no_eval_fixture_article_has_zero_newlines_for_onenote():
-    """All three fixtures must agree: OneNote content is newline-rich (not DB-sourced)."""
-    for subdir in ("cmdline", "process_lineage", "sigma"):
+    """Both fixtures must agree: OneNote content is newline-rich (not DB-sourced)."""
+    for subdir in ("cmdline", "process_lineage"):
         article = _onenote_article(subdir)
         if article is not None:
             count = article["content"].count("\n")

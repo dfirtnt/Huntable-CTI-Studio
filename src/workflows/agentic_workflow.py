@@ -34,11 +34,6 @@ from src.services import subagent_eval_service
 from src.services.execution_snapshot_store import attach_snapshot, hydrate_snapshot
 from src.services.llm_service import LLMService
 from src.services.lmstudio_model_loader import auto_load_workflow_models
-from src.services.sigma_eval_service import (
-    is_sigma_eval_execution,
-    mark_pending_sigma_evals_as_failed,
-    score_and_persist_execution,
-)
 from src.services.sigma_generation_service import _infer_observables_used
 from src.services.sigma_matching_service import SigmaMatchingService
 from src.services.workflow_config_snapshot import build_config_snapshot, snapshot_is_complete
@@ -3069,26 +3064,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
         try:
             logger.info(f"[Workflow {state['execution_id']}] Step 5: Promote to Queue")
 
-            # Sigma eval runs score the generated rules (already persisted on
-            # execution.sigma_rules by generate_sigma) but must NOT promote them
-            # into the production review queue.
-            eval_execution = (
-                db_session.query(AgenticWorkflowExecutionTable)
-                .filter(AgenticWorkflowExecutionTable.id == state["execution_id"])
-                .first()
-            )
-            if eval_execution is not None and is_sigma_eval_execution(eval_execution):
-                logger.info(
-                    f"[Workflow {state['execution_id']}] Sigma eval run -- skipping queue promotion "
-                    f"({len(state.get('sigma_rules') or [])} rules scored, not queued)"
-                )
-                return {
-                    **state,
-                    "queued_rules": [],
-                    "current_step": "promote_to_queue",
-                    "status": "completed",
-                }
-
             # Check if workflow already failed - should not reach here if conditional edge works correctly
             if state.get("error"):
                 logger.warning(f"[Workflow {state['execution_id']}] Workflow has error, skipping queue promotion")
@@ -3399,11 +3374,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
         if execution:
             config_snapshot = _eval_snapshot(execution)
-            # A Sigma eval needs the full pipeline through generate_sigma, so it
-            # overrides the blanket eval_run -> skip-sigma behavior used by the
-            # extractor evals.
-            is_sigma_eval = _bool_from_value(config_snapshot.get("sigma_eval", False))
-            skip_sigma = (not is_sigma_eval) and (
+            skip_sigma = (
                 _bool_from_value(config_snapshot.get("skip_sigma_generation", False))
                 or _bool_from_value(config_snapshot.get("eval_run", False))
                 or _bool_from_value(state.get("skip_sigma_generation", False))
@@ -3900,12 +3871,6 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                     if not execution.current_step or execution.current_step == "promote_to_queue":
                         execution.current_step = final_state.get("current_step", "generate_sigma")
                         db_session.commit()
-
-                # Reconcile any pending Sigma eval rows so an error-in-state
-                # completion (finished ainvoke() without raising) does not strand
-                # them in 'pending'. The outer `except` covers raised exceptions;
-                # this covers has_error completions that return normally.
-                mark_pending_sigma_evals_as_failed(execution, db_session)
             elif execution.status == "running":
                 # No error - mark as completed (even if stopped by thresholds)
                 execution.status = "completed"
@@ -3919,7 +3884,6 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                 # Refresh execution to ensure we have the latest extraction_result
                 db_session.refresh(execution)
                 _update_subagent_eval_on_completion(execution, db_session)
-                score_and_persist_execution(execution, db_session)
 
                 logger.info(f"[Workflow {execution.id}] Marked as 'completed' - workflow finished normally")
             elif execution.status == "completed":
@@ -3928,7 +3892,6 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                 # Refresh execution to ensure we have the latest extraction_result
                 db_session.refresh(execution)
                 _update_subagent_eval_on_completion(execution, db_session)
-                score_and_persist_execution(execution, db_session)
             elif execution.status == "failed":
                 # Already marked as failed - ensure current_step is correct
                 step_ok = not execution.current_step or execution.current_step == "promote_to_queue"
@@ -4046,7 +4009,6 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
             # Reconcile any orphaned pending eval records tied to this execution
             # (e.g. failure before extract_agent completed).
             _mark_pending_subagent_evals_as_failed(execution, db_session)
-            mark_pending_sigma_evals_as_failed(execution, db_session)
         else:
             # No execution record - this is a real error
             logger.error(f"Workflow execution error for article {article_id}: {e}")

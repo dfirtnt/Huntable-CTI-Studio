@@ -138,7 +138,6 @@ nav:
       - Multi-Instance: development/multi-instance.md
       - Workflow Queue: development/workflow-queue.md
       - Search Queries: development/search-queries.md
-      - Sigma Eval System: development/sigma-eval-system.md
   - Deployment:
       - Docker Architecture: deployment/docker-architecture.md
       - Technical Readout: deployment/technical-readout.md
