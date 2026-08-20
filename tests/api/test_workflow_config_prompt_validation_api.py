@@ -217,8 +217,48 @@ class TestSaveIsRefusedServerSide:
                 "agent_prompts": {
                     "ExtractAgentSettings": {"disabled_agents": EXTRACTORS},
                     "RankAgent": {"prompt": ""},
+                    # Supplied so the assertion turns on RankAgent alone rather than on
+                    # whatever the ambient config happens to hold for SigmaAgent.
+                    "SigmaAgent": {"prompt": "You generate Sigma rules.", "instructions": ""},
                 },
             },
         )
 
         assert response.status_code != 400, response.text
+
+    @pytest.mark.api
+    @pytest.mark.asyncio
+    async def test_the_override_actually_lets_the_save_through(self, async_client: httpx.AsyncClient):
+        """The escape hatch has to work, or "Save Anyway" is a button that always 400s.
+
+        Every other test here proves the refusal. Without this one the flag could be
+        renamed, dropped, or never read and the whole suite would still pass while the
+        operator lost the ability to save a config they had deliberately accepted.
+        """
+        before = (await async_client.get("/api/workflow/config")).json()
+        original = (before.get("agent_prompts") or {}).get("SigmaAgent")
+        # Restore to something non-empty no matter what was there. The test DB is not
+        # rebuilt between runs, so leaving SigmaAgent empty would poison every later
+        # prompt-touching save -- in this run and in the next one.
+        if not isinstance(original, dict) or not (original.get("prompt") or "").strip():
+            original = {"prompt": "You generate Sigma rules.", "instructions": ""}
+
+        try:
+            refused = await async_client.put(
+                "/api/workflow/config",
+                json={"agent_prompts": {"SigmaAgent": {"prompt": ""}}},
+            )
+            assert refused.status_code == 400, "precondition: this payload must be refused without the override"
+
+            allowed = await async_client.put(
+                "/api/workflow/config",
+                json={"agent_prompts": {"SigmaAgent": {"prompt": ""}}, "allow_prompt_warnings": True},
+            )
+
+            assert allowed.status_code == 200, allowed.text
+        finally:
+            restored = await async_client.put(
+                "/api/workflow/config",
+                json={"agent_prompts": {"SigmaAgent": original}, "allow_prompt_warnings": True},
+            )
+            assert restored.status_code == 200, f"cleanup failed, config left deficient: {restored.text}"

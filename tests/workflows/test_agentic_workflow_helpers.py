@@ -15,6 +15,7 @@ from src.workflows.agentic_workflow import (
     _has_sigma_generation_eligible_observables,
     _is_agent_allowed,
     _make_skip_record,
+    _metadata_without_grounding_fields,
     _normalize_platform_value,
     _parse_agent_result,
     _platforms_from_os_detection,
@@ -836,3 +837,22 @@ def test_rebase_does_not_flag_a_partially_valid_citation():
 
     assert rule["observables_used"] == [3]
     assert "observable_attribution_warnings" not in rule
+
+
+def test_grounding_stamp_is_not_fed_back_into_inference():
+    """``_infer_observables_used`` matches on the rule body; grounding fields are not it.
+
+    ``observable_attribution`` is written by the repair function itself, so leaving it in
+    the dumped metadata would feed the scorer a token that describes the failure rather
+    than the detection.
+    """
+    stripped = _metadata_without_grounding_fields(
+        {
+            "title": "Rule",
+            "observable_attribution": "attribution_failed",
+            "observable_attribution_warnings": ["empty_for_observable_group"],
+            "observables_used": [],
+        }
+    )
+
+    assert stripped == {"title": "Rule"}

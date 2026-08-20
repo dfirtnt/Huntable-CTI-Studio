@@ -1043,6 +1043,7 @@ class TestQueuePromotionNode:
                     "detection_readiness": "generic",
                     "logsource_hint": {"product": "linux", "category": "process_creation"},
                     "observable_attribution_warnings": ["empty_for_observable_group"],
+                    "observable_attribution": "attribution_failed",
                     "sigma_generation_group": {
                         "platform": "linux",
                         "telemetry_category": "process_creation",
@@ -1073,9 +1074,14 @@ class TestQueuePromotionNode:
         assert "platform" not in parsed_yaml
         assert "sigma_generation_group" not in parsed_yaml
         assert "observable_attribution_warnings" not in parsed_yaml
+        # A non-Sigma key left in the body fails pysigma validation downstream.
+        assert "observable_attribution" not in parsed_yaml
         assert queue_entry.rule_metadata["platform"] == "linux"
         assert queue_entry.rule_metadata["sigma_generation_group"]["observable_indices"] == [1]
         assert queue_entry.rule_metadata["observable_attribution_warnings"] == ["empty_for_observable_group"]
+        # Why the rule is untied has to survive into the queue row, or the distinction
+        # between a configured full-content rule and a lost tie-back is unqueryable.
+        assert queue_entry.rule_metadata["observable_attribution"] == "attribution_failed"
 
 
 # ---------------------------------------------------------------------------
