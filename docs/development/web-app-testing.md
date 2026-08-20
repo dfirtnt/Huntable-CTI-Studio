@@ -552,6 +552,39 @@ npm run test:playwright
 npm run test:playwright tests/playwright/agent_config_save_button.spec.ts
 ```
 
+#### Shared workflow config: how the suite avoids damaging it
+
+The Playwright suite runs against the **live dev app on :8001**, so specs in the
+`agent-config` and `workflow` projects write the same `agentic_workflow_config`
+row the operator uses. Thirteen specs mutate it today.
+
+Protection is layered, because per-spec restore alone is not enough:
+
+| Layer | Where | Covers | Does not cover |
+|---|---|---|---|
+| Per-spec snapshot/restore | `try/finally` in each spec | Ordinary test failures | Killed worker, hard timeout, dead `page` |
+| **Global teardown** | `tests/playwright/global-teardown.ts` | Any run that ends, however it ends | SIGKILL of the Playwright process |
+| **Heal on next setup** | `tests/playwright/global-setup.ts` | Damage from a SIGKILLed previous run | — |
+
+Together these bound damage to at most one run. `global-setup` captures a
+baseline (healing known corruption shapes from the canonical quickstart preset
+first, so damage is never laundered into the baseline) and `global-teardown`
+restores it and verifies by read-back.
+
+**If you add a spec that mutates workflow config:**
+
+- Build any seeded prompt from `TEST_SEED_MARKER` in
+  `tests/playwright/workflow-config-snapshot.ts`. Do **not** hardcode a seed
+  string — the pollution detector recognises seeds by that marker, and a
+  hardcoded one is invisible to it. `workflow_config_pollution_guard.spec.ts`
+  fails if a spec hardcodes it.
+- Always send a **complete** config payload. A partial
+  `PUT /api/workflow/config` can persist JSON `null` over omitted JSONB fields
+  (the row-5396 wipe); `restoreWorkflowConfig()` handles this correctly.
+- The baseline lives in `.playwright-state/` (git-ignored), deliberately **not**
+  under `test-results/` — Playwright clears its `outputDir` at run start, which
+  would delete the baseline between setup and teardown.
+
 Or via pytest (which wraps the TypeScript tests):
 ```bash
 # Run workflow tabs test via pytest

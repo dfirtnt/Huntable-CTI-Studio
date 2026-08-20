@@ -1,7 +1,12 @@
-import { FullConfig } from '@playwright/test';
+import { FullConfig, request as playwrightRequest } from '@playwright/test';
 import * as http from 'http';
 import * as https from 'https';
 import { URL } from 'url';
+import {
+  findConfigPollution,
+  snapshotWorkflowConfig,
+  writeBaseline,
+} from './workflow-config-snapshot';
 
 /**
  * Global setup to ensure web server is running before tests start
@@ -36,6 +41,57 @@ async function httpRequest(url: string, timeout: number = 5000): Promise<{ statu
   });
 }
 
+/**
+ * Capture a pristine workflow-config baseline for `global-teardown.ts`.
+ *
+ * Runs before any spec so the baseline reflects the operator's config, not
+ * whatever a spec leaves behind. Two responsibilities:
+ *
+ *  1. HEAL FIRST. If a previous run died before its teardown (SIGKILL, hard
+ *     timeout), the live config still carries that run's damage. Snapshotting it
+ *     verbatim would launder the damage into the baseline and teardown would
+ *     faithfully restore it. `snapshotWorkflowConfig` repairs the known shapes
+ *     from the canonical preset, so pollution survives at most one run.
+ *  2. PERSIST. Teardown is a separate module instantiation, so the handoff goes
+ *     through disk.
+ *
+ * Non-fatal by design: a config problem must not stop the UI suite from running.
+ * Without a baseline, teardown declines to touch config rather than guessing.
+ */
+async function captureConfigBaseline(baseURL: string): Promise<void> {
+  if (process.env.CTI_EXCLUDE_AGENT_CONFIG_TESTS === '1') {
+    console.log('   Config-mutating specs excluded; skipping config baseline capture.');
+    return;
+  }
+
+  const context = await playwrightRequest.newContext();
+  try {
+    const res = await context.get(`${baseURL}/api/workflow/config`);
+    if (res.ok()) {
+      const damage = findConfigPollution(await res.json());
+      if (damage.length > 0) {
+        console.warn(
+          `⚠️  Workflow config is damaged before this run (probably an earlier run that ` +
+          `died before teardown):\n     - ${damage.join('\n     - ')}\n` +
+          '     Known shapes will be healed from the canonical preset in the baseline.'
+        );
+      }
+    }
+
+    const baseline = await snapshotWorkflowConfig(context, baseURL);
+    writeBaseline(baseline);
+    console.log('   📌 Workflow config baseline captured; teardown will restore it.');
+  } catch (err: any) {
+    console.warn(
+      `⚠️  Could not capture a workflow config baseline: ${err.message}\n` +
+      '     Teardown will leave config untouched. Config-mutating specs still ' +
+      'restore their own changes.'
+    );
+  } finally {
+    await context.dispose();
+  }
+}
+
 async function globalSetup(config: FullConfig) {
   const baseURL = config.use?.baseURL || process.env.CTI_SCRAPER_URL || 'http://localhost:8001';
   const healthURL = `${baseURL}/health`;
@@ -52,6 +108,7 @@ async function globalSetup(config: FullConfig) {
       if (status >= 200 && status < 300) {
         console.log(`✅ Web server is healthy (attempt ${attempt}/${maxAttempts})`);
         console.log(`   Status: ${data.status || 'OK'}`);
+        await captureConfigBaseline(baseURL);
         return;
       } else {
         console.log(`⚠️  Server responded with status ${status} (attempt ${attempt}/${maxAttempts})`);

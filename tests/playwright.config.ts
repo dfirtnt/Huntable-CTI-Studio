@@ -154,4 +154,11 @@ export default defineConfig({
 
   /* Global setup to check web server health before tests */
   globalSetup: require.resolve('./playwright/global-setup.ts'),
+
+  /* Process-level restore of the shared workflow config. Per-spec restores live
+   * inside test workers and mostly need a live `page`, so they do not fire when
+   * a worker is killed or the global timeout trips -- which is how a hermetic
+   * test seed became the live CmdlineExtract prompt. This backstop runs once, in
+   * Node, regardless of how the run ended. */
+  globalTeardown: require.resolve('./playwright/global-teardown.ts'),
 });

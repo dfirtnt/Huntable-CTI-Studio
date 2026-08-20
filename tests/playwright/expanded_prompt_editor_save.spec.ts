@@ -13,6 +13,7 @@
 
 import { test, expect } from '@playwright/test';
 
+import { TEST_SEED_MARKER } from './workflow-config-snapshot';
 const BASE = process.env.CTI_SCRAPER_URL || 'http://127.0.0.1:8001';
 
 // ---------------------------------------------------------------------------
@@ -77,7 +78,7 @@ async function reloadConfig(page: any) {
  * cannot start failing because a shipped preset drifted.
  */
 const CMDLINE_SEED_PROMPT = JSON.stringify({
-  role: 'Hermetic test seed. Extracts Windows command-line observables from articles.',
+  role: `${TEST_SEED_MARKER}. Extracts Windows command-line observables from articles.`,
   task: 'Extract literal, copy-pasteable Windows command lines.',
   json_example: JSON.stringify({
     commands: [
@@ -89,7 +90,7 @@ const CMDLINE_SEED_PROMPT = JSON.stringify({
       },
     ],
   }),
-  instructions: 'Hermetic test seed instructions. Return ONLY valid JSON.',
+  instructions: `${TEST_SEED_MARKER} instructions. Return ONLY valid JSON.`,
 });
 
 /**

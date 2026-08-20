@@ -169,6 +169,14 @@ This excludes `@pytest.mark.agent_config_mutation` tests (run evaluation, save
 settings, save workflow config) from pytest and sets
 `CTI_EXCLUDE_AGENT_CONFIG_TESTS=1` for the Node.js runner.
 
+Excluding them is not required for safety. Section 2 protects the shared config
+in two layers regardless: `globalTeardown` restores a pre-run baseline however
+the run ends, and the next run's `globalSetup` heals known corruption before it
+snapshots -- so damage is bounded to at most one run even if the Playwright
+process is killed outright. See
+[web-app-testing.md](web-app-testing.md#shared-workflow-config-how-the-suite-avoids-damaging-it)
+before adding a spec that writes workflow config.
+
 ### e2e
 **Command:** `python3 run_tests.py e2e`  
 **Duration:** ~3 minutes  
@@ -259,6 +267,10 @@ All tests are non-impactful to production data and configuration:
 - Integration tests use `cti_scraper_test` with transaction rollback
 - API tests that mutate the Sigma queue or workflow config restore the affected
   tables to their pre-test row set, including when a test fails
+- Node.js Playwright specs that mutate the shared workflow config are backstopped
+  by `globalTeardown` (restores a baseline whatever kills the run) plus
+  heal-on-next-`globalSetup`, since per-spec `finally` blocks need a live `page`
+  and do not fire when a worker is killed
 - Config files are read-only in tests
 - ML retraining tests are disabled
 - `default_excludes` in `run_tests.py` automatically excludes `infrastructure`,
