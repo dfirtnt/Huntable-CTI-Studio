@@ -34,7 +34,7 @@ disjoint set of spec files:
 | `agent-config` | 14    | `agent_config_*.spec.ts` -- presets, validation, autosave  |
 | `workflow`     | 8     | execution detail tabs, prompt editor, workflow config persistence/versions, platform badge/detection |
 | `sources`      | 1     | sources page                                                |
-| `articles`     | 3     | article detail, dashboard, jobs                             |
+| `articles`     | 5     | article detail, article-content XSS, annotation XSS, dashboard, jobs |
 | `intelligence` | 3     | sigma enrich, sigma queue lifecycle, sigma similarity unification |
 | `ui-misc`      | 4     | collapsible sections, modals, settings                     |
 | `quarantine`   | 0     | patterns reference files that no longer exist (dead config; see audit note) |
@@ -70,4 +70,4 @@ When you add `tests/playwright/your_spec.spec.ts`, update
 project's `testMatch` list. If a spec is not in any project, the default run
 will silently skip it.
 
-_Last updated: 2026-07-03_
+_Last updated: 2026-08-20_

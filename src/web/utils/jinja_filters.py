@@ -7,7 +7,6 @@ keep template-specific helpers in a dedicated location.
 
 from __future__ import annotations
 
-import logging
 from datetime import datetime
 from typing import Any
 
@@ -16,8 +15,6 @@ from src.utils.keyword_resolution import (
     render_highlighted_content,
     resolve_keyword_matches,
 )
-
-logger = logging.getLogger(__name__)
 
 
 def highlight_keywords(content: str, metadata: dict[str, Any] | list[ResolvedKeywordMatch] | None) -> str:
@@ -29,19 +26,16 @@ def highlight_keywords(content: str, metadata: dict[str, Any] | list[ResolvedKey
         metadata: Article metadata containing keyword matches.
 
     Returns:
-        HTML content with highlighted keywords.
+        HTML-escaped content with highlighted keywords.
+
+    Security:
+        Callers render this through Jinja's ``|safe``, so every return path must
+        already be escaped. All escaping happens in ``render_highlighted_content``,
+        which escapes each non-match segment and emits only its own generated
+        markup. Never add an early return that hands back raw ``content``.
     """
     if not content:
-        return content
-
-    if metadata is None:
-        return content
-
-    # Sort keywords by length (longest first) to avoid partial replacements
-    # Check if content is already highlighted (contains HTML spans)
-    if "<span class=" in content:
-        logger.warning("Content already contains HTML spans, skipping keyword highlighting to avoid nested spans")
-        return content
+        return ""
 
     resolved_matches = metadata if isinstance(metadata, list) else resolve_keyword_matches(content, metadata)
     return render_highlighted_content(content, resolved_matches)
