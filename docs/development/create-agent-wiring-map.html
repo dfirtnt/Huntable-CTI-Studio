@@ -242,6 +242,8 @@ const PITFALLS = [
     desc:'Must touch all three: (1) MIGRATED_QA_AGENTS list, (2) base_for_qa map — missing entry causes KeyError not a clean assertion, (3) MIGRATED_EXTRACT_AGENTS — only if agent envelope uses "count" field. If it uses task_count/query_count etc., leave it out and add a comment documenting why.' },
   { id:17, sev:'high', title:'Dual-Template Execution Card Drift',
     desc:'workflow.html (Category 11) AND workflow_executions.html both maintain a subAgents rendering array. Missing from workflow.html silently drops the per-agent execution card — no error, no warning. TestSubAgentsRenderingArray in test_workflow_locked_extractor_agents.py locks both; a missing entry fails CI.' },
+  { id:18, sev:'med',  title:'Prompt Badge Roster Drift',
+    desc:'_PROMPT_BADGE_STEPS in static/js/workflow/prompt-editor.js decides who gets prompt-contract validated on Config-tab load. An agent missing from the s3 list is never validated and never badged — it simply looks healthy. Also add a <span id="{agentid}-prompt-warn-badge" class="hidden" aria-live="polite"></span> to the new sa-header, or the verdict is computed and dropped. tests/unit/test_prompt_warning_badges_contract.py pins the roster against EXTRACT_SUB_AGENTS and the template anchors; a missing entry fails CI.' },
 ];
 
 const LAYERS = [

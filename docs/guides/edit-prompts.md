@@ -17,6 +17,28 @@ This guide covers the day-to-day edit loop. For what the on-disk `src/prompts/` 
 4. **Test** against an eval article (either the in-UI **Test Agent** button or `./scripts/run_prompt_test.sh` — see [Prompt Testing Script](https://github.com/dfirtnt/Huntable-CTI-Studio/blob/main/scripts/README_prompt_testing.md)).
 5. **Roll back** if it regressed: same page, **Versions** → pick a prior version → **Rollback**.
 
+## Prompt warnings on the Config tab
+
+Opening the Config tab validates every agent prompt with no click. Any agent whose
+prompt fails a contract check carries a pill on its collapsed row, and the owning
+step header (Step 2 Rank, Step 3 Extract, Step 4 SIGMA) carries the aggregate, so
+drift is visible without expanding anything.
+
+- **Amber (`N warnings`)** -- the prompt is missing expected contract language
+  (for example the section 12 `[ ]` verification checklist). The agent still runs.
+- **Red (`N errors`)** -- a required key is missing or empty (`system`/`role`,
+  `instructions`, `json_example`). Extraction sub-agents raise
+  `PromptConfigValidationError` and abort before reaching the model.
+
+Warnings never block **Save** or a workflow run; they are signal, not a gate. For
+the specific findings, expand the agent's Prompt panel and click **Validate** --
+the badge and that button run identical checks on identical input.
+
+An agent with **no stored prompt** is not badged: it is running the shipped default
+from `src/prompts/` (`src/utils/default_agent_prompts.py`), which is the baseline
+state rather than drift. RankAgent ships this way today. This exemption does not
+apply to extraction sub-agents, where an empty prompt is a genuine hard-fail.
+
 ## What the system expects from an extract prompt
 
 Every extract sub-agent must emit **per-item traceability fields** on every extracted object. The runtime appends a reminder to your user prompt automatically (`_traceability_common` in `src/services/llm_service.py`), but your prompt body should reinforce it in the JSON schema and examples.

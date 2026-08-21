@@ -971,6 +971,277 @@ class TestWorkflowConfigRegressions:
         page.keyboard.press("Escape")
         page.wait_for_timeout(100)
 
+    # ---- Prompt warning badges -------------------------------------------
+    # The validator itself is unchanged and already accurate; what is guarded
+    # here is that it runs with no click and that the verdict reaches a header
+    # the operator can see while everything is still collapsed.
+
+    PROMPT_BADGE_IDS = [
+        "s2",
+        "s3",
+        "s4",
+        "cmdlineextract",
+        "proctreeextract",
+        "huntqueriesextract",
+        "registryextract",
+        "servicesextract",
+        "scheduledtasksextract",
+        "networkindicatorextract",
+    ]
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_prompt_badges_run_without_a_click(self, page: Page):
+        """Loading the config tab validates every agent with no interaction."""
+        self._load_config_tab(page)
+        page.wait_for_function(
+            "() => typeof refreshPromptWarningBadges === 'function'"
+            " && typeof agentPrompts !== 'undefined'"
+            " && Object.keys(agentPrompts).length > 0",
+            timeout=15000,
+        )
+
+        for badge_id in self.PROMPT_BADGE_IDS:
+            expect(page.locator(f"#{badge_id}-prompt-warn-badge")).to_have_count(1)
+
+        # The load-time pass must have already produced a verdict for every
+        # agent. Asserting the rendered DOM (not the source text of the wiring)
+        # is what makes this fail if the refresh is never reached on load.
+        settled = page.evaluate(
+            """() => {
+                const agents = ['CmdlineExtract','ProcTreeExtract','HuntQueriesExtract',
+                                'RegistryExtract','ServicesExtract','ScheduledTasksExtract',
+                                'NetworkIndicatorExtract'];
+                return agents.map(a => {
+                    const id = a.toLowerCase() + '-prompt-warn-badge';
+                    const el = document.getElementById(id);
+                    const issues = _collectPromptIssues(a, _promptValueForValidation(a));
+                    return { agent: a,
+                             expected: issues.length > 0,
+                             shown: !el.classList.contains('hidden') };
+                });
+            }"""
+        )
+        stale = [row for row in settled if row["expected"] != row["shown"]]
+        assert stale == [], f"these agents were never validated on load (no click occurred): {stale}"
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_rerendering_prompts_refreshes_the_badges(self, page: Page):
+        """renderAgentPrompts is the single funnel, so a re-render must re-badge.
+
+        Every save, cancel and preset load goes through renderAgentPrompts. If
+        the refresh is not reached from there, a badge outlives the prompt it
+        describes -- the stale-signal failure this feature exists to avoid.
+        """
+        self._load_config_tab(page)
+        page.wait_for_function(
+            "() => typeof renderAgentPrompts === 'function'"
+            " && typeof agentPrompts !== 'undefined'"
+            " && agentPrompts['ProcTreeExtract']"
+            " && (agentPrompts['ProcTreeExtract'].prompt || '').length > 0",
+            timeout=15000,
+        )
+
+        result = page.evaluate(
+            """() => {
+                const A = 'ProcTreeExtract';
+                const original = agentPrompts[A].prompt;
+                const el = () => document.getElementById('proctreeextract-prompt-warn-badge');
+                const degraded = JSON.parse(original);
+                degraded.role = 'You extract process trees.';
+
+                agentPrompts[A] = { ...agentPrompts[A], prompt: JSON.stringify(degraded) };
+                // Deliberately NOT calling refreshPromptWarningBadges directly:
+                // the re-render path is what is under test.
+                renderAgentPrompts();
+                const afterDegrade = !el().classList.contains('hidden');
+
+                agentPrompts[A] = { ...agentPrompts[A], prompt: original };
+                renderAgentPrompts();
+                const afterRestore = !el().classList.contains('hidden');
+                return { afterDegrade, afterRestore,
+                         promptUnchanged: agentPrompts[A].prompt === original };
+            }"""
+        )
+
+        assert result["afterDegrade"] is True, "a re-render must pick up the degraded prompt"
+        assert result["afterRestore"] is False, "a re-render must clear a resolved badge"
+        assert result["promptUnchanged"] is True
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_prompt_badge_agrees_with_the_validate_button(self, page: Page):
+        """A badge and the Validate button must never disagree.
+
+        Both read through _promptValueForValidation, so this pins the shared
+        input rather than two drifting copies of the selection logic.
+        """
+        self._load_config_tab(page)
+        page.wait_for_function(
+            "() => typeof refreshPromptWarningBadges === 'function'"
+            " && typeof agentPrompts !== 'undefined'"
+            " && Object.keys(agentPrompts).length > 0",
+            timeout=15000,
+        )
+
+        mismatches = page.evaluate(
+            r"""() => {
+                const agents = ['CmdlineExtract','ProcTreeExtract','HuntQueriesExtract',
+                                'RegistryExtract','ServicesExtract','ScheduledTasksExtract',
+                                'NetworkIndicatorExtract'];
+                const bad = [];
+                agents.forEach(a => {
+                    const issues = _collectPromptIssues(a, _promptValueForValidation(a));
+                    const errors = issues.filter(i => i.level === 'error').length;
+                    const shown = issues.length > 0;
+                    const el = document.getElementById(
+                        a.toLowerCase().replace(/\s+/g, '-') + '-prompt-warn-badge');
+                    const visible = !!el && !el.classList.contains('hidden');
+                    if (visible !== shown) bad.push([a, shown, visible]);
+                    if (visible && errors > 0 && !el.className.includes('red')) bad.push([a, 'error-not-red']);
+                });
+                return bad;
+            }"""
+        )
+        assert mismatches == [], f"badge disagreed with validator: {mismatches}"
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_prompt_badge_appears_when_a_prompt_is_degraded(self, page: Page):
+        """Degrading a prompt must raise a badge; restoring it must clear it.
+
+        Without this the suite would pass just as happily against a badge that
+        never fires. The mutation is in-page only -- agentPrompts is a JS global
+        and nothing here saves, so the stored config is untouched.
+        """
+        self._load_config_tab(page)
+        page.wait_for_function(
+            "() => typeof refreshPromptWarningBadges === 'function'"
+            " && typeof agentPrompts !== 'undefined'"
+            " && agentPrompts['ProcTreeExtract']"
+            " && (agentPrompts['ProcTreeExtract'].prompt || '').length > 0",
+            timeout=15000,
+        )
+
+        result = page.evaluate(
+            """() => {
+                const A = 'ProcTreeExtract';
+                const original = agentPrompts[A].prompt;
+                const el = () => document.getElementById('proctreeextract-prompt-warn-badge');
+                const step = () => document.getElementById('s3-prompt-warn-badge');
+                const read = () => ({
+                    visible: !el().classList.contains('hidden'),
+                    text: el().textContent,
+                    red: el().className.includes('red'),
+                    // A cleared badge must drop its old colour classes, not just
+                    // gain 'hidden' -- otherwise the next issue flashes the
+                    // previous severity before the new class list is written.
+                    className: el().className,
+                    stepText: step().classList.contains('hidden') ? null : step().textContent,
+                    stepRed: step().className.includes('red'),
+                });
+                const setPrompt = (obj) => {
+                    agentPrompts[A] = { ...agentPrompts[A], prompt: JSON.stringify(obj) };
+                    refreshPromptWarningBadges();
+                };
+                const out = { baseline: read() };
+
+                // Keep the envelope shape and strip the contract sections from the
+                // role body -- the exact failure mode of the degraded seed prompt.
+                const warned = JSON.parse(original);
+                warned.role = 'You extract process trees.';
+                setPrompt(warned);
+                out.degraded = read();
+
+                // Removing a required key is a hard-fail, so it must go red.
+                const broken = JSON.parse(original);
+                delete broken.instructions;
+                setPrompt(broken);
+                out.broken = read();
+
+                agentPrompts[A] = { ...agentPrompts[A], prompt: original };
+                refreshPromptWarningBadges();
+                out.restored = read();
+                out.promptUnchanged = agentPrompts[A].prompt === original;
+                return out;
+            }"""
+        )
+
+        assert result["baseline"]["visible"] is False, "seeded ProcTree prompt should be clean"
+        assert result["degraded"]["visible"] is True, "stripped role body must raise a badge"
+        assert "warning" in result["degraded"]["text"]
+        assert result["degraded"]["red"] is False, "warnings must not use the error colour"
+        assert result["broken"]["visible"] is True
+        assert "error" in result["broken"]["text"]
+        assert result["broken"]["red"] is True, "a hard-fail must be visually distinct"
+        assert result["restored"]["visible"] is False, "restoring the prompt must clear the badge"
+        assert result["restored"]["className"] == "hidden", (
+            "a cleared badge must reset its class list, not keep stale severity colours"
+        )
+
+        # The step header aggregates its sub-agents, and a hard-fail outranks
+        # warnings: with RegistryExtract and ServicesExtract warning on the
+        # seeded config, a single ProcTree error must still read as an error.
+        assert "warning" in result["degraded"]["stepText"], result["degraded"]["stepText"]
+        assert result["degraded"]["stepRed"] is False
+        assert "error" in result["broken"]["stepText"], result["broken"]["stepText"]
+        assert result["broken"]["stepRed"] is True, (
+            "an error anywhere under a step must outrank sibling warnings on its header"
+        )
+        assert result["promptUnchanged"] is True, "test must not mutate the stored prompt"
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_unconfigured_non_extractor_prompt_is_not_badged(self, page: Page):
+        """An agent with no stored prompt runs the shipped default, so it is not drift.
+
+        RankAgent and SigmaAgent fall back to src/prompts (default_agent_prompts
+        .AGENT_PROMPT_FILES; rank_article() falls back at the call site), so
+        badging an unset prompt would put a permanent false alarm on every load.
+        Extraction sub-agents get no such exemption -- an empty system/role there
+        really does raise PromptConfigValidationError.
+        """
+        self._load_config_tab(page)
+        page.wait_for_function(
+            "() => typeof refreshPromptWarningBadges === 'function'"
+            " && typeof agentPrompts !== 'undefined'"
+            " && Object.keys(agentPrompts).length > 0",
+            timeout=15000,
+        )
+
+        result = page.evaluate(
+            """() => {
+                const out = {};
+                const rank = document.getElementById('s2-prompt-warn-badge');
+                const originalRank = (agentPrompts['RankAgent'] || {}).prompt;
+
+                agentPrompts['RankAgent'] = { ...(agentPrompts['RankAgent'] || {}), prompt: '' };
+                refreshPromptWarningBadges();
+                out.emptyNonExtractorBadged = !rank.classList.contains('hidden');
+
+                // The same emptiness on an extractor must still be reported.
+                const A = 'ProcTreeExtract';
+                const originalProc = agentPrompts[A].prompt;
+                agentPrompts[A] = { ...agentPrompts[A], prompt: '' };
+                refreshPromptWarningBadges();
+                const proc = document.getElementById('proctreeextract-prompt-warn-badge');
+                out.emptyExtractorBadged = !proc.classList.contains('hidden');
+                out.emptyExtractorText = proc.textContent;
+
+                agentPrompts['RankAgent'] = { ...(agentPrompts['RankAgent'] || {}), prompt: originalRank };
+                agentPrompts[A] = { ...agentPrompts[A], prompt: originalProc };
+                refreshPromptWarningBadges();
+                return out;
+            }"""
+        )
+
+        assert result["emptyNonExtractorBadged"] is False, "an unset RankAgent prompt is the shipped default, not drift"
+        assert result["emptyExtractorBadged"] is True, (
+            "an empty extractor prompt hard-fails at runtime and must be badged"
+        )
+        assert "error" in result["emptyExtractorText"]
+
 
 # ---------------------------------------------------------------------------
 # Enrich modal system prompt UI (rework: view/edit mode, validate, hardcoded

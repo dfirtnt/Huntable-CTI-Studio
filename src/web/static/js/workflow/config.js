@@ -2336,16 +2336,9 @@ function validateAgentPrompt(agentName) {
 
     // Prefer the live textarea (edit mode); fall back to stored prompt when the
     // panel is collapsed/read-only so Validate works before clicking Edit.
-    const systemTextarea = document.getElementById(`${agentId}-prompt-system`)
-                        || document.getElementById(`${agentId}-prompt-system-2`);
-    let systemVal;
-    if (systemTextarea) {
-        systemVal = (systemTextarea.value || '').trim();
-    } else {
-        const parts = getAgentPromptParts(agentName);
-        // Plain-text prompts land in parts.user; structured (JSON) prompts land in parts.system.
-        systemVal = (parts.system || parts.user || '').trim();
-    }
+    // Shared with the load-time badges so a badge and this button can never
+    // disagree about what was validated.
+    const systemVal = _promptValueForValidation(agentName);
 
     const issues = _collectPromptIssues(agentName, systemVal);
     _renderValidateResult(resultDiv, issues);
@@ -4498,6 +4491,13 @@ function renderAgentPrompts() {
             initWorkflowConfigAgentAccordion();
         }
     }, 50);
+
+    // Single funnel for prompt state: this runs on initial load (via
+    // loadAgentPrompts) and after every save, cancel and preset load, so the
+    // header badges cannot drift from the prompts they describe.
+    if (typeof refreshPromptWarningBadges === 'function') {
+        refreshPromptWarningBadges();
+    }
 }
 
 function getCurrentModelForAgent(agentName) {
