@@ -456,23 +456,23 @@ function renderKeywordAnalysisTable(data) {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                <span class="px-2 py-1 text-xs font-semibold rounded-full ${
+                <span class="px-2 py-1 text-xs font-semibold rounded-full ${escapeHtml(
                     keyword.category === 'perfect' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
                     keyword.category === 'good' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
                     keyword.category === 'lolbas' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
                     'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
-                }">
-                    ${keyword.category}
+                )}">
+                    ${escapeHtml(keyword.category)}
                 </span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white font-mono">
-                ${keyword.keyword}
+                ${escapeHtml(keyword.keyword)}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                ${keyword.match_count || 0}
+                ${escapeHtml(keyword.match_count || 0)}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                ${keyword.avg_score_impact ? '+' + keyword.avg_score_impact : '0'}
+                ${escapeHtml(keyword.avg_score_impact ? '+' + keyword.avg_score_impact : '0')}
             </td>
         `;
         tbody.appendChild(row);
@@ -618,12 +618,12 @@ function renderRecentHighScoreArticles(data) {
         articleDiv.onclick = () => window.location.href = `/articles/${article.id}`;
         articleDiv.innerHTML = `
             <div class="flex-1">
-                <h5 class="font-medium text-gray-900 dark:text-white text-sm truncate">${article.title}</h5>
-                <p class="text-xs text-gray-500 dark:text-gray-400">${article.source_name} • ${article.created_at}</p>
+                <h5 class="font-medium text-gray-900 dark:text-white text-sm truncate">${escapeHtml(article.title)}</h5>
+                <p class="text-xs text-gray-500 dark:text-gray-400">${escapeHtml(article.source_name)} • ${escapeHtml(article.created_at)}</p>
             </div>
             <div class="ml-4">
                 <span class="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                    ${article.hunt_score}
+                    ${escapeHtml(article.hunt_score)}
                 </span>
             </div>
         `;

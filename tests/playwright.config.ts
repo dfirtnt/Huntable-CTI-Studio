@@ -56,6 +56,7 @@ const featureProjects = [
       /playwright\/article_detail\.spec\.ts$/,
       /playwright\/article_content_xss_regression\.spec\.ts$/,
       /playwright\/annotation_xss_regression\.spec\.ts$/,
+      /playwright\/chunk_dialogs_xss_regression\.spec\.ts$/,
       /playwright\/dashboard\.spec\.ts$/,
       /playwright\/jobs\.spec\.ts$/,
     ],

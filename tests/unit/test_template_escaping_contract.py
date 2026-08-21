@@ -100,3 +100,58 @@ def test_no_web_source_wraps_values_in_markup() -> None:
                 offenders.append(f"{source}:{lineno}")
 
     assert not offenders, f"Markup() bypasses autoescape; escape at the source instead: {offenders}"
+
+
+# --- Client-side innerHTML sink contract --------------------------------------
+#
+# The checks above cover server-rendered Jinja, not the inline <script> blocks
+# that build DOM from JSON. Article titles are scraped verbatim, returned raw by
+# the dashboard and analytics JSON APIs, and interpolated into innerHTML on pages
+# that repaint on a timer -- so a poisoned title is zero-click stored XSS, with no
+# CSP to fall back on.
+#
+# Contract: every ``${...}`` inside a ``.innerHTML = `...` `` template literal in
+# these pages must be wrapped in ``escapeHtml(...)`` (the global helper from
+# static/js/utils.js). The rule is uniform on purpose -- escapeHtml is a no-op on
+# markup-free values, so escaping everything costs nothing and leaves no gap for
+# the next field added to one of these widgets.
+
+INNERHTML_SINK_TEMPLATES = ("dashboard.html", "hunt_metrics.html")
+
+INNERHTML_ASSIGN_PATTERN = re.compile(r"innerHTML\s*\+?=\s*`(?P<body>.*?)`", re.DOTALL)
+INTERPOLATION_PATTERN = re.compile(r"\$\{(?P<expr>[^}]*)\}", re.DOTALL)
+
+
+def _innerhtml_interpolations(text: str) -> list[str]:
+    exprs: list[str] = []
+    for block in INNERHTML_ASSIGN_PATTERN.finditer(text):
+        for interp in INTERPOLATION_PATTERN.finditer(block.group("body")):
+            exprs.append(_normalize(interp.group("expr")))
+    return exprs
+
+
+def _is_escaped(expr: str) -> bool:
+    return expr.startswith("escapeHtml(") and expr.endswith(")")
+
+
+def test_innerhtml_interpolation_scan_is_not_vacuous() -> None:
+    """Guard against the regex silently matching nothing, which would pass below for free."""
+    total = sum(
+        len(_innerhtml_interpolations((TEMPLATE_DIR / name).read_text(encoding="utf-8")))
+        for name in INNERHTML_SINK_TEMPLATES
+    )
+    assert total >= 12, f"Expected many innerHTML interpolations, found {total}; the regex likely broke."
+
+
+def test_dashboard_and_hunt_metrics_escape_innerhtml_interpolations() -> None:
+    offenders: list[tuple[str, str]] = []
+    for name in INNERHTML_SINK_TEMPLATES:
+        text = (TEMPLATE_DIR / name).read_text(encoding="utf-8")
+        offenders.extend((name, expr) for expr in _innerhtml_interpolations(text) if not _is_escaped(expr))
+
+    assert not offenders, (
+        "Unescaped ${...} interpolated into .innerHTML on a dashboard widget. Scraped article "
+        "titles reach these sinks verbatim and execute as HTML on a zero-click timer refresh "
+        "(stored XSS). Wrap each value in escapeHtml(...) -- the global helper from "
+        f"static/js/utils.js. Offenders: {offenders}"
+    )

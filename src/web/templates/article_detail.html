@@ -5497,7 +5497,7 @@ modal.setAttribute('aria-modal', 'true');
                     <span class="text-xs text-red-600">${chunk.text.length} chars</span>
                 </div>
                 <div class="text-xs text-red-800 bg-white p-2 rounded border max-h-32 overflow-y-auto">
-                    ${chunk.text.replace(/\n/g, '<br>')}
+                    ${escapeHtml(chunk.text).replace(/\n/g, '<br>')}
                 </div>
                 <div class="text-xs text-red-600 mt-1">
                     Reason: ${chunk.reason || 'Not huntable'} | Confidence: ${chunk.confidence && !isNaN(chunk.confidence) ? chunk.confidence.toFixed(2) : 'N/A'}
@@ -9222,10 +9222,10 @@ modal.setAttribute('aria-modal', 'true');
                         ${escapeHtml(chunk.text)}
                     </div>
                     <!-- <div id="chunkContent${index}" class="max-h-32 overflow-y-auto">
-                        ${chunk.text.substring(0, 200)}${chunk.text.length > 200 ? '...' : ''}
+                        ${escapeHtml(chunk.text.substring(0, 200))}${chunk.text.length > 200 ? '...' : ''}
                     </div>
                     <div id="chunkContentFull${index}" class="hidden max-h-96 overflow-y-auto text-xs font-mono whitespace-pre-wrap">
-                        ${chunk.text}
+                        ${escapeHtml(chunk.text)}
                     </div> -->
                 </div>
             </div>
@@ -10030,8 +10030,8 @@ modal.setAttribute('aria-modal', 'true');
                                     ${filteredData.feedback_comparisons.map(comparison => `
                                         <tr>
                                             <td class="px-4 py-2 text-sm" data-article-id="${comparison.article_id}">
-                                                <div class="max-w-xs truncate" title="${comparison.chunk_text}">
-                                                    ${comparison.chunk_text}
+                                                <div class="max-w-xs truncate" title="${escapeHtml(comparison.chunk_text)}">
+                                                    ${escapeHtml(comparison.chunk_text)}
                                                 </div>
                                             </td>
                                             <td class="px-4 py-2 text-center">

@@ -820,8 +820,8 @@
                     el.style.setProperty('--score-color', scoreColor);
                     el.innerHTML = `
                         <div class="article-row">
-                            <span class="article-headline">${article.title || 'Untitled'}</span>
-                            <span class="article-score">${score}</span>
+                            <span class="article-headline">${escapeHtml(article.title || 'Untitled')}</span>
+                            <span class="article-score">${escapeHtml(score)}</span>
                         </div>
                     `;
                     feedEl.appendChild(el);
@@ -845,9 +845,9 @@
                     const row = document.createElement('div');
                     row.className = 'activity-row';
                     row.innerHTML = `
-                        <span class="activity-dot" style="background:${dotColor}; box-shadow:0 0 5px ${dotColor};"></span>
-                        <span class="activity-ts">${ts}</span>
-                        <span class="activity-msg">${msg}</span>
+                        <span class="activity-dot" style="background:${escapeHtml(dotColor)}; box-shadow:0 0 5px ${escapeHtml(dotColor)};"></span>
+                        <span class="activity-ts">${escapeHtml(ts)}</span>
+                        <span class="activity-msg">${escapeHtml(msg)}</span>
                     `;
                     actEl.appendChild(row);
                 });
