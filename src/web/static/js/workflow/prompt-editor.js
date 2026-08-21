@@ -426,6 +426,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const menu = document.getElementById('footer-overflow-menu');
     if (menu && !e.target.closest('.relative')) menu.classList.add('hidden');
   });
+  // Keyboard path for the click-driven step triggers: each carries an inline
+  // onclick, so click() reuses that handler rather than duplicating it.
+  // preventDefault stops Space scrolling #config-content out from under the
+  // section scrollToStep is about to align.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const trigger = e.target.closest('.section-header, .rail-item, .sa-header');
+    if (!trigger) return;
+    // Nested native controls (the sa-header help buttons) keep their own
+    // activation; without this preventDefault would swallow it.
+    const inner = e.target.closest('button, a, input, select, textarea, label');
+    if (inner && inner !== trigger && trigger.contains(inner)) return;
+    e.preventDefault();
+    trigger.click();
+  });
+
   // ESC key closes the expanded prompt editor when it's open
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
@@ -435,6 +451,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
+// scrollToStep is the only live mutation path for .step-section.open, so
+// syncing aria-expanded from there covers every state change.
+function _syncStepAriaExpanded() {
+  document.querySelectorAll('.step-section').forEach(function(section) {
+    var header = section.querySelector('.section-header');
+    if (header) header.setAttribute('aria-expanded', section.classList.contains('open') ? 'true' : 'false');
+  });
+}
 
 function scrollToStep(n) {
   var section = document.getElementById('s' + n);
@@ -463,6 +488,7 @@ function scrollToStep(n) {
   document.querySelectorAll('.rail-item').forEach(function(el, i) {
     el.classList.toggle('active', i === n);
   });
+  _syncStepAriaExpanded();
 }
 
 // Rail active state is derived from the open step (single source of truth:

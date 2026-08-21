@@ -93,6 +93,17 @@ Only add these three attributes -- the runtime does the rest:
 
 Do NOT manually add `panel-toggle`, `role="button"`, `aria-expanded`, or `tabindex` -- `initCollapsiblePanels()` adds them automatically.
 
+**Documented exception -- the `/workflow#config` pipeline steps.** The six `.section-header`
+triggers, the `.rail-item` buttons and the `.sa-header` rows do not use `data-collapsible-panel`
+and must keep their hand-written ARIA. They are an accordion driven by `scrollToStep`: state
+lives in `.step-section.open`, exactly one section is open at a time, and opening also aligns
+the scroll container and the left rail. `initCollapsiblePanels()` models an independent
+show/hide per panel and cannot express any of that. Their Enter/Space handling is one delegated
+`keydown` listener in `static/js/workflow/prompt-editor.js` that calls `click()` on the trigger,
+reusing the inline `onclick`; `aria-expanded` is synced from `scrollToStep`, the only live
+mutation path for `.step-section.open`. Guarded by `TestWorkflowConfigRegressions` in
+`tests/ui/test_workflow_comprehensive_ui.py`.
+
 ---
 
 ## Pre-Flight Checklist
@@ -137,7 +148,7 @@ UI change completed.
 ### Cards and layout
 - Do NOT write `bg-gray-800 border border-gray-700 rounded-lg shadow p-X` -- use `.card p-X`
 - Do NOT redefine reserved class names (`.card-header`, `.card-title`, `.nav-item`, `.diag-card`, `.quality-*`, `.priority-*`) -- see Section 6.0.1
-- Do NOT manually add `.panel-toggle`, `role="button"`, or `aria-expanded` to collapsible triggers -- `initCollapsiblePanels()` does this automatically
+- Do NOT manually add `.panel-toggle`, `role="button"`, or `aria-expanded` to collapsible triggers -- `initCollapsiblePanels()` does this automatically (one documented exception: the `/workflow#config` step headers, rail and sub-agent rows -- see Section "Collapsible panels")
 - Do NOT stack margin+padding on the same element to create spacing (pick one)
 - Do NOT use `py-4` or larger on form controls (selects, inputs) -- max `py-2`
 

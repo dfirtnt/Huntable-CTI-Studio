@@ -830,6 +830,147 @@ class TestWorkflowExecutionsRegressions:
 class TestWorkflowConfigRegressions:
     """Config-tab regression tests (consolidated from single-file tests)."""
 
+    # The six step headers drive an accordion through scrollToStep, not through
+    # initCollapsiblePanels: state lives in .step-section.open, one section is
+    # open at a time, and opening also aligns the scroll container and the rail.
+    # The shared initializer cannot express that, so the button semantics and
+    # Enter/Space handling are wired directly -- and only guarded here.
+
+    STEP_IDS = ["s0", "s1", "s2", "s3", "s4", "s5"]
+
+    def _load_config_tab(self, page: Page) -> None:
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.goto(f"{base_url}/workflow")
+        page.wait_for_load_state("load")
+        page.wait_for_selector("#s0-header")
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_step_headers_expose_button_semantics(self, page: Page):
+        """Every step header is a focusable button pointing at a labelled region."""
+        self._load_config_tab(page)
+
+        for step in self.STEP_IDS:
+            header = page.locator(f"#{step}-header")
+            expect(header).to_have_attribute("role", "button")
+            expect(header).to_have_attribute("tabindex", "0")
+            expect(header).to_have_attribute("aria-controls", f"{step}-body")
+
+            body = page.locator(f"#{step}-body")
+            expect(body).to_have_attribute("role", "region")
+            expect(body).to_have_attribute("aria-labelledby", f"{step}-header")
+
+        # The seeded aria-expanded values are static template text, so they can
+        # drift from the seeded .open class without any interaction happening.
+        seeded = page.evaluate(
+            "() => [...document.querySelectorAll('.step-section')].map(s => ["
+            "  s.id,"
+            "  s.classList.contains('open'),"
+            "  s.querySelector('.section-header').getAttribute('aria-expanded')"
+            "])"
+        )
+        for step_id, is_open, aria in seeded:
+            assert aria == ("true" if is_open else "false"), (
+                f"{step_id} seeded aria-expanded={aria!r} but open={is_open}"
+            )
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    @pytest.mark.parametrize("key,step_index", [("Enter", 2), (" ", 4)])
+    def test_step_header_activates_on_enter_and_space(self, page: Page, key: str, step_index: int):
+        """Enter and Space open the focused step, and the rail follows."""
+        self._load_config_tab(page)
+        step = self.STEP_IDS[step_index]
+
+        page.locator(f"#{step}-header").focus()
+        assert page.evaluate("() => document.activeElement.id") == f"{step}-header"
+
+        page.keyboard.press(key)
+        page.wait_for_timeout(200)
+
+        # Accordion invariant: the activated step is the only open one.
+        open_ids = page.evaluate(
+            "() => [...document.querySelectorAll('.step-section')]"
+            ".filter(s => s.classList.contains('open')).map(s => s.id)"
+        )
+        assert open_ids == [step], f"expected only {step} open after {key!r}, got {open_ids}"
+
+        # aria-expanded tracks the real state across all six headers.
+        expanded = page.evaluate(
+            "() => [...document.querySelectorAll('.section-header')].map(h => h.getAttribute('aria-expanded'))"
+        )
+        assert expanded == ["true" if s == step else "false" for s in self.STEP_IDS], expanded
+
+        # The rail highlight stays in sync with the opened section.
+        rail_active = page.evaluate(
+            "() => [...document.querySelectorAll('.rail-item')].findIndex(r => r.classList.contains('active'))"
+        )
+        assert rail_active == step_index, f"rail highlight {rail_active}, expected {step_index}"
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_rail_item_activates_on_enter(self, page: Page):
+        """The rail advertises role=button, so Enter must actually activate it."""
+        self._load_config_tab(page)
+
+        page.locator(".rail-item").nth(5).focus()
+        page.keyboard.press("Enter")
+        page.wait_for_timeout(200)
+
+        open_ids = page.evaluate(
+            "() => [...document.querySelectorAll('.step-section')]"
+            ".filter(s => s.classList.contains('open')).map(s => s.id)"
+        )
+        assert open_ids == ["s5"], open_ids
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_subagent_header_activates_on_enter(self, page: Page):
+        """The sub-agent rows advertise role=button, so Enter must activate them.
+
+        Guards the .sa-header arm of the delegated keydown selector: without it
+        every other assertion here still passes, because the only other
+        sa-header test asserts a *non*-toggle.
+        """
+        self._load_config_tab(page)
+        _open_operator_step(page, "s3")
+
+        sa_header = page.locator("#sa-cmdline .sa-header")
+        expect(sa_header).to_be_visible()
+        assert page.evaluate("() => document.getElementById('sa-cmdline').classList.contains('open')") is False
+
+        sa_header.focus()
+        page.keyboard.press("Enter")
+        page.wait_for_timeout(200)
+
+        assert page.evaluate("() => document.getElementById('sa-cmdline').classList.contains('open')") is True
+        expect(sa_header).to_have_attribute("aria-expanded", "true")
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_subagent_help_button_keeps_native_activation(self, page: Page):
+        """Enter on the help button inside a sub-agent header must not toggle it.
+
+        The delegated handler calls preventDefault, so without the nested-control
+        guard it would swallow the button's own activation and collapse the panel.
+        """
+        self._load_config_tab(page)
+        _open_operator_step(page, "s3")
+
+        sa_header = page.locator("#sa-cmdline .sa-header")
+        expect(sa_header).to_be_visible()
+        before = page.evaluate("() => document.getElementById('sa-cmdline').classList.contains('open')")
+
+        sa_header.locator("button").first.focus()
+        page.keyboard.press("Enter")
+        page.wait_for_timeout(200)
+
+        after = page.evaluate("() => document.getElementById('sa-cmdline').classList.contains('open')")
+        assert after == before, "help button activation must not toggle the sub-agent panel"
+
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(100)
+
 
 # ---------------------------------------------------------------------------
 # Enrich modal system prompt UI (rework: view/edit mode, validate, hardcoded
