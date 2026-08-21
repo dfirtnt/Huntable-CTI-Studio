@@ -66,10 +66,18 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
     - 8 dormant/dead DB subsystems removed, plus completion of a 3-month-orphaned source-healing cleanup
 
 ### v7.7.0 "Europa" (2026-08-06)
-<!-- TODO: fill Significance and Features before merging to main; pull content from docs/CHANGELOG.md [7.7.0] section. -->
-- **Named After**: <fill>
-- **Significance**: <fill>
-- **Features**: <fill>
+- **Named After**: Europa, one of Jupiter's four Galilean moons; minor release continues the Europa codename
+- **Significance**: Three P1 security fixes (crontab command-injection, SSRF, stored DOM-XSS) land alongside a database-integrity audit that reconciled schema drift across 25 of 29 tables, MCP Gateway HTTP transport support, eval diagnosis moved off the server-side LLM call to an MCP + agent-skill-only path, and workflow execution configuration made immutable via content-addressed snapshots
+- **Features**:
+    - Three P1 security fixes: crontab command-injection via `PUT /api/cron` closed (admin-only), SSRF in `/api/scrape-url` closed via a shared DNS-pinning fetch helper, and stored DOM-XSS in article annotations closed
+    - Schema drift reconciliation: 25 of 29 tables had silently lost primary keys, foreign keys, and indexes because hand-rolled `migrate_*.py` scripts bypassed SQLAlchemy's `create_all()` reconciliation; applied 113 DDL statements (16 PKs, 84 indexes, 13 FKs) in production, with a new drift detector now checked at every startup
+    - Data retention made real: `cleanup_old_data` had logged success while deleting nothing; new `src/services/data_retention_service.py` implements guarded, batched, dry-run-capable age-based retention for source checks, URL-tracking cache, and stale workflow executions
+    - Eval diagnosis moved to MCP + agent-skill only, removing the server-side LLM call and its per-click provider billing; replaced by `get_eval_diagnosis_context`/`save_eval_diagnosis` MCP tools with fail-closed, caller-attested save confirmation
+    - Workflow execution configuration made immutable via content-addressed, SHA-256-hashed snapshots resolved before dispatch, closing the gap where editing a live prompt, model, or threshold changed the behavior of runs already queued or in flight
+    - MCP server reachable from Docker MCP Gateway over streamable-HTTP, via a bearer-token-authenticated ASGI wrapper that fails closed without a 32+ character token
+    - Sync and async database managers unified on shared SQLAlchemy statement builders (`src/database/statements.py`), closing three-way query drift across sort order, filters, and a dead CLI search/export path
+    - HTML-to-text extraction no longer invents whitespace between inline elements, fixing split process names, file paths, and IOCs produced by mid-token markup
+    - `escapeHtml` consolidated into one canonical implementation in `/static/js/utils.js`, fixing attribute-context escaping across seven templates that previously carried eight mutually incompatible copies
 
 ### v7.6.0 "Europa" (2026-07-10)
 - **Named After**: Europa, one of Jupiter's four Galilean moons; minor release continues the Europa codename
