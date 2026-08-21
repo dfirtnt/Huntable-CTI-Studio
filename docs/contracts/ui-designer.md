@@ -44,10 +44,12 @@ Never use ad-hoc `onclick="document.getElementById('x').classList.toggle('hidden
 <html lang="en" class="dark">   <!-- class="dark" is mandatory -->
 ```
 ```js
-tailwind.config = { darkMode: 'class' }  // inline, right after CDN load -- do not remove
+// tailwind.config.js (repo root)
+module.exports = { darkMode: 'class', /* ... */ }
 ```
 
-Removing either one silently breaks the theme on light-mode OS.
+Removing either one silently breaks the theme on light-mode OS. `darkMode` moved from an
+inline block in `base.html` to the build config when Tailwind stopped loading from a CDN.
 
 ### Colors -- CSS variables only
 
@@ -104,7 +106,8 @@ Run this before marking any UI task complete:
 - [ ] All modals and overlays registered with `modal-manager.js`
 - [ ] Escape = back one level; Enter = primary action; Ctrl+Enter = submit from textarea
 - [ ] ARIA attributes on all interactive components (see Section 7)
-- [ ] Dark theme verified -- `class="dark"` on `<html>` and inline `tailwind.config` both present
+- [ ] Dark theme verified -- `class="dark"` on `<html>`, and `darkMode: 'class'` in `tailwind.config.js`
+- [ ] `make css` re-run if you added or changed any utility class (see Section 1)
 - [ ] No emoji in UI chrome (buttons, headings, tab labels, modal headers)
 - [ ] ASCII only in code and HTML comments -- no Unicode em-dash, curly quotes, ellipsis
 - [ ] No `!important` unless overriding a third-party style
@@ -141,8 +144,10 @@ UI change completed.
 ### Color and theme
 - Do NOT hardcode hex colors in inline `style=""` -- use CSS custom properties
 - Do NOT remove `class="dark"` from `<html>` in `base.html`
-- Do NOT remove the inline `tailwind.config = { darkMode: 'class' }` block
+- Do NOT remove `darkMode: 'class'` from `tailwind.config.js`
 - Do NOT rely on `dark:` variants without the `darkMode: 'class'` config above
+- Do NOT re-add a `cdn.tailwindcss.com` script tag -- that host rejects SRI, so the tag is
+  unverifiable by construction (guarded by `tests/unit/test_base_template_external_resources.py`)
 
 ### Icons and emoji
 - Do NOT use emoji as icons in UI chrome (buttons, tab labels, headings, modal headers) -- use inline SVG
@@ -166,13 +171,24 @@ UI change completed.
 |-------|------------|-------------------|
 | Backend | FastAPI | `src/web/modern_main.py` |
 | Templates | Jinja2 | `src/web/templates/`; `base.html` is the layout |
-| Styling | Tailwind CSS (CDN) | Utility classes; design tokens in `theme-variables.css` |
+| Styling | Tailwind CSS (local build) | Utility classes; run `make css` after adding any; design tokens in `theme-variables.css` |
 | Design tokens | CSS custom properties | `src/web/static/css/theme-variables.css` (source of truth) |
 | Components | Vanilla JS | Modals, collapsibles, and shared widgets in `src/web/static/js/`; no framework runtime |
 | Charts | Chart.js | Included in `base.html` |
 | Icons | Inline SVG | Heroicons-style, `stroke="currentColor"`, `viewBox="0 0 24 24"` |
 
 Designs must use **Tailwind utility classes** and **CSS custom properties** from `theme-variables.css`. No new CSS frameworks or build steps unless explicitly requested.
+
+**Tailwind is a local build, not a CDN.** `src/web/static/css/tailwind.css` is generated from
+`tailwind.config.js` and committed. A class only exists in that file if the build could find it
+as a literal string, so:
+
+- Run `make css` after adding or changing utility classes, and commit the result. Skipping this
+  ships a stale stylesheet and the new classes silently do nothing.
+- Class names assembled from fragments (`` `bg-${color}-100` ``) are invisible to the scanner and
+  must be added to `safelist` in `tailwind.config.js`. Interpolating a *complete* class string is fine.
+- Class strings held in Python are scanned too (`./src/**/*.py` is in `content`) -- see
+  `src/utils/keyword_resolution.py`.
 
 ---
 
@@ -227,12 +243,12 @@ The app is **dark-theme only**. Tailwind's `dark:` variants must always activate
 This is guaranteed by:
 
 1. `<html lang="en" class="dark">` in `base.html` (the `dark` class is mandatory)
-2. Inline Tailwind config `tailwind.config = { darkMode: 'class' }` right after the CDN script load
+2. `darkMode: 'class'` in `tailwind.config.js`, compiled into `src/web/static/css/tailwind.css`
 
 **Do NOT:**
 - Remove `class="dark"` from the `<html>` element
-- Remove the inline `tailwind.config` block
-- Rely on `prefers-color-scheme: dark` (the default CDN behavior fails on light-mode OS)
+- Remove `darkMode: 'class'` from `tailwind.config.js`
+- Rely on `prefers-color-scheme: dark` (Tailwind's default `darkMode: 'media'` fails on light-mode OS)
 - Write `dark:text-white` alone and expect it to work without the class config above
 
 When in doubt, prefer direct classes (`text-white`) or CSS variables (`style="color: var(--text-primary)"`) over `dark:` variants for critical text.

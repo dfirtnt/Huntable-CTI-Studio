@@ -47,12 +47,12 @@
     <!-- Theme variables (canonical source for app colors) -->
     <link rel="stylesheet" href="/static/css/theme-variables.css">
     
-    <!-- Tailwind CSS via CDN -->
-    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
-    <script>
-      // Force class-based dark mode so `dark:` variants always activate on our dark-only theme
-      tailwind.config = { darkMode: 'class' };
-    </script>
+    <!-- Tailwind CSS, built locally from tailwind.config.js (see `make css`).
+         Replaces the former runtime cdn.tailwindcss.com script: that host sends no
+         access-control-allow-origin, so `integrity` could never be added to it (SRI on a
+         cross-origin script forces a CORS fetch, which the host would fail) -- see the
+         2026-07-20 revert in cff9e7ba. darkMode:'class' now lives in the build config. -->
+    <link rel="stylesheet" href="{{ asset_url('css/tailwind.css') }}">
     
     <!-- Chart.js for visualizations -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js" integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ" crossorigin="anonymous"></script>
