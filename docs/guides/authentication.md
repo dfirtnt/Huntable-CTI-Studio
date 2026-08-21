@@ -110,6 +110,49 @@ CSRF is layered on top of identity and role checks, not a replacement for them.
 
 In local `AUTH_MODE=disabled` development, CSRF is inactive (no token required).
 
+## Security response headers
+
+`SecurityHeadersMiddleware` (`src/web/security/headers.py`) is registered
+**outermost**, so headers reach every response -- including authorization
+denials, error pages and static assets, which are precisely the responses an
+unauthenticated caller can reach.
+
+| Header | Value |
+|---|---|
+| `Content-Security-Policy` | `object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'` |
+| `Content-Security-Policy-Report-Only` | strict policy (see below) |
+| `X-Frame-Options` | `DENY` (for browsers predating `frame-ancestors`) |
+| `X-Content-Type-Options` | `nosniff` |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+
+The split is deliberate.
+
+**Enforced** carries only directives the app already complies with, so enabling
+it cannot break a page. These are useful on their own: `base-uri` stops an
+injected `<base>` repointing every relative URL, and `form-action` stops an
+injected form posting operator data off-origin.
+
+**Report-Only** carries the policy we cannot enforce yet. The blocker is
+`script-src`: the templates contain 26 inline `<script>` blocks (~22,000 lines)
+and **341 inline event-handler attributes**. Nonces would authorise the blocks,
+but nothing authorises a handler attribute -- allowing `onclick=` necessarily
+allows an injected `onerror=`, which is the payload the escaping fixes were
+about. Enforcing `script-src` therefore requires migrating those handlers to
+`addEventListener` first; Report-Only measures that surface in the meantime.
+Violations surface in the browser console -- there is no collector endpoint.
+
+`style-src` keeps `'unsafe-inline'` on purpose: inline styles are pervasive and
+much lower risk than script, and reporting each one would bury the script
+violations that matter.
+
+**HSTS is not sent from the app.** The dev app is plain HTTP, and a stray
+`max-age` pinned against localhost is a footgun with no benefit. It belongs with
+the TLS-terminating deployment config.
+
+CSP is a second layer, not a substitute for escaping -- see
+[`docs/development/web-app-testing.md`](../development/web-app-testing.md) for
+the escaping contracts that are the primary control.
+
 ## Audit events
 
 Audit events are stored in the `audit_events` table and include actor, request

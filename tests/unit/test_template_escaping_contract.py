@@ -155,3 +155,81 @@ def test_dashboard_and_hunt_metrics_escape_innerhtml_interpolations() -> None:
         "(stored XSS). Wrap each value in escapeHtml(...) -- the global helper from "
         f"static/js/utils.js. Offenders: {offenders}"
     )
+
+
+# --- article_detail.html: field-scoped innerHTML contract ----------------------
+#
+# article_detail.html is deliberately NOT added to INNERHTML_SINK_TEMPLATES. It
+# carries ~74 innerHTML interpolations, most of them internally-derived values
+# (CSS class names, character counts, ternaries), and blanket-escaping the file
+# is a separate audit rather than a regression guard.
+#
+# What must not regress is narrower: the two fields that carry verbatim article
+# body text into those dialogs. `chunk.text` reaches the removed-chunks dialog
+# and `comparison.chunk_text` reaches the feedback-comparison modal through both
+# a body sink and a `title=` attribute sink -- so a payload closing the attribute
+# escapes into markup. Both are slices of `articles.content`, which is scraped.
+#
+# tests/playwright/chunk_dialogs_xss_regression.spec.ts proves these render inert
+# for a concrete payload, but it needs a live server and a browser. This keeps the
+# same property enforced at unit speed, and catches a NEW sink added for either
+# field -- which the payload test would only catch if it happened to drive it.
+
+TAINTED_ARTICLE_DETAIL_FIELDS = ("chunk.text", "comparison.chunk_text")
+
+
+def _all_interpolations(text: str) -> list[str]:
+    """Every `${...}` in the file, not only those inside an `innerHTML = ` block.
+
+    These dialogs build their markup in `.map(chunk => `...`)` assigned to a
+    local (`chunksHtml`, `modalHTML`) and inject it later, so the innerHTML-anchored
+    scan above never sees them -- it reported zero uses of `chunk.text` and made
+    the escaping assertion pass vacuously. Matching interpolations directly is
+    both simpler and independent of how the string later reaches the DOM.
+    """
+    return [_normalize(m.group("expr")) for m in INTERPOLATION_PATTERN.finditer(text)]
+
+
+def _unescaped_field_uses(text: str, field: str) -> list[str]:
+    """Interpolations emitting `field` without escaping it at the point of use."""
+    offenders = []
+    for expr in _all_interpolations(text):
+        for match in re.finditer(re.escape(field), expr):
+            # `.length` yields a number, not markup -- it cannot carry a payload.
+            if expr[match.end() : match.end() + len(".length")] == ".length":
+                continue
+            if not expr[: match.start()].endswith("escapeHtml("):
+                offenders.append(expr)
+                break
+    return offenders
+
+
+def test_article_detail_tainted_field_scan_is_not_vacuous() -> None:
+    """If the fields get renamed, this contract must fail loudly, not pass empty."""
+    text = (TEMPLATE_DIR / "article_detail.html").read_text(encoding="utf-8")
+    exprs = _all_interpolations(text)
+
+    for field in TAINTED_ARTICLE_DETAIL_FIELDS:
+        uses = [e for e in exprs if field in e]
+        assert uses, (
+            f"No innerHTML interpolation of {field!r} found in article_detail.html. "
+            "Either the dialog was removed (delete this contract) or the field was "
+            "renamed (update TAINTED_ARTICLE_DETAIL_FIELDS) -- do not leave it passing vacuously."
+        )
+
+
+def test_article_detail_escapes_article_derived_chunk_text() -> None:
+    text = (TEMPLATE_DIR / "article_detail.html").read_text(encoding="utf-8")
+
+    offenders: list[tuple[str, str]] = []
+    for field in TAINTED_ARTICLE_DETAIL_FIELDS:
+        offenders.extend((field, expr) for expr in _unescaped_field_uses(text, field))
+
+    assert not offenders, (
+        "Article body text interpolated into .innerHTML without escaping. Both fields are "
+        "verbatim slices of scraped articles.content, and comparison.chunk_text also lands in "
+        "a title= attribute, so a payload closing the attribute breaks into markup. Wrap the "
+        "field itself in escapeHtml(...) at the point of use -- note the removed-chunks dialog "
+        "escapes BEFORE its \\n -> <br> replacement so intended line breaks survive. "
+        f"Offenders: {offenders}"
+    )
