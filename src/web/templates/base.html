@@ -237,6 +237,8 @@
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 min-h-screen flex flex-col pt-[70px]" style="background-color: var(--panel-bg-0);">
 
+    <a href="#main-content" class="skip-link">Skip to content</a>
+
     <!-- Navigation -->
     <nav class="gradient-bg shadow-lg border-b fixed top-0 left-0 right-0 z-50 overflow-x-auto" style="border-color: var(--border-muted);" aria-label="Main navigation">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-w-0">
@@ -249,7 +251,7 @@
                 <div class="flex-shrink-0 mr-6">
                     <a href="/" class="flex items-center gap-2 cursor-pointer transition-opacity hover:opacity-80">
                         <img src="/static/icons/huntable-icon.svg" alt="Huntable" class="w-[57px] h-[57px] nav-brand-accent" />
-                        <h1 class="text-xl font-bold leading-tight" style="color: var(--text-primary);">Huntable<br>CTI Studio</h1>
+                        <div class="text-xl font-bold leading-tight" style="color: var(--text-primary);">Huntable<br>CTI Studio</div>
                     </a>
                 </div>
                 <div class="hidden md:flex items-center justify-center gap-8 flex-1 min-w-0 shrink">
@@ -319,7 +321,7 @@
     </nav>
 
     <!-- Main Content -->
-    <main class="flex-1" style="background-color: var(--panel-bg-0);">
+    <main id="main-content" class="flex-1" style="background-color: var(--panel-bg-0);">
         {% block content %}{% endblock %}
     </main>
 

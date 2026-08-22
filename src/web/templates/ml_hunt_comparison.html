@@ -817,6 +817,13 @@
 
         const evaluatedCount = accuracyPoints.filter(value => value !== null).length;
 
+        const allSeriesPoints = [...accuracyPoints, ...precisionPoints, ...recallPoints, ...f1Points]
+            .filter(value => value !== null && !isNaN(value));
+        const dataMin = allSeriesPoints.length ? Math.min(...allSeriesPoints) : 0;
+        const dataMax = allSeriesPoints.length ? Math.max(...allSeriesPoints) : 100;
+        const yAxisMin = Math.max(0, Math.floor(dataMin - 5));
+        const yAxisMax = Math.min(100, Math.ceil(dataMax + 5));
+
         if (evaluatedCount === 0) {
             ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
             ctx.fillText('No evaluation data available', 10, 50);
@@ -886,18 +893,26 @@
                     maintainAspectRatio: false,
                     scales: {
                         y: {
-                            beginAtZero: true,
-                            max: 100,
+                            min: yAxisMin,
+                            max: yAxisMax,
                             ticks: {
+                                color: getThemeColor('--chart-tick') || '#9ca3af',
                                 callback: function(value) {
                                     return value + '%';
                                 }
+                            },
+                            grid: {
+                                color: getThemeColor('--chart-grid-muted') || 'rgba(156, 163, 175, 0.1)'
                             }
                         },
                         x: {
                             ticks: {
+                                color: getThemeColor('--chart-tick') || '#9ca3af',
                                 maxRotation: 45,
                                 minRotation: 45
+                            },
+                            grid: {
+                                color: getThemeColor('--chart-grid-muted') || 'rgba(156, 163, 175, 0.1)'
                             }
                         }
                 },

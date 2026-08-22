@@ -199,6 +199,19 @@
         initWorkflowButtonState({{ article.id|default(0)|int }});
     </script>
     <style>
+        /* Applied chunk filter gets a visible pressed state -- otherwise nothing
+           distinguishes it after the click that set it. */
+        .chunk-filter-btn {
+            opacity: 0.55;
+        }
+        .chunk-filter-btn[aria-pressed="true"] {
+            opacity: 1;
+            box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.85);
+        }
+        .chunk-filter-count {
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
         /* Hard switch between rich and plain surfaces to prevent legacy span bleed */
         html[data-annotation-mode="observables"] #article-content,
         body[data-annotation-mode="observables"] #article-content {
@@ -8818,22 +8831,22 @@ modal.setAttribute('aria-modal', 'true');
                                           [&::-webkit-slider-thumb]:bg-purple-500 [&::-webkit-slider-thumb]:rounded-full
                                           [&::-webkit-slider-thumb]:cursor-pointer
                                           [&::-webkit-slider-thumb]:hover:bg-purple-400"
-                                   onchange="updateThresholdFromSlider(this.value)">
+                                   oninput="updateThresholdFromSlider(this.value)">
                             <span id="thresholdValue" class="text-lg font-bold text-blue-400">0.7</span>
                         </div>
                     </div>
                     <div class="mt-3 grid grid-cols-3 gap-2 text-xs">
-                        <div class="text-center p-2 bg-panel-0 border border-gray-700 rounded-lg">
+                        <div id="thresholdPreset-0.5" data-preset-threshold="0.5" class="threshold-preset-card text-center p-2 bg-panel-0 border border-gray-700 rounded-lg">
                             <div class="font-semibold text-emerald-400">0.5 (Aggressive)</div>
-                            <div class="text-gray-400">Keeps more chunks</div>
+                            <div class="preset-caption text-gray-400">Keeps more chunks</div>
                         </div>
-                        <div class="text-center p-2 bg-panel-0 border border-purple-500/50 rounded-lg">
+                        <div id="thresholdPreset-0.7" data-preset-threshold="0.7" class="threshold-preset-card text-center p-2 bg-panel-0 border border-purple-500/50 rounded-lg">
                             <div class="font-semibold text-blue-400">0.7 (Balanced)</div>
-                            <div class="text-gray-400">Current setting</div>
+                            <div class="preset-caption text-gray-400">Selected threshold</div>
                         </div>
-                        <div class="text-center p-2 bg-panel-0 border border-gray-700 rounded-lg">
+                        <div id="thresholdPreset-0.8" data-preset-threshold="0.8" class="threshold-preset-card text-center p-2 bg-panel-0 border border-gray-700 rounded-lg">
                             <div class="font-semibold text-red-400">0.8 (Conservative)</div>
-                            <div class="text-gray-400">Removes more chunks</div>
+                            <div class="preset-caption text-gray-400">Removes more chunks</div>
                         </div>
                     </div>
                 </div>
@@ -8853,7 +8866,7 @@ modal.setAttribute('aria-modal', 'true');
                         <div class="text-sm text-gray-300">Filtered Out</div>
                     </div>
                     <div class="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4">
-                        <div id="contentReductionPercent" class="text-lg font-bold text-purple-400">${data.filtering_stats && data.filtering_stats.reduction_percent ? data.filtering_stats.reduction_percent.toFixed(1) : '0.0'}%</div>
+                        <div id="contentReductionPercent" class="text-lg font-bold text-purple-400">${data.filtering_stats && data.filtering_stats.content_reduction_percent ? data.filtering_stats.content_reduction_percent.toFixed(1) : '0.0'}%</div>
                         <div class="text-sm text-gray-300">Content Reduction</div>
                     </div>
                 </div>
@@ -8864,7 +8877,7 @@ modal.setAttribute('aria-modal', 'true');
                 
                 <!-- ML Accuracy Statistics -->
                 <div class="bg-indigo-500/10 border border-indigo-500/30 rounded-lg p-4 mb-6">
-                    <h4 class="text-lg font-semibold text-indigo-400 mb-3"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 7.5h10.5v9H6.75v-9z"/></svg> ML Model Performance</h4>
+                    <h4 class="text-lg font-semibold text-indigo-400 mb-3"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 7.5h10.5v9H6.75v-9z"/></svg> ML Model Performance${data.processing_summary && data.processing_summary.chunk_limit_applied ? ` <span class="text-xs font-normal text-amber-400">(based on ${data.processing_summary.processed_chunks} of ${data.processing_summary.total_chunks} chunks)</span>` : ''}</h4>
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
                             <div class="text-sm text-gray-300">ML Predictions</div>
@@ -8875,7 +8888,7 @@ modal.setAttribute('aria-modal', 'true');
                    <div class="text-lg font-semibold text-emerald-400">${data.ml_stats && data.ml_stats.correct_predictions !== undefined ? data.ml_stats.correct_predictions : 0}</div>
                </div>
                         <div>
-                            <div class="text-sm text-gray-300">Accuracy</div>
+                            <div class="text-sm text-gray-300" title="Share of chunks where the model's prediction matches the filter's own keep/remove decision. Not scored against human ground truth.">Model/Filter Agreement</div>
                             <div class="text-lg font-semibold ${data.ml_stats && data.ml_stats.accuracy_percent !== undefined ? (data.ml_stats.accuracy_percent >= 80 ? 'text-emerald-400' : data.ml_stats.accuracy_percent >= 60 ? 'text-amber-400' : 'text-red-400') : 'text-gray-400'}">${data.ml_stats && data.ml_stats.accuracy_percent !== undefined ? data.ml_stats.accuracy_percent.toFixed(1) : '0.0'}%</div>
                         </div>
                         <div>
@@ -8919,7 +8932,7 @@ modal.setAttribute('aria-modal', 'true');
                 
                 <!-- Chunk Visualization -->
                 <div class="mb-6">
-                    <h4 class="text-lg font-semibold text-gray-50 mb-3"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg> Chunk Visualization</h4>
+                    <h4 class="text-lg font-semibold text-gray-50 mb-3"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg> Chunk Visualization${data.processing_summary && data.processing_summary.chunk_limit_applied ? ` <span class="text-xs font-normal text-amber-400">(based on ${data.processing_summary.processed_chunks} of ${data.processing_summary.total_chunks} chunks)</span>` : ''}</h4>
                     <div class="bg-panel-0 border border-gray-700 rounded-lg p-4">
                         <div id="chunkVisualizationContainer">
                             ${chunkVisualization}
@@ -8930,37 +8943,37 @@ modal.setAttribute('aria-modal', 'true');
                 <!-- Filter Controls -->
                 <div class="mb-6">
                     <h4 class="text-lg font-semibold text-gray-50 mb-3"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75"/></svg> Filter Controls</h4>
-                    <div class="flex flex-wrap gap-4">
-                        <button onclick="filterChunks('all')" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
-                            Show All Chunks
+                    <div class="flex flex-wrap gap-4" id="chunkFilterButtonGroup">
+                        <button data-filter="all" onclick="filterChunks('all')" aria-pressed="true" class="chunk-filter-btn px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
+                            Show All Chunks <span class="chunk-filter-count opacity-80"></span>
                         </button>
-                        <button onclick="filterChunks('kept')" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
-                            Show Kept Only
+                        <button data-filter="kept" onclick="filterChunks('kept')" aria-pressed="false" class="chunk-filter-btn px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
+                            Show Kept Only <span class="chunk-filter-count opacity-80"></span>
                         </button>
-                        <button onclick="filterChunks('removed')" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
-                            Show Removed Only
+                        <button data-filter="removed" onclick="filterChunks('removed')" aria-pressed="false" class="chunk-filter-btn px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
+                            Show Removed Only <span class="chunk-filter-count opacity-80"></span>
                         </button>
-                        <button onclick="filterChunks('threat')" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
-                            Show Threat Keywords
+                        <button data-filter="threat" onclick="filterChunks('threat')" aria-pressed="false" class="chunk-filter-btn px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
+                            Show Threat Keywords <span class="chunk-filter-count opacity-80"></span>
                         </button>
-                        <button onclick="filterChunks('perfect')" class="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
-                            Show Perfect Discriminators
+                        <button data-filter="perfect" onclick="filterChunks('perfect')" aria-pressed="false" class="chunk-filter-btn px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
+                            Show Perfect Discriminators <span class="chunk-filter-count opacity-80"></span>
                         </button>
-                        <button onclick="filterChunks('ml')" class="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
-                            Show ML Predictions
+                        <button data-filter="ml" onclick="filterChunks('ml')" aria-pressed="false" class="chunk-filter-btn px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
+                            Show ML Predictions <span class="chunk-filter-count opacity-80"></span>
                         </button>
-                        <button onclick="filterChunks('confidenceBand')" class="px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors" title="Show chunks with confidence between 40% and 60%">
-                            Show 40-60% Confidence
+                        <button data-filter="confidenceBand" onclick="filterChunks('confidenceBand')" aria-pressed="false" class="chunk-filter-btn px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors" title="Show chunks with confidence between 40% and 60%">
+                            Show 40-60% Confidence <span class="chunk-filter-count opacity-80"></span>
                         </button>
-                        <button onclick="filterChunks('mismatch')" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors" title="Show chunks where ML prediction differs from actual decision">
-                            Show ML Mismatches
+                        <button data-filter="mismatch" onclick="filterChunks('mismatch')" aria-pressed="false" class="chunk-filter-btn px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors" title="Show chunks where ML prediction differs from actual decision">
+                            Show ML Mismatches <span class="chunk-filter-count opacity-80"></span>
                         </button>
                     </div>
                 </div>
                 
                 <!-- Chunk Details -->
                 <div class="mb-6">
-                    <h4 class="text-lg font-semibold text-gray-900 mb-3"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125"/></svg> Chunk Details</h4>
+                    <h4 class="text-lg font-semibold text-gray-900 mb-3"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125"/></svg> Chunk Details${data.processing_summary && data.processing_summary.chunk_limit_applied ? ` <span class="text-xs font-normal text-amber-500">(based on ${data.processing_summary.processed_chunks} of ${data.processing_summary.total_chunks} chunks)</span>` : ''}</h4>
                     <div id="chunkDetails" class="space-y-4">
                         ${(typeof generateChunkDetails === 'function' && data.chunk_analysis) ? generateChunkDetails(data.chunk_analysis) : '<div class="p-4 text-gray-500">No chunk analysis data available</div>'}
                     </div>
@@ -9007,6 +9020,7 @@ modal.setAttribute('aria-modal', 'true');
             // Store debug data globally for filtering
             window.chunkDebugData = data;
             window.chunkDebugFullAnalysisInProgress = false;
+            updateChunkFilterButtonStates('all');
         } catch (e) {
             console.error('Error in showChunkDebugResults:', e);
             showNotification('Error displaying chunk debug results: ' + e.message, 'error');
@@ -9026,8 +9040,13 @@ modal.setAttribute('aria-modal', 'true');
             const thresholdSlider = document.getElementById('thresholdSlider');
             if (thresholdSlider && data.min_confidence !== undefined) {
                 thresholdSlider.value = getSliderFromThreshold(data.min_confidence);
+                const thresholdValueEl = document.getElementById('thresholdValue');
+                if (thresholdValueEl) {
+                    thresholdValueEl.textContent = data.min_confidence;
+                }
+                syncThresholdPresetCards(data.min_confidence);
             }
-            
+
             // Load existing feedback for all chunks
             if (data.chunk_analysis && Array.isArray(data.chunk_analysis)) {
                 for (let i = 0; i < data.chunk_analysis.length; i++) {
@@ -9077,7 +9096,7 @@ modal.setAttribute('aria-modal', 'true');
                     <span>Filtered Out</span>
                 </div>
                 <div class="flex items-center">
-                    <div class="w-4 h-4 bg-amber-400 rounded mr-2 ring-2 ring-amber-400"></div>
+                    <div class="w-4 h-4 bg-gray-700 rounded mr-2 ring-2 ring-amber-400"></div>
                     <span>ML Mismatch</span>
                 </div>
             </div>
@@ -9108,14 +9127,14 @@ modal.setAttribute('aria-modal', 'true');
                 ${chunk.ml_details && !chunk.ml_details.error ? `
                     <div class="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 mb-3">
                         <div class="flex items-center justify-between mb-2">
-                            <h5 class="font-semibold text-blue-400"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 7.5h10.5v9H6.75v-9z"/></svg> Random Forest Prediction</h5>
+                            <h5 class="font-semibold text-blue-400"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 7.5h10.5v9H6.75v-9z"/></svg> Random Forest Prediction (Chunk ${chunk.chunk_id})</h5>
                             <span class="px-2 py-0.5 text-xs rounded ${chunk.ml_details.prediction_label === 'Huntable' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/10 text-red-400 border border-red-500/30'}">
                                 ${chunk.ml_details.prediction_label}
                             </span>
                         </div>
                         <div class="grid grid-cols-2 gap-4 text-sm">
                             <div>
-                                <div class="text-gray-300">Confidence:</div>
+                                <div class="text-gray-300">Model confidence:</div>
                                 <div class="font-semibold text-gray-50">${(() => {
                                     let conf = chunk.ml_details.confidence;
                                     if (conf === undefined || conf === null) {
@@ -9163,7 +9182,7 @@ modal.setAttribute('aria-modal', 'true');
                 
                 <div class="text-sm text-gray-300 mb-2">
                     <strong>Reason:</strong> ${escapeHtml(chunk.reason)}
-                    ${chunk.confidence && !isNaN(chunk.confidence) && chunk.confidence > 0 ? ` | <strong>Confidence:</strong> ${(chunk.confidence * 100).toFixed(1)}%` : ''}
+                    ${chunk.confidence && !isNaN(chunk.confidence) && chunk.confidence > 0 ? ` | <strong>Filter confidence:</strong> ${(chunk.confidence * 100).toFixed(1)}%` : ''}
                 </div>
                 
                 <!-- Feedback Section -->
@@ -9172,10 +9191,12 @@ modal.setAttribute('aria-modal', 'true');
                         <span class="text-sm font-medium text-gray-300">Was this classification correct?</span>
                         <div class="flex gap-2">
                             <button onclick="submitChunkFeedback(${index}, true)"
+                                    aria-label="Chunk ${chunk.chunk_id}: classification was correct (${chunk.ml_details && chunk.ml_details.prediction_label ? chunk.ml_details.prediction_label : (chunk.is_kept ? 'Huntable' : 'Not Huntable')})"
                                     class="px-3 py-1 text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/20 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-gray-900">
                                 ✅ Correct - ${chunk.ml_details && chunk.ml_details.prediction_label ? chunk.ml_details.prediction_label : (chunk.is_kept ? 'Huntable' : 'Not Huntable')}
                             </button>
                             <button onclick="submitChunkFeedback(${index}, false)"
+                                    aria-label="Chunk ${chunk.chunk_id}: classification was incorrect (${chunk.ml_details && chunk.ml_details.prediction_label ? (chunk.ml_details.prediction_label === 'Huntable' ? 'Not Huntable' : 'Huntable') : (chunk.is_kept ? 'Not Huntable' : 'Huntable')})"
                                     class="px-3 py-1 text-xs bg-red-500/10 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/20 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900">
                                 ❌ Incorrect - ${chunk.ml_details && chunk.ml_details.prediction_label ? (chunk.ml_details.prediction_label === 'Huntable' ? 'Not Huntable' : 'Huntable') : (chunk.is_kept ? 'Not Huntable' : 'Huntable')}
                             </button>
@@ -9271,49 +9292,74 @@ modal.setAttribute('aria-modal', 'true');
         return confidence;
     }
     
+    function chunkMatchesFilter(chunkData, filter) {
+        switch(filter) {
+            case 'all':
+                return true;
+            case 'kept':
+                return chunkData.is_kept;
+            case 'removed':
+                return !chunkData.is_kept;
+            case 'threat':
+                return chunkData.has_threat_keywords || chunkData.has_command_patterns;
+            case 'perfect':
+                return chunkData.has_perfect_discriminators;
+            case 'ml':
+                return chunkData.ml_details && !chunkData.ml_details.error;
+            case 'confidenceBand': {
+                const confidence = getNormalizedConfidence(chunkData);
+                return confidence !== null && confidence >= 0.4 && confidence <= 0.6;
+            }
+            case 'mismatch':
+                return chunkData.ml_mismatch === true;
+            default:
+                return false;
+        }
+    }
+
+    function updateChunkFilterButtonStates(activeFilter) {
+        const chunkAnalysis = (window.chunkDebugData && window.chunkDebugData.chunk_analysis) || [];
+        document.querySelectorAll('.chunk-filter-btn').forEach(btn => {
+            const filter = btn.dataset.filter;
+            const isActive = filter === activeFilter;
+            btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            const count = chunkAnalysis.filter(chunkData => chunkMatchesFilter(chunkData, filter)).length;
+            const countEl = btn.querySelector('.chunk-filter-count');
+            if (countEl) {
+                countEl.textContent = `(${count})`;
+            }
+        });
+    }
+
     function filterChunks(filter) {
         const chunkDetails = document.getElementById('chunkDetails');
         const chunks = chunkDetails.querySelectorAll('.chunk-detail');
-        
+        let visibleCount = 0;
+
         chunks.forEach(chunk => {
             const chunkId = parseInt(chunk.dataset.chunkId);
             const chunkData = window.chunkDebugData.chunk_analysis[chunkId];
-            
-            let show = false;
-            
-            switch(filter) {
-                case 'all':
-                    show = true;
-                    break;
-                case 'kept':
-                    show = chunkData.is_kept;
-                    break;
-                case 'removed':
-                    show = !chunkData.is_kept;
-                    break;
-                case 'threat':
-                    show = chunkData.has_threat_keywords || chunkData.has_command_patterns;
-                    break;
-                case 'perfect':
-                    show = chunkData.has_perfect_discriminators;
-                    break;
-                case 'ml':
-                    show = chunkData.ml_details && !chunkData.ml_details.error;
-                    break;
-                case 'confidenceBand': {
-                    const confidence = getNormalizedConfidence(chunkData);
-                    if (confidence !== null && confidence >= 0.4 && confidence <= 0.6) {
-                        show = true;
-                    }
-                    break;
-                }
-                case 'mismatch':
-                    show = chunkData.ml_mismatch === true;
-                    break;
-            }
-            
+            const show = chunkMatchesFilter(chunkData, filter);
+
             chunk.style.display = show ? 'block' : 'none';
+            if (show) visibleCount += 1;
         });
+
+        updateChunkFilterButtonStates(filter);
+
+        let emptyState = document.getElementById('chunkFilterEmptyState');
+        if (visibleCount === 0) {
+            if (!emptyState) {
+                emptyState = document.createElement('div');
+                emptyState.id = 'chunkFilterEmptyState';
+                emptyState.className = 'text-center text-sm text-gray-400 py-8 border border-dashed border-gray-700 rounded-lg';
+                chunkDetails.appendChild(emptyState);
+            }
+            emptyState.textContent = 'No chunks match the selected filter.';
+            emptyState.style.display = 'block';
+        } else if (emptyState) {
+            emptyState.style.display = 'none';
+        }
     }
     
     function highlightChunk(chunkIndex) {
@@ -9356,7 +9402,29 @@ modal.setAttribute('aria-modal', 'true');
         const thresholds = [0.5, 0.7, 0.8];
         return thresholds.indexOf(threshold);
     }
-    
+
+    const THRESHOLD_PRESET_HINTS = {
+        '0.5': 'Keeps more chunks',
+        '0.7': 'Balanced default',
+        '0.8': 'Removes more chunks'
+    };
+
+    // Keeps the threshold readout and the three preset cards in agreement with
+    // the active threshold -- called on initial modal render and on every
+    // threshold change so they can never disagree (see task 6hJ8x4q5chvjFMX3).
+    function syncThresholdPresetCards(threshold) {
+        const key = Number(threshold).toFixed(1);
+        document.querySelectorAll('.threshold-preset-card').forEach(card => {
+            const isActive = card.dataset.presetThreshold === key;
+            card.classList.toggle('border-purple-500/50', isActive);
+            card.classList.toggle('border-gray-700', !isActive);
+            const caption = card.querySelector('.preset-caption');
+            if (caption) {
+                caption.textContent = isActive ? 'Selected threshold' : (THRESHOLD_PRESET_HINTS[card.dataset.presetThreshold] || '');
+            }
+        });
+    }
+
     // Update threshold from slider position
     async function updateThresholdFromSlider(sliderValue) {
         const threshold = getThresholdFromSlider(sliderValue);
@@ -9370,14 +9438,15 @@ modal.setAttribute('aria-modal', 'true');
             if (thresholdValueEl) {
                 thresholdValueEl.textContent = newThreshold;
             }
-            
+            syncThresholdPresetCards(newThreshold);
+
             // Update slider position
             const thresholdSlider = document.getElementById('thresholdSlider');
             if (thresholdSlider) {
                 thresholdSlider.value = getSliderFromThreshold(parseFloat(newThreshold));
                 thresholdSlider.disabled = true; // Show loading state
             }
-            
+
             // Store the threshold globally
             window.chunkDebugThreshold = parseFloat(newThreshold);
             
@@ -9464,7 +9533,7 @@ modal.setAttribute('aria-modal', 'true');
         if (totalChunksEl) totalChunksEl.textContent = data.total_chunks;
         if (keptChunksEl) keptChunksEl.textContent = data.kept_chunks;
         if (removedChunksEl) removedChunksEl.textContent = data.removed_chunks;
-        if (reductionEl) reductionEl.textContent = `${data.filtering_stats && data.filtering_stats.reduction_percent ? data.filtering_stats.reduction_percent.toFixed(1) : '0.0'}%`;
+        if (reductionEl) reductionEl.textContent = `${data.filtering_stats && data.filtering_stats.content_reduction_percent ? data.filtering_stats.content_reduction_percent.toFixed(1) : '0.0'}%`;
         
         // Update cost analysis
         const originalContentEl = document.getElementById('originalContentLength');
@@ -9496,7 +9565,9 @@ modal.setAttribute('aria-modal', 'true');
         // Update global data
         window.chunkDebugData = data;
         window.chunkDebugFullAnalysisInProgress = false;
-        
+        const activeFilterBtn = document.querySelector('.chunk-filter-btn[aria-pressed="true"]');
+        updateChunkFilterButtonStates(activeFilterBtn ? activeFilterBtn.dataset.filter : 'all');
+
         // Show notification
         showNotification(`Threshold updated to ${window.chunkDebugThreshold}. ${data.kept_chunks} chunks kept, ${data.removed_chunks} removed.`, 'success');
         if (data.processing_summary?.chunk_limit_applied) {

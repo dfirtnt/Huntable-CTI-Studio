@@ -11,7 +11,7 @@ import numpy as np
 from fastapi import APIRouter, HTTPException
 
 from src.database.async_manager import async_db_manager
-from src.utils.llm_optimizer import estimate_gpt4o_cost  # Backward compatibility
+from src.utils.llm_optimizer import GPT4O_INPUT_COST_PER_MILLION_TOKENS, estimate_gpt4o_cost  # Backward compatibility
 from src.web.dependencies import get_content_filter, logger
 
 router = APIRouter(tags=["Debug"])
@@ -21,7 +21,7 @@ def calculate_filtered_costs(
     original_length: int,
     filtered_length: int,
     prompt_tokens: int = 500,
-    input_rate_per_million: float = 5.0,
+    input_rate_per_million: float = GPT4O_INPUT_COST_PER_MILLION_TOKENS,
 ) -> dict:
     """
     Estimate token counts and costs for filtered content.
@@ -269,7 +269,7 @@ async def api_chunk_debug(
         original_tokens = len(article.content) // 4
         filtered_tokens = len(filter_result.filtered_content or "") // 4
         tokens_saved = max(original_tokens - filtered_tokens, 0)
-        input_cost_per_token = 5.0 / 1_000_000
+        input_cost_per_token = GPT4O_INPUT_COST_PER_MILLION_TOKENS / 1_000_000
         actual_cost_savings = tokens_saved * input_cost_per_token
 
         processed_predictions = [chunk for chunk in chunk_analysis if chunk.get("ml_prediction_correct") is not None]

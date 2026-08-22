@@ -1997,6 +1997,7 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false, e
     }
 
     const themeMuted = getThemeColor('--text-muted') || '#9ca3af';
+    const themeTick = getThemeColor('--chart-tick') || '#9ca3af';
     const themeSuccess = getThemeColor('--action-execute') || '#10b981';
     const themeSuccessFill = getThemeColor('--action-execute-fill') || 'rgba(16, 185, 129, 0.1)';
     const themeChartMuted = getThemeColor('--chart-grid-muted') || 'rgba(156, 163, 175, 0.1)';
@@ -2119,7 +2120,7 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false, e
                         color: themeSuccess
                     },
                     ticks: {
-                        color: themeMuted
+                        color: themeTick
                     },
                     grid: {
                         color: themeChartMuted
@@ -2127,7 +2128,7 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false, e
                 },
                 x: {
                     ticks: {
-                        color: themeMuted,
+                        color: themeTick,
                         maxRotation: 45,
                         minRotation: 45,
                         maxTicksLimit: 200, // Show all labels (set high enough for all versions)

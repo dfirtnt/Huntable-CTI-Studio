@@ -16,6 +16,12 @@ from src.utils.content_filter import ContentFilter
 
 logger = logging.getLogger(__name__)
 
+# GPT-4o pricing, verified against https://developers.openai.com/api/docs/models/gpt-4o
+# on 2026-08-22. Single source of truth for all cost estimates in this module --
+# do not hardcode these figures elsewhere.
+GPT4O_INPUT_COST_PER_MILLION_TOKENS = 2.50
+GPT4O_OUTPUT_COST_PER_MILLION_TOKENS = 10.00
+
 
 class LLMOptimizer:
     """
@@ -26,7 +32,7 @@ class LLMOptimizer:
     2. Provide cost estimates based on filtered content (using GPT-4o pricing as reference)
     3. Maintain analysis quality while reducing costs
 
-    Note: Cost calculations use GPT-4o pricing ($5.00 per 1M input tokens) as a reference.
+    Note: Cost calculations use GPT-4o pricing (see GPT4O_INPUT_COST_PER_MILLION_TOKENS) as a reference.
     Actual costs will vary by LLM provider.
     """
 
@@ -75,9 +81,9 @@ class LLMOptimizer:
             filtered_tokens = len(filter_result.filtered_content) // 4
             tokens_saved = original_tokens - filtered_tokens
 
-            # Cost calculation uses GPT-4o pricing as reference ($5.00 per 1M input tokens)
+            # Cost calculation uses GPT-4o pricing as reference
             # Note: Actual costs will vary by LLM provider
-            cost_savings = (tokens_saved / 1000000) * 5.00
+            cost_savings = (tokens_saved / 1_000_000) * GPT4O_INPUT_COST_PER_MILLION_TOKENS
 
             # Update stats
             self.filter_stats["total_requests"] += 1
@@ -165,19 +171,18 @@ class LLMOptimizer:
                     # Content was filtered out entirely
                     input_tokens = 0
                     original_tokens = len(content) // 4
-                    cost_savings = (original_tokens / 1000000) * 5.00  # Full input cost saved
+                    cost_savings = (original_tokens / 1_000_000) * GPT4O_INPUT_COST_PER_MILLION_TOKENS  # Full input cost saved
             else:
                 input_tokens = len(content) // 4
                 cost_savings = 0.0
 
             # Cost calculation uses GPT-4o pricing as reference
-            # Input: $5.00 per 1M tokens, Output: $15.00 per 1M tokens
             prompt_tokens = 1508  # From existing implementation
             total_input_tokens = input_tokens + prompt_tokens
             max_output_tokens = 2000
 
-            input_cost = (total_input_tokens / 1000000) * 5.00
-            output_cost = (max_output_tokens / 1000000) * 15.00
+            input_cost = (total_input_tokens / 1_000_000) * GPT4O_INPUT_COST_PER_MILLION_TOKENS
+            output_cost = (max_output_tokens / 1_000_000) * GPT4O_OUTPUT_COST_PER_MILLION_TOKENS
             total_cost = input_cost + output_cost
 
             return {
@@ -201,8 +206,8 @@ class LLMOptimizer:
             total_input_tokens = input_tokens + prompt_tokens
             max_output_tokens = 2000
 
-            input_cost = (total_input_tokens / 1000000) * 5.00
-            output_cost = (max_output_tokens / 1000000) * 15.00
+            input_cost = (total_input_tokens / 1_000_000) * GPT4O_INPUT_COST_PER_MILLION_TOKENS
+            output_cost = (max_output_tokens / 1_000_000) * GPT4O_OUTPUT_COST_PER_MILLION_TOKENS
             total_cost = input_cost + output_cost
 
             return {
