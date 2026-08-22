@@ -346,11 +346,13 @@ function updateQueueStats(statusCounts) {
     const approvedEl = document.getElementById('approvedCount');
     const rejectedEl = document.getElementById('rejectedCount');
     const submittedEl = document.getElementById('submittedCount');
+    const needsReviewEl = document.getElementById('needsReviewCount');
 
     if (pendingEl) pendingEl.textContent = get('pending');
     if (approvedEl) approvedEl.textContent = get('approved');
     if (rejectedEl) rejectedEl.textContent = get('rejected');
     if (submittedEl) submittedEl.textContent = get('submitted');
+    if (needsReviewEl) needsReviewEl.textContent = get('needs_review');
 
     // Reflect active filter on stat cards
     const activeFilter = (document.getElementById('queueStatusFilter') || {}).value || '';

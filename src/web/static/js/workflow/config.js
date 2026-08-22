@@ -328,7 +328,8 @@ function isValidOpenAIChatModel(modelId) {
  * @param {string} modelId - Model identifier
  * @returns {boolean} - true if valid, false if invalid
  */
-function validateProviderModelCombination(agentPrefix, provider, modelId) {
+function validateProviderModelCombination(agentPrefix, provider, modelId, options = {}) {
+    const skipAsync = options.skipAsync === true;
     if (!modelId || !modelId.trim()) {
         // Empty model is valid (will use fallback)
         clearProviderModelError(agentPrefix);
@@ -382,10 +383,14 @@ function validateProviderModelCombination(agentPrefix, provider, modelId) {
         showProviderModelError(agentPrefix, fullMessage);
     } else {
         clearProviderModelError(agentPrefix);
-        // Optionally do async server-side validation for extra confidence (non-blocking)
-        validateProviderModelCombinationAsync(agentPrefix, normalizedProvider, trimmed).catch(e => {
-            console.warn('Async model validation failed:', e);
-        });
+        // Optionally do async server-side validation for extra confidence (non-blocking).
+        // Skipped for bulk/load-time sync passes over all agents -- client-side validation
+        // above is authoritative there; the async pass only matters for an actual user edit.
+        if (!skipAsync) {
+            validateProviderModelCombinationAsync(agentPrefix, normalizedProvider, trimmed).catch(e => {
+                console.warn('Async model validation failed:', e);
+            });
+        }
     }
     
     return isValid;
@@ -1419,7 +1424,7 @@ function buildProviderSelect(agentId, currentProvider) {
     `;
 }
 
-function updateAgentProviderVisibility(agentPrefix, provider) {
+function updateAgentProviderVisibility(agentPrefix, provider, options = {}) {
     const normalized = (provider || getDefaultProvider()).toString().trim().toLowerCase();
     const groups = document.querySelectorAll(`[data-agent-prefix="${agentPrefix}"]`);
     groups.forEach(group => {
@@ -1617,7 +1622,7 @@ function applyProviderSelections(models) {
             }
         }
         
-        updateAgentProviderVisibility(config.prefix, provider);
+        updateAgentProviderVisibility(config.prefix, provider, { skipAsync: true });
         if (typeof window.renderSubAgentCommercialInputs === 'function') {
             window.renderSubAgentCommercialInputs(config.prefix);
         }
@@ -1682,7 +1687,7 @@ function syncProviderVisibilityAndInputs() {
         const select = document.getElementById(`${config.prefix}-provider`);
         if (!select) return;
         const provider = (select.value || getDefaultProvider()).toString().trim().toLowerCase();
-        updateAgentProviderVisibility(config.prefix, provider);
+        updateAgentProviderVisibility(config.prefix, provider, { skipAsync: true });
         if (typeof window.renderSubAgentCommercialInputs === 'function') {
             window.renderSubAgentCommercialInputs(config.prefix);
         }
@@ -1784,7 +1789,7 @@ function onAgentProviderChange(agentPrefix) {
     // Validate current model against new provider
     const currentModel = getActiveAgentModelValue(agentPrefix, provider);
     if (currentModel) {
-        validateProviderModelCombination(agentPrefix, provider, currentModel);
+        validateProviderModelCombination(agentPrefix, provider, currentModel, options);
     } else {
         clearProviderModelError(agentPrefix);
     }
@@ -1810,7 +1815,7 @@ function refreshAllProviderBlocks() {
         const prefix = select.id.replace(/-provider$/, '');
         const provider = (select.value || getDefaultProvider()).toString().trim().toLowerCase();
         // __dbgLog('H4', 'refreshAllProviderBlocks iterate', { prefix, provider });
-        updateAgentProviderVisibility(prefix, provider);
+        updateAgentProviderVisibility(prefix, provider, { skipAsync: true });
         // Update temperature limit based on provider
         updateTemperatureLimit(prefix, provider);
         if (typeof window.renderSubAgentCommercialInputs === 'function') {
@@ -3476,7 +3481,7 @@ function renderAgentModels(lmstudioModels) {
                 providerSelect.value = provider;
             }
             // Update visibility of provider sections
-            updateAgentProviderVisibility(agent.prefix, provider);
+            updateAgentProviderVisibility(agent.prefix, provider, { skipAsync: true });
         });
         if (typeof normalizeWorkflowConfigControlBindings === 'function') {
             normalizeWorkflowConfigControlBindings();
@@ -3990,7 +3995,7 @@ async function performAutoSave() {
             Object.values(AGENT_CONFIG).forEach(config => {
                 const provider = getAgentProvider(config.prefix) || getDefaultProvider();
                 const model = getAgentModel(config.prefix, provider);
-                if (model && !validateProviderModelCombination(config.prefix, provider, model)) {
+                if (model && !validateProviderModelCombination(config.prefix, provider, model, { skipAsync: true })) {
                     // Only block if this model value differs from what is already stored.
                     // If it matches, the error is pre-existing -- let the save proceed.
                     const storedModel = currentConfig.agent_models[config.modelKey];
@@ -4323,7 +4328,7 @@ window.autoSaveModelChange = function() {
                 Object.values(AGENT_CONFIG).forEach(config => {
                     const provider = getAgentProvider(config.prefix) || getDefaultProvider();
                     const model = getAgentModel(config.prefix, provider);
-                    if (model && !validateProviderModelCombination(config.prefix, provider, model)) {
+                    if (model && !validateProviderModelCombination(config.prefix, provider, model, { skipAsync: true })) {
                         const storedModel = currentConfig.agent_models[config.modelKey];
                         if (model !== storedModel) {
                             hasErrors = true;

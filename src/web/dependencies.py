@@ -128,6 +128,15 @@ templates.env.filters["strftime"] = strftime_filter
 templates.env.globals["asset_url"] = asset_url
 
 
+def _current_year() -> int:
+    from datetime import datetime
+
+    return datetime.now().year
+
+
+templates.env.globals["current_year"] = _current_year
+
+
 @lru_cache(maxsize=1)
 def get_content_filter() -> ContentFilter:
     """Return a lazily loaded singleton ContentFilter instance."""

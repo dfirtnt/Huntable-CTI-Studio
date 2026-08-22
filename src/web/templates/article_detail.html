@@ -1931,7 +1931,7 @@ Please provide a detailed analysis based on the article content and the user's s
                     // Create highlight span
                     const style = this.getTypeStyle(classification);
                     const highlightSpan = document.createElement('span');
-                    highlightSpan.className = `px-1 py-0.5 rounded text-xs font-medium border ${style.highlightClass}`;
+                    highlightSpan.className = `px-1 py-0.5 rounded border ${style.highlightClass}`;
                     highlightSpan.title = `${style.label}: ${text.substring(0, 50)}...`;
                     highlightSpan.dataset.annotationType = classification;
                     
@@ -2003,7 +2003,7 @@ Please provide a detailed analysis based on the article content and the user's s
             
             // Try to highlight the first 500 characters and add an indicator
             const shortText = text.substring(0, Math.min(500, text.length));
-            const highlightSpan = `<span class="px-1 py-0.5 rounded text-xs font-medium border ${style.highlightClass}" data-annotation-type="${escapeHtml(classification)}" title="${escapeHtml(style.label)}: Long selection (${text.length} chars)">${escapeHtml(shortText)}${text.length > 500 ? '...' : ''}</span>`;
+            const highlightSpan = `<span class="px-1 py-0.5 rounded border ${style.highlightClass}" data-annotation-type="${escapeHtml(classification)}" title="${escapeHtml(style.label)}: Long selection (${text.length} chars)">${escapeHtml(shortText)}${text.length > 500 ? '...' : ''}</span>`;
             
             // Try to find and replace the text
             if (content.includes(shortText)) {
@@ -2012,7 +2012,7 @@ Please provide a detailed analysis based on the article content and the user's s
                 // Also try to highlight the end of the selection if it's very long
                 if (text.length > 1000) {
                     const endText = text.substring(text.length - 100);
-                    const endHighlightSpan = `<span class="px-1 py-0.5 rounded text-xs font-medium border ${style.highlightClass}" data-annotation-type="${escapeHtml(classification)}" title="End of long ${escapeHtml(style.label)} selection">...${escapeHtml(endText)}</span>`;
+                    const endHighlightSpan = `<span class="px-1 py-0.5 rounded border ${style.highlightClass}" data-annotation-type="${escapeHtml(classification)}" title="End of long ${escapeHtml(style.label)} selection">...${escapeHtml(endText)}</span>`;
                     
                     if (newContent.includes(endText) && !newContent.includes(endHighlightSpan)) {
                         newContent = newContent.replace(endText, endHighlightSpan);
@@ -2025,7 +2025,7 @@ Please provide a detailed analysis based on the article content and the user's s
                 // Fallback to shorter text
                 const veryShortText = text.substring(0, Math.min(100, text.length));
                 if (content.includes(veryShortText)) {
-                    const shortHighlightSpan = `<span class="px-1 py-0.5 rounded text-xs font-medium border ${style.highlightClass}" data-annotation-type="${escapeHtml(classification)}" title="${escapeHtml(style.label)}: Long selection (${text.length} chars)">${escapeHtml(veryShortText)}...</span>`;
+                    const shortHighlightSpan = `<span class="px-1 py-0.5 rounded border ${style.highlightClass}" data-annotation-type="${escapeHtml(classification)}" title="${escapeHtml(style.label)}: Long selection (${text.length} chars)">${escapeHtml(veryShortText)}...</span>`;
                     const newContent = content.replace(veryShortText, shortHighlightSpan);
                     this.contentElement.innerHTML = newContent;
                     console.log(`Added ${classification} highlight for part of long text selection`);
@@ -2105,7 +2105,7 @@ Please provide a detailed analysis based on the article content and the user's s
             }
             this.annotationClickHandler = (e) => {
                 // Check if clicked element is an annotation span
-                const clickedSpan = e.target.closest('span.px-1.py-0\\.5.rounded.text-xs.font-medium.border');
+                const clickedSpan = e.target.closest('span[data-annotation-type]');
                 
                 if (clickedSpan) {
                     const annotationType = clickedSpan.dataset.annotationType;

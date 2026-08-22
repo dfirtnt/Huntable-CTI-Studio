@@ -509,3 +509,126 @@ class TestArticlesBulkSelection:
                 # Verify selection is cleared (new page)
                 bulk_toolbar = page.locator("#bulk-actions-toolbar")
                 expect(bulk_toolbar).to_have_class(re.compile(r"hidden"))
+
+
+class TestArticlesCollapsedFilterIndicator:
+    """Test that active filters remain visible when the filters panel is collapsed."""
+
+    @pytest.mark.ui
+    @pytest.mark.articles
+    def test_no_badge_on_unfiltered_list(self, page: Page):
+        """No active-filter badge should render when nothing is filtered."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.goto(f"{base_url}/articles")
+        page.wait_for_load_state("load")
+
+        badge = page.locator("#filters-active-badge")
+        expect(badge).to_have_class(re.compile(r"hidden"))
+
+    @pytest.mark.ui
+    @pytest.mark.articles
+    def test_badge_appears_when_collapsed_with_filter(self, page: Page):
+        """Collapsing the panel while a filter is active must surface an indicator.
+
+        This is the collapse-then-navigate-to-filtered-URL regression case: a
+        stored sessionStorage preference from an earlier visit can start the
+        panel collapsed even though a filter is active, so the test forces a
+        known state via the header click rather than assuming auto-open.
+        """
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.goto(f"{base_url}/articles?search=test")
+        page.wait_for_load_state("load")
+
+        content = page.locator("#filters-content")
+        header = page.locator("#filtersHeader")
+        badge = page.locator("#filters-active-badge")
+
+        if "hidden" in (content.get_attribute("class") or ""):
+            header.click()
+            page.wait_for_selector("#filters-content:not(.hidden)", timeout=5000)
+
+        # Panel is open; badge stays hidden while open.
+        expect(badge).to_have_class(re.compile(r"hidden"))
+
+        # Collapse it -- the bug reproduction: a filtered list with no visible reason why.
+        header.click()
+        expect(content).to_have_class(re.compile(r"hidden"))
+
+        expect(badge).not_to_have_class(re.compile(r"hidden"))
+        expect(badge).to_contain_text("filter")
+        expect(badge).to_contain_text("Clear")
+
+    @pytest.mark.ui
+    @pytest.mark.articles
+    def test_badge_stays_hidden_when_panel_reopened(self, page: Page):
+        """Expanding the panel again should hide the redundant badge."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.goto(f"{base_url}/articles?search=test")
+        page.wait_for_load_state("load")
+
+        content = page.locator("#filters-content")
+        header = page.locator("#filtersHeader")
+        badge = page.locator("#filters-active-badge")
+
+        if "hidden" not in (content.get_attribute("class") or ""):
+            header.click()
+            expect(content).to_have_class(re.compile(r"hidden"))
+
+        expect(badge).not_to_have_class(re.compile(r"hidden"))
+
+        header.click()
+        page.wait_for_selector("#filters-content:not(.hidden)", timeout=5000)
+        expect(badge).to_have_class(re.compile(r"hidden"))
+
+
+class TestArticlesKeywordChipAccessibility:
+    """Keyword chips must expose the keyword as their accessible name, not the
+    category hint -- and the +N overflow chip must expose what it hides."""
+
+    @pytest.mark.ui
+    @pytest.mark.articles
+    def test_keyword_chip_accessible_name_is_the_keyword_not_the_category_hint(self, page: Page):
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.goto(f"{base_url}/articles")
+        page.wait_for_load_state("load")
+
+        chips = page.locator(".keyword-chip")
+        count = chips.count()
+        if count == 0:
+            pytest.skip("No keyword chips rendered for the current article set")
+
+        # None of the per-keyword chips should carry a title -- that was the bug:
+        # title on the outer span overrides the accessible name with the generic
+        # category hint (e.g. "Good discriminator") instead of the keyword text.
+        chip = chips.first
+        title = chip.get_attribute("title")
+        text = chip.text_content().strip()
+        if title is not None and title.startswith("+"):
+            pytest.skip("First chip happened to be an overflow chip; covered separately below")
+        assert title is None, f"chip text={text!r} should have no title (accessible name must be the keyword)"
+
+    @pytest.mark.ui
+    @pytest.mark.articles
+    def test_overflow_chip_exposes_hidden_keywords_via_title(self, page: Page):
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        # A larger page widens the chance of an article with enough keywords to
+        # overflow its per-category limit (3/2/2, see keyword_chips() in
+        # articles.html); the default page 1 can legitimately have none.
+        page.goto(f"{base_url}/articles?per_page=100")
+        page.wait_for_load_state("load")
+
+        # Locator has_text/filter with a Python regex was unreliable for this
+        # exact "+N" shape in this Playwright version -- match on trimmed text
+        # in Python instead of trusting the browser-side text match.
+        chips = page.locator(".keyword-chip")
+        overflow_index = next(
+            (i for i in range(chips.count()) if re.match(r"^\+\d+$", chips.nth(i).text_content().strip())),
+            None,
+        )
+        if overflow_index is None:
+            pytest.skip("No overflow (+N) keyword chip rendered for the current article set")
+        overflow_chip = chips.nth(overflow_index)
+
+        title = overflow_chip.get_attribute("title")
+        assert title, "overflow chip must carry a title listing the hidden keywords"
+        assert title.strip() != "", "overflow chip title must not be empty"

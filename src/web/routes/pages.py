@@ -20,6 +20,38 @@ from src.web.routes.articles import SimpleFilter
 router = APIRouter()
 
 
+def parse_threat_hunting_range(range_str: str) -> tuple[float, float] | None:
+    """Parse a `threat_hunting_range` query value like "60-80" into (min, max).
+
+    Returns None for a malformed value instead of raising, so callers can
+    treat it as "no filter" rather than a hard error.
+    """
+    if not range_str or "-" not in range_str:
+        return None
+    try:
+        min_score, max_score = map(float, range_str.split("-"))
+    except (ValueError, TypeError):
+        return None
+    return min_score, max_score
+
+
+def score_in_threat_hunting_bucket(score: float | None, min_score: float, max_score: float) -> bool:
+    """Whether `score` falls in [min_score, max_score) -- or [min_score, max_score] at the top.
+
+    Bucket upper bounds are exclusive so adjacent buckets partition the score
+    range without a dead zone at fractional boundaries (e.g. a score of 19.5
+    must land in exactly one of "0-20" / "20-40", never neither). The top
+    bucket (max_score >= 100) keeps an inclusive upper bound so a perfect 100
+    still counts. An article with no score (`score is None`) matches no
+    bucket.
+    """
+    if score is None or score < min_score:
+        return False
+    if max_score >= 100:
+        return score <= max_score
+    return score < max_score
+
+
 @router.get("/", response_class=HTMLResponse)
 @router.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):
@@ -347,17 +379,19 @@ async def articles_list(
             filtered_articles = [article for article in filtered_articles if article.source_id == source_id]
 
         if threat_hunting_range:
-            try:
-                if "-" in threat_hunting_range:
-                    min_score, max_score = map(float, threat_hunting_range.split("-"))
-                    filtered_articles = [
-                        article
-                        for article in filtered_articles
-                        if article.article_metadata
-                        and min_score <= article.article_metadata.get("threat_hunting_score", 0) <= max_score
-                    ]
-            except (ValueError, TypeError):
-                pass
+            parsed_range = parse_threat_hunting_range(threat_hunting_range)
+            if parsed_range is None:
+                logger.warning("Ignoring invalid threat_hunting_range filter %r", threat_hunting_range)
+            else:
+                min_score, max_score = parsed_range
+                filtered_articles = [
+                    article
+                    for article in filtered_articles
+                    if article.article_metadata
+                    and score_in_threat_hunting_bucket(
+                        article.article_metadata.get("threat_hunting_score"), min_score, max_score
+                    )
+                ]
 
         if sort_by == "threat_hunting_score":
             filtered_articles.sort(

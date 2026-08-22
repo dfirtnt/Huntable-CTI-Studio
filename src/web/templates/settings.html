@@ -45,7 +45,10 @@
 .settings-btn-danger:focus-visible { outline:2px solid var(--purple-primary); outline-offset:2px; }
 .settings-btn-primary:disabled,
 .settings-btn-secondary:disabled,
-.settings-btn-danger:disabled { opacity:0.55; cursor:progress; }
+.settings-btn-danger:disabled {
+  background:var(--purple-muted,#4b4e77); color:var(--text-muted-slate);
+  opacity:0.55; cursor:not-allowed;
+}
 /* Connection-test actions: one row shape everywhere — button, then its result. */
 .settings-test-row {
   display:flex; align-items:center; flex-wrap:wrap; gap:0.5rem 0.75rem; margin-top:0.75rem;
@@ -135,9 +138,7 @@
                 </span>
             </div>
             <div id="documentation-content" class="space-y-4 hidden">
-                <p class="text-sm text-gray-600 dark:text-gray-400">Open the MkDocs documentation site. If the page does not load, run MkDocs in the background from the project root:</p>
-                <pre class="text-sm bg-gray-900 text-gray-100 p-3 rounded-lg overflow-x-auto"><code>nohup .venv/bin/python3 -m mkdocs serve --dev-addr 127.0.0.1:8000 &gt;&gt; logs/mkdocs.log 2&gt;&amp;1 &amp;</code></pre>
-                <p class="text-xs text-gray-500 dark:text-gray-400">Logs: <code class="bg-gray-700 px-1 rounded">logs/mkdocs.log</code></p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Click <strong class="text-gray-700 dark:text-gray-300">Launch MkDocs server</strong> below to open the documentation site.</p>
                 <a id="launchMkdocsBtn"
                    href="http://127.0.0.1:8000"
                    target="_blank"
@@ -148,6 +149,12 @@
                     </svg>
                     Launch MkDocs server
                 </a>
+                <p class="text-sm text-gray-600 dark:text-gray-400">If the page fails to load, the MkDocs server likely isn't running yet. Start it from the project root, then click Launch again:</p>
+                <div class="relative">
+                    <pre class="text-sm bg-gray-900 text-gray-100 p-3 pr-16 rounded-lg overflow-x-auto"><code id="mkdocsServeCommand">nohup .venv/bin/python3 -m mkdocs serve --dev-addr 127.0.0.1:8000 &gt;&gt; logs/mkdocs.log 2&gt;&amp;1 &amp;</code></pre>
+                    <button id="copyMkdocsCommandBtn" type="button" title="Copy command" aria-label="Copy command" class="absolute top-2 right-2 settings-btn-secondary px-2 py-1 text-xs">Copy</button>
+                </div>
+                <p class="text-xs text-gray-500 dark:text-gray-400">Logs: <code class="bg-gray-700 px-1 rounded">logs/mkdocs.log</code></p>
             </div>
         </div>
 
@@ -201,7 +208,7 @@
                             <input type="number" 
                                    id="dailyRetention" 
                                    value="7" 
-                                   min="0" 
+                                   min="1" 
                                    max="30"
                                    class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Keep last N daily backups</p>
@@ -213,7 +220,7 @@
                             <input type="number" 
                                    id="weeklyRetention" 
                                    value="4" 
-                                   min="0" 
+                                   min="1" 
                                    max="12"
                                    class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Keep last N weekly backups</p>
@@ -225,7 +232,7 @@
                             <input type="number" 
                                    id="monthlyRetention" 
                                    value="3" 
-                                   min="0" 
+                                   min="1" 
                                    max="12"
                                    class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Keep last N monthly backups</p>
@@ -368,11 +375,11 @@
                         <input type="file"
                                id="restoreBackupFileInput"
                                accept=".sql,.sql.gz,.gz,application/gzip,application/x-gzip"
-                               class="block w-full max-w-xs text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-orange-500 file:text-white hover:file:bg-orange-600 file:cursor-pointer" aria-label="Choose a backup file to restore">
+                               class="block w-full max-w-xs text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-600 file:text-white hover:file:bg-gray-500 file:cursor-pointer" aria-label="Choose a backup file to restore">
                         <button id="restoreFromFileBtn"
                                 type="button"
                                 disabled
-                                class="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed">
+                                class="settings-btn-danger">
                             Restore from File
                         </button>
                     </div>
@@ -430,6 +437,7 @@
                              <div id="backupCronJobCount" class="mt-1 text-sm font-medium text-gray-200">0</div>
                          </div>
                      </div>
+                     <p id="backupCronReconcileNote" class="hidden text-sm text-yellow-400"></p>
 
                      <div>
                          <label for="cronEditor" class="block text-sm font-medium text-gray-300 mb-2">
@@ -564,6 +572,7 @@
                                            class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                                     <button type="button"
                                             id="toggleWorkflowOpenaiApiKey"
+                                            aria-label="Show API key" aria-pressed="false"
                                             class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
                                         <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
@@ -623,6 +632,7 @@
                                            class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                                     <button type="button"
                                             id="toggleWorkflowAnthropicApiKey"
+                                            aria-label="Show API key" aria-pressed="false"
                                             class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
                                         <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
@@ -678,6 +688,7 @@
                                     class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                              <button type="button"
                                      id="toggleLangfusePublicKey"
+                                     aria-label="Show API key" aria-pressed="false"
                                      class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                                  <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
@@ -700,6 +711,7 @@
                                     class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                              <button type="button"
                                      id="toggleLangfuseSecretKey"
+                                     aria-label="Show API key" aria-pressed="false"
                                      class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                                  <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
@@ -755,12 +767,12 @@
                               </span>
                           </label>
                           <div class="flex items-center gap-4">
-                              <input type="number" 
-                                     id="autoTriggerHuntScoreThreshold" 
+                              <input type="number"
+                                     id="autoTriggerHuntScoreThreshold"
                                      value="100.0"
-                                     min="0" 
-                                     max="100" 
-                                     step="1"
+                                     min="0"
+                                     max="100"
+                                     step="0.1"
                                      class="w-32 bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                               <span class="text-sm text-gray-500 dark:text-gray-400">
                                   (0-100, default: 100.0)
@@ -804,6 +816,7 @@
                                class="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
                         <button type="button"
                                 id="toggleGithubToken"
+                                aria-label="Show API key" aria-pressed="false"
                                 class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
@@ -1423,6 +1436,19 @@
         managedStatus.textContent = state.automated ? 'Enabled' : 'Disabled';
         managedStatus.className = `mt-1 text-sm font-medium ${state.automated ? 'text-green-400' : 'text-yellow-400'}`;
         jobCount.textContent = String((state.jobs || []).length);
+
+        const reconcileNote = document.getElementById('backupCronReconcileNote');
+        if (reconcileNote) {
+            if (!state.cron_available && state.automated) {
+                reconcileNote.textContent = 'Automation is enabled, but this container cannot read the host crontab to confirm or list its jobs -- that is why Availability is Unavailable while Managed Backups shows Enabled.';
+                reconcileNote.classList.remove('hidden');
+            } else if (!state.cron_available) {
+                reconcileNote.textContent = 'This container cannot read the host crontab, so Managed Jobs cannot be counted here even if jobs exist on the host.';
+                reconcileNote.classList.remove('hidden');
+            } else {
+                reconcileNote.classList.add('hidden');
+            }
+        }
         if (cronEditor) {
             cronEditor.value = state.raw || '';
             cronEditor.disabled = !state.cron_available;
@@ -1433,11 +1459,14 @@
         if (refreshCronBtn) {
             refreshCronBtn.disabled = false;
         }
+        const cronUnavailableReason = 'Host crontab is unreachable from the container';
         if (applyBackupCronBtn) {
             applyBackupCronBtn.disabled = !state.cron_available;
+            applyBackupCronBtn.title = state.cron_available ? '' : cronUnavailableReason;
         }
         if (disableBackupCronBtn) {
             disableBackupCronBtn.disabled = !state.cron_available;
+            disableBackupCronBtn.title = state.cron_available ? '' : cronUnavailableReason;
         }
 
         if (!state.cron_available) {
@@ -1825,11 +1854,15 @@
         
         if (input.type === 'password') {
             input.type = 'text';
+            button.setAttribute('aria-pressed', 'true');
+            button.setAttribute('aria-label', 'Hide API key');
             icon.innerHTML = `
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>
             `;
         } else {
             input.type = 'password';
+            button.setAttribute('aria-pressed', 'false');
+            button.setAttribute('aria-label', 'Show API key');
             icon.innerHTML = `
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
@@ -1845,11 +1878,15 @@
         
         if (input.type === 'password') {
             input.type = 'text';
+            button.setAttribute('aria-pressed', 'true');
+            button.setAttribute('aria-label', 'Hide API key');
             icon.innerHTML = `
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>
             `;
         } else {
             input.type = 'password';
+            button.setAttribute('aria-pressed', 'false');
+            button.setAttribute('aria-label', 'Show API key');
             icon.innerHTML = `
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
@@ -1865,11 +1902,15 @@
         
         if (input.type === 'password') {
             input.type = 'text';
+            button.setAttribute('aria-pressed', 'true');
+            button.setAttribute('aria-label', 'Hide API key');
             icon.innerHTML = `
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>
             `;
         } else {
             input.type = 'password';
+            button.setAttribute('aria-pressed', 'false');
+            button.setAttribute('aria-label', 'Show API key');
             icon.innerHTML = `
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
@@ -2184,11 +2225,15 @@
 
         if (input.type === 'password') {
             input.type = 'text';
+            button.setAttribute('aria-pressed', 'true');
+            button.setAttribute('aria-label', 'Hide API key');
             icon.innerHTML = `
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>
             `;
         } else {
             input.type = 'password';
+            button.setAttribute('aria-pressed', 'false');
+            button.setAttribute('aria-label', 'Show API key');
             icon.innerHTML = `
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
@@ -2203,11 +2248,15 @@
 
         if (input.type === 'password') {
             input.type = 'text';
+            button.setAttribute('aria-pressed', 'true');
+            button.setAttribute('aria-label', 'Hide API key');
             icon.innerHTML = `
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>
             `;
         } else {
             input.type = 'password';
+            button.setAttribute('aria-pressed', 'false');
+            button.setAttribute('aria-label', 'Show API key');
             icon.innerHTML = `
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
@@ -2270,6 +2319,15 @@
         
         // GitHub PR settings
         safeAddListener('toggleGithubToken', 'click', toggleGithubTokenVisibility);
+        safeAddListener('copyMkdocsCommandBtn', 'click', function() {
+            const btn = document.getElementById('copyMkdocsCommandBtn');
+            const command = document.getElementById('mkdocsServeCommand').textContent;
+            navigator.clipboard.writeText(command).then(function() {
+                const orig = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(function() { btn.textContent = orig; }, 1500);
+            });
+        });
         safeAddListener('testGitHubConnection', 'click', testGitHubConnection);
 
         // Test workflow API key buttons

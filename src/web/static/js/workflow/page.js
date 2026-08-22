@@ -847,14 +847,26 @@ window.addEventListener('popstate', function(event) {
     }
 });
 
-// Auto-refresh active tab
-setInterval(() => {
-    if (currentTab === 'executions') {
-        loadExecutions();
-    } else if (currentTab === 'queue') {
-        loadQueue();
-    }
-}, currentTab === 'executions' ? 10000 : 30000);
+// Auto-refresh active tab. Re-arms itself after every fire using whatever tab
+// is current AT THAT MOMENT, so cadence follows tab switches instead of being
+// frozen at whatever tab was active when this ran once at script load.
+let autoRefreshTimer = null;
+function scheduleAutoRefresh() {
+    if (autoRefreshTimer) clearTimeout(autoRefreshTimer);
+    const delay = currentTab === 'executions' ? 10000 : 30000;
+    autoRefreshTimer = setTimeout(() => {
+        if (currentTab === 'executions') {
+            loadExecutions();
+        } else if (currentTab === 'queue') {
+            loadQueue();
+        }
+        scheduleAutoRefresh();
+    }, delay);
+}
+scheduleAutoRefresh();
+// Exposed so switchTab() can re-arm immediately on tab change instead of waiting
+// for the next natural fire under the previous tab's cadence.
+window.rearmAutoRefresh = scheduleAutoRefresh;
 
 // Help modal function
 function showHelp(fieldName) {

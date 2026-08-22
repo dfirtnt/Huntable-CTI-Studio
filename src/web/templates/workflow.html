@@ -667,6 +667,15 @@
   color: rgba(255,255,255,0.35);
   margin-left: auto;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.section-title { min-width: 0; }
+
+@media (max-width: 480px) {
+  .section-meta { max-width: 30vw; }
 }
 
 .section-chevron {
@@ -858,6 +867,7 @@
 }
 
 /* ─── Job Filter Banner (deep-linked ?jobId=) ─────────────── */
+.q-job-filter-bar.hidden { display: none; }
 .q-job-filter-bar {
   display: flex;
   align-items: center;
@@ -904,6 +914,11 @@
   margin-bottom: 20px;
 }
 
+/* Sigma Queue has 5 stat cards (adds Needs Review); Executions has 4. */
+#queueStats.q-stats-grid {
+  grid-template-columns: repeat(5, 1fr);
+}
+
 .q-stat-card {
   position: relative;
   padding: 16px 18px 14px;
@@ -932,6 +947,7 @@
 .q-stat-card.approved::before { background: var(--action-success-light); }
 .q-stat-card.rejected::before { background: var(--action-danger); }
 .q-stat-card.submitted::before { background: var(--purple-primary); }
+.q-stat-card.needs_review::before { background: #eab308; }
 .q-stat-card[data-filter-status] { cursor: pointer; }
 .q-stat-card--active { outline: 2px solid var(--purple-primary); outline-offset: 2px; box-shadow: 0 0 0 4px rgba(139,92,246,0.15); }
 
@@ -956,6 +972,7 @@
 .q-stat-card.approved .q-stat-value { color: var(--badge-green-text); }
 .q-stat-card.rejected .q-stat-value { color: var(--badge-red-text); }
 .q-stat-card.submitted .q-stat-value { color: var(--purple-light); }
+.q-stat-card.needs_review .q-stat-value { color: #eab308; }
 
 /* Subtle glow behind the number */
 .q-stat-card .q-stat-value {
@@ -1845,7 +1862,7 @@ tr.q-row-selected td {
 
 /* ─── Responsive ─────────────────────────────────────── */
 @media (max-width: 768px) {
-  .q-stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .q-stats-grid, #queueStats.q-stats-grid { grid-template-columns: repeat(2, 1fr); }
   .q-command-strip { flex-wrap: wrap; }
   .q-modal-panel { margin: 8px; border-radius: 10px; }
 }
@@ -1870,8 +1887,8 @@ tr.q-row-selected td {
 
     <!-- Tab Navigation -->
     <div class="border-b border-gray-200 dark:border-gray-700 mb-4">
-        <nav class="-mb-px flex items-center justify-between">
-            <div class="flex space-x-8">
+        <nav class="-mb-px flex items-center justify-between overflow-x-auto">
+            <div class="flex space-x-8 shrink-0">
                 <button type="button" data-tab="config" onclick="typeof window.switchTab === 'function' && window.switchTab('config')" id="tab-config" class="tab-button border-b-2 border-transparent py-2.5 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-300 dark:hover:text-gray-200">
                     <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"/></svg> Configuration
                 </button>
@@ -2882,6 +2899,10 @@ tr.q-row-selected td {
                 <div class="q-stat-label">Submitted</div>
                 <div class="q-stat-value" id="submittedCount">-</div>
             </div>
+            <div class="q-stat-card needs_review" data-filter-status="needs_review" role="button" tabindex="0" onclick="setQueueStatusFilter('needs_review')" onkeydown="if(event.key==='Enter'||event.key===' ')setQueueStatusFilter('needs_review')" title="Filter by Needs Review">
+                <div class="q-stat-label">Needs Review</div>
+                <div class="q-stat-value" id="needsReviewCount">-</div>
+            </div>
         </div>
 
         <!-- Queue Table -->
@@ -3432,6 +3453,11 @@ let queue = [];
 
 function switchTab(tab) {
     currentTab = tab;
+    // Re-arm the auto-refresh timer immediately so polling cadence follows this
+    // tab right away instead of waiting for the previous tab's interval to fire.
+    if (typeof window.rearmAutoRefresh === 'function') {
+        window.rearmAutoRefresh();
+    }
 
     // Update URL hash (replaceState to avoid double hashchange when already correct)
     const wantHash = '#' + tab;
@@ -3636,7 +3662,7 @@ window.switchTab = switchTab;
 (function() {
     const STORAGE_KEY = 'sigma-queue-col-widths-v1';
     const COL_IDS = ['scol-id','scol-article','scol-rule-title','scol-obs-used','scol-job-id','scol-similarity','scol-status','scol-created'];
-    const DEFAULT_W = { 'scol-id':60, 'scol-article':198, 'scol-rule-title':198, 'scol-obs-used':90, 'scol-job-id':90, 'scol-similarity':100, 'scol-status':110, 'scol-created':150 };
+    const DEFAULT_W = { 'scol-id':76, 'scol-article':198, 'scol-rule-title':198, 'scol-obs-used':90, 'scol-job-id':90, 'scol-similarity':100, 'scol-status':110, 'scol-created':150 };
     const MIN_W = 48;
 
     function lockWidths() {

@@ -32,7 +32,7 @@ disjoint set of spec files:
 | Area           | Files | What it covers                                             |
 |----------------|-------|------------------------------------------------------------|
 | `agent-config` | 14    | `agent_config_*.spec.ts` -- presets, validation, autosave  |
-| `workflow`     | 8     | execution detail tabs, prompt editor, workflow config persistence/versions, platform badge/detection |
+| `workflow`     | 10    | execution detail tabs, prompt editor, workflow config persistence/versions/pollution-guard, platform badge/detection/capability-matrix, auto-refresh cadence |
 | `sources`      | 1     | sources page                                                |
 | `articles`     | 5     | article detail, article-content XSS, annotation XSS, dashboard, jobs |
 | `intelligence` | 3     | sigma enrich, sigma queue lifecycle, sigma similarity unification |
