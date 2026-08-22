@@ -2294,6 +2294,26 @@ function updateTableWindow(windowVersions) {
     }, 50);
 }
 
+// Per-load cache for /api/evaluations/config-versions-models, keyed by the
+// sorted version set. loadAggregateScores() and loadPreviousResults() each
+// compute their own version list from different data (aggregates vs. results)
+// that resolves to the same set in different orders, so without this they
+// issue two identical requests per load. Cleared at the top of
+// loadPreviousResults() so it only dedupes within one load cycle.
+let _configVersionsModelsCache = new Map();
+
+async function _fetchConfigVersionsModels(versions) {
+    const key = [...new Set(versions.map(v => String(v)))].sort((a, b) => parseInt(a) - parseInt(b)).join(',');
+    if (_configVersionsModelsCache.has(key)) {
+        return _configVersionsModelsCache.get(key);
+    }
+    const versionsStr = versions.join(',');
+    const modelResponse = await fetch(`/api/evaluations/config-versions-models?config_versions=${versionsStr}`);
+    const modelData = modelResponse.ok ? await modelResponse.json() : { models_by_version: {} };
+    _configVersionsModelsCache.set(key, modelData);
+    return modelData;
+}
+
 // Load aggregate scores for current subagent
 async function loadAggregateScores() {
     const subagentSelect = document.getElementById('subagentSelect');
@@ -2345,45 +2365,41 @@ async function loadAggregateScores() {
         let configParamsByVersion = {};
         if (versions.length > 0) {
             try {
-                const versionsStr = versions.join(',');
-                const modelResponse = await fetch(`/api/evaluations/config-versions-models?config_versions=${versionsStr}`);
-                if (modelResponse.ok) {
-                    const modelData = await modelResponse.json();
-                    const modelsByVersion = modelData.models_by_version || {};
-                    
-                    // Extract agent-specific parameters for each version
-                    versions.forEach(version => {
-                        const configData = modelsByVersion[version];
-                        if (configData && configData.agent_models) {
-                            const models = configData.agent_models;
-                            const firstPresent = (...values) => values.find(value => value !== undefined && value !== null && value !== '');
+                const modelData = await _fetchConfigVersionsModels(versions);
+                const modelsByVersion = modelData.models_by_version || {};
 
-                            // Get agent-specific parameters
-                            const temperature = firstPresent(
-                                models[`${agentName}_temperature`],
-                                models[`${agentName}_model_temperature`],
-                                'N/A'
-                            );
-                            const topP = firstPresent(
-                                models[`${agentName}_top_p`],
-                                models[`${agentName}_model_top_p`],
-                                'N/A'
-                            );
-                            const agentProvider = firstPresent(models[`${agentName}_provider`], '');
-                            const agentModelKey = `${agentName}_model`;
-                            const agentModel = firstPresent(models[agentModelKey], 'N/A');
+                // Extract agent-specific parameters for each version
+                versions.forEach(version => {
+                    const configData = modelsByVersion[version];
+                    if (configData && configData.agent_models) {
+                        const models = configData.agent_models;
+                        const firstPresent = (...values) => values.find(value => value !== undefined && value !== null && value !== '');
 
-                            configParamsByVersion[version] = {
-                                temperature,
-                                topP,
-                                agentProvider,
-                                agentModel,
-                                cmdlineAttnPreprocessor: configData.cmdline_attention_preprocessor_enabled,
-                                procTreeAttnPreprocessor: configData.proc_tree_attention_preprocessor_enabled,
-                            };
-                        }
-                    });
-                }
+                        // Get agent-specific parameters
+                        const temperature = firstPresent(
+                            models[`${agentName}_temperature`],
+                            models[`${agentName}_model_temperature`],
+                            'N/A'
+                        );
+                        const topP = firstPresent(
+                            models[`${agentName}_top_p`],
+                            models[`${agentName}_model_top_p`],
+                            'N/A'
+                        );
+                        const agentProvider = firstPresent(models[`${agentName}_provider`], '');
+                        const agentModelKey = `${agentName}_model`;
+                        const agentModel = firstPresent(models[agentModelKey], 'N/A');
+
+                        configParamsByVersion[version] = {
+                            temperature,
+                            topP,
+                            agentProvider,
+                            agentModel,
+                            cmdlineAttnPreprocessor: configData.cmdline_attention_preprocessor_enabled,
+                            procTreeAttnPreprocessor: configData.proc_tree_attention_preprocessor_enabled,
+                        };
+                    }
+                });
             } catch (error) {
                 console.warn('Failed to load config version parameters:', error);
             }
@@ -2498,9 +2514,10 @@ async function loadPreviousResults() {
     const subagentSelect = document.getElementById('subagentSelect').value;
     const apiSubagent = subagentSelect === 'hunt_queries' ? 'hunt_queries' : subagentSelect;
     const resultsTable = document.getElementById('resultsTable');
-    
+
     resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Loading previous results...</p>';
-    
+    _configVersionsModelsCache.clear();
+
     // Load aggregate scores
     await loadAggregateScores();
     
@@ -2628,12 +2645,8 @@ async function loadPreviousResults() {
         let modelsByVersion = {};
         if (baseVersions.length > 0) {
             try {
-                const versionsStr = baseVersions.join(',');
-                const modelResponse = await fetch(`/api/evaluations/config-versions-models?config_versions=${versionsStr}`);
-                if (modelResponse.ok) {
-                    const modelData = await modelResponse.json();
-                    modelsByVersion = modelData.models_by_version || {};
-                }
+                const modelData = await _fetchConfigVersionsModels(baseVersions);
+                modelsByVersion = modelData.models_by_version || {};
             } catch (error) {
                 console.warn('Failed to load model info for tooltips:', error);
             }

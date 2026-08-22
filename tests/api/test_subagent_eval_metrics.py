@@ -213,3 +213,25 @@ async def test_config_versions_models_agent_model_keys_for_recent_version(
     assert expected_key in agent_models, (
         f"Version {recent_version} agent_models missing '{expected_key}'. Keys present: {list(agent_models)}"
     )
+
+
+@pytest.mark.api
+@pytest.mark.asyncio
+async def test_config_versions_models_rejects_oversized_param(async_client: httpx.AsyncClient):
+    """config_versions is a query-string param with no pagination; a caller
+    requesting an unbounded number of versions must get a clear 400 instead of
+    the request silently failing at a proxy's header-size limit."""
+    oversized = ",".join(str(v) for v in range(1, 1100))  # > 4000 chars
+    response = await async_client.get(f"/api/evaluations/config-versions-models?config_versions={oversized}")
+    assert response.status_code == 400
+    assert "cap" in response.json()["detail"].lower()
+
+
+@pytest.mark.api
+@pytest.mark.asyncio
+async def test_config_versions_models_accepts_param_under_cap(async_client: httpx.AsyncClient):
+    """A realistic-sized version list (well under the cap) is unaffected."""
+    versions = ",".join(str(v) for v in range(1, 200))
+    response = await async_client.get(f"/api/evaluations/config-versions-models?config_versions={versions}")
+    assert response.status_code == 200
+    assert "models_by_version" in response.json()

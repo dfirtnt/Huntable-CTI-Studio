@@ -2653,8 +2653,27 @@ async def get_config_versions_models(
     request: Request,
     config_versions: str = Query("1", description="Comma-separated list of config version numbers"),
 ):
-    """Get agent models for specified config versions."""
+    """Get agent models for specified config versions.
+
+    ``config_versions`` is length-capped rather than paginated: the caller
+    (the model-comparison table) needs the full id set in one response, and
+    the query string is what carries it. nginx's default header buffer is
+    8KB; ``_MAX_CONFIG_VERSIONS_PARAM_LENGTH`` stays well under that so a
+    caller with more ids gets a clear 400 instead of the request failing
+    opaquely at the proxy.
+    """
     try:
+        _MAX_CONFIG_VERSIONS_PARAM_LENGTH = 4000
+        if len(config_versions) > _MAX_CONFIG_VERSIONS_PARAM_LENGTH:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"config_versions is {len(config_versions)} characters, exceeding the "
+                    f"{_MAX_CONFIG_VERSIONS_PARAM_LENGTH}-character cap. Request a smaller set of "
+                    "config versions."
+                ),
+            )
+
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
 
@@ -2719,6 +2738,8 @@ async def get_config_versions_models(
             return {"models_by_version": models_by_version}
         finally:
             db_session.close()
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting config versions models: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error") from e
