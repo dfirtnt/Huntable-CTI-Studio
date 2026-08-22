@@ -51,6 +51,28 @@ a table, and `CREATE INDEX CONCURRENTLY` cannot run inside a transaction.
 Run the reconciler after any database restore, or after any `migrate_*` script that
 creates a table.
 
+### When the reconciler cannot fix a drifted constraint
+
+The reconciler reports a unique index as blocked rather than attempting it when the
+existing rows violate it, and that block can persist for a long time. `models.py` has
+always declared `agentic_workflow_config.version` as `unique=True`, but this database
+predates the attribute so the index was never built -- and by 2026-08-22, 164 version
+numbers were shared by two or more rows, the worst by five, because
+`_next_workflow_config_version()` allocated with an unguarded `SELECT max(version) + 1`.
+Nothing could create the index until those rows were resolved, which is an operator
+decision about history rather than something a generic reconciler should make.
+
+`scripts/migrate_workflow_config_version_unique.py` is the targeted remediation. It
+renumbers only the later rows of each collision (the lowest `id` keeps the number it has
+always been addressed by, and its original is recorded in `description`), creates the
+unique index, and creates a sequence owned by the column so allocation is atomic from
+then on. `id` never changes, so the evaluation tables' foreign keys are unaffected. It is
+idempotent.
+
+```bash
+docker exec cti_web python scripts/migrate_workflow_config_version_unique.py
+```
+
 ## Articles
 
 Backed by the `articles` table.

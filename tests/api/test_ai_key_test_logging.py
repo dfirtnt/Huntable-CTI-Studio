@@ -133,3 +133,73 @@ class TestGenerateSigmaKeyLogging:
             "SIGMA generation requested with ai_model='chatgpt', api_key present: True" in r.getMessage()
             for r in caplog.records
         ), "expected safe presence-only log line, not found"
+
+
+@pytest.mark.api
+class TestStoredKeyFallback:
+    """An empty api_key means "test whatever is already configured".
+
+    Settings stopped returning credential values to the browser, so the page can
+    no longer resend the key it is asking about. These routes resolve it instead.
+    Before this, an empty field produced "API key is required" -- which read as
+    "you have not configured a key" even when one was configured.
+    """
+
+    STORED = "sk-storedKeyResolvedServerSide0123456789"
+
+    @pytest.mark.asyncio
+    async def test_openai_falls_back_to_the_stored_key(self, caplog):
+        client_class = _mock_async_client(method="post", status_code=200, json_body={"choices": []})
+
+        with patch("src.web.routes.ai.resolve_provider_api_key", AsyncMock(return_value=self.STORED)):
+            with patch("httpx.AsyncClient", client_class):
+                result = await api_test_openai_key(_make_request({}))
+
+        assert result["valid"] is True
+        # Same guarantee the rest of this module enforces, on the new path.
+        _assert_secret_not_logged(caplog, self.STORED)
+
+    @pytest.mark.asyncio
+    async def test_openai_prefers_an_explicitly_submitted_key(self):
+        """A freshly typed key must win over whatever is stored."""
+        typed = "sk-typedByTheOperatorRightNow0123456789"
+        client_class = _mock_async_client(method="post", status_code=200, json_body={"choices": []})
+        resolver = AsyncMock(return_value=self.STORED)
+
+        with patch("src.web.routes.ai.resolve_provider_api_key", resolver):
+            with patch("httpx.AsyncClient", client_class):
+                await api_test_openai_key(_make_request({"api_key": typed}))
+
+        resolver.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_openai_reports_nothing_configured_rather_than_key_required(self):
+        with patch("src.web.routes.ai.resolve_provider_api_key", AsyncMock(return_value=None)):
+            with pytest.raises(HTTPException) as exc_info:
+                await api_test_openai_key(_make_request({}))
+
+        assert exc_info.value.status_code == 400
+        assert "none is configured" in exc_info.value.detail.lower()
+
+    @pytest.mark.asyncio
+    async def test_anthropic_falls_back_to_the_stored_key(self):
+        from src.web.routes.ai import api_test_anthropic_key
+
+        client_class = _mock_async_client(method="post", status_code=200, json_body={"content": []})
+
+        with patch("src.web.routes.ai.resolve_provider_api_key", AsyncMock(return_value="sk-ant-stored")):
+            with patch("httpx.AsyncClient", client_class):
+                result = await api_test_anthropic_key(_make_request({}))
+
+        assert result["valid"] is True
+
+    @pytest.mark.asyncio
+    async def test_anthropic_reports_nothing_configured(self):
+        from src.web.routes.ai import api_test_anthropic_key
+
+        with patch("src.web.routes.ai.resolve_provider_api_key", AsyncMock(return_value=None)):
+            with pytest.raises(HTTPException) as exc_info:
+                await api_test_anthropic_key(_make_request({}))
+
+        assert exc_info.value.status_code == 400
+        assert "none is configured" in exc_info.value.detail.lower()

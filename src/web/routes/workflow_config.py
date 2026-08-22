@@ -108,7 +108,49 @@ def _active_workflow_config_query(db_session):
     )
 
 
+# Allocation source for config version numbers. Owned by
+# agentic_workflow_config.version, created by
+# scripts/migrate_workflow_config_version_unique.py.
+_WORKFLOW_CONFIG_VERSION_SEQUENCE = "agentic_workflow_config_version_seq"
+
+
 def _next_workflow_config_version(db_session) -> int:
+    """Allocate the next config version.
+
+    `SELECT max(version) + 1` is a read-modify-write, so two writers that read the
+    same maximum both commit it -- which happened 164 times before there was any
+    unique index to reject it. `nextval` cannot hand the same number to two callers
+    no matter how their transactions interleave, so this removes the race instead of
+    guarding it; the advisory lock in `_lock_workflow_config` stays as defence in
+    depth for the rest of the read-modify-write.
+
+    Falls back to the old arithmetic where the sequence is absent (SQLite fixtures,
+    or a database the migration has not been run against yet) so this stays safe to
+    deploy ahead of the migration.
+    """
+    if db_session.bind is not None and db_session.bind.dialect.name == "postgresql":
+        # Probe with to_regclass rather than catching a failed nextval: referencing a
+        # missing relation aborts the whole transaction, and recovering would mean a
+        # rollback that also drops the advisory lock and the deactivation already done.
+        sequence_present = db_session.execute(
+            text("SELECT to_regclass(:seq)"), {"seq": _WORKFLOW_CONFIG_VERSION_SEQUENCE}
+        ).scalar()
+        if sequence_present is not None:
+            allocated = int(db_session.execute(text(f"SELECT nextval('{_WORKFLOW_CONFIG_VERSION_SEQUENCE}')")).scalar())
+            max_version = int(db_session.query(func.max(AgenticWorkflowConfigTable.version)).scalar() or 0)
+            if allocated > max_version:
+                return allocated
+            # Rows reached the table by some path that did not draw from the sequence
+            # (a restore, or a writer running the pre-migration code). Skip past
+            # everything taken and realign the sequence so the next call is clean.
+            realigned = max_version + 1
+            db_session.execute(
+                text("SELECT setval(:seq, :value, true)"),
+                {"seq": _WORKFLOW_CONFIG_VERSION_SEQUENCE, "value": realigned},
+            )
+            logger.info("Realigned %s past version %d", _WORKFLOW_CONFIG_VERSION_SEQUENCE, max_version)
+            return realigned
+
     max_version = db_session.query(func.max(AgenticWorkflowConfigTable.version)).scalar() or 0
     return int(max_version) + 1
 

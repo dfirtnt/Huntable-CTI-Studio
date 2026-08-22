@@ -19,7 +19,13 @@ class TestSigmaEnrichAPI:
 
     @pytest.mark.asyncio
     async def test_enrich_requires_api_key(self):
-        """Test that enrich endpoint requires API key."""
+        """No header and nothing configured is still a 400.
+
+        The header is now optional -- the page stopped forwarding keys once
+        /api/settings stopped returning them -- so the resolver is stubbed empty
+        here. Without that stub this test would pass or fail on whatever the
+        environment happens to have configured.
+        """
         from starlette.requests import Request
 
         from src.web.routes.sigma_queue import enrich_rule
@@ -45,11 +51,23 @@ class TestSigmaEnrichAPI:
             # Call enrich endpoint
             from fastapi import HTTPException
 
-            with pytest.raises(HTTPException) as exc_info:
-                await enrich_rule(mock_request, queue_id=1, enrich_request=MagicMock())
+            # A bare MagicMock has a MagicMock `provider`, which trips the
+            # unsupported-provider check first -- this assertion used to pass on
+            # that error and never reach the key gate it names.
+            enrich_request = MagicMock()
+            enrich_request.provider = "openai"
+            enrich_request.model = "gpt-4o-mini"
+
+            with patch(
+                "src.web.routes.sigma_queue.resolve_provider_api_key",
+                AsyncMock(return_value=None),
+            ):
+                with pytest.raises(HTTPException) as exc_info:
+                    await enrich_rule(mock_request, queue_id=1, enrich_request=enrich_request)
 
             # Should raise error about missing API key
             assert exc_info.value.status_code in [400, 401, 403]
+            assert "configured" in exc_info.value.detail.lower()
 
     @pytest.mark.asyncio
     async def test_enrich_validates_rule_id(self):
@@ -379,3 +397,97 @@ class TestSigmaEnrichAPI:
         assert toggles["d2"] is True
         assert toggles["d7"] is True
         assert "d8" not in toggles
+
+
+@pytest.mark.api
+class TestEnrichResolvesTheStoredKey:
+    """Enrich stopped requiring the browser to hand it a provider key.
+
+    queue.js used to read WORKFLOW_OPENAI_API_KEY out of GET /api/settings and
+    forward it as X-OpenAI-API-Key. That read is gone, so an absent header is now
+    the normal case: the route must resolve the stored key itself rather than
+    rejecting the request. If it did not, Sigma enrichment would simply stop
+    working the moment the masking change shipped.
+    """
+
+    @staticmethod
+    def _request(headers=None):
+        from starlette.requests import Request
+
+        request = MagicMock(spec=Request)
+        request.headers = headers or {}
+        return request
+
+    @pytest.mark.asyncio
+    async def test_absent_header_gets_past_the_key_gate(self):
+        """Reaching the rule lookup (404) proves the gate no longer rejects."""
+        from fastapi import HTTPException
+
+        from src.web.routes.sigma_queue import enrich_rule
+
+        enrich_request = MagicMock()
+        enrich_request.provider = "openai"
+        enrich_request.model = "gpt-4o-mini"
+
+        with patch("src.web.routes.sigma_queue.DatabaseManager") as mock_db_manager:
+            session = MagicMock()
+            session.query.return_value.filter.return_value.first.return_value = None
+            mock_db_manager.return_value.get_session.return_value = session
+
+            with patch(
+                "src.web.routes.sigma_queue.resolve_provider_api_key",
+                AsyncMock(return_value="sk-resolved-server-side"),
+            ) as resolver:
+                with pytest.raises(HTTPException) as exc_info:
+                    await enrich_rule(self._request(), queue_id=999999, enrich_request=enrich_request)
+
+        resolver.assert_awaited_once_with("openai")
+        assert exc_info.value.status_code == 404, "request was rejected before it reached the rule lookup"
+
+    @pytest.mark.asyncio
+    async def test_a_supplied_header_short_circuits_the_lookup(self):
+        """An explicit header still wins, so nothing that sends one changes behavior."""
+        from fastapi import HTTPException
+
+        from src.web.routes.sigma_queue import enrich_rule
+
+        enrich_request = MagicMock()
+        enrich_request.provider = "openai"
+        enrich_request.model = "gpt-4o-mini"
+
+        with patch("src.web.routes.sigma_queue.DatabaseManager") as mock_db_manager:
+            session = MagicMock()
+            session.query.return_value.filter.return_value.first.return_value = None
+            mock_db_manager.return_value.get_session.return_value = session
+
+            with patch("src.web.routes.sigma_queue.resolve_provider_api_key", AsyncMock()) as resolver:
+                with pytest.raises(HTTPException):
+                    await enrich_rule(
+                        self._request({"X-OpenAI-API-Key": "sk-from-the-header"}),
+                        queue_id=999999,
+                        enrich_request=enrich_request,
+                    )
+
+        resolver.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_lmstudio_never_consults_the_resolver(self):
+        """Local inference needs no credential; asking for one would be a bug."""
+        from fastapi import HTTPException
+
+        from src.web.routes.sigma_queue import enrich_rule
+
+        enrich_request = MagicMock()
+        enrich_request.provider = "lmstudio"
+        enrich_request.model = "local-model"
+
+        with patch("src.web.routes.sigma_queue.DatabaseManager") as mock_db_manager:
+            session = MagicMock()
+            session.query.return_value.filter.return_value.first.return_value = None
+            mock_db_manager.return_value.get_session.return_value = session
+
+            with patch("src.web.routes.sigma_queue.resolve_provider_api_key", AsyncMock()) as resolver:
+                with pytest.raises(HTTPException):
+                    await enrich_rule(self._request(), queue_id=999999, enrich_request=enrich_request)
+
+        resolver.assert_not_awaited()

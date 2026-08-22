@@ -81,6 +81,48 @@
   cursor:pointer; transition:background 0.15s;
 }
 .settings-btn-danger:hover { background:var(--action-danger-hover); }
+/* Two kinds of control share this page: fields that wait for Save Settings, and
+   buttons that fire the moment they are clicked. They used to look identical,
+   which is a bad thing to guess wrong about when the button creates a backup or
+   restarts a job. Immediate controls carry a warning-coloured left bar and are
+   introduced by the legend beside the save bar. */
+.settings-btn-immediate {
+  /* Set outright rather than inherited: the primary and danger variants declare
+     border:none, so the marker has to establish its own border to be visible. */
+  border:1px solid var(--action-warning);
+  box-shadow:inset 3px 0 0 var(--action-warning);
+  padding-left:0.75rem;
+}
+.settings-btn-immediate:hover { border-color:var(--action-warning); }
+.settings-immediate-legend {
+  display:inline-flex; align-items:center; gap:0.4rem;
+  font-size:0.75rem; color:var(--text-muted-slate);
+}
+.settings-immediate-swatch {
+  display:inline-block; width:0.75rem; height:0.75rem; border-radius:2px;
+  border:1px solid var(--action-warning);
+  box-shadow:inset 3px 0 0 var(--action-warning);
+}
+/* The page is ~5,500px tall with one save button. Sticking the save bar to the
+   bottom means the unsaved-changes state and the way to resolve it are always
+   on screen, instead of six screens below wherever the user is editing. */
+.settings-save-bar {
+  position:sticky; bottom:0; z-index:20;
+  display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;
+  gap:0.5rem 1rem; padding:0.75rem 1rem; margin-top:1rem;
+  background:var(--panel-bg-2); border:1px solid var(--border-muted); border-radius:8px;
+}
+.settings-save-bar[data-dirty="true"] { border-color:var(--action-warning); }
+.settings-dirty-state { font-size:0.75rem; color:var(--text-muted-slate); }
+.settings-save-bar[data-dirty="true"] .settings-dirty-state { color:var(--action-warning); }
+/* A save that fails partway must say what landed and what did not, and must not
+   disappear on a toast timer while the user is still reading it. */
+.settings-save-report { margin-top:0.75rem; font-size:0.75rem; }
+.settings-save-report ul { margin:0.25rem 0 0; padding:0; list-style:none; }
+.settings-save-report li { display:flex; gap:0.4rem; padding:0.1rem 0; }
+.settings-save-report .is-applied { color:#34d399; }
+.settings-save-report .is-failed { color:#f87171; }
+.settings-save-report .is-skipped { color:var(--text-muted-slate); }
 .settings-muted { color:var(--text-muted-slate); }
 .settings-code { background:var(--panel-bg-5); padding:0.15rem 0.4rem; border-radius:4px; font-family:'JetBrains Mono',monospace; font-size:0.8em; }
 </style>
@@ -88,7 +130,7 @@
 {#- One markup shape for every connection test on this page: button + result slot. -#}
 {% macro test_action(button_id, status_id, label) %}
 <div class="settings-test-row">
-    <button type="button" id="{{ button_id }}" class="settings-btn-secondary">
+    <button type="button" id="{{ button_id }}" class="settings-btn-secondary settings-btn-immediate">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5"/></svg>
         <span class="btn-label">{{ label }}</span>
     </button>
@@ -124,8 +166,9 @@
         <p class="text-sm settings-muted">Configure your Huntable CTI Studio preferences</p>
     </div>
 
-    <!-- Settings Sections -->
-    <div class="space-y-8">
+    <!-- Settings Sections. The id scopes unsaved-change tracking to the form
+         controls on this page. -->
+    <div id="settingsContent" class="space-y-8">
 
         <!-- Documentation -->
         <div class="settings-card acc-doc">
@@ -143,7 +186,7 @@
                    href="http://127.0.0.1:8000"
                    target="_blank"
                    rel="noopener noreferrer"
-                   class="settings-btn-primary">
+                   class="settings-btn-primary settings-btn-immediate">
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-4L10 14"></path>
                     </svg>
@@ -152,7 +195,7 @@
                 <p class="text-sm text-gray-600 dark:text-gray-400">If the page fails to load, the MkDocs server likely isn't running yet. Start it from the project root, then click Launch again:</p>
                 <div class="relative">
                     <pre class="text-sm bg-gray-900 text-gray-100 p-3 pr-16 rounded-lg overflow-x-auto"><code id="mkdocsServeCommand">nohup .venv/bin/python3 -m mkdocs serve --dev-addr 127.0.0.1:8000 &gt;&gt; logs/mkdocs.log 2&gt;&amp;1 &amp;</code></pre>
-                    <button id="copyMkdocsCommandBtn" type="button" title="Copy command" aria-label="Copy command" class="absolute top-2 right-2 settings-btn-secondary px-2 py-1 text-xs">Copy</button>
+                    <button id="copyMkdocsCommandBtn" type="button" title="Copy command" aria-label="Copy command" class="absolute top-2 right-2 settings-btn-secondary px-2 py-1 text-xs settings-btn-immediate">Copy</button>
                 </div>
                 <p class="text-xs text-gray-500 dark:text-gray-400">Logs: <code class="bg-gray-700 px-1 rounded">logs/mkdocs.log</code></p>
             </div>
@@ -358,10 +401,10 @@
                 <div>
                     <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg> Backup Actions</h3>
                     <div class="flex flex-wrap gap-3">
-                        <button id="createBackupBtn" type="button" class="settings-btn-primary">Create Backup Now</button>
-                        <button id="listBackupsBtn" class="settings-btn-secondary">List Backups</button>
-                        <button id="backupStatusBtn" class="settings-btn-secondary">Check Status</button>
-                        <button id="restoreBackupBtn" class="settings-btn-danger">Restore from Backup</button>
+                        <button id="createBackupBtn" type="button" class="settings-btn-primary settings-btn-immediate">Create Backup Now</button>
+                        <button id="listBackupsBtn" class="settings-btn-secondary settings-btn-immediate">List Backups</button>
+                        <button id="backupStatusBtn" class="settings-btn-secondary settings-btn-immediate">Check Status</button>
+                        <button id="restoreBackupBtn" class="settings-btn-danger settings-btn-immediate">Restore from Backup</button>
                     </div>
                     <div id="backupCreateFeedback" data-testid="backup-create-feedback" class="hidden mt-3 rounded-lg border px-3 py-2 text-sm" role="status" aria-live="polite"></div>
                 </div>
@@ -379,7 +422,7 @@
                         <button id="restoreFromFileBtn"
                                 type="button"
                                 disabled
-                                class="settings-btn-danger">
+                                class="settings-btn-danger settings-btn-immediate">
                             Restore from File
                         </button>
                     </div>
@@ -417,9 +460,9 @@
                              </p>
                          </div>
                          <div class="flex flex-wrap gap-3">
-                             <button id="refreshBackupCronBtn" class="settings-btn-secondary">Refresh Cron</button>
-                             <button id="applyBackupCronBtn" class="settings-btn-primary">Apply Backup Schedule</button>
-                             <button id="disableBackupCronBtn" class="settings-btn-danger">Disable Backup Schedule</button>
+                             <button id="refreshBackupCronBtn" class="settings-btn-secondary settings-btn-immediate">Refresh Cron</button>
+                             <button id="applyBackupCronBtn" class="settings-btn-primary settings-btn-immediate">Apply Backup Schedule</button>
+                             <button id="disableBackupCronBtn" class="settings-btn-danger settings-btn-immediate">Disable Backup Schedule</button>
                          </div>
                      </div>
 
@@ -462,7 +505,7 @@
                      <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg> Data Export</h3>
                      <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Download all text classifications (huntable/not huntable) as a CSV file</p>
 
-                     <button id="exportAnnotationsBtn" class="settings-btn-primary">
+                     <button id="exportAnnotationsBtn" class="settings-btn-primary settings-btn-immediate">
                          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                          </svg>
@@ -501,7 +544,7 @@
                         </p>
                     </div>
                     <div class="flex flex-wrap gap-3">
-                        <button id="refreshScheduledJobsBtn" class="settings-btn-secondary">Refresh Scheduled Jobs</button>
+                        <button id="refreshScheduledJobsBtn" class="settings-btn-secondary settings-btn-immediate">Refresh Scheduled Jobs</button>
                     </div>
                 </div>
 
@@ -580,6 +623,11 @@
                                         </svg>
                                     </button>
                                 </div>
+                                <div class="flex items-center justify-between gap-2 mt-1">
+                                    <p id="workflowOpenaiApiKeyCredentialState" class="text-xs text-gray-400" role="status"></p>
+                                    <button type="button" id="workflowOpenaiApiKeyClearCredential"
+                                            class="hidden text-xs text-red-400 hover:underline focus:outline-none focus:ring-2 focus:ring-red-500 rounded">Clear stored key</button>
+                                </div>
                                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Required for OpenAI-powered agentic workflows</p>
                                 {{ test_action('testWorkflowOpenaiApiKey', 'workflowOpenaiApiKeyStatus', 'Test API key') }}
                             </div>
@@ -639,6 +687,11 @@
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                                         </svg>
                                     </button>
+                                </div>
+                                <div class="flex items-center justify-between gap-2 mt-1">
+                                    <p id="workflowAnthropicApiKeyCredentialState" class="text-xs text-gray-400" role="status"></p>
+                                    <button type="button" id="workflowAnthropicApiKeyClearCredential"
+                                            class="hidden text-xs text-red-400 hover:underline focus:outline-none focus:ring-2 focus:ring-red-500 rounded">Clear stored key</button>
                                 </div>
                                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Required for Anthropic-powered agentic workflows</p>
                                 {{ test_action('testWorkflowAnthropicApiKey', 'workflowAnthropicApiKeyStatus', 'Test API key') }}
@@ -718,6 +771,11 @@
                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                                  </svg>
                              </button>
+                         </div>
+                         <div class="flex items-center justify-between gap-2 mt-1">
+                             <p id="langfuseSecretKeyCredentialState" class="text-xs text-gray-400" role="status"></p>
+                             <button type="button" id="langfuseSecretKeyClearCredential"
+                                     class="hidden text-xs text-red-400 hover:underline focus:outline-none focus:ring-2 focus:ring-red-500 rounded">Clear stored key</button>
                          </div>
                      </div>
 
@@ -824,6 +882,11 @@
                             </svg>
                         </button>
                     </div>
+                    <div class="flex items-center justify-between gap-2 mt-1">
+                        <p id="githubTokenCredentialState" class="text-xs text-gray-400" role="status"></p>
+                        <button type="button" id="githubTokenClearCredential"
+                                class="hidden text-xs text-red-400 hover:underline focus:outline-none focus:ring-2 focus:ring-red-500 rounded">Clear stored token</button>
+                    </div>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
                         Required for creating PRs. Token needs <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">repo</code> scope.
                         <a href="https://github.com/settings/tokens" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">Create token →</a>
@@ -898,12 +961,22 @@
             </div>
         </div>
 
-        <!-- Save Button -->
-        <div class="flex justify-end">
+        <!-- Save bar: sticks to the bottom so the pending-changes state and the
+             control that resolves it are reachable from anywhere on the page. -->
+        <div id="settingsSaveBar" class="settings-save-bar" data-dirty="false">
+            <div>
+                <p id="settingsDirtyState" class="settings-dirty-state" role="status" aria-live="polite">No unsaved changes</p>
+                <p class="settings-immediate-legend mt-1">
+                    <span class="settings-immediate-swatch" aria-hidden="true"></span>
+                    Controls marked this way act immediately; everything else applies on Save Settings.
+                </p>
+            </div>
             <button id="saveSettings" class="settings-btn-primary px-6 py-3 text-base">
                 <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7.5h18M3 7.5v10.875A2.625 2.625 0 005.625 21h12.75A2.625 2.625 0 0021 18.375V7.5m-18 0l2.25-4.5h13.5L21 7.5M7.5 11.25h9"/></svg> Save Settings
             </button>
         </div>
+        <!-- Per-section outcome of the last save. Persistent, unlike the toast. -->
+        <div id="settingsSaveReport" class="settings-save-report hidden" role="status" aria-live="polite"></div>
     </div>
 </div>
 
@@ -1004,14 +1077,262 @@
         return settings;
     }
 
+    // ---- Unsaved-change tracking -------------------------------------------
+    //
+    // The page is ~5,500px tall and everything defers to one Save button, so
+    // "is anything pending?" was unanswerable without scrolling to the bottom and
+    // guessing, and navigating away discarded edits with no warning. A baseline is
+    // captured once the page has finished loading; every later edit is compared
+    // against it, so editing a field back to its original value clears the flag
+    // rather than leaving the page permanently dirty.
+    let settingsBaseline = null;
+
+    function trackedSettingsControls() {
+        return Array.from(
+            document.querySelectorAll('#settingsContent input[id], #settingsContent select[id], #settingsContent textarea[id]')
+        ).filter(el => el.type !== 'file' && el.type !== 'button' && el.type !== 'submit');
+    }
+
+    function controlValue(el) {
+        if (el.type === 'checkbox' || el.type === 'radio') return el.checked ? '1' : '0';
+        return el.value || '';
+    }
+
+    function snapshotSettings() {
+        const snapshot = {};
+        trackedSettingsControls().forEach(el => { snapshot[el.id] = controlValue(el); });
+        return snapshot;
+    }
+
+    function captureSettingsBaseline() {
+        settingsBaseline = snapshotSettings();
+        updateDirtyState();
+    }
+
+    function dirtySettingsFields() {
+        if (!settingsBaseline) return [];
+        const current = snapshotSettings();
+        const changed = Object.keys(current).filter(id => current[id] !== settingsBaseline[id]);
+        // A pending credential removal is an unsaved change even though the input
+        // it applies to is empty in both the baseline and the current state.
+        Object.keys(MANAGED_CREDENTIAL_FIELDS).forEach(id => {
+            const el = document.getElementById(id);
+            if (el && el.dataset.clearRequested === 'true' && !changed.includes(id)) changed.push(id);
+        });
+        return changed;
+    }
+
+    function updateDirtyState() {
+        const bar = document.getElementById('settingsSaveBar');
+        const label = document.getElementById('settingsDirtyState');
+        if (!bar || !label) return;
+        const count = dirtySettingsFields().length;
+        bar.dataset.dirty = count > 0 ? 'true' : 'false';
+        label.textContent = count === 0
+            ? 'No unsaved changes'
+            : `${count} unsaved change${count === 1 ? '' : 's'}`;
+    }
+    window.updateSettingsDirtyState = updateDirtyState;
+
+    function initSettingsDirtyTracking() {
+        const root = document.getElementById('settingsContent');
+        if (!root) return;
+        // Delegated so controls rendered later (scheduled jobs, cron rows) are
+        // covered without every renderer having to remember to wire itself up.
+        ['input', 'change'].forEach(evt => root.addEventListener(evt, updateDirtyState));
+
+        window.addEventListener('beforeunload', (event) => {
+            if (dirtySettingsFields().length === 0) return;
+            event.preventDefault();
+            // Browsers show their own wording; a non-empty returnValue is the signal.
+            event.returnValue = '';
+            return '';
+        });
+    }
+
+    // ---- Credential load/save contract -------------------------------------
+    //
+    // The settings read API returns `configured` and a `hint` for a credential and
+    // never the stored value, so a secret input is always empty on load. That makes
+    // the old "an empty field means delete it" rule destructive by default -- and it
+    // was already destructive whenever a GET simply failed. Every managed field now
+    // records how its load went, and saveSettings() reads that record instead of
+    // inferring intent from emptiness:
+    //
+    //   typed a value           -> write it
+    //   pressed Clear           -> delete it (confirmed first)
+    //   load failed             -> touch nothing, and tell the user
+    //   empty, load succeeded   -> secret: leave the stored value alone
+    //                              plain: the user really did clear it
+    //
+    const MANAGED_CREDENTIAL_FIELDS = {
+        githubToken:             { key: 'GITHUB_TOKEN',               secret: true,  label: 'GitHub token' },
+        langfuseSecretKey:       { key: 'LANGFUSE_SECRET_KEY',        secret: true,  label: 'Langfuse secret key' },
+        workflowOpenaiApiKey:    { key: 'WORKFLOW_OPENAI_API_KEY',    secret: true,  label: 'OpenAI API key' },
+        workflowAnthropicApiKey: { key: 'WORKFLOW_ANTHROPIC_API_KEY', secret: true,  label: 'Anthropic API key' },
+        sigmaRepoPath:           { key: 'SIGMA_REPO_PATH',            secret: false, label: 'SIGMA repository path' },
+        githubRepo:              { key: 'GITHUB_REPO',                secret: false, label: 'GitHub repository' },
+        gitUserName:             { key: 'GIT_NAME',                   secret: false, label: 'Git user name' },
+        gitUserEmail:            { key: 'GIT_EMAIL',                  secret: false, label: 'Git user email' },
+        langfusePublicKey:       { key: 'LANGFUSE_PUBLIC_KEY',        secret: false, label: 'Langfuse public key' },
+        langfuseHost:            { key: 'LANGFUSE_HOST',              secret: false, label: 'Langfuse host' },
+        langfuseProjectId:       { key: 'LANGFUSE_PROJECT_ID',        secret: false, label: 'Langfuse project ID' }
+    };
+
+    function credentialStateElements(inputId) {
+        return {
+            input: document.getElementById(inputId),
+            state: document.getElementById(inputId + 'CredentialState'),
+            clearBtn: document.getElementById(inputId + 'ClearCredential')
+        };
+    }
+
+    function renderCredentialState(inputId) {
+        const { input, state, clearBtn } = credentialStateElements(inputId);
+        if (!input) return;
+        const field = MANAGED_CREDENTIAL_FIELDS[inputId] || {};
+        const loadState = input.dataset.loadState || 'loaded';
+        const configured = input.dataset.configured === 'true';
+        const cleared = input.dataset.clearRequested === 'true';
+
+        if (input.dataset.originalPlaceholder === undefined) {
+            input.dataset.originalPlaceholder = input.placeholder || '';
+        }
+
+        if (loadState === 'failed') {
+            input.placeholder = 'Could not load -- this field will not be saved';
+            input.setAttribute('aria-invalid', 'true');
+        } else {
+            input.removeAttribute('aria-invalid');
+            input.placeholder = (field.secret && configured && !cleared)
+                ? 'Configured -- enter a new value to replace'
+                : input.dataset.originalPlaceholder;
+        }
+
+        if (state) {
+            state.classList.remove('text-gray-400', 'text-red-400', 'text-amber-400');
+            if (loadState === 'failed') {
+                state.textContent = 'Could not load. Save will leave the stored value untouched.';
+                state.classList.add('text-red-400');
+            } else if (cleared) {
+                state.textContent = 'Will be removed when you save.';
+                state.classList.add('text-amber-400');
+            } else if (configured) {
+                state.textContent = 'Configured' + (input.dataset.hint ? ' (' + input.dataset.hint + ')' : '');
+                state.classList.add('text-gray-400');
+            } else {
+                state.textContent = 'Not set';
+                state.classList.add('text-gray-400');
+            }
+        }
+
+        if (clearBtn) {
+            clearBtn.classList.toggle('hidden', !(configured && loadState !== 'failed') || cleared);
+        }
+    }
+
+    function markCredentialLoaded(inputId, { configured = false, hint = '' } = {}) {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        input.dataset.loadState = 'loaded';
+        input.dataset.configured = configured ? 'true' : 'false';
+        if (hint) { input.dataset.hint = hint; } else { delete input.dataset.hint; }
+        delete input.dataset.clearRequested;
+        renderCredentialState(inputId);
+    }
+
+    function markCredentialLoadFailed(inputId) {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        input.dataset.loadState = 'failed';
+        input.dataset.configured = 'unknown';
+        delete input.dataset.clearRequested;
+        input.value = '';
+        renderCredentialState(inputId);
+    }
+
+    function reportCredentialLoadFailures(failedInputIds) {
+        if (!failedInputIds.length) return;
+        const labels = failedInputIds
+            .map(id => (MANAGED_CREDENTIAL_FIELDS[id] || {}).label || id)
+            .join(', ');
+        showNotification(
+            `Could not load: ${labels}. These fields are left unsaved until the page loads them successfully.`,
+            'error'
+        );
+    }
+
+    async function requestCredentialClear(inputId) {
+        const field = MANAGED_CREDENTIAL_FIELDS[inputId];
+        const input = document.getElementById(inputId);
+        if (!field || !input) return;
+        const confirmed = await ModalManager.confirm(
+            `Remove the stored ${field.label}? It will be deleted when you save, and anything that uses it will stop working until you enter a new one.`,
+            { title: 'Remove credential', confirmText: 'Remove on save', confirmClass: 'bg-red-600 hover:bg-red-700', cancelText: 'Keep' }
+        );
+        if (!confirmed) return;
+        input.value = '';
+        input.dataset.clearRequested = 'true';
+        renderCredentialState(inputId);
+        // A pending removal is an unsaved change, but it fires on a button rather
+        // than an input event, so the delegated tracker never sees it.
+        updateDirtyState();
+    }
+
+    // Returns true when the field's state is known, false when the load failed.
+    async function loadManagedCredential(inputId, { fallback = '' } = {}) {
+        const field = MANAGED_CREDENTIAL_FIELDS[inputId];
+        const input = document.getElementById(inputId);
+        if (!field || !input) return true;
+        try {
+            const response = await fetch(`/api/settings/${field.key}`, { cache: 'no-store' });
+            // A 500 does not throw, so check the status and the success flag as well
+            // as the network -- all three used to land in the same blanking branch.
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            if (!data || data.success !== true) throw new Error('response did not report success');
+
+            if (field.secret) {
+                // Never returned by the API; the field stays empty by design.
+                input.value = '';
+                markCredentialLoaded(inputId, { configured: Boolean(data.configured), hint: data.hint || '' });
+            } else {
+                input.value = (data.exists && data.value) ? data.value : fallback;
+                markCredentialLoaded(inputId, { configured: Boolean(input.value) });
+            }
+            return true;
+        } catch (error) {
+            console.warn(`Could not load ${field.key}:`, error);
+            markCredentialLoadFailed(inputId);
+            return false;
+        }
+    }
+
+    // 'write' | 'clear' | 'skip' | 'blocked'
+    function credentialSaveAction(inputId) {
+        const input = document.getElementById(inputId);
+        if (!input) return 'skip';
+        const field = MANAGED_CREDENTIAL_FIELDS[inputId] || {};
+        const typed = (input.value || '').trim();
+        if (typed) return 'write';
+        if (input.dataset.clearRequested === 'true') return 'clear';
+        if (input.dataset.loadState === 'failed') return 'blocked';
+        // An empty secret means "leave the stored one alone" -- it was never shown.
+        return field.secret ? 'skip' : 'clear';
+    }
+
     // Load non-secret UI settings from localStorage and credentials from database
     async function loadSettings() {
         const settings = scrubLegacyLocalSecretSettings(JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}'));
         
         
         
+        // Fields whose load failed are collected and reported once at the end --
+        // silently blanking them is what used to delete credentials on the next save.
+        const credentialLoadFailures = [];
+
         // Load Langfuse settings from database (priority over localStorage)
-        await loadLangfuseSettings();
+        credentialLoadFailures.push(...await loadLangfuseSettings());
 
         // Load backup configuration
         await loadBackupSettings();
@@ -1025,10 +1346,16 @@
         }
 
         // Load GitHub PR settings from database
-        await loadGitHubPRSettings();
-        
+        credentialLoadFailures.push(...await loadGitHubPRSettings());
+
         // Load workflow configuration
-        const workflowAppSettings = await loadWorkflowAppSettings();
+        const workflowAppLoad = await loadWorkflowAppSettings();
+        const workflowAppSettings = workflowAppLoad.settings;
+        const workflowAppSensitive = workflowAppLoad.sensitive;
+        const workflowAppSettingsLoaded = workflowAppLoad.ok;
+        if (!workflowAppSettingsLoaded) {
+            credentialLoadFailures.push('workflowOpenaiApiKey', 'workflowAnthropicApiKey');
+        }
 
         const workflowOpenaiEnabled = parseWorkflowBooleanSetting(
             workflowAppSettings,
@@ -1067,19 +1394,22 @@
             if (section) section.style.display = 'none';
         }
 
-        const workflowOpenaiApiKey = parseWorkflowStringSetting(
-            workflowAppSettings,
-            WORKFLOW_PROVIDER_SETTING_KEYS.openaiApiKey,
-            ''
-        );
-        document.getElementById('workflowOpenaiApiKey').value = workflowOpenaiApiKey;
-
-        const workflowAnthropicApiKey = parseWorkflowStringSetting(
-            workflowAppSettings,
-            WORKFLOW_PROVIDER_SETTING_KEYS.anthropicApiKey,
-            ''
-        );
-        document.getElementById('workflowAnthropicApiKey').value = workflowAnthropicApiKey;
+        // Provider keys are sensitive, so the bulk read reports configured/hint and
+        // withholds the value. The inputs stay empty and carry their load state.
+        [
+            ['workflowOpenaiApiKey', WORKFLOW_PROVIDER_SETTING_KEYS.openaiApiKey],
+            ['workflowAnthropicApiKey', WORKFLOW_PROVIDER_SETTING_KEYS.anthropicApiKey]
+        ].forEach(([inputId, settingKey]) => {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            input.value = '';
+            if (!workflowAppSettingsLoaded) {
+                markCredentialLoadFailed(inputId);
+                return;
+            }
+            const meta = workflowAppSensitive[settingKey] || {};
+            markCredentialLoaded(inputId, { configured: Boolean(meta.configured), hint: meta.hint || '' });
+        });
 
         const lmstudioApiUrl = parseWorkflowStringSetting(workflowAppSettings, 'LMSTUDIO_API_URL', settings.lmstudioApiUrl || '');
         const lmstudioApiUrlEl = document.getElementById('lmstudioApiUrl');
@@ -1090,6 +1420,13 @@
 
         // Load auto-trigger hunt score threshold from workflow config API
         await loadAutoTriggerThreshold();
+
+        reportCredentialLoadFailures(credentialLoadFailures);
+
+        // Baseline is taken only now: capturing before the async loads finish would
+        // record empty fields and mark every loaded value as an unsaved edit.
+        captureSettingsBaseline();
+
         // Signal that all async settings fetches have completed (used by Playwright tests)
         document.body.dataset.settingsHydrated = 'true';
     }
@@ -1138,79 +1475,37 @@
     // Load Langfuse settings from database
     async function loadLangfuseSettings() {
         const settings = scrubLegacyLocalSecretSettings(JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}'));
-        
-        // Langfuse Public Key - check database first
-        try {
-            const response = await fetch('/api/settings/LANGFUSE_PUBLIC_KEY');
-            const data = await response.json();
-            if (data.success && data.exists && data.value) {
-                document.getElementById('langfusePublicKey').value = data.value;
-            } else {
-                // Fallback to localStorage
-                document.getElementById('langfusePublicKey').value = settings.langfusePublicKey || '';
-            }
-        } catch (error) {
-            console.log('Could not fetch LANGFUSE_PUBLIC_KEY from database:', error);
-            document.getElementById('langfusePublicKey').value = settings.langfusePublicKey || '';
-        }
-        
-        // Langfuse Secret Key - check database first
-        try {
-            const response = await fetch('/api/settings/LANGFUSE_SECRET_KEY');
-            const data = await response.json();
-            if (data.success && data.exists && data.value) {
-                document.getElementById('langfuseSecretKey').value = data.value;
-            } else {
-                document.getElementById('langfuseSecretKey').value = '';
-            }
-        } catch (error) {
-            console.log('Could not fetch LANGFUSE_SECRET_KEY from database:', error);
-            document.getElementById('langfuseSecretKey').value = '';
-        }
-        
-        // Langfuse Host - check database first
-        try {
-            const response = await fetch('/api/settings/LANGFUSE_HOST');
-            const data = await response.json();
-            if (data.success && data.exists && data.value) {
-                document.getElementById('langfuseHost').value = data.value;
-            } else {
-                // Fallback to localStorage or default
-                document.getElementById('langfuseHost').value = settings.langfuseHost || 'https://us.cloud.langfuse.com';
-            }
-        } catch (error) {
-            console.log('Could not fetch LANGFUSE_HOST from database:', error);
-            document.getElementById('langfuseHost').value = settings.langfuseHost || 'https://us.cloud.langfuse.com';
-        }
-        
-        // Langfuse Project ID - check database first
-        try {
-            const response = await fetch('/api/settings/LANGFUSE_PROJECT_ID');
-            const data = await response.json();
-            if (data.success && data.exists && data.value) {
-                document.getElementById('langfuseProjectId').value = data.value;
-            } else {
-                // Fallback to localStorage
-                document.getElementById('langfuseProjectId').value = settings.langfuseProjectId || '';
-            }
-        } catch (error) {
-            console.log('Could not fetch LANGFUSE_PROJECT_ID from database:', error);
-            document.getElementById('langfuseProjectId').value = settings.langfuseProjectId || '';
-        }
+
+        const results = await Promise.all([
+            loadManagedCredential('langfusePublicKey', { fallback: settings.langfusePublicKey || '' }),
+            loadManagedCredential('langfuseSecretKey'),
+            loadManagedCredential('langfuseHost', { fallback: settings.langfuseHost || 'https://us.cloud.langfuse.com' }),
+            loadManagedCredential('langfuseProjectId', { fallback: settings.langfuseProjectId || '' })
+        ]);
+
+        const ids = ['langfusePublicKey', 'langfuseSecretKey', 'langfuseHost', 'langfuseProjectId'];
+        return ids.filter((id, index) => !results[index]);
     }
     
+    // Returns { ok, settings, sensitive }. `ok` matters: an empty map from a failed
+    // fetch used to be indistinguishable from "nothing is configured", which is what
+    // let a failed load blank the provider keys on the next save.
     async function loadWorkflowAppSettings() {
         try {
             const response = await fetch('/api/settings', { cache: 'no-store' });
             if (!response.ok) {
                 console.warn('Unable to fetch workflow settings from server', response.status);
-                return {};
+                return { ok: false, settings: {}, sensitive: {} };
             }
             const data = await response.json();
-            return data.settings || {};
+            if (!data || data.success !== true) {
+                console.warn('Workflow settings response did not report success');
+                return { ok: false, settings: {}, sensitive: {} };
+            }
+            return { ok: true, settings: data.settings || {}, sensitive: data.sensitive || {} };
         } catch (error) {
             console.warn('Error loading workflow settings from server', error);
-            return {};
+            return { ok: false, settings: {}, sensitive: {} };
         }
     }
 
@@ -1701,18 +1996,46 @@
             [WORKFLOW_PROVIDER_SETTING_KEYS.codexEnabled]: settings.workflowCodexEnabled ? 'true' : 'false',
             [WORKFLOW_PROVIDER_SETTING_KEYS.anthropicEnabled]: settings.workflowAnthropicEnabled ? 'true' : 'false',
             [WORKFLOW_PROVIDER_SETTING_KEYS.lmstudioEnabled]: lmstudioEnabledForSave ? 'true' : 'false',
-            [WORKFLOW_PROVIDER_SETTING_KEYS.openaiApiKey]: document.getElementById('workflowOpenaiApiKey').value.trim() || '',
-            [WORKFLOW_PROVIDER_SETTING_KEYS.anthropicApiKey]: document.getElementById('workflowAnthropicApiKey').value.trim() || '',
             'LMSTUDIO_API_URL': settings.lmstudioApiUrl || ''
         };
 
+        // Provider API keys go into the bulk payload only when the user actually acted.
+        // Sending '' for an untouched field would overwrite the stored key with an
+        // empty string -- the same destruction as the DELETE branch below.
+        const blockedCredentials = [];
+        [
+            ['workflowOpenaiApiKey', WORKFLOW_PROVIDER_SETTING_KEYS.openaiApiKey],
+            ['workflowAnthropicApiKey', WORKFLOW_PROVIDER_SETTING_KEYS.anthropicApiKey]
+        ].forEach(([inputId, settingKey]) => {
+            const action = credentialSaveAction(inputId);
+            if (action === 'write') {
+                workflowSettingsPayload[settingKey] = document.getElementById(inputId).value.trim();
+            } else if (action === 'clear') {
+                workflowSettingsPayload[settingKey] = '';
+            } else if (action === 'blocked') {
+                blockedCredentials.push(MANAGED_CREDENTIAL_FIELDS[inputId].label);
+            }
+        });
+
+        // Each section writes independently and there is no rollback across them,
+        // so a partial save is a real outcome the user has to be told about
+        // precisely. Record what every section did -- applied, failed, or skipped --
+        // rather than only collecting the labels that failed.
+        const sectionOutcomes = [];
         const failures = [];
         const runSection = async (label, fn) => {
-            try { await fn(); }
-            catch (error) {
+            try {
+                await fn();
+                sectionOutcomes.push({ label, status: 'applied' });
+            } catch (error) {
                 console.error(`Error saving ${label}:`, error);
                 failures.push(label);
+                sectionOutcomes.push({ label, status: 'failed', detail: error.message || String(error) });
             }
+        };
+        const skipSection = (label, detail) => {
+            failures.push(label);
+            sectionOutcomes.push({ label, status: 'failed', detail });
         };
 
         await runSection('workflow providers', () => persistWorkflowAppSettings(workflowSettingsPayload));
@@ -1722,7 +2045,7 @@
         const autoTriggerThreshold = parseFloat(autoTriggerThresholdInput.value);
         document.getElementById('autoTriggerThresholdStatus').textContent = '';
         if (isNaN(autoTriggerThreshold) || autoTriggerThreshold < 0 || autoTriggerThreshold > 100) {
-            failures.push('auto-trigger threshold (must be 0-100)');
+            skipSection('auto-trigger threshold', 'must be a number between 0 and 100');
         } else {
             await runSection('auto-trigger threshold', async () => {
                 const response = await fetch('/api/workflow/config/auto-trigger-threshold', {
@@ -1740,52 +2063,108 @@
         await runSection('backup configuration', () => persistBackupSettingsToServer(false));
         await runSection('cron editor', () => saveCronEditor({ silent: true }));
         await runSection('scheduled jobs', () => saveScheduledJobs({ silent: true }));
-        await runSection('GitHub PR config', async () => {
-            const githubPRSettings = [
-                { key: 'GITHUB_TOKEN', value: document.getElementById('githubToken').value.trim() },
-                { key: 'SIGMA_REPO_PATH', value: document.getElementById('sigmaRepoPath').value.trim() },
-                { key: 'GITHUB_REPO', value: document.getElementById('githubRepo').value.trim() },
-                { key: 'GIT_NAME', value: document.getElementById('gitUserName').value.trim() },
-                { key: 'GIT_EMAIL', value: document.getElementById('gitUserEmail').value.trim() }
-            ];
-            for (const setting of githubPRSettings) {
-                if (setting.value) {
-                    await fetch('/api/settings', {
+        // One rule for every managed field: write what was typed, delete only what
+        // the user explicitly asked to clear, and never touch a field whose load
+        // failed. Emptiness on its own is no longer an instruction.
+        const persistManagedCredentials = async (inputIds) => {
+            for (const inputId of inputIds) {
+                const field = MANAGED_CREDENTIAL_FIELDS[inputId];
+                const input = document.getElementById(inputId);
+                if (!field || !input) continue;
+                const action = credentialSaveAction(inputId);
+
+                if (action === 'write') {
+                    const response = await fetch('/api/settings', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ key: setting.key, value: setting.value })
+                        body: JSON.stringify({ key: field.key, value: input.value.trim() })
                     });
-                } else {
-                    await fetch(`/api/settings/${setting.key}`, { method: 'DELETE' });
+                    if (!response.ok) throw new Error(`${field.label}: HTTP ${response.status}`);
+                    markCredentialLoaded(inputId, { configured: true });
+                    if (field.secret) input.value = '';
+                } else if (action === 'clear') {
+                    const response = await fetch(`/api/settings/${field.key}`, { method: 'DELETE' });
+                    // 404 means it was already absent, which is the requested end state.
+                    if (!response.ok && response.status !== 404) {
+                        throw new Error(`${field.label}: HTTP ${response.status}`);
+                    }
+                    markCredentialLoaded(inputId, { configured: false });
+                } else if (action === 'blocked') {
+                    blockedCredentials.push(field.label);
                 }
             }
+        };
+
+        await runSection('GitHub PR config', () => persistManagedCredentials(
+            ['githubToken', 'sigmaRepoPath', 'githubRepo', 'gitUserName', 'gitUserEmail']
+        ));
+
+        await runSection('Langfuse keys', () => persistManagedCredentials(
+            ['langfusePublicKey', 'langfuseSecretKey', 'langfuseHost', 'langfuseProjectId']
+        ));
+
+        blockedCredentials.forEach(label => {
+            sectionOutcomes.push({ label, status: 'skipped', detail: 'did not load; left untouched' });
         });
 
-        await runSection('Langfuse keys', async () => {
-            const langfuseSettings = [
-                { key: 'LANGFUSE_PUBLIC_KEY', value: document.getElementById('langfusePublicKey').value.trim() },
-                { key: 'LANGFUSE_SECRET_KEY', value: document.getElementById('langfuseSecretKey').value.trim() },
-                { key: 'LANGFUSE_HOST', value: document.getElementById('langfuseHost').value.trim() },
-                { key: 'LANGFUSE_PROJECT_ID', value: document.getElementById('langfuseProjectId').value.trim() }
-            ];
-            for (const setting of langfuseSettings) {
-                if (setting.value) {
-                    await fetch('/api/settings', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(setting)
-                    });
-                } else {
-                    await fetch(`/api/settings/${setting.key}`, { method: 'DELETE' });
-                }
-            }
-        });
+        renderSaveReport(sectionOutcomes);
 
-        if (failures.length === 0) {
+        // A save that partly succeeded is not a failure and not a success. Say
+        // which sections applied, so the user knows what state the system is in.
+        const applied = sectionOutcomes.filter(o => o.status === 'applied').map(o => o.label);
+        if (failures.length === 0 && blockedCredentials.length === 0) {
             window.showNotification('Settings saved successfully', 'success');
+        } else if (failures.length === 0) {
+            showNotification(
+                `Saved ${applied.length} section${applied.length === 1 ? '' : 's'}.\n`
+                + `Left untouched because they did not load: ${blockedCredentials.join(', ')}.\n`
+                + 'Reload the page to try those again.',
+                'warning'
+            );
         } else {
-            showNotification(`Failed to save: ${failures.join(', ')}`, 'error');
+            showNotification(
+                `Applied: ${applied.length ? applied.join(', ') : 'nothing'}.\n`
+                + `Failed: ${failures.join(', ')}.\n`
+                + 'These were not rolled back -- see the summary under the save bar.',
+                'error'
+            );
         }
+
+        // The page state now matches what was written, so anything still differing
+        // is a genuine pending edit.
+        captureSettingsBaseline();
+    }
+
+    // Persistent per-section outcome, unlike the toast which times out in 5s.
+    function renderSaveReport(outcomes) {
+        const host = document.getElementById('settingsSaveReport');
+        if (!host) return;
+        host.textContent = '';
+        if (!outcomes.length) {
+            host.classList.add('hidden');
+            return;
+        }
+        const heading = document.createElement('p');
+        heading.className = 'settings-muted';
+        heading.textContent = 'Last save:';
+        host.appendChild(heading);
+
+        const list = document.createElement('ul');
+        const marks = { applied: 'applied', failed: 'FAILED', skipped: 'skipped' };
+        outcomes.forEach(outcome => {
+            const item = document.createElement('li');
+            const status = document.createElement('span');
+            status.className = 'is-' + outcome.status;
+            status.textContent = marks[outcome.status] || outcome.status;
+            const label = document.createElement('span');
+            // textContent throughout: section labels and error details are not markup.
+            label.textContent = outcome.label + (outcome.detail ? ` -- ${outcome.detail}` : '');
+            item.appendChild(status);
+            item.appendChild(label);
+            list.appendChild(item);
+        });
+        host.appendChild(list);
+        host.classList.remove('hidden');
     }
     
     
@@ -1921,78 +2300,17 @@
     // Load GitHub PR settings from database
     async function loadGitHubPRSettings() {
         const settings = scrubLegacyLocalSecretSettings(JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}'));
-        
-        // GitHub Token - check database first
-        try {
-            const response = await fetch('/api/settings/GITHUB_TOKEN');
-            const data = await response.json();
-            if (data.success && data.exists && data.value) {
-                document.getElementById('githubToken').value = data.value;
-            } else {
-                document.getElementById('githubToken').value = '';
-            }
-        } catch (error) {
-            console.log('Could not fetch GITHUB_TOKEN from database:', error);
-            document.getElementById('githubToken').value = '';
-        }
-        
-        // SIGMA Repo Path - check database first
-        try {
-            const response = await fetch('/api/settings/SIGMA_REPO_PATH');
-            const data = await response.json();
-            if (data.success && data.exists && data.value) {
-                document.getElementById('sigmaRepoPath').value = data.value;
-            } else {
-                // Fallback to localStorage or default
-                document.getElementById('sigmaRepoPath').value = settings.sigmaRepoPath || 'sigma-repo';
-            }
-        } catch (error) {
-            console.log('Could not fetch SIGMA_REPO_PATH from database:', error);
-            document.getElementById('sigmaRepoPath').value = settings.sigmaRepoPath || 'sigma-repo';
-        }
-        
-        // GitHub Repo - check database first
-        try {
-            const response = await fetch('/api/settings/GITHUB_REPO');
-            const data = await response.json();
-            if (data.success && data.exists && data.value) {
-                document.getElementById('githubRepo').value = data.value;
-            } else {
-                // Fallback to localStorage or default (blank)
-                document.getElementById('githubRepo').value = settings.githubRepo || '';
-            }
-        } catch (error) {
-            console.log('Could not fetch GITHUB_REPO from database:', error);
-            document.getElementById('githubRepo').value = settings.githubRepo || '';
-        }
-        
-        // Git User Name - check database first
-        try {
-            const response = await fetch('/api/settings/GIT_NAME');
-            const data = await response.json();
-            if (data.success && data.exists && data.value) {
-                document.getElementById('gitUserName').value = data.value;
-            } else {
-                document.getElementById('gitUserName').value = settings.gitUserName || 'Huntable CTI Studio';
-            }
-        } catch (error) {
-            console.log('Could not fetch GIT_NAME from database:', error);
-            document.getElementById('gitUserName').value = settings.gitUserName || 'Huntable CTI Studio';
-        }
-        
-        // Git User Email - check database first
-        try {
-            const response = await fetch('/api/settings/GIT_EMAIL');
-            const data = await response.json();
-            if (data.success && data.exists && data.value) {
-                document.getElementById('gitUserEmail').value = data.value;
-            } else {
-                document.getElementById('gitUserEmail').value = settings.gitUserEmail || 'cti-studio@huntable.local';
-            }
-        } catch (error) {
-            console.log('Could not fetch GIT_EMAIL from database:', error);
-            document.getElementById('gitUserEmail').value = settings.gitUserEmail || 'cti-studio@huntable.local';
-        }
+
+        const results = await Promise.all([
+            loadManagedCredential('githubToken'),
+            loadManagedCredential('sigmaRepoPath', { fallback: settings.sigmaRepoPath || 'sigma-repo' }),
+            loadManagedCredential('githubRepo', { fallback: settings.githubRepo || '' }),
+            loadManagedCredential('gitUserName', { fallback: settings.gitUserName || 'Huntable CTI Studio' }),
+            loadManagedCredential('gitUserEmail', { fallback: settings.gitUserEmail || 'cti-studio@huntable.local' })
+        ]);
+
+        const ids = ['githubToken', 'sigmaRepoPath', 'githubRepo', 'gitUserName', 'gitUserEmail'];
+        return ids.filter((id, index) => !results[index]);
     }
     
     // Test GitHub connection
@@ -2002,7 +2320,9 @@
         const token = document.getElementById('githubToken').value.trim();
         const repo = document.getElementById('githubRepo').value.trim();
         
-        if (!token) {
+        // An empty token field is normal now -- it means "test the stored one".
+        const tokenInput = document.getElementById('githubToken');
+        if (!token && tokenInput && tokenInput.dataset.configured !== 'true') {
             setTestStatus(statusElement, 'Enter a GitHub token first', 'error');
             return;
         }
@@ -2018,24 +2338,20 @@
         setTestStatus(statusElement, 'Testing connection...');
 
         try {
-            // Test by fetching repo info
-            const [owner, repoName] = repo.split('/');
-            const response = await fetch(`https://api.github.com/repos/${owner}/${repoName}`, {
-                headers: {
-                    'Authorization': `token ${token}`,
-                    'Accept': 'application/vnd.github.v3+json'
-                }
+            // The token is not in the page unless the user just typed one, so the
+            // request is made server-side against the stored credential.
+            const response = await fetch('/api/settings/github/test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: token || undefined, repo: repo || undefined })
             });
-            
-            if (response.ok) {
-                setTestStatus(statusElement, 'Connected', 'ok');
-            } else if (response.status === 401) {
-                setTestStatus(statusElement, 'Token is invalid or lacks repo access', 'error');
-            } else if (response.status === 404) {
-                setTestStatus(statusElement, 'Repository not found, or the token cannot see it', 'error');
-            } else {
-                setTestStatus(statusElement, `GitHub returned ${response.status} ${response.statusText}`, 'error');
+
+            if (!response.ok) {
+                setTestStatus(statusElement, `Test failed (HTTP ${response.status})`, 'error');
+                return;
             }
+            const result = await response.json();
+            setTestStatus(statusElement, result.message, result.valid ? 'ok' : 'error');
         } catch (error) {
             setTestStatus(statusElement, 'Network error  --  try again', 'error');
         } finally {
@@ -2145,12 +2461,14 @@
         let endpoint = '';
         let requestBody = {};
 
+        // An empty field means "test the stored key" -- the page cannot read it back,
+        // so it sends nothing and the route resolves it.
         if (provider === 'openai') {
             endpoint = '/api/test-openai-key';
-            requestBody = { api_key: apiKey };
+            requestBody = { api_key: (apiKey || '').trim() || undefined };
         } else if (provider === 'anthropic') {
             endpoint = '/api/test-anthropic-key';
-            requestBody = { api_key: apiKey };
+            requestBody = { api_key: (apiKey || '').trim() || undefined };
         } else if (provider === 'lmstudio') {
             endpoint = '/api/lmstudio-models';
             requestBody = {}; // No body needed for GET request
@@ -2288,6 +2606,8 @@
             }
         }
         
+        initSettingsDirtyTracking();
+
         loadSettings().catch(function(err) {
             console.error('Error loading settings:', err);
         });
@@ -2317,6 +2637,23 @@
         safeAddListener('toggleLangfuseSecretKey', 'click', toggleLangfuseSecretKeyVisibility);
         safeAddListener('testLangfuseConnection', 'click', testLangfuseConnection);
         
+        // Deleting a stored credential is its own deliberate act, never a side effect
+        // of an empty field.
+        ['githubToken', 'langfuseSecretKey', 'workflowOpenaiApiKey', 'workflowAnthropicApiKey'].forEach(inputId => {
+            safeAddListener(inputId + 'ClearCredential', 'click', () => requestCredentialClear(inputId));
+            const input = document.getElementById(inputId);
+            if (input) {
+                // Typing cancels a pending clear -- the newer intent wins.
+                input.addEventListener('input', () => {
+                    if (input.dataset.clearRequested === 'true' && input.value.trim()) {
+                        delete input.dataset.clearRequested;
+                    }
+                    renderCredentialState(inputId);
+                    updateDirtyState();
+                });
+            }
+        });
+
         // GitHub PR settings
         safeAddListener('toggleGithubToken', 'click', toggleGithubTokenVisibility);
         safeAddListener('copyMkdocsCommandBtn', 'click', function() {

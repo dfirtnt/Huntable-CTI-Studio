@@ -22,6 +22,7 @@ from src.services.llm_provider_clients import (
     post_anthropic_with_retry,
 )
 from src.services.provider_model_catalog import load_catalog, update_provider_models
+from src.services.workflow_provider_options import resolve_provider_api_key
 from src.utils.langfuse_client import LANGFUSE_DEFAULT_HOST, log_llm_completion, log_llm_error, trace_llm_call
 from src.utils.model_validation import (
     filter_anthropic_models_latest_only,
@@ -285,9 +286,15 @@ async def api_test_openai_key(request: Request):
         api_key_raw = body.get("api_key")
         # Strip whitespace from API key (common issue when copying/pasting)
         api_key = api_key_raw.strip() if api_key_raw else None
+        # An empty field means "test whatever is already stored" -- the page cannot
+        # read the stored key back any more, so it cannot resend it.
+        key_source = "request"
+        if not api_key:
+            api_key = await resolve_provider_api_key("openai")
+            key_source = "stored"
 
         if not api_key:
-            raise HTTPException(status_code=400, detail="API key is required")
+            raise HTTPException(status_code=400, detail="No OpenAI API key was provided and none is configured")
 
         # Validate API key format - OpenAI keys start with sk- and should be reasonable length
         if not api_key.startswith("sk-"):
@@ -305,7 +312,7 @@ async def api_test_openai_key(request: Request):
                 detail="API key appears to be truncated or invalid (too short)",
             )
 
-        logger.info(f"Testing OpenAI API key: present=yes, source=request, length={len(api_key)}")
+        logger.info(f"Testing OpenAI API key: present=yes, source={key_source}, length={len(api_key)}")
 
         # Test the API key with a simple request; keep this tagged separately from production traces.
         connection_messages = [{"role": "user", "content": "Hello"}]
@@ -376,6 +383,11 @@ async def api_test_openai_key(request: Request):
 
     except httpx.TimeoutException as e:
         raise HTTPException(status_code=408, detail="Request timeout") from e
+    except HTTPException:
+        # The route's own 400s -- no key configured, malformed key format -- are
+        # actionable answers, not internal errors. Without this they fell into the
+        # handler below and reached the operator as an opaque 500.
+        raise
     except Exception as e:
         logger.error(f"OpenAI API key test error: {e}")
         raise HTTPException(status_code=500, detail="Internal server error") from e
@@ -389,9 +401,12 @@ async def api_test_anthropic_key(request: Request):
         api_key_raw = body.get("api_key")
         # Strip whitespace from API key (common issue when copying/pasting)
         api_key = api_key_raw.strip() if api_key_raw else None
+        # An empty field means "test whatever is already stored" -- see the OpenAI route.
+        if not api_key:
+            api_key = await resolve_provider_api_key("anthropic")
 
         if not api_key:
-            raise HTTPException(status_code=400, detail="API key is required")
+            raise HTTPException(status_code=400, detail="No Anthropic API key was provided and none is configured")
 
         # Test the API key with a simple request; keep this tagged separately from production traces.
         connection_messages = [{"role": "user", "content": "Hello"}]
@@ -452,6 +467,11 @@ async def api_test_anthropic_key(request: Request):
 
     except httpx.TimeoutException as e:
         raise HTTPException(status_code=408, detail="Request timeout") from e
+    except HTTPException:
+        # The route's own 400s -- no key configured, malformed key format -- are
+        # actionable answers, not internal errors. Without this they fell into the
+        # handler below and reached the operator as an opaque 500.
+        raise
     except Exception as e:
         logger.error(f"Anthropic API key test error: {e}")
         raise HTTPException(status_code=500, detail="Internal server error") from e

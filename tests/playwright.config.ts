@@ -79,6 +79,8 @@ const featureProjects = [
       /playwright\/diags_.*\.spec\.ts$/,
       /playwright\/modal_.*\.spec\.ts$/,
       /playwright\/settings\.spec\.ts$/,
+      /playwright\/settings_credentials\.spec\.ts$/,
+      /playwright\/settings_save_model\.spec\.ts$/,
     ],
   },
 ];

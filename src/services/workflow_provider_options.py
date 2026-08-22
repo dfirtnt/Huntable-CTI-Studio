@@ -146,6 +146,36 @@ def _is_enabled(settings: dict[str, str], provider: str) -> bool:
     return settings.get(key, "false").lower() == "true"
 
 
+async def resolve_provider_api_key(provider: str) -> str | None:
+    """Resolve a provider API key from AppSettings, then env, in the UI's precedence.
+
+    The Settings read routes no longer return credential values to the browser, so
+    request handlers that need a key resolve it here instead of accepting one the
+    page had read back. Lives beside the key maps above so there is one definition
+    of "which setting holds the OpenAI key", not one per call site.
+    """
+    from sqlalchemy import select
+
+    from src.database.async_manager import async_db_manager
+
+    settings_key = _API_KEY_SETTINGS.get(provider.lower())
+    if settings_key:
+        try:
+            async with async_db_manager.get_session() as session:
+                result = await session.execute(select(AppSettingsTable).where(AppSettingsTable.key == settings_key))
+                row = result.scalar_one_or_none()
+                if row and row.value and row.value.strip():
+                    return row.value.strip()
+        except Exception as exc:
+            logger.warning("Could not read %s from the database: %s", settings_key, exc)
+
+    for env_key in _ENV_KEY_FALLBACKS.get(provider.lower(), ()):
+        value = os.getenv(env_key, "")
+        if value.strip():
+            return value.strip()
+    return None
+
+
 async def get_provider_options(db_session) -> dict:
     """
     Build unified provider availability map.

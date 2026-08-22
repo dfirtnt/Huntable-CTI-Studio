@@ -18,6 +18,10 @@ const extractSubAgents = EXTRACT_SUB_AGENTS;
 let disabledExtractAgents = new Set();
 let autoSaveTimeout = null; // Debounce timer for autosave
 let autoSaveModelChangeTimeout = null; // Debounce timer for model-change autosave
+// True while applyAgentConfigs() is writing stored values into the form. Change
+// events fired during that window come from the code, not the operator, so they
+// must not schedule a save.
+let isApplyingStoredConfig = false;
 // Agents whose prompt bodies are held in form state but not yet persisted (e.g. loaded
 // from a preset). Autosave deliberately does not transmit prompts, so its response must
 // not overwrite these -- doing so silently discards an import before the user can Save.
@@ -1181,7 +1185,16 @@ function collectAllAgentConfigs(models = null) {
  */
 function applyAgentConfigs(models = null) {
     const agentModelsData = models || agentModels || {};
-    
+
+    // Applying stored values drives the same DOM controls a person would, and
+    // setAgentProvider dispatches a real 'change' so dependent UI rebuilds. That
+    // change reaches onAgentProviderChange, which schedules an autosave -- so
+    // simply displaying the saved config wrote it back, once per agent, on every
+    // page load. Suppress scheduling for the duration; nothing here is a user edit.
+    const wasApplyingStoredConfig = isApplyingStoredConfig;
+    isApplyingStoredConfig = true;
+    try {
+
     // So provider-change handlers and refreshAllProviderBlocks see preset when rebuilding inputs
     if (models && typeof models === 'object' && Object.keys(models).length > 0) {
         agentModels = { ...models };
@@ -1233,6 +1246,10 @@ function applyAgentConfigs(models = null) {
         if (config.temperatureKey) updateThresholdDisplay(`${config.prefix}-temperature`);
         if (config.topPKey) updateThresholdDisplay(`${config.prefix}-top-p`);
     });
+
+    } finally {
+        isApplyingStoredConfig = wasApplyingStoredConfig;
+    }
 }
 
 /**
@@ -1786,10 +1803,15 @@ function onAgentProviderChange(agentPrefix) {
         });
     }
     
-    // Validate current model against new provider
+    // Validate current model against new provider.
+    // `options` is not in scope here -- b482190b passed a variable this function
+    // never had, so every provider change threw a ReferenceError and abandoned the
+    // rest of the handler (inheritance hints, control bindings, the autosave).
+    // This is the interactive path, so full validation including the async check is
+    // what is wanted; the skipAsync callers pass it explicitly.
     const currentModel = getActiveAgentModelValue(agentPrefix, provider);
     if (currentModel) {
-        validateProviderModelCombination(agentPrefix, provider, currentModel, options);
+        validateProviderModelCombination(agentPrefix, provider, currentModel);
     } else {
         clearProviderModelError(agentPrefix);
     }
@@ -3950,6 +3972,10 @@ async function testSigmaAgent(articleId) {
 // Auto-save model changes immediately
 // Unified autosave function for all config changes (except prompts which require manual save)
 window.autoSaveConfig = async function autoSaveConfig() {
+    // Same reasoning as autoSaveModelChange: a change the loader made is not an edit.
+    if (isApplyingStoredConfig) {
+        return;
+    }
     // Skip autosave during page initialization to prevent version jumps
     if (isInitializing) {
         console.log('Skipping autosave during initialization');
@@ -4030,8 +4056,16 @@ async function performAutoSave() {
         
         // Collect all agent configs using unified system
         const collectedAgentConfigs = collectAllAgentConfigs();
-        
+
         const agentModelsData = {
+            // Carry forward every agent_models key the server holds that this form
+            // does not produce (SigmaEmbeddingModel has no config panel, so
+            // collectAllAgentConfigs never emits it). Without this the PUT is a
+            // partial payload and only survives because the backend merges rather
+            // than replaces -- the same shape as the partial-PUT config wipe.
+            // Seeded, not overlaid: keys the form does manage keep their exact
+            // existing semantics, including the deliberate empty-string clears.
+            ...unmanagedStoredAgentModels(collectedAgentConfigs),
             ...collectedAgentConfigs,
             OSDetectionAgent_selected_os: ['Windows']
         };
@@ -4065,6 +4099,15 @@ async function performAutoSave() {
                 }
             } else if (value !== null && value !== '') {
                 cleanedAgentModels[key] = value;
+            } else if (value === '' && typeof currentConfig?.agent_models?.[key] === 'string'
+                       && currentConfig.agent_models[key] !== '') {
+                // The control read back blank because it could not represent the
+                // stored value (a model absent from the selected provider's option
+                // list), not because anyone cleared it. Dropping the key here left
+                // the payload short of what the server holds, so the write only
+                // stayed lossless thanks to the backend's merge. Carry the stored
+                // value instead: the request is now complete on its own.
+                cleanedAgentModels[key] = currentConfig.agent_models[key];
             }
         }
 
@@ -4310,6 +4353,9 @@ function validateAgentModelOnChange(agentPrefix) {
  * Wraps autoSaveConfig with validation.
  */
 window.autoSaveModelChange = function() {
+    // Guard at schedule time, not inside the debounce: applyAgentConfigs() is
+    // synchronous and would have finished long before a 400ms timer fired.
+    if (isApplyingStoredConfig) return Promise.resolve();
     if (autoSaveModelChangeTimeout) clearTimeout(autoSaveModelChangeTimeout);
     return new Promise((resolve) => {
         autoSaveModelChangeTimeout = setTimeout(() => {
@@ -6311,10 +6357,64 @@ function getLMStudioModelsOnly() {
 }
 
 
+/**
+ * Stored agent_models keys that this form never produces.
+ *
+ * `collectAllAgentConfigs()` only emits keys backed by a rendered config panel, so
+ * a key the server stores but the UI has no control for (SigmaEmbeddingModel) is
+ * absent from form state. Read back as `undefined` it compares unequal to its
+ * stored value forever, which is what made the page believe it was dirty the
+ * instant it loaded and autosave on every page view.
+ */
+function unmanagedStoredAgentModels(collected) {
+    const stored = currentConfig?.agent_models || {};
+    const carried = {};
+    for (const key of Object.keys(stored)) {
+        if (!Object.prototype.hasOwnProperty.call(collected, key)) {
+            carried[key] = stored[key];
+        }
+    }
+    return carried;
+}
+
+/**
+ * Compare one agent_models value against its stored counterpart.
+ *
+ * Temperatures are floats read back from text inputs, so they need a tolerance.
+ * Array-valued keys (OSDetectionAgent_selected_os) are rebuilt as a fresh literal
+ * on every call and are never `===` to the previous array, which made that key
+ * report changed on every comparison regardless of its contents.
+ */
+function agentModelValueChanged(key, currentValue, originalValue) {
+    if (key.includes('_temperature')) {
+        const currentNum = typeof currentValue === 'number' ? currentValue : parseFloat(currentValue) || 0.0;
+        const originalNum = typeof originalValue === 'number' ? originalValue : parseFloat(originalValue) || 0.0;
+        return Math.abs(currentNum - originalNum) > 0.0001;
+    }
+    if (Array.isArray(currentValue) || Array.isArray(originalValue)) {
+        const a = Array.isArray(currentValue) ? currentValue : [];
+        const b = Array.isArray(originalValue) ? originalValue : [];
+        return a.length !== b.length || a.some((item, index) => item !== b[index]);
+    }
+    // A model select reads back '' when it cannot represent the stored value --
+    // e.g. ExtractAgent stored as provider lmstudio with an OpenAI model, so the
+    // model is absent from the option list and the select falls back to blank.
+    // That is the form failing to show a value, not the user clearing one, and
+    // performAutoSave() drops empty model values from the payload anyway, so
+    // treating it as a change produces a write that cannot express it: exactly
+    // the phantom save this comparison exists to prevent. RankAgent is excluded
+    // because its empty string IS sent, as a deliberate "clear the override".
+    if (key !== 'RankAgent' && currentValue === '' && typeof originalValue === 'string' && originalValue !== '') {
+        return false;
+    }
+    return currentValue !== originalValue;
+}
+
 // Function to get current form state
 function getCurrentFormState() {
     // Get agent models from form using unified system (includes providers)
-    const agent_models = collectAllAgentConfigs();
+    const collected = collectAllAgentConfigs();
+    const agent_models = { ...unmanagedStoredAgentModels(collected), ...collected };
 
     agent_models.OSDetectionAgent_selected_os = ['Windows'];
 
@@ -6373,18 +6473,7 @@ function checkForUnsavedChanges() {
     const allKeys = new Set([...Object.keys(currentModels), ...Object.keys(originalModels)]);
     
     for (const key of allKeys) {
-        const currentValue = currentModels[key];
-        const originalValue = originalModels[key];
-        
-        // Handle numeric comparison for temperatures (account for floating point precision)
-        if (key.includes('_temperature')) {
-            const currentNum = typeof currentValue === 'number' ? currentValue : parseFloat(currentValue) || 0.0;
-            const originalNum = typeof originalValue === 'number' ? originalValue : parseFloat(originalValue) || 0.0;
-            if (Math.abs(currentNum - originalNum) > 0.0001) return true;
-        } else {
-            // String comparison for model names
-            if (currentValue !== originalValue) return true;
-        }
+        if (agentModelValueChanged(key, currentModels[key], originalModels[key])) return true;
     }
     
     // Compare sigma_fallback_enabled

@@ -110,13 +110,21 @@ The strict configuration contract is defined in `src/config/workflow_config_sche
 
 ### Settings And Integrations
 
-- `GET /api/settings/*`
+- `GET /api/settings/*` — Reads never return a stored credential. For a key matching
+  `_is_sensitive_setting` the response carries `value: null` plus `configured` and a short
+  `hint`; non-sensitive settings round-trip their value as before. Both read routes send
+  `Cache-Control: no-store`.
 - `POST /api/settings/codex/test` — Verify the deployment-managed Codex login without invoking a workflow model.
+- `POST /api/settings/github/test` — Verify the stored GitHub PAT against the configured
+  repository, server-side. Accepts optional `token` / `repo` overrides so a freshly typed
+  credential can be checked before it is saved.
 - `POST /api/test-openai-key`
 - `POST /api/test-anthropic-key`
 - `POST /api/test-lmstudio-connection`
 
-These endpoints manage runtime settings and provider connectivity.
+These endpoints manage runtime settings and provider connectivity. The provider key tests
+accept an empty `api_key` and fall back to the stored credential, since the Settings page
+cannot read one back to resend it.
 
 ### Models And MLOps
 

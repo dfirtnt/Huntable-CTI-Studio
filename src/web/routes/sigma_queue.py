@@ -53,6 +53,7 @@ from src.services.sigma_matching_service import SigmaMatchingService
 from src.services.sigma_pr_service import SigmaPRService
 from src.services.sigma_validator import validate_sigma_rule
 from src.services.similarity_serialization import serialize_similarity_match
+from src.services.workflow_provider_options import resolve_provider_api_key
 from src.utils.content_filter import ContentFilter
 from src.utils.langfuse_client import log_llm_completion, log_llm_error, trace_llm_call
 from src.utils.prompt_loader import format_prompt
@@ -1099,7 +1100,9 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                 detail=f"Unsupported provider '{provider}'. Supported providers: openai, anthropic, lmstudio.",
             )
 
-        # Get API key from request headers (not needed for LMStudio)
+        # Get API key from request headers (not needed for LMStudio). The page no
+        # longer reads keys back out of GET /api/settings, so a missing header is
+        # the normal case: resolve the stored key server-side.
         api_key = None
         if provider == "openai":
             api_key = request.headers.get("X-OpenAI-API-Key")
@@ -1109,10 +1112,14 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
             api_key = "not_required"
 
         if provider != "lmstudio" and (not api_key or not api_key.strip()):
+            api_key = await resolve_provider_api_key(provider)
+
+        if provider != "lmstudio" and (not api_key or not api_key.strip()):
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    f"API key required. Provide X-{provider.capitalize()}-API-Key. Provider: {provider}, Model: {model}"
+                    f"No {provider.capitalize()} API key is configured. "
+                    f"Add one in Settings. Provider: {provider}, Model: {model}"
                 ),
             )
 
@@ -1890,12 +1897,17 @@ async def validate_rule(request: Request, queue_id: int):
             conversation_log = []
             validation_results = []
 
+            # The page cannot read stored keys back any more, so an absent header is
+            # the normal case: resolve server-side before reporting a missing key.
+            if provider != "lmstudio" and (not api_key or not api_key.strip()):
+                api_key = await resolve_provider_api_key(provider)
+
             if provider != "lmstudio" and (not api_key or not api_key.strip()):
                 # Return error response with empty conversation log
                 return {
                     "success": False,
                     "validated_yaml": None,
-                    "errors": [f"API key is required. Please provide X-{provider.capitalize()}-API-Key header."],
+                    "errors": [f"No {provider.capitalize()} API key is configured. Add one in Settings."],
                     "attempts": 0,
                     "message": f"API key is required for {provider}",
                     "conversation_log": conversation_log,

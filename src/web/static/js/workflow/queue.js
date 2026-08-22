@@ -2608,41 +2608,9 @@ async function enrichRule() {
         return;
     }
 
-    // Get API key from server-side settings (not needed for LMStudio)
-    let apiKey = null;
-    if (selectedProvider !== 'lmstudio') {
-        try {
-            const response = await fetch('/api/settings');
-            if (response.ok) {
-                const data = await response.json();
-                const settings = data.settings || {};
-
-                // Get API key based on selected provider
-                if (selectedProvider === 'openai') {
-                    apiKey = settings.WORKFLOW_OPENAI_API_KEY || settings.OPENAI_API_KEY;
-                } else if (selectedProvider === 'anthropic') {
-                    apiKey = settings.WORKFLOW_ANTHROPIC_API_KEY || settings.ANTHROPIC_API_KEY;
-                }
-            }
-        } catch (error) {
-            console.warn('Could not fetch API key from settings API:', error);
-        }
-
-        if (!apiKey || !apiKey.trim()) {
-            const providerName = selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1);
-            document.getElementById('enrichError').textContent = `Please configure your ${providerName} API key in Settings first.`;
-            document.getElementById('enrichError').classList.remove('hidden');
-            console.error('API key not found for provider:', selectedProvider);
-            enrichBtn.disabled = false;
-            enrichBtn.textContent = 'Enrich Rule';
-            enrichBtn.classList.remove('opacity-75', 'cursor-not-allowed');
-            return;
-        }
-
-        // Trim API key to remove any whitespace
-        apiKey = apiKey.trim();
-    }
-
+    // The API key stays server-side: /api/settings no longer returns credential
+    // values, and the enrich route resolves the stored key itself. If none is
+    // configured the server says so and the message is surfaced below.
     const instruction = 'Validate and minimally enrich this SIGMA rule per the enabled directives. Preserve detection logic. Return the JSON output contract only.';
     const systemPrompt = document.getElementById('enrichSystemPrompt').value.trim();
 
@@ -2653,19 +2621,12 @@ async function enrichRule() {
     document.getElementById('enrichResult').classList.add('hidden');
     
     try {
-        // Determine which header to use based on provider (LMStudio doesn't need API key)
         const headers = {
             'Content-Type': 'application/json'
         };
-        if (selectedProvider !== 'lmstudio' && apiKey) {
-            const headerKey = selectedProvider === 'openai' ? 'X-OpenAI-API-Key' :
-                             selectedProvider === 'anthropic' ? 'X-Anthropic-API-Key' :
-                             'X-OpenAI-API-Key';
-            headers[headerKey] = apiKey;
-        }
-        
+
         const includeArticleContent = document.getElementById('includeArticleContent').checked;
-        
+
         const requestBody = {
             instruction: instruction || undefined,
             system_prompt: systemPrompt || undefined,
@@ -2674,14 +2635,13 @@ async function enrichRule() {
             include_article_content: includeArticleContent,
             current_rule_yaml: document.getElementById('enrichOriginalRule').value
         };
-        
+
         console.log('Sending enrich request:', {
             url: `/api/sigma-queue/${currentRuleId}/enrich`,
             provider: selectedProvider,
-            model: selectedModel,
-            hasApiKey: !!apiKey
+            model: selectedModel
         });
-        
+
         const response = await fetch(`/api/sigma-queue/${currentRuleId}/enrich`, {
             method: 'POST',
             headers: headers,
@@ -2874,37 +2834,8 @@ async function enrichRuleFurther() {
         return;
     }
     
-    // Get API key from server-side settings (not needed for LMStudio)
-    let apiKey = null;
-    if (selectedProvider !== 'lmstudio') {
-        try {
-            const response = await fetch('/api/settings');
-            if (response.ok) {
-                const data = await response.json();
-                const settings = data.settings || {};
-                
-                // Get API key based on selected provider
-                if (selectedProvider === 'openai') {
-                    apiKey = settings.WORKFLOW_OPENAI_API_KEY || settings.OPENAI_API_KEY;
-                } else if (selectedProvider === 'anthropic') {
-                    apiKey = settings.WORKFLOW_ANTHROPIC_API_KEY || settings.ANTHROPIC_API_KEY;
-                }
-            }
-        } catch (error) {
-            console.warn('Could not fetch API key from settings API:', error);
-        }
-        
-        if (!apiKey || !apiKey.trim()) {
-            const providerName = selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1);
-            document.getElementById('enrichError').textContent = `Please configure your ${providerName} API key in Settings first.`;
-            document.getElementById('enrichError').classList.remove('hidden');
-            return;
-        }
-        
-        // Trim API key
-        apiKey = apiKey.trim();
-    }
-    
+    // The API key stays server-side -- see enrichRule() above.
+
     // Prompt for new instruction
     const newInstruction = await ModalManager.prompt('Enter additional enrichment instructions (or leave empty for default):\n\nThis will enrich the already-enriched rule further.', '', { title: 'Enrich Rule', confirmText: 'Enrich', placeholder: 'Additional instructions' });
     
@@ -2923,17 +2854,10 @@ async function enrichRuleFurther() {
     document.getElementById('enrichError').classList.add('hidden');
     
     try {
-        // Determine which header to use based on provider (LMStudio doesn't need API key)
         const headers = {
             'Content-Type': 'application/json'
         };
-        if (selectedProvider !== 'lmstudio' && apiKey) {
-            const headerKey = selectedProvider === 'openai' ? 'X-OpenAI-API-Key' :
-                             selectedProvider === 'anthropic' ? 'X-Anthropic-API-Key' :
-                             'X-OpenAI-API-Key';
-            headers[headerKey] = apiKey;
-        }
-        
+
         const response = await fetch(`/api/sigma-queue/${currentRuleId}/enrich`, {
             method: 'POST',
             headers: headers,

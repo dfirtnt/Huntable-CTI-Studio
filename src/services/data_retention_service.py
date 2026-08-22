@@ -27,10 +27,11 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from src.database.models import (
+    AgenticWorkflowConfigTable,
     AgenticWorkflowExecutionSnapshotTable,
     AgenticWorkflowExecutionTable,
     AppSettingsTable,
@@ -57,6 +58,21 @@ _EXECUTION_REFERENCE_TABLES = (
     SubagentEvaluationTable,
 )
 
+WORKFLOW_CONFIG_MIN_REVISIONS_SETTING_KEY = "RETENTION_MIN_WORKFLOW_CONFIG_REVISIONS"
+# Config history is the recovery path for a bad prompt write, so the floor is set by
+# how far back an operator might need to reach rather than by table size. The busiest
+# observed day wrote 632 rows, so anything under that could be exhausted by a single
+# afternoon of editing; 2000 covers roughly three such days. Most of that volume was
+# the page saving itself on every load, so in practice the floor now reaches much
+# further back -- but it is sized against measured behaviour, not the improvement.
+DEFAULT_WORKFLOW_CONFIG_MIN_REVISIONS = 2000
+
+# Tables carrying a `workflow_config_id` FK. `subagent_evaluations` is modelled;
+# `sigma_evaluations` is mid-decommission (scripts/migrate_drop_sigma_evaluations.py)
+# and absent from models.py, so it is probed by name and skipped once dropped.
+_CONFIG_REFERENCE_TABLES = (SubagentEvaluationTable,)
+_UNMODELLED_CONFIG_REFERENCE_TABLES = ("sigma_evaluations",)
+
 STALE_EXECUTION_SETTING_KEY = "RETENTION_STALE_EXECUTION_HOURS"
 # A workflow run completes in minutes. Six hours of no row activity means the worker
 # died mid-run: the live database carries one execution stuck at `extract_agent`
@@ -66,13 +82,19 @@ DEFAULT_STALE_EXECUTION_HOURS = 6
 
 @dataclass(frozen=True)
 class RetentionPolicy:
-    """One table's age-based retention rule."""
+    """One table's age-based retention rule.
+
+    ``min_retained`` adds a second, count-based floor for tables where age alone is
+    the wrong question. Whichever of the two keeps more rows wins.
+    """
 
     key: str
     label: str
     setting_key: str
     default_days: int
     rationale: str
+    min_retained: int | None = None
+    min_retained_setting_key: str | None = None
 
 
 RETENTION_POLICIES: tuple[RetentionPolicy, ...] = (
@@ -97,6 +119,26 @@ RETENTION_POLICIES: tuple[RetentionPolicy, ...] = (
             "cited by the queue or any evaluation table are retained at any age, so "
             "this reclaims far less than the table's total size -- the bulk of that "
             "is payload per row, not aged rows."
+        ),
+    ),
+    RetentionPolicy(
+        key="workflow_config",
+        label="Workflow Config History",
+        setting_key="RETENTION_DAYS_WORKFLOW_CONFIG",
+        default_days=60,
+        min_retained=DEFAULT_WORKFLOW_CONFIG_MIN_REVISIONS,
+        min_retained_setting_key=WORKFLOW_CONFIG_MIN_REVISIONS_SETTING_KEY,
+        rationale=(
+            "This table is the undo history for the workflow config -- a bad prompt "
+            "write is recovered by reading an older row back (the CmdlineExtract "
+            "prompt was restored from config id 7224). So the window is set by how "
+            "long a regression can plausibly go unnoticed, not by disk: 60 days, "
+            "with a floor of 2000 revisions so a burst of edits cannot compress the "
+            "recoverable history into a single afternoon. The floor is what does the "
+            "work here -- at 8,152 rows and one active, age alone would have kept "
+            "everything from a busy week and nothing from a quiet month. Never "
+            "deleted at any age: the active row, and any row cited by an evaluation "
+            "table, which carries that eval's provenance."
         ),
     ),
 )
@@ -145,6 +187,13 @@ def _read_int_setting(session: Session, key: str, default: int) -> int:
 def resolve_retention_days(session: Session, policy: RetentionPolicy) -> int:
     """Return the configured window for *policy*, or its default."""
     return _read_int_setting(session, policy.setting_key, policy.default_days)
+
+
+def resolve_min_retained(session: Session, policy: RetentionPolicy) -> int:
+    """Return the count-based floor for *policy*; 0 where the policy has none."""
+    if policy.min_retained is None or policy.min_retained_setting_key is None:
+        return 0
+    return _read_int_setting(session, policy.min_retained_setting_key, policy.min_retained)
 
 
 def _delete_in_batches(session: Session, model: Any, ids: Sequence[int]) -> int:
@@ -220,12 +269,75 @@ def _purge_workflow_executions(session: Session, cutoff: datetime, dry_run: bool
     return _delete_in_batches(session, AgenticWorkflowExecutionTable, ids)
 
 
-# Each policy's executor, keyed the same way as RETENTION_POLICIES.
-_PURGE_HANDLERS: dict[str, Callable[[Session, datetime, bool], int]] = {
-    "source_checks": lambda session, cutoff, dry_run: _purge_by_age(
+def _eval_referenced_config_ids(session: Session) -> set[int]:
+    """Config rows cited by any evaluation table, modelled or not.
+
+    These carry the provenance of a recorded eval result: which config produced it.
+    Deleting one leaves the eval unable to say what it measured, so they are pinned
+    at any age.
+    """
+    referenced: set[int] = set()
+    for table in _CONFIG_REFERENCE_TABLES:
+        referenced.update(
+            row[0]
+            for row in session.query(table.workflow_config_id).filter(table.workflow_config_id.isnot(None)).distinct()
+        )
+
+    for table_name in _UNMODELLED_CONFIG_REFERENCE_TABLES:
+        exists = session.execute(text("SELECT to_regclass(:name)"), {"name": table_name}).scalar()
+        if exists is None:
+            continue
+        rows = session.execute(
+            text(f"SELECT DISTINCT workflow_config_id FROM {table_name} WHERE workflow_config_id IS NOT NULL")  # noqa: S608 -- name from a module constant, not input
+        ).fetchall()
+        referenced.update(row[0] for row in rows)
+
+    return referenced
+
+
+def purgeable_workflow_config_ids(session: Session, cutoff: datetime, keep_revisions: int) -> list[int]:
+    """Config revisions safe to delete: old, superseded, and cited by nothing.
+
+    Three exclusions, in order of how badly getting them wrong would hurt:
+
+    1. The active row, whatever its age -- deleting it takes the running config out.
+    2. Anything an evaluation table points at, whatever its age.
+    3. The newest *keep_revisions* rows, whatever their age. This is the floor that
+       makes the policy safe to run at all: age alone would prune a quiet month and
+       spare a busy afternoon, which is backwards for an undo history.
+    """
+    pinned = {
+        row[0]
+        for row in session.query(AgenticWorkflowConfigTable.id)
+        .order_by(AgenticWorkflowConfigTable.version.desc(), AgenticWorkflowConfigTable.id.desc())
+        .limit(max(keep_revisions, 0))
+        .all()
+    }
+    pinned.update(_eval_referenced_config_ids(session))
+
+    query = (
+        session.query(AgenticWorkflowConfigTable.id)
+        .filter(AgenticWorkflowConfigTable.created_at < cutoff)
+        .filter(AgenticWorkflowConfigTable.is_active == False)  # noqa: E712 -- SQL boolean comparison
+    )
+    return [row[0] for row in query.all() if row[0] not in pinned]
+
+
+def _purge_workflow_config(session: Session, cutoff: datetime, dry_run: bool, keep_revisions: int) -> int:
+    ids = purgeable_workflow_config_ids(session, cutoff, keep_revisions)
+    if dry_run:
+        return len(ids)
+    return _delete_in_batches(session, AgenticWorkflowConfigTable, ids)
+
+
+# Each policy's executor, keyed the same way as RETENTION_POLICIES. The extra
+# `keep_revisions` argument is the count-based floor; policies without one ignore it.
+_PURGE_HANDLERS: dict[str, Callable[[Session, datetime, bool, int], int]] = {
+    "source_checks": lambda session, cutoff, dry_run, _keep: _purge_by_age(
         session, SourceCheckTable, SourceCheckTable.check_time, cutoff, dry_run
     ),
-    "workflow_executions": _purge_workflow_executions,
+    "workflow_executions": lambda session, cutoff, dry_run, _keep: _purge_workflow_executions(session, cutoff, dry_run),
+    "workflow_config": _purge_workflow_config,
 }
 
 
@@ -277,15 +389,17 @@ def run_retention(session: Session, dry_run: bool = False, now: datetime | None 
     for policy in RETENTION_POLICIES:
         days = resolve_retention_days(session, policy)
         cutoff = reference - timedelta(days=days)
-        count = _PURGE_HANDLERS[policy.key](session, cutoff, dry_run)
+        keep_revisions = resolve_min_retained(session, policy)
+        count = _PURGE_HANDLERS[policy.key](session, cutoff, dry_run, keep_revisions)
         deleted[policy.key] = count
         logger.info(
-            "Retention %s: %s %d rows older than %d days (cutoff %s)",
+            "Retention %s: %s %d rows older than %d days (cutoff %s%s)",
             policy.key,
             "would delete" if dry_run else "deleted",
             count,
             days,
             cutoff.isoformat(),
+            f", keeping the newest {keep_revisions}" if policy.min_retained is not None else "",
         )
 
     reaped = reap_stale_executions(session, dry_run=dry_run, now=reference)
