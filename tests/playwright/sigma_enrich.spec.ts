@@ -195,6 +195,54 @@ test.describe('Sigma enrich modal — no duplicate Original Rule', () => {
     await expect(page.locator('#enrichModelSelect')).toHaveValue('gpt-5.6-luna');
   });
 
+  test('submits the selected Codex provider and model for enrichment', async ({ page }) => {
+    let enrichmentPayload: Record<string, unknown> | undefined;
+    await page.unroute('**/api/sigma-queue/**/enrich');
+    await page.route('**/api/sigma-queue/**/enrich', (route) => {
+      enrichmentPayload = route.request().postDataJSON();
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          enriched_yaml: ENRICHED_YAML,
+          raw_response: RAW_LLM_RESPONSE,
+        }),
+      });
+    });
+    await page.route('**/api/workflow/provider-options', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          providers: {
+            lmstudio: { enabled: false, models: [] },
+            openai: { enabled: false, models: [] },
+            codex: { enabled: true, models: ['gpt-5.6-luna'] },
+            anthropic: { enabled: false, models: [] },
+          },
+        }),
+      }),
+    );
+    await page.reload();
+    await page.waitForLoadState('domcontentloaded');
+
+    await page.evaluate(async (ruleId) => {
+      const w = window as any;
+      await w.loadQueue();
+      try {
+        await w.previewRule(ruleId);
+      } catch (_) {
+        /* render is not relevant to this regression */
+      }
+      await w.openEnrichModal();
+    }, RULE_ID);
+    await page.locator('#enrichProviderSelect').selectOption('codex');
+    await page.locator('#enrichBtn').click();
+    await expect(page.locator('#enrichResult')).toBeVisible();
+    expect(enrichmentPayload).toMatchObject({ provider: 'codex', model: 'gpt-5.6-luna' });
+  });
+
   test('hides the standalone Original Rule once the comparison view is shown, and keeps it hidden in the editor sub-view', async ({ page }) => {
     await openEnrichModal(page);
 

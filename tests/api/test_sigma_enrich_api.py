@@ -211,6 +211,38 @@ class TestSigmaEnrichAPI:
         mock_codex_client.return_value.complete.assert_awaited_once()
 
     @pytest.mark.asyncio
+    async def test_enrich_rejects_disabled_codex_before_starting_a_subscription_turn(self):
+        """A crafted request cannot bypass the Settings gate for Codex enrichment."""
+        from fastapi import HTTPException
+        from starlette.requests import Request
+
+        from src.web.routes.sigma_queue import EnrichRuleRequest, enrich_rule
+
+        mock_request = MagicMock(spec=Request)
+        mock_request.headers = {}
+        enrich_request = EnrichRuleRequest(provider="codex", model="gpt-5.6-luna", author_value="Unit Test Author")
+
+        with (
+            patch("src.web.routes.sigma_queue.DatabaseManager") as mock_db_manager,
+            patch("src.web.routes.sigma_queue.CodexAppServerClient") as mock_codex_client,
+            patch(
+                "src.web.routes.sigma_queue._load_workflow_provider_settings",
+                return_value={"WORKFLOW_CODEX_ENABLED": "false"},
+            ),
+        ):
+            mock_session = MagicMock()
+            mock_db_manager.return_value.get_session.return_value = mock_session
+            mock_rule = MagicMock(id=1, rule_yaml="title: Test Rule", article_id=1)
+            mock_article = MagicMock(content="Test article content", title="Test Article", canonical_url="")
+            mock_session.query.return_value.filter.return_value.first.side_effect = [mock_rule, mock_article]
+
+            with pytest.raises(HTTPException, match="Codex subscription provider is disabled") as exc_info:
+                await enrich_rule(mock_request, queue_id=1, enrich_request=enrich_request)
+
+        assert exc_info.value.status_code == 400
+        mock_codex_client.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_enrich_handles_llm_error(self):
         """Test that enrich endpoint handles LLM API errors gracefully."""
         from starlette.requests import Request
