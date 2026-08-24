@@ -600,6 +600,23 @@ class SigmaRuleQueueTable(Base):
         return f"<SigmaRuleQueue(id={self.id}, article_id={self.article_id}, status='{self.status}')>"
 
 
+class SigmaEnrichmentConversationTable(Base):
+    """Persisted, rule-scoped transcript for an AI-assisted SIGMA enrichment."""
+
+    __tablename__ = "sigma_enrichment_conversations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    queue_id = Column(Integer, ForeignKey("sigma_rule_queue.id", ondelete="CASCADE"), nullable=False, index=True)
+    provider = Column(String(50), nullable=False)
+    model = Column(String(255), nullable=False)
+    # System, user, and assistant turns. The API never returns system turns to the browser.
+    messages = Column(JSONB, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=func.now(), index=True)
+    updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now(), index=True)
+
+    queue = relationship("SigmaRuleQueueTable", backref="enrichment_conversations")
+
+
 class AgentPromptVersionTable(Base):
     """Database table for version control of agent prompts."""
 

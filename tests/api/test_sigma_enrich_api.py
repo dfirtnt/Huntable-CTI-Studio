@@ -567,3 +567,66 @@ class TestEnrichResolvesTheStoredKey:
                     await enrich_rule(self._request(), queue_id=999999, enrich_request=enrich_request)
 
         resolver.assert_not_awaited()
+
+    def test_persisted_chat_hides_the_system_prompt_from_browser(self):
+        """The scoped guardrail is sent to the provider but not exposed to the page."""
+        from src.web.routes.sigma_queue import ENRICHMENT_CHAT_SCOPE, _public_enrichment_conversation
+
+        conversation = MagicMock()
+        conversation.id = 12
+        conversation.provider = "codex"
+        conversation.model = "gpt-5.6-terra"
+        conversation.messages = [
+            {"role": "system", "content": "base prompt" + ENRICHMENT_CHAT_SCOPE},
+            {"role": "user", "content": "Improve this rule"},
+            {"role": "assistant", "content": "Here is the revised YAML."},
+        ]
+
+        public = _public_enrichment_conversation(conversation)
+
+        assert public["id"] == 12
+        assert public["messages"] == [
+            {"role": "user", "content": "Improve this rule"},
+            {"role": "assistant", "content": "Here is the revised YAML."},
+        ]
+
+    @pytest.mark.asyncio
+    async def test_continue_chat_replays_persisted_transcript_for_lmstudio(self):
+        """Continuation reuses the stored transcript and provider, with no client-held key."""
+        from src.web.routes.sigma_queue import EnrichmentChatTurnRequest, continue_enrichment_chat
+
+        conversation = MagicMock()
+        conversation.id = 12
+        conversation.provider = "lmstudio"
+        conversation.model = "local-model"
+        conversation.messages = [
+            {"role": "system", "content": "bounded system prompt"},
+            {"role": "user", "content": "Initial enrichment"},
+            {"role": "assistant", "content": "Initial answer"},
+        ]
+        rule = MagicMock(article_id=44)
+        session = MagicMock()
+        session.query.return_value.filter.return_value.first.side_effect = [conversation, rule, conversation]
+        traced_call = AsyncMock(return_value="A scoped follow-up answer")
+
+        with (
+            patch("src.web.routes.sigma_queue.DatabaseManager") as db_manager,
+            patch("src.web.routes.sigma_queue._load_workflow_provider_settings", return_value={}),
+            patch("src.web.routes.sigma_queue._call_traced_sigma_provider", traced_call),
+        ):
+            db_manager.return_value.get_session.return_value = session
+            result = await continue_enrichment_chat(
+                queue_id=3,
+                conversation_id=12,
+                chat_request=EnrichmentChatTurnRequest(message="What changed in the detection?"),
+            )
+
+        assert result["success"] is True
+        assert result["conversation"]["messages"][-1] == {
+            "role": "assistant",
+            "content": "A scoped follow-up answer",
+        }
+        traced_call.assert_awaited_once()
+        call = traced_call.await_args.kwargs
+        assert call["provider"] == "lmstudio"
+        assert call["messages"][-1] == {"role": "user", "content": "What changed in the detection?"}
