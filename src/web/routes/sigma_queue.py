@@ -40,6 +40,7 @@ from src.services.audit_service import (
     AuditService,
     build_actor_context,
 )
+from src.services.codex_app_server_client import CodexAppServerClient, CodexAppServerError
 from src.services.llm_provider_clients import (
     WORKFLOW_PROVIDER_APPSETTING_KEYS,
     AnthropicProviderError,
@@ -325,6 +326,16 @@ async def _call_traced_sigma_provider(
                     timeout=timeout,
                     response_metadata=response_metadata,
                 )
+            elif provider == "codex":
+                response_data = await CodexAppServerClient(timeout=timeout).complete(
+                    messages=messages,
+                    model_name=model,
+                    max_tokens=max_tokens,
+                )
+                response_metadata.update({"model": response_data.get("model"), "usage": response_data.get("usage")})
+                choices = response_data.get("choices", [])
+                message = choices[0].get("message", {}) if choices else {}
+                raw_response = message.get("content", "")
             else:
                 raise ValueError(f"Unsupported Sigma provider: {provider}")
         except Exception as error:
@@ -422,7 +433,7 @@ class EnrichRuleRequest(BaseModel):
     instruction: str | None = None  # Optional user instruction for enrichment
     system_prompt: str | None = None  # Optional system prompt override
     current_rule_yaml: str | None = None  # Optional current rule YAML for iterative enrichment
-    provider: str | None = None  # LLM provider (openai, anthropic, lmstudio)
+    provider: str | None = None  # LLM provider (openai, codex, anthropic, lmstudio)
     model: str | None = None  # Model name
     include_article_content: bool | None = False  # Include junk-filtered article content
     directive_toggles: dict[str, bool] | None = None  # Optional d1..d7; defaults all True
@@ -1094,10 +1105,10 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
         # Validate provider/model before DB work
         provider = (enrich_request.provider or "openai").lower()
         model = enrich_request.model or "gpt-4o-mini"
-        if provider not in {"openai", "anthropic", "lmstudio"}:
+        if provider not in {"openai", "codex", "anthropic", "lmstudio"}:
             raise HTTPException(
                 status_code=400,
-                detail=f"Unsupported provider '{provider}'. Supported providers: openai, anthropic, lmstudio.",
+                detail=f"Unsupported provider '{provider}'. Supported providers: openai, codex, anthropic, lmstudio.",
             )
 
         # Get API key from request headers (not needed for LMStudio). The page no
@@ -1111,10 +1122,10 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
         elif provider == "lmstudio":
             api_key = "not_required"
 
-        if provider != "lmstudio" and (not api_key or not api_key.strip()):
+        if provider not in {"lmstudio", "codex"} and (not api_key or not api_key.strip()):
             api_key = await resolve_provider_api_key(provider)
 
-        if provider != "lmstudio" and (not api_key or not api_key.strip()):
+        if provider not in {"lmstudio", "codex"} and (not api_key or not api_key.strip()):
             raise HTTPException(
                 status_code=400,
                 detail=(
@@ -1200,6 +1211,7 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                     "enrichment_prompt": enrichment_prompt,
                     "system_message": system_message,
                     "article_id": rule.article_id,
+                    "workflow_settings": _load_workflow_provider_settings(db_session),
                 }
             finally:
                 db_session.close()
@@ -1212,6 +1224,15 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
         enrichment_prompt = prep["enrichment_prompt"]
         system_message = prep["system_message"]
         article_id = prep.get("article_id")
+        if provider == "codex":
+            codex_enabled = prep["workflow_settings"].get(WORKFLOW_PROVIDER_APPSETTING_KEYS["codex_enabled"])
+            if codex_enabled is None:
+                codex_enabled = os.getenv("WORKFLOW_CODEX_ENABLED", "false")
+            if str(codex_enabled).strip().lower() != "true":
+                raise HTTPException(
+                    status_code=400,
+                    detail="Codex subscription provider is disabled. Enable WORKFLOW_CODEX_ENABLED in Settings.",
+                )
         enrichment_messages = [
             {"role": "system", "content": system_message},
             {"role": "user", "content": enrichment_prompt},
@@ -1304,10 +1325,29 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                         failure_context=f"LMStudio API for rule {queue_id}",
                     )
 
+                elif provider == "codex":
+                    try:
+                        raw_response = await _call_traced_sigma_provider(
+                            agent_name="sigma_enrichment",
+                            provider=provider,
+                            model=model,
+                            api_key=None,
+                            messages=enrichment_messages,
+                            queue_id=queue_id,
+                            article_id=article_id,
+                            attempt=1,
+                            max_tokens=4000,
+                            temperature=0.2,
+                            timeout=120.0,
+                            failure_context=f"Codex subscription for rule {queue_id}",
+                        )
+                    except CodexAppServerError as e:
+                        raise HTTPException(status_code=502, detail=str(e)) from e
+
                 else:
                     raise HTTPException(
                         status_code=400,
-                        detail=f"Unsupported provider '{provider}'. Supported providers: openai, anthropic, lmstudio.",
+                        detail=f"Unsupported provider '{provider}'. Supported providers: openai, codex, anthropic, lmstudio.",
                     )
 
                 # Validate we got a response

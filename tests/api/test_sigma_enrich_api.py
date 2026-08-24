@@ -1,6 +1,7 @@
 """API tests for SIGMA rule enrichment endpoint."""
 
 import json
+import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -165,6 +166,49 @@ class TestSigmaEnrichAPI:
             except Exception as e:
                 # If it fails, it should be for a reason other than instruction parameter
                 assert "instruction" not in str(e).lower()
+
+    @pytest.mark.asyncio
+    async def test_enrich_uses_codex_subscription_provider(self):
+        """Codex enrichment must use the managed subscription adapter, not an API key."""
+        from starlette.requests import Request
+
+        from src.web.routes.sigma_queue import EnrichRuleRequest, enrich_rule
+
+        mock_request = MagicMock(spec=Request)
+        mock_request.headers = {}
+        enrich_request = EnrichRuleRequest(provider="codex", model="gpt-5.6-luna", author_value="Unit Test Author")
+
+        with (
+            patch("src.web.routes.sigma_queue.DatabaseManager") as mock_db_manager,
+            patch("src.web.routes.sigma_queue.CodexAppServerClient") as mock_codex_client,
+            patch.dict(os.environ, {"WORKFLOW_CODEX_ENABLED": "true"}),
+        ):
+            mock_session = MagicMock()
+            mock_db_manager.return_value.get_session.return_value = mock_session
+
+            mock_rule = MagicMock(id=1, rule_yaml="title: Test Rule", article_id=1)
+            mock_article = MagicMock(content="Test article content", title="Test Article", canonical_url="")
+            mock_session.query.return_value.filter.return_value.first.side_effect = [mock_rule, mock_article]
+            mock_codex_client.return_value.complete = AsyncMock(
+                return_value={
+                    "choices": [
+                        {
+                            "message": {
+                                "content": json.dumps(
+                                    {"status": "pass", "updated_sigma_yaml": "title: Test Rule\\nid: test-123"}
+                                )
+                            }
+                        }
+                    ],
+                    "usage": {"total_tokens": 42},
+                    "model": "gpt-5.6-luna",
+                }
+            )
+
+            result = await enrich_rule(mock_request, queue_id=1, enrich_request=enrich_request)
+
+        assert result["success"] is True
+        mock_codex_client.return_value.complete.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_enrich_handles_llm_error(self):

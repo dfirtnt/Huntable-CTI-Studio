@@ -160,6 +160,41 @@ test.describe('Sigma enrich modal — no duplicate Original Rule', () => {
     await expect(page.locator('#rulePreviewContent')).toContainText('Linux');
   });
 
+  test('offers the enabled Codex subscription and its available models', async ({ page }) => {
+    await page.route('**/api/workflow/provider-options', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          providers: {
+            lmstudio: { enabled: false, models: [] },
+            openai: { enabled: false, models: [] },
+            codex: { enabled: true, models: ['gpt-5.6-luna'] },
+            anthropic: { enabled: false, models: [] },
+          },
+        }),
+      }),
+    );
+    await page.reload();
+    await page.waitForLoadState('domcontentloaded');
+
+    await page.evaluate(async (ruleId) => {
+      const w = window as any;
+      await w.loadQueue();
+      try {
+        await w.previewRule(ruleId);
+      } catch (_) {
+        /* render is not relevant to this regression */
+      }
+      await w.openEnrichModal();
+    }, RULE_ID);
+
+    const provider = page.locator('#enrichProviderSelect');
+    await expect(provider.locator('option[value="codex"]')).toHaveText('Codex Subscription');
+    await provider.selectOption('codex');
+    await expect(page.locator('#enrichModelSelect')).toHaveValue('gpt-5.6-luna');
+  });
+
   test('hides the standalone Original Rule once the comparison view is shown, and keeps it hidden in the editor sub-view', async ({ page }) => {
     await openEnrichModal(page);
 

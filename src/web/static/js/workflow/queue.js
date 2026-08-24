@@ -1463,6 +1463,8 @@ async function loadEnrichProviderModelCatalog() {
     let defaultProvider = null;
     if (enabledProviders.lmstudio) {
         defaultProvider = 'lmstudio';
+    } else if (enabledProviders.codex && commercialModelCatalog.codex) {
+        defaultProvider = 'codex';
     } else if (enabledProviders.openai && commercialModelCatalog.openai) {
         defaultProvider = 'openai';
     } else if (enabledProviders.anthropic && commercialModelCatalog.anthropic) {
@@ -1484,7 +1486,7 @@ function populateEnrichProviderDropdown() {
 
     providerSelect.innerHTML = '<option value="">Select provider...</option>';
 
-    const providers = ['lmstudio', 'openai', 'anthropic'];
+    const providers = ['lmstudio', 'openai', 'codex', 'anthropic'];
     providers.forEach(provider => {
         if (provider === 'lmstudio') {
             const option = document.createElement('option');
@@ -1494,7 +1496,9 @@ function populateEnrichProviderDropdown() {
         } else if (commercialModelCatalog[provider] && commercialModelCatalog[provider].length > 0) {
             const option = document.createElement('option');
             option.value = provider;
-            option.textContent = provider.charAt(0).toUpperCase() + provider.slice(1);
+            option.textContent = provider === 'codex'
+                ? 'Codex Subscription'
+                : provider.charAt(0).toUpperCase() + provider.slice(1);
             providerSelect.appendChild(option);
         }
     });
