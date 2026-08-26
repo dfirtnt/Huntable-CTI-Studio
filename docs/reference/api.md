@@ -135,6 +135,9 @@ cannot read one back to resend it.
 - `GET /api/model/versions` — List model versions with metrics. Query params: `page` (optional; omit for unpaginated), `limit` (default 10, max 100), `version` (exact version number search)
 - `POST /api/model/evaluate` — Run evaluation of the current model on the annotated test set
 - `GET /api/model/eval-chunk-count` — Count of chunks in the evaluation dataset
+- `GET /api/feedback/chunk-classification/{article_id}` — All stored chunk feedback for an article, keyed by chunk id (newest per chunk). One request replaces the per-chunk lookups the Junk Filter Tuning modal used to issue while rendering.
+- `GET /api/feedback/chunk-classification/{article_id}/{chunk_id}` — Feedback for a single chunk, or `feedback: null`. Used to re-read one chunk after a write.
+- `POST /api/feedback/chunk-classification` — Record user feedback on a chunk classification (writes into the ML training corpus).
 - `GET /api/model/feedback-count` — Count of available feedback and annotation samples for retraining
 - `POST /api/model/rollback/{version_id}` — Roll back to a specific model version. Copies the saved artifact to the live path, flips `is_current`, clears the ContentFilter cache, and starts a background chunk re-scoring backfill
 - `GET /api/model/compare/{version_id}` — Get or generate comparison results between a version and its predecessor

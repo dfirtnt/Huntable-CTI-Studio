@@ -8830,7 +8830,12 @@ loadingModal.setAttribute('aria-label', 'Loading');
             modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
 modal.setAttribute('role', 'dialog');
 modal.setAttribute('aria-modal', 'true');
-        modal.setAttribute('aria-label', 'Chunk debug');
+        // Point at the visible heading rather than repeating its text: an aria-label
+        // of "Chunk debug" did not match the visible "Junk Filter Tuning", so voice
+        // control users saying the visible name could not address the dialog
+        // (WCAG 2.5.3 Label in Name). aria-labelledby cannot drift from the heading.
+        modal.setAttribute('aria-labelledby', 'chunkDebugModalTitle');
+        modal.removeAttribute('aria-label');
             
             // Generate chunk visualization
             let chunkVisualization = '';
@@ -8846,8 +8851,8 @@ modal.setAttribute('aria-modal', 'true');
             modal.innerHTML = `
             <div class="relative top-4 mx-auto p-6 border border-gray-700 w-11/12 max-w-7xl shadow-lg rounded-xl bg-gray-800 max-h-[90vh] overflow-y-auto">
                 <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-lg font-bold text-gray-50"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg> Junk Filter Tuning</h3>
-                    <button onclick="closeChunkDebugModal()" class="text-gray-400 hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                    <h3 id="chunkDebugModalTitle" class="text-lg font-bold text-gray-50"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg> Junk Filter Tuning</h3>
+                    <button type="button" id="chunkDebugCloseButton" aria-label="Close Junk Filter Tuning" onclick="closeChunkDebugModal()" class="text-gray-400 hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
@@ -9046,6 +9051,23 @@ modal.setAttribute('aria-modal', 'true');
                 modal.classList.remove('hidden');
             }
 
+            // Remember the opener so focus can go back where it came from, and lock
+            // the background: ModalManager does neither -- it only stacks, shows, and
+            // focuses the first input it finds, which here is the threshold slider.
+            window.__chunkDebugOpener = document.activeElement;
+            document.body.dataset.chunkDebugPrevOverflow = document.body.style.overflow || '';
+            document.body.style.overflow = 'hidden';
+
+            // Land focus on the close button rather than whatever input happens to be
+            // first in the DOM. It is unambiguously non-destructive, and it keeps the
+            // Correct/Incorrect chunk-feedback buttons -- which POST straight into the
+            // ML training corpus -- off the opening focus position. The timeout out-waits
+            // ModalManager's own 100ms first-input focus so this wins.
+            setTimeout(() => {
+                const closeBtn = document.getElementById('chunkDebugCloseButton');
+                if (closeBtn) closeBtn.focus();
+            }, 150);
+
             const chunkDebugEscHandler = function(e) {
                 if (e.key === 'Escape') {
                     e.preventDefault();
@@ -9092,12 +9114,8 @@ modal.setAttribute('aria-modal', 'true');
                 syncThresholdPresetCards(data.min_confidence);
             }
 
-            // Load existing feedback for all chunks
-            if (data.chunk_analysis && Array.isArray(data.chunk_analysis)) {
-                for (let i = 0; i < data.chunk_analysis.length; i++) {
-                    loadExistingFeedback(i);
-                }
-            }
+            // One bulk request for the whole article, not one per chunk.
+            loadAllExistingFeedback();
         }
     }
     
@@ -9433,6 +9451,18 @@ modal.setAttribute('aria-modal', 'true');
                 modal.remove();
             }
         }
+
+        // Unlock the background and hand focus back to whatever opened the modal;
+        // without this Escape drops focus to BODY and a keyboard user restarts
+        // their traversal from the top of the page.
+        document.body.style.overflow = document.body.dataset.chunkDebugPrevOverflow || '';
+        delete document.body.dataset.chunkDebugPrevOverflow;
+        const opener = window.__chunkDebugOpener;
+        if (opener && typeof opener.focus === 'function' && document.contains(opener)) {
+            opener.focus();
+        }
+        window.__chunkDebugOpener = null;
+
         // Clear global data
         window.chunkDebugData = null;
     }
@@ -9637,6 +9667,8 @@ modal.setAttribute('aria-modal', 'true');
         const chunkDetails = document.getElementById('chunkDetails');
         if (chunkDetails) {
             chunkDetails.innerHTML = generateChunkDetails(data.chunk_analysis);
+            // The rebuild above discards every feedback indicator; put them back.
+            loadAllExistingFeedback();
         }
         
         // Update chunk visualization
@@ -9683,26 +9715,50 @@ modal.setAttribute('aria-modal', 'true');
         });
     }
     
+    // Single writer for the "Feedback provided" indicator, shared by the bulk
+    // load and the post-submit re-read so the two cannot render it differently.
+    function renderChunkFeedbackIndicator(chunkIndex, feedback) {
+        const feedbackDiv = document.getElementById(`existingFeedback${chunkIndex}`);
+        if (!feedbackDiv || !feedback) return;
+        const timestamp = new Date(feedback.timestamp).toLocaleString();
+        const statusIcon = feedback.is_correct ? '✅' : '❌';
+        feedbackDiv.innerHTML = `
+            <div class="text-xs text-blue-600 bg-blue-50 p-2 rounded border-l-2 border-blue-400">
+                <div class="font-medium">${statusIcon} Feedback provided (${timestamp})</div>
+            </div>
+        `;
+        feedbackDiv.classList.remove('hidden');
+    }
+
+    // One request for the whole article instead of one per chunk. The per-chunk
+    // loop issued 150 requests on article 7216 (1,250 after a full analysis),
+    // nearly all returning feedback: null, because chunk feedback is rare.
+    //
+    // Also called after a threshold re-render: generateChunkDetails() rebuilds
+    // every chunk card, which discards the indicators, and nothing used to put
+    // them back -- so changing the threshold silently dropped the fact that a
+    // chunk had been reviewed.
+    async function loadAllExistingFeedback() {
+        const articleId = window.chunkDebugData && window.chunkDebugData.article_id;
+        if (!articleId) return;
+        try {
+            const response = await fetch(`/api/feedback/chunk-classification/${articleId}`);
+            const result = await response.json();
+            if (!result.success || !result.feedback) return;
+            for (const [chunkId, feedback] of Object.entries(result.feedback)) {
+                renderChunkFeedbackIndicator(chunkId, feedback);
+            }
+        } catch (error) {
+            console.error('Failed to load existing feedback:', error);
+        }
+    }
+
     async function loadExistingFeedback(chunkIndex) {
         try {
             const response = await fetch(`/api/feedback/chunk-classification/${window.chunkDebugData.article_id}/${chunkIndex}`);
             const result = await response.json();
-            
             if (result.success && result.feedback) {
-                const feedbackDiv = document.getElementById(`existingFeedback${chunkIndex}`);
-                if (feedbackDiv) {
-                    const feedback = result.feedback;
-                    const timestamp = new Date(feedback.timestamp).toLocaleString();
-                    const statusIcon = feedback.is_correct ? '✅' : '❌';
-                    const statusText = feedback.is_correct ? 'Correct' : 'Incorrect';
-                    
-                    feedbackDiv.innerHTML = `
-                        <div class="text-xs text-blue-600 bg-blue-50 p-2 rounded border-l-2 border-blue-400">
-                            <div class="font-medium">${statusIcon} Feedback provided (${timestamp})</div>
-                        </div>
-                    `;
-                    feedbackDiv.classList.remove('hidden');
-                }
+                renderChunkFeedbackIndicator(chunkIndex, result.feedback);
             }
         } catch (error) {
             console.error('Failed to load existing feedback:', error);

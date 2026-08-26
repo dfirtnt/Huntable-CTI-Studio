@@ -376,4 +376,85 @@ test.describe('Junk Filter Tuning modal polish sweep', () => {
     await page.evaluate((d) => (window as any).updateChunkDebugResults(d), buildSyntheticData());
     expect((await mlPanel(page)).note).toBe('');
   });
+
+  // --- Dialog accessibility (Todoist 6hJ8x5Gp96F42C43) -----------------------
+  //
+  // ModalManager stacks, shows, and focuses the first input it finds -- it has no
+  // focus trap, no focus restore and no scroll lock, so this modal wires those
+  // itself. The "first input" heuristic also meant focus landed on the threshold
+  // slider; these pin the deterministic close-button target instead.
+
+  test('the close button has an accessible name and the dialog name matches its visible title', async ({ page }) => {
+    await renderSyntheticModal(page);
+
+    const closeBtn = page.locator('#chunkDebugCloseButton');
+    await expect(closeBtn).toHaveAttribute('aria-label', 'Close Junk Filter Tuning');
+    // type=button, or a close control inside a form would submit it.
+    await expect(closeBtn).toHaveAttribute('type', 'button');
+
+    // WCAG 2.5.3 Label in Name: the dialog used aria-label="Chunk debug" against a
+    // visible "Junk Filter Tuning", so voice control could not address it by name.
+    const modal = page.locator('#chunkDebugModal');
+    await expect(modal).not.toHaveAttribute('aria-label', /.*/);
+    await expect(modal).toHaveAttribute('aria-labelledby', 'chunkDebugModalTitle');
+    const accessibleName = await page.locator('#chunkDebugModalTitle').textContent();
+    expect(accessibleName?.trim()).toBe('Junk Filter Tuning');
+  });
+
+  test('opening moves focus into the dialog, onto a non-destructive control', async ({ page }) => {
+    await renderSyntheticModal(page);
+    // Out-wait ModalManager's own 100ms first-input focus, which would otherwise
+    // leave focus on the threshold slider.
+    await page.waitForTimeout(400);
+
+    const focused = await page.evaluate(() => {
+      const el = document.activeElement as HTMLElement | null;
+      const modal = document.getElementById('chunkDebugModal');
+      return {
+        id: el?.id ?? null,
+        insideModal: !!(modal && el && modal.contains(el)),
+        // The Correct/Incorrect buttons POST into the ML training corpus, so a
+        // single Space on the opening focus position must never submit training data.
+        isFeedbackButton: /correct|incorrect/i.test(el?.textContent ?? ''),
+      };
+    });
+
+    expect(focused.insideModal).toBe(true);
+    expect(focused.id).toBe('chunkDebugCloseButton');
+    expect(focused.isFeedbackButton).toBe(false);
+  });
+
+  test('background scroll is locked while open and restored on close', async ({ page }) => {
+    const before = await page.evaluate(() => document.body.style.overflow);
+    await renderSyntheticModal(page);
+    expect(await page.evaluate(() => document.body.style.overflow)).toBe('hidden');
+
+    await page.evaluate(() => (window as any).closeChunkDebugModal());
+    await page.waitForTimeout(200);
+
+    expect(await page.evaluate(() => document.body.style.overflow)).toBe(before);
+    // The saved value must not linger, or a later open would restore the wrong one.
+    expect(await page.evaluate(() => document.body.dataset.chunkDebugPrevOverflow ?? null)).toBeNull();
+  });
+
+  test('closing returns focus to whatever opened the dialog', async ({ page }) => {
+    // Give the page a real opener to restore to.
+    await page.evaluate(() => {
+      const b = document.createElement('button');
+      b.id = 'syntheticOpener';
+      b.textContent = 'Junk Filter Tuning';
+      document.body.prepend(b);
+      b.focus();
+    });
+
+    await renderSyntheticModal(page);
+    await page.waitForTimeout(400);
+    expect(await page.evaluate(() => document.activeElement?.id)).toBe('chunkDebugCloseButton');
+
+    await page.evaluate(() => (window as any).closeChunkDebugModal());
+    await page.waitForTimeout(300);
+
+    // Pre-fix this dropped to BODY, restarting a keyboard user's traversal.
+    expect(await page.evaluate(() => document.activeElement?.id)).toBe('syntheticOpener');
+  });
 });

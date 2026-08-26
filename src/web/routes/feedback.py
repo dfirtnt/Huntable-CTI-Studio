@@ -51,6 +51,55 @@ async def api_feedback_chunk_classification(request: Request):
         raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
+@router.get("/api/feedback/chunk-classification/{article_id}")
+async def api_get_article_chunk_feedback(article_id: int):
+    """Get every stored chunk feedback for an article, keyed by chunk id.
+
+    The Junk Filter Tuning modal previously called the single-chunk route once
+    per chunk while rendering: 150 requests on article 7216, and 1,250 after a
+    full analysis, essentially all of them returning ``feedback: null`` because
+    chunk feedback is rare. This serves the same information in one round trip.
+
+    Rows are ordered newest-first and reduced to the first hit per chunk, which
+    matches the single-chunk route's ``ORDER BY created_at DESC LIMIT 1``. The
+    reduction is done here rather than in SQL (no DISTINCT ON / window function)
+    because feedback volume per article is tiny -- tens of rows at most -- and
+    this keeps the query portable and the ordering contract obvious.
+    """
+    try:
+        from sqlalchemy import desc, select
+
+        from src.database.models import ChunkClassificationFeedbackTable
+
+        async with async_db_manager.get_session() as session:
+            result = await session.execute(
+                select(ChunkClassificationFeedbackTable)
+                .where(ChunkClassificationFeedbackTable.article_id == article_id)
+                .order_by(desc(ChunkClassificationFeedbackTable.created_at))
+            )
+            records = result.scalars().all()
+
+        feedback_by_chunk: dict[str, dict] = {}
+        for record in records:
+            key = str(record.chunk_id)
+            if key in feedback_by_chunk:
+                continue  # newest wins; rows arrive newest-first
+            feedback_by_chunk[key] = {
+                "timestamp": str(record.created_at),
+                "is_correct": bool(record.is_correct),
+                "user_classification": str(record.user_classification),
+                "comment": str(record.comment),
+                "model_classification": str(record.model_classification),
+                "model_confidence": float(record.model_confidence),
+            }
+
+        return {"success": True, "feedback": feedback_by_chunk}
+
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Failed to get article chunk feedback: %s", exc)
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
+
+
 @router.get("/api/feedback/chunk-classification/{article_id}/{chunk_id}")
 async def api_get_chunk_feedback(article_id: int, chunk_id: int):
     """Get existing feedback for a specific chunk."""

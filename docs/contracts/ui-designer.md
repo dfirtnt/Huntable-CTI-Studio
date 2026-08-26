@@ -594,7 +594,23 @@ Fullscreen overlays are modals. They MUST:
 3. Support Ctrl+Enter to trigger Save
 4. Have a visible Collapse/Close button (`.btn-toggle` with arrows-pointing-in icon)
 5. Use backdrop blur: `background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);`
-6. Have `role="dialog"`, `aria-modal="true"`, `aria-label="<description>"`
+6. Have `role="dialog"`, `aria-modal="true"`, and an accessible name. Prefer
+   `aria-labelledby` pointing at the visible heading: an `aria-label` that says
+   something different from the visible title means a voice-control user saying
+   the name they can see cannot address the dialog (WCAG 2.5.3 Label in Name),
+   and a hand-written label drifts the moment the heading is reworded.
+7. Move focus into the dialog on open, landing on a control that does nothing
+   destructive (the close button is the safe default), and restore focus to the
+   opener on close.
+8. Lock background scroll while open and restore the previous value on close.
+
+**`ModalManager` does not do 7 or 8 for you.** It manages the modal stack, shows
+and hides, and focuses the first `input`/`textarea`/`select` it finds after
+100ms -- which is whatever happens to be first in the DOM, not necessarily a safe
+target. It has no focus trap, no focus restore, and no scroll lock, so a modal
+needing those must wire them itself (see `showChunkDebugResults` /
+`closeChunkDebugModal` in `article_detail.html`). A `setTimeout` longer than
+100ms is required to win over its first-input focus.
 
 ### 6.6 Overflow Menus
 
@@ -615,7 +631,7 @@ The "More..." footer menu is NOT a modal. It is a simple toggle (`classList.togg
 |-----------|-------------------|
 | Collapsible panel trigger | `role="button"`, `tabindex="0"`, `aria-expanded`, `aria-controls` |
 | Collapsible panel content | `role="region"`, `id` matching `aria-controls` |
-| Modal / overlay | `role="dialog"`, `aria-modal="true"`, `aria-label` |
+| Modal / overlay | `role="dialog"`, `aria-modal="true"`, and an accessible name -- `aria-labelledby` pointing at the visible heading, or `aria-label` **matching that heading's text** (WCAG 2.5.3 Label in Name) |
 | Toggle switch | `aria-label` on the checkbox input |
 | Form inputs | `aria-label` or associated `<label>` |
 | Navigation | `aria-label` on `<nav>` elements |
