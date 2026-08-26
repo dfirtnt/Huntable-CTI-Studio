@@ -280,7 +280,7 @@ since the frontend `applyPreset()` reads that exact key for the model dropdown.
 ## Comparison: Import/Export vs File Operations
 
 ### Import Workflow
-```
+```text
 config/presets/AgentConfigs/quickstart/Quickstart-*.json  (File System)
            |
     [Read JSON File]
@@ -293,7 +293,7 @@ workflow_config_presets  (Database)
 ```
 
 ### Export Workflow
-```
+```text
 workflow_config_presets  (Database)
            |
 GET /api/workflow/config/preset/{id}  (API)

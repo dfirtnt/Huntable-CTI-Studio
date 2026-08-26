@@ -118,7 +118,7 @@ Codex uses its own managed ChatGPT authentication; do not configure a subscripti
 docker compose exec workflow_worker codex login
 ```
 
-The workflow configuration UI lists the models available to that login. Use the **Test subscription** control in Settings (or `POST /api/settings/codex/test`) to verify connectivity without running a workflow.
+The workflow configuration and SIGMA enrichment modals list the models available to that login. Use the **Test subscription** control in Settings (or `POST /api/settings/codex/test`) to verify connectivity without running a workflow.
 
 ### Optional LM Studio LLM Provider
 

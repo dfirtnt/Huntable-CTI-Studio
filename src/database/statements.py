@@ -29,13 +29,11 @@ from typing import Any
 from sqlalchemy import Numeric, Select, Update, cast, desc, func, select, update
 from sqlalchemy.dialects.postgresql import JSONB
 
-from src.database.models import ArticleTable, SourceTable
+from src.database.models import ArticleAnnotationTable, ArticleTable, SourceTable
 
 # Sort keys that map to article_metadata['threat_hunting_score'] rather than a
-# real column. "annotation_count" is intentionally approximated by hunt score:
-# annotation counts are injected post-query by the async manager, so they are
-# not sortable in SQL.
-_METADATA_SORT_KEYS = ("threat_hunting_score", "annotation_count")
+# real column.
+_METADATA_SORT_KEYS = ("threat_hunting_score",)
 
 
 def _threat_score_expr() -> Any:
@@ -49,6 +47,22 @@ def _threat_score_expr() -> Any:
     return func.cast(
         func.coalesce(ArticleTable.article_metadata["threat_hunting_score"].as_string(), "0"),
         Numeric,
+    )
+
+
+def _annotation_count_expr() -> Any:
+    """Correlated count of article_annotations rows for the current article.
+
+    annotation_count is not a real column -- it's the async manager's
+    post-query batch count -- but it counts the same rows a plain
+    ``SELECT ... ORDER BY COUNT(article_annotations)`` would, so this makes
+    it sortable in SQL instead of approximating it with the hunt score.
+    """
+    return (
+        select(func.count(ArticleAnnotationTable.id))
+        .where(ArticleAnnotationTable.article_id == ArticleTable.id)
+        .correlate(ArticleTable)
+        .scalar_subquery()
     )
 
 
@@ -92,6 +106,13 @@ def _apply_article_sort(stmt: Select, article_filter: Any, default_sort_field: s
     hunt-score tiebreaker, or hunt-score-only fallback for unknown keys."""
     sort_by = getattr(article_filter, "sort_by", None) or default_sort_field
     sort_order = getattr(article_filter, "sort_order", None) or "desc"
+
+    if sort_by == "annotation_count":
+        count = _annotation_count_expr()
+        score = _threat_score_expr()
+        if sort_order == "desc":
+            return stmt.order_by(desc(count), desc(score))
+        return stmt.order_by(count, desc(score))
 
     if sort_by in _METADATA_SORT_KEYS:
         score = _threat_score_expr()

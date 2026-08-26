@@ -46,7 +46,7 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 - Callisto (v5.0 - v5.3)
 - Ganymede (v5.2)
 - Io (v6.0 - v6.2)
-- Europa (v7.0 - v7.6)
+- Europa (v7.0 - v7.8)
 
 ## Version History
 
@@ -215,4 +215,4 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 ### v4.0.0 "Kepler" (2025-11-04)
 - **Named After**: Johannes Kepler, known for planetary motion laws
 
-_Last updated: 2026-07-04_
+_Last updated: 2026-08-22_

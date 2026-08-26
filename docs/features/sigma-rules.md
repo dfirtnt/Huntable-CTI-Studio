@@ -806,8 +806,12 @@ PR submission refuses to operate when the configured repository's `origin` is `S
 
 | Model | Notes |
 |---|---|
-| OpenAI (gpt-4o-mini default) | API key required in request body; temperature 0.2 |
-| LMStudio (local) | No API key; configure model in LMStudio settings |
+| OpenAI | API key is resolved server-side from Settings or environment; temperature 0.2 |
+| Anthropic | API key is resolved server-side from Settings or environment; temperature 0.2 |
+| LM Studio (local) | No API key; configure the model and endpoint in Settings |
+| Codex subscription | Optional deployment-managed ChatGPT subscription; enable `WORKFLOW_CODEX_ENABLED` and select an available subscription model |
+
+The SIGMA queue enrichment modal uses the selected provider and model for rule revisions. After a successful enrichment, **Start Chat** replays the rule-scoped transcript with that same provider. The follow-up chat is limited to revising the current rule and discussing earlier enrichment turns; it does not perform unrelated research or external actions.
 
 ### Sigma Rule Embeddings
 

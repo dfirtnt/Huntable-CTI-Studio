@@ -192,7 +192,7 @@ python3 scripts/seed_model.py
 docker-compose restart web
 ```
 
-`seed_model.py` chunks the 60 fixture articles (across categories that ship both
+`seed_model.py` chunks the 57 fixture articles (across the six categories that ship both
 `articles.json` and `ground_truth.json`) in `config/eval_articles_data/`,
 labels each chunk against the ground-truth `expected_items`, and trains a
 baseline RandomForest (F1 ≈ 0.69 huntable). The resulting pkl replaces

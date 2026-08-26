@@ -2396,7 +2396,7 @@ tr.q-row-selected td {
                       <div class="flex items-center justify-between">
                         <div>
                           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Use Full Article Content (Minus Junk)</label>
-                          <p class="text-xs text-gray-500 dark:text-gray-400">If enabled, SIGMA uses the junk-filtered full article as the main content block instead of the extracted-artifact summary. Extracted observables, if any, are still included in the prompt either way.</p>
+                          <p class="text-xs text-gray-500 dark:text-gray-400">When enabled, SIGMA reviews the junk-filtered article alongside Sigma-eligible extracted observables for the current detection category. This lets it create rules grounded in the extracted evidence and identify additional relevant behavior in the article.</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                           <input type="checkbox" id="sigma-fallback-enabled" name="sigma_fallback_enabled" aria-label="Use Full Article Content (Minus Junk)" class="sr-only peer" onchange="autoSaveConfig();">
