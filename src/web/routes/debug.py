@@ -17,6 +17,34 @@ from src.web.dependencies import get_content_filter, logger
 router = APIRouter(tags=["Debug"])
 
 
+def _humanize_feature_name(name: str) -> str:
+    """cmdline_artifact_count -> 'cmdline artifact count', for use mid-sentence."""
+    return name.replace("_", " ").strip()
+
+
+def _build_chunk_reason(is_huntable: bool, feature_contribution: dict[str, float] | None) -> str:
+    """Per-chunk reason for the Junk Filter Tuning modal.
+
+    ContentFilter.filter_content's own reason ("Content filtered successfully" /
+    "No huntable content found") describes a whole-article filter pass, not a
+    single chunk's keep/remove decision -- reused per-chunk, "Content filtered
+    successfully" reads as "this chunk was filtered out" when it means the
+    opposite. This names the chunk's actual outcome and, when the model exposes
+    feature importances, the top contributing feature so the reason answers
+    what a tuning UI exists to answer.
+    """
+    top_feature = next(iter(feature_contribution), None) if feature_contribution else None
+
+    if is_huntable:
+        if top_feature:
+            return f"Kept - {_humanize_feature_name(top_feature)} was the strongest signal"
+        return "Kept - huntable content detected"
+
+    if top_feature:
+        return f"Not kept - confidence stayed below threshold ({_humanize_feature_name(top_feature)} was the strongest signal)"
+    return "Not kept - no huntable content found"
+
+
 def calculate_filtered_costs(
     original_length: int,
     filtered_length: int,
@@ -206,7 +234,9 @@ async def api_chunk_debug(
                         "text": chunk_text,
                         "is_kept": chunk_result.is_huntable,
                         "confidence": chunk_result.confidence,
-                        "reason": chunk_result.reason,
+                        "reason": _build_chunk_reason(
+                            chunk_result.is_huntable, ml_details.get("feature_contribution") if ml_details else None
+                        ),
                         "features": sanitized_features,
                         "ml_details": ml_details,
                         "has_threat_keywords": has_keywords,

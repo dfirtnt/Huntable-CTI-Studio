@@ -3,9 +3,45 @@
 import pytest
 
 from src.utils.llm_optimizer import GPT4O_INPUT_COST_PER_MILLION_TOKENS
-from src.web.routes.debug import calculate_filtered_costs
+from src.web.routes.debug import _build_chunk_reason, calculate_filtered_costs
 
 pytestmark = pytest.mark.unit
+
+
+class TestBuildChunkReason:
+    """A kept chunk's reason must never read as though it was removed, and
+    should name the deciding feature when one is available (2026-08-20 dogfood
+    finding: 'Content filtered successfully' on a kept chunk reads as removal)."""
+
+    def test_kept_with_feature_contribution_names_top_feature(self):
+        reason = _build_chunk_reason(
+            is_huntable=True,
+            feature_contribution={"cmdline_artifact_count": 0.9, "perfect_pattern_count": 0.4},
+        )
+        assert reason.lower().startswith("kept")
+        assert "cmdline artifact count" in reason
+        assert "not kept" not in reason.lower()
+
+    def test_kept_without_feature_contribution_still_reads_as_kept(self):
+        reason = _build_chunk_reason(is_huntable=True, feature_contribution=None)
+        assert reason.lower().startswith("kept")
+        assert "not kept" not in reason.lower()
+
+    def test_removed_with_feature_contribution_names_top_feature(self):
+        reason = _build_chunk_reason(
+            is_huntable=False,
+            feature_contribution={"atomic_ioc_density": 0.7, "sentence_count": 0.1},
+        )
+        assert reason.lower().startswith("not kept")
+        assert "atomic ioc density" in reason
+
+    def test_removed_without_feature_contribution_has_no_kept_prefix(self):
+        reason = _build_chunk_reason(is_huntable=False, feature_contribution=None)
+        assert reason.lower().startswith("not kept")
+
+    def test_empty_feature_contribution_dict_falls_back_like_none(self):
+        reason = _build_chunk_reason(is_huntable=True, feature_contribution={})
+        assert reason == "Kept - huntable content detected"
 
 
 def test_calculate_filtered_costs_reuses_filtered_tokens():
