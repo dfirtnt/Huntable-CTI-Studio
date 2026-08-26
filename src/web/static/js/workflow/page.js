@@ -945,15 +945,17 @@ function showHelp(fieldName) {
             content: `<p class="mb-2"><strong>Range:</strong> 0.0 - 1.0</p>
                       <p class="mb-2"><strong>Default:</strong> 0.5</p>
                       <p class="mb-2"><strong>Description:</strong></p>
-                      <p class="mb-2">Maximum behavioral similarity allowed for queueing SIGMA rules. Rules with similarity above this threshold are considered duplicates and won't be queued.</p>
+                      <p class="mb-2">Behavioral similarity ceiling for queueing SIGMA rules. A rule scoring at or above this threshold is treated as a near-duplicate and is not queued. Each rule is judged independently — a duplicate never suppresses the other rules generated alongside it.</p>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>After generating a SIGMA rule, the system searches for similar existing rules using behavioral novelty assessment</li>
                           <li><strong>Precomputed atom path</strong>: Similarity = (Jaccard x Containment) - Filter penalty using stored rule atoms and metadata. Jaccard measures overlap of detection predicates; containment measures subset overlap; filter penalty reduces similarity for filter/logsource differences.</li>
                           <li><strong>On-the-fly atom path</strong>: Used when precomputed atoms are unavailable. Similarity = 70% atom Jaccard + 30% logic shape similarity. Service mismatches and filter differences apply penalties.</li>
                           <li><strong>Atom Jaccard:</strong> Measures overlap of detection predicates (field/operator/value combinations)</li>
-                          <li>If similarity > threshold: rule is NOT queued (duplicate detected)</li>
-                          <li>If similarity ≤ threshold: rule is queued (unique enough)</li>
+                          <li>Comparison is scoped to existing rules in the same canonical telemetry class (e.g. a process_creation rule is only compared against process_creation rules), not the whole corpus</li>
+                          <li>If similarity is at or above the threshold: rule is NOT queued (near-duplicate)</li>
+                          <li>If similarity is below the threshold: rule is queued (novel enough)</li>
+                          <li>If novelty cannot be assessed (no extractable detection atoms, or an unresolved logsource): the rule is queued anyway and flagged for review — a failure to assess is not treated as a duplicate</li>
                       </ul>
                       <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> 0.4-0.6 (0.5 is balanced). Lower = stricter (fewer duplicates), Higher = more lenient (more rules queued)</p>`
         },

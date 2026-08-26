@@ -38,10 +38,18 @@ Gates SIGMA rule novelty/deduplication in two places, both in
 1. **Context filtering** (~line 3148): when assessing novelty against existing
    rules, only candidates with `similarity >= SimilarityThreshold` are kept as
    "similar rules" context (top 10).
-2. **Queue-promotion gate** (~line 3299-3356): after generation, if a rule's
-   `max_similarity >= SimilarityThreshold` against existing rules, it is treated
-   as a near-duplicate and **dropped** (not queued for human review). Below the
-   threshold — or when the comparator is inconclusive — the rule is queued.
+2. **Queue-promotion gate** (`select_queueable_rule_indices`): after generation,
+   if a rule's `max_similarity >= SimilarityThreshold` against existing rules, it
+   is treated as a near-duplicate and **dropped** (not queued for human review).
+   Below the threshold — or when the comparator is inconclusive — the rule is
+   queued. The boundary is inclusive: a rule scoring exactly the threshold is
+   suppressed.
+
+   The decision is strictly **per rule**. Until 2026-08-26 this gate computed a
+   batch aggregate (`max()` of every rule's score) and discarded the entire batch
+   when that aggregate cleared the threshold, so one near-duplicate silently
+   suppressed the novel rules generated alongside it — and defeated the
+   fail-open routing that sends an inconclusive comparison to review.
 
 **Raising it** (toward 1.0) requires rules to be nearly identical to existing
 ones before they're suppressed, so more near-duplicate rules reach the review

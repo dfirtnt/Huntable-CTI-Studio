@@ -8491,7 +8491,8 @@ loadingModal.setAttribute('aria-label', 'Loading');
                         </svg>
                     </div>
                     <h3 class="text-lg font-medium text-gray-100 mt-4">Analyzing Chunks</h3>
-                    <p class="text-sm text-gray-400 mt-2">Processing article content and analyzing chunking decisions...</p>
+                    <p id="chunkDebugProgressText" class="text-sm text-gray-400 mt-2">Processing article content and analyzing chunking decisions...</p>
+                    <p id="chunkDebugElapsedText" class="text-xs text-gray-500 mt-1"></p>
                     <div class="mt-6 flex flex-col items-center space-y-3">
                         <button id="cancelBtnChunk" class="px-6 py-2.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 focus:ring-offset-gray-900 shadow-sm transition-colors">
                             Cancel Operation
@@ -8506,9 +8507,42 @@ loadingModal.setAttribute('aria-label', 'Loading');
             </div>
         `;
         document.body.appendChild(loadingModal);
-        
+
         let chunkDebugDismissed = false;
         let chunkDebugOpeningResults = false;
+
+        // Poll for progress so a long analysis (e.g. article 7216's 1,250 chunks,
+        // measured at 62s) shows processed/total counts and elapsed time instead
+        // of an undifferentiated spinner. Best-effort: a failed poll never
+        // disrupts the main chunk-debug request.
+        const chunkDebugStartTime = Date.now();
+        const chunkDebugArticleId = {{ article.id|default(0)|int }};
+        let progressPollTimer = setInterval(async () => {
+            const elapsedEl = document.getElementById('chunkDebugElapsedText');
+            if (elapsedEl) {
+                elapsedEl.textContent = `Elapsed: ${Math.round((Date.now() - chunkDebugStartTime) / 1000)}s`;
+            }
+            try {
+                const resp = await fetch(`/api/articles/${chunkDebugArticleId}/chunk-debug/progress`);
+                if (!resp.ok) return;
+                const progress = await resp.json();
+                const progressEl = document.getElementById('chunkDebugProgressText');
+                if (progressEl && progress.in_progress && progress.total_chunks > 0) {
+                    const sizeNote = progress.chunk_limit_applied
+                        ? `${progress.total_chunks} chunks in this pass`
+                        : `${progress.total_chunks} chunks`;
+                    progressEl.textContent = `Processed ${progress.processed_chunks} of ${sizeNote}...`;
+                }
+            } catch (e) {
+                // Best-effort; ignore.
+            }
+        }, 1000);
+        const stopChunkDebugProgressPoll = () => {
+            if (progressPollTimer) {
+                clearInterval(progressPollTimer);
+                progressPollTimer = null;
+            }
+        };
 
         // Register with ModalManager for proper Escape key handling
         if (window.ModalManager) {
@@ -8517,6 +8551,7 @@ loadingModal.setAttribute('aria-label', 'Loading');
                 isDynamic: true,
                 hasInput: false,
                 onClose: () => {
+                    stopChunkDebugProgressPoll();
                     if (!chunkDebugOpeningResults) {
                         chunkDebugDismissed = true;
                     }
@@ -8539,6 +8574,7 @@ loadingModal.setAttribute('aria-label', 'Loading');
         
         // Cancel handler function
         const handleChunkCancel = function() {
+            stopChunkDebugProgressPoll();
             if (chunkRequestStarted && !chunkIsCancelled) {
                 chunkIsCancelled = true;
                 chunkAbortController.abort();
@@ -8557,6 +8593,7 @@ loadingModal.setAttribute('aria-label', 'Loading');
         // Close modal when clicking outside (dismiss without cancelling)
         loadingModal.addEventListener('click', function(e) {
             if (e.target === loadingModal) {
+                stopChunkDebugProgressPoll();
                 // ESC just closes the modal, operation continues in background
                 if (window.ModalManager) {
                     window.ModalManager.close('chunkDebugLoadingModal');
@@ -8597,7 +8634,8 @@ loadingModal.setAttribute('aria-label', 'Loading');
             
             // Race between fetch and timeout
             const debugData = await Promise.race([fetchPromise, timeoutPromise]);
-            
+            stopChunkDebugProgressPoll();
+
             // Remove loading modal
             if (loadingModal && loadingModal.parentNode) {
                 chunkDebugOpeningResults = true;
@@ -8622,6 +8660,7 @@ loadingModal.setAttribute('aria-label', 'Loading');
             }
             
         } catch (error) {
+            stopChunkDebugProgressPoll();
             console.error('Chunk debug error:', error);
             // Don't show error if request was cancelled
             if (chunkIsCancelled || error.name === 'AbortError') {
@@ -8877,23 +8916,23 @@ modal.setAttribute('aria-modal', 'true');
                 
                 <!-- ML Accuracy Statistics -->
                 <div class="bg-indigo-500/10 border border-indigo-500/30 rounded-lg p-4 mb-6">
-                    <h4 class="text-lg font-semibold text-indigo-400 mb-3"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 7.5h10.5v9H6.75v-9z"/></svg> ML Model Performance${data.processing_summary && data.processing_summary.chunk_limit_applied ? ` <span class="text-xs font-normal text-amber-400">(based on ${data.processing_summary.processed_chunks} of ${data.processing_summary.total_chunks} chunks)</span>` : ''}</h4>
+                    <h4 class="text-lg font-semibold text-indigo-400 mb-3"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 7.5h10.5v9H6.75v-9z"/></svg> ML Model Performance <span id="mlPartialAnalysisNote" class="text-xs font-normal text-amber-400"></span></h4>
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
                             <div class="text-sm text-gray-300">ML Predictions</div>
-                            <div class="text-lg font-semibold text-gray-50">${data.ml_stats && data.ml_stats.total_predictions !== undefined ? data.ml_stats.total_predictions : 0}</div>
+                            <div id="mlTotalPredictions" class="text-lg font-semibold text-gray-50">0</div>
                         </div>
                <div>
                    <div class="text-sm text-gray-300">Matching Predictions</div>
-                   <div class="text-lg font-semibold text-emerald-400">${data.ml_stats && data.ml_stats.correct_predictions !== undefined ? data.ml_stats.correct_predictions : 0}</div>
+                   <div id="mlCorrectPredictions" class="text-lg font-semibold text-emerald-400">0</div>
                </div>
                         <div>
                             <div class="text-sm text-gray-300" title="Share of chunks where the model's prediction matches the filter's own keep/remove decision. Not scored against human ground truth.">Model/Filter Agreement</div>
-                            <div class="text-lg font-semibold ${data.ml_stats && data.ml_stats.accuracy_percent !== undefined ? (data.ml_stats.accuracy_percent >= 80 ? 'text-emerald-400' : data.ml_stats.accuracy_percent >= 60 ? 'text-amber-400' : 'text-red-400') : 'text-gray-400'}">${data.ml_stats && data.ml_stats.accuracy_percent !== undefined ? data.ml_stats.accuracy_percent.toFixed(1) : '0.0'}%</div>
+                            <div id="mlAccuracyPercent" class="text-lg font-semibold text-gray-400">0.0%</div>
                         </div>
                         <div>
                             <div class="text-sm text-gray-300">Mismatches</div>
-                            <div class="text-lg font-semibold text-amber-400">${data.ml_stats && data.ml_stats.mismatches !== undefined ? data.ml_stats.mismatches : 0}</div>
+                            <div id="mlMismatches" class="text-lg font-semibold text-amber-400">0</div>
                         </div>
                     </div>
                 </div>
@@ -9035,6 +9074,12 @@ modal.setAttribute('aria-modal', 'true');
             );
         }
         
+        // Populate the ML panel through the same writer the re-render uses, so
+        // the initial view and every later view cannot diverge.
+        if (data) {
+            updateMlPerformancePanel(data);
+        }
+
         // Initialize slider position based on current threshold
         if (data) {
             const thresholdSlider = document.getElementById('thresholdSlider');
@@ -9523,6 +9568,50 @@ modal.setAttribute('aria-modal', 'true');
         }
     });
 
+    // The ML panel is written ONLY here, by both the initial render and every
+    // threshold re-render. It used to be emitted inline in the modal template
+    // literal with no ids, so updateChunkDebugResults could not reach it: moving
+    // the slider refreshed the tiles beside it and left this panel showing the
+    // previous threshold's numbers -- including a mismatch count that disagreed
+    // with the chunks the "Show ML Mismatches" filter actually revealed.
+    // Keeping one writer is the point; a second copy of this formatting is how
+    // the two drifted apart in the first place.
+    function updateMlPerformancePanel(data) {
+        const stats = (data && data.ml_stats) || {};
+
+        const totalEl = document.getElementById('mlTotalPredictions');
+        if (totalEl) totalEl.textContent = stats.total_predictions !== undefined ? stats.total_predictions : 0;
+
+        const correctEl = document.getElementById('mlCorrectPredictions');
+        if (correctEl) correctEl.textContent = stats.correct_predictions !== undefined ? stats.correct_predictions : 0;
+
+        const accuracyEl = document.getElementById('mlAccuracyPercent');
+        if (accuracyEl) {
+            const hasAccuracy = stats.accuracy_percent !== undefined;
+            const band = !hasAccuracy ? 'text-gray-400'
+                : stats.accuracy_percent >= 80 ? 'text-emerald-400'
+                : stats.accuracy_percent >= 60 ? 'text-amber-400'
+                : 'text-red-400';
+            // Full className rewrite: the band must be replaced, not accumulated,
+            // or a panel that goes 100% -> 50% keeps both colours.
+            accuracyEl.className = 'text-lg font-semibold ' + band;
+            accuracyEl.textContent = (hasAccuracy ? stats.accuracy_percent.toFixed(1) : '0.0') + '%';
+        }
+
+        const mismatchEl = document.getElementById('mlMismatches');
+        if (mismatchEl) mismatchEl.textContent = stats.mismatches !== undefined ? stats.mismatches : 0;
+
+        // The header caveat names the sample these numbers describe, so it is as
+        // stale-able as the numbers themselves and refreshes with them.
+        const noteEl = document.getElementById('mlPartialAnalysisNote');
+        if (noteEl) {
+            const summary = (data && data.processing_summary) || {};
+            noteEl.textContent = summary.chunk_limit_applied
+                ? `(based on ${summary.processed_chunks} of ${summary.total_chunks} chunks)`
+                : '';
+        }
+    }
+
     function updateChunkDebugResults(data) {
         // Update statistics cards using IDs
         const totalChunksEl = document.getElementById('totalChunksCount');
@@ -9556,6 +9645,9 @@ modal.setAttribute('aria-modal', 'true');
             chunkVisualizationContainer.innerHTML = generateChunkVisualization(data);
         }
         
+        // Update ML Model Performance
+        updateMlPerformancePanel(data);
+
         // Update processing summary
         const summaryContainer = document.getElementById('chunkProcessingSummary');
         if (summaryContainer) {

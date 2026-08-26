@@ -790,6 +790,34 @@ def summarize_rule_novelty(match_result: dict, threshold: float = 0.5) -> dict:
     }
 
 
+def select_queueable_rule_indices(similarity_results: list[dict[str, Any]], similarity_threshold: float) -> list[int]:
+    """Return indices of the rules to promote to the review queue.
+
+    Each rule is judged on its OWN novelty score. There is deliberately no
+    batch-level aggregate here: the previous implementation dropped the entire
+    batch when ``max(per-rule scores) >= threshold``, so a single near-duplicate
+    silently suppressed its novel siblings and also defeated the fail-open
+    needs_review routing below.
+
+    Promotion rules, per rule:
+    - ``comparator_inconclusive`` -> promote (fail open, routed to needs_review;
+      an unassessable rule is a failure to assess, not a duplicate).
+    - scored ``< similarity_threshold`` -> promote (novel enough).
+    - scored ``>= similarity_threshold`` -> suppress as a near-duplicate. The
+      boundary is inclusive, matching the queue node this replaces.
+    - unscored but not flagged inconclusive -> suppress (unchanged behavior).
+    """
+    selected = []
+    for idx, summary in enumerate(similarity_results):
+        if summary.get("comparator_inconclusive", False):
+            selected.append(idx)
+            continue
+        score = summary.get("max_similarity")
+        if score is not None and score < similarity_threshold:
+            selected.append(idx)
+    return selected
+
+
 class WorkflowState(BaseModel):
     """Validated state channels for the agentic workflow.
 
@@ -3138,24 +3166,27 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 )
                 queued_rules = []
             else:
-                # Similarity search ran successfully - calculate max_similarity from results
-                if len(similarity_results) > 0:
-                    # None = inconclusive (todo 001). Exclude from the aggregate so an
-                    # inconclusive-only batch yields 0.0 (-> falls through to promote as
-                    # needs_review) rather than TypeError on max([..., None]).
-                    scored = [s for s in (r.get("max_similarity") for r in similarity_results) if s is not None]
-                    max_similarity = max(scored) if scored else 0.0
-                else:
-                    # Similarity search ran successfully but found 0 matches - treat as 0.0 similarity
-                    max_similarity = 0.0
+                # Per-rule novelty gate. A near-duplicate suppresses ONLY itself; it
+                # never drops its batch siblings. The previous batch aggregate
+                # (max of all per-rule scores) discarded the whole batch when any one
+                # rule cleared the threshold, silently losing novel rules and also
+                # defeating the fail-open needs_review routing for inconclusive ones.
+                # Pad short similarity_results so index N always maps to rule N.
+                aligned_similarity = [
+                    similarity_results[idx] if idx < len(similarity_results) else {"max_similarity": 0.0}
+                    for idx in range(len(sigma_rules))
+                ]
+                queueable_indices = set(select_queueable_rule_indices(aligned_similarity, similarity_threshold))
+                suppressed_count = len(sigma_rules) - len(queueable_indices)
+                if suppressed_count:
                     logger.info(
-                        f"[Workflow {state['execution_id']}] Similarity search completed with 0 matches - treating as 0.0 similarity"
+                        f"[Workflow {state['execution_id']}] Novelty suppression: {suppressed_count}/{len(sigma_rules)} "
+                        f"rule(s) scored >= threshold {similarity_threshold} and were not queued"
                     )
 
-                # Only promote if max similarity is below threshold
-                if max_similarity >= similarity_threshold:
+                if not queueable_indices:
                     logger.info(
-                        f"[Workflow {state['execution_id']}] Max similarity {max_similarity:.2f} >= threshold {similarity_threshold}, skipping queue"
+                        f"[Workflow {state['execution_id']}] No rules cleared the novelty threshold, skipping queue"
                     )
                     queued_rules = []
                 else:
@@ -3164,18 +3195,16 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     # Load article from DB instead of state
                     article = db_session.query(ArticleTable).filter(ArticleTable.id == state["article_id"]).first()
 
-                    # Queue each rule with low similarity
+                    # Queue each rule that cleared the per-rule novelty gate
                     for idx, rule in enumerate(sigma_rules):
-                        rule_similarity = (
-                            similarity_results[idx] if idx < len(similarity_results) else {"max_similarity": 0.0}
-                        )
+                        # aligned_similarity is already padded to len(sigma_rules) above,
+                        # and is the same list the gate decided from -- re-deriving it here
+                        # would let the two drift.
+                        rule_similarity = aligned_similarity[idx]
                         inconclusive = rule_similarity.get("comparator_inconclusive", False)
                         rule_max_sim = rule_similarity.get("max_similarity")
 
-                        # Enqueue when inconclusive (route to needs_review) OR a genuine
-                        # sub-threshold score. A scored >= threshold rule is suppressed
-                        # as a near-duplicate (novelty suppression now actually works).
-                        if inconclusive or (rule_max_sim is not None and rule_max_sim < similarity_threshold):
+                        if idx in queueable_indices:
                             # Strip non-Sigma grounding metadata from rule YAML; keep it in rule_metadata.
                             non_sigma_metadata_fields = {
                                 "observables_used",

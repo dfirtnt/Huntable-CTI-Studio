@@ -2,10 +2,119 @@
 
 import pytest
 
+import src.web.routes.debug as debug_module
 from src.utils.llm_optimizer import GPT4O_INPUT_COST_PER_MILLION_TOKENS
-from src.web.routes.debug import _build_chunk_reason, calculate_filtered_costs
+from src.web.routes.debug import (
+    _build_chunk_reason,
+    _clear_chunk_debug_progress,
+    _init_chunk_debug_progress,
+    api_chunk_debug_progress,
+    calculate_filtered_costs,
+)
 
 pytestmark = pytest.mark.unit
+
+
+class _FakeRedis:
+    """Minimal redis-py stand-in backed by a dict shared across instances,
+    the same way distinct real connections share one Redis server. Values are
+    stringified on write since real Redis hashes only store strings -- this
+    exercises the int()/float()/bool(int()) parsing in _read_chunk_debug_progress
+    exactly as the live path would."""
+
+    def __init__(self, store: dict):
+        self._store = store
+
+    def hset(self, key, mapping):
+        self._store[key] = {k: str(v) for k, v in mapping.items()}
+
+    def expire(self, key, ttl):
+        pass
+
+    def hincrby(self, key, field, amount):
+        current = int(self._store.get(key, {}).get(field, 0))
+        self._store.setdefault(key, {})[field] = str(current + amount)
+
+    def hgetall(self, key):
+        return dict(self._store.get(key, {}))
+
+    def delete(self, key):
+        self._store.pop(key, None)
+
+    def close(self):
+        pass
+
+
+@pytest.fixture
+def fake_redis(monkeypatch):
+    """Patches debug._redis_client so progress helpers use an in-process fake
+    instead of a live Redis -- these are unit tests, not integration tests."""
+    store: dict = {}
+    monkeypatch.setattr(debug_module, "_redis_client", lambda: _FakeRedis(store))
+    return store
+
+
+class TestChunkDebugProgressEndpoint:
+    """The Junk Filter Tuning loading modal polls this endpoint during a long
+    analysis (article 7216: 1,250 chunks, 62s with no visible progress before
+    this fix). Progress lives in Redis, not process memory, because the poll
+    and the analysis can land on different uvicorn workers (--workers 2)."""
+
+    async def test_no_entry_reports_not_in_progress(self, fake_redis):
+        result = await api_chunk_debug_progress(article_id=999)
+        assert result == {"in_progress": False, "processed_chunks": 0, "total_chunks": 0}
+
+    async def test_existing_entry_is_reported_after_increments(self, fake_redis):
+        _init_chunk_debug_progress(
+            42,
+            total_chunks=1250,
+            chunk_limit_applied=True,
+            concurrency_limit=4,
+            per_chunk_timeout_seconds=12.0,
+        )
+        debug_module._redis_client().hincrby(debug_module._chunk_debug_progress_key(42), "processed_chunks", 150)
+
+        result = await api_chunk_debug_progress(article_id=42)
+
+        assert result["in_progress"] is True
+        assert result["processed_chunks"] == 150
+        assert result["total_chunks"] == 1250
+        assert result["chunk_limit_applied"] is True
+        assert result["concurrency_limit"] == 4
+        assert result["per_chunk_timeout_seconds"] == 12.0
+
+    async def test_different_article_ids_do_not_collide(self, fake_redis):
+        _init_chunk_debug_progress(
+            1, total_chunks=10, chunk_limit_applied=False, concurrency_limit=4, per_chunk_timeout_seconds=12.0
+        )
+
+        result = await api_chunk_debug_progress(article_id=2)
+
+        assert result == {"in_progress": False, "processed_chunks": 0, "total_chunks": 0}
+
+    async def test_clear_removes_the_entry(self, fake_redis):
+        _init_chunk_debug_progress(
+            7, total_chunks=10, chunk_limit_applied=False, concurrency_limit=4, per_chunk_timeout_seconds=12.0
+        )
+        _clear_chunk_debug_progress(7)
+
+        result = await api_chunk_debug_progress(article_id=7)
+
+        assert result["in_progress"] is False
+
+    async def test_redis_unavailable_reports_not_in_progress_without_raising(self, monkeypatch):
+        def _raise():
+            raise ConnectionError("redis is down")
+
+        monkeypatch.setattr(debug_module, "_redis_client", lambda: _raise())
+
+        # init must not raise even though the client is unreachable
+        _init_chunk_debug_progress(
+            5, total_chunks=10, chunk_limit_applied=False, concurrency_limit=4, per_chunk_timeout_seconds=12.0
+        )
+
+        result = await api_chunk_debug_progress(article_id=5)
+        assert result["in_progress"] is False
 
 
 class TestBuildChunkReason:

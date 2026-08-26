@@ -257,4 +257,123 @@ test.describe('Junk Filter Tuning modal polish sweep', () => {
     await expect(allBtn).toHaveAttribute('aria-pressed', 'false');
     await expect(keptBtn).toHaveAttribute('aria-pressed', 'true');
   });
+
+  // --- ML Model Performance panel refresh (Todoist 6hJ8x4W8grvGqP63) ---------
+  //
+  // The four values were emitted once inside the modal's innerHTML template
+  // literal with no id attributes, so updateChunkDebugResults() -- which
+  // refreshes the tiles, cost analysis, visualisation and chunk details on
+  // every threshold change -- had no handle on this panel and never touched it.
+  // Moving the slider therefore left it showing the previous threshold's
+  // numbers, including a mismatch count that contradicted the chunks the
+  // "Show ML Mismatches" filter actually revealed.
+  //
+  // Both render paths now go through updateMlPerformancePanel(). These tests
+  // drive the real re-render entry point rather than that writer directly, so
+  // they fail if the wiring is removed even though the writer still works.
+
+  const mlPanel = (page: Page) => page.evaluate(() => {
+    const el = (id: string) => document.getElementById(id);
+    return {
+      total: el('mlTotalPredictions')?.textContent,
+      correct: el('mlCorrectPredictions')?.textContent,
+      accuracy: el('mlAccuracyPercent')?.textContent,
+      band: el('mlAccuracyPercent')?.className.split(' ').pop(),
+      mismatches: el('mlMismatches')?.textContent,
+      note: el('mlPartialAnalysisNote')?.textContent,
+    };
+  });
+
+  test('the ML panel renders from ml_stats on open', async ({ page }) => {
+    await renderSyntheticModal(page, {
+      chunk_analysis: [
+        makeChunk({ chunk_id: 0, is_kept: true }),
+        makeChunk({ chunk_id: 1, is_kept: false, ml_mismatch: true }),
+      ],
+      ml_stats: { total_predictions: 2, correct_predictions: 1, accuracy_percent: 50, mismatches: 1 },
+    });
+
+    expect(await mlPanel(page)).toMatchObject({
+      total: '2', correct: '1', accuracy: '50.0%', band: 'text-red-400', mismatches: '1',
+    });
+  });
+
+  test('a threshold re-render updates every ML value instead of stranding the previous ones', async ({ page }) => {
+    await renderSyntheticModal(page, {
+      min_confidence: 0.7,
+      chunk_analysis: [makeChunk({ chunk_id: 0, is_kept: true, ml_mismatch: true })],
+      ml_stats: { total_predictions: 36, correct_predictions: 30, accuracy_percent: 83.33333, mismatches: 6 },
+    });
+    expect(await mlPanel(page)).toMatchObject({ correct: '30', accuracy: '83.3%', mismatches: '6' });
+
+    // The measured 0.7 -> 0.5 transition from the bug report: pre-fix the panel
+    // stayed at 30 / 83.3% / 6 while the payload said 36 / 100% / 0.
+    await page.evaluate((d) => (window as any).updateChunkDebugResults(d), buildSyntheticData({
+      min_confidence: 0.5,
+      chunk_analysis: [makeChunk({ chunk_id: 0, is_kept: true, ml_mismatch: false })],
+      ml_stats: { total_predictions: 36, correct_predictions: 36, accuracy_percent: 100, mismatches: 0 },
+    }));
+
+    expect(await mlPanel(page)).toMatchObject({
+      total: '36', correct: '36', accuracy: '100.0%', band: 'text-emerald-400', mismatches: '0',
+    });
+  });
+
+  test('the agreement colour band is replaced, not accumulated, as the value crosses each boundary', async ({ page }) => {
+    await renderSyntheticModal(page, {
+      ml_stats: { total_predictions: 10, correct_predictions: 10, accuracy_percent: 100, mismatches: 0 },
+    });
+    expect((await mlPanel(page)).band).toBe('text-emerald-400');
+
+    for (const [accuracy, band] of [[75, 'text-amber-400'], [42, 'text-red-400'], [80, 'text-emerald-400']] as const) {
+      await page.evaluate((d) => (window as any).updateChunkDebugResults(d), buildSyntheticData({
+        ml_stats: { total_predictions: 10, correct_predictions: 1, accuracy_percent: accuracy, mismatches: 9 },
+      }));
+      const panel = await mlPanel(page);
+      expect(panel.band).toBe(band);
+      // A stale colour left behind would show up as two colour classes at once.
+      const classes = await page.evaluate(() => document.getElementById('mlAccuracyPercent')?.className ?? '');
+      expect(classes.match(/text-(emerald|amber|red|gray)-400/g)?.length).toBe(1);
+    }
+  });
+
+  test('the mismatch count always equals what the ML Mismatches filter reveals', async ({ page }) => {
+    await renderSyntheticModal(page, {
+      chunk_analysis: [
+        makeChunk({ chunk_id: 0, is_kept: true, ml_mismatch: true }),
+        makeChunk({ chunk_id: 1, is_kept: false, ml_mismatch: true }),
+        makeChunk({ chunk_id: 2, is_kept: true, ml_mismatch: false }),
+      ],
+      ml_stats: { total_predictions: 3, correct_predictions: 1, accuracy_percent: 33.3, mismatches: 2 },
+    });
+
+    // Re-render with a payload where the mismatches disappear entirely -- the
+    // exact self-contradiction reported: panel said 6, the filter showed none.
+    await page.evaluate((d) => (window as any).updateChunkDebugResults(d), buildSyntheticData({
+      chunk_analysis: [
+        makeChunk({ chunk_id: 0, is_kept: true, ml_mismatch: false }),
+        makeChunk({ chunk_id: 1, is_kept: false, ml_mismatch: false }),
+        makeChunk({ chunk_id: 2, is_kept: true, ml_mismatch: false }),
+      ],
+      ml_stats: { total_predictions: 3, correct_predictions: 3, accuracy_percent: 100, mismatches: 0 },
+    }));
+
+    expect((await mlPanel(page)).mismatches).toBe('0');
+    await expect(page.locator('.chunk-filter-btn[data-filter="mismatch"] .chunk-filter-count')).toHaveText('(0)');
+  });
+
+  test('the partial-analysis caveat in the ML header refreshes with the numbers it describes', async ({ page }) => {
+    await renderSyntheticModal(page, {
+      processing_summary: {
+        processed_chunks: 150, total_chunks: 1250, chunk_limit_applied: true,
+        concurrency_limit: 4, per_chunk_timeout_seconds: 12.0, full_analysis: false, remaining_chunks: 1100,
+      },
+    });
+    expect((await mlPanel(page)).note).toBe('(based on 150 of 1250 chunks)');
+
+    // A full re-analysis must clear it; leaving it behind would caveat numbers
+    // that now describe every chunk.
+    await page.evaluate((d) => (window as any).updateChunkDebugResults(d), buildSyntheticData());
+    expect((await mlPanel(page)).note).toBe('');
+  });
 });

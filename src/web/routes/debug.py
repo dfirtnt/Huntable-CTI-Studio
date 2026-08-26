@@ -16,6 +16,91 @@ from src.web.dependencies import get_content_filter, logger
 
 router = APIRouter(tags=["Debug"])
 
+_CHUNK_DEBUG_PROGRESS_TTL_SECONDS = 300
+
+
+def _redis_client():
+    """Same REDIS_URL resolution used by tasks.py/health.py.
+
+    The web service runs multiple uvicorn workers (docker-compose.yml
+    --workers 2), so chunk-debug progress must live in Redis rather than
+    process memory -- a poll can land on a different worker than the one
+    running the analysis.
+    """
+    import redis
+
+    redis_url = os.getenv("REDIS_URL") or (
+        "redis://localhost:6379/0" if os.getenv("APP_ENV") == "test" else "redis://redis:6379/0"
+    )
+    return redis.from_url(redis_url, decode_responses=True)
+
+
+def _chunk_debug_progress_key(article_id: int) -> str:
+    return f"chunk_debug_progress:{article_id}"
+
+
+def _init_chunk_debug_progress(
+    article_id: int,
+    *,
+    total_chunks: int,
+    chunk_limit_applied: bool,
+    concurrency_limit: int,
+    per_chunk_timeout_seconds: float,
+) -> None:
+    """Best-effort: a Redis outage should degrade progress reporting, not the analysis itself."""
+    try:
+        client = _redis_client()
+        try:
+            key = _chunk_debug_progress_key(article_id)
+            client.hset(
+                key,
+                mapping={
+                    "processed_chunks": 0,
+                    "total_chunks": total_chunks,
+                    "chunk_limit_applied": int(chunk_limit_applied),
+                    "concurrency_limit": concurrency_limit,
+                    "per_chunk_timeout_seconds": per_chunk_timeout_seconds,
+                },
+            )
+            client.expire(key, _CHUNK_DEBUG_PROGRESS_TTL_SECONDS)
+        finally:
+            client.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("chunk-debug progress init failed for article %s: %s", article_id, exc)
+
+
+def _clear_chunk_debug_progress(article_id: int) -> None:
+    try:
+        client = _redis_client()
+        try:
+            client.delete(_chunk_debug_progress_key(article_id))
+        finally:
+            client.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("chunk-debug progress cleanup failed for article %s: %s", article_id, exc)
+
+
+def _read_chunk_debug_progress(article_id: int) -> dict | None:
+    try:
+        client = _redis_client()
+        try:
+            data = client.hgetall(_chunk_debug_progress_key(article_id))
+        finally:
+            client.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("chunk-debug progress read failed for article %s: %s", article_id, exc)
+        return None
+
+    if not data:
+        return None
+    return {
+        "processed_chunks": int(data.get("processed_chunks", 0)),
+        "total_chunks": int(data.get("total_chunks", 0)),
+        "chunk_limit_applied": bool(int(data.get("chunk_limit_applied", 0))),
+        "concurrency_limit": int(data.get("concurrency_limit", 0)),
+        "per_chunk_timeout_seconds": float(data.get("per_chunk_timeout_seconds", 0)),
+    }
+
 
 def _humanize_feature_name(name: str) -> str:
     """cmdline_artifact_count -> 'cmdline artifact count', for use mid-sentence."""
@@ -139,6 +224,14 @@ async def api_chunk_debug(
         chunk_limit = total_chunks if full_analysis else min(total_chunks, max_chunks_setting)
         semaphore = asyncio.Semaphore(concurrency_limit)
         chunk_analysis_results = []
+
+        _init_chunk_debug_progress(
+            article_id,
+            total_chunks=chunk_limit,
+            chunk_limit_applied=chunk_limit < total_chunks,
+            concurrency_limit=concurrency_limit,
+            per_chunk_timeout_seconds=per_chunk_timeout,
+        )
 
         async def analyze_chunk(chunk_id: int, start: int, end: int, chunk_text: str):
             async with semaphore:
@@ -287,10 +380,37 @@ async def api_chunk_debug(
                         "ml_prediction_correct": None,
                     }
 
-        for chunk_id, (start, end, chunk_text) in enumerate(original_chunks[:chunk_limit]):
-            chunk_analysis_results.append(analyze_chunk(chunk_id, start, end, chunk_text))
+        # One shared client for the whole run rather than one per chunk -- a
+        # full analysis can complete over 1,000 chunks, and opening a fresh
+        # Redis connection per increment would add real per-chunk overhead.
+        try:
+            progress_redis_client = _redis_client()
+        except Exception as exc:  # noqa: BLE001
+            progress_redis_client = None
+            logger.warning("chunk-debug progress client unavailable for article %s: %s", article_id, exc)
 
-        chunk_analysis = await asyncio.gather(*chunk_analysis_results)
+        def _increment_chunk_debug_progress() -> None:
+            if progress_redis_client is None:
+                return
+            try:
+                progress_redis_client.hincrby(_chunk_debug_progress_key(article_id), "processed_chunks", 1)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("chunk-debug progress increment failed for article %s: %s", article_id, exc)
+
+        async def _analyze_chunk_and_track(chunk_id: int, start: int, end: int, chunk_text: str):
+            result = await analyze_chunk(chunk_id, start, end, chunk_text)
+            _increment_chunk_debug_progress()
+            return result
+
+        for chunk_id, (start, end, chunk_text) in enumerate(original_chunks[:chunk_limit]):
+            chunk_analysis_results.append(_analyze_chunk_and_track(chunk_id, start, end, chunk_text))
+
+        try:
+            chunk_analysis = await asyncio.gather(*chunk_analysis_results)
+        finally:
+            if progress_redis_client is not None:
+                progress_redis_client.close()
+            _clear_chunk_debug_progress(article_id)
         chunk_analysis = [chunk for chunk in chunk_analysis if chunk is not None]
         chunk_analysis.sort(key=lambda chunk: chunk["chunk_id"])
 
@@ -358,3 +478,20 @@ async def api_chunk_debug(
     except Exception as exc:  # noqa: BLE001
         logger.error("Chunk debug error: %s", exc)
         raise HTTPException(status_code=500, detail="Internal server error") from exc
+
+
+@router.get("/api/articles/{article_id}/chunk-debug/progress")
+async def api_chunk_debug_progress(article_id: int):
+    """Poll-friendly progress snapshot for an in-flight chunk-debug analysis.
+
+    A long analysis (article 7216's 1,250 chunks took 62s) previously gave no
+    indication of size or progress until the whole request finished. The main
+    endpoint writes progress to Redis as chunks complete; this reads it back
+    so the loading modal can poll instead of guessing. Redis, not process
+    memory, because the poll and the analysis can land on different uvicorn
+    workers (docker-compose.yml --workers 2).
+    """
+    progress = _read_chunk_debug_progress(article_id)
+    if progress is None:
+        return {"in_progress": False, "processed_chunks": 0, "total_chunks": 0}
+    return {"in_progress": True, **progress}
