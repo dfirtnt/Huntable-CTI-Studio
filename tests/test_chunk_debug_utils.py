@@ -5,9 +5,13 @@ import pytest
 import src.web.routes.debug as debug_module
 from src.utils.llm_optimizer import GPT4O_INPUT_COST_PER_MILLION_TOKENS
 from src.web.routes.debug import (
+    _PHASE_ANALYZING,
+    _PHASE_FILTERING,
+    _PHASE_FINALIZING,
     _build_chunk_reason,
     _clear_chunk_debug_progress,
     _init_chunk_debug_progress,
+    _set_chunk_debug_phase,
     api_chunk_debug_progress,
     calculate_filtered_costs,
 )
@@ -25,8 +29,14 @@ class _FakeRedis:
     def __init__(self, store: dict):
         self._store = store
 
-    def hset(self, key, mapping):
-        self._store[key] = {k: str(v) for k, v in mapping.items()}
+    def hset(self, key, field=None, value=None, mapping=None):
+        if mapping is not None:
+            self._store[key] = {k: str(v) for k, v in mapping.items()}
+        else:
+            self._store.setdefault(key, {})[field] = str(value)
+
+    def exists(self, key):
+        return 1 if key in self._store else 0
 
     def expire(self, key, ttl):
         pass
@@ -68,6 +78,7 @@ class TestChunkDebugProgressEndpoint:
         _init_chunk_debug_progress(
             42,
             total_chunks=1250,
+            article_total_chunks=1250,
             chunk_limit_applied=True,
             concurrency_limit=4,
             per_chunk_timeout_seconds=12.0,
@@ -85,7 +96,12 @@ class TestChunkDebugProgressEndpoint:
 
     async def test_different_article_ids_do_not_collide(self, fake_redis):
         _init_chunk_debug_progress(
-            1, total_chunks=10, chunk_limit_applied=False, concurrency_limit=4, per_chunk_timeout_seconds=12.0
+            1,
+            total_chunks=10,
+            article_total_chunks=10,
+            chunk_limit_applied=False,
+            concurrency_limit=4,
+            per_chunk_timeout_seconds=12.0,
         )
 
         result = await api_chunk_debug_progress(article_id=2)
@@ -94,7 +110,12 @@ class TestChunkDebugProgressEndpoint:
 
     async def test_clear_removes_the_entry(self, fake_redis):
         _init_chunk_debug_progress(
-            7, total_chunks=10, chunk_limit_applied=False, concurrency_limit=4, per_chunk_timeout_seconds=12.0
+            7,
+            total_chunks=10,
+            article_total_chunks=10,
+            chunk_limit_applied=False,
+            concurrency_limit=4,
+            per_chunk_timeout_seconds=12.0,
         )
         _clear_chunk_debug_progress(7)
 
@@ -110,10 +131,76 @@ class TestChunkDebugProgressEndpoint:
 
         # init must not raise even though the client is unreachable
         _init_chunk_debug_progress(
-            5, total_chunks=10, chunk_limit_applied=False, concurrency_limit=4, per_chunk_timeout_seconds=12.0
+            5,
+            total_chunks=10,
+            article_total_chunks=10,
+            chunk_limit_applied=False,
+            concurrency_limit=4,
+            per_chunk_timeout_seconds=12.0,
         )
+        # nor must a phase update -- it runs on the same best-effort contract
+        _set_chunk_debug_phase(5, _PHASE_ANALYZING)
 
         result = await api_chunk_debug_progress(article_id=5)
+        assert result["in_progress"] is False
+
+    async def test_phase_advances_through_the_three_stages(self, fake_redis):
+        """Progress must describe the whole run, not just the per-chunk loop.
+
+        Measured on article 7216 before this was fixed: a 64.9s run reported
+        progress only from t+28.5s to t+35.6s -- 11% of the wall time. The
+        expensive full-article filter_content() pass ran first with no
+        instrumentation, and response assembly afterwards left the last chunk
+        count frozen on screen, which reads as a hang.
+        """
+        _init_chunk_debug_progress(
+            11,
+            total_chunks=150,
+            article_total_chunks=1250,
+            chunk_limit_applied=True,
+            concurrency_limit=4,
+            per_chunk_timeout_seconds=12.0,
+        )
+
+        # Filtering: the article-wide total is known, no per-chunk counter yet.
+        result = await api_chunk_debug_progress(article_id=11)
+        assert result["phase"] == _PHASE_FILTERING
+        assert result["article_total_chunks"] == 1250
+        assert result["total_chunks"] == 150
+        assert result["processed_chunks"] == 0
+
+        _set_chunk_debug_phase(11, _PHASE_ANALYZING)
+        debug_module._redis_client().hincrby(debug_module._chunk_debug_progress_key(11), "processed_chunks", 42)
+        result = await api_chunk_debug_progress(article_id=11)
+        assert result["phase"] == _PHASE_ANALYZING
+        assert result["processed_chunks"] == 42
+        assert result["article_total_chunks"] == 1250, "phase change must not disturb the counters"
+
+        _set_chunk_debug_phase(11, _PHASE_FINALIZING)
+        result = await api_chunk_debug_progress(article_id=11)
+        assert result["phase"] == _PHASE_FINALIZING
+        assert result["processed_chunks"] == 42
+
+    async def test_phase_update_does_not_resurrect_a_cleared_run(self, fake_redis):
+        """A late phase write must not recreate a zeroed record.
+
+        hset creates a missing key, so without the existence guard a phase
+        update arriving after the clear would report a finished analysis as
+        freshly started -- an endless spinner on a run that already returned.
+        """
+        _init_chunk_debug_progress(
+            12,
+            total_chunks=10,
+            article_total_chunks=10,
+            chunk_limit_applied=False,
+            concurrency_limit=4,
+            per_chunk_timeout_seconds=12.0,
+        )
+        _clear_chunk_debug_progress(12)
+
+        _set_chunk_debug_phase(12, _PHASE_FINALIZING)
+
+        result = await api_chunk_debug_progress(article_id=12)
         assert result["in_progress"] is False
 
 

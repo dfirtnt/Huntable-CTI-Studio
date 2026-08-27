@@ -8527,11 +8527,25 @@ loadingModal.setAttribute('aria-label', 'Loading');
                 if (!resp.ok) return;
                 const progress = await resp.json();
                 const progressEl = document.getElementById('chunkDebugProgressText');
-                if (progressEl && progress.in_progress && progress.total_chunks > 0) {
-                    const sizeNote = progress.chunk_limit_applied
-                        ? `${progress.total_chunks} chunks in this pass`
-                        : `${progress.total_chunks} chunks`;
-                    progressEl.textContent = `Processed ${progress.processed_chunks} of ${sizeNote}...`;
+                if (progressEl && progress.in_progress) {
+                    // Only the analyzing phase has a per-chunk counter. Rendering
+                    // "Processed 0 of 150" during filtering would read as a stall,
+                    // and leaving the analyzing text up during finalizing froze it
+                    // at the last count for the rest of the run.
+                    const articleTotal = progress.article_total_chunks || progress.total_chunks || 0;
+                    if (progress.phase === 'filtering') {
+                        progressEl.textContent = articleTotal
+                            ? `Filtering ${articleTotal.toLocaleString()} chunks...`
+                            : 'Filtering article content...';
+                    } else if (progress.phase === 'finalizing') {
+                        progressEl.textContent = 'Building results...';
+                    } else if (progress.total_chunks > 0) {
+                        const sizeNote = progress.chunk_limit_applied
+                            ? `chunks in this pass (${articleTotal.toLocaleString()} in article)`
+                            : 'chunks';
+                        progressEl.textContent =
+                            `Analyzed ${progress.processed_chunks} of ${progress.total_chunks} ${sizeNote}...`;
+                    }
                 }
             } catch (e) {
                 // Best-effort; ignore.
