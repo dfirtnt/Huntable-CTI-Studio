@@ -1,6 +1,9 @@
 """Tests for chunk debug utility helpers."""
 
+from types import SimpleNamespace
+
 import pytest
+from fastapi import HTTPException
 
 import src.web.routes.debug as debug_module
 from src.utils.llm_optimizer import GPT4O_INPUT_COST_PER_MILLION_TOKENS
@@ -201,6 +204,163 @@ class TestChunkDebugProgressEndpoint:
         _set_chunk_debug_phase(12, _PHASE_FINALIZING)
 
         result = await api_chunk_debug_progress(article_id=12)
+        assert result["in_progress"] is False
+
+
+class _StubFilterResult:
+    def __init__(self):
+        self.removed_chunks = []
+        self.filtered_content = "kept text"
+        self.is_huntable = True
+        self.confidence = 0.9
+        self.cost_savings = 0.0
+
+
+class _StubContentFilter:
+    """Minimal stand-in for the live ContentFilter.
+
+    ``model = None`` skips the sklearn branch and ``feature_version`` defaults to
+    v1, so only ``extract_features`` is needed. ``on_full_filter`` fires on the
+    first ``filter_content`` call -- the whole-article pass -- which is the moment
+    the progress record has to already exist.
+    """
+
+    model = None
+
+    def __init__(self, chunks, on_full_filter=None):
+        self._chunks = chunks
+        self._on_full_filter = on_full_filter
+        self._filter_calls = 0
+
+    def chunk_content(self, content, chunk_size, overlap):
+        return self._chunks
+
+    def filter_content(self, content, min_confidence, chunk_size, hunt_score):
+        self._filter_calls += 1
+        if self._filter_calls == 1 and self._on_full_filter is not None:
+            self._on_full_filter()
+        return _StubFilterResult()
+
+    def extract_features(self, chunk_text, hunt_score, include_new_features=True):
+        return {"cmdline_artifact_count": 0.0}
+
+
+class TestChunkDebugProgressCoversTheWholeRun:
+    """Guards the placement of the progress calls inside api_chunk_debug.
+
+    The helper-level tests above pass just as happily with the reporting wrapped
+    around the per-chunk loop only -- verified by re-introducing that exact
+    regression, which left all of them green. What made the feature useless was
+    *where* it was called from, so these drive the real handler instead.
+
+    Measured on article 7216 (1,250 chunks) before the fix: a 64.9s run reported
+    progress for 7.1s of it. filter_content() is a full sklearn pass over every
+    chunk and ran before the reporting started; response assembly ran after it
+    stopped, leaving a frozen chunk count on screen for the rest of the run.
+    """
+
+    @pytest.fixture
+    def stub_article(self):
+        return SimpleNamespace(
+            content="chunk one text. chunk two text.",
+            title="Stub Article",
+            article_metadata={},
+        )
+
+    def _patch_deps(self, monkeypatch, content_filter, article):
+        async def _get_article(article_id):
+            return article
+
+        monkeypatch.setattr(debug_module.async_db_manager, "get_article", _get_article)
+        monkeypatch.setattr(debug_module, "get_content_filter", lambda: content_filter)
+
+    async def test_progress_is_live_while_the_full_article_filter_runs(self, fake_redis, monkeypatch, stub_article):
+        """The expensive pass must be inside the reported window, not before it.
+
+        This is the whole defect: with the init below filter_content the operator
+        watched a static spinner through the longest phase of the run.
+        """
+        observed = {}
+
+        def _sample_progress():
+            # Snapshot, not a reference: the fake stores one dict per key and the
+            # handler keeps mutating it, so an alias would report the end state.
+            live = fake_redis.get(debug_module._chunk_debug_progress_key(77))
+            observed["during_filter"] = dict(live) if live is not None else None
+
+        content_filter = _StubContentFilter(
+            [(0, 15, "chunk one text."), (16, 31, "chunk two text.")],
+            on_full_filter=_sample_progress,
+        )
+        self._patch_deps(monkeypatch, content_filter, stub_article)
+
+        await debug_module.api_chunk_debug(article_id=77)
+
+        during = observed.get("during_filter")
+        assert during is not None, (
+            "no progress record existed while filter_content was running -- the init "
+            "has moved back below it, so the longest phase of the run reports nothing"
+        )
+        assert during["phase"] == _PHASE_FILTERING
+        assert int(during["article_total_chunks"]) == 2
+
+    async def test_progress_still_reports_while_the_response_is_assembled(self, fake_redis, monkeypatch, stub_article):
+        """Reporting must outlive the chunk loop, not stop with it.
+
+        estimate_gpt4o_cost runs after the loop, during response assembly -- the
+        ~29s stretch on article 7216 that used to sit behind a frozen chunk count
+        because the record was cleared as soon as the loop finished.
+        """
+        observed = {}
+        real_estimate = debug_module.estimate_gpt4o_cost
+
+        def _sampling_estimate(content, use_filtering=True):
+            live = fake_redis.get(debug_module._chunk_debug_progress_key(80))
+            observed["during_assembly"] = dict(live) if live is not None else None
+            return real_estimate(content, use_filtering=use_filtering)
+
+        monkeypatch.setattr(debug_module, "estimate_gpt4o_cost", _sampling_estimate)
+        content_filter = _StubContentFilter([(0, 15, "chunk one text.")])
+        self._patch_deps(monkeypatch, content_filter, stub_article)
+
+        await debug_module.api_chunk_debug(article_id=80)
+
+        during = observed.get("during_assembly")
+        assert during is not None, (
+            "progress was already cleared while the response was still being built -- "
+            "the loading modal freezes on its last chunk count for the rest of the run"
+        )
+        assert during["phase"] == _PHASE_FINALIZING
+
+    async def test_progress_is_cleared_once_the_handler_returns(self, fake_redis, monkeypatch, stub_article):
+        """Cleared at the end of the handler, not at the end of the chunk loop.
+
+        Clearing when the loop finished ended reporting while response assembly
+        was still running, which froze the last count on screen.
+        """
+        content_filter = _StubContentFilter([(0, 15, "chunk one text.")])
+        self._patch_deps(monkeypatch, content_filter, stub_article)
+
+        await debug_module.api_chunk_debug(article_id=78)
+
+        result = await api_chunk_debug_progress(article_id=78)
+        assert result["in_progress"] is False
+        assert debug_module._chunk_debug_progress_key(78) not in fake_redis
+
+    async def test_a_failed_run_does_not_leave_progress_reporting_forever(self, fake_redis, monkeypatch, stub_article):
+        """An error must clear too, or a dead run reports as live until its TTL."""
+
+        class _Boom(_StubContentFilter):
+            def filter_content(self, *a, **kw):
+                raise RuntimeError("filter blew up")
+
+        content_filter = _Boom([(0, 15, "chunk one text.")])
+        self._patch_deps(monkeypatch, content_filter, stub_article)
+
+        with pytest.raises(HTTPException):
+            await debug_module.api_chunk_debug(article_id=79)
+
+        result = await api_chunk_debug_progress(article_id=79)
         assert result["in_progress"] is False
 
 

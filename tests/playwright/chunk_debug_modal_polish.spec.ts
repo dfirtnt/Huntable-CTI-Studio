@@ -437,6 +437,84 @@ test.describe('Junk Filter Tuning modal polish sweep', () => {
     expect(await page.evaluate(() => document.body.dataset.chunkDebugPrevOverflow ?? null)).toBeNull();
   });
 
+  // --- Loading-modal progress text (Todoist 6hJ8xJfWvFCJ73F3) ----------------
+  //
+  // The backend reports a phase because only one of the three counts chunks.
+  // The first version of this feature was reported as working on the strength of
+  // the poll requests firing; what the modal actually displayed was a static line
+  // for ~89% of the run. These drive the real loading modal with the progress
+  // endpoint stubbed, so each phase's rendering is asserted rather than inferred.
+
+  async function withStubbedProgress(page: Page, phase: string, extra: Record<string, unknown> = {}) {
+    const pending: Array<() => void> = [];
+    await page.route('**/chunk-debug**', async (route) => {
+      const url = route.request().url();
+      if (url.includes('/progress')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            in_progress: true,
+            phase,
+            processed_chunks: 42,
+            total_chunks: 150,
+            article_total_chunks: 1250,
+            chunk_limit_applied: true,
+            ...extra,
+          }),
+        });
+        return;
+      }
+      // Never fulfil the analysis itself -- the loading modal only exists while
+      // that request is in flight, which is exactly the state under test.
+      pending.push(() => route.abort().catch(() => {}));
+    });
+    // Fire and forget: showChunkDebugModal is async and only settles when the
+    // analysis request does, which this test deliberately never lets happen.
+    // Awaiting it here would block until the evaluate timed out.
+    await page.evaluate(() => {
+      (window as any).showChunkDebugModal();
+    });
+    return () => pending.forEach((abort) => abort());
+  }
+
+  test('the loading modal names the filtering phase and the article size', async ({ page }) => {
+    // Pre-fix this window showed "Processing article content..." unchanged, and it
+    // is the longest phase of a large run.
+    const cleanup = await withStubbedProgress(page, 'filtering');
+    await expect(page.locator('#chunkDebugProgressText')).toHaveText(/Filtering 1,250 chunks/, { timeout: 8000 });
+    cleanup();
+  });
+
+  test('the loading modal counts chunks only while analyzing', async ({ page }) => {
+    const cleanup = await withStubbedProgress(page, 'analyzing');
+    await expect(page.locator('#chunkDebugProgressText'))
+      .toHaveText(/Analyzed 42 of 150 chunks in this pass \(1,250 in article\)/, { timeout: 8000 });
+    cleanup();
+  });
+
+  test('the loading modal stops showing a chunk count once results are being built', async ({ page }) => {
+    // The frozen-count failure: reporting used to end with the chunk loop, leaving
+    // the last count on screen through response assembly, which reads as a hang.
+    const cleanup = await withStubbedProgress(page, 'finalizing');
+    const text = page.locator('#chunkDebugProgressText');
+    await expect(text).toHaveText(/Building results/, { timeout: 8000 });
+    await expect(text).not.toHaveText(/Analyzed \d+ of/);
+    cleanup();
+  });
+
+  test('an unlimited analysis omits the article-size aside', async ({ page }) => {
+    const cleanup = await withStubbedProgress(page, 'analyzing', {
+      total_chunks: 36,
+      article_total_chunks: 36,
+      chunk_limit_applied: false,
+    });
+    const text = page.locator('#chunkDebugProgressText');
+    await expect(text).toHaveText(/Analyzed 42 of 36 chunks\.\.\./, { timeout: 8000 });
+    await expect(text).not.toHaveText(/in article/);
+    cleanup();
+  });
+
   test('closing returns focus to whatever opened the dialog', async ({ page }) => {
     // Give the page a real opener to restore to.
     await page.evaluate(() => {
