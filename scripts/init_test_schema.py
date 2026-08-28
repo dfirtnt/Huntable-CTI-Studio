@@ -34,6 +34,28 @@ async def main():
                 apply_plan(sync_engine, plan)
         finally:
             sync_engine.dispose()
+
+        # ``create_all`` builds the unique index models.py declares on
+        # ``version``, but a sequence is not a model-level object, so a freshly
+        # bootstrapped test database has no ``agentic_workflow_config_version_seq``.
+        # Allocation then silently takes its pre-migration ``max()+1`` fallback and
+        # the concurrency tests skip instead of failing -- the race-free guarantee
+        # goes unverified on a clean checkout, which is the divergence the
+        # create-migration convention warns about. Apply it here for the same
+        # reason the execution-snapshot migration is applied above.
+        from scripts.migrate_workflow_config_version_unique import run_migration
+
+        previous_database_url = os.environ.get("DATABASE_URL")
+        os.environ["DATABASE_URL"] = db_url
+        try:
+            if not run_migration():
+                raise RuntimeError("Version-uniqueness migration failed during test bootstrap")
+        finally:
+            if previous_database_url is None:
+                os.environ.pop("DATABASE_URL", None)
+            else:
+                os.environ["DATABASE_URL"] = previous_database_url
+
         engine = create_async_engine(db_url)
         try:
             async with engine.connect() as conn:

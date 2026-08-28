@@ -3662,7 +3662,9 @@ window.switchTab = switchTab;
 (function() {
     const STORAGE_KEY = 'sigma-queue-col-widths-v1';
     const COL_IDS = ['scol-id','scol-article','scol-rule-title','scol-obs-used','scol-job-id','scol-similarity','scol-status','scol-created'];
-    const DEFAULT_W = { 'scol-id':76, 'scol-article':198, 'scol-rule-title':198, 'scol-obs-used':90, 'scol-job-id':90, 'scol-similarity':100, 'scol-status':110, 'scol-created':150 };
+    // Sums with the fixed checkbox(36)/indicator(3)/actions(210) columns to fit inside
+    // the queue table's wrap width at a 1280px viewport (tested at ~1246px available).
+    const DEFAULT_W = { 'scol-id':76, 'scol-article':188, 'scol-rule-title':188, 'scol-obs-used':90, 'scol-job-id':90, 'scol-similarity':100, 'scol-status':110, 'scol-created':150 };
     const MIN_W = 48;
 
     function lockWidths() {

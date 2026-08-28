@@ -228,7 +228,11 @@ class TestWorkflowConfig:
         version = active["version"]
         assert isinstance(version, int)
 
-        versions_resp = await async_client.get("/api/workflow/config/versions")
+        # Filter by the active version's own number rather than reading the default
+        # (unfiltered, page-1) listing: it's sorted by version desc, so a restored
+        # older version stays active while never appearing on page 1 once newer,
+        # inactive versions exist above it.
+        versions_resp = await async_client.get("/api/workflow/config/versions", params={"version": str(version)})
         assert versions_resp.status_code == 200
         versions_data = versions_resp.json()
         assert versions_data.get("success") is True

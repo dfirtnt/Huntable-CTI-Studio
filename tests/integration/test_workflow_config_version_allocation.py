@@ -112,3 +112,43 @@ class TestVersionAllocationIsRaceFree:
             session.close()
 
         assert allocated > int(highest or 0)
+
+
+class TestTestDatabaseIsMigrated:
+    """The bootstrap must produce the objects the race-free guarantee depends on.
+
+    `session_factory` skips when the sequence is absent. That is the right call for
+    an ad-hoc database, but it means a bootstrap regression costs three silent skips
+    and a green run -- the same shape as the defect these tests exist to catch, where
+    a migration that had never been applied read as success for five days. These fail
+    loudly instead, and name the step that fixes it.
+    """
+
+    def test_the_version_sequence_exists(self, engine):
+        """Without it, allocation silently reverts to the racy max()+1 fallback."""
+        with engine.connect() as conn:
+            present = conn.execute(
+                text("SELECT to_regclass(:seq)"), {"seq": _WORKFLOW_CONFIG_VERSION_SEQUENCE}
+            ).scalar()
+
+        assert present is not None, (
+            f"{_WORKFLOW_CONFIG_VERSION_SEQUENCE} is missing, so version allocation runs its "
+            "pre-migration max()+1 fallback and every concurrency test in this module skips. "
+            "scripts/init_test_schema.py applies the migration that creates it -- re-run the "
+            "test bootstrap rather than deleting this assertion."
+        )
+
+    def test_version_is_unique_so_a_collision_is_rejected(self, engine):
+        """A sequence removes the race; the unique index is what catches any that slips past."""
+        with engine.connect() as conn:
+            definitions = [
+                row[0]
+                for row in conn.execute(
+                    text("SELECT indexdef FROM pg_indexes WHERE tablename = 'agentic_workflow_config'")
+                ).fetchall()
+            ]
+
+        assert any("UNIQUE" in defn and defn.rstrip(")").endswith("(version") for defn in definitions), (
+            "agentic_workflow_config.version has no unique index, so two rows can share a "
+            f"version number again. Indexes present: {definitions}"
+        )

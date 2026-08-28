@@ -24,9 +24,11 @@ class TestDashboardFlows:
         page.goto(f"{base_url}/")
         page.wait_for_load_state("load")
 
-        # Verify dashboard loads
+        # Verify dashboard loads. The "Huntable" brand lives in the <title> and the
+        # nav-brand div, not the page h1 -- 4854fa28 demoted the nav brand from <h1>
+        # to <div> so each page carries its own page-specific h1 instead.
         expect(page).to_have_title(re.compile(r"Dashboard.*Huntable CTI Studio"))
-        expect(page.locator("h1").first).to_contain_text("Huntable")
+        expect(page.locator("h1").first).to_contain_text("Dashboard")
 
         # Test navigation to articles
         page.locator("a:has-text('Articles')").first.click()
