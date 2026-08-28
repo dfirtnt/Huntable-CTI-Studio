@@ -889,7 +889,7 @@
                     </div>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
                         Required for creating PRs. Token needs <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">repo</code> scope.
-                        <a href="https://github.com/settings/tokens" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">Create token →</a>
+                        <a href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 hover:underline">Create token →</a>
                     </p>
                 </div>
 
@@ -1590,6 +1590,116 @@
     // This copy was the reference for the shared version -- it is the only
     // one of the seven that escaped quotes.
 
+    // ── Cron preview / client-side validation ──
+    // Preview-only: mirrors the shape of validation the server (validate_cron_expression)
+    // performs, but is not authoritative -- the server remains the source of truth.
+    const CRON_DOW_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+    function parseCronField(field, min, max) {
+        if (field === '*') return { valid: true, test: () => true };
+        const checks = [];
+        for (const part of field.split(',')) {
+            let m;
+            if (/^\d+$/.test(part)) {
+                const v = parseInt(part, 10);
+                if (v < min || v > max) return { valid: false };
+                checks.push(v);
+            } else if ((m = /^(\d+)-(\d+)$/.exec(part))) {
+                const a = parseInt(m[1], 10), b = parseInt(m[2], 10);
+                if (a < min || b > max || a > b) return { valid: false };
+                checks.push([a, b]);
+            } else if ((m = /^\*\/(\d+)$/.exec(part))) {
+                const step = parseInt(m[1], 10);
+                if (step <= 0) return { valid: false };
+                checks.push({ step });
+            } else {
+                return { valid: false };
+            }
+        }
+        return {
+            valid: true,
+            test: (x) => checks.some((c) => {
+                if (typeof c === 'number') return x === c;
+                if (Array.isArray(c)) return x >= c[0] && x <= c[1];
+                return x % c.step === 0;
+            })
+        };
+    }
+
+    function parseCronExpression(cron) {
+        const parts = (cron || '').trim().split(/\s+/);
+        if (parts.length !== 5) return null;
+        const [minF, hourF, domF, monF, dowF] = parts;
+        const fields = [
+            parseCronField(minF, 0, 59),
+            parseCronField(hourF, 0, 23),
+            parseCronField(domF, 1, 31),
+            parseCronField(monF, 1, 12),
+            parseCronField(dowF, 0, 6)
+        ];
+        if (fields.some((f) => !f.valid)) return null;
+        return { minF, hourF, domF, monF, dowF, test: fields };
+    }
+
+    function cronToEnglish(cron) {
+        const parsed = parseCronExpression(cron);
+        if (!parsed) return null;
+        const { minF, hourF, domF, monF, dowF } = parsed;
+        const time = (/^\d+$/.test(hourF) && /^\d+$/.test(minF))
+            ? `${hourF.padStart(2, '0')}:${minF.padStart(2, '0')}`
+            : null;
+        if (!time) return 'Custom schedule';
+        if (domF === '*' && monF === '*' && dowF === '*') return `Daily at ${time} UTC`;
+        if (domF === '*' && monF === '*' && /^\d$/.test(dowF)) return `Weekly on ${CRON_DOW_NAMES[parseInt(dowF, 10)]} at ${time} UTC`;
+        if (/^\d+$/.test(domF) && monF === '*' && dowF === '*') return `Monthly on day ${domF} at ${time} UTC`;
+        return 'Custom schedule';
+    }
+
+    function nextCronRun(cron, fromDate) {
+        const parsed = parseCronExpression(cron);
+        if (!parsed) return null;
+        const [minTest, hourTest, domTest, monTest, dowTest] = parsed.test;
+        let d = new Date(Date.UTC(
+            fromDate.getUTCFullYear(), fromDate.getUTCMonth(), fromDate.getUTCDate(),
+            fromDate.getUTCHours(), fromDate.getUTCMinutes() + 1, 0, 0
+        ));
+        const maxMinutes = 366 * 24 * 60;
+        for (let i = 0; i < maxMinutes; i++) {
+            if (minTest.test(d.getUTCMinutes()) && hourTest.test(d.getUTCHours())
+                && domTest.test(d.getUTCDate()) && monTest.test(d.getUTCMonth() + 1)
+                && dowTest.test(d.getUTCDay())) {
+                return d;
+            }
+            d = new Date(d.getTime() + 60000);
+        }
+        return null;
+    }
+
+    function cronPreviewHtml(cron) {
+        const english = cronToEnglish(cron);
+        if (!english) return '<span class="text-red-400">Invalid cron expression -- expected 5 space-separated fields.</span>';
+        const next = nextCronRun(cron, new Date());
+        const nextText = next ? `Next run: ${next.toISOString().slice(0, 16).replace('T', ' ')} UTC` : 'Next run: unable to compute';
+        return `${escapeHtml(english)} <span class="text-gray-500">&middot;</span> <span class="text-gray-400">${nextText}</span>`;
+    }
+
+    function scheduledJobLabel(jobId) {
+        const label = document.querySelector(`[data-scheduled-job-id="${jobId}"] label`);
+        return label ? label.textContent.trim() : jobId;
+    }
+
+    function clearScheduledJobFieldErrors() {
+        document.querySelectorAll('[data-cron-error]').forEach((el) => { el.classList.add('hidden'); el.textContent = ''; });
+        document.querySelectorAll('[data-scheduled-job-cron]').forEach((el) => { el.classList.remove('border-red-500'); el.removeAttribute('aria-invalid'); });
+    }
+
+    function showScheduledJobFieldError(jobId, message) {
+        const input = document.querySelector(`[data-scheduled-job-cron="${jobId}"]`);
+        const errorBox = document.getElementById(`scheduled-job-error-${jobId}`);
+        if (input) { input.classList.add('border-red-500'); input.setAttribute('aria-invalid', 'true'); }
+        if (errorBox) { errorBox.textContent = message; errorBox.classList.remove('hidden'); }
+    }
+
     function renderScheduledJobs(state) {
         const jobs = state.jobs || [];
         const enabledCount = jobs.filter(function(job) { return job.enabled; }).length;
@@ -1624,36 +1734,38 @@
         list.innerHTML = jobs.map(function(job) {
             return `
                 <div class="rounded-lg border border-gray-700 bg-gray-900/60 p-4" data-scheduled-job-id="${escapeHtml(job.id)}">
-                    <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                        <div class="space-y-2">
-                            <div class="flex items-center gap-3">
-                                <input type="checkbox"
-                                       id="scheduled-job-enabled-${escapeHtml(job.id)}"
-                                       ${job.enabled ? 'checked' : ''}
-                                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                                <label for="scheduled-job-enabled-${escapeHtml(job.id)}" class="text-sm font-medium text-gray-100">
-                                    ${escapeHtml(job.label)}
-                                </label>
-                            </div>
-                            <div class="text-sm text-gray-400">${escapeHtml(job.description)}</div>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-gray-500">
-                                <div>Task: <span class="font-mono text-gray-300">${escapeHtml(job.task_name)}</span></div>
-                                <div>Queue: <span class="font-mono text-gray-300">${escapeHtml(job.queue)}</span></div>
-                                <div>Registered name: <span class="font-mono text-gray-300">${escapeHtml(job.registered_name)}</span></div>
-                                <div>Default cron: <span class="font-mono text-gray-300">${escapeHtml(job.default_cron)}</span></div>
-                            </div>
-                        </div>
-                        <div class="w-full max-w-sm">
-                            <label for="scheduled-job-cron-${escapeHtml(job.id)}" class="block text-sm font-medium text-gray-300 mb-2">
-                                Cron Schedule (${escapeHtml(job.timezone || state.timezone || 'UTC')})
-                            </label>
-                            <input type="text"
-                                   id="scheduled-job-cron-${escapeHtml(job.id)}"
-                                   value="${escapeHtml(job.cron)}"
-                                   class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 font-mono text-sm text-gray-50 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                                   placeholder="0 2 * * *">
-                        </div>
+                    <div class="flex items-center gap-3">
+                        <input type="checkbox"
+                               id="scheduled-job-enabled-${escapeHtml(job.id)}"
+                               ${job.enabled ? 'checked' : ''}
+                               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="scheduled-job-enabled-${escapeHtml(job.id)}" class="text-sm font-medium text-gray-100">
+                            ${escapeHtml(job.label)}
+                        </label>
                     </div>
+                    <div class="text-sm text-gray-400 mt-1 mb-3">${escapeHtml(job.description)}</div>
+
+                    <label for="scheduled-job-cron-${escapeHtml(job.id)}" class="block text-base font-semibold text-gray-100 mb-1">
+                        Cron Schedule (${escapeHtml(job.timezone || state.timezone || 'UTC')})
+                    </label>
+                    <input type="text"
+                           id="scheduled-job-cron-${escapeHtml(job.id)}"
+                           value="${escapeHtml(job.cron)}"
+                           class="w-full max-w-sm bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 font-mono text-sm text-gray-50 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                           placeholder="0 2 * * *"
+                           data-scheduled-job-cron="${escapeHtml(job.id)}">
+                    <div id="scheduled-job-preview-${escapeHtml(job.id)}" class="mt-1.5 text-xs" data-cron-preview="${escapeHtml(job.id)}">${cronPreviewHtml(job.cron)}</div>
+                    <div id="scheduled-job-error-${escapeHtml(job.id)}" class="hidden mt-2 rounded-lg border border-red-700 bg-red-900/30 px-3 py-2 text-xs text-red-200" data-cron-error="${escapeHtml(job.id)}"></div>
+
+                    <details class="mt-3">
+                        <summary class="cursor-pointer text-xs text-gray-500 hover:text-gray-400 select-none">Implementation details</summary>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-gray-500 mt-2">
+                            <div>Task: <span class="font-mono text-gray-400">${escapeHtml(job.task_name)}</span></div>
+                            <div>Queue: <span class="font-mono text-gray-400">${escapeHtml(job.queue)}</span></div>
+                            <div>Registered name: <span class="font-mono text-gray-400">${escapeHtml(job.registered_name)}</span></div>
+                            <div>Default cron: <span class="font-mono text-gray-400">${escapeHtml(job.default_cron)}</span></div>
+                        </div>
+                    </details>
                 </div>
             `;
         }).join('');
@@ -1682,24 +1794,45 @@
     }
 
     async function saveScheduledJobs({ silent = false } = {}) {
+        clearScheduledJobFieldErrors();
         try {
+            const payload = collectScheduledJobsPayload();
+
+            // Validate client-side before the round-trip -- an obviously malformed
+            // cron never needs to touch the network (still atomic: nothing persists).
+            for (const [jobId, jobPayload] of Object.entries(payload)) {
+                if (!parseCronExpression(jobPayload.cron)) {
+                    const message = `Invalid cron expression '${jobPayload.cron}' -- expected 5 space-separated fields.`;
+                    showScheduledJobFieldError(jobId, message);
+                    throw new Error(`${scheduledJobLabel(jobId)}: ${message}`);
+                }
+            }
+
             const response = await fetch('/api/scheduled-jobs', {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ jobs: collectScheduledJobsPayload() })
+                body: JSON.stringify({ jobs: payload })
             });
 
             if (!response.ok) {
-                let detail = `HTTP ${response.status}`;
+                let message = `HTTP ${response.status}`;
+                let jobId = null;
                 try {
                     const errorBody = await response.json();
-                    detail = errorBody.detail || detail;
+                    const detail = errorBody.detail;
+                    if (detail && typeof detail === 'object' && !Array.isArray(detail)) {
+                        message = detail.message || message;
+                        jobId = detail.job_id || null;
+                    } else if (typeof detail === 'string') {
+                        message = detail;
+                    }
                 } catch (error) {
                     console.warn('Failed to parse scheduled jobs error payload', error);
                 }
-                throw new Error(detail);
+                if (jobId) showScheduledJobFieldError(jobId, message);
+                throw new Error(jobId ? `${scheduledJobLabel(jobId)}: ${message}` : message);
             }
 
             const state = await response.json();
@@ -2699,6 +2832,13 @@
             loadScheduledJobs().catch(function(error) {
                 showNotification(`Failed to refresh scheduled jobs: ${error.message}`, 'error');
             });
+        });
+        // Delegated so it keeps working across renderScheduledJobs() re-renders.
+        safeAddListener('scheduledJobsList', 'input', function(e) {
+            const jobId = e.target.getAttribute && e.target.getAttribute('data-scheduled-job-cron');
+            if (!jobId) return;
+            const preview = document.getElementById(`scheduled-job-preview-${jobId}`);
+            if (preview) preview.innerHTML = cronPreviewHtml(e.target.value);
         });
         safeAddListener('refreshBackupCronBtn', 'click', function() {
             loadCronState().catch(function(error) {

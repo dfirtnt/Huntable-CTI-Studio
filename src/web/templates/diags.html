@@ -109,6 +109,8 @@
 .diag-status-error { color:var(--action-danger); }
 .diag-status-info { color:var(--action-info); }
 .diag-muted { color:var(--text-muted-slate); }
+.diag-checked-at { opacity:0.75; }
+.diag-checked-at.stale { color:var(--action-warning,#eab308); opacity:1; }
 
 /* Collapsible panel (global initCollapsiblePanels convention) */
 .diag-collapsible-header {
@@ -186,7 +188,7 @@
             <input type="checkbox" id="autoRefresh" class="diag-checkbox rounded border-[var(--border-muted)]" checked>
             <span>Auto-refresh (5s)</span>
         </label>
-        <span class="last-updated">Last updated: <span id="lastUpdated">Never</span></span>
+        <span class="last-updated" title="Covers Worker Status, Queue Status, Active Tasks and Job History only -- health cards below have their own checked-at timestamp">Job data last updated: <span id="lastUpdated">Never</span></span>
     </div>
 
     <!-- Section label -->
@@ -199,7 +201,7 @@
         <!-- System Health -->
         <div class="diag-card health-neutral" id="cardSystemHealth">
             <h2 class="diag-card-title">System Health</h2>
-            <p class="diag-card-meta">Overall status · last check</p>
+            <p class="diag-card-meta">Overall status · last check <span class="diag-checked-at" id="overallHealthCheckedAt"></span></p>
             <div id="overallHealthStatus" class="diag-muted text-sm" aria-live="polite">
                 Click "Run All Health Checks" to get system status
             </div>
@@ -220,7 +222,7 @@
         <!-- Database Health -->
         <div class="diag-card health-neutral" id="cardDatabase">
             <h2 class="diag-card-title">Database Health</h2>
-            <p class="diag-card-meta">Connection · integrity</p>
+            <p class="diag-card-meta">Connection · integrity <span class="diag-checked-at" id="databaseHealthCheckedAt"></span></p>
             <div id="databaseHealthContent" class="diag-muted text-sm" aria-live="polite">
                 Click "Run All Health Checks" to check database status
             </div>
@@ -229,7 +231,7 @@
         <!-- External Services -->
         <div class="diag-card health-neutral" id="cardServices">
             <h2 class="diag-card-title">External Services</h2>
-            <p class="diag-card-meta">Redis · LMStudio · Langfuse</p>
+            <p class="diag-card-meta">Redis · LMStudio · Langfuse <span class="diag-checked-at" id="servicesHealthCheckedAt"></span></p>
             <div id="servicesHealthContent" class="diag-muted text-sm" aria-live="polite">
                 Click "Run All Health Checks" to check external services
             </div>
@@ -264,7 +266,7 @@
         <!-- Deduplication -->
         <div class="diag-card health-neutral" id="cardDedup">
             <h2 class="diag-card-title">Deduplication System</h2>
-            <p class="diag-card-meta">Exact · near-duplicates</p>
+            <p class="diag-card-meta">Exact · near-duplicates <span class="diag-checked-at" id="deduplicationHealthCheckedAt"></span></p>
             <div id="deduplicationHealthContent" class="diag-muted text-sm" aria-live="polite">
                 Click "Run All Health Checks" to check deduplication status
             </div>
@@ -273,7 +275,7 @@
         <!-- Celery Workers -->
         <div class="diag-card health-neutral" id="cardCelery">
             <h2 class="diag-card-title">Celery Workers</h2>
-            <p class="diag-card-meta">Broker · result backend</p>
+            <p class="diag-card-meta">Broker · result backend <span class="diag-checked-at" id="celeryHealthCheckedAt"></span></p>
             <div id="celeryHealthContent" class="diag-muted text-sm" aria-live="polite">
                 Click "Run All Health Checks" to check background task processing
             </div>
@@ -285,7 +287,7 @@
         <div class="diag-collapsible-header" data-collapsible-panel="job-history">
             <div>
                 <h2 class="diag-card-title" style="margin-bottom:0.15rem;">Recent Job History</h2>
-                <p class="diag-card-meta" style="margin-bottom:0;">Completed tasks with inferred worker/queue assignment</p>
+                <p class="diag-card-meta" style="margin-bottom:0;">Completed tasks with worker/queue from Celery's routing config</p>
             </div>
             <span id="job-history-toggle" class="chevron">▼</span>
         </div>
@@ -300,7 +302,7 @@
 </div>
 
 <!-- Loading Overlay -->
-<div id="loadingOverlay" role="dialog" aria-modal="true" aria-label="Loading" class="fixed inset-0 diag-overlay backdrop-blur-sm overflow-y-auto h-full w-full z-50 hidden flex items-center justify-center">
+<div id="loadingOverlay" role="dialog" aria-modal="true" aria-label="Loading" tabindex="-1" class="fixed inset-0 diag-overlay backdrop-blur-sm overflow-y-auto h-full w-full z-50 hidden flex items-center justify-center">
     <div class="rounded-xl p-6 max-w-md w-full mx-4" style="background:var(--mlops-card-bg); border:1px solid var(--mlops-card-border);">
         <div class="mt-3 text-center">
             <div class="diag-spinner-bg mx-auto flex items-center justify-center h-12 w-12 rounded-full">
@@ -331,11 +333,15 @@ document.addEventListener('DOMContentLoaded', function() {
     const jobHistoryContent = document.getElementById('job-history-content');
 
     if (workerStatus && queueStatus && activeTasks && jobHistoryContent) {
+        const autoRefreshEl = document.getElementById('autoRefresh');
         const storedPref = localStorage.getItem(AUTO_REFRESH_STORAGE_KEY);
         if (storedPref !== null) {
+            // Prior preference wins; sync the checkbox to match it.
             isAutoRefresh = storedPref === 'true';
-            const autoRefreshEl = document.getElementById('autoRefresh');
             if (autoRefreshEl) autoRefreshEl.checked = isAutoRefresh;
+        } else if (autoRefreshEl) {
+            // No stored preference yet -- the checkbox's own state is the source of truth.
+            isAutoRefresh = autoRefreshEl.checked;
         }
         loadJobData();
         setupAutoRefresh();
@@ -345,6 +351,15 @@ document.addEventListener('DOMContentLoaded', function() {
         showError('Failed to initialize diagnostics - missing DOM elements');
     }
 });
+
+// #loadingOverlay has no focusable descendants (spinner + status text only), so
+// trapping Tab means keeping focus pinned on the overlay itself rather than letting
+// it escape to the page behind -- consistent with aria-modal="true" on the element.
+function trapLoadingOverlayTab(e) {
+    if (e.key === 'Tab') {
+        e.preventDefault();
+    }
+}
 
 function setupEventListeners() {
     const autoRefreshEl = document.getElementById('autoRefresh');
@@ -363,8 +378,12 @@ function setupEventListeners() {
     if (runAllHealthBtn) {
         runAllHealthBtn.addEventListener('click', async () => {
             runAllHealthBtn.disabled = true;
+            runAllHealthBtn.setAttribute('aria-busy', 'true');
+            const overlay = document.getElementById('loadingOverlay');
             document.getElementById('loadingMessage').textContent = 'Running all health checks...';
-            document.getElementById('loadingOverlay').classList.remove('hidden');
+            overlay.classList.remove('hidden');
+            overlay.focus();
+            document.addEventListener('keydown', trapLoadingOverlayTab);
             try {
                 await updateOverallHealthStatus(true);
                 await updateDatabaseHealth(true);
@@ -372,8 +391,11 @@ function setupEventListeners() {
                 await updateServicesHealth(true);
                 await updateCeleryHealth(true);
             } finally {
-                document.getElementById('loadingOverlay').classList.add('hidden');
+                overlay.classList.add('hidden');
+                document.removeEventListener('keydown', trapLoadingOverlayTab);
                 runAllHealthBtn.disabled = false;
+                runAllHealthBtn.removeAttribute('aria-busy');
+                runAllHealthBtn.focus();
             }
         });
     }
@@ -438,6 +460,7 @@ async function loadJobData() {
 
         const lastUpdatedEl = document.getElementById('lastUpdated');
         if (lastUpdatedEl) lastUpdatedEl.textContent = new Date().toLocaleTimeString();
+        refreshHealthCheckedAtDisplays();
     } catch (error) {
         console.error('Failed to load job data:', error);
         showError('Failed to load job data: ' + error.message);
@@ -501,7 +524,11 @@ function updateQueueStatus(data) {
             qs.forEach(q => {
                 const name = typeof q === 'string' ? q : (q?.name || String(q));
                 if (!queueToWorkers[name]) queueToWorkers[name] = [];
-                queueToWorkers[name].push(worker.includes('workflow') ? 'Workflow' : 'General');
+                // Attribute by queue name, not the worker's node name (a
+                // container hostname like celery@97d27e2f4e80 never contains
+                // "workflow") -- matches the rule updateWorkerStatus already
+                // uses, so the two cards can't disagree on the same queue.
+                queueToWorkers[name].push(name === 'workflows' ? 'Workflow' : 'General');
             });
         });
     }
@@ -574,26 +601,22 @@ function updateJobHistory(data) {
         container.innerHTML = '<div class="diag-muted text-center py-6 text-sm">No recent tasks</div>';
         return;
     }
-    function getTaskQueueInfo(taskName) {
-        if (!taskName) return { queue: 'unknown', workerType: 'General' };
-        const t = String(taskName).toLowerCase();
-        if (t.includes('workflow')) return { queue: 'workflows', workerType: 'Workflow' };
-        if (t.includes('check_all_sources') || t.includes('check_source')) return { queue: 'source_checks', workerType: 'General' };
-        if (t.includes('collect_from_source')) return { queue: 'collection', workerType: 'General' };
-        if (t.includes('cleanup') || t.includes('maintenance')) return { queue: 'maintenance', workerType: 'General' };
-        return { queue: 'default', workerType: 'General' };
-    }
     let html = '';
     tasks.forEach(task => {
         const statusColor = task.status === 'SUCCESS' ? 'diag-status-success' : task.status === 'FAILURE' ? 'diag-status-error' : 'diag-status-warning';
         const statusIcon = task.status === 'SUCCESS' ? '✓' : task.status === 'FAILURE' ? '✗' : '◐';
         const dateDone = task.date_done ? new Date(task.date_done).toLocaleString() : 'N/A';
-        const queueInfo = getTaskQueueInfo(task.result?.task_name || task.task_id);
+        // queue/worker_type come from the server (celeryconfig.task_routes),
+        // not a guess against the task UUID -- "unknown" when the real task
+        // name isn't recoverable for this row (see api_jobs_history).
+        const attribution = task.task_name
+            ? `${escapeHtml(task.worker_type)} · ${escapeHtml(task.queue)}`
+            : 'unknown';
         html += `<div class="diag-inner-panel flex items-center justify-between">
             <div>
                 <div class="font-mono text-xs" style="color:var(--text-primary);">${task.task_id?.substring(0, 8) || ' -- '}...</div>
                 <div class="text-xs diag-muted">${dateDone}</div>
-                <div class="text-xs diag-muted mt-0.5">${queueInfo.workerType} · ${queueInfo.queue}</div>
+                <div class="text-xs diag-muted mt-0.5" title="${task.task_name ? escapeHtml(task.task_name) : 'Task name not recoverable for this row'}">${attribution}</div>
             </div>
             <div class="text-right">
                 <div class="text-sm ${statusColor}">${statusIcon} ${escapeHtml(task.status)}</div>
@@ -630,9 +653,42 @@ async function runHealthCheck(endpoint, loadingMessage, suppressOverlay) {
 }
 
 // formatTimestamp now lives in /static/js/utils.js (loaded from base.html).
-function getHealthIcon(s) { return s === 'healthy' ? '✓' : s === 'unhealthy' || s === 'error' ? '✗' : s === 'not_configured' ? '○' : '?'; }
-function getHealthColor(s) { return s === 'healthy' ? 'diag-status-success' : s === 'unhealthy' || s === 'error' ? 'diag-status-error' : 'diag-muted'; }
+function getHealthIcon(s) {
+    if (s === 'healthy' || s === 'ok') return '✓';
+    if (s === 'unhealthy' || s === 'error' || s === 'missing') return '✗';
+    if (s === 'not_configured' || s === 'not_applicable') return '○';
+    return '?';
+}
+function getHealthColor(s) {
+    if (s === 'healthy' || s === 'ok') return 'diag-status-success';
+    if (s === 'unhealthy' || s === 'error' || s === 'missing') return 'diag-status-error';
+    return 'diag-muted';
+}
 // escapeHtml now lives in /static/js/utils.js (loaded from base.html).
+
+// ── Health card freshness ──
+// Health cards are only revalidated by "Run All Health Checks", not by the 5s
+// job-data auto-refresh, so each one tracks and displays its own checked-at time
+// rather than borrowing freshness from the unrelated toolbar clock.
+const HEALTH_STALE_MS = 5 * 60 * 1000;
+const healthCheckedAt = {};
+function renderHealthCheckedAt(prefix) {
+    const el = document.getElementById(`${prefix}CheckedAt`);
+    const at = healthCheckedAt[prefix];
+    if (!el || !at) return;
+    const stale = (Date.now() - at.getTime()) > HEALTH_STALE_MS;
+    el.textContent = `(checked ${at.toLocaleTimeString()})`;
+    el.classList.toggle('stale', stale);
+}
+function markHealthChecked(prefix) {
+    healthCheckedAt[prefix] = new Date();
+    renderHealthCheckedAt(prefix);
+}
+// Re-render checked-at labels (no new requests) so staleness updates live while
+// job-data auto-refresh ticks.
+function refreshHealthCheckedAtDisplays() {
+    Object.keys(healthCheckedAt).forEach(renderHealthCheckedAt);
+}
 
 async function updateOverallHealthStatus(suppressOverlay) {
     const data = await runHealthCheck('', 'Checking overall system status...', suppressOverlay);
@@ -659,6 +715,7 @@ async function updateOverallHealthStatus(suppressOverlay) {
             </div>
         </div>
     </div>${data.error ? `<div class="mt-3 diag-inner-panel diag-status-error text-sm">${escapeHtml(data.error)}</div>` : ''}`;
+    markHealthChecked('overallHealth');
 }
 
 async function updateDatabaseHealth(suppressOverlay) {
@@ -685,6 +742,7 @@ async function updateDatabaseHealth(suppressOverlay) {
         errDiv.textContent = '\u2717 ' + (data.error || 'Unknown error');
         content.appendChild(errDiv);
     }
+    markHealthChecked('databaseHealth');
 }
 
 async function updateDeduplicationHealth(suppressOverlay) {
@@ -703,6 +761,7 @@ async function updateDeduplicationHealth(suppressOverlay) {
     } else {
         content.innerHTML = `<div class="diag-inner-panel diag-status-error">✗ ${escapeHtml(data.error || 'Unknown error')}</div>`;
     }
+    markHealthChecked('deduplicationHealth');
 }
 
 async function updateServicesHealth(suppressOverlay) {
@@ -710,7 +769,11 @@ async function updateServicesHealth(suppressOverlay) {
     const content = document.getElementById('servicesHealthContent');
     const card = document.getElementById('cardServices');
     if (card) card.className = 'diag-card ' + (data.status === 'healthy' ? 'health-ok' : 'health-bad');
-    if (data.status === 'healthy' && data.services) {
+    // Show the per-service breakdown whenever it exists, even when the overall
+    // roll-up is "unhealthy" -- that's exactly when the detail (which service,
+    // which status) matters most. Only the route-level catastrophic-failure
+    // path omits `services` entirely, and that still falls through below.
+    if (data.services) {
         content.innerHTML = Object.entries(data.services).map(([name, svc]) => {
             const ok = svc.status === 'healthy';
             let extra = '';
@@ -732,6 +795,7 @@ async function updateServicesHealth(suppressOverlay) {
         errDiv.textContent = '\u2717 ' + (data.error || 'Unknown error');
         content.appendChild(errDiv);
     }
+    markHealthChecked('servicesHealth');
 }
 
 async function updateCeleryHealth(suppressOverlay) {
@@ -756,6 +820,7 @@ async function updateCeleryHealth(suppressOverlay) {
         errDiv.textContent = '\u2717 ' + (data.error || 'Unknown error');
         content.appendChild(errDiv);
     }
+    markHealthChecked('celeryHealth');
 }
 
 function showError(message) {

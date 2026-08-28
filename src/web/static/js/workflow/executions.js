@@ -54,6 +54,8 @@ function describeTermination(reason, details) {
 
 function getStepBadge(step) {
     const steps = {
+        'os_detection': '🖥️ OS Detection',
+        'context_length_check': '📏 Context Length Check',
         'junk_filter': '🔍 Filter',
         'rank_article': '📊 Rank',
         'extract_agent': '🔬 Extract',
@@ -61,7 +63,8 @@ function getStepBadge(step) {
         'similarity_search': '🔎 Similarity',
         'promote_to_queue': '📥 Queue'
     };
-    return steps[step] || step || '-';
+    if (step === undefined || step === null || step === '') return '(unset)';
+    return steps[step] || step;
 }
 
 function formatLocalDateTime(timestamp) {

@@ -1,6 +1,16 @@
 # Huntable CTI Studio
 <img width="952" height="64" alt="image" src="https://github.com/user-attachments/assets/4b29bc70-b518-4559-af0c-caf23b86000d" />
 
+**Reports to Rules... in Record time.** Huntable CTI Studio is an AI-assisted workbench for detection engineers and threat hunters. It ingests open-source threat intelligence from RSS feeds and web scraping, extracts platform-aware observables (command lines, process trees, registry keys, services, scheduled tasks, network indicators, hunt queries) across Windows, Linux, and macOS, and turns them into Sigma rules you can validate, review, and ship.
+
+## Who Is This For?
+
+| Role | What you get |
+|------|--------------|
+| **Detection Engineers** | Auto-generated Sigma rules from CTI articles, validated and de-duplicated against SigmaHQ |
+| **Threat Hunters** | Extracted command-lines, process trees, and hunt queries ready for triage |
+| **SOC Analysts** | Curated, scored intelligence feed with semantic search via MCP |
+| **Contributors and agents** | A Docker-first stack with explicit workflow, config, and persistence contracts |
 
 ## ** SECURITY WARNING **
 !! The DEFAULT mode is UNAUTHENTICATED (`AUTH_MODE=disabled`) -- intended for research, learning, and automation on a trusted/local network. DO NOT expose the default mode to a hostile network.
@@ -19,7 +29,7 @@ Aggregates cybersecurity threat intelligence from RSS feeds and web scraping; us
 ## Architecture
 
 - **8 default services**: PostgreSQL (pgvector), Redis, FastAPI web app, maintenance runtime, Celery workers (default + workflow), scheduler, and a one-shot Codex auth initializer
-- **LangGraph**: Orchestrates the 7-step agentic workflow as a linear pipeline with conditional early-exit gates (state machine, checkpointing)
+- **LangGraph**: Orchestrates the 7-step agentic workflow as a linear pipeline with conditional early-exit gates; execution state is persisted to dedicated Postgres tables
 - **Database-backed workflows**: Articles, workflow executions, Sigma rules, presets, settings, evals, and supporting metadata
 - **Source healing**: operator-invoked Claude Code skill diagnoses failing sources (RSS inspection, sitemap discovery, JS-rendering detection, WP JSON API probing) and proposes a config fix for approval — never auto-applies, never runs on a schedule
 - **Multi-model AI**: OpenAI and Anthropic, an optional local LM Studio provider, and an optional subscription-backed Codex provider for workflows

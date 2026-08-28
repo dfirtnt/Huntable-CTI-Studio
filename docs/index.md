@@ -4,7 +4,7 @@
 
 Huntable CTI Studio is an AI-assisted workbench for detection engineers and threat hunters. It ingests open-source threat intelligence from RSS feeds and web scraping, extracts platform-aware observables (command lines, process trees, registry keys, services, scheduled tasks, network indicators, hunt queries) across Windows, Linux, and macOS, and turns them into Sigma rules you can validate, review, and ship.
 
-With full transparency, each article moves through an explicit LangGraph pipeline, execution state is checkpointed in PostgreSQL, configuration is versioned through presets, and novelty is enforced by similarity search against 3,000+ community Sigma rules. Bring your own model using OpenAI or Anthropic; LM Studio is available as an optional local LLM provider, and Codex can use a deployment-managed ChatGPT subscription for workflow inference.
+With full transparency, each article moves through an explicit LangGraph pipeline, execution state is persisted in PostgreSQL, configuration is versioned through presets, and novelty is enforced by similarity search against 3,000+ community Sigma rules. Bring your own model using OpenAI or Anthropic; LM Studio is available as an optional local LLM provider, and Codex can use a deployment-managed ChatGPT subscription for workflow inference.
 
 ## Who Is This For?
 

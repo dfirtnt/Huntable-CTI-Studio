@@ -436,7 +436,7 @@
 
                         <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 text-xs" style="color: var(--color-text-muted);">
                             {% if article.canonical_url %}
-                            <a href="{{ article.canonical_url }}" target="_blank" rel="noopener"
+                            <a href="{{ article.canonical_url }}" target="_blank" rel="noopener noreferrer"
                                class="article-row__raised hover:underline" style="color: var(--color-info);">{{ source_name }}</a>
                             {% else %}
                             <span>{{ source_name }}</span>
@@ -1027,6 +1027,32 @@
         }
     });
     
+    // Copy text to clipboard, falling back to execCommand where the async
+    // Clipboard API is unavailable (e.g. non-secure contexts like a plain
+    // http:// LAN address instead of localhost or https).
+    async function copyTextToClipboard(text) {
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(text);
+            return;
+        }
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        let succeeded = false;
+        try {
+            succeeded = document.execCommand('copy');
+        } finally {
+            document.body.removeChild(textarea);
+        }
+        if (!succeeded) {
+            throw new Error('Clipboard access is unavailable in this browser context (requires HTTPS or localhost).');
+        }
+    }
+
     // Copy article content to clipboard
     async function copyArticleContent(articleId) {
         try {
@@ -1034,20 +1060,20 @@
             if (!response.ok) {
                 throw new Error('Failed to fetch article');
             }
-            
+
             const article = await response.json();
             const contentToCopy = article.content || '';
-            
+
             if (!contentToCopy) {
                 showNotification('Article has no content to copy', 'error');
                 return;
             }
-            
-            await navigator.clipboard.writeText(contentToCopy);
+
+            await copyTextToClipboard(contentToCopy);
             showNotification('Article content copied to clipboard!', 'success');
         } catch (error) {
             console.error('Error copying article content:', error);
-            showNotification('Failed to copy article content', 'error');
+            showNotification(error.message || 'Failed to copy article content', 'error');
         }
     }
 </script>

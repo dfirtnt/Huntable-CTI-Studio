@@ -471,7 +471,14 @@ class TestCriticalAPIs:
             "missing",
             "error",
             "not_configured",
+            "not_applicable",
         ), f"unexpected tesseract status: {services['tesseract']['status']}"
+        # "not_applicable" is the web process's own by-design absence of the
+        # optional pytesseract package -- it must never carry a raw exception
+        # string, unlike a genuine "missing"/"error" on a process that expects OCR.
+        if services["tesseract"]["status"] == "not_applicable":
+            message = services["tesseract"].get("message", "")
+            assert "Error" not in message and "Traceback" not in message
 
     @pytest.mark.api
     @pytest.mark.smoke

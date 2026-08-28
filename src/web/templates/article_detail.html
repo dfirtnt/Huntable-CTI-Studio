@@ -374,7 +374,7 @@
                         <span class="mr-2"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h13.5"/></svg></span>
                         <span>Source: 
                             {% if article.canonical_url %}
-                                <a href="{{ article.canonical_url }}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline">
+                                <a href="{{ article.canonical_url }}" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline">
                                     {{ source.name if source else article.source_id }}
                                 </a>
                             {% else %}
@@ -425,7 +425,7 @@
 
                 <div class="mb-4 flex flex-wrap items-center gap-3">
                     {% if article.canonical_url %}
-                    <a href="{{ article.canonical_url }}" target="_blank"
+                    <a href="{{ article.canonical_url }}" target="_blank" rel="noopener noreferrer"
                        class="inline-flex items-center px-4 py-2 border border-gray-600 hover:bg-gray-800 text-gray-300 text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
                         <span class="mr-2"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/></svg></span>
                         View Original Source
@@ -1890,18 +1890,12 @@ Please provide a detailed analysis based on the article content and the user's s
             if (this.annotationMode === OBSERVABLE_MODE && this.contentElement === this.plainContentElement) {
                 return;
             }
-            console.log(`Attempting to add ${classification} classification for: "${text.substring(0, 100)}..."`);
-            console.log(`Text length: ${text.length}, Start: ${start}, End: ${end}`);
-            
             // Always use position-based highlighting to avoid text duplication issues
             // The text-based replacement was causing duplication when the same text appeared multiple times
-            console.log('Using position-based highlighting to prevent text duplication');
             this.highlightTextAtPosition(start, end, classification, text);
         }
-        
+
         highlightTextAtPosition(start, end, classification, text) {
-            console.log('Using position-based highlighting:', { start, end, textLength: text.length });
-            
             // Create a range to select the text at the exact position
             const range = document.createRange();
             const walker = document.createTreeWalker(
@@ -1952,8 +1946,6 @@ Please provide a detailed analysis based on the article content and the user's s
                     const selectedFragment = range.extractContents();
                     highlightSpan.appendChild(selectedFragment);
                     range.insertNode(highlightSpan);
-                    
-                    console.log('Position-based highlighting successful');
                     
                     // Save state for undo
                     this.saveState();
@@ -4370,8 +4362,6 @@ modal.setAttribute('aria-modal', 'true');
                 }
             }
         }
-        
-        console.log('📱 iPhone touch support added');
         
         // Add iPhone instructions
         addiPhoneInstructions();
@@ -8127,14 +8117,9 @@ ${JSON.stringify(rule.logsource, null, 2)}
         localStorage.removeItem('pendingCompletions');
     }
     // Handle URL fragments to auto-open results
-    console.log('Setting up URL fragment handler...');
-    
     function processUrlHash() {
-        console.log('Processing URL hash...');
-        
         const hash = window.location.hash.substring(1); // Remove the #
-        console.log('URL hash:', hash);
-        
+
         if (hash === 'sigma') {
             console.log('Processing sigma hash...');
             
@@ -8294,7 +8279,6 @@ ${JSON.stringify(rule.logsource, null, 2)}
     
     // Set up event listeners for URL hash changes
     window.addEventListener('load', function() {
-        console.log('Page loaded, checking URL fragments...');
         checkPendingCompletions();
         processUrlHash();
     });
@@ -8304,172 +8288,6 @@ ${JSON.stringify(rule.logsource, null, 2)}
         processUrlHash();
     });
 
-    // Handle URL fragments to auto-open results
-    console.log('Setting up URL fragment handler...');
-    window.addEventListener('load', function() {
-        console.log('Page loaded, checking URL fragments...');
-        
-        // Check for pending completions first
-        checkPendingCompletions();
-        
-        const hash = window.location.hash.substring(1); // Remove the #
-        console.log('URL hash:', hash);
-        
-        if (hash === 'sigma') {
-            console.log('Processing sigma hash...');
-            
-            // Get current article ID from URL
-            const currentArticleId = window.location.pathname.split('/').pop();
-            const templateArticleId = {{ article.id|default(0)|int }};
-            
-            if (currentArticleId == templateArticleId) {
-                // Same article - use template data
-                const hasSigma = {{ 'true' if article.article_metadata and article.article_metadata.get('sigma_rules') else 'false' }};
-                console.log('Has sigma (template):', hasSigma);
-                
-                if (hasSigma) {
-                    const sigmaData = {{ article.article_metadata.get('sigma_rules') | tojson if article.article_metadata and article.article_metadata.get('sigma_rules') else 'null' }};
-                    console.log('Sigma data (template):', sigmaData);
-                    
-                    // Parse conversation log if it's a string
-                    if (sigmaData && sigmaData.metadata && sigmaData.metadata.conversation && typeof sigmaData.metadata.conversation === 'string') {
-                        try {
-                            sigmaData.metadata.conversation = JSON.parse(sigmaData.metadata.conversation);
-                        } catch (e) {
-                            console.error('Failed to parse conversation log:', e);
-                            sigmaData.metadata.conversation = [];
-                        }
-                    }
-                    
-                    if (sigmaData) {
-                        console.log('Auto-opening sigma modal from URL fragment (template)');
-                        setTimeout(() => showSigmaRulesModal(sigmaData.rules, sigmaData), 500);
-                    }
-                }
-            } else {
-                // Different article - fetch data via API
-                console.log('Different article, fetching sigma data via API...');
-                fetch(`/api/articles/${currentArticleId}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log('Fetched article data for sigma:', data);
-                        if (data.metadata && data.metadata.sigma_rules) {
-                            // Parse conversation log if it's a string
-                            if (data.metadata.sigma_rules.metadata && data.metadata.sigma_rules.metadata.conversation && typeof data.metadata.sigma_rules.metadata.conversation === 'string') {
-                                try {
-                                    data.metadata.sigma_rules.metadata.conversation = JSON.parse(data.metadata.sigma_rules.metadata.conversation);
-                                } catch (e) {
-                                    console.error('Failed to parse conversation log:', e);
-                                    data.metadata.sigma_rules.metadata.conversation = [];
-                                }
-                            }
-                            console.log('Auto-opening sigma modal from URL fragment (API)');
-                            setTimeout(() => showSigmaRulesModal(data.metadata.sigma_rules.rules, data.metadata.sigma_rules), 500);
-                        } else {
-                            console.log('No sigma data found for this article');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error fetching article data for sigma:', error);
-                    });
-            }
-        } else if (hash === 'iocs') {
-            console.log('Processing iocs hash...');
-            
-            // Get current article ID from URL
-            const currentArticleId = window.location.pathname.split('/').pop();
-            const templateArticleId = {{ article.id|default(0)|int }};
-            
-            if (currentArticleId == templateArticleId) {
-                // Same article - use template data
-                const hasIOCs = {{ 'true' if article.article_metadata and article.article_metadata.get('extracted_iocs') else 'false' }};
-                console.log('Has iocs (template):', hasIOCs);
-                
-                if (hasIOCs) {
-                    const iocData = {{ article.article_metadata.get('extracted_iocs') | tojson if article.article_metadata and article.article_metadata.get('extracted_iocs') else 'null' }};
-                    console.log('IOCs data (template):', iocData);
-                    
-                    if (iocData) {
-                        console.log('Auto-opening IOCs modal from URL fragment (template)');
-                        setTimeout(() => showIOCsModal(JSON.stringify(iocData.iocs, null, 2), iocData), 500);
-                    }
-                } else {
-                    console.log('No IOCs found in template data');
-                }
-            } else {
-                // Different article - fetch data via API
-                console.log('Different article, fetching IOCs data via API...');
-                fetch(`/api/articles/${currentArticleId}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log('Fetched article data for IOCs:', data);
-                        if (data.article_metadata && data.article_metadata.extracted_iocs) {
-                            console.log('Auto-opening IOCs modal from URL fragment (API)');
-                            setTimeout(() => showIOCsModal(JSON.stringify(data.article_metadata.extracted_iocs.iocs, null, 2), data.article_metadata.extracted_iocs), 500);
-                        } else {
-                            console.log('No IOCs found for this article');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error fetching article data for IOCs:', error);
-                    });
-            }
-        } else if (hash === 'ranking') {
-            console.log('Processing ranking hash...');
-            
-            // Get current article ID from URL
-            const currentArticleId = window.location.pathname.split('/').pop();
-            const templateArticleId = {{ article.id|default(0)|int }};
-            
-            if (currentArticleId == templateArticleId) {
-                // Same article - use template data
-                const hasRanking = {{ 'true' if article.article_metadata and article.article_metadata.get('gpt4o_ranking') else 'false' }};
-                console.log('Has ranking (template):', hasRanking);
-                
-                if (hasRanking) {
-                    const rankingData = {{ article.article_metadata.get('gpt4o_ranking') | tojson if article.article_metadata and article.article_metadata.get('gpt4o_ranking') else 'null' }};
-                    console.log('Ranking data (template):', rankingData);
-                    
-                    if (rankingData && rankingData.analysis) {
-                        console.log('Auto-opening GPT4o ranking from URL fragment (template)');
-                        setTimeout(() => {
-                            showGPT4oRankingModal(rankingData.analysis, rankingData);
-                        }, 500);
-                    }
-                } else {
-                    console.log('No ranking found in template data');
-                }
-            } else {
-                // Different article - fetch data via API
-                console.log('Different article, fetching ranking data via API...');
-                fetch(`/api/articles/${currentArticleId}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log('Fetched article data for ranking:', data);
-                        if (data.article_metadata && data.article_metadata.gpt4o_ranking && data.article_metadata.gpt4o_ranking.analysis) {
-                            console.log('Auto-opening GPT4o ranking from URL fragment (API)');
-                            setTimeout(() => {
-                                showGPT4oRankingModal(data.article_metadata.gpt4o_ranking.analysis, data.article_metadata.gpt4o_ranking);
-                            }, 500);
-                        } else {
-                            console.log('No ranking found for this article');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error fetching article data for ranking:', error);
-                    });
-            }
-        }
-        
-        // Clear the hash from URL after handling (with delay to allow modal to open)
-        if (hash) {
-            console.log('Clearing URL hash:', hash);
-            setTimeout(() => {
-                window.history.replaceState(null, null, window.location.pathname);
-            }, 1000);
-        }
-    });
-    
     // Chunk Debug Modal Functions
     async function showChunkDebugModal() {
         // closeAIAssistantModal(); // DEPRECATED

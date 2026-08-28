@@ -151,3 +151,60 @@ async def test_update_scheduled_jobs_maps_validation_errors(monkeypatch):
 
     assert exc_info.value.status_code == 422
     session.commit.assert_not_awaited()
+
+
+@pytest.mark.api
+@pytest.mark.asyncio
+async def test_update_scheduled_jobs_error_detail_names_the_offending_job(monkeypatch):
+    """The route must surface the job_id and message so the UI can highlight
+    the specific field, instead of collapsing to a bare "Validation error"."""
+
+    class FakeService:
+        async def persist_config(self, session, jobs):
+            raise ScheduledJobsConfigError(
+                "Invalid cron expression 'not a cron': bad syntax", job_id="cleanup_old_data"
+            )
+
+    monkeypatch.setattr(scheduled_jobs_routes, "ScheduledJobsService", lambda: FakeService())
+    session = _audit_session()
+    _patch_session(monkeypatch, session)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await scheduled_jobs_routes.api_update_scheduled_jobs(
+            _req(),
+            scheduled_jobs_routes.ScheduledJobsUpdateRequest(
+                jobs={"cleanup_old_data": scheduled_jobs_routes.ScheduledJobUpdate(enabled=True, cron="not a cron")}
+            ),
+        )
+
+    assert exc_info.value.status_code == 422
+    assert exc_info.value.detail == {
+        "message": "Invalid cron expression 'not a cron': bad syntax",
+        "job_id": "cleanup_old_data",
+    }
+    session.commit.assert_not_awaited()
+
+
+@pytest.mark.api
+@pytest.mark.asyncio
+async def test_update_scheduled_jobs_error_detail_omits_job_id_when_unscoped(monkeypatch):
+    """An error with no single offending job must not fabricate a job_id."""
+
+    class FakeService:
+        async def persist_config(self, session, jobs):
+            raise ScheduledJobsConfigError("Unknown scheduled job ids: not_real")
+
+    monkeypatch.setattr(scheduled_jobs_routes, "ScheduledJobsService", lambda: FakeService())
+    session = _audit_session()
+    _patch_session(monkeypatch, session)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await scheduled_jobs_routes.api_update_scheduled_jobs(
+            _req(),
+            scheduled_jobs_routes.ScheduledJobsUpdateRequest(
+                jobs={"cleanup_old_data": scheduled_jobs_routes.ScheduledJobUpdate(enabled=True, cron="0 2 * * *")}
+            ),
+        )
+
+    assert exc_info.value.status_code == 422
+    assert exc_info.value.detail == {"message": "Unknown scheduled job ids: not_real"}

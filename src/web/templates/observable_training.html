@@ -816,7 +816,7 @@ modal.setAttribute('aria-modal', 'true');
                     html += `<div class="font-medium text-sm mb-1">${failureType.replace(/_/g, ' ').toUpperCase()}: ${failures.length} articles</div>`;
                     html += `<div class="text-xs space-y-1">`;
                     for (const failure of failures.slice(0, 10)) {
-                        html += `<div><a href="/articles/${failure.article_id}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">Article ${failure.article_id}</a> (${failure.failure_count} failures)</div>`;
+                        html += `<div><a href="/articles/${failure.article_id}" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 hover:underline">Article ${failure.article_id}</a> (${failure.failure_count} failures)</div>`;
                     }
                     if (failures.length > 10) {
                         html += `<div class="text-gray-500">... and ${failures.length - 10} more</div>`;

@@ -54,6 +54,7 @@ const featureProjects = [
     use: browser,
     testMatch: [
       /playwright\/article_detail\.spec\.ts$/,
+      /playwright\/articles_copy_clipboard\.spec\.ts$/,
       /playwright\/article_content_xss_regression\.spec\.ts$/,
       /playwright\/annotation_xss_regression\.spec\.ts$/,
       /playwright\/chunk_dialogs_xss_regression\.spec\.ts$/,
@@ -78,6 +79,7 @@ const featureProjects = [
       /playwright\/collapsible_sections\.spec\.ts$/,
       /playwright\/diags_.*\.spec\.ts$/,
       /playwright\/modal_.*\.spec\.ts$/,
+      /playwright\/ml_hunt_comparison_error_handling\.spec\.ts$/,
       /playwright\/settings\.spec\.ts$/,
       /playwright\/settings_credentials\.spec\.ts$/,
       /playwright\/settings_save_model\.spec\.ts$/,

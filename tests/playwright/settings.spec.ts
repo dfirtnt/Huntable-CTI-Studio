@@ -48,7 +48,6 @@ test.describe('Settings - Save and Persistence', () => {
 
     await header.click();
     await expect(page.locator('#refreshScheduledJobsBtn')).toBeVisible();
-    await expect(page.locator('#saveScheduledJobsBtn')).toBeVisible();
     await expect(page.locator('#scheduledJobsList')).toBeVisible();
     await expect(page.getByText('Generate Daily Report', { exact: true })).toHaveCount(0);
 

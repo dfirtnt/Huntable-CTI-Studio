@@ -22,7 +22,16 @@ SCHEDULED_JOBS_POLL_INTERVAL_SECONDS = max(1, int(os.getenv("SCHEDULED_JOBS_POLL
 
 
 class ScheduledJobsConfigError(ValueError):
-    """Raised when a scheduled job payload is invalid."""
+    """Raised when a scheduled job payload is invalid.
+
+    Carries `job_id` when the error is scoped to one job's field (e.g. an
+    invalid cron expression), so callers can highlight the offending field
+    instead of surfacing a bare, unattributed message.
+    """
+
+    def __init__(self, message: str, *, job_id: str | None = None) -> None:
+        super().__init__(message)
+        self.job_id = job_id
 
 
 @dataclass(frozen=True)
@@ -139,8 +148,13 @@ def normalize_scheduled_job_config(
         payload = payload or {}
         enabled = payload.get("enabled", merged[job_id]["enabled"])
         if not isinstance(enabled, bool):
-            raise ScheduledJobsConfigError(f"Scheduled job '{job_id}' must use a boolean 'enabled' value.")
-        cron_value = validate_cron_expression(payload.get("cron", merged[job_id]["cron"]))
+            raise ScheduledJobsConfigError(
+                f"Scheduled job '{job_id}' must use a boolean 'enabled' value.", job_id=job_id
+            )
+        try:
+            cron_value = validate_cron_expression(payload.get("cron", merged[job_id]["cron"]))
+        except ScheduledJobsConfigError as exc:
+            raise ScheduledJobsConfigError(str(exc), job_id=job_id) from exc
         merged[job_id] = {"enabled": enabled, "cron": cron_value}
 
     return merged

@@ -84,4 +84,106 @@ test.describe('Diags health check regression', () => {
     await expect(overlay).toBeHidden({ timeout: 10000 });
     await expect(button).toBeEnabled();
   });
+
+  test('[DIAGS-FOCUS-001] batch run sets aria-busy, traps focus in the overlay, and restores it on completion', async ({ page }) => {
+    await page.route('**/api/health**', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'healthy', timestamp: new Date().toISOString() }) });
+    });
+
+    const button = page.locator('#runAllHealthChecks');
+    const overlay = page.locator('#loadingOverlay');
+
+    await button.click();
+    await expect(button).toHaveAttribute('aria-busy', 'true');
+    await expect(overlay).toBeFocused();
+
+    // Tab must not escape the overlay while it's open (it has no focusable
+    // descendants, so the trap keeps focus pinned on the overlay itself).
+    await page.keyboard.press('Tab');
+    await expect(overlay).toBeFocused();
+
+    await expect(overlay).toBeHidden({ timeout: 10000 });
+    await expect(button).not.toHaveAttribute('aria-busy', 'true');
+    await expect(button).toBeFocused();
+  });
+
+  test('[DIAGS-FRESH-001] each health card shows its own checked-at time after a run', async ({ page }) => {
+    await page.route('**/api/health**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'healthy', timestamp: new Date().toISOString() }) });
+    });
+
+    const checkedAtIds = [
+      'overallHealthCheckedAt',
+      'databaseHealthCheckedAt',
+      'deduplicationHealthCheckedAt',
+      'servicesHealthCheckedAt',
+      'celeryHealthCheckedAt',
+    ];
+    for (const id of checkedAtIds) {
+      await expect(page.locator(`#${id}`)).toHaveText('');
+    }
+
+    await page.locator('#runAllHealthChecks').click();
+    await expect(page.locator('#loadingOverlay')).toBeHidden({ timeout: 10000 });
+
+    for (const id of checkedAtIds) {
+      await expect(page.locator(`#${id}`)).toContainText('checked');
+    }
+
+    // The toolbar clock is scoped to job data, not the health cards, and says so.
+    await expect(page.locator('.last-updated')).toContainText('Job data last updated');
+  });
+
+  test('[DIAGS-TESSERACT-001] a degraded service moves the card red without hiding the per-service breakdown', async ({ page }) => {
+    // Regression for the "false TESSERACT missing alarm" fix: the top-level
+    // services status used to be hardcoded "healthy", so a real failure never
+    // reddened the card (issue 3) -- and once fixed naively, the per-service
+    // list rendering was gated on that same "healthy" status, so a real
+    // failure hid every service's detail behind a bare "Unknown error"
+    // instead of showing which service failed and why.
+    await page.route('**/api/health**', async (route) => {
+      const url = route.request().url();
+      if (url.endsWith('/api/health/services')) {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            status: 'unhealthy',
+            timestamp: new Date().toISOString(),
+            services: {
+              redis: { status: 'healthy', info: {} },
+              tesseract: { status: 'missing', version: null, message: 'Tesseract binary not found' },
+            },
+          }),
+        });
+      }
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'healthy', timestamp: new Date().toISOString() }) });
+    });
+
+    await page.locator('#runAllHealthChecks').click();
+    await expect(page.locator('#loadingOverlay')).toBeHidden({ timeout: 10000 });
+
+    await expect(page.locator('#cardServices')).toHaveClass(/health-bad/);
+    const content = page.locator('#servicesHealthContent');
+    await expect(content).toContainText('REDIS');
+    await expect(content).toContainText('TESSERACT');
+    await expect(content).toContainText('Tesseract binary not found');
+    await expect(content).not.toContainText('Unknown error');
+  });
+
+  test('[DIAGS-TESSERACT-002] tesseract not applicable in the web process renders a neutral icon and a healthy card', async ({ page }) => {
+    // Live, unmocked: this dev/test web container never has pytesseract
+    // installed (it's an optional worker-only extra), so this exercises the
+    // real by-design "not_applicable" path end to end.
+    await page.locator('#runAllHealthChecks').click();
+    await expect(page.locator('#loadingOverlay')).toBeHidden({ timeout: 10000 });
+
+    const content = page.locator('#servicesHealthContent');
+    await expect(content).toContainText('TESSERACT');
+    await expect(content).toContainText('not_applicable');
+    await expect(content).not.toContainText('ModuleNotFoundError');
+    await expect(content).not.toContainText('Traceback');
+    await expect(page.locator('#cardServices')).toHaveClass(/health-ok/);
+  });
 });

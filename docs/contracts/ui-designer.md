@@ -574,6 +574,15 @@ All modals and overlays MUST use `src/web/static/js/modal-manager.js`. No ad-hoc
 - Open with `ModalManager.open(id, hidePrevious)`.
 - Close with `ModalManager.close(id)`.
 
+**Auto-registration can silently drop your `onClose`.** `modal-manager.js` has its
+own `DOMContentLoaded` listener that auto-registers any `[id$="Modal"]` element
+with defaults (no `onClose`). Because that listener runs before a page's own
+inline-script registration, a page's explicit `ModalManager.register(id, {
+onClose })` call is silently a no-op -- `registerModal()` skips re-registering
+an already-registered id unless told to. Pass `forceUpdate: true` to win the
+race and make your options (especially `onClose`) actually take effect. See
+`sourceConfigModal` in `sources.html`.
+
 ### 6.4 Primary Action Button Resolution
 
 The modal manager auto-detects the primary button using this priority:

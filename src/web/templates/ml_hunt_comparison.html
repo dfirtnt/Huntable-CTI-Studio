@@ -656,6 +656,8 @@
                 fetch('/api/model/versions', { cache: 'no-store' }),
                 fetch('/api/model/feedback-count'),
             ]);
+            if (!versionsResponse.ok) throw new Error('HTTP ' + versionsResponse.status + ' loading model versions');
+            if (!feedbackResponse.ok) throw new Error('HTTP ' + feedbackResponse.status + ' loading feedback count');
             const versionsData = await versionsResponse.json();
             const feedbackData = await feedbackResponse.json();
             return { versionsData, feedbackData };
@@ -665,6 +667,7 @@
             try {
                 // Load summary
                 const summaryResponse = await fetch('/api/ml-model-performance/summary', { cache: 'no-store' });
+                if (!summaryResponse.ok) throw new Error('HTTP ' + summaryResponse.status + ' loading summary');
                 const summaryData = await summaryResponse.json();
                 if (summaryData.success) {
                     currentData.summary = summaryData.summary;
@@ -685,6 +688,7 @@
 
                 // Load stats
                 const statsResponse = await fetch('/api/ml-model-performance/stats');
+                if (!statsResponse.ok) throw new Error('HTTP ' + statsResponse.status + ' loading stats');
                 const statsData = await statsResponse.json();
                 if (statsData.success) {
                     currentData.stats = statsData.stats;
@@ -699,6 +703,7 @@
 
             // Load classification timeline
             const timelineResponse = await fetch('/api/model/classification-timeline', { cache: 'no-store' });
+            if (!timelineResponse.ok) throw new Error('HTTP ' + timelineResponse.status + ' loading classification timeline');
             const timelineData = await timelineResponse.json();
             if (timelineData.success) {
                 currentData.timeline = timelineData.timeline;
@@ -1054,6 +1059,7 @@
                 countElement.textContent = 'Checking...';
                 
                 const response = await fetch('/api/ml-model-performance/eligible-count');
+                if (!response.ok) throw new Error('HTTP ' + response.status);
                 const data = await response.json();
                 
                 if (data.success) {
@@ -1191,7 +1197,8 @@
                         'Content-Type': 'application/json'
                     }
                 });
-                
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+
                 const data = await response.json();
                 
                     if (data.success) {
@@ -1517,7 +1524,8 @@
                     'Content-Type': 'application/json'
                 }
             });
-            
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+
             const data = await response.json();
             
             if (data.success) {
@@ -1554,6 +1562,7 @@
         const pollInterval = setInterval(async () => {
             try {
                 const response = await fetch('/api/model/retrain-status');
+                if (!response.ok) throw new Error('HTTP ' + response.status);
                 const status = await response.json();
                 
                 // Update progress
@@ -1807,6 +1816,7 @@
                     if (_mvhSearch) url += '&version=' + encodeURIComponent(_mvhSearch);
 
                     var resp = await fetch(url);
+                    if (!resp.ok) throw new Error('HTTP ' + resp.status);
                     data = await resp.json();
                 }
 
@@ -1990,6 +2000,19 @@
             }
         }
 
+        // FastAPI validation errors put an array of {msg, ...} objects in
+        // `detail`; string-concatenating that array yields "[object Object]".
+        function formatApiErrorDetail(result) {
+            const detail = result && result.detail;
+            if (Array.isArray(detail)) {
+                return detail.map(function(d) { return (d && d.msg) || JSON.stringify(d); }).join('; ');
+            }
+            if (detail && typeof detail === 'object') {
+                return JSON.stringify(detail);
+            }
+            return detail || (result && result.message) || 'Unknown error';
+        }
+
         async function executeRollback() {
             if (_pendingRollbackVersionId === null) return;
             const versionId     = _pendingRollbackVersionId;
@@ -2012,7 +2035,7 @@
                     await refreshRetrainingStatus();
                     setTimeout(function() { progressSection.classList.add('hidden'); }, 6000);
                 } else {
-                    progressText.textContent = '\u274C Rollback failed: ' + (result.detail || result.message || 'Unknown error');
+                    progressText.textContent = '\u274C Rollback failed: ' + formatApiErrorDetail(result);
                     setTimeout(function() { progressSection.classList.add('hidden'); }, 8000);
                 }
             } catch (err) {

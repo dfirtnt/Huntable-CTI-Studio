@@ -323,29 +323,76 @@ def resolve_keyword_matches(content: str, metadata: dict[str, Any] | None) -> li
     return resolved_matches
 
 
+# Characters that continue the same lexical token as a letter/digit would:
+# dotted/defanged IPs and domains ("."/"[]"), hyphenated compounds ("-"),
+# paths and URLs ("/"), ports (":"), identifiers/emails ("_"/"@"). Deliberately
+# narrow -- anything else (quotes, angle brackets, "=", punctuation) is a real
+# boundary, so expansion can't run away through unrelated text.
+_TOKEN_CONTINUATION_CHARS = frozenset(".-/:[]_@")
+
+
+def _is_token_char(ch: str) -> bool:
+    return ch.isalnum() or ch in _TOKEN_CONTINUATION_CHARS
+
+
+def _natural_token_bounds(content: str, start: int, end: int) -> tuple[int, int]:
+    """A match's token edges with no awareness of neighboring matches."""
+    while start > 0 and _is_token_char(content[start - 1]):
+        start -= 1
+    while end < len(content) and _is_token_char(content[end]):
+        end += 1
+    return start, end
+
+
 def render_highlighted_content(content: str, resolved_matches: list[ResolvedKeywordMatch]) -> str:
     if not content:
         return ""
     if not resolved_matches:
         return html.escape(content)
 
+    # A resolved match may end mid-word (e.g. "detection" inside "detections",
+    # or "[.]" inside a defanged IP) -- the match is correct, but wrapping only
+    # the matched substring in a `<span>` visually fragments the surrounding
+    # token. Widen each match to its natural token edge first (this never
+    # changes match.start/end on the underlying ResolvedKeywordMatch, so the
+    # Keyword Matches panel is untouched). Two distinct matches sitting in the
+    # same token (e.g. "install.ps1" split across two keyword hits) then have
+    # *overlapping* natural bounds -- group and render those as one combined
+    # span (first match's category/title) rather than splitting the token
+    # again at an arbitrary internal boundary.
+    natural_bounds = [_natural_token_bounds(content, m.start, m.end) for m in resolved_matches]
+
+    groups: list[list[int]] = []
+    group_max_end = -1
+    for i, (nat_start, nat_end) in enumerate(natural_bounds):
+        if groups and nat_start <= group_max_end:
+            groups[-1].append(i)
+            group_max_end = max(group_max_end, nat_end)
+        else:
+            groups.append([i])
+            group_max_end = nat_end
+
     rendered: list[str] = []
     cursor = 0
-    for match in resolved_matches:
-        rendered.append(html.escape(content[cursor : match.start]))
-        category_meta = KEYWORD_CATEGORY_METADATA[match.category]
+    for group in groups:
+        display_start = min(natural_bounds[i][0] for i in group)
+        display_end = max(natural_bounds[i][1] for i in group)
+        lead_match = resolved_matches[group[0]]
+
+        rendered.append(html.escape(content[cursor:display_start]))
+        category_meta = KEYWORD_CATEGORY_METADATA[lead_match.category]
         rendered.append(
-            '<span class="keyword-highlight keyword-highlight--{category} px-1 py-0.5 rounded text-xs '
-            'font-medium border {classes}" data-keyword-category="{category}" '
+            '<span class="keyword-highlight keyword-highlight--{category} py-0.5 rounded text-xs '
+            'font-medium {classes}" data-keyword-category="{category}" '
             'data-source-categories="{sources}" title="{title}">{text}</span>'.format(
                 category=category_meta.key,
                 classes=category_meta.highlight_classes,
-                sources=",".join(match.source_categories),
-                title=html.escape(match.title, quote=True),
-                text=html.escape(content[match.start : match.end]),
+                sources=",".join(lead_match.source_categories),
+                title=html.escape(lead_match.title, quote=True),
+                text=html.escape(content[display_start:display_end]),
             )
         )
-        cursor = match.end
+        cursor = display_end
 
     rendered.append(html.escape(content[cursor:]))
     return "".join(rendered)

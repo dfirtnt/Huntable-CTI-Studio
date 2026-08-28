@@ -2681,12 +2681,19 @@ tr.q-row-selected td {
             </select>
             <select id="stepFilter" onchange="filterExecutions()" class="q-cmd-filter" aria-label="Filter executions by workflow step">
                 <option value="">All Steps</option>
+                <option value="os_detection">OS Detection</option>
+                <option value="context_length_check">Context Length Check (failure)</option>
                 <option value="junk_filter">Filter</option>
+                <!-- rank_article and similarity_search are live pipeline nodes (agentic_workflow.py
+                     add_node calls) -- kept even when a given dataset snapshot has 0 matching rows,
+                     since rank_article is often bypassed but not always, and both are reachable
+                     for any execution that doesn't take those early-exit paths. -->
                 <option value="rank_article">Rank</option>
                 <option value="extract_agent">Extract</option>
                 <option value="generate_sigma">SIGMA</option>
                 <option value="similarity_search">Similarity</option>
                 <option value="promote_to_queue">Queue</option>
+                <option value="__unset__">(unset)</option>
             </select>
             <input type="number" id="articleIdFilter" placeholder="Article ID" min="1" class="q-cmd-input" onkeydown="if(event.key==='Enter')filterExecutions()">
             <button onclick="filterExecutions()" class="q-cmd-btn neutral">Apply</button>

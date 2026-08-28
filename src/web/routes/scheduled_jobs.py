@@ -76,7 +76,10 @@ async def api_update_scheduled_jobs(request: Request, payload: ScheduledJobsUpda
         state["scheduler_reload"] = service.scheduler_refresh_metadata()
         return {"success": True, **state}
     except ScheduledJobsConfigError as exc:
-        raise HTTPException(status_code=422, detail="Validation error") from exc
+        detail: dict[str, str] = {"message": str(exc)}
+        if exc.job_id:
+            detail["job_id"] = exc.job_id
+        raise HTTPException(status_code=422, detail=detail) from exc
     except Exception as exc:  # noqa: BLE001
         logger.error("Scheduled jobs update error: %s", exc)
         raise HTTPException(status_code=500, detail="Internal server error") from exc

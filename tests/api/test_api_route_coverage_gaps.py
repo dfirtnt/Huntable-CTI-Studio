@@ -169,6 +169,51 @@ class TestTaskRouteCoverage:
         assert data["queues"]["default"] == 3
 
     @pytest.mark.asyncio
+    async def test_jobs_queues_set_matches_celeryconfig_task_queues(
+        self, async_client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+    ):
+        """Regression guard: the reported queue set must always equal
+        celeryconfig.task_queues exactly -- catches drift in either direction
+        (a queue added/removed there but not reflected here) at CI time,
+        rather than as a silent "Empty" row or missing chip count."""
+        import redis
+
+        from src.worker import celeryconfig
+
+        class FakeRedisClient:
+            def llen(self, _name):
+                return 0
+
+        monkeypatch.setattr(redis, "from_url", lambda *_args, **_kwargs: FakeRedisClient())
+
+        response = await async_client.get("/api/jobs/queues")
+        data = response.json()
+        assert set(data["queues"].keys()) == set(celeryconfig.task_queues.keys())
+        assert "collection_immediate" in data["queues"]
+        assert "priority_checks" not in data["queues"]
+
+    @pytest.mark.asyncio
+    async def test_jobs_queues_default_queue_uses_the_celery_redis_key(
+        self, async_client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+    ):
+        """Celery's built-in default queue lives under the Redis list key
+        "celery" regardless of task_default_queue's configured name."""
+        import redis
+
+        calls = []
+
+        class FakeRedisClient:
+            def llen(self, name):
+                calls.append(name)
+                return 0
+
+        monkeypatch.setattr(redis, "from_url", lambda *_args, **_kwargs: FakeRedisClient())
+
+        await async_client.get("/api/jobs/queues")
+        assert "celery" in calls
+        assert "default" not in calls
+
+    @pytest.mark.asyncio
     async def test_jobs_history_returns_sorted_tasks(
         self, async_client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
     ):
@@ -195,6 +240,125 @@ class TestTaskRouteCoverage:
         assert len(data["recent_tasks"]) == 2
         assert data["recent_tasks"][0]["task_id"] == "b"
         assert data["recent_tasks"][1]["task_id"] == "a"
+
+    @pytest.mark.asyncio
+    async def test_jobs_history_attributes_a_routed_task_to_its_real_queue(
+        self, async_client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+    ):
+        """A task whose name is in celeryconfig.task_routes must report that
+        queue, not the "default" fallback every row used to get (regression
+        for the false "General · default" attribution)."""
+        import redis
+
+        entry = json.dumps(
+            {
+                "status": "SUCCESS",
+                "result": "ok",
+                "date_done": "2026-03-02T00:00:00",
+                "name": "src.worker.celery_app.check_all_sources",
+            }
+        )
+
+        class FakeRedisClient:
+            def keys(self, _pattern):
+                return ["celery-task-meta-check-all"]
+
+            def get(self, _key):
+                return entry
+
+        monkeypatch.setattr(redis, "from_url", lambda *_args, **_kwargs: FakeRedisClient())
+
+        response = await async_client.get("/api/jobs/history?limit=10")
+        assert response.status_code == 200
+        task = response.json()["recent_tasks"][0]
+        assert task["task_name"] == "src.worker.celery_app.check_all_sources"
+        assert task["queue"] == "source_checks"
+        assert task["worker_type"] == "General"
+
+    @pytest.mark.asyncio
+    async def test_jobs_history_attributes_a_workflow_task_to_the_workflow_worker(
+        self, async_client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+    ):
+        import redis
+
+        entry = json.dumps(
+            {
+                "status": "SUCCESS",
+                "result": "ok",
+                "date_done": "2026-03-02T00:00:00",
+                "name": "src.worker.celery_app.trigger_agentic_workflow",
+            }
+        )
+
+        class FakeRedisClient:
+            def keys(self, _pattern):
+                return ["celery-task-meta-wf"]
+
+            def get(self, _key):
+                return entry
+
+        monkeypatch.setattr(redis, "from_url", lambda *_args, **_kwargs: FakeRedisClient())
+
+        response = await async_client.get("/api/jobs/history?limit=10")
+        task = response.json()["recent_tasks"][0]
+        assert task["queue"] == "workflows"
+        assert task["worker_type"] == "Workflow"
+
+    @pytest.mark.asyncio
+    async def test_jobs_history_reports_unknown_when_task_name_is_not_recoverable(
+        self, async_client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+    ):
+        """No `name` in the stored result (e.g. a pre-result_extended entry)
+        must render "unknown", never a confident wrong queue."""
+        import redis
+
+        entry = json.dumps({"status": "SUCCESS", "result": "ok", "date_done": "2026-03-02T00:00:00"})
+
+        class FakeRedisClient:
+            def keys(self, _pattern):
+                return ["celery-task-meta-legacy"]
+
+            def get(self, _key):
+                return entry
+
+        monkeypatch.setattr(redis, "from_url", lambda *_args, **_kwargs: FakeRedisClient())
+
+        response = await async_client.get("/api/jobs/history?limit=10")
+        task = response.json()["recent_tasks"][0]
+        assert task["task_name"] is None
+        assert task["queue"] == "unknown"
+        assert task["worker_type"] == "unknown"
+
+    @pytest.mark.asyncio
+    async def test_jobs_history_unrouted_known_task_falls_back_to_default_queue(
+        self, async_client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+    ):
+        """A recoverable task name with no explicit task_routes entry gets
+        Celery's real default queue -- an accurate fact, not "unknown"."""
+        import redis
+
+        entry = json.dumps(
+            {
+                "status": "SUCCESS",
+                "result": "ok",
+                "date_done": "2026-03-02T00:00:00",
+                "name": "src.worker.celery_app.some_unrouted_task",
+            }
+        )
+
+        class FakeRedisClient:
+            def keys(self, _pattern):
+                return ["celery-task-meta-unrouted"]
+
+            def get(self, _key):
+                return entry
+
+        monkeypatch.setattr(redis, "from_url", lambda *_args, **_kwargs: FakeRedisClient())
+
+        response = await async_client.get("/api/jobs/history?limit=10")
+        task = response.json()["recent_tasks"][0]
+        assert task["queue"] == "default"
+        assert task["worker_type"] == "General"
 
 
 @pytest.mark.api
