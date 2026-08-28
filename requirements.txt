@@ -17,9 +17,6 @@ brotli==1.2.0  # Brotli decompression support for httpx
 beautifulsoup4==4.14.3
 lxml==6.1.1
 feedparser==6.0.12
-extruct==0.18.0
-iocextract==1.16.1
-trafilatura==2.0.0  # Content extraction fallback for selector inference in source healing
 playwright==1.60.0  # Headless browser for JS-rendered content
 
 # Data processing and storage
