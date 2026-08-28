@@ -58,6 +58,17 @@ class TestArticlesEndpoints:
         assert response.status_code == 200
 
     @pytest.mark.api
+    @pytest.mark.asyncio
+    async def test_articles_zero_result_search_shows_no_articles_not_a_1_0_range(self, async_client: httpx.AsyncClient):
+        """A search matching nothing must not render the nonsensical "Articles
+        1-0 of 0" header (start_idx is always >= 1 even when total is 0)."""
+        response = await async_client.get("/articles?search=zzzzqqqxnotarealterm12345")
+        assert response.status_code == 200
+        assert "No articles" in response.text
+        assert "Articles 1-0" not in response.text
+        assert "Articles 0-0" not in response.text
+
+    @pytest.mark.api
     @pytest.mark.smoke
     @pytest.mark.asyncio
     async def test_article_detail(self, async_client: httpx.AsyncClient):
@@ -171,6 +182,38 @@ class TestErrorHandling:
         response = await async_client.get("/articles?limit=invalid")
         # Should handle gracefully and not 5xx
         assert response.status_code in [200, 400]
+
+    @pytest.mark.api
+    @pytest.mark.asyncio
+    async def test_non_integer_article_id_shows_styled_error_page(self, async_client: httpx.AsyncClient):
+        """A non-integer article ID must render the styled error page, not a raw
+        FastAPI validation JSON blob."""
+        response = await async_client.get("/articles/abc")
+        assert response.status_code == 422
+        assert "Error - Huntable CTI Studio" in response.text
+        assert "Invalid request parameters" in response.text
+
+    @pytest.mark.api
+    @pytest.mark.asyncio
+    async def test_non_integer_per_page_shows_styled_error_page(self, async_client: httpx.AsyncClient):
+        """A non-integer per_page query param must render the styled error page,
+        not a raw FastAPI validation JSON blob."""
+        response = await async_client.get("/articles?per_page=abc")
+        assert response.status_code == 422
+        assert "Error - Huntable CTI Studio" in response.text
+        assert "Invalid request parameters" in response.text
+
+    @pytest.mark.api
+    @pytest.mark.asyncio
+    async def test_non_integer_id_on_api_route_keeps_structured_json_error(self, async_client: httpx.AsyncClient):
+        """API routes must keep FastAPI's default structured validation error
+        contract unchanged -- only HTML page routes get the styled error page."""
+        response = await async_client.get("/api/articles/abc")
+        assert response.status_code == 422
+        data = response.json()
+        assert "detail" in data
+        assert isinstance(data["detail"], list)
+        assert data["detail"][0]["type"] == "int_parsing"
 
 
 class TestProviderCatalog:

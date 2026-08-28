@@ -11,6 +11,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -261,6 +263,24 @@ async def not_found_handler(request: Request, exc: HTTPException):
         "error.html",
         {"error": "Page not found"},
         status_code=404,
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(request: Request, exc: RequestValidationError):
+    """Handle FastAPI request validation errors (e.g. `/articles/abc`).
+
+    JSON API responses keep FastAPI's default structured 422 body; HTML page
+    requests get the styled error template instead of a raw JSON blob.
+    """
+    if request.url.path.startswith("/api/"):
+        return await request_validation_exception_handler(request, exc)
+
+    return templates.TemplateResponse(
+        request,
+        "error.html",
+        {"error": "Invalid request parameters."},
+        status_code=422,
     )
 
 
