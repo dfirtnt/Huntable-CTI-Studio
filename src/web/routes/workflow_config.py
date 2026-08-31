@@ -26,6 +26,7 @@ from src.database.models import (
     WorkflowConfigPresetTable,
 )
 from src.services.llm_service import _TRACEABILITY_FIELDS, _TRACEABILITY_REQUIRED
+from src.services.provider_model_catalog import find_provider_model_mismatch
 from src.services.workflow_provider_options import get_provider_options
 from src.utils.default_agent_prompts import get_default_agent_prompts
 
@@ -42,8 +43,48 @@ _PROVIDER_TO_SETTINGS_KEY = {
 }
 
 
+def _agent_model_value(agent_models: dict[str, Any], agent: str) -> Any:
+    """Read an agent's model regardless of which key shape holds it.
+
+    normalize_agent_models_to_flat() stores the three main agents under the bare
+    agent name and every sub-extractor under "<Agent>_model"
+    (workflow_config_schema.py, `model_key = key if key in _MAIN_MODEL_AGENTS ...`).
+    Checking only the bare key silently skips 7 of the 10 model-bearing agents.
+    """
+    suffixed = agent_models.get(f"{agent}_model")
+    return suffixed if suffixed is not None else agent_models.get(agent)
+
+
+def _validate_agent_model_pairs(merged: dict[str, Any], current: dict[str, Any] | None) -> None:
+    """Reject writes that pair an agent's provider with another provider's model.
+
+    Scoped to pairs this request actually *changes* relative to the stored config --
+    not merely to keys present in the payload. The UI autosave deliberately sends
+    every agent_models key it holds, so a "present in payload" test would validate the
+    whole blob: any pre-existing mismatch would then 400 every subsequent autosave,
+    and because that failure is logged to the console rather than surfaced
+    (static/js/workflow/config.js, "Don't throw - just log the error"), the operator
+    would silently lose unrelated edits and could never save the repair either.
+    """
+    current = current or {}
+    problems = []
+    for key, provider in sorted(merged.items()):
+        if not key.endswith("_provider") or not provider:
+            continue
+        agent = key[: -len("_provider")]
+        model = _agent_model_value(merged, agent)
+        unchanged = provider == current.get(key) and model == _agent_model_value(current, agent)
+        if unchanged:
+            continue  # already stored this way; let the operator save their way out
+        problem = find_provider_model_mismatch(provider, model)
+        if problem:
+            problems.append(f"{agent}: {problem}")
+    if problems:
+        raise HTTPException(status_code=400, detail="Invalid agent model configuration -- " + "; ".join(problems))
+
+
 def _enable_providers_from_agent_models(db_session, agent_models: dict[str, Any]) -> None:
-    """Enable in Settings any providers referenced in agent_models (openai, anthropic, lmstudio)."""
+    """Enable in Settings any providers referenced in agent_models (see _PROVIDER_TO_SETTINGS_KEY)."""
     if not agent_models:
         return
     providers = set()
@@ -520,6 +561,9 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                     merged_agent_models = normalize_agent_models_to_flat(current_config.agent_models)
                 else:
                     merged_agent_models = {}
+                # Snapshot before the merge mutates it: the pair validator compares
+                # against what is actually stored to find genuinely new mismatches.
+                stored_agent_models = dict(merged_agent_models)
                 # First, identify keys that should be removed (explicitly set to None in update)
                 keys_to_remove = {key for key, value in incoming.items() if value is None}
                 # Update with new values from incoming (excluding None values)
@@ -533,7 +577,9 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                 logger.info(
                     f"Merged agent_models: {merged_agent_models} (update: {config_update.agent_models}, current: {current_config.agent_models if current_config else None}, removed: {list(keys_to_remove)})"
                 )
-                # Auto-enable providers used in preset so any provider (OpenAI, Anthropic, LMStudio) works
+                # Reject pairs a later run could only discover as a call-time failure.
+                _validate_agent_model_pairs(merged_agent_models, stored_agent_models)
+                # Auto-enable providers used in preset so any supported provider works
                 _enable_providers_from_agent_models(db_session, merged_agent_models)
             elif current_config:
                 merged_agent_models = normalize_agent_models_to_flat(current_config.agent_models)

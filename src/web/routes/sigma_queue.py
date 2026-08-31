@@ -119,13 +119,38 @@ def _load_workflow_provider_settings(db_session) -> dict[str, str | None]:
         return {}
 
 
+# Providers the Sigma agent validate/repair loop can actually drive. Kept in sync with
+# the dispatch in validate_rule(); codex is routed through CodexAppServerClient.
+SIGMA_AGENT_SUPPORTED_PROVIDERS = ("openai", "codex", "anthropic", "lmstudio")
+
+# Providers that need no API key: lmstudio is a local server, codex authenticates
+# through the Codex app-server subscription.
+SIGMA_AGENT_KEYLESS_PROVIDERS = ("lmstudio", "codex")
+
+
+def _provider_flag_enabled(settings: dict[str, str | None], app_settings_key: str, env_key: str) -> bool:
+    """Read a provider enablement flag: AppSettings first, then env.
+
+    Every caller must use this. Reading one provider's flag from env only lets two
+    adjacent checks disagree after a live settings change, because AppSettings values
+    are written into os.environ at runtime rather than replacing it.
+    """
+    value = settings.get(WORKFLOW_PROVIDER_APPSETTING_KEYS[app_settings_key])
+    if value is None:
+        value = os.getenv(env_key, "false")
+    return str(value).strip().lower() == "true"
+
+
 def _first_enabled_provider(db_session) -> str:
     """Return first enabled provider with API key. Raises if none configured.
     Uses same resolution order as LLMService: AppSettings dict, then env (WORKFLOW_* then legacy)."""
-    lmstudio_ok = os.getenv("WORKFLOW_LMSTUDIO_ENABLED", "").strip().lower() == "true"
-    if lmstudio_ok:
-        return "lmstudio"
     settings = _load_workflow_provider_settings(db_session)
+    if _provider_flag_enabled(settings, "lmstudio_enabled", "WORKFLOW_LMSTUDIO_ENABLED"):
+        return "lmstudio"
+    # codex is keyless, so it is only discoverable through its enablement flag -- without
+    # this an install whose only usable provider is codex is told none is configured.
+    if _provider_flag_enabled(settings, "codex_enabled", "WORKFLOW_CODEX_ENABLED"):
+        return "codex"
     for prov, app_key in [
         ("openai", WORKFLOW_PROVIDER_APPSETTING_KEYS["openai_api_key"]),
         ("anthropic", WORKFLOW_PROVIDER_APPSETTING_KEYS["anthropic_api_key"]),
@@ -146,7 +171,7 @@ def _first_enabled_provider(db_session) -> str:
             return prov
     raise HTTPException(
         status_code=400,
-        detail="No LLM provider configured. Enable LMStudio (WORKFLOW_LMSTUDIO_ENABLED=true) or set API keys for OpenAI/Anthropic in Settings.",
+        detail="No LLM provider configured. Enable LMStudio (WORKFLOW_LMSTUDIO_ENABLED=true) or Codex (WORKFLOW_CODEX_ENABLED=true), or set API keys for OpenAI/Anthropic in Settings.",
     )
 
 
@@ -166,26 +191,59 @@ def _get_sigma_agent_llm_from_workflow(db_session) -> tuple[str, str, str | None
         )
     agent_models = config.agent_models or {}
     raw_provider = (agent_models.get("SigmaAgent_provider") or "").strip().lower()
-    if raw_provider in ("openai", "anthropic", "lmstudio"):
+    if raw_provider in SIGMA_AGENT_SUPPORTED_PROVIDERS:
         provider = raw_provider
-    else:
+    elif not raw_provider:
+        # Nothing configured yet: any enabled provider is a defensible default because
+        # the model name is defaulted alongside it below.
         provider = _first_enabled_provider(db_session)
-    if provider == "lmstudio" and os.getenv("WORKFLOW_LMSTUDIO_ENABLED", "").strip().lower() != "true":
+    else:
+        # A provider IS configured, we just cannot drive it. Never silently substitute a
+        # different one: the configured model name belongs to raw_provider, so pairing it
+        # with a fallback reports a combination that was never configured anywhere
+        # (e.g. "lmstudio + gpt-5.6-sol"), turning a config error into a phantom
+        # model-not-loaded failure from the substituted provider.
         raise HTTPException(
             status_code=400,
-            detail="Sigma agent is set to LMStudio but LMStudio is disabled. Set SigmaAgent_provider to openai or anthropic in Workflow Config.",
+            detail=(
+                f"Sigma agent provider '{raw_provider}' is not supported. Supported providers: "
+                f"{', '.join(SIGMA_AGENT_SUPPORTED_PROVIDERS)}. "
+                "Update SigmaAgent_provider in Workflow Config."
+            ),
         )
+
+    # Resolve API key from same source as LLMService (AppSettings batch + env)
+    workflow_settings = _load_workflow_provider_settings(db_session)
+
+    if provider == "lmstudio" and not _provider_flag_enabled(
+        workflow_settings, "lmstudio_enabled", "WORKFLOW_LMSTUDIO_ENABLED"
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Sigma agent is set to LMStudio but LMStudio is disabled. "
+                "Set SigmaAgent_provider to openai, codex, or anthropic in Workflow Config."
+            ),
+        )
+    if provider == "codex" and not _provider_flag_enabled(workflow_settings, "codex_enabled", "WORKFLOW_CODEX_ENABLED"):
+        raise HTTPException(
+            status_code=400,
+            detail="Codex subscription provider is disabled. Enable WORKFLOW_CODEX_ENABLED in Settings.",
+        )
+
     model = (agent_models.get("SigmaAgent") or "").strip()
-    if not model and provider != "lmstudio":
+    if not model and provider not in SIGMA_AGENT_KEYLESS_PROVIDERS:
         model = {
             "openai": "gpt-4o-mini",
             "anthropic": "claude-sonnet-4-5",
         }.get(provider, "gpt-4o-mini")
     if not model:
-        model = os.getenv("LMSTUDIO_MODEL", "mistralai/mistral-7b-instruct-v0.3")
+        model = (
+            os.getenv("WORKFLOW_CODEX_MODEL", "gpt-5.6-luna")
+            if provider == "codex"
+            else os.getenv("LMSTUDIO_MODEL", "mistralai/mistral-7b-instruct-v0.3")
+        )
 
-    # Resolve API key from same source as LLMService (AppSettings batch + env)
-    workflow_settings = _load_workflow_provider_settings(db_session)
     api_key = None
     if provider == "openai":
         k = WORKFLOW_PROVIDER_APPSETTING_KEYS["openai_api_key"]
@@ -206,12 +264,13 @@ def _get_sigma_agent_llm_from_workflow(db_session) -> tuple[str, str, str | None
     elif provider == "lmstudio":
         api_key = "not_required"
 
-    if provider != "lmstudio" and (not api_key or not str(api_key).strip()):
+    keyless = provider in SIGMA_AGENT_KEYLESS_PROVIDERS
+    if not keyless and (not api_key or not str(api_key).strip()):
         raise HTTPException(
             status_code=400,
             detail=f"Sigma agent uses {provider} but no API key is configured. Set it in Settings or environment.",
         )
-    return provider, model, (api_key.strip() if api_key and provider != "lmstudio" else api_key)
+    return provider, model, (api_key.strip() if api_key and not keyless else api_key)
 
 
 async def _call_lmstudio_sigma_text(
@@ -2125,13 +2184,12 @@ async def validate_rule(request: Request, queue_id: int):
                 # Get provider and model from request, default to OpenAI
                 provider = (body.get("provider") or "openai").lower()
                 model = body.get("model") or "gpt-4o-mini"
-                if provider not in {"openai", "anthropic", "lmstudio"}:
+                if provider not in SIGMA_AGENT_SUPPORTED_PROVIDERS:
+                    supported = ", ".join(SIGMA_AGENT_SUPPORTED_PROVIDERS)
                     return {
                         "success": False,
                         "validated_yaml": None,
-                        "errors": [
-                            f"Unsupported provider '{provider}'. Supported providers: openai, anthropic, lmstudio."
-                        ],
+                        "errors": [f"Unsupported provider '{provider}'. Supported providers: {supported}."],
                         "attempts": 0,
                         "message": f"Unsupported provider '{provider}'",
                         "conversation_log": [],
@@ -2139,7 +2197,7 @@ async def validate_rule(request: Request, queue_id: int):
                         "provider": provider,
                         "model": model,
                     }
-                # Get API key from request headers (not needed for LMStudio)
+                # Get API key from request headers (not needed for LMStudio or Codex)
                 api_key = None
                 if provider == "openai":
                     api_key = request.headers.get("X-OpenAI-API-Key")
@@ -2147,6 +2205,13 @@ async def validate_rule(request: Request, queue_id: int):
                     api_key = request.headers.get("X-Anthropic-API-Key")
                 elif provider == "lmstudio":
                     api_key = "not_required"
+                elif provider == "codex":
+                    codex_settings = _load_workflow_provider_settings(db_session)
+                    if not _provider_flag_enabled(codex_settings, "codex_enabled", "WORKFLOW_CODEX_ENABLED"):
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Codex subscription provider is disabled. Enable WORKFLOW_CODEX_ENABLED in Settings.",
+                        )
 
             # Use modal rule YAML when provided so edits are validated
             current_rule_yaml_from_request = None
@@ -2159,10 +2224,10 @@ async def validate_rule(request: Request, queue_id: int):
 
             # The page cannot read stored keys back any more, so an absent header is
             # the normal case: resolve server-side before reporting a missing key.
-            if provider != "lmstudio" and (not api_key or not api_key.strip()):
+            if provider not in SIGMA_AGENT_KEYLESS_PROVIDERS and (not api_key or not api_key.strip()):
                 api_key = await resolve_provider_api_key(provider)
 
-            if provider != "lmstudio" and (not api_key or not api_key.strip()):
+            if provider not in SIGMA_AGENT_KEYLESS_PROVIDERS and (not api_key or not api_key.strip()):
                 # Return error response with empty conversation log
                 return {
                     "success": False,
@@ -2371,10 +2436,30 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                                 timeout=180.0,
                                 failure_context=f"LMStudio repair API for rule {queue_id}",
                             )
+                        elif provider == "codex":
+                            try:
+                                raw_response = await _call_traced_sigma_provider(
+                                    agent_name="sigma_validation",
+                                    provider=provider,
+                                    model=model,
+                                    api_key=None,
+                                    messages=attempt_messages,
+                                    queue_id=queue_id,
+                                    article_id=rule.article_id,
+                                    attempt=attempt,
+                                    max_tokens=4000,
+                                    temperature=0.2,
+                                    timeout=120.0,
+                                    failure_context=f"Codex subscription repair for rule {queue_id}",
+                                )
+                            except CodexAppServerError as e:
+                                error_occurred = str(e)
+                                raise HTTPException(status_code=502, detail=str(e)) from e
                         else:
+                            supported = ", ".join(SIGMA_AGENT_SUPPORTED_PROVIDERS)
                             raise HTTPException(
                                 status_code=400,
-                                detail=f"Unsupported provider '{provider}'. Supported providers: openai, anthropic, lmstudio.",
+                                detail=f"Unsupported provider '{provider}'. Supported providers: {supported}.",
                             )
 
                         if not raw_response:

@@ -1133,8 +1133,8 @@ async function showValidationConversationModal(data, provider, model) {
             </div>
             
             <div class="mb-4 text-sm text-gray-600 dark:text-gray-400">
-                <span class="font-medium">Provider:</span> ${provider.charAt(0).toUpperCase() + provider.slice(1)} | 
-                <span class="font-medium">Model:</span> ${model} |
+                <span class="font-medium">Provider:</span> ${escapeHtml(String(provider).charAt(0).toUpperCase() + String(provider).slice(1))} |
+                <span class="font-medium">Model:</span> ${escapeHtml(String(model))} |
                 <span class="font-medium">Attempts:</span> ${attempts}
             </div>
             

@@ -165,3 +165,66 @@ def update_provider_models(provider: str, models: list[str]) -> dict[str, list[s
     catalog[provider] = models
     save_catalog(catalog)
     return catalog
+
+
+# Providers that serve the same model namespace. The Codex subscription serves the
+# OpenAI model family, so "codex" + "gpt-5.6-sol" is a correct pair even though the
+# catalog files that model under "openai" (the catalog has no codex key -- codex
+# models are enumerated from a live endpoint).
+_PROVIDER_MODEL_NAMESPACES: tuple[frozenset[str], ...] = (frozenset({"openai", "codex"}),)
+
+
+def _namespace_for(provider: str) -> frozenset[str]:
+    """Providers whose models are interchangeable with `provider`."""
+    for group in _PROVIDER_MODEL_NAMESPACES:
+        if provider in group:
+            return group
+    return frozenset({provider})
+
+
+def load_ownership_catalog() -> dict[str, list[str]]:
+    """Raw provider -> models mapping, for answering "who owns this model?".
+
+    Deliberately NOT load_catalog(): that applies the Workflow/Settings *display*
+    filters (latest-only, project allowlist), which drop real models -- notably
+    claude-sonnet-4-5, this project's own Anthropic default. Judging provenance
+    through a dropdown-cosmetics filter makes the answer depend on presentation
+    policy, so ownership reads the file as written.
+    """
+    if not CATALOG_PATH.exists():
+        return {k: list(v) for k, v in DEFAULT_CATALOG.items()}
+    try:
+        raw = json.loads(CATALOG_PATH.read_text())
+    except (json.JSONDecodeError, OSError, UnicodeDecodeError):
+        # A daily refresh writes this file; a torn or unreadable read must not
+        # become an error on an unrelated code path.
+        return {}
+    return raw if isinstance(raw, dict) else {}
+
+
+def find_provider_model_mismatch(provider: str | None, model: str | None) -> str | None:
+    """Return an explanation when `model` demonstrably belongs to a different provider.
+
+    Conservative by construction -- it reports a mismatch only when the catalog
+    positively attributes the model to some other provider namespace. Anything the
+    catalog does not know (LMStudio local models, newly released models, blank values)
+    is allowed through, so this can only reject pairs that are provably wrong.
+    """
+    provider = (provider or "").strip().lower()
+    model = (model or "").strip()
+    if not provider or not model:
+        return None
+
+    catalog = load_ownership_catalog()
+
+    owners = {prov for prov, models in catalog.items() if isinstance(models, list) and model in models}
+    if not owners:
+        return None  # Unknown to the catalog -- not evidence of a mismatch.
+    if owners & _namespace_for(provider):
+        return None
+
+    return (
+        f"model '{model}' belongs to {'/'.join(sorted(owners))}, not '{provider}'. "
+        f"Pairing a provider with another provider's model makes the run fail at call time "
+        f"with a confusing 'model not found' error from '{provider}'."
+    )
