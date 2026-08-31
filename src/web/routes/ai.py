@@ -716,14 +716,15 @@ async def api_validate_model(request: Request):
         if not provider or not model_id:
             return {"valid": False, "error": "Provider and model are required"}
 
-        if provider == "openai":
+        if provider in ("openai", "codex"):
             is_valid = is_valid_openai_chat_model(model_id)
             if not is_valid:
                 suggestion = suggest_base_model(model_id) if model_id else None
+                provider_name = "OpenAI" if provider == "openai" else "Codex"
                 return {
                     "valid": False,
                     "error": (
-                        f"Model '{model_id}' is not a valid OpenAI chat completion model. "
+                        f"Model '{model_id}' is not a valid {provider_name} chat completion model. "
                         "Use a supported chat model (e.g. gpt-5.2-pro, gpt-4.1, or a dated snapshot)."
                     ),
                     "suggestion": suggestion,
