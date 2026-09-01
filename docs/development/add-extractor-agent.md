@@ -2,7 +2,7 @@
 
 This page is a companion reference for the **`Create-Huntable-Agent` skill** (invoked as `create-huntable-agent`) — the Codex skill that guides you through wiring a new extractor into the LangGraph pipeline.
 
-The interactive wiring map below visualises every integration point across all 7 layers, all 17 known pitfalls, and the 4 behaviours that are auto-wired for free once Layers 1–3 are complete.
+The interactive wiring map below visualises every integration point across all 7 layers, all 18 known pitfalls, and the 4 behaviours that are auto-wired for free once Layers 1–3 are complete.
 
 [Open Wiring Map :material-arrow-top-right:](./create-agent-wiring-map.html){ .md-button .md-button--primary target="_blank" }
 
@@ -17,7 +17,7 @@ The interactive wiring map below visualises every integration point across all 7
 | 3 — Services & Workflow Engine | `llm_service.py`, `lmstudio_model_loader.py`, `eval_bundle_service.py`, `agentic_workflow.py` | LangGraph graph wiring, traceability validation, Langfuse keys |
 | 4 — Web Routes | `workflow_executions.py`, `evaluation_api.py` | 5 locations in evaluation_api.py alone |
 | 5 — UI Templates | `workflow.html` (~40 pts), `static/js/components/workflow-config-display.js`, `agent_evals.html`, `base.html`, and more | Most complex layer — cache-busting is a common failure mode |
-| 6 — Config & Data | All 9 quickstart presets (full prompt embedding), eval articles directory | Preset `Prompt.prompt = ""` silently breaks every user who imports the preset |
+| 6 — Config & Data | All 12 quickstart presets (full prompt embedding), eval articles directory | Preset `Prompt.prompt = ""` silently breaks every user who imports the preset |
 | 7 — Tests | 1 new wiring test + 8 existing files to update | `TestSubAgentsRenderingArray` and `TestPresetFiles` are the key regression guards |
 | 8 — Sigma `canonical_class` *(conditional)* | `canonical_logsource.py`, both `FIELD_ALIAS_MAP`s, `test_canonical_class.py` | Only if the extractor's telemetry generates Sigma rules — see below |
 

@@ -170,10 +170,33 @@ class TestErrorHandling:
 
     @pytest.mark.api
     @pytest.mark.asyncio
+    async def test_404_page_uses_not_found_title_not_database_advice(self, async_client: httpx.AsyncClient):
+        """A route 404 must not use the generic "Something went wrong" title or
+        send the operator to check database connectivity for a simple bad path."""
+        response = await async_client.get("/nonexistent-page")
+        assert response.status_code == 404
+        assert "Page Not Found" in response.text
+        assert "Something went wrong" not in response.text
+        assert "database connection" not in response.text
+
+    @pytest.mark.api
+    @pytest.mark.asyncio
     async def test_invalid_article_id(self, async_client: httpx.AsyncClient):
         """Test handling of invalid article IDs."""
         response = await async_client.get("/articles/999999")
         assert response.status_code == 404
+
+    @pytest.mark.api
+    @pytest.mark.asyncio
+    async def test_invalid_article_id_uses_not_found_title_not_database_advice(self, async_client: httpx.AsyncClient):
+        """A nonexistent article ID must show an "Article Not Found" title, not
+        the generic "Something went wrong" title with a database-connectivity
+        hint that sends the operator to debug infrastructure that is fine."""
+        response = await async_client.get("/articles/999999")
+        assert response.status_code == 404
+        assert "Article Not Found" in response.text
+        assert "Something went wrong" not in response.text
+        assert "database connection" not in response.text
 
     @pytest.mark.api
     @pytest.mark.asyncio

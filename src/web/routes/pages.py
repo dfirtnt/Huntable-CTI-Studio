@@ -505,7 +505,7 @@ async def article_detail(request: Request, article_id: int):
             return templates.TemplateResponse(
                 request,
                 "error.html",
-                {"error": "Article not found"},
+                {"title": "Article Not Found", "error": "Article not found", "show_db_hint": False},
                 status_code=404,
             )
 

@@ -154,6 +154,44 @@ class TestArticlesFlows:
             page.click("text=Back to Articles")
             expect(page).to_have_url("http://localhost:8001/articles")
 
+    @pytest.mark.ui
+    def test_article_detail_has_single_article_content_heading(self, page: Page):
+        """The panel <h2> and the toolbar-row label both said "Article Content",
+        producing a duplicate entry in the heading outline. The inner label was
+        demoted to a non-heading <div>; exactly one heading should remain."""
+        page.goto("http://localhost:8001/articles")
+
+        first_article = page.locator("a[href^='/articles/']").first
+        if first_article.count() > 0:
+            first_article.click()
+            page.wait_for_load_state("load")
+
+            headings = page.get_by_role("heading", name="Article Content", exact=True)
+            expect(headings).to_have_count(1)
+
+    @pytest.mark.ui
+    def test_mobile_title_does_not_overflow_into_id_badge(self, page: Page):
+        """At 390px a long unbroken title token used to overflow past its box
+        (white-space: normal has no break opportunity in a single word) and
+        visually collide with the adjacent #<id> badge -- e.g. reading as
+        "PHANTOMPULSE#4790". overflow-wrap/word-break: break-word forces a
+        mid-word break instead, so the link's content must never exceed its
+        own box width on narrow viewports."""
+        page.set_viewport_size({"width": 390, "height": 812})
+        page.goto("http://localhost:8001/articles")
+        page.wait_for_load_state("load")
+
+        link = page.locator(".article-row__link").first
+        if link.count() == 0:
+            pytest.skip("no articles rendered to exercise the mobile row layout")
+
+        link.evaluate("el => { el.textContent = 'PHANTOMPULSEPHANTOMPULSEPHANTOMPULSEPHANTOMPULSE'; }")
+        overflow = link.evaluate("el => el.scrollWidth - el.clientWidth")
+        assert overflow <= 0, (
+            f"title link overflows its box by {overflow}px on mobile; "
+            "long words will visually collide with the id badge"
+        )
+
 
 class TestSourcesFlows:
     """Test source management flows."""
@@ -187,8 +225,8 @@ class TestErrorHandling:
         page.goto("http://localhost:8001/nonexistent-page")
 
         # Should show error page
-        expect(page.locator("text=Something went wrong")).to_be_visible()
-        expect(page.locator("text=Page not found")).to_be_visible()
+        expect(page.get_by_role("heading", name="Page Not Found")).to_be_visible()
+        expect(page.get_by_text("Page not found", exact=True)).to_be_visible()
 
         # Check error page navigation
         page.click("text=Go to Dashboard")
@@ -202,7 +240,7 @@ class TestErrorHandling:
         # Should handle gracefully
         if page.url.endswith("999999"):
             # If it shows an error page
-            expect(page.locator("text=Something went wrong")).to_be_visible()
+            expect(page.get_by_role("heading", name="Article Not Found")).to_be_visible()
         else:
             # Or redirects to a valid page
             expect(page).to_have_url(lambda url: "999999" not in url)

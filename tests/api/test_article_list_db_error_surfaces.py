@@ -36,6 +36,8 @@ async def test_articles_page_renders_error_not_empty_list(async_client):
 
     assert response.status_code == 500
     assert "Something went wrong" in response.text
+    # A genuine 500 must keep the operational hint dropped from 404s.
+    assert "database connection" in response.text
     # The empty-state copy of the normal articles page must not be what we show.
     assert "No articles found" not in response.text
 

@@ -212,6 +212,8 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 ./run_cli.sh cron set --file new_crontab.txt
 ```
 
+**Note:** `backup` also has its own `cron` subgroup (`backup cron show|apply|disable`) for CTI-owned backup automation via `BackupCronService`, separate from the top-level `cron` command above, which reads/replaces the raw crontab.
+
 **See also:** [Backup & Restore](../guides/backup-and-restore.md) (Automated Backups), Settings → Backup schedule.
 
 ---

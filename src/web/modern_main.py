@@ -261,7 +261,7 @@ async def not_found_handler(request: Request, exc: HTTPException):
     return templates.TemplateResponse(
         request,
         "error.html",
-        {"error": "Page not found"},
+        {"title": "Page Not Found", "error": "Page not found", "show_db_hint": False},
         status_code=404,
     )
 

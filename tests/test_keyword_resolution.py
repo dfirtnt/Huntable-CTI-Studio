@@ -39,6 +39,27 @@ def test_intelligence_uses_canonical_orange_styles() -> None:
     assert meta.dimension == "context"
 
 
+def test_points_label_reads_as_a_per_match_weight_not_earned_points() -> None:
+    """`-10 pts` on a "No matches" card read as points this article earned,
+    when it is really the category's static per-match weight. Every category's
+    label must say "each" so the number can't be misread as an earned score."""
+    for meta in KEYWORD_CATEGORY_METADATA.values():
+        assert meta.points_label.endswith(" each"), (
+            f"{meta.key!r} points_label {meta.points_label!r} does not read as a per-match weight"
+        )
+
+
+def test_panel_groups_points_label_reaches_the_rendered_context() -> None:
+    """The template reads points_label off panel_groups, not the category
+    metadata directly -- prove the "each" qualifier actually reaches that
+    dict, not just the underlying constant."""
+    context = build_keyword_resolution_context("no matches here", {})
+
+    panel_groups = {group["key"]: group for group in context["panel_groups"]}
+    assert panel_groups["negative"]["points_label"] == "-10 pts each"
+    assert panel_groups["perfect"]["points_label"] == "75 pts each"
+
+
 def test_adjacent_and_nested_matches_resolve_without_overlap() -> None:
     content = "rundll32.exe javascript:"
     metadata = {
