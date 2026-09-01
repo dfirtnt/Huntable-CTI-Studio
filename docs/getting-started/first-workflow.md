@@ -6,11 +6,11 @@ Run the full agentic pipeline against a real CTI article: Platform Detection →
 
 ## 0) Load a quickstart preset (recommended for first run)
 
-If you haven’t configured the workflow yet, load a preset so all LLM agents have prompts and models set. On the **Workflow** page, use **Import Preset from file** and pick one of:
+If you haven't configured the workflow yet, load a preset so all LLM agents have prompts and models set. On the **Workflow** page, use **Import Preset from file** and pick one of:
 
-- **Anthropic** — `config/presets/AgentConfigs/quickstart/Quickstart-anthropic-sonnet-4-6.json`
-- **OpenAI / ChatGPT** — `config/presets/AgentConfigs/quickstart/Quickstart-openai-gpt-4.1-mini.json`
-- **LM Studio (local)** — `config/presets/AgentConfigs/quickstart/Quickstart-LMStudio-Qwen3.json`
+- **Anthropic**: `config/presets/AgentConfigs/quickstart/Quickstart-anthropic-sonnet-4-6.json`
+- **OpenAI / ChatGPT**: `config/presets/AgentConfigs/quickstart/Quickstart-openai-gpt-4.1-mini.json`
+- **LM Studio (local)**: `config/presets/AgentConfigs/quickstart/Quickstart-LMStudio-Qwen3.json`
 
 These files are committed to the repo and always present. See [Configuration -> Workflow Presets](configuration.md#workflow-presets) for the full list.
 
@@ -33,7 +33,7 @@ EXECUTION_ID=$(echo "$TRIGGER" | jq -r '.execution_id')
 echo "Execution ID: ${EXECUTION_ID}"
 ```
 
-If an execution is already running for the article, the API returns an error. Wait for it to finish or clear the stuck run before retrying. Note that ingestion can also start a workflow automatically when an article's RegexHunt score exceeds the auto-trigger threshold (default 100 — above the maximum possible score, so auto-trigger is off until you lower it in Settings → Workflow), so a run may already exist before you trigger one manually if the threshold has been lowered.
+If an execution is already running for the article, the API returns an error. Wait for it to finish or clear the stuck run before retrying. Note that ingestion can also start a workflow automatically when an article's RegexHunt score exceeds the auto-trigger threshold (default 100, above the maximum possible score, so auto-trigger is off until you lower it in Settings → Workflow), so a run may already exist before you trigger one manually if the threshold has been lowered.
 
 The same threshold gates manual triggers: if the API replies that the article's RegexHunt score is not above the auto-trigger threshold, re-run with `?force=true`:
 
@@ -57,7 +57,7 @@ curl -s "http://localhost:8001/api/workflow/executions/${EXECUTION_ID}" \
   | jq '{status, discrete_huntables: .extraction_result.discrete_huntables_count, observables: .extraction_result.observables}'
 ```
 
-You can also view results at `http://localhost:8001/articles/${ARTICLE_ID}` — the "Reprocess" button mirrors the API trigger and the page surfaces all extraction outputs.
+You can also view results at `http://localhost:8001/articles/${ARTICLE_ID}`. The "Reprocess" button mirrors the API trigger and the page surfaces all extraction outputs.
 
 ## 4) Review Sigma Rules
 
@@ -74,13 +74,13 @@ In the UI, open `http://localhost:8001/workflow#executions` and click **View** o
 
 The agentic workflow runs these stages in order:
 
-1. **Platform Detection** — classifies the article as Windows/Linux/macOS/cross-platform using the deterministic entity/keyword registry (with an LLM adjudicator for low-confidence cases). Since v7.5.0 this is a router, not a gate: non-Windows articles are not terminated; instead, Windows-only extractors (RegistryExtract, ServicesExtract, ScheduledTasksExtract) are skipped with structured reason records, and Linux evidence still generates Sigma.
-2. **Junk Filter** — ML classifier + hunt score keywords determine if the article has actionable threat content. Low-scoring articles terminate early with reason `no_huntable_content`.
-3. **LLM Ranking** — LLM scores the article for relevance and huntability. Articles below the ranking threshold terminate early with reason `rank_below_threshold`.
-4. **Sub-agent Extraction** — sequential LLM agents extract observables (command lines, process trees, hunt queries, registry artifacts, Windows services, scheduled tasks, network indicators).
-5. **Aggregation** — code in the extract step merges and deduplicates sub-agent outputs.
-6. **Sigma Generation** — generates detection rules from the extracted observables.
-7. **Similarity Search + Queue Promotion** — new rules are scored against indexed SigmaHQ rules; novel rules are promoted to the Sigma review queue.
+1. **Platform Detection**: classifies the article as Windows/Linux/macOS/cross-platform using the deterministic entity/keyword registry (with an LLM adjudicator for low-confidence cases). Since v7.5.0 this is a router, not a gate: non-Windows articles are not terminated; instead, Windows-only extractors (RegistryExtract, ServicesExtract, ScheduledTasksExtract) are skipped with structured reason records, and Linux evidence still generates Sigma.
+2. **Junk Filter**: ML classifier + hunt score keywords determine if the article has actionable threat content. Low-scoring articles terminate early with reason `no_huntable_content`.
+3. **LLM Ranking**: LLM scores the article for relevance and huntability. Articles below the ranking threshold terminate early with reason `rank_below_threshold`.
+4. **Sub-agent Extraction**: sequential LLM agents extract observables (command lines, process trees, hunt queries, registry artifacts, Windows services, scheduled tasks, network indicators).
+5. **Aggregation**: code in the extract step merges and deduplicates sub-agent outputs.
+6. **Sigma Generation**: generates detection rules from the extracted observables.
+7. **Similarity Search + Queue Promotion**: new rules are scored against indexed SigmaHQ rules; novel rules are promoted to the Sigma review queue.
 
 ## Troubleshooting
 
@@ -93,3 +93,4 @@ The agentic workflow runs these stages in order:
 | No Sigma rules generated | Article had no extractable observables | Review extraction_result for empty observables |
 
 _Last updated: 2026-07-04_
+_Last reviewed: 2026-09-01_

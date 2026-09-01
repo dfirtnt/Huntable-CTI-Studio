@@ -13,9 +13,9 @@ This guide covers installing and running Huntable CTI Studio using Docker Compos
 ```bash
 git clone https://github.com/dfirtnt/Huntable-CTI-Studio.git
 cd Huntable-CTI-Studio
-./setup.sh 
+./setup.sh
 # or non-interactive:
-# ./setup.sh --non-interactive 
+# ./setup.sh --non-interactive
 ./start.sh
 ```
 
@@ -170,7 +170,7 @@ services:
     ports:
       - "9001:8001"  # Change host port from 8001 to 9001
 ```
-See `configuration.md` for detailed port configuration.
+See [Configuration -> Port Mappings](configuration.md#port-mappings) for detailed port configuration.
 
 ### Database Authentication Errors
 - Ensure `POSTGRES_PASSWORD` is set in `.env`
@@ -222,7 +222,7 @@ See the [ML Model Operations Runbook](../operations/ml-model-runbook.md) for ret
 
 ## Agent evals
 
-**MLOps → Agent evals** (Load Eval Articles, run subagent evals) use article snapshots committed in the repo under `config/eval_articles_data/{subagent}/articles.json`. No network fetch is required: the web app seeds these files into the DB at startup, and `start.sh` also runs the seed. If "Load Eval Articles" shows no articles, ensure you have the latest repo so the committed JSON files are present.
+**MLOps → Agent evals** (Load Eval Articles, run subagent evals) use article snapshots committed in the repo under `config/eval_articles_data/{subagent}/articles.json`. No network fetch is required: the web app seeds these files into the DB at startup, and `start.sh` also runs the seed. If "Load Eval Articles" shows no articles, check that you have the latest repo so the committed JSON files are present.
 
 The committed eval article directories cover all seven extraction sub-agents:
 
@@ -245,3 +245,4 @@ The committed eval article directories cover all seven extraction sub-agents:
 ---
 
 _Last updated: 2026-08-19_
+_Last reviewed: 2026-09-01_
