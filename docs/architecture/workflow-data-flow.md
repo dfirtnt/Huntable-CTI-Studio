@@ -254,6 +254,8 @@ _Note: `sigma_fallback_enabled` defaults to `False`, so Sigma generation normall
 
 ## Celery vs Direct Execution
 
+<!-- AUDIT: Clarity -- this section and "Execution Methods: Celery (LangGraph state machine) vs Direct Testing" below cover the same topic at different depths. Consider merging them into the later, fuller section on a future pass. -->
+
 ### Same Workflow Implementation
 
 Both execution paths use the **same workflow code**:
@@ -488,7 +490,7 @@ User action / automated trigger
 - `src/worker/celery_app.py` — `trigger_agentic_workflow` task
 - `src/web/routes/workflow_executions.py` — `/api/workflow/articles/{article_id}/trigger` and `/api/workflow/executions/{execution_id}/retry` endpoints
 
-**Note:** The UI still appends `use_langgraph_server` query flags for compatibility, but the backend ignores that parameter—the LangGraph graph always executes inside the Celery task now. The standalone LangGraph server referenced in earlier docs no longer exists.
+**Note:** The UI still appends `use_langgraph_server` query flags for compatibility, but the backend ignores that parameter; the LangGraph graph always executes inside the Celery task now. The standalone LangGraph server referenced in earlier docs no longer exists.
 
 ### 2. Direct Execution (Testing - Single Agent)
 
@@ -543,4 +545,6 @@ Test button → test_sub_agent() endpoint → llm_service.run_extraction_agent()
 - **Direct test trigger**: `src/web/routes/workflow_config.py` — `test_sub_agent()`
 - **Database model**: `src/database/models.py` — `AgenticWorkflowExecutionTable`
 
-_Last updated: 2026-07-04_
+_Last updated: 2026-09-01_
+<!-- AUDIT: Accuracy -- footer said 2026-07-04, but commit 961f9850 (2026-09-01) substantively revised the supervisor-aggregation example (_enrich_observable_metadata) and the Langfuse propagate_attributes section. -->
+_Last reviewed: 2026-09-01_

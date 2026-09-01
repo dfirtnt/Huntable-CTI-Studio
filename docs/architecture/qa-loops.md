@@ -56,7 +56,8 @@ From [Sigma Detection Rules](../features/sigma-rules.md):
 
 ## Ranking QA
 
-> **Deprecated (v7.2.0, commit `b9645305`, 2026-05-22; released 2026-05-29):** The `RankAgentQA` agent and the `qa_max_retries` config field were removed as part of the full QA agent subsystem removal. Ranking now proceeds directly to the threshold check without a QA validation step. The content below is retained for historical context only.
+> **Deprecated (v7.2.0, commit `b9645305`, 2026-05-22; released 2026-05-29):** The `RankAgentQA` agent and the `qa_max_retries` config field were removed as part of the full QA agent subsystem removal. Ranking now proceeds directly to the threshold check without a QA validation step.
+<!-- AUDIT: Accuracy -- removed "The content below is retained for historical context only": this section has no content below the note, so the sentence pointed at nothing. -->
 
 ## Operational Safeguards
 
@@ -66,3 +67,4 @@ From [Sigma Detection Rules](../features/sigma-rules.md):
   readiness so QA runs against a healthy stack.
 
 _Last updated: 2026-07-17_
+_Last reviewed: 2026-09-01_

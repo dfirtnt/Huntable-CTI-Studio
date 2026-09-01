@@ -79,7 +79,7 @@ Negative indicators     15.0 pts max  (25 patterns, geometric: 15.0 * (1 - 0.5^n
 Final = max(0.0, min(99.9, perfect + good + lolbas + intelligence - negative))
 ```
 
-**Perfect discriminators** (75 pts max):
+**Perfect discriminators** (75 pts max; sampled from the 114 patterns):
 `rundll32.exe`, `comspec`, `msiexec.exe`, `wmic.exe`, `iex`, `findstr.exe`,
 `hklm`, `appdata`, `programdata`, `powershell.exe`, `wbem`,
 `.lnk`, `D:\`, `.iso`, `<Command>`, `MZ`,
@@ -91,12 +91,12 @@ Cmd.exe obfuscation regex patterns (sampled): `%VAR:~0,4%`, `!VAR!`,
 
 **LOLBAS executables** (10 pts max): 239 patterns; examples above.
 
-**Intelligence indicators** (10 pts max):
+**Intelligence indicators** (10 pts max; sampled from the 56 patterns):
 `APT`, `threat actor`, `campaign`, `ransomware`,
 `FIN`, `TA`, `UNC`, `Lazarus`, `Carbanak`,
 `breach`, `compromise`, `in the wild`, `active campaign`
 
-**Supporting indicators** (5 pts max):
+**Supporting indicators** (5 pts max; sampled from the 94 patterns):
 `temp`, `==`, `c:\windows\`, `Event ID`, `.bat`, `.ps1`,
 `pipe`, `::`, `[.]`, `-->`, `currentversion`
 
@@ -156,3 +156,4 @@ Contains `rundll32`, `iex`, `lsass.exe`; code blocks and host-based indicators.
 No recognized keywords; no technical depth indicators.
 
 _Last updated: 2026-07-17_
+_Last reviewed: 2026-09-01_

@@ -43,4 +43,4 @@ Note: `total_chunks` reflects the actual chunks emitted by the chunker. Article 
 
 
 _Last updated: 2026-07-03_
-_Last reviewed: 2026-05-26_
+_Last reviewed: 2026-09-01_
