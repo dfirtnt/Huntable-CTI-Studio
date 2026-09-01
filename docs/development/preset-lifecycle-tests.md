@@ -324,7 +324,7 @@ python3 run_tests.py api
 
 This module carries `@pytest.mark.agent_config_mutation`, so a bare `pytest` invocation needs
 `TEST_DATABASE_URL` and `USE_ASGI_CLIENT=1` or it fails fast (see
-[`tests/TEST_DATABASE_SETUP.md`](../../tests/TEST_DATABASE_SETUP.md) [VERIFY LINK] Option 3):
+`tests/TEST_DATABASE_SETUP.md` Option 3):
 
 ```bash
 export APP_ENV=test
@@ -432,7 +432,7 @@ residue lands in `TEST_DATABASE_URL`, not the dev database.
 - **Config Loader:** `src/config/workflow_config_loader.py`
 - **Database Model:** `src/database/models.py` (`WorkflowConfigPresetTable`)
 - **Config Schema:** `src/config/workflow_config_schema.py`
-- **Test database setup:** [`tests/TEST_DATABASE_SETUP.md`](../../tests/TEST_DATABASE_SETUP.md) [VERIFY LINK]
+- **Test database setup:** `tests/TEST_DATABASE_SETUP.md`
 - **Test marker reference:** [Testing overview](testing.md) [VERIFY LINK]
 
 _Last updated: 2026-07-03_

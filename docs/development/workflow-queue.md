@@ -107,7 +107,7 @@ the concern: `docker exec cti_redis redis-cli LLEN default`. -->
 
 ### Check Overall Worker Health
 
-For a broader view (not just the workflows queue), see [Agent Orientation -- Workers and schedules](agent-orientation.md#runtime-entry-points) [VERIFY LINK] and [AGENTS.md -- Runtime](../../AGENTS.md#runtime) [VERIFY LINK] for the restart requirement on `cti_worker` / `cti_workflow_worker` after `.py` changes.
+For a broader view (not just the workflows queue), see [Agent Orientation -- Workers and schedules](agent-orientation.md#runtime-entry-points) [VERIFY LINK] and the `AGENTS.md` "Runtime" section (repository root) for the restart requirement on `cti_worker` / `cti_workflow_worker` after `.py` changes.
 
 ### Check Workflow Worker Stats
 ```bash

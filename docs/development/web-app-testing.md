@@ -4,7 +4,7 @@
 
 This guide covers Playwright patterns for testing the Huntable CTI Studio web interface: UI flows, responsive design, and accessibility checks.
 
-For the actual commands to run the suite and which tier to pick, see [UI Test Tiers](ui-test-tiers.md) [VERIFY LINK] and [Testing](testing.md) [VERIFY LINK]; both are driven by `run_tests.py`, the canonical test entrypoint. The code samples below illustrate Playwright API patterns; most use placeholder selectors (`.article-item`, `.threat-score`, etc.) that do not match the current templates. For selectors and assertions verified against the live app, read [`tests/e2e/test_web_interface.py`](../../tests/e2e/test_web_interface.py) and the specs under `tests/ui/` and `tests/playwright/`.
+For the actual commands to run the suite and which tier to pick, see [UI Test Tiers](ui-test-tiers.md) [VERIFY LINK] and [Testing](testing.md) [VERIFY LINK]; both are driven by `run_tests.py`, the canonical test entrypoint. The code samples below illustrate Playwright API patterns; most use placeholder selectors (`.article-item`, `.threat-score`, etc.) that do not match the current templates. For selectors and assertions verified against the live app, read `tests/e2e/test_web_interface.py` and the specs under `tests/ui/` and `tests/playwright/`.
 <!-- AUDIT: Accuracy -- verified 2026-09-01: most example blocks in this file use invented class names (`.article-item`, `.threat-score`, `.mobile-menu`, `.search-results`, etc.) that do not exist in src/web/templates/. Grepped templates to confirm. Left as illustrative Playwright-pattern examples per audit scope (not rewriting every block against the live template), but flagged here and at each section so nobody copy-pastes a selector expecting it to exist. -->
 
 ## Tools and Setup
@@ -762,7 +762,7 @@ point `path`, independent of the failure-capture layout described here.
 - **Pick the right test tier** → [UI Test Tiers](ui-test-tiers.md) [VERIFY LINK]
   covers the `run_tests.py ui-*` commands and when to use each.
 - **Understand the full test pyramid** → [Testing](testing.md) [VERIFY LINK]
-- **See real, current selectors** → [`tests/e2e/test_web_interface.py`](../../tests/e2e/test_web_interface.py),
+- **See real, current selectors** → `tests/e2e/test_web_interface.py`,
   `tests/ui/`, `tests/playwright/`
 <!-- AUDIT: Hyperlinks -- previous "See the testing guide in the tests directory" was a dead-end reference with no path. Replaced with concrete, verified targets. -->
 

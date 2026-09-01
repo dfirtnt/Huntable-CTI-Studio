@@ -29,6 +29,8 @@ Result: **a fix in one place does not propagate.** Concrete symptom that trigger
 | 4 | Workflow Config | `/workflow` | `src/web/templates/workflow.html` | threshold slider + queue similarity column |
 | 5 | Workflow Executions | `/workflow-executions` | `src/web/templates/workflow_executions.html` | similarity results summary per execution |
 
+*(Historical note: `sigma_queue.html` and `workflow_executions.html` (rows 3 and 5) were deleted 2026-07-17, commit `1c52528c` -- both were unreachable duplicate templates the whole time, since every `/workflow*` and `/sigma-queue` route had already been serving `workflow.html` via `workflow_ui.py`. Their Phase 4 fixes below landed correctly in the live `workflow.html`; the parallel edits to these dead copies were wasted but harmless. Current queue-review and per-execution similarity surfaces both live in `workflow.html`.)*
+
 ### Vestigial 6th surface (do NOT count as live)
 The **Article Detail `#sigma` modal** in `src/web/templates/article_detail.html` (backend `GET /api/articles/{id}/sigma-matches` in `src/web/routes/ai.py` ~line 2416) is a leftover from the **deprecated AI/ML Assistant modal** (deprecated in commit `a2a245f2`, ~v5.2.0, 2026-01-21). There is **no button entrypoint** anymore — the "Generate Sigma Rules" trigger and the regenerate buttons were gutted to deprecation notices. The container modal only auto-opens via the `/articles/{id}#sigma` URL fragment, for articles that already have `sigma_rules` stored in metadata, and the `🔍 Similarity Search` button inside is further gated on the article having an embedding. The backend endpoint is **still live** and still re-implements novelty thresholds (see Phase 2). **Decision deferred to Phase 5:** delete it outright vs. fold it in.
 
@@ -123,8 +125,10 @@ But the frontend block at `sigma_similarity_test.html` ~lines 274–294 reads `b
 **Goal:** one widget.
 **Do:**
 - **Queue:** replace `buildSimilarityDetailHtml()` + `mapSimilarityResponse()` / `mapSimilarityResponseFromCache()` in `sigma_queue.html` with `renderSimilarityDisplay(match, { mode: 'compact' })`. Queue's chip + expandable-detail needs are expressible via `mode: 'compact'` + `includeExplainability`. **Retires the exact path the containment bug lived in.**
+<!-- AUDIT: Accuracy -- `sigma_queue.html` was deleted 2026-07-17 (commit 1c52528c) as a dead duplicate; see the historical note after the surfaces table. -->
 - **Test page:** delete the dead `if (match.similarity_breakdown){ title/description/tags/signature }` block (`sigma_similarity_test.html` ~lines 274–294) — **fixes the `NaN%`** — and swap `displayResults()`'s metric section for the shared component rendering the real `atom_jaccard` / `logic_shape` / `containment` it already receives.
 - **Workflow + Workflow-Executions:** replace `showSimilarRuleDetails()` — **duplicated verbatim** in `workflow_executions.html` (~line 1444) AND `workflow.html` (~line 16740) — with `renderSimilarityDisplay(ruleData, { mode: 'compact' })`. This is the surface that currently shows NO breakdown (only title/desc/id/status/similarity/path/tags/logsource). The data is already present in `ruleData` (full engine match stored by the workflow), so this needs no backend/data change — and it collapses TWO duplicated copies into the shared component. (Found 2026-06-05 by operator inspecting `/workflow#executions` → "Similar Rule Details" modal.)
+<!-- AUDIT: Accuracy -- verified 2026-09-01: `workflow_executions.html` no longer exists (deleted 2026-07-17, commit 1c52528c, as a dead duplicate). The unified `showSimilarRuleDetails()` now lives in `src/web/static/js/components/similar-rule-modal.js` (extracted from workflow.html's inline script during a later split into `src/web/static/js/workflow/*.js` modules) and is confirmed to call `renderSimilarityDisplay(ruleData, ...)`; `tests/unit/test_similarity_renderer_unification.py::TestWorkflowModalRendererCollapsed` (14/14) still passes against the live template today, so the fix described here held. -->
 - **A/B test:** already uses `updateSimilarityDisplay()` — confirm it's on canonical fields.
 **Risk:** medium (visible UI).
 **Verify:** pytest **template-contract tests** (NOT the live :8001 browser — :8001 is Docker-served from the MAIN tree, not a worktree). Browser/screenshot verify only AFTER merge to the served tree.
@@ -146,3 +150,5 @@ But the frontend block at `sigma_similarity_test.html` ~lines 274–294 reads `b
 - **Template edits** verified via pytest template-contract tests, not the live `:8001` browser (Docker-served from main tree). Browser-verify only after merge.
 - **Contract sources of truth:** `src/config/workflow_config_schema.py`, `src/database/models.py`.
 - **Smallest safe first commit:** Phase 1 serializer behind additive aliases — high leverage, reversible, no UI change.
+
+_Last reviewed: 2026-09-01_

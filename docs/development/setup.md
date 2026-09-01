@@ -110,5 +110,7 @@ The test runner auto-manages the isolated test environment when needed. See [Tes
 - [Testing](testing.md)
 - [Workflow Queue](workflow-queue.md)
 - [Architecture Overview](../architecture/overview.md)
+- [Database Queries](database-queries.md) <!-- AUDIT: Hyperlinks -- added; this page references `docker-compose.yml`/Postgres access but had no pointer to the dedicated query/connection reference. -->
 
 _Last updated: 2026-07-03_
+_Last reviewed: 2026-09-01_

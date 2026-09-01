@@ -27,3 +27,8 @@ Key principles the skill enforces (and this doc's one surviving rule):
   not the live DB config (which churns with experimentation).
 - Ground truth exists for regression tracking; spec changes are deliberate,
   changelogged events that create score-comparability boundaries.
+
+See the [Extractor Contracts](../contracts/extractor-standard.md) for the full
+set of per-agent specs the skill audits against.
+
+_Last reviewed: 2026-09-01_
