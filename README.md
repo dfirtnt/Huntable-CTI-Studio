@@ -1,15 +1,6 @@
 # Huntable CTI Studio
 <img width="952" height="64" alt="image" src="https://github.com/user-attachments/assets/4b29bc70-b518-4559-af0c-caf23b86000d" />
 
-
-## ** SECURITY WARNING **
-!! The DEFAULT mode is UNAUTHENTICATED (`AUTH_MODE=disabled`) -- intended for research, learning, and automation on a trusted/local network. DO NOT expose the default mode to a hostile network.
-
-For hardened deployments, an optional enterprise boundary is available: SSO through a trusted-header reverse proxy (Google / GitHub / Microsoft), role-based access control, CSRF protection, fail-closed production startup, and a redacted, actor-attributed audit trail. See [Authentication](docs/guides/authentication.md) and [Enterprise SSO Setup](docs/guides/enterprise-sso.md).
-
-Even when hardened, the phase-one audit log is database-backed and mutable by database administrators (forward exports to a SIEM for higher assurance), and the app is not intended to store classified or proprietary threat intelligence at this time.
-##
-
 **Huntable CTI Studio v7.8.0 "Europa"** - A Cyber Threat Intelligence ML/AI workbench that automates collection, extraction, and detection rule generation from 38 seeded OSINT sources (see `config/sources.yaml`; runtime may add or replace rows after DB sync).
 
 ## Purpose
@@ -98,6 +89,15 @@ The documentation is organized under `/docs` and is published with MkDocs Materi
 - **Development**: `docs/development/setup.md`, `docs/development/testing.md`
 - **Reference**: `docs/reference/api.md`, `docs/reference/schemas.md`, `docs/reference/mcp-tools.md`
 - **Security & Auth**: [`docs/guides/authentication.md`](docs/guides/authentication.md), [`docs/guides/enterprise-sso.md`](docs/guides/enterprise-sso.md)
+
+
+## ** SECURITY WARNING **
+!! The DEFAULT mode is UNAUTHENTICATED (`AUTH_MODE=disabled`) -- intended for research, learning, and automation on a trusted/local network. DO NOT expose the default mode to a hostile network.
+
+For hardened deployments, an optional enterprise boundary is available: SSO through a trusted-header reverse proxy (Google / GitHub / Microsoft), role-based access control, CSRF protection, fail-closed production startup, and a redacted, actor-attributed audit trail. See [Authentication](docs/guides/authentication.md) and [Enterprise SSO Setup](docs/guides/enterprise-sso.md).
+
+Even when hardened, the phase-one audit log is database-backed and mutable by database administrators (forward exports to a SIEM for higher assurance), and the app is not intended to store classified or proprietary threat intelligence at this time.
+##
 
 ## License
 
