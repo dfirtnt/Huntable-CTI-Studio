@@ -9,13 +9,13 @@ Use this guide to connect Huntable CTI Studio to Langfuse for workflow and LLM t
 
 ## Why connect Langfuse
 
-Huntable CTI Studio's agentic pipeline is a multi-step, multi-model process: articles are ranked, observables are extracted by specialized agents, and Sigma rules are generated — all as a chain of LLM calls orchestrated by LangGraph. Without tracing, the only thing visible is the final output. Langfuse makes the interior of each run auditable.
+Huntable CTI Studio's agentic pipeline is a multi-step, multi-model process: articles are ranked, observables are extracted by specialized agents, and Sigma rules are generated, all as a chain of LLM calls orchestrated by LangGraph. Without tracing, the only thing visible is the final output. Langfuse makes the interior of each run auditable.
 
-**Full prompt/response replay per agent call.** Every LLM call — ranking, extraction, Sigma generation — is recorded as a child span inside the workflow trace. You can see the exact system prompt, user message, and model completion for each agent, not just the aggregated result.
+**Full prompt/response replay per agent call.** Every LLM call (ranking, extraction, Sigma generation) is recorded as a child span inside the workflow trace. You can see the exact system prompt, user message, and model completion for each agent, not just the aggregated result.
 
 **One-click navigation from any execution to its trace.** The workflow execution detail view includes a deep link into Langfuse that jumps directly to the session for that run (`/project/{id}/sessions/workflow_exec_{execution_id}`). No searching by trace ID.
 
-**Retroactive eval enrichment.** The eval pipeline pulls LLM generation data back from Langfuse when building evaluation bundles. If an agent's prompt or response wasn't stored locally at run time, Langfuse fills the gap — keeping historical executions evaluable.
+**Retroactive eval enrichment.** The eval pipeline pulls LLM generation data back from Langfuse when building evaluation bundles. If an agent's prompt or response wasn't stored locally at run time, Langfuse fills the gap, keeping historical executions evaluable.
 
 **Experiment and prompt-version tracking.** Eval runs are linked to Langfuse experiment IDs, enabling side-by-side comparison of prompt changes, model swaps, or agent config changes in the Langfuse UI.
 
@@ -44,7 +44,7 @@ Use the cloud host that matches your Langfuse account region. Common Langfuse Cl
 - `https://us.cloud.langfuse.com` (US)
 - `https://hipaa.cloud.langfuse.com`
 
-This project's own Langfuse project is on the **US** region (`https://us.cloud.langfuse.com`) — that's also the app's built-in default. If your account uses a different cloud region, set `LANGFUSE_HOST` to the hostname shown by Langfuse for that project. EU and US are separate Langfuse deployments: keys from one region will not authenticate against the other.
+This project's own Langfuse project is on the **US** region (`https://us.cloud.langfuse.com`), which is also the app's built-in default. If your account uses a different cloud region, set `LANGFUSE_HOST` to the hostname shown by Langfuse for that project. EU and US are separate Langfuse deployments: keys from one region will not authenticate against the other.
 
 ## Configuration values
 
@@ -134,3 +134,4 @@ Traces only exist for executions that ran while Langfuse tracing was enabled. If
 - [Debugging](../development/debugging.md)
 
 _Last updated: 2026-08-18_
+_Last reviewed: 2026-09-01_

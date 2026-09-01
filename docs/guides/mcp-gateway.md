@@ -1,8 +1,8 @@
 # Docker MCP Gateway
 
-Huntable's MCP tools are normally launched over **stdio** — `.mcp.json` points at `scripts/run_mcp_server.sh`, which runs the server inside the Docker `cli` container and passes JSON-RPC through stdin/stdout. That works for Claude Code, Claude Desktop, and Cursor, but not for **Docker MCP Gateway**: the Gateway is itself a container, and the launcher shells out to `docker compose run` on the host.
+Huntable's MCP tools are normally launched over **stdio**: `.mcp.json` points at `scripts/run_mcp_server.sh`, which runs the server inside the Docker `cli` container and passes JSON-RPC through stdin/stdout. That works for Claude Code, Claude Desktop, and Cursor, but not for **Docker MCP Gateway**: the Gateway is itself a container, and the launcher shells out to `docker compose run` on the host.
 
-The Gateway does connect to **remote** MCP servers over streamable-HTTP. The `mcp` compose profile serves the same `FastMCP` instance — same tools, same resources, same [write risk tiers](../reference/mcp-tools.md#write-risk-tiers) — over HTTP instead.
+The Gateway does connect to **remote** MCP servers over streamable-HTTP. The `mcp` compose profile serves the same `FastMCP` instance (same tools, same resources, same [write risk tiers](../reference/mcp-tools.md#write-risk-tiers)) over HTTP instead.
 
 ## What you get
 
@@ -29,9 +29,9 @@ HUNTABLE_MCP_PORT=8009
 docker compose --profile mcp up -d mcp_http
 ```
 
-The port is published on `127.0.0.1` only — the Gateway reaches it through `host.docker.internal`, and nothing off-host can.
+The port is published on `127.0.0.1` only; the Gateway reaches it through `host.docker.internal`, and nothing off-host can.
 
-**3. Register it with the Gateway.** `docker mcp` resolves `file://` server references under `~/.docker/mcp/catalogs`, so the entry gets copied there first. (Commands verified against `docker mcp` v0.43.1 — older builds used a `catalog import` verb that no longer exists.)
+**3. Register it with the Gateway.** `docker mcp` resolves `file://` server references under `~/.docker/mcp/catalogs`, so the entry gets copied there first. (Commands verified against `docker mcp` v0.43.1; older builds used a `catalog import` verb that no longer exists.)
 
 ```bash
 cp config/mcp-gateway/huntable-server-entry.yaml ~/.docker/mcp/catalogs/
@@ -49,7 +49,7 @@ docker mcp secret set huntable.mcp_token=<the same token>
 docker mcp server enable huntable-cti-studio
 ```
 
-`custom` is the Gateway's built-in local catalog. To keep Huntable out of it, create a dedicated one instead — `docker mcp catalog create huntable:latest --title Huntable --server file://huntable-server-entry.yaml`.
+`custom` is the Gateway's built-in local catalog. To keep Huntable out of it, create a dedicated one instead: `docker mcp catalog create huntable:latest --title Huntable --server file://huntable-server-entry.yaml`.
 
 **4. Verify.**
 
@@ -92,3 +92,5 @@ curl -s -X POST http://localhost:8009/mcp \
 - **Same database as the app.** The service joins `cti_network` and talks to the internal `postgres` service, exactly like `web` and `cli`.
 - **Not the default.** The stdio path is untouched; `.mcp.json` still uses it, and running the `mcp` profile is opt-in.
 - **Restart on dependency changes.** `src/` is bind-mounted, so tool edits need only a `docker restart cti_mcp_http`. Dependency or Dockerfile changes need `docker compose build`.
+
+_Last reviewed: 2026-09-01_

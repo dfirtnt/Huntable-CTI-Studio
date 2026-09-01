@@ -6,6 +6,8 @@ Source configurations can be stored in two places:
 1. **Database** (`sources` table) - **Primary source of truth for runtime** (user's active settings)
 2. **YAML file** (`config/sources.yaml`) - **Only for brand new builds** (initial seed)
 
+To add a new source, see [Add a Feed or Source](add-feed.md).
+
 ## Precedence Rules
 
 ### Runtime Behavior
@@ -81,7 +83,7 @@ config:
 
 ### Disable Auto-Sync (Optional)
 
-To ensure YAML sync never runs, even on new builds:
+To stop YAML sync from ever running, even on new builds:
 
 ```bash
 # Set environment variable in docker-compose.yml or .env
@@ -157,3 +159,4 @@ Use `status` to detect "is this source reachable right now?" and `error_rate` to
 4. **Version control**: Keep `config/sources.yaml` in git for tracking changes
 
 _Last updated: 2026-07-05_
+_Last reviewed: 2026-09-01_

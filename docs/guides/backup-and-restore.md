@@ -17,6 +17,11 @@ Comprehensive guide for Huntable CTI Studio backup and restore operations, inclu
 7. [Disaster Recovery](#disaster-recovery)
 8. [Retention & Pruning](#retention--pruning)
 9. [Monitoring & Troubleshooting](#monitoring--troubleshooting)
+10. [Best Practices](#best-practices)
+11. [Migration from Database-Only to Full System](#migration-from-database-only-to-full-system)
+12. [Cross-Machine Backup Restore](#cross-machine-backup-restore)
+<!-- AUDIT: Clarity -- added the three trailing top-level sections (Best Practices, Migration, Cross-Machine Backup Restore) that existed in the doc but were missing from the Table of Contents. -->
+
 
 ---
 
@@ -119,7 +124,7 @@ backups/system_backup_20251010_103000/
 - **Automatic Compression**: gzip compression (~70-80% reduction)
 - **Metadata Tracking**: JSON metadata with database stats (including ml_model_versions count)
 - **Timestamped Filenames**: `cti_scraper_backup_YYYYMMDD_HHMMSS.sql.gz`
-- **Docker Integration**: Seamless container integration
+- **Docker Integration**: Verifies the `cti_postgres` container is running and runs `pg_dump`/`psql` against it directly
 - **Safety Checks**: Pre-restore validation and snapshots
 - **Complete Table Coverage**: All tables backed up, including ml_model_versions for ML metric history
 - **Restore Verification**: Automatically verifies ml_model_versions count matches backup metadata
@@ -447,9 +452,9 @@ python3 scripts/restore_database.py backups/pre_restore_snapshot_20250907_140201
 
 Two legacy database restore scripts exist alongside the primary ``restore_database.py`` (v1) used by the UI and ``backup_restore.sh``:
 
-- **``restore_database_v2.py``** — Used by the Settings UI's restore-from-file upload endpoint (``POST /api/backup/restore-from-file``). Offers the same safety features as v1 (pre-restore snapshot, rollback, app-container pausing, ``extract_psql_errors`` guard) in a class-based implementation. Currently live in that one path.
+- **``restore_database_v2.py``**: Used by the Settings UI's restore-from-file upload endpoint (``POST /api/backup/restore-from-file``). Offers the same safety features as v1 (pre-restore snapshot, rollback, app-container pausing, ``extract_psql_errors`` guard) in a class-based implementation. Currently live in that one path.
 
-- **``restore_database_v3.py``** — NOT wired into any user-facing path. Uses direct ``psql`` with ``--single-transaction`` + ``ON_ERROR_STOP=on`` (no Docker shell wrapper, atomic restore, reliable exit codes). Its sole unique value is a post-restore ``check_source_attribution_integrity()`` check that warns if the restored database's article canonical_url / source-url mismatch count exceeds a known baseline. See the file header for a full gap analysis. If consolidation is ever pursued, extract that check into ``_restore_common.py`` and remove v3 entirely.
+- **``restore_database_v3.py``**: NOT wired into any user-facing path. Uses direct ``psql`` with ``--single-transaction`` plus ``ON_ERROR_STOP=on`` (no Docker shell wrapper, atomic restore, reliable exit codes). Its sole unique value is a post-restore ``check_source_attribution_integrity()`` check that warns if the restored database's article canonical_url / source-url mismatch count exceeds a known baseline. See the file header for a full gap analysis. If consolidation is ever pursued, extract that check into ``_restore_common.py`` and remove v3 entirely.
 
 ### Full System Restore
 
@@ -538,7 +543,7 @@ print('Model loaded' if cf.load_model() else 'Model missing')
 "
 ```
 
-> **If `models/` is empty after restore** — the backup was taken from an instance
+> **If `models/` is empty after restore**: the backup was taken from an instance
 > where the model file was also absent (e.g. a previous clean install). The
 > `ml_model_versions` table will contain version history, but the pkl artifact is
 > gone. Seed a new baseline model from the bundled fixtures:
@@ -552,7 +557,7 @@ print('Model loaded' if cf.load_model() else 'Model missing')
 > data. Version history from before the restore is preserved in the database and
 > will appear in the ML performance charts.
 
-> **Model rollback and the `backups/models/` fallback** — the `POST /api/model/rollback/{version_id}` endpoint
+> **Model rollback and the `backups/models/` fallback**: the `POST /api/model/rollback/{version_id}` endpoint
 > (`MLModelVersionManager._resolve_artifact_path`) checks `models/` first, then
 > automatically falls back to `backups/models/<filename>` if the primary pkl has been
 > deleted. This means rollback returns 200 (not 422) even when `models/` has been
@@ -593,7 +598,7 @@ print('Model loaded' if cf.load_model() else 'Model missing')
 
 The size limit never deletes the newest backup. If a single backup exceeds
 `--max-size-gb`, pruning keeps it and prints a warning rather than emptying the
-retention set — pruning runs unattended with `--force`, and being over the limit
+retention set. Pruning runs unattended with `--force`, and being over the limit
 is recoverable while having zero backups is not.
 
 ### Pruning Commands
@@ -632,7 +637,7 @@ rm -f backups/cti_scraper_backup_20250901_*.{sql.gz,json}
 # Check backup status
 ./scripts/backup_restore.sh list
 
-# Show backup statistics (not a backup_restore.sh subcommand -- use the CLI)
+# Show backup statistics (not a backup_restore.sh subcommand; use the CLI)
 python3 -m src.cli.main backup stats
 
 # Verify latest backup
@@ -849,11 +854,13 @@ Full system backups provide:
 
 ## Cross-Machine Backup Restore
 
-## Overview
+<!-- AUDIT: Clarity -- this section (through "Summary" below) kept the top-level heading depth of its source file (operations/CROSS_MACHINE_RESTORE.md) after the merge noted at the top of this file, producing duplicate/confusing top-level headings (a second Overview, Best Practices, etc.) not reflected in the Table of Contents. Demoted one level so it nests correctly under this section. -->
+
+### Overview
 
 Backups created on one computer can be restored on another computer. The backup format is portable and doesn't contain machine-specific paths.
 
-## Prerequisites
+### Prerequisites
 
 1. **Docker containers running** on the target machine:
    ```bash
@@ -864,9 +871,9 @@ Backups created on one computer can be restored on another computer. The backup 
 
 3. **Docker Compose stack available** on the target machine
 
-## Restore Methods
+### Restore Methods
 
-### Method 1: Copy Backup to Default Location
+#### Method 1: Copy Backup to Default Location
 
 1. **Copy backup directory** to the `backups/` folder:
    ```bash
@@ -882,7 +889,7 @@ Backups created on one computer can be restored on another computer. The backup 
    python3 scripts/restore_system.py system_backup_20260121_113825
    ```
 
-### Method 2: Restore from Absolute Path
+#### Method 2: Restore from Absolute Path
 
 If the backup is in a different location:
 
@@ -890,16 +897,16 @@ If the backup is in a different location:
 python3 scripts/restore_system.py /path/to/backup/system_backup_20260121_113825
 ```
 
-### Method 3: Via Web UI
+#### Method 3: Via Web UI
 
 1. Copy backup directory to `backups/` folder
 2. Open Settings → Backup Actions
 3. Click "Restore from Backup"
 4. Select the backup from the list
 
-## What Gets Restored
+### What Gets Restored
 
-### Portable Components (Cross-Machine Safe)
+#### Portable Components (Cross-Machine Safe)
 
 ✅ **Database** - SQL dump (fully portable)  
 ✅ **Models** - ML model files (`.pkl`, `.joblib`, etc.)  
@@ -907,13 +914,13 @@ python3 scripts/restore_system.py /path/to/backup/system_backup_20260121_113825
 ✅ **Outputs** - Training data and generated content  
 ✅ **Logs** - Application logs  
 
-### Docker Volumes
+#### Docker Volumes
 
 Docker volumes are not restored by the system restore script. Use the database component for PostgreSQL recovery. Redis volume contents are treated as disposable queue/cache state.
 
-## Important Considerations
+### Important Considerations
 
-### 1. Database Credentials
+#### 1. Database Credentials
 
 The restore script uses default credentials. If your target machine has different credentials:
 
@@ -925,7 +932,7 @@ python3 scripts/restore_system.py system_backup_20260121_113825
 
 **Option B**: Edit `scripts/restore_system.py` DB_CONFIG section temporarily
 
-### 2. Docker Container Names
+#### 2. Docker Container Names
 
 The restore script expects:
 - `cti_postgres` (PostgreSQL container)
@@ -933,7 +940,7 @@ The restore script expects:
 
 If your containers have different names, update `scripts/restore_system.py` or use `docker compose` which sets these names automatically.
 
-### 3. Selective Restore
+#### 3. Selective Restore
 
 You can restore only specific components:
 
@@ -947,15 +954,15 @@ python3 scripts/restore_system.py system_backup_20260121_113825 \
   --components database,models,config,outputs,logs
 ```
 
-### 4. Backup Format Compatibility
+#### 4. Backup Format Compatibility
 
 - **Version 1.0** backups: ✅ Supported
 - **Version 2.0** backups: ✅ Supported
 - Older formats: May require migration
 
-## Step-by-Step Example
+### Step-by-Step Example
 
-### Source Machine (Computer A)
+#### Source Machine (Computer A)
 
 ```bash
 # Create backup
@@ -965,7 +972,7 @@ python3 scripts/backup_system.py
 # Backup created: backups/system_backup_20260121_113825/
 ```
 
-### Transfer Backup
+#### Transfer Backup
 
 ```bash
 # Option 1: SCP
@@ -978,7 +985,7 @@ scp -r backups/system_backup_20260121_113825 user@target:/path/to/Huntable-CTI-S
 # Copy to shared network location, then copy from target machine
 ```
 
-### Target Machine (Computer B)
+#### Target Machine (Computer B)
 
 ```bash
 # 1. Ensure Docker containers are running
@@ -995,23 +1002,23 @@ python3 scripts/restore_system.py system_backup_20260121_113825
 # Check web UI or run verification
 ```
 
-## Troubleshooting
+### Troubleshooting
 
-### "Backup directory not found"
+#### "Backup directory not found"
 
 **Solution**: Use absolute path:
 ```bash
 python3 scripts/restore_system.py /full/path/to/system_backup_20260121_113825
 ```
 
-### "PostgreSQL container not running"
+#### "PostgreSQL container not running"
 
 **Solution**: Start containers:
 ```bash
 docker compose up -d
 ```
 
-### "Database restore failed: connection refused"
+#### "Database restore failed: connection refused"
 
 **Solution**: Check container name and credentials:
 ```bash
@@ -1019,15 +1026,15 @@ docker ps | grep postgres
 # Should show: cti_postgres
 ```
 
-### "Docker volume restore is not supported"
+#### "Docker volume restore is not supported"
 
 **Solution**: Restore the `database` component from the SQL dump. Legacy backups may contain `docker_volume_*` metadata, but those components are skipped because Docker volume archives are not a supported restore mechanism.
 
-### Verification Failures
+#### Verification Failures
 
 If verification fails for empty directories (outputs/logs), this is normal - empty directories are valid. The restore succeeded.
 
-## Best Practices
+### Best Practices
 
 1. **Test restore first**: Use `--dry-run` to verify backup structure:
    ```bash
@@ -1055,14 +1062,14 @@ If verification fails for empty directories (outputs/logs), this is normal - emp
      --components models,config
    ```
 
-## Security Notes
+### Security Notes
 
 - Backups may contain sensitive data (API keys, database passwords)
 - Transfer backups securely (encrypted connection, secure storage)
 - Verify backup source before restoring
 - Consider encrypting backups for cross-machine transfer
 
-## Summary
+### Summary
 
 ✅ **Cross-machine restore is fully supported**  
 ✅ **Backups are portable** (no machine-specific paths)  
@@ -1075,4 +1082,4 @@ The only requirement is that Docker containers are running with the expected nam
 ---
 
 _Last updated: 2026-08-13_
-_Last reviewed: 2026-08-13_
+_Last reviewed: 2026-09-01_

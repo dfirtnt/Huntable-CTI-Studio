@@ -18,7 +18,7 @@ To include **approved rules from your customer repo** (the repo at `SIGMA_REPO_P
 ```bash
 ./run_cli.sh sigma index-customer-repo   # metadata + embeddings; use --no-embeddings for metadata only
 ```
-Re-run after adding or changing rules in the customer repo. See [Sigma Detection Rules — Customer repo rules in similarity search](../features/sigma-rules.md#customer-repo-rules).
+Re-run after adding or changing rules in the customer repo. See [Sigma Detection Rules: Customer repo rules in similarity search](../features/sigma-rules.md#customer-repo-rules).
 
 ## 2) Trigger workflow for the article
 Sigma runs automatically after extraction:
@@ -41,9 +41,10 @@ UI paths:
 ## 4) Match existing rules from CLI (optional)
 Run similarity matching outside the workflow or re-classify coverage:
 ```bash
-./run_cli.sh sigma match ${ARTICLE_ID} --threshold 0.7 --save
+./run_cli.sh sigma match ${ARTICLE_ID} --threshold 0.7
 ```
-This compares the article (and its chunks) to indexed Sigma rules and stores results in the database.
+<!-- AUDIT: Accuracy: `sigma match` (src/cli/sigma_commands.py) takes only `--threshold`; there is no `--save` flag, and the command only queries and prints a results table (no session.commit() or insert). It does not persist anything to the database. -->
+This compares the article (and its chunks) to indexed Sigma rules and prints a ranked table with coverage classification; it does not write results to the database.
 
 ## 5) Submit approved rules as PR (optional)
 
@@ -77,3 +78,4 @@ Configure in **Settings → GitHub**:
 - Similarity search requires embeddings; run `sigma index-embeddings` (uses local sentence-transformers). Use `capabilities check` to verify status.
 
 _Last updated: 2026-07-05_
+_Last reviewed: 2026-09-01_
