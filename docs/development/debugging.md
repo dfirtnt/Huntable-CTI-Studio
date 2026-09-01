@@ -4,7 +4,9 @@
 
 ## Debugging Tools Guide
 
-This comprehensive guide covers the enhanced debugging capabilities available in the Huntable CTI Studio test suite. These tools are designed to improve developer productivity by providing detailed failure analysis, performance monitoring, and debugging utilities.
+This section covers the debugging utilities available in the Huntable CTI Studio test suite: Langfuse workflow tracing, async test debugging, and performance profiling.
+
+<!-- AUDIT: Accuracy -- Of the six tool categories below, three (Test Failure Analysis, Test Isolation and Cleanup, Enhanced Output Formatting) document modules that do not exist anywhere in the codebase (tests/utils/test_failure_analyzer.py, tests/utils/test_isolation.py, tests/utils/test_output_formatter.py). tests/conftest.py:183-212 imports them in a try/except and pins FAILURE_ANALYZER_AVAILABLE, ISOLATION_AVAILABLE, and OUTPUT_FORMATTER_AVAILABLE to False with the comment "missing module must not break conftest or teardown" -- confirming these are permanently unavailable, not a transient gap. Only Langfuse tracing, async debugging (tests/utils/async_debug_utils.py), and performance profiling (tests/utils/performance_profiler.py) are real. The affected sections are flagged individually below; verify before relying on any TestFailureReporter/TestIsolationManager/TestOutputFormatter example. -->
 
 ## Table of Contents
 
@@ -173,11 +175,14 @@ For setup, host selection, security guidance, and troubleshooting, see [Langfuse
 
 ### Code References
 
-- **Trace creation**: `src/utils/langfuse_client.py` (`_LangfuseWorkflowTrace.__enter__`, lines 155-224; `trace_workflow_execution`, line 327)
-- **Workflow execution**: `src/workflows/agentic_workflow.py` (`run_workflow`, defined at line 3651; trace opened via `trace_workflow_execution(...)` at line 3957)
-- **Debug link generation**: `src/web/routes/workflow_executions.py` (`_build_langfuse_debug_urls` at line 1272 / `get_workflow_debug_info` at line 1296)
+- **Trace creation**: `src/utils/langfuse_client.py` (`_LangfuseWorkflowTrace.__enter__`, lines 183-264; `trace_workflow_execution`, line 335)
+- **Workflow execution**: `src/workflows/agentic_workflow.py` (`run_workflow`, defined at line 3500; trace opened via `trace_workflow_execution(...)` at line 3755)
+- **Debug link generation**: `src/web/routes/workflow_executions.py` (`_build_langfuse_debug_urls` at line 1327 / `get_workflow_debug_info` at line 1351)
+<!-- AUDIT: Accuracy -- line numbers corrected to match current source (previous values were stale by 50-150 lines); re-verify on future edits since these drift with unrelated changes. -->
 
 ## Test Failure Analysis
+
+<!-- AUDIT: Accuracy -- `tests/utils/test_failure_analyzer.py` does not exist in this codebase (verified via file search and `git log --all`, no history). tests/conftest.py:184-194 imports `TestFailureReporter`/`generate_failure_report` from it inside a try/except that always hits ImportError, pinning `FAILURE_ANALYZER_AVAILABLE = False`. The `failure_reporter` fixture (conftest.py:718-721) therefore always returns None. Everything below is aspirational, not runnable. -->
 
 ### Automatic Failure Analysis
 
@@ -308,6 +313,8 @@ async def test_async_operation():
 
 ## Test Isolation and Cleanup
 
+<!-- AUDIT: Accuracy -- `tests/utils/test_isolation.py` does not exist in this codebase (verified via file search and `git log --all`, no history). tests/conftest.py:197-203 imports `TestIsolationManager` from it inside a try/except that always hits ImportError, pinning `ISOLATION_AVAILABLE = False`. The `isolation_manager` fixture (conftest.py:734-737) therefore always returns None. Everything below is aspirational, not runnable. -->
+
 ### Test Isolation Manager
 
 The `TestIsolationManager` provides comprehensive test isolation:
@@ -434,6 +441,8 @@ print(f"Recommendations: {analysis['recommendations']}")
 
 ## Enhanced Output Formatting
 
+<!-- AUDIT: Accuracy -- `tests/utils/test_output_formatter.py` does not exist in this codebase (verified via file search and `git log --all`, no history). tests/conftest.py:206-212 imports `TestOutputFormatter` from it inside a try/except that always hits ImportError, pinning `OUTPUT_FORMATTER_AVAILABLE = False`. The `test_output_formatter` fixture (conftest.py:726-729) therefore always returns None. Everything below is aspirational, not runnable. -->
+
 ### Test Output Formatter
 
 The `TestOutputFormatter` provides rich, timestamped output:
@@ -494,6 +503,8 @@ formatter = TestOutputFormatter(config)
 
 ### 1. Use Failure Analysis for Debugging
 
+<!-- AUDIT: Accuracy -- depends on the non-existent test_failure_analyzer module; see the AUDIT note under "Test Failure Analysis" above. -->
+
 Always use the failure analyzer for test failures:
 
 ```python
@@ -529,6 +540,8 @@ def test_slow_operation():
 
 ### 3. Use Test Isolation
 
+<!-- AUDIT: Accuracy -- depends on the non-existent test_isolation module; see the AUDIT note under "Test Isolation and Cleanup" above. -->
+
 Always use test isolation for tests that modify global state:
 
 ```python
@@ -563,6 +576,8 @@ async def test_async_operation(async_debugger):
 ```
 
 ### 5. Use Rich Output Formatting
+
+<!-- AUDIT: Accuracy -- depends on the non-existent test_output_formatter module; see the AUDIT note under "Enhanced Output Formatting" above. -->
 
 Use the output formatter for better test visibility:
 
@@ -633,6 +648,8 @@ if profiler.config.enable_cpu_profiling:
 
 #### 4. Test Isolation Issues
 
+<!-- AUDIT: Accuracy -- depends on the non-existent test_isolation module; see the AUDIT note under "Test Isolation and Cleanup" above. This will always fail with ImportError, not "not work". -->
+
 If test isolation doesn't work:
 
 ```python
@@ -697,28 +714,18 @@ The test runner automatically:
 - Uses enhanced output formatting
 - Provides debugging context in error messages
 
-## Conclusion
-
-The Huntable CTI Studio debugging tools provide comprehensive support for test debugging and optimization. By using these tools effectively, you can:
-
-- Quickly identify and resolve test failures
-- Debug complex async operations
-- Monitor and optimize test performance
-- Ensure proper test isolation
-- Get rich, informative test output
-
-For more information, refer to the individual module documentation and examples in the `tests/utils/` directory.
+For the modules that actually exist, see `tests/utils/async_debug_utils.py` and `tests/utils/performance_profiler.py` directly for the full API.
 
 ---
 
 ## Debugging Missing LMStudio Logs in Evaluations
 
-## Issue
+### Issue
 When running evaluations via `/mlops/agent-evals`, no LMStudio logs are being generated.
 
-## Root Causes
+### Root Causes
 
-### 1. Execution Not Running
+#### 1. Execution Not Running
 The workflow execution may be stuck in `pending` status and not actually executing.
 
 **Check:**
@@ -735,15 +742,15 @@ LIMIT 5;
 - Check worker logs: `docker logs cti_worker --tail 100`
 - Retry stuck executions via UI or API
 
-### 2. Hybrid Extractor Being Used (removed — no longer a possible cause)
+#### 2. Hybrid Extractor Being Used (removed, no longer a possible cause)
 
 > **Removed** (commit `51c750c0`, 2026-05-04): `HybridIOCExtractor` and the
 > `/extract-iocs` endpoint were deleted, and the `use_hybrid_extractor` flag no longer
 > exists anywhere in the codebase. Nothing runs ahead of LMStudio on the eval path, so
-> this cannot explain missing LMStudio logs — see the other numbered causes in this
+> this cannot explain missing LMStudio logs; see the other numbered causes in this
 > section instead. Retained only so the cause numbering matches older reports.
 
-### 3. Execution Failing Before LLM Call
+#### 3. Execution Failing Before LLM Call
 The workflow may be failing at an earlier step (junk filter, OS detection, etc.).
 
 **Check:**
@@ -764,7 +771,7 @@ LIMIT 1;
 - Review `error_log` JSON for step-specific errors
 - Check application logs: `docker logs cti_web --tail 200`
 
-### 4. LMStudio Not Receiving Requests
+#### 4. LMStudio Not Receiving Requests
 The HTTP requests may not be reaching LMStudio.
 
 **Check:**
@@ -780,20 +787,21 @@ curl -X POST http://host.docker.internal:1234/v1/chat/completions \
   -d '{"model":"test","messages":[{"role":"user","content":"test"}]}'
 ```
 
-### 5. Log Level Too High
-LMStudio request logs are at INFO level.
+#### 5. Log Level Too High
+LMStudio request logs are at INFO level, which is the effective floor.
+
+<!-- AUDIT: Accuracy -- `LOG_LEVEL` is not read anywhere in `src/` (confirmed by repo-wide grep). docker-compose.yml sets `LOG_LEVEL=DEBUG` on cti_web/cti_worker/cti_workflow_worker/cti_scheduler, but nothing consumes it: src/web/dependencies.py:78 hardcodes `logging.basicConfig(level=logging.INFO)`. The previous "Fix" (setting LOG_LEVEL, or `docker exec ... export LOG_LEVEL=DEBUG`) has no effect -- a subshell env export also would not reach the already-running process even if the var were read. If INFO-level LMStudio logs are missing, the request likely isn't happening at all; use the other diagnostic steps in this document instead. -->
 
 **Check:**
-- Application log level: `LOG_LEVEL` env var
-- Look for: `"Attempting LMStudio at {url} with model {model}"`
+- Look for: `"Attempting LMStudio at {url} with model {model}"` in `docker logs cti_worker`
+- If absent, confirm the workflow actually reached the extraction step (see Cause 3 above) rather than assuming a log-level filter is hiding it
 
 **Fix:**
-- Set `LOG_LEVEL=INFO` or `LOG_LEVEL=DEBUG`
 - Check logs: `docker logs cti_worker --tail 500 | grep -i lmstudio`
 
-## Diagnostic Steps
+### Diagnostic Steps
 
-### Step 1: Verify Execution Status
+#### Step 1: Verify Execution Status
 ```python
 from src.database.manager import DatabaseManager
 from src.database.models import AgenticWorkflowExecutionTable
@@ -810,24 +818,25 @@ print(f"Error: {exec.error_message}")
 print(f"Config: {exec.config_snapshot}")
 ```
 
-### Step 2: Check Worker Logs
+#### Step 2: Check Worker Logs
 ```bash
 docker logs cti_worker --tail 500 | grep -E "(CmdlineExtract|LMStudio|extraction)"
 ```
 
-### Step 3: Verify LMStudio Connectivity
+#### Step 3: Verify LMStudio Connectivity
 ```bash
 docker exec cti_worker curl -X POST http://host.docker.internal:1234/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model":"test","messages":[{"role":"user","content":"test"}]}'
 ```
 
-### Step 4: Check Langfuse Traces
+#### Step 4: Check Langfuse Traces
 If Langfuse is enabled, check for traces:
-- UI: Click "🔍 Trace" button on execution
-- Or check Langfuse dashboard for session `workflow_exec_{execution_id}`
+- UI: Click the **Debug** button on the execution (see [Accessing Debug Links](#accessing-debug-links) above)
+<!-- AUDIT: Grammar -- removed a stale "🔍 Trace" button reference that doesn't match the "Debug" button labeling used earlier in this document and isn't found in the templates; internal inconsistency. -->
+- Or check the Langfuse dashboard for session `workflow_exec_{execution_id}`
 
-## Expected Log Sequence
+### Expected Log Sequence
 
 When evaluation runs correctly, you should see:
 
@@ -852,41 +861,36 @@ When evaluation runs correctly, you should see:
    INFO: CmdlineExtract token usage: {...}
    ```
 
-## Quick Fixes
+### Quick Fixes
 
-### Former Hybrid Extraction Setting
+#### Former Hybrid Extraction Setting
 
 `use_hybrid_extractor` was removed and no longer has any effect on workflow configuration or execution snapshots.
 
-### Enable Debug Logging
-```bash
-docker exec cti_web sh -c 'export LOG_LEVEL=DEBUG'
-# Or in docker-compose.yml:
-environment:
-  - LOG_LEVEL=DEBUG
-```
+#### Enable Debug Logging
+<!-- AUDIT: Accuracy -- see the note under "5. Log Level Too High" above: LOG_LEVEL is not consumed by application code, so neither of these has any effect. Application log level is hardcoded to INFO in src/web/dependencies.py:78. -->
+Not currently possible via environment variable; the application log level is hardcoded to `INFO` (`src/web/dependencies.py:78`).
 
-### Retry Stuck Execution
+#### Retry Stuck Execution
 ```python
 # Via API
 POST /api/workflow/executions/{execution_id}/retry
 ```
 
-## Related Files
-- `src/services/llm_service.py:468` and `:1051` - LLM calls with tracing (`trace_llm_call`)
-- `src/services/llm_provider_clients.py:215` - LMStudio request logging (`Attempting LMStudio at {url}...`)
+### Related Files
+- `src/services/llm_service.py:474` and `:1057` - LLM calls with tracing (`trace_llm_call`)
+- `src/services/llm_provider_clients.py:221` - LMStudio request logging (`Attempting LMStudio at {url}...`)
 
 ---
 
 ## Troubleshooting: Evaluation Executions Stuck in Pending
-
 
 Workflow executions are routed to a dedicated `workflows` queue and consumed by
 `cti_workflow_worker`; source checks run on the main worker's `source_checks`
 queue. A pending evaluation therefore indicates a worker-health, routing, or
 database problem rather than normal source-check contention.
 
-## Diagnostic Commands
+### Diagnostic Commands
 
 ```bash
 docker exec cti_workflow_worker celery -A src.worker.celery_app inspect active
@@ -894,7 +898,7 @@ docker exec cti_workflow_worker celery -A src.worker.celery_app inspect reserved
 docker exec cti_workflow_worker celery -A src.worker.celery_app inspect stats
 ```
 
-### Check Pending Executions
+#### Check Pending Executions
 ```sql
 SELECT id, article_id, status, created_at 
 FROM agentic_workflow_executions 
@@ -902,11 +906,14 @@ WHERE status = 'pending'
 ORDER BY created_at DESC;
 ```
 
-## Related Files
+### Related Files
 - `src/worker/celeryconfig.py` - Celery configuration
-- `src/worker/celery_app.py:799` - `trigger_agentic_workflow` task definition
-- `src/web/routes/evaluation_api.py` - Task dispatch in eval API (`trigger_agentic_workflow.apply_async(...)` at lines ~770, ~1486, ~1670)
+- `src/worker/celery_app.py:792` - `trigger_agentic_workflow` task definition
+- `src/web/routes/evaluation_api.py` - Task dispatch in eval API (`trigger_agentic_workflow.apply_async(...)` at lines 757 and 1474)
+<!-- AUDIT: Accuracy -- corrected line numbers; the doc previously listed three call sites, only two exist currently. -->
+- `src/web/routes/workflow_executions.py:1048` - `POST /api/workflow/executions/{execution_id}/retry` endpoint
 
 ---
 
 _Last updated: 2026-07-03_
+_Last reviewed: 2026-09-01_

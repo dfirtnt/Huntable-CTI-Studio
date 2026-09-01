@@ -1,6 +1,6 @@
 # Allure Reports
 
-Allure Reports provides interactive, step-by-step test execution reports. `run_tests.py` enables Allure automatically for every category it runs (it passes `--alluredir` itself) and clears `allure-results/` at the start of each run, so reports regenerate per run rather than accumulating.
+Allure Reports provides interactive, step-by-step test execution reports. `run_tests.py` enables Allure automatically for every category it runs (it passes `--alluredir` itself) and clears `allure-results/` at the start of each run, so reports regenerate per run rather than accumulating. See [Testing](testing.md) and [Development Setup](setup.md#canonical-commands) for the `run_tests.py` categories referenced below.
 
 ## Setup
 
@@ -83,6 +83,8 @@ Key data captured per test: name, status, duration, steps, attachments, labels, 
 
 ## Project-Specific Usage
 
+<!-- AUDIT: Accuracy (Med) -- verified via `grep -rln "allure\.\(step\|attach\)"` across the repo: no test currently uses allure.step/allure.attach, and `load_ai_model`/`extract_ips` are not defined anywhere in src/ or tests/. The three snippets below are illustrative patterns for instrumenting future tests, not existing code -- do not search the codebase expecting to find them. -->
+
 ### ML/AI Test Visualization
 
 ```python
@@ -158,4 +160,4 @@ allure generate allure-results --clean -o allure-report
 ```
 
 _Last updated: 2026-07-03_
-_Last reviewed: 2026-06-22_
+_Last reviewed: 2026-09-01_

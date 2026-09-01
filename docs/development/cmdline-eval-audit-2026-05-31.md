@@ -63,7 +63,7 @@ position, and the **specific contract clause** each side is citing.
 **Disputed item:** `powershell -w hidden -noprofile -ep bypass -c`
 
 **Article excerpt** (`https://www.fortinet.com/blog/threat-research/unveiling-a-new-variant-of-the-darkcloud-campaign`):
-> …It then creates a WScript.Shell object to run the decoded PowerShell code. Figure 3: Partial code of the JavaScript file. The cosmea variable holds a decoded string, **`powershell -w hidden -noprofile -ep bypass -c`**, while the effortless variable contains the decoded PowerShell code…
+> ...It then creates a WScript.Shell object to run the decoded PowerShell code. Figure 3: Partial code of the JavaScript file. The cosmea variable holds a decoded string, **`powershell -w hidden -noprofile -ep bypass -c`**, while the effortless variable contains the decoded PowerShell code...
 
 **My agent:** REJECTED. Reasoning: "`-c` flag has no inline command payload (decoded PS is appended at runtime), fails fidelity/confidence."
 
@@ -83,7 +83,7 @@ position, and the **specific contract clause** each side is citing.
 **Disputed item:** `C:\windows\system32\openssh\ssh.exe[Username]@[IP Address] -p 443 -o ServerAliveInterval=60 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null`
 
 **Article excerpt** (`https://cloud.google.com/blog/topics/threat-intelligence/analysis-of-unc1549-ttps-targeting-aerospace-defense`):
-> …object auditing being disabled. **`C:\windows\system32\openssh\ssh.exe[Username]@[IP Address] -p 443 -o ServerAliveInterval=60 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/n…`**
+> ...object auditing being disabled. **`C:\windows\system32\openssh\ssh.exe[Username]@[IP Address] -p 443 -o ServerAliveInterval=60 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/n...`**
 
 **My agent:** REJECTED. Reasoning: "contains `[Username]` and `[IP Address]` which are placeholders (not the allowed `[REDACTED]` sentinel), failing closed."
 
@@ -107,11 +107,11 @@ position, and the **specific contract clause** each side is citing.
 
 **Article excerpts** (`https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793`):
 
-> …tried to dump active directory credentials using the Windows utility 'ntdsutil.exe' on the host HOST_2_SVR. They tried to dump credentials using the following command: **`ntdsutil.exe 'ac i ntds' 'ifm' 'create full C:\tempp' q q`**…
+> ...tried to dump active directory credentials using the Windows utility 'ntdsutil.exe' on the host HOST_2_SVR. They tried to dump credentials using the following command: **`ntdsutil.exe 'ac i ntds' 'ifm' 'create full C:\tempp' q q`**...
 
-> …the actor attempted to execute the newly created task using the following command, again executed through the TeamCity RCE vulnerability on the HOST_1_TEAMCITY: **`schtasks.exe /run /tn "\Microsoft\Windows\DefenderUPDService"`**…
+> ...the actor attempted to execute the newly created task using the following command, again executed through the TeamCity RCE vulnerability on the HOST_1_TEAMCITY: **`schtasks.exe /run /tn "\Microsoft\Windows\DefenderUPDService"`**...
 
-**My agent:** MISSED all three. Notes mention "skipped 'cmd.exe /c C:\…' wrappers" but no explicit reason for dropping these.
+**My agent:** MISSED all three. Notes mention "skipped 'cmd.exe /c C:\...' wrappers" but no explicit reason for dropping these.
 
 **ground_truth.json:** ACCEPTED all three.
 
@@ -134,9 +134,9 @@ position, and the **specific contract clause** each side is citing.
 5. `echo 9fW99pdqfpXU21zd`
 
 **Article excerpt:**
-> …Command line: `cmd.exe /c whoami` 212[.]113[.]106[.]100 Command line: `cmd.exe /c systeminfo` 212[.]113[.]106[.]100 Command line: `cmd.exe /c net user` 212[.]113[.]106[.]100 Command line: **`cmd.exe /c "echo 167043640 > C:/Windows/Temp/0"`** 43[.]248[.]34[.]77 Command line: **`echo 2W1EVQsV5piPbyW6FSsNC8D7irR`** 103[.]89[.]13[.]15…
+> ...Command line: `cmd.exe /c whoami` 212[.]113[.]106[.]100 Command line: `cmd.exe /c systeminfo` 212[.]113[.]106[.]100 Command line: `cmd.exe /c net user` 212[.]113[.]106[.]100 Command line: **`cmd.exe /c "echo 167043640 > C:/Windows/Temp/0"`** 43[.]248[.]34[.]77 Command line: **`echo 2W1EVQsV5piPbyW6FSsNC8D7irR`** 103[.]89[.]13[.]15...
 
-**My agent:** ACCEPTED. Reasoning: "Dedup'd two identical 'echo 2W28BTpk...' entries (different remote IPs, same command). Skipped 'cmd.exe /c …' wrappers." Treated as 5 textually distinct attacker invocations from a telemetry table.
+**My agent:** ACCEPTED. Reasoning: "Dedup'd two identical 'echo 2W28BTpk...' entries (different remote IPs, same command). Skipped 'cmd.exe /c ...' wrappers." Treated as 5 textually distinct attacker invocations from a telemetry table.
 
 **ground_truth.json:** REJECTED all five.
 
@@ -145,22 +145,22 @@ position, and the **specific contract clause** each side is citing.
 - Positive scope #3 ("non-trivial invocation"): `echo <literal>` with one argument is non-trivial — but **bare `echo <opaque-token>` with no redirection has weak detection-engineering value**.
 - Detection-relevance gate: an `echo` with a 20-char random string and no redirect IS observable via Sysmon EID 1 but **the rule would only fire on the literal random token**, which is per-incident IOC noise, not behavioural detection.
 
-**Recommendation:** **REVIEW — a legitimate judgment call.** If the eval is rule-pattern oriented, gt's collapse is right; if it is literal-command oriented, my split is right. The contract doesn't resolve this directly — it gives the dedup rule (favours me) and the EDR-observability gate (favours gt). **My read is tighter to the literal contract text**; gt's read is tighter to the *spirit* of "EDR observability overrides completeness." The first `echo 167043640 > …` with redirection is the strongest case for inclusion regardless.
+**Recommendation:** **REVIEW — a legitimate judgment call.** If the eval is rule-pattern oriented, gt's collapse is right; if it is literal-command oriented, my split is right. The contract doesn't resolve this directly — it gives the dedup rule (favours me) and the EDR-observability gate (favours gt). **My read is tighter to the literal contract text**; gt's read is tighter to the *spirit* of "EDR observability overrides completeness." The first `echo 167043640 > ...` with redirection is the strongest case for inclusion regardless.
 
 ---
 
-### REVIEW 5 — Article 5 (OneNote) — missing `mkdir` and `echo … | AnyDesk --set-password`
+### REVIEW 5 — Article 5 (OneNote) — missing `mkdir` and `echo ... | AnyDesk --set-password`
 
 **Disputed items (in gt, missed by me):**
 1. `mkdir "C:\ProgramData\Any"`
 2. `echo btc1000qwe123 | C:\ProgramData\Any\AnyDesk.exe --set-password`
 
 **Article excerpt** (`https://thedfirreport.com/2024/04/01/from-onenote-to-ransomnote-an-ice-cold-intrusion/`):
-> …the copied PowerShell script was executed on multiple systems to facilitate the deployment of AnyDesk using the following commands:
+> ...the copied PowerShell script was executed on multiple systems to facilitate the deployment of AnyDesk using the following commands:
 > **`mkdir "C:\ProgramData\Any"`**
 > # Download AnyDesk
 > $clnt = new-object System.Net.WebClient
-> …
+> ...
 > cmd.exe /c C:\ProgramData\AnyDesk.exe --install C:\ProgramData\Any --start-with-win --silent
 >
 > **`cmd.exe /c echo btc1000qwe123 | C:\ProgramData\Any\AnyDesk.exe --set-password`**
@@ -185,7 +185,7 @@ position, and the **specific contract clause** each side is citing.
 
 **Article excerpt** (`https://thedfirreport.com/2025/09/08/blurring-the-lines-intrusion-shows-connection-with-three-major-ransomware-gangs/`):
 > Where zipped files were found, these were opened using WinRAR:
-> **`"C:\Program Files\WinRAR\WinRAR.exe" x -iext -ow -ver -imon1   "F:\Shares\<redacted>\<redacted>\<redacted>.zip" F:\Shares\<redacted>\<redacted>\<…`**
+> **`"C:\Program Files\WinRAR\WinRAR.exe" x -iext -ow -ver -imon1   "F:\Shares\<redacted>\<redacted>\<redacted>.zip" F:\Shares\<redacted>\<redacted>\<...`**
 
 **My agent:** ACCEPTED. Reasoning: "Included WinRAR command with `<redacted>` angle-bracket markers treating them as redaction tokens equivalent to allowed `[REDACTED]`, not as `<command>` placeholders."
 
@@ -207,8 +207,8 @@ position, and the **specific contract clause** each side is citing.
 reg add "HKLM\Software\Policies\Microsoft\Windows Defender" /v "DisableAntiSpyware" /t REG_DWORD /d "1" /f
 reg add "HKLM\Software\Policies\Microsoft\Windows Defender" /v "DisableAntiVirus" /t REG_DWORD /d "1" /f
 reg add "HKLM\Software\Policies\Microsoft\Windows Defender\MpEngine" /v "MpEnablePus" /t REG_DWORD /d "0" /f
-reg add "HKLM\Software\Policies\Microsoft\Windows Defender\Real-Time Protection" /v "DisableIOAVProtection" /t …
-reg add "HKLM\Software\Policies\Microsoft\Windows Defender\SpyNet" /v "DisableBlockAtFirstSeen" /t REG_DWORD /…
+reg add "HKLM\Software\Policies\Microsoft\Windows Defender\Real-Time Protection" /v "DisableIOAVProtection" /t ...
+reg add "HKLM\Software\Policies\Microsoft\Windows Defender\SpyNet" /v "DisableBlockAtFirstSeen" /t REG_DWORD /...
 reg add "HKLM\System\CurrentControlSet\Services\SecurityHealthService" /v "Start" /t REG_DWORD /d "4" /f
 reg add "HKLM\System\CurrentControlSet\Services\WdBoot" /v "Start" /t REG_DWORD /d "4" /f
 reg delete "HKLM\Software\Microsoft\Windows\CurrentVersion\Run" /v "SecurityHealth" /f
@@ -234,10 +234,10 @@ Note also: agent's own `count` field said 71 while `len(items)` was 72 — an of
 
 ### REVIEW 8 — Article 9 (Bumblebee) — `wbadmin` variant added & `whoami /groups` dropped
 
-**Disputed item A (I added):** `wbadmin start backup -backuptarget:\\127.0.0.1\C$\ProgramData\ -include:"C:\windows\NTDS\ntds.dit,C:\windows\system32\co…`
+**Disputed item A (I added):** `wbadmin start backup -backuptarget:\\127.0.0.1\C$\ProgramData\ -include:"C:\windows\NTDS\ntds.dit,C:\windows\system32\co...`
 
 **Article excerpt:**
-> psql.exe -U postgres --csv -d VeeamBackup … FROM credentials" **Monitor wbadmin abuse for NTDS.dit/Hive dumping** : **`wbadmin start backup -backuptarget:\\127.0.0.1\C$\ProgramData\ -include:"C:\windows\NTDS\ntds.dit,…`**
+> psql.exe -U postgres --csv -d VeeamBackup ... FROM credentials" **Monitor wbadmin abuse for NTDS.dit/Hive dumping** : **`wbadmin start backup -backuptarget:\\127.0.0.1\C$\ProgramData\ -include:"C:\windows\NTDS\ntds.dit,...`**
 
 **My agent:** ACCEPTED.
 

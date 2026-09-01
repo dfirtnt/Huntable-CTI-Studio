@@ -29,12 +29,15 @@ docker exec cti_postgres psql -U cti_user -d cti_scraper -c "YOUR_QUERY_HERE"
 
 ### From Within a Container
 
-```bash
-# Connect to the web container
-docker exec -it cti_web bash
+<!-- AUDIT: Accuracy -- verified against Dockerfile (web-runtime target, ~line 89): the psql
+client is not installed in cti_web (or any other currently-used app container). Only the
+unused `development-runtime` target installs postgresql-client. Use the Host Machine method
+above (docker exec into cti_postgres) instead. -->
 
-# Then connect to PostgreSQL
-psql postgresql://cti_user:${POSTGRES_PASSWORD}@postgres:5432/cti_scraper
+```bash
+# cti_postgres is the only container with a psql client installed.
+# Use the "From Host Machine" commands above, or exec directly into it:
+docker exec -it cti_postgres psql -U cti_user -d cti_scraper
 ```
 
 ## Common Queries
@@ -146,10 +149,15 @@ VALUES (
     NOW()
 );
 
--- Update source status
+-- Update source status (id is an integer primary key, not the string identifier)
 UPDATE sources 
 SET active = false, updated_at = NOW()
-WHERE id = 'source_id_to_disable';
+WHERE id = 42;
+
+-- Or by the string identifier instead of the numeric id:
+UPDATE sources 
+SET active = false, updated_at = NOW()
+WHERE identifier = 'source_id_to_disable';
 
 -- View source collection statistics
 SELECT 
@@ -183,6 +191,9 @@ WHERE
 ORDER BY a.published_at DESC;
 
 -- Duplicate detection (similar titles)
+-- Requires the pg_trgm extension for SIMILARITY(); it is not created automatically
+-- (the app only auto-creates the `vector` extension). Run this once per database:
+--   CREATE EXTENSION IF NOT EXISTS pg_trgm;
 SELECT 
     a1.id as id1,
     a1.title as title1,
@@ -273,6 +284,7 @@ ORDER BY SIMILARITY(a1.title, a2.title) DESC;
 - `word_count`: Number of words in content
 - `created_at`: Collection timestamp
 - `updated_at`: Last update timestamp
+- `archived`: Whether the article is archived (boolean, indexed)
 - `embedding`: Vector embedding for semantic search (768 dimensions)
 - `embedding_model`: Model used for embedding generation
 - `embedded_at`: When embedding was generated
@@ -288,11 +300,17 @@ ORDER BY SIMILARITY(a1.title, a2.title) DESC;
 - `context_before`: Text before the selection
 - `context_after`: Text after the selection
 - `confidence_score`: Confidence score for the annotation
+- `used_for_training`: Whether this annotation has been used for training (boolean)
+- `usage`: One of `train`, `eval`, or `gold` (enum, set once and immutable after creation)
 - `created_at`: Creation timestamp
 - `updated_at`: Last update timestamp
 - `embedding`: Vector embedding for semantic search (768 dimensions)
 - `embedding_model`: Model used for embedding generation
 - `embedded_at`: When embedding was generated
+
+<!-- AUDIT: Accuracy -- `usage` and `used_for_training` were missing from this table; they
+determine which annotations feed training vs. eval/gold sets and are load-bearing for eval
+bundle correctness (src/database/models.py ArticleAnnotationTable). -->
 
 ### Additional Tables
 
@@ -331,12 +349,12 @@ SELECT * FROM article_stats ORDER BY total_articles DESC;
    docker exec cti_postgres psql -U cti_user -d cti_scraper
    ```
 
-3. **Table Not Found**: Check if database is initialized
+3. **Table Not Found**: Check if the database is initialized
    ```sql
    \dt  -- List all tables
    ```
 
-### Performance Tips
+## Performance Tips
 
 - Use indexes for frequently queried columns
 - Limit result sets with `LIMIT` clause
@@ -344,6 +362,12 @@ SELECT * FROM article_stats ORDER BY total_articles DESC;
 - Consider creating materialized views for complex aggregations
 
 ## Backup and Restore
+
+For routine backups, use the project's backup tooling instead of raw `pg_dump`, since it
+also handles retention and full-system (not just database) backups: see
+[Backup and Restore](../guides/backup-and-restore.md) [VERIFY LINK] and `scripts/backup_restore.sh`.
+
+For a quick ad hoc database-only dump:
 
 ```bash
 # Create database backup
@@ -362,3 +386,4 @@ docker exec -i cti_postgres psql -U cti_user cti_scraper < backup_file.sql
 - Monitor database access logs
 
 _Last updated: 2026-07-03_
+_Last reviewed: 2026-09-01_

@@ -19,16 +19,21 @@ git clone /path/to/Huntable-CTI-Studio /path/to/Huntable-CTI-Studio-dev2
 cd /path/to/Huntable-CTI-Studio-dev2
 ```
 
-### 2. Copy Environment Configuration
+### 2. Provision Secrets and Config
 ```bash
 ./setup.sh --no-backups
 # Edit .env as needed for this instance-specific compose file
 ```
+See [Development Setup](setup.md#1-provision-local-secrets-and-config) for what `setup.sh` does.
 
 ### 3. Start Dev2 Instance
 ```bash
 docker-compose -f docker-compose.dev2.yml up -d
 ```
+
+<!-- AUDIT: Accuracy -- docker-compose.dev2.yml bind-mounts ./init.sql (singular file), which does not exist at the repo root (the primary docker-compose.yml uses the ./init-scripts/ directory instead). Docker will create an empty init.sql directory on first run and Postgres init will silently skip it. Verify this file before relying on dev2 for a fresh database. -->
+
+<!-- AUDIT: Accuracy -- docker-compose.dev2.yml (as of 2026-08-19) has no workflow_worker, maintenance, mcp_http, or codex_auth_init services, unlike docker-compose.yml. Workflow execution and MCP HTTP access will not function on a Dev2 instance started this way. -->
 
 ### 4. Verify Services
 ```bash
@@ -115,3 +120,4 @@ Local LLM endpoints are host-managed and are not part of the Dev2 Compose port m
 All Dev2 containers use `_dev2` suffix to avoid naming conflicts with the original instance.
 
 _Last updated: 2026-07-03_
+_Last reviewed: 2026-09-01_

@@ -20,7 +20,7 @@ plan and the rationale the edits will cite.
 
 Every lane exclusion in the extractor fleet was written assuming **all siblings run**.
 A rule of the form "don't extract X, sibling Y owns it" silently carries a second
-clause — "…and Y will catch it." That clause is true only when Y is enabled.
+clause — "...and Y will catch it." That clause is true only when Y is enabled.
 
 Deployments routinely enable a **subset** of agents, driven by which telemetry a SIEM
 actually has. An enterprise with command-line logging but no EDR may enable only
@@ -97,7 +97,7 @@ logsource. Therefore:
   you can never lose a faithful artifact *within* an enabled type.
 
 **Residual to name, not a bug:** one source span can now yield several records of
-*different* types. A `reg.exe add HKLM\…\Run /v X /d Y` line inside a Sigma rule yields a
+*different* types. A `reg.exe add HKLM\...\Run /v X /d Y` line inside a Sigma rule yields a
 Cmdline record (the command, if literal), a Registry record (the key/value), and a
 HuntQueries record (the rule). That is **multi-faceted extraction**, not duplication —
 three artifacts for three detection-engineering consumers. Expect total record volume to
@@ -112,7 +112,7 @@ repeated pattern** plus its defensive-guidance twin:
 
 > "*&lt;my artifact&gt;* that appears **ONLY inside** a Sigma rule / KQL / SPL / EQL / XQL
 > query / other detection logic → SKIP (HuntQueriesExtract)."
-> …and "Defensive guidance / 'defenders should monitor' references → SKIP."
+> ...and "Defensive guidance / 'defenders should monitor' references → SKIP."
 
 Everything else is safe and stays:
 
@@ -219,10 +219,10 @@ An exact-match operator asserts "the full command line equals this string," so t
 like this," so the value is a discriminator, not the command.
 
 **(b) Value-shape — fallback when the operator is ambiguous.** Vendor-blog queries
-(e.g. Fortinet's `Type: ("Process Creation") AND Target.Process.CommandLine: ("…")`) do
+(e.g. Fortinet's `Type: ("Process Creation") AND Target.Process.CommandLine: ("...")`) do
 not always expose a clean Sigma modifier. When operator semantics are unclear, fall back
 to: **does the matched string, on its own, satisfy CmdlineExtract positive scope?** —
-recognized first token + ≥1 non-trivial component, single physical line, no `…`
+recognized first token + ≥1 non-trivial component, single physical line, no `...`
 truncation, no placeholder. If yes → extract; if it is a keyword / substring / regex →
 skip.
 
@@ -233,7 +233,7 @@ positive scope is the complete-artifact gate.** The de-laning edit is "open the
 detection-logic region," and the guard is one clarifying sentence per agent:
 
 - **Registry** — extract a key from a rule only when the matched value is a **full
-  hive-rooted path** (`HKLM\…`, `HKCU\…`). A `TargetObject|endswith: '\…\Run'` suffix lacks
+  hive-rooted path** (`HKLM\...`, `HKCU\...`). A `TargetObject|endswith: '\...\Run'` suffix lacks
   a hive root and already **fails** `registry-extract.md` positive scope (line 52) → SKIP,
   no new rule required. Value data / value name extractable only when literally present in
   the matched value, not implied by the field name.

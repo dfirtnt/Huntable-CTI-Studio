@@ -2,7 +2,7 @@
 
 _Last updated: 2026-07-03_
 
-> **Historical — implemented.** Despite the `Status: Proposed` line below, this spec has
+> **Historical, implemented.** Despite the `Status: Proposed` line below, this spec has
 > shipped: `run_tests.py` is now a ~140-line re-exec shim, and the runner lives in the
 > `tests_runner/` package (`cli.py`, `config.py`, `env.py`, `runner.py`, `tui.py`) per the
 > T3.2 split. T1.4 (`--no-teardown`), T2.2 (`--dry-run`), T2.3 (default `progress` no longer

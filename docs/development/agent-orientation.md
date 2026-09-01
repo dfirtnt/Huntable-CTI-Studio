@@ -4,9 +4,10 @@ This guide is the fastest way for a coding agent or new contributor to get orien
 
 ## Read In This Order
 
-1. [`AGENTS.md`](https://github.com/dfirtnt/Huntable-CTI-Studio/blob/main/AGENTS.md) (repository root; not under `docs/`)
-2. [`README.md`](https://github.com/dfirtnt/Huntable-CTI-Studio/blob/main/README.md) (repository root)
+1. [`AGENTS.md`](../../AGENTS.md) (repository root; not under `docs/`)
+2. [`README.md`](../../README.md) (repository root)
 3. [`docs/index.md`](../index.md)
+<!-- AUDIT: Accuracy (Med) -- links 1-2 pointed at hardcoded GitHub blob URLs on `main`; a local checkout on another branch (e.g. europa-dev) could disagree with what the reader lands on. Repointed to relative repo paths so they always resolve to the checked-out working tree, matching how CLAUDE.md links the same two files. -->
 4. This document
 5. The files tied to the change you are making
 
@@ -59,7 +60,7 @@ Examples:
 
 ## Task Lookup
 
-| If you are changing… | Read these first |
+| If you are changing... | Read these first |
 |---|---|
 | A page, modal, or UI flow | `src/web/modern_main.py`, `src/web/routes/__init__.py`, relevant route module, `docs/development/testing.md`, Playwright specs under `tests/playwright/` |
 | An API endpoint | relevant `src/web/routes/*.py`, `src/database/models.py`, `docs/reference/api.md`, API tests under `tests/api/` |
@@ -105,3 +106,4 @@ python3 run_tests.py all
 ```
 
 _Last updated: 2026-07-03_
+_Last reviewed: 2026-09-01_

@@ -2,9 +2,22 @@
 
 <!-- MERGED FROM: development/WEB_APP_TESTING.md, development/WebAppDevtestingGuide.md -->
 
-Comprehensive guide for testing the Huntable CTI Studio web interface with Playwright, including UI flows, responsive design, and user experience validation.
+This guide covers Playwright patterns for testing the Huntable CTI Studio web interface: UI flows, responsive design, and accessibility checks.
+
+For the actual commands to run the suite and which tier to pick, see [UI Test Tiers](ui-test-tiers.md) [VERIFY LINK] and [Testing](testing.md) [VERIFY LINK]; both are driven by `run_tests.py`, the canonical test entrypoint. The code samples below illustrate Playwright API patterns; most use placeholder selectors (`.article-item`, `.threat-score`, etc.) that do not match the current templates. For selectors and assertions verified against the live app, read [`tests/e2e/test_web_interface.py`](../../tests/e2e/test_web_interface.py) and the specs under `tests/ui/` and `tests/playwright/`.
+<!-- AUDIT: Accuracy -- verified 2026-09-01: most example blocks in this file use invented class names (`.article-item`, `.threat-score`, `.mobile-menu`, `.search-results`, etc.) that do not exist in src/web/templates/. Grepped templates to confirm. Left as illustrative Playwright-pattern examples per audit scope (not rewriting every block against the live template), but flagged here and at each section so nobody copy-pastes a selector expecting it to exist. -->
 
 ## Tools and Setup
+
+### Dev Server Prerequisite
+
+Every example in this guide targets the live dev app on `http://localhost:8001`.
+`src/` is bind-mounted into the `cti_web` container, so editing an `.html`
+template takes effect on the next request with no restart. Editing a `.py`
+file (routes, services) does not take effect until you run
+`docker restart cti_web` (and any worker containers). If a test result does
+not match a code change you just made, restart the container before assuming
+the test or the app is broken.
 
 ### Required Dependencies
 ```bash
@@ -18,21 +31,18 @@ playwright install firefox webkit
 
 ### Configuration
 ```python
-# Illustrative only -- actual config is in pyproject.toml [tool.pytest.ini_options]
-[tool:pytest]
+# Illustrative only -- actual markers live in pyproject.toml [tool.pytest.ini_options].
+# Relevant ones for this guide:
 markers =
-    ui: marks tests as UI tests
-    slow: marks tests as slow
-    headed: marks tests to run with visible browser
-
-# Playwright settings (defaults tuned for speed; set PLAYWRIGHT_SLOW_MO=100 for debugging)
-browser = chromium
-headed = false
-slow_mo = 0
-timeout = 30000
-video = retain-on-failure
-trace = on-first-retry
+    ui: UI tests
+    e2e: End-to-end tests using Playwright
+    slow: Slow tests (perf timings, mobile viewport, a11y deep-scans) -- excluded
+        from default UI runs; use `python3 run_tests.py ui --include-slow`
+    browser: Tests requiring a browser
 ```
+<!-- AUDIT: Accuracy -- previous block invented a "headed" pytest marker; --headed is a pytest-playwright CLI flag, not a marker, and does not appear in pyproject.toml. Verified against pyproject.toml [tool.pytest.ini_options] (line ~254) 2026-09-01. -->
+
+Pass `--headed` on the CLI to run with a visible browser, and `PWDEBUG=1` or `--slowmo=<ms>` to slow down execution for debugging (see [Debug Mode](#debug-mode) below).
 
 ## Playwright Basics
 
@@ -98,14 +108,18 @@ def test_basic_navigation(page: Page):
     # Navigate to homepage
     page.goto("http://localhost:8001/")
     
-    # Verify page loaded
-    expect(page).to_have_title("Huntable CTI Studio")
+    # Verify page loaded (each page sets its own title; homepage is "Dashboard - Huntable CTI Studio")
+    expect(page).to_have_title("Dashboard - Huntable CTI Studio")
     
     # Check for key elements
-    expect(page.locator("h1")).to_be_visible()
+    expect(page.locator("h1").first).to_be_visible()
 ```
+<!-- AUDIT: Accuracy -- title verified against src/web/templates/dashboard.html `{% block title %}Dashboard - Huntable CTI Studio{% endblock %}` and tests/e2e/test_web_interface.py::test_homepage_loads. Previous text asserted the bare app name, which never matches. -->
+<!-- AUDIT: Accuracy -- `.first` matches the pattern actually used in tests/e2e/test_web_interface.py::test_homepage_loads. -->
 
 ## Test Examples
+
+<!-- AUDIT: Accuracy -- everything from here through "Huntable CTI Studio-specific tests" uses placeholder selectors (`.article-item`, `.threat-score`, `.search-results`, `.article-content`, etc.) not present in src/web/templates/. Treat these as generic Playwright API patterns to adapt, not copy-paste selectors. -->
 
 ### Homepage Testing
 ```python
@@ -115,16 +129,17 @@ def test_homepage_loads(page: Page):
     page.goto("http://localhost:8001/")
     
     # Verify page title
-    expect(page).to_have_title("Huntable CTI Studio")
+    expect(page).to_have_title("Dashboard - Huntable CTI Studio")
     
     # Check navigation menu
-    nav_items = ["Dashboard", "Articles", "Sources", "Analysis"]
+    nav_items = ["Home", "Articles", "Sources", "MLOps", "Agents", "Diags", "Settings"]
     for item in nav_items:
         expect(page.locator(f"text={item}")).to_be_visible()
     
     # Verify main content area
     expect(page.locator("main")).to_be_visible()
 ```
+<!-- AUDIT: Accuracy -- nav item list corrected against src/web/templates/base.html (top nav, ~line 258). Previous list ("Dashboard", "Articles", "Sources", "Analysis") does not match: the current nav bar has no "Dashboard" or "Analysis" label and no `/analysis` route exists (there is `/analytics`, reached from other pages, not the top nav). -->
 
 ### Navigation Testing
 ```python
@@ -141,13 +156,11 @@ def test_navigation_menu(page: Page):
     # Test navigation to sources
     page.click("text=Sources")
     expect(page).to_have_url("http://localhost:8001/sources")
-    expect(page.locator("h1:has-text('Sources')")).to_be_visible()
-    
-    # Test navigation to analysis
-    page.click("text=Analysis")
-    expect(page).to_have_url("http://localhost:8001/analysis")
-    expect(page.locator("h1:has-text('Analysis')")).to_be_visible()
+    expect(
+        page.get_by_role("heading", name="Threat Intelligence Sources")
+    ).to_be_visible()
 ```
+<!-- AUDIT: Accuracy -- dropped the "Analysis" nav step; no `/analysis` route or nav item exists (verified in src/web/routes/pages.py and src/web/templates/base.html). Sources heading text and `get_by_role` pattern match tests/e2e/test_web_interface.py::test_navigation_menu. -->
 
 ### Form Testing
 
@@ -240,11 +253,11 @@ def test_responsive_design(page: Page):
         
         # Verify navigation is accessible
         if viewport["name"] == "mobile":
-            # Check for mobile menu
-            expect(page.locator(".mobile-menu-toggle")).to_be_visible()
+            # Check for mobile menu toggle
+            expect(page.locator("#mobile-nav-toggle")).to_be_visible()
         else:
             # Check for desktop navigation
-            expect(page.locator(".nav-menu")).to_be_visible()
+            expect(page.locator("nav")).to_be_visible()
         
         # Verify content is readable
         expect(page.locator("main")).to_be_visible()
@@ -260,16 +273,17 @@ def test_mobile_navigation(page: Page):
     page.goto("http://localhost:8001/")
     
     # Open mobile menu
-    page.click(".mobile-menu-toggle")
-    expect(page.locator(".mobile-menu")).to_be_visible()
+    page.click("#mobile-nav-toggle")
+    expect(page.locator("#mobile-nav-menu")).to_be_visible()
     
     # Navigate using mobile menu
-    page.click(".mobile-menu a:has-text('Articles')")
+    page.click("#mobile-nav-menu a:has-text('Articles')")
     expect(page).to_have_url("http://localhost:8001/articles")
     
     # Verify menu closes
-    expect(page.locator(".mobile-menu")).to_be_hidden()
+    expect(page.locator("#mobile-nav-menu")).to_be_hidden()
 ```
+<!-- AUDIT: Accuracy -- selectors corrected to the real ids in src/web/templates/base.html (`#mobile-nav-toggle` button, `#mobile-nav-menu` panel). Previous `.mobile-menu-toggle` / `.mobile-menu` classes do not exist. -->
 
 ## Visual Testing
 
@@ -454,7 +468,7 @@ def test_form_validation(page: Page):
     expect(page.locator("text=Invalid URL format")).to_be_visible()
 ```
 
-## Huntable CTI Studio-specific tests
+## Huntable CTI Studio-Specific Tests
 
 ### Source Management
 ```python
@@ -481,13 +495,25 @@ def test_source_management_workflow(page: Page):
     # Verify source was updated
     expect(page.locator("text=Updated Threat Feed")).to_be_visible()
     
-    # Delete source
+    # Delete source. This opens a ModalManager confirm dialog, NOT a native
+    # browser confirm() -- see "ModalManager.confirm is not a native dialog" below.
     page.click("button:has-text('Delete')")
-    page.click("button:has-text('Confirm')")
+    page.locator('[id^="_confirm_"] .confirm-btn').click()
     
     # Verify source was deleted
     expect(page.locator("text=Updated Threat Feed")).to_be_hidden()
 ```
+
+> **ModalManager.confirm is not a native dialog.** `ModalManager.confirm()`
+> (`src/web/static/js/modal-manager.js`) renders an in-page `<div id="_confirm_...">`
+> with a `.confirm-btn`, not a browser-native `confirm()`. A test that registers
+> `page.on("dialog", ...)` waiting for it will hang or silently no-op, because
+> the dialog event never fires. Always click the rendered button directly:
+> `page.locator('[id^="_confirm_"] .confirm-btn').click()`. The same applies to
+> prompt-style modals (`[id^="_prompt_"] .confirm-btn`). See
+> `tests/playwright/helpers.ts` and `tests/ui/test_modal_aria_ui.py` for the
+> canonical pattern.
+<!-- AUDIT: Accuracy -- this trap was previously undocumented here; confirmed against src/web/static/js/modal-manager.js and existing specs (tests/playwright/helpers.ts, agent_config_presets.spec.ts) which call out the same page.on('dialog') failure mode in code comments. -->
 
 ### Article Processing
 ```python
@@ -525,7 +551,7 @@ def test_article_processing_ui(page: Page):
 pytest -m ui
 
 # Run with visible browser
-pytest -m ui --headed=true
+pytest -m ui --headed
 
 # Run specific test file
 pytest tests/e2e/test_web_interface.py
@@ -543,14 +569,24 @@ The project includes TypeScript Playwright tests that are integrated into the py
 - **`tests/playwright/workflow_executions_pagination.spec.ts`** - Workflow execution list and pagination
 - **`tests/playwright/workflow_config_versions.spec.ts`** - Workflow config restore-by-version modal
 
-These tests can be run directly via npm:
+Run them directly with the `tests/playwright.config.ts` config (the repo-root
+`playwright.config.js` points at a different, unrelated `e2e/` directory, so
+plain `npm run test:playwright <file>` finds zero tests):
 ```bash
 # Run all TypeScript Playwright tests
-npm run test:playwright
+npx playwright test --config tests/playwright.config.ts
 
-# Run specific test
-npm run test:playwright tests/playwright/agent_config_save_button.spec.ts
+# Run one spec file (path is relative to the config's testDir, tests/)
+npx playwright test --config tests/playwright.config.ts playwright/agent_config_save_button.spec.ts
+
+# Run one feature project (matches the run_tests.py ui --area names)
+npx playwright test --config tests/playwright.config.ts --project=agent-config
 ```
+<!-- AUDIT: Accuracy -- verified 2026-09-01: `npm run test:playwright tests/playwright/agent_config_save_button.spec.ts` resolves against the root playwright.config.js (testDir: './e2e') and returns "No tests found." The working invocation, confirmed with `npx playwright test --config tests/playwright.config.ts agent_config_save_button.spec.ts --list`, is shown above and matches how tests_runner/runner.py (run_tests.py) invokes it. See [UI Test Tiers](ui-test-tiers.md) [VERIFY LINK] for the `--project`/`--area` names. -->
+<!-- AUDIT: Accuracy -- the `package.json` `test:playwright` script is currently `"playwright test"` with no `--config`, so it is not equivalent to the commands above; do not rely on it for tests/playwright/ specs. -->
+
+Or via `python3 run_tests.py ui`, which drives the same config and is the
+canonical entry point (see [UI Test Tiers](ui-test-tiers.md) [VERIFY LINK]).
 
 #### Shared workflow config: how the suite avoids damaging it
 
@@ -597,14 +633,15 @@ pytest tests/ui/test_workflow_comprehensive_ui.py -v
 pytest -m ui --browser=firefox
 
 # Run with slow motion
-pytest -m ui --slow-mo=1000
+pytest -m ui --slowmo=1000
 
 # Run with video recording
 pytest -m ui --video=on
 
 # Run with trace
-pytest -m ui --trace=on
+pytest -m ui --tracing=on
 ```
+<!-- AUDIT: Accuracy -- flag names corrected against .venv/lib/python3.13/site-packages/pytest_playwright/pytest_playwright.py: the option is `--slowmo` (no hyphen), and trace capture is `--tracing`, not `--trace`. `--headed` above is a boolean `store_true` flag (bare, no `=true`). -->
 
 ### OpenCode Playwright agents (run outside Cursor)
 
@@ -629,7 +666,7 @@ npm install -g opencode-ai
 
 - **TUI (interactive):**  
   `opencode`  
-  Then switch to the Playwright agent (Tab or agent selector) and type your task (e.g. “Explore the app and create a test plan” for Planner, “Generate tests from the plan in specs/plan.md” for Generator, “Run Playwright tests and fix failures” for Healer).
+  Then switch to the Playwright agent (Tab or agent selector) and type your task (e.g. "Explore the app and create a test plan" for Planner, "Generate tests from the plan in specs/plan.md" for Generator, "Run Playwright tests and fix failures" for Healer).
 
 - **CLI (one-shot):**  
   `opencode run --agent playwright-planner "Explore the app and produce a test plan, then save it with planner_save_plan"`  
@@ -657,7 +694,7 @@ They are configured in the **`.opencode/`** directory. Ensure the MCP (or plugin
 ### Debug Commands
 ```bash
 # Run with visible browser
-pytest -m ui --headed=true
+pytest -m ui --headed
 
 # Run with debug output
 pytest -m ui -v -s --log-cli-level=DEBUG
@@ -682,15 +719,23 @@ page.pause()  # Pause execution for manual inspection
 - **Content**: Test results, screenshots, videos
 - **Features**: Interactive debugging, failure analysis
 
-### Screenshots
-- **Location**: `test-results/screenshots/`
-- **Content**: Page screenshots on failure
-- **Format**: PNG files with timestamps
+### Screenshots and Videos
+- **Location**: `test-results/<project>-<test-name>/` (Playwright's default
+  per-test output directory; there is no flat `screenshots/` or `videos/`
+  folder)
+- **Content**: Page screenshot on failure (`screenshot: 'only-on-failure'`) and
+  video on failure (`video: 'retain-on-failure'`)
+- **Format**: PNG and WebM
 
-### Videos
-- **Location**: `test-results/videos/`
-- **Content**: Test execution recordings
-- **Format**: WebM files
+### Allure Reports
+- **Location**: `allure-results/` (raw data); run `allure serve allure-results`
+  to view
+- Configured alongside the HTML/list/line reporters in `tests/playwright.config.ts`
+<!-- AUDIT: Accuracy -- verified against tests/playwright.config.ts `reporter` array and `use.screenshot`/`use.video` settings 2026-09-01. Previous text implied a fixed `test-results/screenshots/` and `test-results/videos/` layout, which Playwright does not produce by default. -->
+
+Screenshots taken manually in a test (e.g. `page.screenshot(path=...)`, as in
+the [Screenshot Testing](#screenshot-testing) example above) go wherever you
+point `path`, independent of the failure-capture layout described here.
 
 ## Best Practices
 
@@ -714,7 +759,12 @@ page.pause()  # Pause execution for manual inspection
 
 ## Next Steps
 
-- **Learn test categories** → See the testing guide in the tests directory
+- **Pick the right test tier** → [UI Test Tiers](ui-test-tiers.md) [VERIFY LINK]
+  covers the `run_tests.py ui-*` commands and when to use each.
+- **Understand the full test pyramid** → [Testing](testing.md) [VERIFY LINK]
+- **See real, current selectors** → [`tests/e2e/test_web_interface.py`](../../tests/e2e/test_web_interface.py),
+  `tests/ui/`, `tests/playwright/`
+<!-- AUDIT: Hyperlinks -- previous "See the testing guide in the tests directory" was a dead-end reference with no path. Replaced with concrete, verified targets. -->
 
 ## Additional Resources
 
@@ -725,4 +775,4 @@ page.pause()  # Pause execution for manual inspection
 
 
 _Last updated: 2026-07-03_
-_Last reviewed: 2026-05-23_
+_Last reviewed: 2026-09-01_

@@ -79,7 +79,11 @@ make test-down      # Tear down
 ```
 
 `run_tests.py` auto-starts `cti_postgres_test` and `cti_redis_test` when
-running `api`, `ui`, `integration`, `e2e`, or `all`.
+running `api`, `ui` (including `ui-smoke`, `ui-fast`, `ui-full`), `integration`,
+`e2e`, `all-no-ui`, `all`, or `coverage`.
+<!-- AUDIT: Accuracy -- previous text listed only api/ui/integration/e2e/all;
+tests_runner/runner.py's setup_environment() stateful_test_types set also
+includes UI_SMOKE, UI_FAST, UI_FULL, ALL_NO_UI, and COVERAGE. -->
 
 ## Fixture Strategy
 
@@ -107,16 +111,16 @@ score ranges (min/max), not exact floats, to avoid brittleness.
 ### smoke
 **Command:** `python3 run_tests.py smoke`  
 **Duration:** ~30 seconds  
-**Path:** `-m smoke`  
+**Path:** `tests/`, `-m smoke`  
 Quick health check — verifies critical endpoints and basic functionality.
 
 ### unit
 **Command:** `python3 run_tests.py unit`  
 **Duration:** ~1 minute  
-**Path:** `tests/` with marker exclusion (no smoke/integration/api/ui/e2e)  
+**Path:** `tests/` with marker exclusion (no smoke/integration/api/ui/e2e/performance)  
 Individual components in isolation with mocked dependencies. Covers:
-`tests/cli/`, `tests/config/`, `tests/core/`, `tests/database/`, `tests/docs/`,
-`tests/scripts/`, `tests/services/`, `tests/sigma_atom_similarity/`,
+`tests/a11y/`, `tests/cli/`, `tests/config/`, `tests/core/`, `tests/database/`,
+`tests/docs/`, `tests/scripts/`, `tests/services/`, `tests/sigma_atom_similarity/`,
 `tests/templates/`, `tests/utils/`, `tests/worker/`, `tests/workflows/`,
 `tests/unit/`, `tests/quality/`
 
@@ -172,7 +176,7 @@ settings, save workflow config) from pytest and sets
 Excluding them is not required for safety. Section 2 protects the shared config
 in two layers regardless: `globalTeardown` restores a pre-run baseline however
 the run ends, and the next run's `globalSetup` heals known corruption before it
-snapshots -- so damage is bounded to at most one run even if the Playwright
+snapshots, so damage is bounded to at most one run even if the Playwright
 process is killed outright. See
 [web-app-testing.md](web-app-testing.md#shared-workflow-config-how-the-suite-avoids-damaging-it)
 before adding a spec that writes workflow config.
@@ -190,9 +194,33 @@ Requires `PERFORMANCE_TEST_ENABLED=true`. Not run in standard CI.
 
 ### ai
 **Command:** `python3 run_tests.py ai`  
-**Path:** `tests/integration/test_ai_*.py` and `@pytest.mark.ai`  
+**Path:** `tests/integration/test_ai_cross_model_integration.py` (no marker filter applied)  
+<!-- AUDIT: Accuracy -- previous text said this group ran `tests/integration/test_ai_*.py`
+filtered by `@pytest.mark.ai`. run_tests.py's test_path_map (tests_runner/runner.py)
+maps RunTestType.AI to a single explicit file, and its default_markers_map entry for
+AI is empty, so no marker filter is applied. The `ai` pytest marker exists
+(pyproject.toml) but is not used by this command. -->
 AI/LLM integration tests. Require secrets; run only in scheduled/manual
 workflows if at all.
+
+### Other test types
+
+`run_tests.py` supports marker-only categories and additional UI tiers not
+detailed above. Run `python3 run_tests.py --help` for the full list.
+
+| Type | Path / marker | Notes |
+|---|---|---|
+| `ui-smoke` | `tests/ui/`, `-m "ui_smoke or smoke"` | Tier 1, stateless, pytest only (~2m) |
+| `ui-fast` | `tests/ui/`, `-m ui`, excludes `slow` | Tier 3, full UI minus `@slow` (~15m) |
+| `ui-full` | `tests/ui/`, `-m ui`, includes `slow` | Tier 4, everything (~45m) |
+| `all-no-ui` | `tests/` minus `tests/ui/`, `tests/e2e/` | Full suite excluding UI + Playwright JS |
+| `regression` | `tests/`, `-m regression` | Regression tests for previously fixed behavior |
+| `contract` | `tests/`, `-m contract` | API/schema contract tests |
+| `security` | `tests/`, `-m security` | Security hardening/abuse-case tests; also uses `USE_ASGI_CLIENT=1` |
+| `a11y` | `tests/`, `-m a11y` | Accessibility baseline tests |
+| `ai-ui` | `tests/ui/` | AI-related UI tests |
+| `ai-integration` | `tests/integration/test_ai_cross_model_integration.py`, `-m integration` | Same file as `ai`, with the `integration` marker applied |
+| `coverage` | `tests/`, `--cov=src` | Full suite with coverage report |
 
 ## Test Directory Mapping
 
@@ -203,7 +231,7 @@ workflows if at all.
 | `tests/integration/` | integration |
 | `tests/ui/` | ui |
 | `tests/e2e/`, `tests/playwright/` | e2e / ui |
-| `tests/cli/`, `tests/config/`, `tests/core/`, `tests/database/`, `tests/docs/`, `tests/scripts/`, `tests/services/`, `tests/sigma_atom_similarity/`, `tests/templates/`, `tests/utils/`, `tests/worker/`, `tests/workflows/` | unit |
+| `tests/a11y/`, `tests/cli/`, `tests/config/`, `tests/core/`, `tests/database/`, `tests/docs/`, `tests/scripts/`, `tests/services/`, `tests/sigma_atom_similarity/`, `tests/templates/`, `tests/utils/`, `tests/worker/`, `tests/workflows/` | unit |
 | `tests/unit/` | unit (MCP tools, model versioning/rollback) |
 | `tests/quality/` | unit (regression/contract/security/a11y markers) |
 
@@ -216,7 +244,7 @@ workflows if at all.
 | api | `python3 run_tests.py api` | Running |
 | integration | `python3 run_tests.py integration` | Running |
 | ui | `python3 run_tests.py ui` | Running |
-| playwright | `npx playwright test` | Running |
+| playwright | `npx playwright test -c tests/playwright.config.ts` | Running |
 
 **CI workflow files:**
 - `.github/workflows/tests.yml` — smoke, unit, api, integration, ui
@@ -286,3 +314,4 @@ All tests are non-impactful to production data and configuration:
   see [Authentication](../guides/authentication.md).
 
 _Last updated: 2026-08-13_
+_Last reviewed: 2026-09-01_
