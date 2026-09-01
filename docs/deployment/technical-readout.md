@@ -81,3 +81,4 @@ Boolean search, pagination, source filtering, and article detail views.
 | Agent responsibilities | [Agents](../concepts/agents.md) |
 
 _Last updated: 2026-07-05_
+_Last reviewed: 2026-09-01_
