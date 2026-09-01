@@ -1109,6 +1109,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added finish_reason logging for debugging empty responses
   - Verified LMStudio connectivity and model availability
 
+<!-- AUDIT: Accuracy (High) -- This "[6.1.0 "Io"] - 2026-04-27" header covers roughly 850 lines (through the entry before [4.0.0 "Kepler"]), but the first dated entry underneath it is 2026-02-02 -- earlier than 5.1.0 (2026-03-13), 5.2.0, 5.3.0, 6.0.0, and 6.1.1, all of which already appear above this block in the file. The version label and placement look wrong: this block reads like an unlabeled backlog of interim changes that predates several already-listed releases, not the actual 6.1.0 changeset. Recommend the author reconcile this block's true version/date range against git history rather than trusting the header. -->
 ## [6.1.0 "Io"] - 2026-04-27
 ### Added
 - **Infra guard: last-line circuit breaker and bundle illegal-state detection** (2026-02-02): Enforce invariant that LLM is never invoked with empty messages
@@ -2106,7 +2107,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Async Processing**: Celery workers for background embedding generation
 - **Database**: Article and Sigma rule embeddings stored in PostgreSQL with pgvector
 
-## [Pre-3.0.0 ChangesUnreleased]
+<!-- AUDIT: Grammar -- Heading read "[Pre-3.0.0 ChangesUnreleased]", apparently two labels merged into one; changed to "[Pre-3.0.0 Changes]" for consistency with the other version headers in this file. -->
+## [Pre-3.0.0 Changes]
 
 ### Fixed
 - **Navigation UI**: Removed vertical divider borders between navigation items that were overlapping text
@@ -2495,11 +2497,12 @@ Initial release with basic functionality for web scraping and data collection.
 For support and questions:
 - **Issues**: GitHub issue tracker
 - **Documentation**: Project README and docs
-- **Security**: See SECURITY.md for security issues
+- **Security**: See `.github/SECURITY.md` <!-- AUDIT: Hyperlinks -- Plain-text "SECURITY.md" reference didn't resolve to anything from docs/; the file actually lives at .github/SECURITY.md. Referenced as a code span rather than a relative link since mkdocs build --strict rejects links that resolve outside docs/. --> for security issues
 
 ---
 
 **Note**: This changelog follows the Keep a Changelog format. All dates are in YYYY-MM-DD format.
-<!--stackedit_data:
-eyJoaXN0b3J5IjpbMjkxMjYwXX0=
--->
+
+<!-- AUDIT: Fluff -- Removed a trailing StackEdit editor metadata comment (base64 blob, no reader-facing content). -->
+
+_Last reviewed: 2026-09-01_

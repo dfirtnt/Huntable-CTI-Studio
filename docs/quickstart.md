@@ -51,12 +51,12 @@ echo "Article ID: ${ARTICLE_ID}"
 ```
 
 ![Scrape response showing the captured article_id value](assets/screenshots/03-article-ingested.png)
-*Capture the returned `article_id` -- subsequent workflow calls reference it.*
+*Capture the returned `article_id`; subsequent workflow calls reference it.*
 
 ## 4) Run the agentic workflow
-On a fresh install, make sure the workflow agents have a provider and model configured first — the fastest way is to load a quickstart preset (see [First Workflow, step 0](getting-started/first-workflow.md)).
+On a fresh install, make sure the workflow agents have a provider and model configured first; the fastest way is to load a quickstart preset (see [First Workflow, step 0](getting-started/first-workflow.md)).
 
-Trigger the full pipeline (Platform Detection → junk filter → ranking → Extract Agent → Sigma generation → similarity search). Platform Detection routes Windows-only extractors based on detected platform — Linux/macOS articles skip RegistryExtract, ServicesExtract, and ScheduledTasksExtract automatically:
+Trigger the full pipeline (Platform Detection → junk filter → ranking → Extract Agent → Sigma generation → similarity search). Platform Detection routes Windows-only extractors based on detected platform: Linux/macOS articles skip RegistryExtract, ServicesExtract, and ScheduledTasksExtract automatically:
 ```bash
 TRIGGER=$(curl -s -X POST "http://localhost:8001/api/workflow/articles/${ARTICLE_ID}/trigger")
 EXECUTION_ID=$(echo "$TRIGGER" | jq -r '.execution_id')
@@ -85,7 +85,7 @@ You can also review the article page at `http://localhost:8001/articles/${ARTICL
 *Numbered fields: (1) overall status, (2) discrete huntable count, (3) observable array with type, value, and source agent.*
 
 ![Article detail page with metadata, extraction, and content sections](assets/screenshots/07-article-page-ui.png)
-*The article page bundles (1) metadata, (2) keyword/extraction matches, and (3) annotated content -- the same data the workflow consumed.*
+*The article page bundles (1) metadata, (2) keyword/extraction matches, and (3) annotated content: the same data the workflow consumed.*
 
 ## 6) Review Sigma generation
 The workflow writes validated Sigma rules to the same execution record. Inspect them via API or UI:
@@ -113,11 +113,11 @@ A zero exit code confirms the stack and core health endpoints are working.
 
 ## 8) MCP server (optional)
 
-For external LLM clients (Claude Desktop, IDE MCP, etc.), the MCP server exposes read tools (article search, full article fetch, Sigma search, sources, workflow executions, the Sigma review queue, read-only SQL) plus scoped, audited write tools — low-risk writes execute directly; high-risk writes only create pending human-confirmation requests. It uses the same database as the web app. Tool listing, parameters, and write risk tiers: [MCP tools reference](reference/mcp-tools.md).
+For external LLM clients (Claude Desktop, IDE MCP, etc.), the MCP server exposes read tools (article search, full article fetch, Sigma search, sources, workflow executions, the Sigma review queue, read-only SQL) plus scoped, audited write tools; low-risk writes execute directly, and high-risk writes only create pending human-confirmation requests. It uses the same database as the web app. Tool listing, parameters, and write risk tiers: [MCP tools reference](reference/mcp-tools.md).
 
-The repo ships a committed `.mcp.json` registering the server via `scripts/run_mcp_server.sh`; clients that read project `.mcp.json` (Claude Code in this repo) need no setup — just approve the `huntable-cti-studio` server when prompted. For other clients, register `bash scripts/run_mcp_server.sh` as the command.
+The repo ships a committed `.mcp.json` registering the server via `scripts/run_mcp_server.sh`; clients that read project `.mcp.json` (Claude Code in this repo) need no setup, just approve the `huntable-cti-studio` server when prompted. For other clients, register `bash scripts/run_mcp_server.sh` as the command.
 
-The launcher runs the server inside the Docker `cli` container (so the Linux container's torch / sentence-transformers back the embedding model — semantic search works on every platform, including Intel Mac). **Docker must be running.** To run it by hand:
+The launcher runs the server inside the Docker `cli` container (so the Linux container's torch / sentence-transformers back the embedding model); semantic search works on every platform, including Intel Mac. **Docker must be running.** To run it by hand:
 
 ```bash
 bash scripts/run_mcp_server.sh     # runs the server in the Docker cli container
@@ -129,4 +129,4 @@ docker compose down
 ```
 
 _Last updated: 2026-07-05_
-_Last reviewed: 2026-07-05_
+_Last reviewed: 2026-09-01_
