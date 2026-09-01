@@ -163,4 +163,5 @@ docker exec cti_postgres psql -U cti_user -d cti_scraper -c "SELECT 1;"
 - **ML Model Versioning System**: See `model_versioning.py` in `src/utils/`
 
 _Last updated: 2026-07-05_
+_Last reviewed: 2026-09-01_
 
