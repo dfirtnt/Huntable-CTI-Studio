@@ -4,6 +4,10 @@
 
 This guide covers the optional LM Studio provider for local LLM inference. Huntable CTI Studio has no hard dependency on LM Studio: the application can start and operate with other configured providers, and embeddings are generated locally with sentence-transformers.
 
+See [Model Selection Guide](model-selection.md) for which local models to load, and
+[Context Window Rationale](context-window-rationale.md) for why the extractor agent is capped
+at 16K tokens by default.
+
 ## Setup
 
 1. **Start LMStudio**:
@@ -37,7 +41,8 @@ In the web interface, select `lmstudio` as the LLM provider in chat settings.
 - **Workflow fails immediately with "LMStudio is not reachable"**: The workflow engine probes LMStudio before starting any run that uses an LMStudio provider. If the probe fails, the execution is marked failed right away rather than timing out mid-run. Start LMStudio, confirm the server is running (green indicator in the LMStudio UI), then re-trigger the workflow.
 - **Connection refused**: Ensure LMStudio server is running and accessible
 - **Model not found**: Verify model name matches exactly in LMStudio
-- **Timeout errors**: Increase timeout in `_call_lmstudio()` method if needed
+- **Timeout errors**: Increase the `timeout` argument passed to `_post_lmstudio_chat()` in `src/services/llm_client.py` if needed
+<!-- AUDIT: Accuracy -- this pointed to a `_call_lmstudio()` method that does not exist in the codebase; the actual LM Studio chat call is `LLMClient._post_lmstudio_chat()` in src/services/llm_client.py, which delegates to `LMStudioChatClient.post_chat()` in src/services/llm_provider_clients.py. -->
 - **Context length errors**: 
   - Error: "context overflow" or "context length of only X tokens, which is not enough"
   - **Solution**: Increase context length in LMStudio UI (Context tab) to at least 16384 tokens for article scoring
@@ -160,4 +165,4 @@ python3 scripts/benchmark_llm_providers.py --quick
 Results are written to `logs/llm_benchmark_results_TIMESTAMP.json`.
 
 _Last updated: 2026-08-31_
-_Last reviewed: 2026-08-31_
+_Last reviewed: 2026-09-01_

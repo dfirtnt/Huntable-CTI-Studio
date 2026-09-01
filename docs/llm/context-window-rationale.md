@@ -3,9 +3,16 @@
 ## Why 16K for Local Models
 
 The Extractor Agent is configured with `n_ctx = 16384` (16K tokens) in LM Studio despite
-Qwen3-14B supporting up to 40,960 tokens natively. This is not a conservative default --
+Qwen3-14B supporting up to 40,960 tokens natively. This is not a conservative default:
 it is an engineered decision grounded in VRAM constraints, inference performance curves,
 and architectural alignment with the fail-closed protocol.
+
+<!-- AUDIT: Accuracy -- this page and model-selection.md describe Qwen3-14B-Instruct as the
+     reference/recommended extraction model, but the shipped `docker-compose.yml` default is
+     `LMSTUDIO_MODEL_EXTRACT=qwen/qwen3-4b-2507` (a 4B model), not 14B. Verify whether the
+     VRAM/throughput figures below are still meant as the operative default or as sizing
+     guidance for operators who upgrade to the 14B model per model-selection.md. -->
+See [Model Selection Guide](model-selection.md) for the full model recommendation matrix.
 
 ---
 
@@ -64,7 +71,7 @@ On a 24 GB VRAM system running Qwen3-14B Q4_K_M, the VRAM budget breaks down as 
 | Concurrent requests | 0-1 |
 
 At the native 40K ceiling, concurrency collapses to effectively zero on 24 GB hardware.
-The system can process one article at a time -- and may still exceed VRAM, triggering
+The system can process one article at a time, and may still exceed VRAM, triggering
 system RAM fallback (memory thrashing).
 
 ---
@@ -87,8 +94,12 @@ Empirically measured on 24 GB VRAM, Qwen3-14B Q4_K_M:
 
 The 16K-to-40K transition reduces throughput by approximately 55-65%. For a pipeline
 processing hundreds of articles per hour, this translates to a 2-3x increase in total
-processing time -- with no corresponding quality gain, since 99.5% of articles fit
-within 16K tokens.
+processing time, with no corresponding quality gain, since most articles fit within 16K
+tokens (see the corpus breakdown in [Fail-Closed Protocol](#fail-closed-protocol) below).
+<!-- AUDIT: Accuracy -- this line said "99.5%" but the Fail-Closed Protocol section below
+     gives "approximately 98%" for the same claim (16K coverage of the article corpus).
+     Reconciled to avoid restating a specific figure twice; verify which number is current
+     and restore it here if a precise figure is preferred over the cross-reference. -->
 
 ---
 
@@ -121,7 +132,7 @@ Raw article (variable, up to 40K tokens)
 
 This design means:
 
-- The Rank Agent never sees the full article -- no need for large context
+- The Rank Agent never sees the full article, so it needs no large context
 - The Extractor Agent sees the full article but with a hard 16K truncation ceiling
 - The Sigma Generator sees only the structured extraction, which is always compact
 
@@ -134,7 +145,7 @@ temperature tuning is not possible.
 
 ## Fail-Closed Protocol
 
-The 16K context ceiling is not just a performance optimization -- it is the truncation
+The 16K context ceiling is not just a performance optimization: it is the truncation
 threshold for the fail-closed protocol.
 
 **Fail-closed definition:** When an article exceeds the configured context window, the
@@ -156,7 +167,7 @@ Analysis of the CTI article corpus shows:
 | Over 16K tokens | ~2% |
 
 The 16K ceiling covers approximately 98% of articles without any truncation. For the
-2% that exceed it, truncation affects the tail end of the article -- typically
+2% that exceed it, truncation affects the tail end of the article, typically
 appendices, repetitive IoC listings, or boilerplate disclosure text. The critical
 threat intelligence content (threat actor description, TTP narrative, initial access
 vector) appears near the beginning of CTI articles and is preserved.
@@ -203,7 +214,7 @@ roughly doubles overall pipeline throughput.
 ## Cloud Model Defaults and Why They Differ
 
 Cloud-hosted models from OpenAI and Anthropic ship with much larger default context
-windows (80K-200K tokens). This is not because larger context is always better -- it
+windows (80K-200K tokens). This is not because larger context is always better; it
 is because the infrastructure economics are fundamentally different:
 
 - Cloud providers run inference on distributed GPU clusters with tens to hundreds of
@@ -218,8 +229,13 @@ in throughput and concurrency capacity.
 
 This is why the application enforces different defaults for local vs. cloud models:
 
-- Local models (LM Studio):  n_ctx = 16384
-- Cloud models (OpenAI):     context = 80000 (80K default, see WORKFLOW_CLOUD_CONTEXT_TOKENS in `src/services/llm_service.py`)
+- Local models (LM Studio): n_ctx = 16384
+- Cloud models (OpenAI): context = 80000 (80K default; see `WORKFLOW_CLOUD_CONTEXT_TOKENS` in
+  `src/services/llm_service.py`)
+
+See [LM Studio Integration](lmstudio.md#context-length) for how to set local context length in
+the LM Studio UI, and [Cloud Model Reference](cloud-model-reference.md) for the per-model
+context windows behind the cloud defaults above.
 
 These are not symmetric defaults that happen to be different. They reflect a
 fundamentally different infrastructure model.
@@ -241,3 +257,4 @@ quality improvement for your specific article corpus, on hardware with VRAM head
 absorb the cost without concurrency degradation.
 
 _Last updated: 2026-07-03_
+_Last reviewed: 2026-09-01_
