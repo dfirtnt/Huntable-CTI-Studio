@@ -7,11 +7,12 @@ Qwen3-14B supporting up to 40,960 tokens natively. This is not a conservative de
 it is an engineered decision grounded in VRAM constraints, inference performance curves,
 and architectural alignment with the fail-closed protocol.
 
-<!-- AUDIT: Accuracy -- this page and model-selection.md describe Qwen3-14B-Instruct as the
-     reference/recommended extraction model, but the shipped `docker-compose.yml` default is
-     `LMSTUDIO_MODEL_EXTRACT=qwen/qwen3-4b-2507` (a 4B model), not 14B. Verify whether the
-     VRAM/throughput figures below are still meant as the operative default or as sizing
-     guidance for operators who upgrade to the 14B model per model-selection.md. -->
+!!! note "Sizing figures assume Qwen3-14B, not the shipped default"
+    The VRAM and throughput numbers on this page are measured against Qwen3-14B Q4_K_M. The
+    shipped `docker-compose.yml` default is `qwen/qwen3-4b-2507` (4B), so treat these figures as
+    sizing guidance for operators who move up to 14B per the
+    [Model Selection Guide](model-selection.md), not as a description of the out-of-box setup.
+
 See [Model Selection Guide](model-selection.md) for the full model recommendation matrix.
 
 ---
@@ -96,10 +97,6 @@ The 16K-to-40K transition reduces throughput by approximately 55-65%. For a pipe
 processing hundreds of articles per hour, this translates to a 2-3x increase in total
 processing time, with no corresponding quality gain, since most articles fit within 16K
 tokens (see the corpus breakdown in [Fail-Closed Protocol](#fail-closed-protocol) below).
-<!-- AUDIT: Accuracy -- this line said "99.5%" but the Fail-Closed Protocol section below
-     gives "approximately 98%" for the same claim (16K coverage of the article corpus).
-     Reconciled to avoid restating a specific figure twice; verify which number is current
-     and restore it here if a precise figure is preferred over the cross-reference. -->
 
 ---
 

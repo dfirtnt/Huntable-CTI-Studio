@@ -6,8 +6,6 @@
 
 This section covers the debugging utilities available in the Huntable CTI Studio test suite: Langfuse workflow tracing, async test debugging, and performance profiling.
 
-<!-- AUDIT: Accuracy -- Of the six tool categories below, three (Test Failure Analysis, Test Isolation and Cleanup, Enhanced Output Formatting) document modules that do not exist anywhere in the codebase (tests/utils/test_failure_analyzer.py, tests/utils/test_isolation.py, tests/utils/test_output_formatter.py). tests/conftest.py:183-212 imports them in a try/except and pins FAILURE_ANALYZER_AVAILABLE, ISOLATION_AVAILABLE, and OUTPUT_FORMATTER_AVAILABLE to False with the comment "missing module must not break conftest or teardown" -- confirming these are permanently unavailable, not a transient gap. Only Langfuse tracing, async debugging (tests/utils/async_debug_utils.py), and performance profiling (tests/utils/performance_profiler.py) are real. The affected sections are flagged individually below; verify before relying on any TestFailureReporter/TestIsolationManager/TestOutputFormatter example. -->
-
 ## Table of Contents
 
 1. [Overview](#overview)
@@ -25,11 +23,11 @@ This section covers the debugging utilities available in the Huntable CTI Studio
 The Huntable CTI Studio debugging tools provide:
 
 - **Langfuse Workflow Debugging**: Session-based tracing for agentic workflow executions with direct links to Langfuse UI
-- **Comprehensive Failure Analysis**: Automatic categorization and analysis of test failures with actionable suggestions
+- **Comprehensive Failure Analysis** *(design sketch -- not implemented)*: Automatic categorization and analysis of test failures with actionable suggestions
 - **Async Debugging**: Specialized tools for debugging async/await code and event loop issues
-- **Test Isolation**: Enhanced isolation mechanisms to prevent test interference
+- **Test Isolation** *(design sketch -- not implemented)*: Enhanced isolation mechanisms to prevent test interference
 - **Performance Profiling**: Detailed performance monitoring and bottleneck identification
-- **Rich Output Formatting**: Timestamped, colorized, and structured test output
+- **Rich Output Formatting** *(design sketch -- not implemented)*: Timestamped, colorized, and structured test output
 
 ## Langfuse Workflow Debugging
 
@@ -178,11 +176,14 @@ For setup, host selection, security guidance, and troubleshooting, see [Langfuse
 - **Trace creation**: `src/utils/langfuse_client.py` (`_LangfuseWorkflowTrace.__enter__`, lines 183-264; `trace_workflow_execution`, line 335)
 - **Workflow execution**: `src/workflows/agentic_workflow.py` (`run_workflow`, defined at line 3500; trace opened via `trace_workflow_execution(...)` at line 3755)
 - **Debug link generation**: `src/web/routes/workflow_executions.py` (`_build_langfuse_debug_urls` at line 1327 / `get_workflow_debug_info` at line 1351)
-<!-- AUDIT: Accuracy -- line numbers corrected to match current source (previous values were stale by 50-150 lines); re-verify on future edits since these drift with unrelated changes. -->
 
 ## Test Failure Analysis
 
-<!-- AUDIT: Accuracy -- `tests/utils/test_failure_analyzer.py` does not exist in this codebase (verified via file search and `git log --all`, no history). tests/conftest.py:184-194 imports `TestFailureReporter`/`generate_failure_report` from it inside a try/except that always hits ImportError, pinning `FAILURE_ANALYZER_AVAILABLE = False`. The `failure_reporter` fixture (conftest.py:718-721) therefore always returns None. Everything below is aspirational, not runnable. -->
+!!! warning "Not implemented"
+    `tests/utils/test_failure_analyzer.py` does not exist in this repository and never has. `tests/conftest.py`
+    imports it inside a `try`/`except ImportError` that always fails, pinning
+    `FAILURE_ANALYZER_AVAILABLE = False`, so the `failure_reporter` fixture always returns `None`.
+    The examples in this section are a design sketch, not runnable code.
 
 ### Automatic Failure Analysis
 
@@ -313,7 +314,11 @@ async def test_async_operation():
 
 ## Test Isolation and Cleanup
 
-<!-- AUDIT: Accuracy -- `tests/utils/test_isolation.py` does not exist in this codebase (verified via file search and `git log --all`, no history). tests/conftest.py:197-203 imports `TestIsolationManager` from it inside a try/except that always hits ImportError, pinning `ISOLATION_AVAILABLE = False`. The `isolation_manager` fixture (conftest.py:734-737) therefore always returns None. Everything below is aspirational, not runnable. -->
+!!! warning "Not implemented"
+    `tests/utils/test_isolation.py` does not exist in this repository and never has. `tests/conftest.py`
+    imports it inside a `try`/`except ImportError` that always fails, pinning
+    `ISOLATION_AVAILABLE = False`, so the `isolation_manager` fixture always returns `None`.
+    The examples in this section are a design sketch, not runnable code.
 
 ### Test Isolation Manager
 
@@ -441,7 +446,11 @@ print(f"Recommendations: {analysis['recommendations']}")
 
 ## Enhanced Output Formatting
 
-<!-- AUDIT: Accuracy -- `tests/utils/test_output_formatter.py` does not exist in this codebase (verified via file search and `git log --all`, no history). tests/conftest.py:206-212 imports `TestOutputFormatter` from it inside a try/except that always hits ImportError, pinning `OUTPUT_FORMATTER_AVAILABLE = False`. The `test_output_formatter` fixture (conftest.py:726-729) therefore always returns None. Everything below is aspirational, not runnable. -->
+!!! warning "Not implemented"
+    `tests/utils/test_output_formatter.py` does not exist in this repository and never has. `tests/conftest.py`
+    imports it inside a `try`/`except ImportError` that always fails, pinning
+    `OUTPUT_FORMATTER_AVAILABLE = False`, so the `test_output_formatter` fixture always returns `None`.
+    The examples in this section are a design sketch, not runnable code.
 
 ### Test Output Formatter
 
@@ -503,7 +512,7 @@ formatter = TestOutputFormatter(config)
 
 ### 1. Use Failure Analysis for Debugging
 
-<!-- AUDIT: Accuracy -- depends on the non-existent test_failure_analyzer module; see the AUDIT note under "Test Failure Analysis" above. -->
+*Not implemented -- see [Test Failure Analysis](#test-failure-analysis) above.*
 
 Always use the failure analyzer for test failures:
 
@@ -540,7 +549,7 @@ def test_slow_operation():
 
 ### 3. Use Test Isolation
 
-<!-- AUDIT: Accuracy -- depends on the non-existent test_isolation module; see the AUDIT note under "Test Isolation and Cleanup" above. -->
+*Not implemented -- see [Test Isolation and Cleanup](#test-isolation-and-cleanup) above.*
 
 Always use test isolation for tests that modify global state:
 
@@ -577,7 +586,7 @@ async def test_async_operation(async_debugger):
 
 ### 5. Use Rich Output Formatting
 
-<!-- AUDIT: Accuracy -- depends on the non-existent test_output_formatter module; see the AUDIT note under "Enhanced Output Formatting" above. -->
+*Not implemented -- see [Enhanced Output Formatting](#enhanced-output-formatting) above.*
 
 Use the output formatter for better test visibility:
 
@@ -648,7 +657,7 @@ if profiler.config.enable_cpu_profiling:
 
 #### 4. Test Isolation Issues
 
-<!-- AUDIT: Accuracy -- depends on the non-existent test_isolation module; see the AUDIT note under "Test Isolation and Cleanup" above. This will always fail with ImportError, not "not work". -->
+*Not implemented -- see [Test Isolation and Cleanup](#test-isolation-and-cleanup) above.*
 
 If test isolation doesn't work:
 
@@ -790,7 +799,8 @@ curl -X POST http://host.docker.internal:1234/v1/chat/completions \
 #### 5. Log Level Too High
 LMStudio request logs are at INFO level, which is the effective floor.
 
-<!-- AUDIT: Accuracy -- `LOG_LEVEL` is not read anywhere in `src/` (confirmed by repo-wide grep). docker-compose.yml sets `LOG_LEVEL=DEBUG` on cti_web/cti_worker/cti_workflow_worker/cti_scheduler, but nothing consumes it: src/web/dependencies.py:78 hardcodes `logging.basicConfig(level=logging.INFO)`. The previous "Fix" (setting LOG_LEVEL, or `docker exec ... export LOG_LEVEL=DEBUG`) has no effect -- a subshell env export also would not reach the already-running process even if the var were read. If INFO-level LMStudio logs are missing, the request likely isn't happening at all; use the other diagnostic steps in this document instead. -->
+Setting `LOG_LEVEL` has no effect: nothing in `src/` reads it, and the application
+log level is hardcoded to `INFO` in `src/web/dependencies.py:78`.
 
 **Check:**
 - Look for: `"Attempting LMStudio at {url} with model {model}"` in `docker logs cti_worker`
@@ -833,7 +843,6 @@ docker exec cti_worker curl -X POST http://host.docker.internal:1234/v1/chat/com
 #### Step 4: Check Langfuse Traces
 If Langfuse is enabled, check for traces:
 - UI: Click the **Debug** button on the execution (see [Accessing Debug Links](#accessing-debug-links) above)
-<!-- AUDIT: Grammar -- removed a stale "🔍 Trace" button reference that doesn't match the "Debug" button labeling used earlier in this document and isn't found in the templates; internal inconsistency. -->
 - Or check the Langfuse dashboard for session `workflow_exec_{execution_id}`
 
 ### Expected Log Sequence
@@ -868,7 +877,6 @@ When evaluation runs correctly, you should see:
 `use_hybrid_extractor` was removed and no longer has any effect on workflow configuration or execution snapshots.
 
 #### Enable Debug Logging
-<!-- AUDIT: Accuracy -- see the note under "5. Log Level Too High" above: LOG_LEVEL is not consumed by application code, so neither of these has any effect. Application log level is hardcoded to INFO in src/web/dependencies.py:78. -->
 Not currently possible via environment variable; the application log level is hardcoded to `INFO` (`src/web/dependencies.py:78`).
 
 #### Retry Stuck Execution
@@ -910,7 +918,6 @@ ORDER BY created_at DESC;
 - `src/worker/celeryconfig.py` - Celery configuration
 - `src/worker/celery_app.py:792` - `trigger_agentic_workflow` task definition
 - `src/web/routes/evaluation_api.py` - Task dispatch in eval API (`trigger_agentic_workflow.apply_async(...)` at lines 757 and 1474)
-<!-- AUDIT: Accuracy -- corrected line numbers; the doc previously listed three call sites, only two exist currently. -->
 - `src/web/routes/workflow_executions.py:1048` - `POST /api/workflow/executions/{execution_id}/retry` endpoint
 
 ---

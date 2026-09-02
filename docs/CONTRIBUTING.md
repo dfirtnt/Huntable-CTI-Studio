@@ -17,12 +17,12 @@ Thank you for your interest in contributing to Huntable CTI Studio! This documen
 - [Documentation](#documentation)
 - [Release Process](#release-process)
 - [Getting Help](#getting-help)
-<!-- AUDIT: Clarity -- Table of contents was missing 5 of the document's 14 top-level sections (File Organization, Documentation, Release Process, Getting Help, and Acknowledgments); added the first four, Acknowledgments omitted intentionally as a closing note rather than a navigable section. -->
 
 ## Code of Conduct
 
-<!-- AUDIT: Accuracy (Med) -- This references "our Code of Conduct" but no CODE_OF_CONDUCT.md (or equivalent) exists anywhere in the repository. Either add one and link it here, or replace this paragraph with the actual expectation for this project. -->
-This project and everyone participating in it is governed by our Code of Conduct. By participating, you are expected to uphold this code.
+Contributors are expected to be respectful and constructive in issues, pull requests, and
+reviews. This repository does not currently ship a `CODE_OF_CONDUCT.md`; if one is added,
+link it here.
 
 ## Getting Started
 
@@ -49,7 +49,7 @@ This project and everyone participating in it is governed by our Code of Conduct
 
 ## Development Setup
 
-For the full local setup walkthrough, see [Development Setup](development/setup.md) <!-- AUDIT: Hyperlinks -- [VERIFY LINK] -->.
+For the full local setup walkthrough, see [Development Setup](development/setup.md).
 
 > **Package manager:** This project uses [`uv`](https://github.com/astral-sh/uv) (not pip). CI runs `uv sync --frozen` and `uv run` for all Python commands. Install uv before the steps below.
 
@@ -160,7 +160,7 @@ Huntable-CTI-Studio/
 
 ## Testing
 
-**For comprehensive testing documentation, see `tests/TESTING.md` <!-- AUDIT: Hyperlinks -- Was a dead-end "see the Testing Guide in the tests directory" reference with no path; referenced as a code span rather than a relative link since mkdocs build --strict rejects links that resolve outside docs/. --> in the repo root.**
+**For comprehensive testing documentation, see `tests/TESTING.md`in the repo root.**
 
 ### Quick Testing Commands
 
@@ -196,7 +196,7 @@ For ML feedback features, follow the balanced testing approach:
 - **Keep tests simple and maintainable**
 - **Test the 3 essential areas**: Huntable probability calculation, API contracts, and retraining workflow
 
-See `tests/TESTING.md` <!-- AUDIT: Hyperlinks -- Same dead-end reference resolved as above. --> in the repo root for detailed guidelines.
+See `tests/TESTING.md`in the repo root for detailed guidelines.
 
 ## Pull Request Process
 
@@ -369,8 +369,7 @@ We follow [Semantic Versioning](https://semver.org/):
 - **Issues**: GitHub issue tracker
 - **Discussions**: GitHub discussions
 - **Documentation**: Project README and docs
-- **Security**: See [Security Issues](#security-issues) above <!-- AUDIT: Accuracy (Med) -- Original bullet said "Email: For security issues only" with no address given, contradicting the Security Issues section above, which directs reporters to GitHub's private vulnerability reporting instead of email. Replaced with a link to the section that has the actual process. -->
-
+- **Security**: See [Security Issues](#security-issues) above
 ## Acknowledgments
 
 Thank you to all contributors who have helped make Huntable CTI Studio better! Your contributions are greatly appreciated.

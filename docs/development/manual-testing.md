@@ -2,7 +2,7 @@
 
 <!-- MERGED FROM: development/MANUAL_TEST_CHECKLIST.md, development/MANUAL_CHECKLIST_30MIN.md -->
 
-For automated test commands and categories, see [Testing](testing.md) [VERIFY LINK]. This page covers manual, click-through verification that automated tests do not exercise.
+For automated test commands and categories, see [Testing](testing.md). This page covers manual, click-through verification that automated tests do not exercise.
 
 ## Manual Testing Checklist
 
@@ -141,9 +141,14 @@ This checklist covers manual verification of Huntable CTI Studio features before
 
 ### **Analysis Page**
 
-<!-- AUDIT: Accuracy -- `/analysis` route does not exist; no page router in src/web/routes registers it, and no template matches "TTP Analysis" (technique detection, confidence scores) or "Quality Assessment" (quality distribution/filters) as described below. This section predates the current route set and needs a maintainer to confirm the intended page (candidates: /analytics, /analytics/hunt-metrics) or remove the section. -->
+!!! warning "Stale section -- no `/analysis` route"
+    No page router under `src/web/routes/` registers `/analysis`, and no template matches the
+    "TTP Analysis" or "Quality Assessment" pages described below. The live analytics pages are
+    `/analytics`, `/analytics/scraper-metrics`, and `/analytics/hunt-metrics`
+    (`src/web/routes/pages.py`). A maintainer needs to confirm which page this checklist meant
+    and either repoint or remove it -- the steps below are not runnable as written.
 - [ ] **TTP Analysis**
-  - [ ] Navigate to `/analysis` (route not found as of 2026-09-01, see AUDIT note above)
+  - [ ] Navigate to `/analysis` (route does not exist -- see the warning above)
   - [ ] Verify analysis results
   - [ ] Check technique detection
   - [ ] Test confidence scores
@@ -619,7 +624,6 @@ Sigma Queue lives on the **Workflow** page's **Queue** tab (`/workflow/queue`), 
 | Sigma queue empty/add | Tests skip when no rules in queue | ~3 min |
 | PDF + ML hunt pages | Smoke only | ~2 min |
 
-<!-- AUDIT: Accuracy -- summed the per-section times above (5+3+3+4+3+3+2); prior total of ~26 min didn't match. -->
 **Total: ~23 min** (CLI help automated)
 
 ---

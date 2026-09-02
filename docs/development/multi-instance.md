@@ -31,9 +31,16 @@ See [Development Setup](setup.md#1-provision-local-secrets-and-config) for what 
 docker-compose -f docker-compose.dev2.yml up -d
 ```
 
-<!-- AUDIT: Accuracy -- docker-compose.dev2.yml bind-mounts ./init.sql (singular file), which does not exist at the repo root (the primary docker-compose.yml uses the ./init-scripts/ directory instead). Docker will create an empty init.sql directory on first run and Postgres init will silently skip it. Verify this file before relying on dev2 for a fresh database. -->
+!!! warning "Known gaps in `docker-compose.dev2.yml`"
+    **Missing init file.** The dev2 stack bind-mounts `./init.sql`, which does not exist at
+    the repo root -- the primary `docker-compose.yml` mounts the `./init-scripts/` directory
+    instead. Docker creates an empty *directory* named `init.sql` rather than failing, so
+    Postgres starts with no init script applied.
 
-<!-- AUDIT: Accuracy -- docker-compose.dev2.yml (as of 2026-08-19) has no workflow_worker, maintenance, mcp_http, or codex_auth_init services, unlike docker-compose.yml. Workflow execution and MCP HTTP access will not function on a Dev2 instance started this way. -->
+    **Missing services.** dev2 defines only `postgres`, `redis`, `web`, `worker`, `scheduler`,
+    and `cli`. It has no `workflow_worker`, `maintenance`, `mcp_http`, or `codex_auth_init`,
+    so agentic workflow execution, backup/restore, and MCP HTTP access are unavailable on the
+    dev2 instance.
 
 ### 4. Verify Services
 ```bash

@@ -39,10 +39,12 @@ Start here. Optimize from measured bottlenecks, not theory.
 | **Any workflow stage** | Codex subscription model | — | Optional deployment-managed ChatGPT subscription; the workflow UI lists models available to its Codex login |
 
 **Default starting point:** Qwen3-14B-Instruct across all stages. Optimize from there.
-<!-- AUDIT: Accuracy -- the shipped `docker-compose.yml` default (`LMSTUDIO_MODEL_RANK` /
-     `_EXTRACT` / `_SIGMA`) is `qwen/qwen3-4b-2507`, not Qwen3-14B-Instruct. Confirm whether this
-     guide's 14B recommendation is meant to replace the out-of-box default, or whether the
-     compose default should be called out explicitly as a lighter starting point. -->
+
+!!! note "This differs from the shipped default"
+    The out-of-box `docker-compose.yml` default is `qwen/qwen3-4b-2507` for
+    `LMSTUDIO_MODEL_RANK`, `LMSTUDIO_MODEL_EXTRACT`, and `LMSTUDIO_MODEL_SIGMA` -- a 4B
+    model chosen to run on modest hardware. The 14B recommendation here is the tuning
+    target, not what ships. Override the env vars to move up.
 
 ---
 
@@ -329,8 +331,6 @@ Same prompt format, drop-in replacement. Test on 20 articles, compare precision/
 ## Model Availability (LM Studio)
 
 As of February 2026, all recommended models are available through LM Studio model search.
-<!-- AUDIT: Accuracy -- this date is now roughly seven months stale; re-verify availability and
-     bump the date, or drop the date qualifier if availability is not expected to change. -->
 
 Search format: `TheBloke/{model-name}-GGUF` or `bartowski/{model-name}-GGUF`
 

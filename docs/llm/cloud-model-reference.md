@@ -31,8 +31,9 @@ Older Claude 3.x / 4.0-4.5 models cap at 200K by default; they can be extended t
 
 ## OpenAI Chat Models
 
-Source: platform.openai.com/docs/models (Jan 2025)
-<!-- AUDIT: Accuracy -- source date looks stale: this table includes gpt-5.6-* and gpt-5.4/5.5 rows that did not exist in Jan 2025. Verify the actual capture date against platform.openai.com/docs/models and update. -->
+Source: platform.openai.com/docs/models (capture date unconfirmed -- the stated "Jan 2025"
+predates the gpt-5.4/5.5/5.6 rows below, so it is wrong; re-verify against the live docs).
+<!-- TODO: verify: the real capture date for this table against platform.openai.com/docs/models. -->
 
 ### Chat Completions Models (text-in, text-out)
 
@@ -65,12 +66,11 @@ Source: platform.openai.com/docs/models (Jan 2025)
 | gpt-4.1-nano | 1,047,576 | 32,768 | `max_tokens`, `temperature` |
 | **Reasoning (o-series)** | | | |
 | o3 | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
-| o3-pro | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
+| o3-pro * | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
 | o3-mini | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
 | o4-mini | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
 | o1 | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
-| o1-pro | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
-<!-- AUDIT: Accuracy -- o3-pro and o1-pro are valid model IDs in src/utils/model_validation.py but are NOT present in MODEL_CONTEXT_TOKENS (src/services/provider_model_catalog.py) or config/provider_model_catalog.json, so unlike the rest of this table their context window is not sourced from the app catalog and they will not appear in the Agents config dropdown. Verify these two rows independently against platform.openai.com/docs/models. -->
+| o1-pro * | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
 | **GPT-4o series** | | | |
 | gpt-4o | 128,000 | 16,384 | `max_tokens`, `temperature` |
 | gpt-4o-mini | 128,000 | 16,384 | `max_tokens`, `temperature` |
@@ -78,6 +78,11 @@ Source: platform.openai.com/docs/models (Jan 2025)
 | gpt-4-turbo | 128,000 | 4,096 | `max_tokens`, `temperature` |
 | gpt-4 | 8,192 | 4,096 | `max_tokens`, `temperature` |
 | gpt-3.5-turbo | 16,385 | 4,096 | `max_tokens`, `temperature` |
+
+\* `o3-pro` and `o1-pro` are accepted by `src/utils/model_validation.py` but are **not** in
+`MODEL_CONTEXT_TOKENS` (`src/services/provider_model_catalog.py`) or
+`config/provider_model_catalog.json`. Unlike every other row here their context window is not
+sourced from the app catalog, and they do not appear in the Agents config dropdown.
 
 <!-- TODO: verify: max output tokens for gpt-5.6-luna / gpt-5.6-sol / gpt-5.6-terra.
      Context windows above are taken from MODEL_CONTEXT_TOKENS in
@@ -102,8 +107,6 @@ Source: platform.openai.com/docs/models (Jan 2025)
 ---
 
 ## Codex Subscription Provider (Workflow Only)
-
-<!-- AUDIT: Clarity -- promoted from ### to ## (was nested under "OpenAI Chat Models" despite the text explicitly stating it is distinct from the OpenAI API and from Chat Completions models). -->
 
 Huntable also supports an optional, deployment-managed Codex subscription for
 workflow inference. This is distinct from the OpenAI API and from the

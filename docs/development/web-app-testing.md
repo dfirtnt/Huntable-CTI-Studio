@@ -4,8 +4,7 @@
 
 This guide covers Playwright patterns for testing the Huntable CTI Studio web interface: UI flows, responsive design, and accessibility checks.
 
-For the actual commands to run the suite and which tier to pick, see [UI Test Tiers](ui-test-tiers.md) [VERIFY LINK] and [Testing](testing.md) [VERIFY LINK]; both are driven by `run_tests.py`, the canonical test entrypoint. The code samples below illustrate Playwright API patterns; most use placeholder selectors (`.article-item`, `.threat-score`, etc.) that do not match the current templates. For selectors and assertions verified against the live app, read `tests/e2e/test_web_interface.py` and the specs under `tests/ui/` and `tests/playwright/`.
-<!-- AUDIT: Accuracy -- verified 2026-09-01: most example blocks in this file use invented class names (`.article-item`, `.threat-score`, `.mobile-menu`, `.search-results`, etc.) that do not exist in src/web/templates/. Grepped templates to confirm. Left as illustrative Playwright-pattern examples per audit scope (not rewriting every block against the live template), but flagged here and at each section so nobody copy-pastes a selector expecting it to exist. -->
+For the actual commands to run the suite and which tier to pick, see [UI Test Tiers](ui-test-tiers.md) and [Testing](testing.md); both are driven by `run_tests.py`, the canonical test entrypoint. The code samples below illustrate Playwright API patterns; most use placeholder selectors (`.article-item`, `.threat-score`, etc.) that do not match the current templates. For selectors and assertions verified against the live app, read `tests/e2e/test_web_interface.py` and the specs under `tests/ui/` and `tests/playwright/`.
 
 ## Tools and Setup
 
@@ -40,7 +39,6 @@ markers =
         from default UI runs; use `python3 run_tests.py ui --include-slow`
     browser: Tests requiring a browser
 ```
-<!-- AUDIT: Accuracy -- previous block invented a "headed" pytest marker; --headed is a pytest-playwright CLI flag, not a marker, and does not appear in pyproject.toml. Verified against pyproject.toml [tool.pytest.ini_options] (line ~254) 2026-09-01. -->
 
 Pass `--headed` on the CLI to run with a visible browser, and `PWDEBUG=1` or `--slowmo=<ms>` to slow down execution for debugging (see [Debug Mode](#debug-mode) below).
 
@@ -114,12 +112,15 @@ def test_basic_navigation(page: Page):
     # Check for key elements
     expect(page.locator("h1").first).to_be_visible()
 ```
-<!-- AUDIT: Accuracy -- title verified against src/web/templates/dashboard.html `{% block title %}Dashboard - Huntable CTI Studio{% endblock %}` and tests/e2e/test_web_interface.py::test_homepage_loads. Previous text asserted the bare app name, which never matches. -->
-<!-- AUDIT: Accuracy -- `.first` matches the pattern actually used in tests/e2e/test_web_interface.py::test_homepage_loads. -->
 
 ## Test Examples
 
-<!-- AUDIT: Accuracy -- everything from here through "Huntable CTI Studio-specific tests" uses placeholder selectors (`.article-item`, `.threat-score`, `.search-results`, `.article-content`, etc.) not present in src/web/templates/. Treat these as generic Playwright API patterns to adapt, not copy-paste selectors. -->
+!!! note "Illustrative selectors"
+    The examples from here through "Huntable CTI Studio-specific tests" use placeholder
+    selectors (`.article-item`, `.threat-score`, `.search-results`, `.article-content`) that
+    do not exist in `src/web/templates/`. Treat them as generic Playwright API patterns to
+    adapt -- for selectors verified against the live app, read `tests/e2e/test_web_interface.py`
+    and the specs under `tests/ui/` and `tests/playwright/`.
 
 ### Homepage Testing
 ```python
@@ -139,7 +140,6 @@ def test_homepage_loads(page: Page):
     # Verify main content area
     expect(page.locator("main")).to_be_visible()
 ```
-<!-- AUDIT: Accuracy -- nav item list corrected against src/web/templates/base.html (top nav, ~line 258). Previous list ("Dashboard", "Articles", "Sources", "Analysis") does not match: the current nav bar has no "Dashboard" or "Analysis" label and no `/analysis` route exists (there is `/analytics`, reached from other pages, not the top nav). -->
 
 ### Navigation Testing
 ```python
@@ -160,7 +160,6 @@ def test_navigation_menu(page: Page):
         page.get_by_role("heading", name="Threat Intelligence Sources")
     ).to_be_visible()
 ```
-<!-- AUDIT: Accuracy -- dropped the "Analysis" nav step; no `/analysis` route or nav item exists (verified in src/web/routes/pages.py and src/web/templates/base.html). Sources heading text and `get_by_role` pattern match tests/e2e/test_web_interface.py::test_navigation_menu. -->
 
 ### Form Testing
 
@@ -283,7 +282,6 @@ def test_mobile_navigation(page: Page):
     # Verify menu closes
     expect(page.locator("#mobile-nav-menu")).to_be_hidden()
 ```
-<!-- AUDIT: Accuracy -- selectors corrected to the real ids in src/web/templates/base.html (`#mobile-nav-toggle` button, `#mobile-nav-menu` panel). Previous `.mobile-menu-toggle` / `.mobile-menu` classes do not exist. -->
 
 ## Visual Testing
 
@@ -513,7 +511,6 @@ def test_source_management_workflow(page: Page):
 > prompt-style modals (`[id^="_prompt_"] .confirm-btn`). See
 > `tests/playwright/helpers.ts` and `tests/ui/test_modal_aria_ui.py` for the
 > canonical pattern.
-<!-- AUDIT: Accuracy -- this trap was previously undocumented here; confirmed against src/web/static/js/modal-manager.js and existing specs (tests/playwright/helpers.ts, agent_config_presets.spec.ts) which call out the same page.on('dialog') failure mode in code comments. -->
 
 ### Article Processing
 ```python
@@ -582,11 +579,9 @@ npx playwright test --config tests/playwright.config.ts playwright/agent_config_
 # Run one feature project (matches the run_tests.py ui --area names)
 npx playwright test --config tests/playwright.config.ts --project=agent-config
 ```
-<!-- AUDIT: Accuracy -- verified 2026-09-01: `npm run test:playwright tests/playwright/agent_config_save_button.spec.ts` resolves against the root playwright.config.js (testDir: './e2e') and returns "No tests found." The working invocation, confirmed with `npx playwright test --config tests/playwright.config.ts agent_config_save_button.spec.ts --list`, is shown above and matches how tests_runner/runner.py (run_tests.py) invokes it. See [UI Test Tiers](ui-test-tiers.md) [VERIFY LINK] for the `--project`/`--area` names. -->
-<!-- AUDIT: Accuracy -- the `package.json` `test:playwright` script is currently `"playwright test"` with no `--config`, so it is not equivalent to the commands above; do not rely on it for tests/playwright/ specs. -->
 
 Or via `python3 run_tests.py ui`, which drives the same config and is the
-canonical entry point (see [UI Test Tiers](ui-test-tiers.md) [VERIFY LINK]).
+canonical entry point (see [UI Test Tiers](ui-test-tiers.md)).
 
 #### Shared workflow config: how the suite avoids damaging it
 
@@ -641,7 +636,6 @@ pytest -m ui --video=on
 # Run with trace
 pytest -m ui --tracing=on
 ```
-<!-- AUDIT: Accuracy -- flag names corrected against .venv/lib/python3.13/site-packages/pytest_playwright/pytest_playwright.py: the option is `--slowmo` (no hyphen), and trace capture is `--tracing`, not `--trace`. `--headed` above is a boolean `store_true` flag (bare, no `=true`). -->
 
 ### OpenCode Playwright agents (run outside Cursor)
 
@@ -731,7 +725,6 @@ page.pause()  # Pause execution for manual inspection
 - **Location**: `allure-results/` (raw data); run `allure serve allure-results`
   to view
 - Configured alongside the HTML/list/line reporters in `tests/playwright.config.ts`
-<!-- AUDIT: Accuracy -- verified against tests/playwright.config.ts `reporter` array and `use.screenshot`/`use.video` settings 2026-09-01. Previous text implied a fixed `test-results/screenshots/` and `test-results/videos/` layout, which Playwright does not produce by default. -->
 
 Screenshots taken manually in a test (e.g. `page.screenshot(path=...)`, as in
 the [Screenshot Testing](#screenshot-testing) example above) go wherever you
@@ -759,12 +752,11 @@ point `path`, independent of the failure-capture layout described here.
 
 ## Next Steps
 
-- **Pick the right test tier** → [UI Test Tiers](ui-test-tiers.md) [VERIFY LINK]
+- **Pick the right test tier** → [UI Test Tiers](ui-test-tiers.md)
   covers the `run_tests.py ui-*` commands and when to use each.
-- **Understand the full test pyramid** → [Testing](testing.md) [VERIFY LINK]
+- **Understand the full test pyramid** → [Testing](testing.md)
 - **See real, current selectors** → `tests/e2e/test_web_interface.py`,
   `tests/ui/`, `tests/playwright/`
-<!-- AUDIT: Hyperlinks -- previous "See the testing guide in the tests directory" was a dead-end reference with no path. Replaced with concrete, verified targets. -->
 
 ## Additional Resources
 
@@ -772,7 +764,6 @@ point `path`, independent of the failure-capture layout described here.
 - [Playwright Best Practices](https://playwright.dev/docs/best-practices)
 - [Accessibility Testing](https://playwright.dev/docs/accessibility-testing)
 - [Visual Testing](https://playwright.dev/docs/test-snapshots)
-
 
 _Last updated: 2026-07-03_
 _Last reviewed: 2026-09-01_
