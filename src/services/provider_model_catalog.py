@@ -124,6 +124,7 @@ MODEL_CONTEXT_TOKENS: dict[str, int] = {
     "claude-opus-4-8": 1_000_000,
     "claude-opus-5": 1_000_000,
     "claude-fable-5": 1_000_000,
+    "claude-fable-5-1": 1_000_000,
     "claude-sonnet-4-20250514": 200_000,
     "claude-sonnet-4-5-20250929": 200_000,
     "claude-2.1": 200_000,
