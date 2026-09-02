@@ -37,7 +37,7 @@ from src.services.audit_service import (
 )
 from src.services.eval_bundle_service import EvalBundleService, compute_sha256_json
 from src.services.eval_item_scorer import calculate_f_beta, score_items
-from src.services.execution_snapshot_store import attach_snapshot
+from src.services.execution_snapshot_store import attach_snapshot, hydrate_snapshot
 from src.services.llm_service import LLMService
 from src.services.subagent_eval_service import rescore_completed_record, update_subagent_eval_on_completion
 from src.services.workflow_config_snapshot import build_config_snapshot
@@ -843,9 +843,7 @@ async def get_execution_results(request: Request, execution_id: int):
                 "article_id": execution.article_id,
                 "status": execution.status,
                 "cmdline_count": cmdline_count,
-                "config_version": execution.config_snapshot.get("config_version")
-                if execution.config_snapshot
-                else None,
+                "config_version": hydrate_snapshot(execution).get("config_version"),
                 "warnings": warnings if warnings else None,
             }
         finally:
@@ -877,8 +875,9 @@ async def get_execution_commandlines(
             if not execution:
                 raise HTTPException(status_code=404, detail="Execution not found")
 
-            # Check if this is a subagent eval and which subagent
-            config_snapshot = execution.config_snapshot or {}
+            # Check if this is a subagent eval and which subagent. Externalized
+            # rows carry only {"snapshot_id": N}; hydrate to reach subagent_eval.
+            config_snapshot = hydrate_snapshot(execution)
             raw_subagent_eval = config_snapshot.get("subagent_eval")
             normalized_subagent_eval = normalize_subagent_name(raw_subagent_eval)
 
