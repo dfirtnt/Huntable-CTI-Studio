@@ -171,7 +171,9 @@ class LLMOptimizer:
                     # Content was filtered out entirely
                     input_tokens = 0
                     original_tokens = len(content) // 4
-                    cost_savings = (original_tokens / 1_000_000) * GPT4O_INPUT_COST_PER_MILLION_TOKENS  # Full input cost saved
+                    cost_savings = (
+                        original_tokens / 1_000_000
+                    ) * GPT4O_INPUT_COST_PER_MILLION_TOKENS  # Full input cost saved
             else:
                 input_tokens = len(content) // 4
                 cost_savings = 0.0

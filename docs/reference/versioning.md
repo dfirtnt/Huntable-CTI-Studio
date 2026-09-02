@@ -51,10 +51,18 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 ## Version History
 
 ### v7.8.1 "Europa" (2026-09-02)
-<!-- TODO: fill Significance and Features before merging to main; pull content from docs/CHANGELOG.md [7.8.1] section. -->
-- **Named After**: <fill>
-- **Significance**: <fill>
-- **Features**: <fill>
+- **Named After**: Europa, one of Jupiter's four Galilean moons; patch release continues the Europa codename
+- **Significance**: The Sigma eval subsystem is removed as measuring the wrong quantity (superseded by Eval1/Eval2 and rule-validity enforcement), Sigma enrichment gains Codex support, and a broad correctness/security/accessibility hardening pass lands across `/articles`, `/workflow`, `/diags`, `/sources`, `/settings`, and Junk Filter Tuning, including two stored-XSS fixes and a race-free workflow-config version allocator
+- **Features**:
+    - Sigma eval subsystem decommissioned: it measured resemblance to one analyst's rule set rather than detection quality; removed `sigma_eval_scorer.py`, `sigma_eval_service.py`, the `/mlops/sigma-evals` page, four API endpoints, the `SigmaEvaluationTable` model, and its eval fixtures
+    - Two stored-XSS fixes (article body; dashboard/hunt-metrics/article-detail chunk dialogs) and Subresource Integrity restored on every remaining third-party script
+    - Security response headers added, including a two-tier Content Security Policy; stored credentials no longer returned to the browser on Settings
+    - `agentic_workflow_config.version` made unique and race-free via a Postgres sequence, closing a read-modify-write race that had produced 164 duplicate versions
+    - `PUT /api/workflow/config` refuses configs whose enabled extractors have no prompt; Sigma rule validation no longer silently runs the wrong provider
+    - `/diags` Queue Status and Job History attribution fixes; the false "TESSERACT missing" alarm replaced with an honest health signal
+    - Keyboard operability restored on the Workflow Configuration tab, Junk Filter Tuning, and `/sources` filter chips; 30 redundant `/api/validate-model` requests eliminated from `/workflow#config` page load
+    - Articles no longer silently dropped when re-scraping a known URL; eval scoring no longer grades a no-output extraction as 100% precision
+    - Full itemized list in `docs/CHANGELOG.md` under `[7.8.1 "Europa"]`
 
 ### v7.8.0 "Europa" (2026-08-19)
 - **Named After**: Europa, one of Jupiter's four Galilean moons; minor release continues the Europa codename

@@ -177,6 +177,7 @@ def _next_workflow_config_version(db_session) -> int:
             text("SELECT to_regclass(:seq)"), {"seq": _WORKFLOW_CONFIG_VERSION_SEQUENCE}
         ).scalar()
         if sequence_present is not None:
+            # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
             allocated = int(db_session.execute(text(f"SELECT nextval('{_WORKFLOW_CONFIG_VERSION_SEQUENCE}')")).scalar())
             max_version = int(db_session.query(func.max(AgenticWorkflowConfigTable.version)).scalar() or 0)
             if allocated > max_version:
