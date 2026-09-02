@@ -239,8 +239,7 @@ detailed above. Run `python3 run_tests.py --help` for the full list.
 | playwright | `npx playwright test -c tests/playwright.config.ts` | Running |
 
 **CI workflow files:**
-- `.github/workflows/tests.yml` — smoke, unit, api, integration, ui
-- `.github/workflows/playwright.yml` — Playwright E2E/UI tests
+- `.github/workflows/tests.yml` — smoke, unit, api, integration, ui (the `ui` job's `run_tests.py ui` runs the full TypeScript Playwright suite too, not just `tests/ui/`; the standalone `playwright.yml` workflow that duplicated this was removed 2026-09-02)
 
 ### What NOT to run in CI
 
