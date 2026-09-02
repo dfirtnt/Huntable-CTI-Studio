@@ -13,9 +13,11 @@ Huntable CTI Studio uses a combination of semantic versioning and planetary moon
 
 ## Current Version
 
-**v7.8.0 "Europa"** - Current stable release
-**v7.7.0 "Europa"** - Previous stable release
-**v7.6.0 "Europa"** - Earlier stable release
+- **v7.8.0 "Europa"** — current stable release
+- **v7.7.0 "Europa"** — previous stable release
+- **v7.6.0 "Europa"** — earlier stable release
+
+<!-- AUDIT: Grammar -- these three lines had no list markers, so Markdown would render them as one run-together paragraph instead of three distinct entries. -->
 
 ## Planetary Moon Naming System
 
@@ -54,11 +56,11 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 - **Named After**: Europa, one of Jupiter's four Galilean moons; minor release continues the Europa codename
 - **Significance**: Role-specific Docker runtimes with the Docker socket confined to a token-authenticated maintenance service, a subscription-backed Codex workflow provider, Langfuse v4 trace-lookup migration off the endpoint Langfuse Cloud removes on 2026-11-16, and completion of the externalized-config-snapshot hydration across every remaining consumer
 - **Features**:
-    - Role-specific runtime images (web / ingest / workflow / semantic / maintenance) replacing the single monolithic image; the web container no longer ships a Docker CLI or socket, and backup/restore is proxied to an internal-only, shared-token maintenance service that allowlists fixed scripts
+    - Role-specific runtime images (web / scheduler / ingest / workflow / semantic / maintenance) replacing the single monolithic image; the web container no longer ships a Docker CLI or socket, and backup/restore is proxied to an internal-only, shared-token maintenance service that allowlists fixed scripts <!-- AUDIT: Accuracy -- prior revision omitted `scheduler`, which is its own Dockerfile target (`scheduler-runtime`) per docs/CHANGELOG.md's 2026-08-12 entry ("web app, scheduler, ingest worker, workflow worker, and semantic tools"). -->
     - Docker socket confined to the `maintenance` service across every Compose stack, with a parametrized contract test failing any stack that mounts it elsewhere
     - Subscription-backed Codex workflow provider (`WORKFLOW_CODEX_ENABLED`) using a deployment-managed ChatGPT login, plus three gpt-5.6 quickstart presets
     - Langfuse trace lookup migrated from the deprecated `GET /traces` to `GET /v2/observations`; `client.create_score()` corrected for the v4 API; fallback host consolidated to one constant and corrected to the US region; langfuse pinned to 4.14.4
-    - Externalized config snapshots hydrated by retry, age-based retention, `exclude_evals`, and the executions list/detail responses -- an eval retry no longer degrades into a seven-extractor run, and the eval corpus keeps its age-purge protection
+    - Externalized config snapshots hydrated by retry, age-based retention, `exclude_evals`, and the executions list/detail responses — an eval retry no longer degrades into a seven-extractor run, and the eval corpus keeps its age-purge protection
     - Evals2 item-level scoring restored for structured extractors, with a dry-run-first rescore of historical count-only rows
     - Per-group Sigma generation steered to its own logsource category, cutting rules discarded by the output-side class gate
     - Save-time prompt validation on the workflow config, and Sigma eval rejecting a config with missing enabled-extractor prompts before dispatch
@@ -180,7 +182,7 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 
 ### v6.1.1 "Io" (2026-04-28)
 - **Named After**: Io, innermost of Jupiter's four Galilean moons; most volcanically active body in the solar system
-- **Significance**: Security hardening patch -- two CodeQL alerts closed (ReDoS, stack-trace exposure), Vision LLM API key handling hardened, and browser extension MV3 compatibility fixes
+- **Significance**: Security hardening patch — two CodeQL alerts closed (ReDoS, stack-trace exposure), Vision LLM API key handling hardened, and browser extension MV3 compatibility fixes
 - **Features**: Vision LLM proxied through backend; image fetch moved to background service worker (MV3 fix); OCR block append-on-revisit; ReDoS fix; error messages no longer leak internals to HTTP clients
 
 ### v6.1.0 "Io" (2026-04-27)
@@ -190,7 +192,7 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 
 ### v6.0.0 "Io" (2026-04-23)
 - **Named After**: Io, innermost of Jupiter's four Galilean moons; most volcanically active body in the solar system
-- **Significance**: Major version introducing the Io codename -- browser extension Vision LLM mode, source self-healing, SSRF protection, and large-scale UI overhaul
+- **Significance**: Major version introducing the Io codename — browser extension Vision LLM mode, source self-healing, SSRF protection, and large-scale UI overhaul
 - **Features**: Browser extension Vision LLM extraction mode; source healing trafilatura probe; eval concurrency throttle; GPT-5 family in model catalog; SSRF protection; workflow config v1->v2 migration; extractor contract runtime validators
 
 ### v5.3.0 "Callisto" (2026-04-14)
@@ -216,3 +218,4 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 - **Named After**: Johannes Kepler, known for planetary motion laws
 
 _Last updated: 2026-08-22_
+_Last reviewed: 2026-09-01_

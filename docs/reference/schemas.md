@@ -21,7 +21,7 @@ defaults to `checkfirst=True`. It skips any table that already exists and never
 reconciles that table's constraints or indexes. A table created by one of the
 hand-rolled `scripts/migrate_*.py` helpers therefore keeps its columns and id
 sequence but permanently loses the primary keys, foreign keys, and indexes
-`models.py` declares -- and `create_all` reports success either way.
+`models.py` declares — and `create_all` reports success either way.
 
 A 2026-08-06 audit found 25 of 29 declared tables drifted this way, including 18
 tables with no primary key. It has since been reconciled.
@@ -43,7 +43,7 @@ python scripts/migrate_reconcile_schema.py --apply --include-foreign-keys
 Indexes build `CONCURRENTLY`. Primary keys, unique indexes, and foreign keys are
 preflighted for duplicates, NULLs, and orphan rows, and are reported as blocked
 rather than attempted when the data cannot support them. Foreign keys need the
-explicit flag because clearing orphans means deleting rows -- an operator decision.
+explicit flag because clearing orphans means deleting rows — an operator decision.
 
 Startup never applies DDL: a pending `ACCESS EXCLUSIVE` lock blocks all readers of
 a table, and `CREATE INDEX CONCURRENTLY` cannot run inside a transaction.
@@ -56,7 +56,7 @@ creates a table.
 The reconciler reports a unique index as blocked rather than attempting it when the
 existing rows violate it, and that block can persist for a long time. `models.py` has
 always declared `agentic_workflow_config.version` as `unique=True`, but this database
-predates the attribute so the index was never built -- and by 2026-08-22, 164 version
+predates the attribute so the index was never built — and by 2026-08-22, 164 version
 numbers were shared by two or more rows, the worst by five, because
 `_next_workflow_config_version()` allocated with an unguarded `SELECT max(version) + 1`.
 Nothing could create the index until those rows were resolved, which is an operator
@@ -216,3 +216,4 @@ Operationally important tables include:
 Use `src/database/models.py` when you need exact field names, nullability, or relationships.
 
 _Last updated: 2026-08-13_
+_Last reviewed: 2026-09-01_

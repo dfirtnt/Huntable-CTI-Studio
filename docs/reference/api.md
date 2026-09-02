@@ -62,7 +62,7 @@ These power the semantic search workflow. For conversational retrieval, use the 
 
 ### Embeddings And Vector Coverage
 
-- `GET /api/embeddings/stats` -- Embedding coverage summary. Response includes a **`sigma_corpus`** block (SigmaHQ `sigma_rules` row counts vs rows with embeddings), distinct from the AI **sigma_rule_queue**. Used by CLI `embed stats` and MCP `get_stats`.
+- `GET /api/embeddings/stats` — Embedding coverage summary. Response includes a **`sigma_corpus`** block (SigmaHQ `sigma_rules` row counts vs rows with embeddings), distinct from the AI **sigma_rule_queue**. Used by CLI `embed stats` and MCP `get_stats`.
 
 ### Workflow Execution
 
@@ -102,7 +102,7 @@ Each prompt object is a JSON dict with these fields:
 
 | Field | Type | Purpose |
 |-------|------|---------|
-| `role` (or `system`) | string | Agent persona -- identity and expertise statement |
+| `role` (or `system`) | string | Agent persona — identity and expertise statement |
 | `task` (or `objective`) | string | What the agent does this run |
 | `instructions` | string | Rules, constraints, output format, JSON enforcement |
 | `json_example` | string or dict | Concrete output schema example |
@@ -201,3 +201,4 @@ Start in `src/web/routes/__init__.py`, then open the matching module:
 - UI flows that call the API: run `python3 run_tests.py ui` or `python3 run_tests.py e2e`
 
 _Last updated: 2026-08-13_
+_Last reviewed: 2026-09-01_
