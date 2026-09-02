@@ -16,7 +16,7 @@ Huntable CTI Studio is a Docker-first threat intelligence collection and analysi
 
 ## System Layout
 
-The runtime stack is composed of:
+The runtime stack comprises:
 
 - **FastAPI web app** for pages, APIs, and startup lifecycle
 - **PostgreSQL + pgvector** for articles, workflow executions, Sigma metadata, and embeddings
@@ -108,7 +108,10 @@ The isolated test stack is defined separately in `docker-compose.test.yml`.
 
 - [Workflow Data Flow](workflow-data-flow.md)
 - [Scoring](scoring.md)
+- [Chunking](chunking.md)
+- [QA Loops](qa-loops.md)
 - [Schemas](../reference/schemas.md)
 - [Agent Orientation](../development/agent-orientation.md)
 
 _Last updated: 2026-08-13_
+_Last reviewed: 2026-09-01_

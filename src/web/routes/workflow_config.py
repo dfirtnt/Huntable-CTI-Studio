@@ -26,6 +26,7 @@ from src.database.models import (
     WorkflowConfigPresetTable,
 )
 from src.services.llm_service import _TRACEABILITY_FIELDS, _TRACEABILITY_REQUIRED
+from src.services.provider_model_catalog import find_provider_model_mismatch
 from src.services.workflow_provider_options import get_provider_options
 from src.utils.default_agent_prompts import get_default_agent_prompts
 
@@ -42,8 +43,48 @@ _PROVIDER_TO_SETTINGS_KEY = {
 }
 
 
+def _agent_model_value(agent_models: dict[str, Any], agent: str) -> Any:
+    """Read an agent's model regardless of which key shape holds it.
+
+    normalize_agent_models_to_flat() stores the three main agents under the bare
+    agent name and every sub-extractor under "<Agent>_model"
+    (workflow_config_schema.py, `model_key = key if key in _MAIN_MODEL_AGENTS ...`).
+    Checking only the bare key silently skips 7 of the 10 model-bearing agents.
+    """
+    suffixed = agent_models.get(f"{agent}_model")
+    return suffixed if suffixed is not None else agent_models.get(agent)
+
+
+def _validate_agent_model_pairs(merged: dict[str, Any], current: dict[str, Any] | None) -> None:
+    """Reject writes that pair an agent's provider with another provider's model.
+
+    Scoped to pairs this request actually *changes* relative to the stored config --
+    not merely to keys present in the payload. The UI autosave deliberately sends
+    every agent_models key it holds, so a "present in payload" test would validate the
+    whole blob: any pre-existing mismatch would then 400 every subsequent autosave,
+    and because that failure is logged to the console rather than surfaced
+    (static/js/workflow/config.js, "Don't throw - just log the error"), the operator
+    would silently lose unrelated edits and could never save the repair either.
+    """
+    current = current or {}
+    problems = []
+    for key, provider in sorted(merged.items()):
+        if not key.endswith("_provider") or not provider:
+            continue
+        agent = key[: -len("_provider")]
+        model = _agent_model_value(merged, agent)
+        unchanged = provider == current.get(key) and model == _agent_model_value(current, agent)
+        if unchanged:
+            continue  # already stored this way; let the operator save their way out
+        problem = find_provider_model_mismatch(provider, model)
+        if problem:
+            problems.append(f"{agent}: {problem}")
+    if problems:
+        raise HTTPException(status_code=400, detail="Invalid agent model configuration -- " + "; ".join(problems))
+
+
 def _enable_providers_from_agent_models(db_session, agent_models: dict[str, Any]) -> None:
-    """Enable in Settings any providers referenced in agent_models (openai, anthropic, lmstudio)."""
+    """Enable in Settings any providers referenced in agent_models (see _PROVIDER_TO_SETTINGS_KEY)."""
     if not agent_models:
         return
     providers = set()
@@ -108,7 +149,50 @@ def _active_workflow_config_query(db_session):
     )
 
 
+# Allocation source for config version numbers. Owned by
+# agentic_workflow_config.version, created by
+# scripts/migrate_workflow_config_version_unique.py.
+_WORKFLOW_CONFIG_VERSION_SEQUENCE = "agentic_workflow_config_version_seq"
+
+
 def _next_workflow_config_version(db_session) -> int:
+    """Allocate the next config version.
+
+    `SELECT max(version) + 1` is a read-modify-write, so two writers that read the
+    same maximum both commit it -- which happened 164 times before there was any
+    unique index to reject it. `nextval` cannot hand the same number to two callers
+    no matter how their transactions interleave, so this removes the race instead of
+    guarding it; the advisory lock in `_lock_workflow_config` stays as defence in
+    depth for the rest of the read-modify-write.
+
+    Falls back to the old arithmetic where the sequence is absent (SQLite fixtures,
+    or a database the migration has not been run against yet) so this stays safe to
+    deploy ahead of the migration.
+    """
+    if db_session.bind is not None and db_session.bind.dialect.name == "postgresql":
+        # Probe with to_regclass rather than catching a failed nextval: referencing a
+        # missing relation aborts the whole transaction, and recovering would mean a
+        # rollback that also drops the advisory lock and the deactivation already done.
+        sequence_present = db_session.execute(
+            text("SELECT to_regclass(:seq)"), {"seq": _WORKFLOW_CONFIG_VERSION_SEQUENCE}
+        ).scalar()
+        if sequence_present is not None:
+            # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+            allocated = int(db_session.execute(text(f"SELECT nextval('{_WORKFLOW_CONFIG_VERSION_SEQUENCE}')")).scalar())
+            max_version = int(db_session.query(func.max(AgenticWorkflowConfigTable.version)).scalar() or 0)
+            if allocated > max_version:
+                return allocated
+            # Rows reached the table by some path that did not draw from the sequence
+            # (a restore, or a writer running the pre-migration code). Skip past
+            # everything taken and realign the sequence so the next call is clean.
+            realigned = max_version + 1
+            db_session.execute(
+                text("SELECT setval(:seq, :value, true)"),
+                {"seq": _WORKFLOW_CONFIG_VERSION_SEQUENCE, "value": realigned},
+            )
+            logger.info("Realigned %s past version %d", _WORKFLOW_CONFIG_VERSION_SEQUENCE, max_version)
+            return realigned
+
     max_version = db_session.query(func.max(AgenticWorkflowConfigTable.version)).scalar() or 0
     return int(max_version) + 1
 
@@ -224,6 +308,10 @@ class WorkflowConfigUpdate(BaseModel):
     rank_agent_enabled: bool | None = None
     cmdline_attention_preprocessor_enabled: bool | None = None
     proc_tree_attention_preprocessor_enabled: bool | None = None
+    # Opt-in escape hatch for the UI's "Save Anyway" confirmation. Without it a payload
+    # that carries agent_prompts is rejected when a prompt issue would make an agent fail
+    # silently at runtime -- the client-side confirm is advisory and bypassable.
+    allow_prompt_warnings: bool = False
 
 
 class AgentPromptUpdate(BaseModel):
@@ -474,6 +562,9 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                     merged_agent_models = normalize_agent_models_to_flat(current_config.agent_models)
                 else:
                     merged_agent_models = {}
+                # Snapshot before the merge mutates it: the pair validator compares
+                # against what is actually stored to find genuinely new mismatches.
+                stored_agent_models = dict(merged_agent_models)
                 # First, identify keys that should be removed (explicitly set to None in update)
                 keys_to_remove = {key for key, value in incoming.items() if value is None}
                 # Update with new values from incoming (excluding None values)
@@ -487,7 +578,9 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                 logger.info(
                     f"Merged agent_models: {merged_agent_models} (update: {config_update.agent_models}, current: {current_config.agent_models if current_config else None}, removed: {list(keys_to_remove)})"
                 )
-                # Auto-enable providers used in preset so any provider (OpenAI, Anthropic, LMStudio) works
+                # Reject pairs a later run could only discover as a call-time failure.
+                _validate_agent_model_pairs(merged_agent_models, stored_agent_models)
+                # Auto-enable providers used in preset so any supported provider works
                 _enable_providers_from_agent_models(db_session, merged_agent_models)
             elif current_config:
                 merged_agent_models = normalize_agent_models_to_flat(current_config.agent_models)
@@ -558,6 +651,40 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                                     status_code=400,
                                     detail=f"Invalid JSON format for {agent_name} prompt in workflow config. Please fix the prompt in the UI. Error: {e}",
                                 ) from e
+
+            # A config saved with an enabled extractor but no prompt runs to "completed"
+            # with zero observables and zero rules and reports no error, so the loss is
+            # only visible in worker logs. The browser confirm is advisory and bypassable,
+            # so enforce the same scan here.
+            #
+            # Only payloads that actually edit prompts are checked. A threshold-only PUT,
+            # or an autosave that merely flips a ``disabled_agents`` toggle, must not be
+            # refused because the config it lands on was already prompt-deficient -- see
+            # the no-active-row recovery path, which sends exactly that shape.
+            payload_touches_prompts = any(key != "ExtractAgentSettings" for key in (config_update.agent_prompts or {}))
+            if payload_touches_prompts and not config_update.allow_prompt_warnings:
+                scanned_prompts = dict(final_agent_prompts or {})
+                if not final_rank_agent_enabled:
+                    # A disabled Rank Agent never runs, so its empty prompt is not a defect.
+                    # _scan_missing_extractor_prompts already honours disabled_agents for the
+                    # sub-agents; RankAgent's switch is a top-level column instead.
+                    scanned_prompts.pop("RankAgent", None)
+                prompt_warnings = _scan_missing_extractor_prompts(scanned_prompts) + _scan_preset_prompts_for_warnings(
+                    scanned_prompts
+                )
+                if prompt_warnings:
+                    logger.warning("Rejecting config save with %d prompt issue(s)", len(prompt_warnings))
+                    raise HTTPException(
+                        status_code=400,
+                        detail={
+                            "message": (
+                                f"Configuration has {len(prompt_warnings)} prompt issue(s) that would make "
+                                "these agents fail silently at runtime."
+                            ),
+                            "warnings": prompt_warnings,
+                            "override_field": "allow_prompt_warnings",
+                        },
+                    )
 
             # Check if the new config would be identical to the current one
             if current_config:

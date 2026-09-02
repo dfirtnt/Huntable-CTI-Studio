@@ -2,11 +2,13 @@
 
 <!-- MERGED FROM: development/MANUAL_TEST_CHECKLIST.md, development/MANUAL_CHECKLIST_30MIN.md -->
 
+For automated test commands and categories, see [Testing](testing.md). This page covers manual, click-through verification that automated tests do not exercise.
+
 ## Manual Testing Checklist
 
 ## Overview
 
-This comprehensive testing checklist ensures all features of the Huntable CTI Studio platform are thoroughly tested before deployment.
+This checklist covers manual verification of Huntable CTI Studio features before deployment.
 
 ## Pre-Testing Setup
 
@@ -139,8 +141,14 @@ This comprehensive testing checklist ensures all features of the Huntable CTI St
 
 ### **Analysis Page**
 
+!!! warning "Stale section -- no `/analysis` route"
+    No page router under `src/web/routes/` registers `/analysis`, and no template matches the
+    "TTP Analysis" or "Quality Assessment" pages described below. The live analytics pages are
+    `/analytics`, `/analytics/scraper-metrics`, and `/analytics/hunt-metrics`
+    (`src/web/routes/pages.py`). A maintainer needs to confirm which page this checklist meant
+    and either repoint or remove it -- the steps below are not runnable as written.
 - [ ] **TTP Analysis**
-  - [ ] Navigate to `/analysis`
+  - [ ] Navigate to `/analysis` (route does not exist -- see the warning above)
   - [ ] Verify analysis results
   - [ ] Check technique detection
   - [ ] Test confidence scores
@@ -493,10 +501,7 @@ This comprehensive testing checklist ensures all features of the Huntable CTI St
 
 ---
 
-
----
-
-## Manual Software Checks — 30‑Minute Procedure
+## Manual Software Checks - 30-Minute Procedure
 
 Checks that are **not** covered by existing (non-skipped) automated tests. Target: **≤30 minutes** total.
 
@@ -518,15 +523,15 @@ Main `--help`, `collect --help`, `backup --help`, `rescore --help`, and `stats` 
 
 | Step | Action | Pass condition |
 |------|--------|----------------|
-| 2.1 | Open **Settings** → Backup Configuration, expand section | Section visible; “Create Backup Now”, “List Backups”, “Check Status” present |
-| 2.2 | Click **Check Status** | Status area updates (or shows “idle”/empty without error) |
-| 2.3 | Click **List Backups** | List loads or “no backups”/empty state; no 5xx |
+| 2.1 | Open **Settings** -> Backup Configuration, expand section | Section visible; "Create Backup Now", "List Backups", "Check Status" present |
+| 2.2 | Click **Check Status** | Status area updates (or shows "idle"/empty without error) |
+| 2.3 | Click **List Backups** | List loads or "no backups"/empty state; no 5xx |
 | 2.4 | Click **Create Backup Now** | Request starts; after completion, list or status reflects new backup or progress |
 | 2.5 | (Optional) If a backup exists, trigger **Restore** | Restore starts or returns structured error; no unchecked exception |
 
 ---
 
-## 3. Diags — “Run all health checks” and summary
+## 3. Diags - "Run all health checks" and summary
 
 **Time: ~3 min**
 
@@ -535,12 +540,12 @@ Individual diags checks (`#runDatabaseCheck`, `#runDeduplicationCheck`, etc.) ar
 | Step | Action | Pass condition |
 |------|--------|----------------|
 | 3.1 | Go to **Diags** (`/diags`) | Page loads |
-| 3.2 | Use the **single “Run all health checks”** (or equivalent) control | One or more checks run; spinner/state changes |
+| 3.2 | Use the **single "Run all health checks"** (or equivalent) control | One or more checks run; spinner/state changes |
 | 3.3 | Wait for completion | Summary or per-check result visible; no infinite loading or raw traceback in UI |
 
 ---
 
-## 4. Articles — bulk delete (skipped in tests)
+## 4. Articles - bulk delete (skipped in tests)
 
 **Time: ~3 min**
 
@@ -549,47 +554,49 @@ Individual diags checks (`#runDatabaseCheck`, `#runDeduplicationCheck`, etc.) ar
 | Step | Action | Pass condition |
 |------|--------|----------------|
 | 4.1 | Open **Articles** | List loads |
-| 4.2 | Select one or more articles; open **bulk toolbar** | “Delete” action visible; no Chosen/Reject/Unclassify controls |
+| 4.2 | Select one or more articles; open **bulk toolbar** | "Delete" action visible; no Chosen/Reject/Unclassify controls |
 | 4.3 | Perform **bulk delete** on selected articles | Request completes; list updates or shows expected error |
 
 ---
 
-## 5. Workflow — trigger and execution list (happy path only)
+## 5. Workflow - trigger and execution list (happy path only)
 
 **Time: ~4 min**
 
-API/Playwright cover config and trigger endpoint; manual check stresses “see execution and list” without full E2E run.
+API/Playwright cover config and trigger endpoint; manual check stresses "see execution and list" without full E2E run.
 
 | Step | Action | Pass condition |
 |------|--------|----------------|
-| 6.1 | Open **Workflow** or **Workflow Executions** | Page loads |
-| 6.2 | Open **Executions** list (or equivalent) | List loads (empty or with rows) |
-| 6.3 | From **Articles**, open an article and use **“Run workflow”** / trigger | Trigger succeeds (202 or success indicator); execution appears in list or “running” state visible |
-| 6.4 | Open one execution (stream or detail) | Detail/stream loads or shows “completed”/“failed”; no 5xx |
+| 5.1 | Open **Workflow** (`/workflow`) or **Workflow Executions** (`/workflow/executions`) | Page loads |
+| 5.2 | Open **Executions** list (or equivalent) | List loads (empty or with rows) |
+| 5.3 | From **Articles**, open an article and use **"Run workflow"** / trigger | Trigger succeeds (202 or success indicator); execution appears in list or "running" state visible |
+| 5.4 | Open one execution (stream or detail) | Detail/stream loads or shows "completed"/"failed"; no 5xx |
 
 ---
 
-## 6. Agent evals — load and run (skipped when “Load Eval Articles” fails)
+## 6. Agent evals - load and run (skipped when "Load Eval Articles" fails)
 
 **Time: ~3 min**
 
 | Step | Action | Pass condition |
 |------|--------|----------------|
-| 7.1 | Go to **MLOps → Agent evals** (`/mlops/agent-evals` or equivalent) | Page loads |
-| 7.2 | Use **“Load Eval Articles”** (or equivalent) | Table or list populates, or clear “no articles”/error; no 5xx |
-| 7.3 | If articles exist, start one **subagent eval** (e.g. Hunt Query) | Run starts; status/result area updates or shows error message |
+| 6.1 | Go to **MLOps → Agent evals** (`/mlops/agent-evals`) | Page loads |
+| 6.2 | Use **"Load Eval Articles"** | Table or list populates, or clear "no articles"/error; no 5xx |
+| 6.3 | If articles exist, start one **subagent eval** (e.g. Hunt Query) | Run starts; status/result area updates or shows error message |
 
 ---
 
-## 7. Sigma queue — no rules (tests skip when “No rules in queue”)
+## 7. Sigma queue - no rules (tests skip when queue is empty)
 
 **Time: ~3 min**
 
+Sigma Queue lives on the **Workflow** page's **Queue** tab (`/workflow/queue`), not a standalone page.
+
 | Step | Action | Pass condition |
 |------|--------|----------------|
-| 8.1 | Open **Sigma Queue** (or Sigma Enrich) | Page loads |
-| 8.2 | With **empty queue**: open enrich/approve/reject UI | Buttons or states reflect “no rules” / disabled where expected; no crash |
-| 8.3 | (If possible) **Add** one rule (e.g. YAML or “Add to queue”) | Rule appears in list or clear error shown |
+| 7.1 | Open **Workflow → Queue** tab | Page loads |
+| 7.2 | With **empty queue**: open enrich/approve/reject UI | Buttons or states reflect "no rules" / disabled where expected; no crash |
+| 7.3 | (If possible) **Add** one rule (e.g. YAML or "Add to queue") | Rule appears in list or clear error shown |
 
 ---
 
@@ -599,8 +606,8 @@ API/Playwright cover config and trigger endpoint; manual check stresses “see e
 
 | Step | Action | Pass condition |
 |------|--------|----------------|
-| 9.1 | Open **PDF Upload** (`/pdf-upload`) | Page and upload control visible |
-| 9.2 | Open **ML Model Performance** (`/ml-model-performance`) | Page loads; key controls or “no data” state visible |
+| 8.1 | Open **PDF Upload** (`/pdf-upload`) | Page and upload control visible |
+| 8.2 | Open **ML Model Performance** (`/ml-model-performance`) | Page loads; key controls or "no data" state visible |
 
 ---
 
@@ -609,15 +616,15 @@ API/Playwright cover config and trigger endpoint; manual check stresses “see e
 | Area | Reason not covered by (non-skipped) tests | Manual time |
 |------|------------------------------------------|-------------|
 | CLI help | Covered by `tests/cli/test_cli_help.py` | 0 |
-| Backup API/UI | No API tests for backup; UI doesn’t drive create/restore | ~5 min |
+| Backup API/UI | No API tests for backup; UI doesn't drive create/restore | ~5 min |
 | Diags | Per-check selectors missing; tests skipped | ~3 min |
 | Articles bulk delete | Manual check that bulk delete works | ~3 min |
-| Workflow trigger + list | Happy-path “trigger and see execution” | ~4 min |
+| Workflow trigger + list | Happy-path "trigger and see execution" | ~4 min |
 | Agent evals load/run | Test skips when Load Eval Articles fails | ~3 min |
 | Sigma queue empty/add | Tests skip when no rules in queue | ~3 min |
 | PDF + ML hunt pages | Smoke only | ~2 min |
 
-**Total: ~26 min** (CLI help automated)
+**Total: ~23 min** (CLI help automated)
 
 ---
 
@@ -625,10 +632,9 @@ API/Playwright cover config and trigger endpoint; manual check stresses “see e
 
 - Run in order, or pick sections by risk (e.g. Backup + CLI first).
 - Record: **Pass / Fail / Blocked (reason)** per step.
-- Blocked: note env/config (e.g. “no DB”, “no eval articles”) so the step can be re-run when available.
-
+- Blocked: note env/config (e.g. "no DB", "no eval articles") so the step can be re-run when available.
 
 ---
 
 _Last updated: 2026-07-03_
-_Last reviewed: 2026-05-23_
+_Last reviewed: 2026-09-01_

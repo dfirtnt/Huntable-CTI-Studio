@@ -91,7 +91,7 @@ KEYWORD_CATEGORIES: tuple[KeywordCategoryMeta, ...] = (
         dimension="signal_strength",
         precedence=0,
         icon="✅",
-        points_label="75 pts",
+        points_label="75 pts each",
         card_classes="bg-green-100 dark:bg-green-800 border border-green-300 dark:border-green-600",
         heading_classes="text-green-800 dark:text-green-200",
         badge_classes="text-white bg-emerald-600 dark:bg-emerald-600",
@@ -110,7 +110,7 @@ KEYWORD_CATEGORIES: tuple[KeywordCategoryMeta, ...] = (
         dimension="signal_strength",
         precedence=1,
         icon="🟣",
-        points_label="5 pts",
+        points_label="5 pts each",
         card_classes="bg-purple-100 dark:bg-purple-800 border border-purple-300 dark:border-purple-600",
         heading_classes="text-purple-800 dark:text-purple-200",
         badge_classes="text-white bg-purple-600 dark:bg-purple-600",
@@ -129,7 +129,7 @@ KEYWORD_CATEGORIES: tuple[KeywordCategoryMeta, ...] = (
         dimension="technique",
         precedence=2,
         icon="🔧",
-        points_label="10 pts",
+        points_label="10 pts each",
         card_classes="bg-blue-100 dark:bg-blue-800 border border-blue-300 dark:border-blue-600",
         heading_classes="text-blue-800 dark:text-blue-200",
         badge_classes="text-white bg-blue-600 dark:bg-blue-600",
@@ -148,7 +148,7 @@ KEYWORD_CATEGORIES: tuple[KeywordCategoryMeta, ...] = (
         dimension="context",
         precedence=3,
         icon="🎯",
-        points_label="10 pts",
+        points_label="10 pts each",
         card_classes="bg-orange-100 dark:bg-orange-900 border border-orange-300 dark:border-orange-700",
         heading_classes="text-orange-800 dark:text-orange-200",
         badge_classes="text-white bg-orange-600 dark:bg-orange-600",
@@ -167,7 +167,7 @@ KEYWORD_CATEGORIES: tuple[KeywordCategoryMeta, ...] = (
         dimension="polarity",
         precedence=4,
         icon="⚠️",
-        points_label="-10 pts",
+        points_label="-10 pts each",
         card_classes="bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600",
         heading_classes="text-gray-800 dark:text-gray-200",
         badge_classes="text-white bg-gray-600 dark:bg-gray-600",
@@ -323,29 +323,76 @@ def resolve_keyword_matches(content: str, metadata: dict[str, Any] | None) -> li
     return resolved_matches
 
 
+# Characters that continue the same lexical token as a letter/digit would:
+# dotted/defanged IPs and domains ("."/"[]"), hyphenated compounds ("-"),
+# paths and URLs ("/"), ports (":"), identifiers/emails ("_"/"@"). Deliberately
+# narrow -- anything else (quotes, angle brackets, "=", punctuation) is a real
+# boundary, so expansion can't run away through unrelated text.
+_TOKEN_CONTINUATION_CHARS = frozenset(".-/:[]_@")
+
+
+def _is_token_char(ch: str) -> bool:
+    return ch.isalnum() or ch in _TOKEN_CONTINUATION_CHARS
+
+
+def _natural_token_bounds(content: str, start: int, end: int) -> tuple[int, int]:
+    """A match's token edges with no awareness of neighboring matches."""
+    while start > 0 and _is_token_char(content[start - 1]):
+        start -= 1
+    while end < len(content) and _is_token_char(content[end]):
+        end += 1
+    return start, end
+
+
 def render_highlighted_content(content: str, resolved_matches: list[ResolvedKeywordMatch]) -> str:
     if not content:
         return ""
     if not resolved_matches:
         return html.escape(content)
 
+    # A resolved match may end mid-word (e.g. "detection" inside "detections",
+    # or "[.]" inside a defanged IP) -- the match is correct, but wrapping only
+    # the matched substring in a `<span>` visually fragments the surrounding
+    # token. Widen each match to its natural token edge first (this never
+    # changes match.start/end on the underlying ResolvedKeywordMatch, so the
+    # Keyword Matches panel is untouched). Two distinct matches sitting in the
+    # same token (e.g. "install.ps1" split across two keyword hits) then have
+    # *overlapping* natural bounds -- group and render those as one combined
+    # span (first match's category/title) rather than splitting the token
+    # again at an arbitrary internal boundary.
+    natural_bounds = [_natural_token_bounds(content, m.start, m.end) for m in resolved_matches]
+
+    groups: list[list[int]] = []
+    group_max_end = -1
+    for i, (nat_start, nat_end) in enumerate(natural_bounds):
+        if groups and nat_start <= group_max_end:
+            groups[-1].append(i)
+            group_max_end = max(group_max_end, nat_end)
+        else:
+            groups.append([i])
+            group_max_end = nat_end
+
     rendered: list[str] = []
     cursor = 0
-    for match in resolved_matches:
-        rendered.append(html.escape(content[cursor : match.start]))
-        category_meta = KEYWORD_CATEGORY_METADATA[match.category]
+    for group in groups:
+        display_start = min(natural_bounds[i][0] for i in group)
+        display_end = max(natural_bounds[i][1] for i in group)
+        lead_match = resolved_matches[group[0]]
+
+        rendered.append(html.escape(content[cursor:display_start]))
+        category_meta = KEYWORD_CATEGORY_METADATA[lead_match.category]
         rendered.append(
-            '<span class="keyword-highlight keyword-highlight--{category} px-1 py-0.5 rounded text-xs '
-            'font-medium border {classes}" data-keyword-category="{category}" '
+            '<span class="keyword-highlight keyword-highlight--{category} py-0.5 rounded text-xs '
+            'font-medium {classes}" data-keyword-category="{category}" '
             'data-source-categories="{sources}" title="{title}">{text}</span>'.format(
                 category=category_meta.key,
                 classes=category_meta.highlight_classes,
-                sources=",".join(match.source_categories),
-                title=html.escape(match.title, quote=True),
-                text=html.escape(content[match.start : match.end]),
+                sources=",".join(lead_match.source_categories),
+                title=html.escape(lead_match.title, quote=True),
+                text=html.escape(content[display_start:display_end]),
             )
         )
-        cursor = match.end
+        cursor = display_end
 
     rendered.append(html.escape(content[cursor:]))
     return "".join(rendered)

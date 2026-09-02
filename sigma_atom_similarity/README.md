@@ -40,6 +40,7 @@ Output is JSON with stable key order (`sort_keys=True`).
 - Selection references: `selection_name`, `selection*`
 - Quantifiers: `1 of selection*`, `all of selection*`
 - Lists → OR; `|all` modifier lists → AND
+- Nested negation: `not (not x)` collapses to `x` (boolean involution); any nesting depth reduces to `x` for even depth and `not x` for odd
 
 ## Rejected (raise `UnsupportedSigmaFeatureError`)
 

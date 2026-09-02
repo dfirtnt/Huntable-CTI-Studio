@@ -87,9 +87,21 @@ class TestArticleListStmt:
         order_asc = sql_asc.split("ORDER BY")[1]
         assert "article_metadata" in order_asc and "DESC" not in order_asc
 
-    def test_annotation_count_sort_maps_to_hunt_score(self):
+    def test_annotation_count_sort_uses_correlated_count_desc(self):
         sql, _ = _compiled(build_article_list_stmt(ArticleListFilter(sort_by="annotation_count")))
-        assert "article_metadata" in sql.split("ORDER BY")[1]
+        order_clause = sql.split("ORDER BY")[1]
+        assert "count(article_annotations.id)" in order_clause.lower()
+        assert "article_annotations.article_id = articles.id" in order_clause.lower()
+        assert "DESC" in order_clause
+        # hunt-score tiebreaker, same shape as a real-column sort
+        assert "article_metadata" in order_clause
+
+    def test_annotation_count_sort_asc_drops_leading_desc(self):
+        sql, _ = _compiled(build_article_list_stmt(ArticleListFilter(sort_by="annotation_count", sort_order="asc")))
+        order_clause = sql.split("ORDER BY")[1]
+        first_clause = order_clause.split(",")[0]
+        assert "DESC" not in first_clause
+        assert "count(article_annotations.id)" in first_clause.lower()
 
     def test_hunt_score_sort_uses_astext_not_json_cast(self):
         """The score sort must extract via ->> (astext): CAST(json AS VARCHAR)

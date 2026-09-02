@@ -79,16 +79,48 @@ class TestValidateAgentPromptReadOnlyFallback:
     def test_falls_back_to_stored_prompt(self, validate_fn_body: str) -> None:
         """Function must read stored prompt data for the read-only fallback path.
 
-        Post-canonicalization: validateAgentPrompt now calls
-        getAgentPromptParts(agentName) which detects canonical {system, user}
-        outer-dict shape and falls back to parsePromptParts(stored.prompt) for
-        legacy records. Either accessing agentPrompts directly OR going through
-        the canonical-aware helper satisfies the read-only fallback contract.
+        Post-canonicalization: the fallback goes through
+        getAgentPromptParts(agentName), which detects the canonical
+        {system, user} outer-dict shape and falls back to
+        parsePromptParts(stored.prompt) for legacy records.
+
+        The selection was later extracted into _promptValueForValidation() so the
+        Validate button and the load-time prompt badges cannot disagree about
+        what was validated. Delegation is accepted here, but it is followed
+        rather than waved through: the helper itself must still perform the
+        stored-prompt fallback, otherwise Validate would silently do nothing in
+        read-only mode -- exactly the regression this test exists to catch.
+
+        Limit of a source-text test: it proves the fallback is *written*, not
+        that it is *reached*, so a dead-code early return above it would still
+        pass here. That arm is covered behaviourally by
+        ``tests/ui/test_workflow_comprehensive_ui.py`` --
+        ``test_prompt_badge_appears_when_a_prompt_is_degraded`` and
+        ``test_rerendering_prompts_refreshes_the_badges`` both fail when the
+        helper stops returning the stored prompt.
         """
         uses_canonical_helper = "getAgentPromptParts(agentName)" in validate_fn_body
         uses_direct_access = "agentPrompts[agentName]" in validate_fn_body and "parsePromptParts" in validate_fn_body
-        assert uses_canonical_helper or uses_direct_access, (
-            "validateAgentPrompt must either call getAgentPromptParts(agentName) "
-            "(canonical-aware helper) or directly reference agentPrompts[agentName] "
-            "with parsePromptParts for the read-only fallback path"
+        delegates = "_promptValueForValidation(agentName)" in validate_fn_body
+
+        assert uses_canonical_helper or uses_direct_access or delegates, (
+            "validateAgentPrompt must reach the stored prompt for the read-only "
+            "fallback path -- directly via agentPrompts[agentName]/parsePromptParts, "
+            "via getAgentPromptParts(agentName), or via _promptValueForValidation(agentName)"
         )
+
+        if delegates and not (uses_canonical_helper or uses_direct_access):
+            helper = re.search(
+                r"function _promptValueForValidation\([^)]*\)\s*\{(.*?)\n\}",
+                read_workflow_src(),
+                re.DOTALL,
+            )
+            assert helper, "_promptValueForValidation not found -- the shared selection moved"
+            body = helper.group(1)
+            assert "getAgentPromptParts(agentName)" in body, (
+                "_promptValueForValidation must fall back to the stored prompt; without it "
+                "Validate is a no-op on a collapsed/read-only panel"
+            )
+            assert "-prompt-system" in body, (
+                "_promptValueForValidation must still prefer the live textarea while editing"
+            )

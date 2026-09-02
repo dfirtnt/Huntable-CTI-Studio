@@ -4,6 +4,8 @@ ASCII diagrams of the main workflows in Huntable CTI Studio. Use these to orient
 
 ## 1. System Architecture
 
+See [Docker Architecture](../deployment/docker-architecture.md) for the authoritative service/port/volume list; this diagram is a conceptual overview only.
+
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                         Huntable CTI Studio Architecture                        │
@@ -14,7 +16,7 @@ ASCII diagrams of the main workflows in Huntable CTI Studio. Use these to orient
 │                 │    │                 │    │     Tasks       │    │                 │
 │ • RSS Feeds     │───▶│ • FastAPI App   │    │ • Celery Worker │    │ • PostgreSQL    │
 │ • Web Scraping  │    │ • Dashboard     │    │ • Scheduler     │    │ • Redis Cache   │
-│ • Sources   │    │ • Search/Filter │    │ • Collection    │    │ • pgvector      │
+│ • Sources       │    │ • Search/Filter │    │ • Collection    │    │ • pgvector      │
 │ • Browser Ext.  │    │ • MCP Retrieval │    │ • AI Analysis   │    │ • Async Manager │
 └─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │                       │
@@ -38,6 +40,8 @@ ASCII diagrams of the main workflows in Huntable CTI Studio. Use these to orient
 
 ## 2. Article Collection Workflow
 
+See [Source Configuration](../guides/source-config.md) for how individual sources are configured (schedule, crawl policy, selectors).
+
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                           Article Collection Workflow                           │
@@ -58,7 +62,7 @@ ASCII diagrams of the main workflows in Huntable CTI Studio. Use these to orient
           ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Source List   │───▶│  RSS Parser     │───▶│ Modern Scraper  │
-│   (sources) │    │                 │    │                 │
+│   (sources)     │    │                 │    │                 │
 └─────────────────┘    └─────────┬───────┘    └─────────┬───────┘
                                  │                      │
                                  ▼                      ▼
@@ -143,6 +147,8 @@ ASCII diagrams of the main workflows in Huntable CTI Studio. Use these to orient
 └─────────────────┘
 ```
 
+See [Threat Hunting Scoring](../architecture/scoring.md) for the full scoring mechanics (diagram 4 below covers the category weights, but that page is the source of truth).
+
 ## 4. Threat Hunting Scoring System
 
 ```text
@@ -168,30 +174,44 @@ ASCII diagrams of the main workflows in Huntable CTI Studio. Use these to orient
           │
           ▼
 ┌─────────────────┐
-│ Score Calculation│
+│ Geometric Score │
+│ per category    │
+│                 │
+│ score = max *   │
+│  (1 - 0.5^n)    │
+│ n = match count │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│ Category maxima │
 │                 │
 │ Perfect: 75pts  │
 │ LOLBAS: 10pts   │
 │ Intel: 10pts    │
 │ Good: 5pts      │
 │ Negative: -15pts│
+│ (each capped,   │
+│  never reached) │
 └─────────┬───────┘
           │
           ▼
 ┌─────────────────┐
 │ Final Score     │
-│ (0-100 range)   │
+│ (0-99.9 range)  │
 └─────────────────┘
 
-Keyword Categories:
+Keyword Categories (examples; see config/keyword_registry.yaml for the full,
+tier-tagged list -- entries carry the exact match string the scorer checks,
+including the .exe suffix where applicable):
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │ Perfect Disc.   │    │ Good Disc.      │    │ LOLBAS Exec.    │
 │                 │    │                 │    │                 │
-│ • rundll32      │    │ • temp          │    │ • certutil      │
-│ • powershell.exe│    │ • ==            │    │ • cmd           │
-│ • Event ID      │    │ • c:\windows\   │    │ • schtasks      │
-│ • .lnk          │    │ • .bat          │    │ • wmic          │
-│ • MZ            │    │ • .ps1          │    │ • bitsadmin     │
+│ • rundll32.exe  │    │ • temp          │    │ • certutil.exe  │
+│ • powershell.exe│    │ • ==            │    │ • cmd.exe       │
+│ • Event ID      │    │ • c:\windows\   │    │ • schtasks.exe  │
+│ • .lnk          │    │ • .bat          │    │ • wmic.exe      │
+│ • MZ            │    │ • .ps1          │    │ • bitsadmin.exe │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
@@ -242,7 +262,7 @@ Keyword Categories:
 
 API Endpoints:
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│ /api/articles   │    │ /api/sources    │    │ /api/health     │
+│ /api/articles   │    │ /api/sources    │    │ /health         │
 │                 │    │                 │    │                 │
 │ • List Articles │    │ • List Sources  │    │ • Health Check  │
 │ • Filter/Sort   │    │ • Add/Edit      │    │ • DB Status     │
@@ -368,14 +388,17 @@ API Endpoints:
 │ • id (PK)       │    │                 │
 │ • source_id (FK)│    │ • id (PK)       │
 │ • check_time    │    │ • article_id (FK)│
-│ • success       │    │ • chunk_text    │
-│ • articles_found│    │ • model_classification│
-└─────────────────┘    │ • is_correct     │
-                        │ • used_for_training│
+│ • success       │    │ • model_classification│
+│ • articles_found│    │ • is_correct     │
+└─────────────────┘    │ • used_for_training│
                         └─────────────────┘
 ```
 
+See [Schemas](../reference/schemas.md) for the full column-level reference across all tables.
+
 ## 8. AI-Powered Analysis Workflow
+
+See [Pipelines](../concepts/pipelines.md) for the full agentic extraction execution order, and [Content Filtering](../features/content-filtering.md) for the pre-filter stage.
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────────┐
@@ -403,6 +426,7 @@ API Endpoints:
 │ • LM Studio     │    │ • Vector Search │    │ • AI Analysis   │
 │ • OpenAI        │    │ • Context Build │    │ • pySigma Valid │
 │ • Anthropic     │    │ • MCP Retrieval │    │ • Rule Creation │
+│ • Codex (opt.)  │    │                 │    │                 │
 └─────────┬───────┘    └─────────┬───────┘    └─────────┬───────┘
           │                      │                      │
           ▼                      ▼                      ▼
@@ -454,7 +478,7 @@ API Endpoints:
 │ Length Validation│
 │                 │
 │ • Min: 950 chars│
-│ • Max: 1000 chars│
+│ • Max: 1050 chars│
 │ • Auto-expand to 1000│
 └─────────┬───────┘
           │
@@ -487,6 +511,8 @@ API Endpoints:
 ```
 
 ## 10. Automated Backup System
+
+See [Backup and Restore](../guides/backup-and-restore.md) for the full operational guide.
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────────┐
@@ -539,6 +565,8 @@ Manual system backups run through the authenticated maintenance service or host 
 
 ## 11. CLI Tool Service Workflow
 
+See [CLI Reference](../reference/cli.md) for the full command list.
+
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                              CLI Tool Service Workflow                         │
@@ -583,6 +611,8 @@ Manual system backups run through the authenticated maintenance service or host 
 ```
 
 ## 12. Browser Extension Workflow
+
+See [Browser Extension](../guides/browser-extension.md) for install and usage instructions.
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────────┐
@@ -705,3 +735,4 @@ Manual system backups run through the authenticated maintenance service or host 
 ```
 
 _Last updated: 2026-08-13_
+_Last reviewed: 2026-09-01_

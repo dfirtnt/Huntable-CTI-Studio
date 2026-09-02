@@ -4,7 +4,7 @@
 
 Huntable CTI Studio is an AI-assisted workbench for detection engineers and threat hunters. It ingests open-source threat intelligence from RSS feeds and web scraping, extracts platform-aware observables (command lines, process trees, registry keys, services, scheduled tasks, network indicators, hunt queries) across Windows, Linux, and macOS, and turns them into Sigma rules you can validate, review, and ship.
 
-With full transparency, each article moves through an explicit LangGraph pipeline, execution state is checkpointed in PostgreSQL, configuration is versioned through presets, and novelty is enforced by similarity search against 3,000+ community Sigma rules. Bring your own model using OpenAI or Anthropic; LM Studio is available as an optional local LLM provider, and Codex can use a deployment-managed ChatGPT subscription for workflow inference.
+With full transparency, each article moves through an explicit LangGraph pipeline, execution state is persisted in PostgreSQL, configuration is versioned through presets, and novelty is enforced by similarity search against 3,000+ community Sigma rules. Bring your own model using OpenAI or Anthropic; LM Studio is available as an optional local LLM provider, and Codex can use a deployment-managed ChatGPT subscription for workflow inference.
 
 ## Who Is This For?
 
@@ -49,8 +49,7 @@ If prompted, you can run the MkDocs docs server in the background; logs go to `l
 - **Understand the architecture** → [Architecture Overview](architecture/overview.md) | [Scoring](architecture/scoring.md)
 - **Configure workflow models and prompts** → [Configuration](getting-started/configuration.md) | [Schemas](reference/schemas.md)
 - **Develop or debug the app** → [Agent Orientation](development/agent-orientation.md) | [Development Setup](development/setup.md) | [Testing](development/testing.md) | [UI Test Tiers](development/ui-test-tiers.md)
-- **Make a UI change** → [UX Contract](contracts/ui-designer.md) -- authoritative for cards, colors, typography, modals, and accessibility
-- **Integrate with the API** → [API Reference](reference/api.md) | [CLI Reference](reference/cli.md) | [MCP tools](reference/mcp-tools.md)
+- **Make a UI change** → [UX Contract](contracts/ui-designer.md): authoritative for cards, colors, typography, modals, and accessibility- **Integrate with the API** → [API Reference](reference/api.md) | [CLI Reference](reference/cli.md) | [MCP tools](reference/mcp-tools.md)
 - **Deploy with SSO and auditing** → [Authentication](guides/authentication.md) | [Enterprise SSO Setup](guides/enterprise-sso.md)
 
 ## Features
@@ -101,3 +100,4 @@ See [Local Model Selection Guide](llm/model-selection.md) for recommendations.
 - **Issues**: [GitHub Issues](https://github.com/dfirtnt/Huntable-CTI-Studio/issues)
 
 _Last updated: 2026-07-05_
+_Last reviewed: 2026-09-01_

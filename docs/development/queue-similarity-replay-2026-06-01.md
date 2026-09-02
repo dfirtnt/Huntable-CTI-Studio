@@ -70,7 +70,7 @@ These are pre-existing malformed queue entries — not regressions, not affected
 mkdir -p /tmp/item11-queue-replay
 docker exec cti_postgres psql -U cti_user -d cti_scraper -c "\copy (SELECT id, status, COALESCE(max_similarity, 0) AS max_similarity, COALESCE(behavioral_matches_found, 0) AS behavioral_matches_found, COALESCE(total_candidates_evaluated, 0) AS total_candidates_evaluated, COALESCE(jsonb_array_length(similarity_scores), 0) AS stored_match_count FROM sigma_rule_queue ORDER BY id) TO STDOUT WITH CSV HEADER" > /tmp/item11-queue-replay/pre.csv
 
-# 2. Replay (force=true persists when scores differ — see src/web/routes/sigma_queue.py:2331-2347)
+# 2. Replay (force=true persists when scores differ — see src/web/routes/sigma_queue.py:2760-2774 as of 2026-09-01, was ~2331-2347 at the time of this run)
 cut -d, -f1 /tmp/item11-queue-replay/pre.csv | tail -n +2 > /tmp/item11-queue-replay/ids.txt
 mkdir -p /tmp/item11-queue-replay/responses
 xargs -P 8 -I {} sh -c \

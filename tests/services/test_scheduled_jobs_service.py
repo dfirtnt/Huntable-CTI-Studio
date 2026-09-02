@@ -34,6 +34,34 @@ def test_normalize_scheduled_job_config_rejects_unknown_job():
         normalize_scheduled_job_config({"not_real": {"enabled": True, "cron": "0 0 * * *"}})
 
 
+def test_normalize_scheduled_job_config_attaches_job_id_to_cron_errors():
+    """A bad cron on one job must name that job, not just fail generically --
+    the route/UI use `.job_id` to highlight the offending field instead of
+    surfacing an unattributed "Validation error"."""
+    with pytest.raises(ScheduledJobsConfigError) as exc_info:
+        normalize_scheduled_job_config({"cleanup_old_data": {"enabled": True, "cron": "not a cron"}})
+
+    assert exc_info.value.job_id == "cleanup_old_data"
+    assert "cleanup_old_data" not in str(exc_info.value)  # message names the problem, not the job id
+    assert str(exc_info.value)  # non-empty: the specific reason, not a bare "Validation error"
+
+
+def test_normalize_scheduled_job_config_attaches_job_id_to_enabled_type_errors():
+    with pytest.raises(ScheduledJobsConfigError) as exc_info:
+        normalize_scheduled_job_config({"sync_sigma_rules": {"enabled": "yes", "cron": "0 4 * * 0"}})
+
+    assert exc_info.value.job_id == "sync_sigma_rules"
+
+
+def test_normalize_scheduled_job_config_unknown_job_error_has_no_job_id():
+    """Errors that aren't scoped to a single job (e.g. an unrecognized job id
+    in the payload) must not claim a job_id -- there's no single field to blame."""
+    with pytest.raises(ScheduledJobsConfigError) as exc_info:
+        normalize_scheduled_job_config({"not_real": {"enabled": True, "cron": "0 0 * * *"}})
+
+    assert exc_info.value.job_id is None
+
+
 def test_normalize_scheduled_job_config_can_ignore_removed_jobs():
     """Stored config should tolerate retired job ids when loading legacy state."""
     config = normalize_scheduled_job_config(

@@ -8,7 +8,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Wait for SimpleTextManager to be initialized
     setTimeout(() => {
         if (window.simpleTextManager) {
-            console.log('📱 Adding mobile enhancements to existing annotation system');
             addMobileEnhancements();
         }
     }, 1000);

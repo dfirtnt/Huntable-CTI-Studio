@@ -51,16 +51,33 @@ Writes or overwrites the JSON files from the DB (including localhost articles) w
 
 ## Duplicates across subagents
 
-Three URLs appear in more than one subagent file (same article used for different evals):
+The seven directories hold **65 article entries covering 51 unique URLs** -- **11 URLs
+appear in more than one subagent file**, because the same article is a useful fixture for
+several extractors (e.g. the DFIR Report "Qbot likes to move it" post is used by
+`registry_artifacts`, `scheduled_tasks`, and `windows_services`).
 
-| URL |
-|-----|
-| `https://thedfirreport.com/2024/04/01/from-onenote-to-ransomnote-an-ice-cold-intrusion/` (cmdline + process_lineage) |
-| `https://thedfirreport.com/2025/09/08/blurring-the-lines-intrusion-shows-connection-with-th...` (cmdline + process_lineage) |
-| `https://www.huntress.com/blog/velociraptor-misuse-part-one-wsus-up` (cmdline + process_lineage) |
+This is intentional. The seed script dedupes by URL (first file wins), so exactly one DB
+row is created per unique URL no matter how many files list it, and each subagent eval can
+still reference the article by URL. If the seed reports errors, they are usually duplicate
+`content_hash` (the same article already in the DB from another source) -- the remaining
+articles are still inserted.
 
-The seed script dedupes by URL (first file wins), so only one DB row is created per URL. Having the same URL in multiple files is intentional so each subagent eval can reference that article. If the seed reports “3 errors”, those are usually duplicate `content_hash` (same article already in the DB from another source); the 29 articles are still inserted.
+Counts are not pinned here on purpose; derive them from the files rather than trusting a
+number in prose:
+
+```bash
+python3 -c "
+import json, glob, os
+from collections import defaultdict
+m = defaultdict(list)
+for p in sorted(glob.glob('config/eval_articles_data/*/articles.json')):
+    for a in json.load(open(p)):
+        m[a['url']].append(os.path.basename(os.path.dirname(p)))
+print(f'{sum(len(v) for v in m.values())} entries, {len(m)} unique URLs, '
+      f'{sum(1 for v in m.values() if len(v) > 1)} shared across dirs')
+"
+```
 
 ## See also
 
-- [Eval Articles: Static Files](../../docs/development/EVAL_ARTICLES_STATIC_FILES.md) — tracking doc and current flow.
+- [Installation → Agent evals](../../docs/getting-started/installation.md#agent-evals) — which directory backs which sub-agent.

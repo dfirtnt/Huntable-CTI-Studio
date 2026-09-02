@@ -24,6 +24,8 @@
             white-space: normal;
             overflow: visible;
             text-overflow: clip;
+            overflow-wrap: break-word;
+            word-break: break-word;
         }
     }
 
@@ -105,14 +107,17 @@
             {%- set _ = clean.append(keyword|string|trim) -%}
         {%- endif -%}
     {%- endfor -%}
+    {%- if clean %}
+    <span class="sr-only">{{ hint }}:</span>
+    {%- endif -%}
     {%- for keyword in clean[:limit] %}
-    <span class="keyword-chip inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-mono text-[10px]" title="{{ hint }}">
-        <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: {{ accent }};"></span>
+    <span class="keyword-chip inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-mono text-[10px]">
+        <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: {{ accent }};" title="{{ hint }}" aria-hidden="true"></span>
         {{ keyword }}
     </span>
     {%- endfor -%}
     {%- if clean|length > limit %}
-    <span class="keyword-chip inline-flex items-center px-1.5 py-0.5 rounded font-mono text-[10px]" title="{{ hint }}">
+    <span class="keyword-chip inline-flex items-center px-1.5 py-0.5 rounded font-mono text-[10px]" title="{{ hint }} (hidden): {{ clean[limit:]|join(', ') }}">
         +{{ clean|length - limit }}
     </span>
     {%- endif -%}
@@ -141,11 +146,19 @@
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
                 Filters, Search &amp; Sorting
             </h2>
+            <div class="flex items-center gap-3">
+            {% set active_filter_count = (1 if filters.search else 0) + (1 if filters.source else 0) + (1 if filters.threat_hunting_range else 0) + (1 if filters.title_only else 0) %}
+            <span id="filters-active-badge" class="hidden items-center gap-1.5 text-xs px-2 py-1 rounded-md" style="background-color: var(--color-warning-bg, rgba(234,179,8,0.15)); color: var(--color-warning, #eab308);" data-active-count="{{ active_filter_count }}">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 01.8 1.6l-6.3 8.4v5.5a1 1 0 01-1.45.9l-3-1.5A1 1 0 019 18V13L2.7 4.6A1 1 0 013 4z"/></svg>
+                <span>{{ active_filter_count }} filter{{ 's' if active_filter_count != 1 else '' }} active</span>
+                <a href="/articles" class="underline" style="color: inherit;" onclick="event.stopPropagation();">Clear</a>
+            </span>
             <span id="filters-toggle" class="text-gray-400 transition-transform duration-200" aria-hidden="true">
                 <svg class="w-4 h-4 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                 </svg>
             </span>
+            </div>
         </div>
         <div id="filters-content" class="hidden px-4 pb-4" data-filters-active="{{ 'true' if filters.search or filters.source or filters.threat_hunting_range or filters.title_only else 'false' }}">
         <form method="GET">
@@ -292,10 +305,10 @@
                         class="w-full px-2 py-1.5 rounded-md border focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-xs" style="background-color: var(--color-bg-panel); border-color: var(--color-border); color: var(--color-text-primary);">
                     <option value="">All Scores</option>
                     <option value="80-100" {% if filters.threat_hunting_range == "80-100" %}selected{% endif %}>Excellent (80-100)</option>
-                    <option value="60-79" {% if filters.threat_hunting_range == "60-79" %}selected{% endif %}>Good (60-79)</option>
-                    <option value="40-59" {% if filters.threat_hunting_range == "40-59" %}selected{% endif %}>Fair (40-59)</option>
-                    <option value="20-39" {% if filters.threat_hunting_range == "20-39" %}selected{% endif %}>Poor (20-39)</option>
-                    <option value="0-19" {% if filters.threat_hunting_range == "0-19" %}selected{% endif %}>Very Poor (0-19)</option>
+                    <option value="60-80" {% if filters.threat_hunting_range == "60-80" %}selected{% endif %}>Good (60-79)</option>
+                    <option value="40-60" {% if filters.threat_hunting_range == "40-60" %}selected{% endif %}>Fair (40-59)</option>
+                    <option value="20-40" {% if filters.threat_hunting_range == "20-40" %}selected{% endif %}>Poor (20-39)</option>
+                    <option value="0-20" {% if filters.threat_hunting_range == "0-20" %}selected{% endif %}>Very Poor (0-19)</option>
                     <option value="30-100" {% if filters.threat_hunting_range == "30-100" %}selected{% endif %}>Good & Above (30+)</option>
                     <option value="60-100" {% if filters.threat_hunting_range == "60-100" %}selected{% endif %}>High Quality (60+)</option>
                 </select>
@@ -342,7 +355,7 @@
         <div class="flex items-center justify-between mb-2">
             <h2 class="text-base font-semibold text-white flex items-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V18a2.25 2.25 0 002.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h13.5M6 7.5h3v3H6v-3z"/></svg>
-                Articles {{ pagination.start_idx }}-{{ pagination.end_idx }} of {{ pagination.total_articles }}
+                {% if pagination.total_articles == 0 %}No articles{% else %}Articles {{ pagination.start_idx }}-{{ pagination.end_idx }} of {{ pagination.total_articles }}{% endif %}
             </h2>
             <div class="text-xs" style="color: var(--color-text-muted);">
                 Page {{ pagination.page }} of {{ pagination.total_pages }}
@@ -425,7 +438,7 @@
 
                         <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 text-xs" style="color: var(--color-text-muted);">
                             {% if article.canonical_url %}
-                            <a href="{{ article.canonical_url }}" target="_blank" rel="noopener"
+                            <a href="{{ article.canonical_url }}" target="_blank" rel="noopener noreferrer"
                                class="article-row__raised hover:underline" style="color: var(--color-info);">{{ source_name }}</a>
                             {% else %}
                             <span>{{ source_name }}</span>
@@ -960,6 +973,7 @@
         const filtersContent = document.getElementById('filters-content');
         const filtersToggle = document.getElementById('filters-toggle');
         const filtersIcon = filtersToggle?.querySelector('svg');
+        const filtersActiveBadge = document.getElementById('filters-active-badge');
 
         if (filtersHeader && filtersContent) {
             const filtersPanelStateKey = 'cti_articles_filters_panel_open';
@@ -981,6 +995,11 @@
                     filtersIcon.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
                 }
                 filtersHeader.setAttribute('aria-expanded', open ? 'true' : 'false');
+                if (filtersActiveBadge) {
+                    const showBadge = !open && filtersActive;
+                    filtersActiveBadge.classList.toggle('hidden', !showBadge);
+                    filtersActiveBadge.classList.toggle('inline-flex', showBadge);
+                }
 
                 try {
                     sessionStorage.setItem(filtersPanelStateKey, open ? 'true' : 'false');
@@ -1000,11 +1019,42 @@
                     try {
                         sessionStorage.setItem(filtersPanelStateKey, isOpen ? 'true' : 'false');
                     } catch (sessionError) {}
+                    if (filtersActiveBadge) {
+                        const showBadge = !isOpen && filtersActive;
+                        filtersActiveBadge.classList.toggle('hidden', !showBadge);
+                        filtersActiveBadge.classList.toggle('inline-flex', showBadge);
+                    }
                 }, 0);
             });
         }
     });
     
+    // Copy text to clipboard, falling back to execCommand where the async
+    // Clipboard API is unavailable (e.g. non-secure contexts like a plain
+    // http:// LAN address instead of localhost or https).
+    async function copyTextToClipboard(text) {
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(text);
+            return;
+        }
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        let succeeded = false;
+        try {
+            succeeded = document.execCommand('copy');
+        } finally {
+            document.body.removeChild(textarea);
+        }
+        if (!succeeded) {
+            throw new Error('Clipboard access is unavailable in this browser context (requires HTTPS or localhost).');
+        }
+    }
+
     // Copy article content to clipboard
     async function copyArticleContent(articleId) {
         try {
@@ -1012,20 +1062,20 @@
             if (!response.ok) {
                 throw new Error('Failed to fetch article');
             }
-            
+
             const article = await response.json();
             const contentToCopy = article.content || '';
-            
+
             if (!contentToCopy) {
                 showNotification('Article has no content to copy', 'error');
                 return;
             }
-            
-            await navigator.clipboard.writeText(contentToCopy);
+
+            await copyTextToClipboard(contentToCopy);
             showNotification('Article content copied to clipboard!', 'success');
         } catch (error) {
             console.error('Error copying article content:', error);
-            showNotification('Failed to copy article content', 'error');
+            showNotification(error.message || 'Failed to copy article content', 'error');
         }
     }
 </script>

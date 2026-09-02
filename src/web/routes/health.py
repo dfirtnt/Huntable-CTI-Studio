@@ -16,6 +16,22 @@ from src.web.dependencies import logger
 
 router = APIRouter()
 
+# Statuses that mean a component is genuinely degraded, as opposed to merely
+# unconfigured/not-applicable-here (which aren't failures).
+_DEGRADED_SERVICE_STATUSES = {"unhealthy", "error", "missing"}
+
+
+def _compute_services_rollup_status(services_status: dict[str, dict[str, Any]]) -> str:
+    """Roll up per-service statuses to a single top-level status.
+
+    Any component in `_DEGRADED_SERVICE_STATUSES` moves the roll-up to
+    "unhealthy" -- a degraded service must be visible in the card accent, not
+    masked by an always-"healthy" top level.
+    """
+    if any(svc.get("status") in _DEGRADED_SERVICE_STATUSES for svc in services_status.values()):
+        return "unhealthy"
+    return "healthy"
+
 
 @router.get("/health")
 async def health_check() -> dict[str, Any]:
@@ -190,10 +206,23 @@ async def api_services_health() -> dict[str, Any]:
         else:
             services_status["lmstudio"] = {"status": "not_configured", "message": "LMStudio disabled"}
 
-        # Check Tesseract (always reported; missing is non-fatal when OCR is disabled)
-        from src.services.vision_ocr_service import check_tesseract_available
+        # Check Tesseract. OCR runs in cti_worker/CLI, not this process --
+        # pytesseract lives in the optional 'ingest' extras group and is never
+        # installed in the web container by design. Report that distinction
+        # explicitly instead of surfacing a raw ModuleNotFoundError as a
+        # failure for a dependency this process was never meant to have.
+        try:
+            import pytesseract  # noqa: F401
+        except ModuleNotFoundError:
+            services_status["tesseract"] = {
+                "status": "not_applicable",
+                "version": None,
+                "message": "OCR runs in the worker process; pytesseract is not installed in the web container.",
+            }
+        else:
+            from src.services.vision_ocr_service import check_tesseract_available
 
-        services_status["tesseract"] = check_tesseract_available()
+            services_status["tesseract"] = check_tesseract_available()
 
         # Check LangFuse
         try:
@@ -240,7 +269,7 @@ async def api_services_health() -> dict[str, Any]:
             }
 
         return {
-            "status": "healthy",
+            "status": _compute_services_rollup_status(services_status),
             "timestamp": datetime.now().isoformat(),
             "services": services_status,
         }

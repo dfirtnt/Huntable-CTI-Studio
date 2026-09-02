@@ -426,6 +426,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const menu = document.getElementById('footer-overflow-menu');
     if (menu && !e.target.closest('.relative')) menu.classList.add('hidden');
   });
+  // Keyboard path for the click-driven step triggers: each carries an inline
+  // onclick, so click() reuses that handler rather than duplicating it.
+  // preventDefault stops Space scrolling #config-content out from under the
+  // section scrollToStep is about to align.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const trigger = e.target.closest('.section-header, .rail-item, .sa-header');
+    if (!trigger) return;
+    // Nested native controls (the sa-header help buttons) keep their own
+    // activation; without this preventDefault would swallow it.
+    const inner = e.target.closest('button, a, input, select, textarea, label');
+    if (inner && inner !== trigger && trigger.contains(inner)) return;
+    e.preventDefault();
+    trigger.click();
+  });
+
   // ESC key closes the expanded prompt editor when it's open
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
@@ -435,6 +451,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
+// scrollToStep is the only live mutation path for .step-section.open, so
+// syncing aria-expanded from there covers every state change.
+function _syncStepAriaExpanded() {
+  document.querySelectorAll('.step-section').forEach(function(section) {
+    var header = section.querySelector('.section-header');
+    if (header) header.setAttribute('aria-expanded', section.classList.contains('open') ? 'true' : 'false');
+  });
+}
 
 function scrollToStep(n) {
   var section = document.getElementById('s' + n);
@@ -463,8 +488,112 @@ function scrollToStep(n) {
   document.querySelectorAll('.rail-item').forEach(function(el, i) {
     el.classList.toggle('active', i === n);
   });
+  _syncStepAriaExpanded();
 }
 
 // Rail active state is derived from the open step (single source of truth:
 // scrollToStep opens exactly one section and flags the matching rail item).
 // No IntersectionObserver here — it would fight the accordion invariant.
+
+// ---------------------------------------------------------------------------
+// Prompt warning badges
+//
+// _collectPromptIssues already detects prompt-contract drift accurately, but it
+// only ever ran when a human clicked Validate inside a panel three levels deep
+// (Step 3 -> sub-agent -> Prompt panel -> Validate). A degraded prompt could sit
+// unnoticed for days behind that button. These helpers run the same checks with
+// no click and surface the result on the collapsed headers.
+//
+// Client-side only: no fetch, no LLM call, so running it for every agent on load
+// costs nothing and adds no requests to a page that already over-fetches.
+// ---------------------------------------------------------------------------
+
+// Agents that own an editable prompt panel, mapped to the step section whose
+// collapsed header aggregates their badges.
+var _PROMPT_BADGE_STEPS = [
+  { step: 's2', agents: ['RankAgent'] },
+  { step: 's3', agents: ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'RegistryExtract',
+                         'ServicesExtract', 'ScheduledTasksExtract', 'NetworkIndicatorExtract'] },
+  { step: 's4', agents: ['SigmaAgent'] },
+];
+
+/**
+ * The value to validate for an agent, using the same precedence as the Validate
+ * button: the live textarea while editing, else the stored prompt.
+ *
+ * Extractor prompts in the Standard Extractor Contract shape round-trip the whole
+ * config JSON through parts.system (see parsePromptParts), so the envelope checks
+ * apply here exactly as they do on click. Plain role-text prompts return early
+ * inside _collectPromptIssues, matching button behaviour rather than inventing a
+ * second, stricter verdict.
+ */
+function _promptValueForValidation(agentName) {
+  const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
+  const systemTextarea = document.getElementById(agentId + '-prompt-system')
+                      || document.getElementById(agentId + '-prompt-system-2');
+  if (systemTextarea) return (systemTextarea.value || '').trim();
+  const parts = getAgentPromptParts(agentName);
+  // Plain-text prompts land in parts.user; structured (JSON) prompts in parts.system.
+  return ((parts.system || parts.user) || '').trim();
+}
+
+function _applyPromptBadge(el, errorCount, warnCount) {
+  if (!el) return;
+  const total = errorCount + warnCount;
+  if (total === 0) {
+    // Full reset, not just adding 'hidden': a badge that clears keeps its old
+    // colour classes otherwise, so the next issue would flash the previous
+    // severity before the new class list is written.
+    el.className = 'hidden';
+    el.textContent = '';
+    el.removeAttribute('title');
+    return;
+  }
+  // Errors outrank warnings: a red badge means the agent hard-fails at runtime.
+  const isError = errorCount > 0;
+  el.className = 'px-2 py-0.5 text-xs rounded-full font-medium ' + (isError
+    ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+    : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300');
+  const label = isError
+    ? errorCount + ' error' + (errorCount > 1 ? 's' : '')
+    : warnCount + ' warning' + (warnCount > 1 ? 's' : '');
+  el.textContent = label;
+  el.setAttribute('title', 'Prompt validation: ' + label + '. Open the agent prompt panel and click Validate for detail.');
+}
+
+/**
+ * Validate every prompt-bearing agent and badge the ones with issues, on both the
+ * sub-agent row and the step header above it. Warnings never block saving or
+ * running -- this is signal, not a gate.
+ */
+function refreshPromptWarningBadges() {
+  _PROMPT_BADGE_STEPS.forEach(function(group) {
+    let stepErrors = 0;
+    let stepWarns = 0;
+    group.agents.forEach(function(agentName) {
+      const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
+      const value = _promptValueForValidation(agentName);
+      const isExtractor = typeof EXTRACT_SUB_AGENTS !== 'undefined'
+                       && EXTRACT_SUB_AGENTS.includes(agentName);
+      // An unconfigured non-extractor prompt is the shipped baseline, not drift:
+      // RankAgent and SigmaAgent resolve to src/prompts defaults when the config
+      // stores nothing (default_agent_prompts.AGENT_PROMPT_FILES; rank_article()
+      // falls back at the call site, see routes/ai.py). Badging that would put a
+      // permanent false alarm on every load and teach the operator to ignore the
+      // badge -- the exact failure this feature exists to prevent. Extraction
+      // sub-agents are never exempt: an empty system/role there really does raise
+      // PromptConfigValidationError (services/llm_prompting.py).
+      if (!value && !isExtractor) {
+        _applyPromptBadge(document.getElementById(agentId + '-prompt-warn-badge'), 0, 0);
+        return;
+      }
+      const issues = _collectPromptIssues(agentName, value);
+      const errors = issues.filter(function(i) { return i.level === 'error'; }).length;
+      const warns = issues.length - errors;
+      stepErrors += errors;
+      stepWarns += warns;
+      _applyPromptBadge(document.getElementById(agentId + '-prompt-warn-badge'), errors, warns);
+    });
+    _applyPromptBadge(document.getElementById(group.step + '-prompt-warn-badge'), stepErrors, stepWarns);
+  });
+}

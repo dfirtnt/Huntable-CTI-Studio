@@ -4,6 +4,7 @@ API endpoints for managing application settings.
 
 import logging
 import os
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -54,6 +55,57 @@ async def test_codex_subscription():
     return {"valid": True, "message": message, "plan_type": plan_type}
 
 
+class GitHubConnectionTest(BaseModel):
+    """Optional overrides so a freshly typed token can be tested before it is saved."""
+
+    token: str | None = None
+    repo: str | None = None
+
+
+@router.post("/github/test")
+async def test_github_connection(body: GitHubConnectionTest | None = None):
+    """Test the stored GitHub PAT against the configured repo, server-side.
+
+    The browser used to call api.github.com directly with the PAT read back out of
+    GET /api/settings/GITHUB_TOKEN. That read no longer returns the token (and the
+    cross-origin call is a standing connect-src violation), so the request is made
+    here instead. The token never has to reach the page to be verified.
+    """
+    import httpx
+
+    overrides = body or GitHubConnectionTest()
+    token = (overrides.token or "").strip() or await _read_setting_value("GITHUB_TOKEN")
+    repo = (overrides.repo or "").strip() or await _read_setting_value("GITHUB_REPO")
+
+    if not token:
+        return {"valid": False, "message": "No GitHub token is configured. Enter one and save first."}
+    if not repo or "/" not in repo:
+        return {"valid": False, "message": "Set the repository as owner/repo first."}
+
+    owner, _, repo_name = repo.partition("/")
+    try:
+        # follow_redirects stays off explicitly: this request carries the PAT in an
+        # Authorization header, and a followed redirect would carry it to whatever
+        # host the response named. httpx defaults to False, but a token-bearing
+        # request should not depend on a library default staying put.
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=False) as client:
+            response = await client.get(
+                f"https://api.github.com/repos/{owner}/{repo_name}",
+                headers={"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"},
+            )
+    except Exception as exc:
+        logger.warning("GitHub connection test failed to reach api.github.com: %s", exc)
+        return {"valid": False, "message": "Could not reach GitHub -- try again."}
+
+    if response.status_code == 200:
+        return {"valid": True, "message": "Connected"}
+    if response.status_code == 401:
+        return {"valid": False, "message": "Token is invalid or lacks repo access"}
+    if response.status_code == 404:
+        return {"valid": False, "message": "Repository not found, or the token cannot see it"}
+    return {"valid": False, "message": f"GitHub returned {response.status_code}"}
+
+
 class SettingUpdate(BaseModel):
     """Request model for updating a setting."""
 
@@ -92,6 +144,69 @@ def _is_sensitive_setting(key: str) -> bool:
     # setting key that audit_service itself would treat as sensitive.
     normalized = key.upper()
     return normalized in _SENSITIVE_KEYS or is_sensitive_audit_key(key)
+
+
+def _secret_hint(value: str | None) -> str | None:
+    """Short "is this the credential I think it is" marker -- never the credential.
+
+    Same shape the audit path already logs, so a hint in an API response and a hint
+    in the audit trail are comparable by eye.
+    """
+    if not value:
+        return None
+    return f"{value[:8]}...({len(value)} chars)"
+
+
+def _safe_log_value(key: str, value: str | None) -> str | None:
+    """Value rendered for logs: hinted when the key is sensitive, verbatim otherwise."""
+    if _is_sensitive_setting(key) and value:
+        return _secret_hint(value)
+    return value
+
+
+def _sensitive_read_meta(key: str, value: str | None) -> dict[str, Any]:
+    """The only thing a client is told about a stored secret: whether one is set.
+
+    Reading a secret back is never required in order to replace it, so no read
+    route returns `value` for a sensitive key -- it returns None, and the caller
+    decides what to render from `configured`/`hint`. None (rather than the hint
+    string) matters: callers that pass `settings[key]` straight to a provider
+    must fail their own truthiness check, not ship eight characters of a key.
+    """
+    return {"configured": bool(value), "hint": _secret_hint(value)}
+
+
+async def _read_setting_value(key: str) -> str | None:
+    """Resolve a stored setting server-side, falling back to the environment.
+
+    Server-side resolution is what lets the read routes stop handing secrets to the
+    browser: anything that needs a credential in order to *do* something now reads
+    it here instead of receiving it from the page.
+    """
+    from sqlalchemy import select
+
+    try:
+        async with async_db_manager.get_session() as session:
+            result = await session.execute(select(AppSettingsTable).where(AppSettingsTable.key == key))
+            setting = result.scalar_one_or_none()
+            if setting and setting.value:
+                return setting.value
+    except Exception as exc:
+        logger.warning("Could not read setting %s from the database: %s", key, exc)
+    return os.environ.get(key) or None
+
+
+def _redact_settings_map(raw: dict[str, str | None]) -> tuple[dict[str, str | None], dict[str, Any]]:
+    """Split a key->value map into a client-safe map plus per-secret metadata."""
+    safe: dict[str, str | None] = {}
+    sensitive: dict[str, Any] = {}
+    for key, value in raw.items():
+        if _is_sensitive_setting(key):
+            safe[key] = None
+            sensitive[key] = _sensitive_read_meta(key, value)
+        else:
+            safe[key] = value
+    return safe, sensitive
 
 
 def _setting_audit_event(
@@ -145,8 +260,9 @@ async def get_all_settings():
                     val = os.environ.get(key)
                     if val is not None:
                         out[key] = val
+            safe, sensitive = _redact_settings_map(out)
             return JSONResponse(
-                content={"success": True, "settings": out},
+                content={"success": True, "settings": safe, "sensitive": sensitive},
                 headers={"Cache-Control": "no-store"},
             )
 
@@ -165,17 +281,36 @@ async def get_setting(key: str):
             result = await session.execute(select(AppSettingsTable).where(AppSettingsTable.key == key))
             setting = result.scalar_one_or_none()
 
-            if not setting:
-                return {"success": True, "key": key, "value": None, "exists": False}
+            sensitive = _is_sensitive_setting(key)
 
-            return {
-                "success": True,
-                "key": setting.key,
-                "value": setting.value,
-                "description": setting.description,
-                "category": setting.category,
-                "exists": True,
-            }
+            if not setting:
+                payload: dict[str, Any] = {
+                    "success": True,
+                    "key": key,
+                    "value": None,
+                    "exists": False,
+                    "sensitive": sensitive,
+                    "configured": False,
+                    "hint": None,
+                }
+            else:
+                payload = {
+                    "success": True,
+                    "key": setting.key,
+                    # A sensitive value is never returned; `configured`/`hint` carry the
+                    # only information a client legitimately needs about it.
+                    "value": None if sensitive else setting.value,
+                    "description": setting.description,
+                    "category": setting.category,
+                    "exists": True,
+                    "sensitive": sensitive,
+                    "configured": bool(setting.value),
+                    "hint": _secret_hint(setting.value) if sensitive else None,
+                }
+
+            # Matches the sibling list route: this is the route individual secrets are
+            # read through, so its responses must not sit in any cache.
+            return JSONResponse(content=payload, headers={"Cache-Control": "no-store"})
 
     except Exception as e:
         logger.error(f"Error fetching setting {key}: {e}")
@@ -194,11 +329,6 @@ async def update_setting(update: SettingUpdate, request: Request):
             # Check if setting exists
             result = await session.execute(select(AppSettingsTable).where(AppSettingsTable.key == update.key))
             setting = result.scalar_one_or_none()
-
-            def _safe_log_value(key: str, value: str) -> str:
-                if _is_sensitive_setting(key) and value:
-                    return f"{value[:8]}...({len(value)} chars)"
-                return value
 
             old_value = setting.value if setting else None
             if setting:
@@ -238,10 +368,13 @@ async def update_setting(update: SettingUpdate, request: Request):
                 reset_langfuse_client()
                 logger.info("Langfuse client reset after %s update", update.key)
 
+            # Echoing the value back would re-open the read path this module just closed.
             return {
                 "success": True,
                 "key": update.key,
-                "value": update.value,
+                "value": None if _is_sensitive_setting(update.key) else update.value,
+                "sensitive": _is_sensitive_setting(update.key),
+                "configured": bool(update.value),
                 "message": "Setting updated successfully",
             }
 

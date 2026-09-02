@@ -13,6 +13,7 @@ from src.services import provider_model_catalog as catalog_module
 from src.services.provider_model_catalog import (
     DEFAULT_CATALOG,
     MODEL_CONTEXT_TOKENS,
+    find_provider_model_mismatch,
     get_model_context_tokens,
     load_catalog,
     save_catalog,
@@ -284,3 +285,89 @@ class TestContextWindowCoverage:
         # chat-latest pointers are 128K context regardless of family
         assert MODEL_CONTEXT_TOKENS["gpt-5.2-chat-latest"] == 128_000
         assert MODEL_CONTEXT_TOKENS["gpt-5.3-chat-latest"] == 128_000
+
+
+@pytest.mark.unit
+class TestFindProviderModelMismatch:
+    """find_provider_model_mismatch must only reject provably-wrong pairs.
+
+    Regression context: a SigmaAgent configured as codex/gpt-5.6-sol was silently
+    re-provider'd to lmstudio, producing a pairing that existed nowhere in config and
+    a phantom 'model is not loaded' error. Rejecting bad pairs at the write boundary
+    stops that class of divergence at its source -- but the checker must not reject the
+    codex pairs that the live config and three shipped quickstart presets rely on.
+    """
+
+    def test_codex_with_openai_family_model_is_valid(self):
+        """Codex serves the OpenAI model namespace; the catalog files those models
+        under 'openai' and has no codex key at all."""
+        for model in ("gpt-5.6-sol", "gpt-5.6-luna", "gpt-5.6-terra"):
+            assert find_provider_model_mismatch("codex", model) is None, model
+
+    def test_matching_provider_and_model_is_valid(self):
+        assert find_provider_model_mismatch("openai", "gpt-4o-mini") is None
+        assert find_provider_model_mismatch("anthropic", "claude-sonnet-5") is None
+
+    def test_lmstudio_paired_with_openai_model_is_rejected(self):
+        """The exact divergence documented in workflow/config.js: an agent stored as
+        provider lmstudio holding an OpenAI model."""
+        problem = find_provider_model_mismatch("lmstudio", "gpt-5.6-sol")
+        assert problem is not None
+        assert "gpt-5.6-sol" in problem
+        assert "openai" in problem
+        assert "lmstudio" in problem
+
+    def test_anthropic_paired_with_openai_model_is_rejected(self):
+        assert find_provider_model_mismatch("anthropic", "gpt-4o") is not None
+
+    def test_openai_paired_with_anthropic_model_is_rejected(self):
+        assert find_provider_model_mismatch("openai", "claude-sonnet-5") is not None
+
+    def test_unknown_model_is_allowed(self):
+        """Local LMStudio models and newly released models are absent from the
+        catalog; absence is not evidence of a mismatch."""
+        assert find_provider_model_mismatch("lmstudio", "qwen/qwen3-4b-2507") is None
+        assert find_provider_model_mismatch("openai", "gpt-9-unreleased") is None
+
+    def test_blank_provider_or_model_is_allowed(self):
+        assert find_provider_model_mismatch("", "gpt-4o") is None
+        assert find_provider_model_mismatch("openai", "") is None
+        assert find_provider_model_mismatch(None, None) is None
+
+    def test_provider_case_and_whitespace_are_normalized(self):
+        assert find_provider_model_mismatch("  CODEX  ", "gpt-5.6-sol") is None
+        assert find_provider_model_mismatch("LMStudio", "gpt-5.6-sol") is not None
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            json.JSONDecodeError("bad", "", 0),
+            OSError("catalog unreadable"),
+            UnicodeDecodeError("utf-8", b"", 0, 1, "bad"),
+        ],
+    )
+    def test_unreadable_catalog_does_not_block_writes(self, error):
+        """A daily Celery job rewrites this file; a torn or unreadable read must not
+        turn into a 500 on an unrelated config save."""
+        with patch.object(Path, "read_text", side_effect=error):
+            assert find_provider_model_mismatch("lmstudio", "gpt-5.6-sol") is None
+
+    def test_ownership_reads_the_file_not_the_display_projection(self):
+        """load_catalog() applies Workflow/Settings dropdown filters. Ownership must
+        not inherit that presentation policy."""
+        with patch.object(catalog_module, "load_catalog", side_effect=AssertionError("display filter used")):
+            assert find_provider_model_mismatch("codex", "gpt-5.6-sol") is None
+            assert find_provider_model_mismatch("lmstudio", "gpt-5.6-sol") is not None
+
+    def test_every_shipped_quickstart_preset_passes(self):
+        """A shipped preset that cannot be imported is a release blocker."""
+        preset_dir = CATALOG_FILE.parent / "presets" / "AgentConfigs" / "quickstart"
+        presets = sorted(preset_dir.glob("*.json"))
+        assert presets, "no quickstart presets found"
+        for path in presets:
+            data = json.loads(path.read_text())
+            for agent, block in data.items():
+                if not isinstance(block, dict) or "Provider" not in block:
+                    continue
+                problem = find_provider_model_mismatch(block.get("Provider"), block.get("Model"))
+                assert problem is None, f"{path.name} / {agent}: {problem}"

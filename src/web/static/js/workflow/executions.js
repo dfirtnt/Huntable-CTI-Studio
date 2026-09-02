@@ -54,6 +54,8 @@ function describeTermination(reason, details) {
 
 function getStepBadge(step) {
     const steps = {
+        'os_detection': '🖥️ OS Detection',
+        'context_length_check': '📏 Context Length Check',
         'junk_filter': '🔍 Filter',
         'rank_article': '📊 Rank',
         'extract_agent': '🔬 Extract',
@@ -61,7 +63,8 @@ function getStepBadge(step) {
         'similarity_search': '🔎 Similarity',
         'promote_to_queue': '📥 Queue'
     };
-    return steps[step] || step || '-';
+    if (step === undefined || step === null || step === '') return '(unset)';
+    return steps[step] || step;
 }
 
 function formatLocalDateTime(timestamp) {
@@ -253,7 +256,7 @@ function renderExecutions() {
             <td class="q-col-status">
                 <div style="display:flex;align-items:center">${getStatusBadge(exec.status)}${getTerminationBadge(exec.termination_reason)}</div>
             </td>
-            <td class="q-step-badge q-col-step">${getStepBadge(exec.current_step)}</td>
+            <td class="q-step-badge q-col-step" title="${escapeHtml(exec.current_step || '')}">${getStepBadge(exec.current_step)}</td>
             <td class="q-cell-sim q-col-score">${exec.ranking_score ? exec.ranking_score.toFixed(1) : '-'}</td>
             ${showObservableCounts ? observableCountColumns.map(col => `
                 <td class="q-cell-sim q-col-observable-count" style="text-align:center">${formatObservableCount(exec, col.key)}</td>

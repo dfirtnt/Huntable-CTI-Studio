@@ -39,6 +39,7 @@ jobs:
           --ignore-vuln GHSA-rf74-v2fm-23pw
           --ignore-vuln CVE-2026-33230
           --ignore-vuln CVE-2026-33231
+          --ignore-vuln PYSEC-2026-3740
           --ignore-vuln CVE-2026-4539
           --ignore-vuln GHSA-926x-3r5x-gfhw
           --ignore-vuln CVE-2026-3219
@@ -48,7 +49,10 @@ jobs:
           --ignore-vuln CVE-2025-3000
           --ignore-vuln CVE-2025-69872
         # --skip-editable: sigma-atom-similarity is a local uv workspace member; not on PyPI
-        # nltk: no fixed release for GHSA-rf74 / CVE-2026-33230 / CVE-2026-33231 yet
+        # nltk: no fixed release for GHSA-rf74 / CVE-2026-33230 / CVE-2026-33231 /
+        #   PYSEC-2026-3740 (path traversal in model-artifact APIs) yet -- 3.10.3 is
+        #   nltk's latest PyPI release and pip-audit still flags it. nltk is a
+        #   transitive test-only dependency of `safety`, never used by app code.
         # PYSEC-2026-161: starlette 1.0.1 fix breaks FastAPI 0.135.1 at runtime; track as coordinated FastAPI+starlette upgrade
         # langchain-core GHSA-926x-3r5x-gfhw: transitive dep of langgraph; fix in 1.2.28
         # CVE-2026-3219 / CVE-2026-6357 / PYSEC-2026-196: affect pip the tool, not our code; runner upgrade path
@@ -106,6 +110,14 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --frozen --group test
+
+      - name: Install tesseract-ocr
+        # The 'ingest' dependency group (pulled in by 'test') installs pytesseract,
+        # so /api/health/services genuinely probes for the tesseract binary instead
+        # of falling back to the not-applicable branch. Without the system package
+        # here, the health rollup honestly reports "missing" and this job's own
+        # health-endpoint assertions fail.
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng
 
       - name: Start web app
         run: |
@@ -276,6 +288,12 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --frozen --group test
+
+      - name: Install tesseract-ocr
+        # See the smoke job's identical step: the 'ingest' group installs
+        # pytesseract, so the services health check genuinely probes for the
+        # binary here too.
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng
 
       - name: Initialize test database schema
         run: |

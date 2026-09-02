@@ -466,6 +466,20 @@ _SORT_COLUMNS = {
     "created_at": AgenticWorkflowExecutionTable.created_at,
 }
 
+# `current_step` has rows with NULL and rows with '' depending on when they were
+# written; the Step filter dropdown surfaces this bucket explicitly as "(unset)"
+# via this sentinel rather than leaving it unfilterable or silently backfilling
+# historical rows.
+UNSET_STEP_FILTER_VALUE = "__unset__"
+
+
+def _step_filter_condition(step: str):
+    if step == UNSET_STEP_FILTER_VALUE:
+        return or_(
+            AgenticWorkflowExecutionTable.current_step.is_(None), AgenticWorkflowExecutionTable.current_step == ""
+        )
+    return AgenticWorkflowExecutionTable.current_step == step
+
 
 @router.get("/executions", response_model=ExecutionListResponse)
 def list_workflow_executions(
@@ -490,7 +504,7 @@ def list_workflow_executions(
             if article_id:
                 base_filters.append(E.article_id == article_id)
             if step:
-                base_filters.append(E.current_step == step)
+                base_filters.append(_step_filter_condition(step))
             if exclude_evals:
                 # IS DISTINCT FROM handles NULL correctly: rows without eval_run key are kept
                 base_filters.append(
@@ -532,7 +546,7 @@ def list_workflow_executions(
             if status:
                 query = query.filter(E.status == status)
             if step:
-                query = query.filter(E.current_step == step)
+                query = query.filter(_step_filter_condition(step))
             if exclude_evals:
                 # Two shapes to exclude: legacy rows carry eval_run inline, post-
                 # externalization rows carry only {"snapshot_id": N} and hold the

@@ -75,7 +75,7 @@ Each agent's prompt config is a JSON object with these fields:
 
 | Field | Purpose | Required? |
 |---|---|---|
-| `role` (or `system`) | Persona -- who the agent is. Identity and expertise only, not task instructions. | Yes (RankAgent raises `ValueError` if missing; extractors fall back to a generic default) |
+| `role` (or `system`) | Persona -- who the agent is. Identity and expertise only, not task instructions. | Yes (RankAgent raises `PreprocessInvariantError` if a JSON prompt config resolves to no system/role; extractors fall back to a generic default) |
 | `task` (or `objective`) | What the agent does this run -- a verb-level statement. | Recommended (falls back to "Extract information.") |
 | `instructions` | Rules, constraints, negative scope, output format, JSON enforcement. | Recommended (falls back to "Output valid JSON.") |
 | `json_example` | Concrete JSON showing the exact output schema including all fields. | Recommended |

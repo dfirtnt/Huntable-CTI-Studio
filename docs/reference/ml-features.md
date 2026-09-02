@@ -2,7 +2,6 @@
 
 Definitions for all 20 features used by the v3 content-filter model (`extract_features_v3()` in `src/utils/content_filter.py`). v1 (27 features) and v2 (19 features) are legacy; do not use as reference for the current model.
 
-
 ## Overview
 
 The content filter runs a **RandomForestClassifier** trained and inferred against a fixed 20-feature vector produced by `extract_features_v3()`. Features are positional — the RF's `feature_importances_` array maps 1:1 to the dict returned by `extract_features_v3()` in declaration order.
@@ -10,7 +9,6 @@ The content filter runs a **RandomForestClassifier** trained and inferred agains
 **Feature version auto-detection:** `load_model()` reads `<model_path>.meta.json` and sets `feature_version` automatically. Do not pass `feature_version` manually at inference unless you are testing a specific version.
 
 **Eval metrics (v3):** F1 ≈ 0.89, measured on the curated eval set (240 rows at measurement time, 2026-05; the committed `outputs/evaluation_data/eval_set.csv` now holds 317 rows).
-
 
 **Legacy versions:**
 - v1 (`extract_features()`) — 27 features; deprecated; legacy pkl files with no `.meta.json` sidecar default to v1.
@@ -177,7 +175,6 @@ Count of perfect-discriminator keyword matches, with noisy short patterns exclud
 
 **Detection:** Iterates `HUNT_SCORING_KEYWORDS["perfect_discriminators"]` (114 patterns as of v7.5.0, including the macOS/Linux carriers added 2026-06-21), skipping `V3_NOISY_PERFECT_DISCRIMINATORS` = `{"MZ", "C:\\", "D:\\"}`. Remaining patterns are matched case-insensitively against the raw text via `re.escape()`.
 
-
 **Pattern categories:**
 - Windows executables: `rundll32.exe`, `msiexec.exe`, `svchost.exe`, `lsass.exe`, `wscript.exe`, `conhost.exe`, `winlogon.exe`
 - Registry/environment: `hklm`, `appdata`, `programdata`, `WINDIR`, `wintmp`, `\\temp\\`, `\\pipe\\`
@@ -255,7 +252,6 @@ This is the primary aggregate positive signal. The RF uses it as a length-normal
 
 `load_model()` reads `<model_path>.meta.json` and sets `self.feature_version` automatically. Training (`train_model()`) writes this sidecar. A missing sidecar means a legacy v1 pkl; `load_model()` logs a warning and defaults to `"v1"`.
 
-
 ---
 
 ## Model Training Reference
@@ -292,4 +288,4 @@ Feature importances are learned from training data; call `model.feature_importan
 `HUNT_SCORING_KEYWORDS["perfect_discriminators"]` is imported from `src/utils/content.py` and shared by both the keyword-scoring system and the v3 extractor. Since v7.5.0 the dict is derived from the faceted registry `config/keyword_registry.yaml` via `build_hunt_scoring_keywords()` (`src/utils/keyword_registry.py`); edit the registry, not the dict. Changes affect both systems.
 
 _Last updated: 2026-07-17_
-_Last reviewed: 2026-05-22_
+_Last reviewed: 2026-09-01_

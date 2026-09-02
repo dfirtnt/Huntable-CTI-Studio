@@ -11,8 +11,34 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException
 
 from src.web.dependencies import logger
+from src.worker import celeryconfig
 
 router = APIRouter(tags=["Tasks"])
+
+# Physical worker processes, from docker-compose.yml's `-Q` flags: cti_worker
+# consumes every queue except `workflows`, which only cti_workflow_worker
+# consumes. Job History attributes each row to one of these two, derived from
+# the queue rather than guessing from the task name.
+_WORKFLOW_QUEUES = {"workflows"}
+
+
+def _resolve_task_queue(task_name: str | None) -> str:
+    """Return the queue a task name routes to, per celeryconfig.task_routes.
+
+    Mirrors Celery's own routing: an explicit entry wins, otherwise the task
+    default queue -- both real facts about where the task would run, not a
+    guess. "unknown" only when the task name itself isn't recoverable.
+    """
+    if not task_name:
+        return "unknown"
+    route = celeryconfig.task_routes.get(task_name)
+    if route and route.get("queue"):
+        return route["queue"]
+    return celeryconfig.task_default_queue
+
+
+def _worker_type_for_queue(queue: str) -> str:
+    return "Workflow" if queue in _WORKFLOW_QUEUES else "General"
 
 
 @router.get("/api/tasks/{task_id}/status")
@@ -153,15 +179,13 @@ async def api_jobs_queues():
         )
         redis_client = redis.from_url(redis_url, decode_responses=True)
 
+        # Derive the queue set from celeryconfig.task_queues (not a parallel
+        # literal here) so a new/removed queue there can't silently drift out
+        # of what this endpoint reports. Celery's built-in default queue uses
+        # the Redis list key "celery" regardless of task_default_queue's name.
         queues = {
-            "default": redis_client.llen("celery"),
-            "source_checks": redis_client.llen("source_checks"),
-            "priority_checks": redis_client.llen("priority_checks"),
-            "maintenance": redis_client.llen("maintenance"),
-            "reports": redis_client.llen("reports"),
-            "connectivity": redis_client.llen("connectivity"),
-            "collection": redis_client.llen("collection"),
-            "workflows": redis_client.llen("workflows"),
+            name: redis_client.llen("celery" if name == celeryconfig.task_default_queue else name)
+            for name in celeryconfig.task_queues
         }
 
         return {
@@ -197,12 +221,22 @@ async def api_jobs_history(limit: int = 50):
                 task_data = redis_client.get(key)
                 if task_data:
                     task_info = json.loads(task_data)
+                    # `name` requires celeryconfig.result_extended = True; older
+                    # entries written before that setting took effect (or any
+                    # result backend that doesn't support it) won't have it --
+                    # queue/worker_type correctly fall back to "unknown" below
+                    # rather than emitting a confident wrong value.
+                    task_name = task_info.get("name")
+                    queue = _resolve_task_queue(task_name)
                     recent_tasks.append(
                         {
                             "task_id": key.replace("celery-task-meta-", ""),
                             "status": task_info.get("status"),
                             "result": task_info.get("result"),
                             "date_done": task_info.get("date_done"),
+                            "task_name": task_name,
+                            "queue": queue,
+                            "worker_type": _worker_type_for_queue(queue) if task_name else "unknown",
                         }
                     )
             except Exception as exc:  # noqa: BLE001

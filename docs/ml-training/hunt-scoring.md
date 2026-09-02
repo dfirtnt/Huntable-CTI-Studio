@@ -1,6 +1,5 @@
 # Hunt Scoring
 
-
 ## ML-Based Hunt Scoring System
 
 The `ml_hunt_score` is an article-level score produced by a RandomForest classifier operating on text chunks. It complements the keyword-based `threat_hunting_score` (0-100) with a model-trained perspective.
@@ -11,9 +10,9 @@ The `ml_hunt_score` is an article-level score produced by a RandomForest classif
 2. **ML prediction**: The RandomForest classifier labels each chunk "Huntable" or "Not Huntable" with a confidence score (0-1).
 3. **Score aggregation**: Chunk-level predictions aggregate into an article-level score (0-100).
 
-## Metric Options (Historical Reference — Not Runtime-Selectable)
+## Metric Options (Historical Reference, Not Runtime-Selectable)
 
-> **Historical reference only.** The per-article `ml_hunt_score` aggregate was retired. `calculate_ml_hunt_score` and `update_article_ml_hunt_score` no longer exist in `ChunkAnalysisService`; `store_chunk_analysis` does not write `ml_hunt_score` to article metadata. Existing rows retain the field as legacy data. No config key or CLI flag exposes metric selection — this section documents the options that existed when the feature was active.
+> **Historical reference only.** The per-article `ml_hunt_score` aggregate was retired. `calculate_ml_hunt_score` and `update_article_ml_hunt_score` no longer exist in `ChunkAnalysisService`; `store_chunk_analysis` does not write `ml_hunt_score` to article metadata. Existing rows retain the field as legacy data. No config key or CLI flag exposes metric selection; this section documents the options that existed when the feature was active.
 
 ### 1. `weighted_average` (was the default)
 
@@ -114,9 +113,7 @@ Average confidence of chunks above a 50% threshold.
 
 ### Recalculation
 
-The ML vs Hunt Comparison Dashboard (`POST /api/ml-model-performance/backfill`) reruns chunk-level predictions across all articles with `hunt_score > 50`. It does not rewrite `ml_hunt_score` — chunk analysis results are the current scoring surface.
-
-
+The ML vs Hunt Comparison Dashboard (`POST /api/ml-model-performance/backfill`) reruns chunk-level predictions across all articles with `hunt_score > 50`. It does not rewrite `ml_hunt_score`; chunk analysis results are the current scoring surface.
 
 ## Comparison with Keyword-Based Score
 
@@ -164,7 +161,6 @@ The ML vs Hunt Comparison Dashboard (`POST /api/ml-model-performance/backfill`) 
 ---
 
 ## ML vs Hunt Comparison Dashboard
-
 
 The ML vs Hunt Comparison Dashboard compares RandomForest predictions against the keyword hunt score across model versions. Use it to monitor model drift, trigger retraining, run evaluations, and process backfill.
 
@@ -242,7 +238,7 @@ After retraining, new feedback is marked "used." Previously used feedback stays 
 ### Test Set
 
 - **Size**: 317 annotated chunks (the committed `eval_set.csv`; was 240 before the 2026-05 fixture sync)
-- **Source**: `article_annotations` table; exported to `outputs/evaluation_data/eval_set.csv`
+- **Source**: `config/labeled_chunks/` source files, built into `outputs/evaluation_data/eval_set.csv` by `scripts/prepare_eval_set.py`
 - **Labeling**: manually annotated by users
 
 ---
@@ -276,7 +272,6 @@ Processes articles with `hunt_score > 50` to populate chunk analysis data for th
 
 ## API Endpoints
 
-
 ### Model Management (`/api/model/*`)
 
 | Method | Path | Description |
@@ -293,7 +288,7 @@ Processes articles with `hunt_score > 50` to populate chunk analysis data for th
 | `GET` | `/api/model/feedback-count` | Count of available feedback and annotation samples |
 | `POST` | `/api/feedback/chunk-classification` | Submit user feedback for a chunk |
 
-### Data Processing — Canonical router (`/api/ml-model-performance/*`)
+### Data Processing: Canonical Router (`/api/ml-model-performance/*`)
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -364,10 +359,10 @@ Three settings influence dashboard metrics:
 ### Monitoring
 
 - Check the dashboard weekly for metric trends.
-- Watch for sudden shifts in Agreement or ML Only categories — these signal distribution changes.
+- Watch for sudden shifts in Agreement or ML Only categories; these signal distribution changes.
 - Prioritize high-quality, representative feedback over volume.
 
 ---
 
 _Last updated: 2026-07-05_
-_Last reviewed: 2026-05-22_
+_Last reviewed: 2026-09-01_

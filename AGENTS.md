@@ -124,6 +124,7 @@ python3 run_tests.py ui          # pytest + Playwright sections
 python3 run_tests.py ui --playwright-only   # skip pytest UI section
 python3 run_tests.py integration # container-managed
 python3 run_tests.py all         # full suite
+make css                         # rebuild src/web/static/css/tailwind.css (commit the result)
 ```
 
 `run_tests.py` manages `.venv`, strips cloud LLM keys from test env, and auto-starts
@@ -131,6 +132,10 @@ isolated test containers (postgres:5433, redis:6380, web:8002). It re-execs with
 `.venv/bin/python3` if the system `python3` is <3.10.
 
 Lint: `ruff check && ruff format --check` (CI enforces).
+Styling: Tailwind is a **local build**, not a CDN. `src/web/static/css/tailwind.css` is
+generated and committed -- run `make css` after adding utility classes or a class string in
+Python, or the new classes silently do nothing. Fragment-built names (`` `bg-${c}-100` ``)
+need a `safelist` entry in `tailwind.config.js`. See `docs/contracts/ui-designer.md`.
 Typecheck: `uv run mypy src --config-file pyproject.toml`.
 Dead code: `uv run vulture src scripts vulture_whitelist.py --min-confidence 80`.
 

@@ -8,15 +8,21 @@ Thank you for your interest in contributing to Huntable CTI Studio! This documen
 - [Getting Started](#getting-started)
 - [Development Setup](#development-setup)
 - [Code Style](#code-style)
+- [File Organization](#file-organization)
 - [Testing](#testing)
 - [Pull Request Process](#pull-request-process)
 - [Reporting Bugs](#reporting-bugs)
 - [Feature Requests](#feature-requests)
 - [Security Issues](#security-issues)
+- [Documentation](#documentation)
+- [Release Process](#release-process)
+- [Getting Help](#getting-help)
 
 ## Code of Conduct
 
-This project and everyone participating in it is governed by our Code of Conduct. By participating, you are expected to uphold this code.
+Contributors are expected to be respectful and constructive in issues, pull requests, and
+reviews. This repository does not currently ship a `CODE_OF_CONDUCT.md`; if one is added,
+link it here.
 
 ## Getting Started
 
@@ -42,6 +48,8 @@ This project and everyone participating in it is governed by our Code of Conduct
    ```
 
 ## Development Setup
+
+For the full local setup walkthrough, see [Development Setup](development/setup.md).
 
 > **Package manager:** This project uses [`uv`](https://github.com/astral-sh/uv) (not pip). CI runs `uv sync --frozen` and `uv run` for all Python commands. Install uv before the steps below.
 
@@ -152,7 +160,7 @@ Huntable-CTI-Studio/
 
 ## Testing
 
-**For comprehensive testing documentation, see the Testing Guide in the tests directory.**
+**For comprehensive testing documentation, see `tests/TESTING.md`in the repo root.**
 
 ### Quick Testing Commands
 
@@ -175,7 +183,7 @@ python3 run_tests.py ui
 ### Test Coverage
 
 - CI enforces coverage gates on `src.services`/`src.utils` in `.github/workflows/tests.yml`
-  (currently 60% combined baseline, 68% for `src.services`, 20% for `src.utils` — not a repo-wide 85% target)
+  (currently 60% combined baseline, 68% for `src.services`, 20% for `src.utils`; not a repo-wide 85% target)
 - Write tests for new features
 - Update tests when modifying existing functionality
 - Use appropriate test markers and categories
@@ -188,7 +196,7 @@ For ML feedback features, follow the balanced testing approach:
 - **Keep tests simple and maintainable**
 - **Test the 3 essential areas**: Huntable probability calculation, API contracts, and retraining workflow
 
-See the testing documentation for detailed guidelines.
+See `tests/TESTING.md`in the repo root for detailed guidelines.
 
 ## Pull Request Process
 
@@ -361,8 +369,7 @@ We follow [Semantic Versioning](https://semver.org/):
 - **Issues**: GitHub issue tracker
 - **Discussions**: GitHub discussions
 - **Documentation**: Project README and docs
-- **Email**: For security issues only
-
+- **Security**: See [Security Issues](#security-issues) above
 ## Acknowledgments
 
 Thank you to all contributors who have helped make Huntable CTI Studio better! Your contributions are greatly appreciated.
@@ -370,3 +377,4 @@ Thank you to all contributors who have helped make Huntable CTI Studio better! Y
 ---
 
 _Last updated: 2026-07-05_
+_Last reviewed: 2026-09-01_

@@ -7,7 +7,7 @@
 
 ## Background
 
-The content filter is a RandomForest binary classifier (`models/content_filter.pkl`) that labels article chunks "Huntable" or "Not Huntable". It runs in the `cti_web` container and is trained on human-labeled feedback from the annotation UI.
+The content filter is a RandomForest binary classifier (`models/content_filter.pkl`) that labels article chunks "Huntable" or "Not Huntable". It runs in the `cti_web` container and is trained on human-labeled feedback from the annotation UI. See [Content Filtering](../features/content-filtering.md) for how the filter fits into the extraction pipeline.
 
 **Key paths**
 
@@ -28,16 +28,16 @@ The content filter is a RandomForest binary classifier (`models/content_filter.p
 `./setup.sh` now handles everything automatically:
 
 1. Docker services start and DB migrates.
-2. `setup.sh` calls `docker exec cti_web python3 scripts/seed_model.py` if `models/content_filter.pkl` is absent.
+2. `setup.sh` calls `docker exec cti_web python3 scripts/seed_model.py --no-register` if `models/content_filter.pkl` is absent.
 3. `seed_model.py` trains from `config/eval_articles_data/` fixtures and then calls `prepare_eval_set.py` to write `outputs/evaluation_data/eval_set.csv`.
 
-If the seed step is skipped or fails, run it manually:
+If the seed step is skipped or fails, run it manually (this also registers a DB version, since it omits `--no-register`):
 
 ```bash
 docker exec cti_web python3 scripts/seed_model.py
 ```
 
-After seeding, the MLOps page at **Settings → MLOps** shows version 1 and a green accuracy metric.
+After an automated `setup.sh` seed, the model file exists and serves traffic, but **Settings → MLOps** shows zero versions until the first retrain succeeds. After the manual command above, the page shows version 1 with a green accuracy metric.
 
 ### Verify the model is loaded
 
@@ -45,7 +45,7 @@ After seeding, the MLOps page at **Settings → MLOps** shows version 1 and a gr
 curl -s http://localhost:8001/api/ml-model-performance/summary | python3 -m json.tool
 ```
 
-Expected response includes a `"summary"` object with `"total_model_versions": 1` (or higher) and a non-null `"eval_set_size"`.
+Expected response includes a `"summary"` object with a non-null `"eval_set_size"`. `"total_model_versions"` is `0` after an automated `setup.sh` seed (no DB registration) or `1`+ after a manual seed or any completed retrain.
 
 ---
 
@@ -121,6 +121,7 @@ Chunks are labeled in the article detail view. Each label is stored in `article_
 ```sql
 SELECT selected_text, annotation_type FROM article_annotations
 WHERE used_for_training = FALSE
+AND LENGTH(selected_text) BETWEEN 950 AND 1050
 ```
 
 (The retrain script aliases these as `highlighted_text`/`classification` internally — `scripts/retrain_with_feedback.py`.)
@@ -266,9 +267,10 @@ docker logs cti_web 2>&1 | grep "\[retrain"
 | `scripts/seed_model.py` | Train initial model from eval article fixtures; also runs `prepare_eval_set.py` |
 | `scripts/retrain_with_feedback.py` | Full retrain pipeline (stage → evaluate → gate → promote) |
 | `scripts/prepare_eval_set.py` | Build `eval_set.csv` from `config/labeled_chunks/` |
-| `src/utils/content_filter.py` | Feature extraction (v1/v2/v3) and model I/O |
+| `src/utils/content_filter.py` | Feature extraction (v1/v2/v3) and model I/O; see [ML Model Feature Definitions](../reference/ml-features.md) |
 | `src/utils/model_evaluation.py` | `ModelEvaluator` — runs holdout evaluation |
 | `src/utils/model_versioning.py` | Version DB records, artifact resolution, rollback |
 | `src/web/routes/models.py` | API routes: `/retrain`, `/rollback/{id}`, `/versions` |
 
 _Last updated: 2026-07-05_
+_Last reviewed: 2026-09-01_

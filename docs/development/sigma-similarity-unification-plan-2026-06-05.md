@@ -29,6 +29,8 @@ Result: **a fix in one place does not propagate.** Concrete symptom that trigger
 | 4 | Workflow Config | `/workflow` | `src/web/templates/workflow.html` | threshold slider + queue similarity column |
 | 5 | Workflow Executions | `/workflow-executions` | `src/web/templates/workflow_executions.html` | similarity results summary per execution |
 
+*(Historical note: `sigma_queue.html` and `workflow_executions.html` (rows 3 and 5) were deleted 2026-07-17, commit `1c52528c` -- both were unreachable duplicate templates the whole time, since every `/workflow*` and `/sigma-queue` route had already been serving `workflow.html` via `workflow_ui.py`. Their Phase 4 fixes below landed correctly in the live `workflow.html`; the parallel edits to these dead copies were wasted but harmless. Current queue-review and per-execution similarity surfaces both live in `workflow.html`.)*
+
 ### Vestigial 6th surface (do NOT count as live)
 The **Article Detail `#sigma` modal** in `src/web/templates/article_detail.html` (backend `GET /api/articles/{id}/sigma-matches` in `src/web/routes/ai.py` ~line 2416) is a leftover from the **deprecated AI/ML Assistant modal** (deprecated in commit `a2a245f2`, ~v5.2.0, 2026-01-21). There is **no button entrypoint** anymore — the "Generate Sigma Rules" trigger and the regenerate buttons were gutted to deprecation notices. The container modal only auto-opens via the `/articles/{id}#sigma` URL fragment, for articles that already have `sigma_rules` stored in metadata, and the `🔍 Similarity Search` button inside is further gated on the article having an embedding. The backend endpoint is **still live** and still re-implements novelty thresholds (see Phase 2). **Decision deferred to Phase 5:** delete it outright vs. fold it in.
 
@@ -146,3 +148,5 @@ But the frontend block at `sigma_similarity_test.html` ~lines 274–294 reads `b
 - **Template edits** verified via pytest template-contract tests, not the live `:8001` browser (Docker-served from main tree). Browser-verify only after merge.
 - **Contract sources of truth:** `src/config/workflow_config_schema.py`, `src/database/models.py`.
 - **Smallest safe first commit:** Phase 1 serializer behind additive aliases — high leverage, reversible, no UI change.
+
+_Last reviewed: 2026-09-01_

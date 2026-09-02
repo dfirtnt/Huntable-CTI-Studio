@@ -371,6 +371,55 @@ test.describe('Sigma Queue UI', () => {
     await expect(page.locator('#queueTableBody')).toBeAttached();
   });
 
+  test('stats panel includes a Needs Review card and its count is numeric', async ({ page }) => {
+    // Regression guard: updateQueueStats() previously read only 4 of the 5
+    // status_counts keys the API returns, silently dropping needs_review (the
+    // largest bucket) from the summary with no filter shortcut for it.
+    await openQueueTab(page);
+
+    const needsReviewCard = page.locator('#queueStats .q-stat-card.needs_review');
+    await expect(needsReviewCard).toBeVisible();
+    await expect(needsReviewCard).toContainText('Needs Review');
+
+    const countText = await page.locator('#needsReviewCount').textContent();
+    expect(countText).toMatch(/^\d+$/);
+
+    // Clicking it must filter the queue, matching the existing stat cards' behavior.
+    await needsReviewCard.click();
+    await expect(page.locator('#queueStatusFilter')).toHaveValue('needs_review');
+    await expect(needsReviewCard).toHaveClass(/q-stat-card--active/);
+  });
+
+  test('job-filter banner is hidden on a plain visit and shows a deep-linked job id', async ({ page }) => {
+    // Regression guard: a page-local `.q-job-filter-bar { display: flex }` rule
+    // (declared after Tailwind's `.hidden` in source order) previously beat the
+    // `hidden` utility class at equal specificity, so the "Showing rules from
+    // job <blank>" banner rendered on every plain visit to #queue.
+    await openQueueTab(page);
+
+    const bar = page.locator('#queueJobFilterBar');
+    await expect(bar).toBeHidden();
+
+    // A synthetic numeric jobId is valid client-side regardless of whether the
+    // execution exists -- updateQueueJobFilterBar() only checks the URL param.
+    const initialLoadPromise = page.waitForResponse(
+      (resp: any) => resp.url().includes('/api/sigma-queue/list') && resp.status() === 200,
+      { timeout: 15000 },
+    );
+    await page.goto(`${BASE}/workflow?jobId=999999#queue`);
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForSelector('#queueTableBody', { timeout: 15000 });
+    await initialLoadPromise.catch(() => {});
+
+    await expect(bar).toBeVisible();
+    await expect(page.locator('#queueJobFilterId')).toHaveText('999999');
+
+    // CLEAR FILTER removes the jobId param and hides the bar again.
+    await page.locator('#queueJobFilterBar .q-job-filter-clear').click();
+    await expect(bar).toBeHidden();
+    expect(page.url()).not.toContain('jobId=');
+  });
+
   test('pending rule added via API appears in the queue table', async ({ page, request }) => {
     const articleId = await fetchFirstArticleId(request);
     if (!articleId) {

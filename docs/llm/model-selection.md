@@ -6,13 +6,13 @@ This guide answers one question: **which LLM model do I use for each Huntable CT
 
 It covers cloud models (OpenAI, Anthropic), the optional local LM Studio provider, and the optional subscription-backed Codex provider for the three-stage pipeline. LM Studio is not required by the application or its embedding features.
 
-1. **Rank Agent** — Evaluates article quality and huntability (1–10 score)
-2. **Extractor Agents** — Extracts observables (command lines, process trees, registry keys, services, hunt queries, scheduled tasks, network indicators)
-3. **Sigma Generator** — Synthesizes extracted observables into detection rules
+1. **Rank Agent**: Evaluates article quality and huntability (1–10 score)
+2. **Extractor Agents**: Extracts observables (command lines, process trees, registry keys, services, hunt queries, scheduled tasks, network indicators)
+3. **Sigma Generator**: Synthesizes extracted observables into detection rules
 
 **Related documents:**
-- [Context Window Rationale](context-window-rationale.md) — Engineering rationale for the 16K local context ceiling, KV cache math, fail-closed protocol
-- [Cloud Model Reference](cloud-model-reference.md) — OpenAI/Anthropic model catalog, bare-vs-dated snapshot versioning, eval transfer analysis
+- [Context Window Rationale](context-window-rationale.md): Engineering rationale for the 16K local context ceiling, KV cache math, fail-closed protocol
+- [Cloud Model Reference](cloud-model-reference.md): OpenAI/Anthropic model catalog, bare-vs-dated snapshot versioning, eval transfer analysis
 
 ---
 
@@ -39,6 +39,12 @@ Start here. Optimize from measured bottlenecks, not theory.
 | **Any workflow stage** | Codex subscription model | — | Optional deployment-managed ChatGPT subscription; the workflow UI lists models available to its Codex login |
 
 **Default starting point:** Qwen3-14B-Instruct across all stages. Optimize from there.
+
+!!! note "This differs from the shipped default"
+    The out-of-box `docker-compose.yml` default is `qwen/qwen3-4b-2507` for
+    `LMSTUDIO_MODEL_RANK`, `LMSTUDIO_MODEL_EXTRACT`, and `LMSTUDIO_MODEL_SIGMA` -- a 4B
+    model chosen to run on modest hardware. The 14B recommendation here is the tuning
+    target, not what ships. Override the env vars to move up.
 
 ---
 
@@ -97,7 +103,7 @@ Sigma YAML is structurally simple. Instruction-tuned models handle it well. Over
 - Verbose output tendency
 - Models >14B (overkill for classification)
 
-**Primary choice:** Qwen3-8B-Instruct — fast, stable, minimal over-reasoning.
+**Primary choice:** Qwen3-8B-Instruct: fast, stable, minimal over-reasoning.
 
 **Alternatives:** Llama 3.3-8B-Instruct (slightly more verbose), Phi-3-Medium-14B-Instruct (conservative scorer), Qwen2.5-7B-Instruct.
 
@@ -115,7 +121,7 @@ Sigma YAML is structurally simple. Instruction-tuned models handle it well. Over
 
 **Task:** Extract explicitly stated observables with zero inference. Active types: CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract, NetworkIndicatorExtract.
 
-**Cognitive profile:** Deterministic pattern matching, literal text grounding, strict JSON output. Precision over recall — false positives are critical failures.
+**Cognitive profile:** Deterministic pattern matching, literal text grounding, strict JSON output. Precision over recall; false positives are critical failures.
 
 **The test:** If a model explains its extraction decision unprompted, it's the wrong model. Extraction should feel mechanical.
 
@@ -129,9 +135,9 @@ Sigma YAML is structurally simple. Instruction-tuned models handle it well. Over
 - Creative/chat optimization (will elaborate)
 - Models <7B (insufficient context handling)
 
-**Primary choice:** Qwen3-14B-Instruct — exceptional literal grounding, strong "do not infer" compliance.
+**Primary choice:** Qwen3-14B-Instruct: exceptional literal grounding, strong "do not infer" compliance.
 
-**Parallel alternative:** 4× Qwen3-8B-Instruct — faster pipeline, minimal precision loss, requires ~20 GB VRAM.
+**Parallel alternative:** 4× Qwen3-8B-Instruct: faster pipeline, minimal precision loss, requires ~20 GB VRAM.
 
 **Other alternatives:** Qwen2.5-14B-Instruct, Mistral-Nemo-12B-Instruct, Phi-3.5-14B-Instruct.
 
@@ -155,7 +161,7 @@ Sigma YAML is structurally simple. Instruction-tuned models handle it well. Over
 **HuntQueriesExtract-specific gates (next revision):**
 - `queries` must be true EDR/SIEM query snippets, not shell/tool commands
 - Gate on schema-level fields: Defender `Device*Events`, Falcon `ProcessRollup2`, Splunk `index=/sourcetype=/|tstats`, Elastic `process.command_line:`
-- Keep Sigma extraction separate — require both `logsource:` and `detection:` verbatim in YAML
+- Keep Sigma extraction separate: require both `logsource:` and `detection:` verbatim in YAML
 - When uncertain, exclude
 
 ---
@@ -175,9 +181,9 @@ Sigma YAML is structurally simple. Instruction-tuned models handle it well. Over
 | AND/OR logic based on article context | Speculating on evasion techniques |
 | Choosing detection level (low/med/high/critical) | Multi-stage detections unsupported by extractions |
 
-**Primary choice:** Qwen3-14B-Instruct — best balance of reasoning + structured output.
+**Primary choice:** Qwen3-14B-Instruct: best balance of reasoning + structured output.
 
-**Optimal choice (if VRAM available):** Llama 3.1-70B-Instruct — superior reasoning for complex multi-observable rules, ~40 GB VRAM.
+**Optimal choice (if VRAM available):** Llama 3.1-70B-Instruct: superior reasoning for complex multi-observable rules, ~40 GB VRAM.
 
 **Alternatives:** Qwen3-Coder-14B-Instruct (marginal YAML improvement), DeepSeek-Coder-33B-Instruct (excellent but 20 GB), Qwen2.5-Coder-14B-Instruct.
 
@@ -190,7 +196,7 @@ Sigma YAML is structurally simple. Instruction-tuned models handle it well. Over
 - Include logic operator guidance (when AND vs OR)
 - Define detection level criteria
 
-**Repair pass uses this same model:** When a rule fails the deterministic pySigma validation gate, the per-rule repair pass reuses this Sigma Generator model, provider, temperature, and `top_p` (and the same system prompt) — only the user prompt differs (`sigma_repair_single`). There is no separate repair model to select; choosing the Sigma Generator model also chooses the repair model. See [QA Loops](../architecture/qa-loops.md#sigma-qa).
+**Repair pass uses this same model:** When a rule fails the deterministic pySigma validation gate, the per-rule repair pass reuses this Sigma Generator model, provider, temperature, and `top_p` (and the same system prompt); only the user prompt differs (`sigma_repair_single`). There is no separate repair model to select; choosing the Sigma Generator model also chooses the repair model. See [QA Loops](../architecture/qa-loops.md#sigma-qa).
 
 ---
 
@@ -255,19 +261,19 @@ Context window is set to 16K for local models. See [Context Window Rationale](co
 
 Cloud models use a separate default (80K) via `WORKFLOW_CLOUD_CONTEXT_TOKENS`. The difference reflects fundamentally different infrastructure economics, not a quality judgment.
 
-### Minimum Viable — 12 GB VRAM
+### Minimum Viable (12 GB VRAM)
 
 Sequential processing. Rank → Extract (one at a time) → Generate.
 
 ~9 GB peak. ~2–3 minutes per article.
 
-### Standard — 24 GB VRAM
+### Standard (24 GB VRAM)
 
 Parallel extraction (4× Qwen3-8B). ~20 GB peak during extraction, ~9 GB during generation.
 
 ~1–1.5 minutes per article.
 
-### Optimal — 48 GB+ VRAM
+### Optimal (48 GB+ VRAM)
 
 Parallel extraction (4× Qwen3-14B) + Llama 3.1-70B generator.
 
@@ -298,7 +304,7 @@ Parallel extraction (4× Qwen3-14B) + Llama 3.1-70B generator.
 
 ### Migrating from Qwen2.5 to Qwen3
 
-Same prompt format — drop-in replacement. Test on 20 articles, compare precision/recall. Migrate only if measurable improvement >5%. Qwen2.5 remains viable.
+Same prompt format, drop-in replacement. Test on 20 articles, compare precision/recall. Migrate only if measurable improvement >5%. Qwen2.5 remains viable.
 
 ---
 
@@ -333,3 +339,4 @@ Always verify model hash against official releases.
 ---
 
 _Last updated: 2026-07-05_
+_Last reviewed: 2026-09-01_

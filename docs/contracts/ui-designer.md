@@ -44,10 +44,12 @@ Never use ad-hoc `onclick="document.getElementById('x').classList.toggle('hidden
 <html lang="en" class="dark">   <!-- class="dark" is mandatory -->
 ```
 ```js
-tailwind.config = { darkMode: 'class' }  // inline, right after CDN load -- do not remove
+// tailwind.config.js (repo root)
+module.exports = { darkMode: 'class', /* ... */ }
 ```
 
-Removing either one silently breaks the theme on light-mode OS.
+Removing either one silently breaks the theme on light-mode OS. `darkMode` moved from an
+inline block in `base.html` to the build config when Tailwind stopped loading from a CDN.
 
 ### Colors -- CSS variables only
 
@@ -91,6 +93,17 @@ Only add these three attributes -- the runtime does the rest:
 
 Do NOT manually add `panel-toggle`, `role="button"`, `aria-expanded`, or `tabindex` -- `initCollapsiblePanels()` adds them automatically.
 
+**Documented exception -- the `/workflow#config` pipeline steps.** The six `.section-header`
+triggers, the `.rail-item` buttons and the `.sa-header` rows do not use `data-collapsible-panel`
+and must keep their hand-written ARIA. They are an accordion driven by `scrollToStep`: state
+lives in `.step-section.open`, exactly one section is open at a time, and opening also aligns
+the scroll container and the left rail. `initCollapsiblePanels()` models an independent
+show/hide per panel and cannot express any of that. Their Enter/Space handling is one delegated
+`keydown` listener in `static/js/workflow/prompt-editor.js` that calls `click()` on the trigger,
+reusing the inline `onclick`; `aria-expanded` is synced from `scrollToStep`, the only live
+mutation path for `.step-section.open`. Guarded by `TestWorkflowConfigRegressions` in
+`tests/ui/test_workflow_comprehensive_ui.py`.
+
 ---
 
 ## Pre-Flight Checklist
@@ -104,7 +117,8 @@ Run this before marking any UI task complete:
 - [ ] All modals and overlays registered with `modal-manager.js`
 - [ ] Escape = back one level; Enter = primary action; Ctrl+Enter = submit from textarea
 - [ ] ARIA attributes on all interactive components (see Section 7)
-- [ ] Dark theme verified -- `class="dark"` on `<html>` and inline `tailwind.config` both present
+- [ ] Dark theme verified -- `class="dark"` on `<html>`, and `darkMode: 'class'` in `tailwind.config.js`
+- [ ] `make css` re-run if you added or changed any utility class (see Section 1)
 - [ ] No emoji in UI chrome (buttons, headings, tab labels, modal headers)
 - [ ] ASCII only in code and HTML comments -- no Unicode em-dash, curly quotes, ellipsis
 - [ ] No `!important` unless overriding a third-party style
@@ -134,15 +148,17 @@ UI change completed.
 ### Cards and layout
 - Do NOT write `bg-gray-800 border border-gray-700 rounded-lg shadow p-X` -- use `.card p-X`
 - Do NOT redefine reserved class names (`.card-header`, `.card-title`, `.nav-item`, `.diag-card`, `.quality-*`, `.priority-*`) -- see Section 6.0.1
-- Do NOT manually add `.panel-toggle`, `role="button"`, or `aria-expanded` to collapsible triggers -- `initCollapsiblePanels()` does this automatically
+- Do NOT manually add `.panel-toggle`, `role="button"`, or `aria-expanded` to collapsible triggers -- `initCollapsiblePanels()` does this automatically (one documented exception: the `/workflow#config` step headers, rail and sub-agent rows -- see Section "Collapsible panels")
 - Do NOT stack margin+padding on the same element to create spacing (pick one)
 - Do NOT use `py-4` or larger on form controls (selects, inputs) -- max `py-2`
 
 ### Color and theme
 - Do NOT hardcode hex colors in inline `style=""` -- use CSS custom properties
 - Do NOT remove `class="dark"` from `<html>` in `base.html`
-- Do NOT remove the inline `tailwind.config = { darkMode: 'class' }` block
+- Do NOT remove `darkMode: 'class'` from `tailwind.config.js`
 - Do NOT rely on `dark:` variants without the `darkMode: 'class'` config above
+- Do NOT re-add a `cdn.tailwindcss.com` script tag -- that host rejects SRI, so the tag is
+  unverifiable by construction (guarded by `tests/unit/test_base_template_external_resources.py`)
 
 ### Icons and emoji
 - Do NOT use emoji as icons in UI chrome (buttons, tab labels, headings, modal headers) -- use inline SVG
@@ -166,13 +182,24 @@ UI change completed.
 |-------|------------|-------------------|
 | Backend | FastAPI | `src/web/modern_main.py` |
 | Templates | Jinja2 | `src/web/templates/`; `base.html` is the layout |
-| Styling | Tailwind CSS (CDN) | Utility classes; design tokens in `theme-variables.css` |
+| Styling | Tailwind CSS (local build) | Utility classes; run `make css` after adding any; design tokens in `theme-variables.css` |
 | Design tokens | CSS custom properties | `src/web/static/css/theme-variables.css` (source of truth) |
 | Components | Vanilla JS | Modals, collapsibles, and shared widgets in `src/web/static/js/`; no framework runtime |
 | Charts | Chart.js | Included in `base.html` |
 | Icons | Inline SVG | Heroicons-style, `stroke="currentColor"`, `viewBox="0 0 24 24"` |
 
 Designs must use **Tailwind utility classes** and **CSS custom properties** from `theme-variables.css`. No new CSS frameworks or build steps unless explicitly requested.
+
+**Tailwind is a local build, not a CDN.** `src/web/static/css/tailwind.css` is generated from
+`tailwind.config.js` and committed. A class only exists in that file if the build could find it
+as a literal string, so:
+
+- Run `make css` after adding or changing utility classes, and commit the result. Skipping this
+  ships a stale stylesheet and the new classes silently do nothing.
+- Class names assembled from fragments (`` `bg-${color}-100` ``) are invisible to the scanner and
+  must be added to `safelist` in `tailwind.config.js`. Interpolating a *complete* class string is fine.
+- Class strings held in Python are scanned too (`./src/**/*.py` is in `content`) -- see
+  `src/utils/keyword_resolution.py`.
 
 ---
 
@@ -227,12 +254,12 @@ The app is **dark-theme only**. Tailwind's `dark:` variants must always activate
 This is guaranteed by:
 
 1. `<html lang="en" class="dark">` in `base.html` (the `dark` class is mandatory)
-2. Inline Tailwind config `tailwind.config = { darkMode: 'class' }` right after the CDN script load
+2. `darkMode: 'class'` in `tailwind.config.js`, compiled into `src/web/static/css/tailwind.css`
 
 **Do NOT:**
 - Remove `class="dark"` from the `<html>` element
-- Remove the inline `tailwind.config` block
-- Rely on `prefers-color-scheme: dark` (the default CDN behavior fails on light-mode OS)
+- Remove `darkMode: 'class'` from `tailwind.config.js`
+- Rely on `prefers-color-scheme: dark` (Tailwind's default `darkMode: 'media'` fails on light-mode OS)
 - Write `dark:text-white` alone and expect it to work without the class config above
 
 When in doubt, prefer direct classes (`text-white`) or CSS variables (`style="color: var(--text-primary)"`) over `dark:` variants for critical text.
@@ -547,6 +574,15 @@ All modals and overlays MUST use `src/web/static/js/modal-manager.js`. No ad-hoc
 - Open with `ModalManager.open(id, hidePrevious)`.
 - Close with `ModalManager.close(id)`.
 
+**Auto-registration can silently drop your `onClose`.** `modal-manager.js` has its
+own `DOMContentLoaded` listener that auto-registers any `[id$="Modal"]` element
+with defaults (no `onClose`). Because that listener runs before a page's own
+inline-script registration, a page's explicit `ModalManager.register(id, {
+onClose })` call is silently a no-op -- `registerModal()` skips re-registering
+an already-registered id unless told to. Pass `forceUpdate: true` to win the
+race and make your options (especially `onClose`) actually take effect. See
+`sourceConfigModal` in `sources.html`.
+
 ### 6.4 Primary Action Button Resolution
 
 The modal manager auto-detects the primary button using this priority:
@@ -567,7 +603,23 @@ Fullscreen overlays are modals. They MUST:
 3. Support Ctrl+Enter to trigger Save
 4. Have a visible Collapse/Close button (`.btn-toggle` with arrows-pointing-in icon)
 5. Use backdrop blur: `background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);`
-6. Have `role="dialog"`, `aria-modal="true"`, `aria-label="<description>"`
+6. Have `role="dialog"`, `aria-modal="true"`, and an accessible name. Prefer
+   `aria-labelledby` pointing at the visible heading: an `aria-label` that says
+   something different from the visible title means a voice-control user saying
+   the name they can see cannot address the dialog (WCAG 2.5.3 Label in Name),
+   and a hand-written label drifts the moment the heading is reworded.
+7. Move focus into the dialog on open, landing on a control that does nothing
+   destructive (the close button is the safe default), and restore focus to the
+   opener on close.
+8. Lock background scroll while open and restore the previous value on close.
+
+**`ModalManager` does not do 7 or 8 for you.** It manages the modal stack, shows
+and hides, and focuses the first `input`/`textarea`/`select` it finds after
+100ms -- which is whatever happens to be first in the DOM, not necessarily a safe
+target. It has no focus trap, no focus restore, and no scroll lock, so a modal
+needing those must wire them itself (see `showChunkDebugResults` /
+`closeChunkDebugModal` in `article_detail.html`). A `setTimeout` longer than
+100ms is required to win over its first-input focus.
 
 ### 6.6 Overflow Menus
 
@@ -588,7 +640,7 @@ The "More..." footer menu is NOT a modal. It is a simple toggle (`classList.togg
 |-----------|-------------------|
 | Collapsible panel trigger | `role="button"`, `tabindex="0"`, `aria-expanded`, `aria-controls` |
 | Collapsible panel content | `role="region"`, `id` matching `aria-controls` |
-| Modal / overlay | `role="dialog"`, `aria-modal="true"`, `aria-label` |
+| Modal / overlay | `role="dialog"`, `aria-modal="true"`, and an accessible name -- `aria-labelledby` pointing at the visible heading, or `aria-label` **matching that heading's text** (WCAG 2.5.3 Label in Name) |
 | Toggle switch | `aria-label` on the checkbox input |
 | Form inputs | `aria-label` or associated `<label>` |
 | Navigation | `aria-label` on `<nav>` elements |

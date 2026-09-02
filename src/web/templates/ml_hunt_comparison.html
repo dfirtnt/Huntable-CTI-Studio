@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}ML vs Hunt Scoring Comparison - Huntable CTI Studio{% endblock %}
+{% block title %}Model Performance - Huntable CTI Studio{% endblock %}
 
 {% block content %}
 
@@ -555,7 +555,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js" integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js" integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ" crossorigin="anonymous"></script>
     <script>
         let currentData = {
             stats: [],
@@ -646,10 +646,28 @@
         };
 
         // Load initial data
-        async function loadInitialData() {
+        // Fetches /api/model/versions (unpaginated) and /api/model/feedback-count
+        // together. loadInitialData() and refreshRetrainingStatus() both need
+        // this data on page load; passing the same in-flight promise to both
+        // (see the DOMContentLoaded handler) collapses that to one request per
+        // endpoint instead of two.
+        async function _fetchVersionsAndFeedback() {
+            const [versionsResponse, feedbackResponse] = await Promise.all([
+                fetch('/api/model/versions', { cache: 'no-store' }),
+                fetch('/api/model/feedback-count'),
+            ]);
+            if (!versionsResponse.ok) throw new Error('HTTP ' + versionsResponse.status + ' loading model versions');
+            if (!feedbackResponse.ok) throw new Error('HTTP ' + feedbackResponse.status + ' loading feedback count');
+            const versionsData = await versionsResponse.json();
+            const feedbackData = await feedbackResponse.json();
+            return { versionsData, feedbackData };
+        }
+
+        async function loadInitialData(preloadedVF) {
             try {
                 // Load summary
                 const summaryResponse = await fetch('/api/ml-model-performance/summary', { cache: 'no-store' });
+                if (!summaryResponse.ok) throw new Error('HTTP ' + summaryResponse.status + ' loading summary');
                 const summaryData = await summaryResponse.json();
                 if (summaryData.success) {
                     currentData.summary = summaryData.summary;
@@ -670,31 +688,27 @@
 
                 // Load stats
                 const statsResponse = await fetch('/api/ml-model-performance/stats');
+                if (!statsResponse.ok) throw new Error('HTTP ' + statsResponse.status + ' loading stats');
                 const statsData = await statsResponse.json();
                 if (statsData.success) {
                     currentData.stats = statsData.stats;
             }
-            
-            // Load model versions for evaluation metrics.
-            // cache: 'no-store' prevents the browser returning a stale
-            // response after a retrain adds a new version.
-            const versionsResponse = await fetch('/api/model/versions', { cache: 'no-store' });
-            const versionsData = await versionsResponse.json();
+
+            const { versionsData, feedbackData } = (preloadedVF && typeof preloadedVF.then === 'function')
+                ? await preloadedVF
+                : await _fetchVersionsAndFeedback();
             if (versionsData.success) {
                 currentData.modelVersions = versionsData.versions;
             }
 
             // Load classification timeline
             const timelineResponse = await fetch('/api/model/classification-timeline', { cache: 'no-store' });
+            if (!timelineResponse.ok) throw new Error('HTTP ' + timelineResponse.status + ' loading classification timeline');
             const timelineData = await timelineResponse.json();
             if (timelineData.success) {
                 currentData.timeline = timelineData.timeline;
             }
-            
-            // Check feedback count and disable retrain button if no feedback available
-            const feedbackResponse = await fetch('/api/model/feedback-count');
-            const feedbackData = await feedbackResponse.json();
-            
+
             // Update feedback count display
             const feedbackElement = document.getElementById('feedbackCount');
             if (feedbackElement && feedbackData.success) {
@@ -817,6 +831,13 @@
 
         const evaluatedCount = accuracyPoints.filter(value => value !== null).length;
 
+        const allSeriesPoints = [...accuracyPoints, ...precisionPoints, ...recallPoints, ...f1Points]
+            .filter(value => value !== null && !isNaN(value));
+        const dataMin = allSeriesPoints.length ? Math.min(...allSeriesPoints) : 0;
+        const dataMax = allSeriesPoints.length ? Math.max(...allSeriesPoints) : 100;
+        const yAxisMin = Math.max(0, Math.floor(dataMin - 5));
+        const yAxisMax = Math.min(100, Math.ceil(dataMax + 5));
+
         if (evaluatedCount === 0) {
             ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
             ctx.fillText('No evaluation data available', 10, 50);
@@ -886,18 +907,26 @@
                     maintainAspectRatio: false,
                     scales: {
                         y: {
-                            beginAtZero: true,
-                            max: 100,
+                            min: yAxisMin,
+                            max: yAxisMax,
                             ticks: {
+                                color: getThemeColor('--chart-tick') || '#9ca3af',
                                 callback: function(value) {
                                     return value + '%';
                                 }
+                            },
+                            grid: {
+                                color: getThemeColor('--chart-grid-muted') || 'rgba(156, 163, 175, 0.1)'
                             }
                         },
                         x: {
                             ticks: {
+                                color: getThemeColor('--chart-tick') || '#9ca3af',
                                 maxRotation: 45,
                                 minRotation: 45
+                            },
+                            grid: {
+                                color: getThemeColor('--chart-grid-muted') || 'rgba(156, 163, 175, 0.1)'
                             }
                         }
                 },
@@ -1030,6 +1059,7 @@
                 countElement.textContent = 'Checking...';
                 
                 const response = await fetch('/api/ml-model-performance/eligible-count');
+                if (!response.ok) throw new Error('HTTP ' + response.status);
                 const data = await response.json();
                 
                 if (data.success) {
@@ -1167,7 +1197,8 @@
                         'Content-Type': 'application/json'
                     }
                 });
-                
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+
                 const data = await response.json();
                 
                     if (data.success) {
@@ -1493,7 +1524,8 @@
                     'Content-Type': 'application/json'
                 }
             });
-            
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+
             const data = await response.json();
             
             if (data.success) {
@@ -1530,6 +1562,7 @@
         const pollInterval = setInterval(async () => {
             try {
                 const response = await fetch('/api/model/retrain-status');
+                if (!response.ok) throw new Error('HTTP ' + response.status);
                 const status = await response.json();
                 
                 // Update progress
@@ -1600,29 +1633,27 @@
         }, 2000); // Poll every 2 seconds
     }
     
-    async function refreshRetrainingStatus() {
+    async function refreshRetrainingStatus(preloadedVF) {
         const statusElement = document.getElementById('retrainingStatus');
         const feedbackElement = document.getElementById('feedbackCount');
         const retrainBtn = document.getElementById('retrainModelBtn');
         const refreshBtn = document.getElementById('refreshRetrainBtn');
-        
+
         try {
             // Show loading state on refresh button
             refreshBtn.disabled = true;
             refreshBtn.textContent = 'Refreshing...';
-            
+
             statusElement.textContent = 'Checking...';
             feedbackElement.textContent = 'Loading...';
-            
-            // Get latest model version and feedback count
-            const [versionsResponse, feedbackResponse] = await Promise.all([
-                fetch('/api/model/versions'),
-                fetch('/api/model/feedback-count')
-            ]);
-            
-            const versionsData = await versionsResponse.json();
-            const feedbackData = await feedbackResponse.json();
-            
+
+            // Get latest model version and feedback count. On initial page
+            // load the caller passes the same in-flight promise loadInitialData()
+            // is awaiting, so the two endpoints are fetched once, not twice.
+            const { versionsData, feedbackData } = (preloadedVF && typeof preloadedVF.then === 'function')
+                ? await preloadedVF
+                : await _fetchVersionsAndFeedback();
+
             if (versionsData.success && versionsData.versions.length > 0) {
                 const latest = versionsData.versions[0]; // Already sorted by version number
                 if (latest.accuracy) {
@@ -1690,18 +1721,25 @@
 
 
         document.addEventListener('DOMContentLoaded', () => {
-            loadInitialData();
+            // One shared fetch for /api/model/versions + /api/model/feedback-count;
+            // loadInitialData() and refreshRetrainingStatus() both await it instead
+            // of each issuing their own identical request.
+            const versionsAndFeedback = _fetchVersionsAndFeedback();
+            loadInitialData(versionsAndFeedback);
             checkEligibleCount();
-            refreshRetrainingStatus();
-            
+            refreshRetrainingStatus(versionsAndFeedback);
+
             // Add event listeners
             document.getElementById('retrainModelBtn').addEventListener('click', retrainModel);
             document.getElementById('refreshRetrainBtn').addEventListener('click', refreshRetrainingStatus);
             document.getElementById('processEligibleBtn').addEventListener('click', processEligibleArticles);
 
-            // Load version history on page load
-            refreshModelVersionHistory();
-            
+            // Load version history on page load, reusing the same versions
+            // response for the default (page 1, no search) view.
+            versionsAndFeedback.then(({ versionsData }) => {
+                refreshModelVersionHistory(false, (versionsData && versionsData.success) ? versionsData.versions : null);
+            });
+
             // Zoom controls
             const zoomInBtn = document.getElementById('zoomInBtn');
             const zoomOutBtn = document.getElementById('zoomOutBtn');
@@ -1747,7 +1785,11 @@
             setModelVersionHistoryCollapsed(!body.classList.contains('hidden'));
         }
 
-        async function refreshModelVersionHistory(expandPanel) {
+        // preloadedVersions: the already-fetched unpaginated version list (see
+        // _fetchVersionsAndFeedback), reused for the default page-1/no-search
+        // view so page load doesn't also hit the paginated endpoint for data
+        // it already has. Any page change or search still fetches fresh.
+        async function refreshModelVersionHistory(expandPanel, preloadedVersions) {
             const listEl = document.getElementById('modelVersionHistoryList');
             if (!listEl) return;
             if (expandPanel) {
@@ -1760,11 +1802,23 @@
             listEl.appendChild(loadingP);
 
             try {
-                var url = '/api/model/versions?page=' + _mvhPage + '&limit=' + _mvhLimit;
-                if (_mvhSearch) url += '&version=' + encodeURIComponent(_mvhSearch);
+                var data;
+                if (preloadedVersions && _mvhPage === 1 && !_mvhSearch) {
+                    var total = preloadedVersions.length;
+                    data = {
+                        success: true,
+                        versions: preloadedVersions.slice(0, _mvhLimit),
+                        total_versions: total,
+                        total_pages: Math.max(1, Math.ceil(total / _mvhLimit)),
+                    };
+                } else {
+                    var url = '/api/model/versions?page=' + _mvhPage + '&limit=' + _mvhLimit;
+                    if (_mvhSearch) url += '&version=' + encodeURIComponent(_mvhSearch);
 
-                var resp = await fetch(url);
-                var data = await resp.json();
+                    var resp = await fetch(url);
+                    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                    data = await resp.json();
+                }
 
                 if (!data.success || !data.versions || !data.versions.length) {
                     listEl.innerHTML = '';
@@ -1946,6 +2000,19 @@
             }
         }
 
+        // FastAPI validation errors put an array of {msg, ...} objects in
+        // `detail`; string-concatenating that array yields "[object Object]".
+        function formatApiErrorDetail(result) {
+            const detail = result && result.detail;
+            if (Array.isArray(detail)) {
+                return detail.map(function(d) { return (d && d.msg) || JSON.stringify(d); }).join('; ');
+            }
+            if (detail && typeof detail === 'object') {
+                return JSON.stringify(detail);
+            }
+            return detail || (result && result.message) || 'Unknown error';
+        }
+
         async function executeRollback() {
             if (_pendingRollbackVersionId === null) return;
             const versionId     = _pendingRollbackVersionId;
@@ -1968,7 +2035,7 @@
                     await refreshRetrainingStatus();
                     setTimeout(function() { progressSection.classList.add('hidden'); }, 6000);
                 } else {
-                    progressText.textContent = '\u274C Rollback failed: ' + (result.detail || result.message || 'Unknown error');
+                    progressText.textContent = '\u274C Rollback failed: ' + formatApiErrorDetail(result);
                     setTimeout(function() { progressSection.classList.add('hidden'); }, 8000);
                 }
             } catch (err) {

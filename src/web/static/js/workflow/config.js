@@ -18,6 +18,10 @@ const extractSubAgents = EXTRACT_SUB_AGENTS;
 let disabledExtractAgents = new Set();
 let autoSaveTimeout = null; // Debounce timer for autosave
 let autoSaveModelChangeTimeout = null; // Debounce timer for model-change autosave
+// True while applyAgentConfigs() is writing stored values into the form. Change
+// events fired during that window come from the code, not the operator, so they
+// must not schedule a save.
+let isApplyingStoredConfig = false;
 // Agents whose prompt bodies are held in form state but not yet persisted (e.g. loaded
 // from a preset). Autosave deliberately does not transmit prompts, so its response must
 // not overwrite these -- doing so silently discards an import before the user can Save.
@@ -328,7 +332,8 @@ function isValidOpenAIChatModel(modelId) {
  * @param {string} modelId - Model identifier
  * @returns {boolean} - true if valid, false if invalid
  */
-function validateProviderModelCombination(agentPrefix, provider, modelId) {
+function validateProviderModelCombination(agentPrefix, provider, modelId, options = {}) {
+    const skipAsync = options.skipAsync === true;
     if (!modelId || !modelId.trim()) {
         // Empty model is valid (will use fallback)
         clearProviderModelError(agentPrefix);
@@ -382,10 +387,14 @@ function validateProviderModelCombination(agentPrefix, provider, modelId) {
         showProviderModelError(agentPrefix, fullMessage);
     } else {
         clearProviderModelError(agentPrefix);
-        // Optionally do async server-side validation for extra confidence (non-blocking)
-        validateProviderModelCombinationAsync(agentPrefix, normalizedProvider, trimmed).catch(e => {
-            console.warn('Async model validation failed:', e);
-        });
+        // Optionally do async server-side validation for extra confidence (non-blocking).
+        // Skipped for bulk/load-time sync passes over all agents -- client-side validation
+        // above is authoritative there; the async pass only matters for an actual user edit.
+        if (!skipAsync) {
+            validateProviderModelCombinationAsync(agentPrefix, normalizedProvider, trimmed).catch(e => {
+                console.warn('Async model validation failed:', e);
+            });
+        }
     }
     
     return isValid;
@@ -1176,7 +1185,16 @@ function collectAllAgentConfigs(models = null) {
  */
 function applyAgentConfigs(models = null) {
     const agentModelsData = models || agentModels || {};
-    
+
+    // Applying stored values drives the same DOM controls a person would, and
+    // setAgentProvider dispatches a real 'change' so dependent UI rebuilds. That
+    // change reaches onAgentProviderChange, which schedules an autosave -- so
+    // simply displaying the saved config wrote it back, once per agent, on every
+    // page load. Suppress scheduling for the duration; nothing here is a user edit.
+    const wasApplyingStoredConfig = isApplyingStoredConfig;
+    isApplyingStoredConfig = true;
+    try {
+
     // So provider-change handlers and refreshAllProviderBlocks see preset when rebuilding inputs
     if (models && typeof models === 'object' && Object.keys(models).length > 0) {
         agentModels = { ...models };
@@ -1228,6 +1246,10 @@ function applyAgentConfigs(models = null) {
         if (config.temperatureKey) updateThresholdDisplay(`${config.prefix}-temperature`);
         if (config.topPKey) updateThresholdDisplay(`${config.prefix}-top-p`);
     });
+
+    } finally {
+        isApplyingStoredConfig = wasApplyingStoredConfig;
+    }
 }
 
 /**
@@ -1419,7 +1441,7 @@ function buildProviderSelect(agentId, currentProvider) {
     `;
 }
 
-function updateAgentProviderVisibility(agentPrefix, provider) {
+function updateAgentProviderVisibility(agentPrefix, provider, options = {}) {
     const normalized = (provider || getDefaultProvider()).toString().trim().toLowerCase();
     const groups = document.querySelectorAll(`[data-agent-prefix="${agentPrefix}"]`);
     groups.forEach(group => {
@@ -1617,7 +1639,7 @@ function applyProviderSelections(models) {
             }
         }
         
-        updateAgentProviderVisibility(config.prefix, provider);
+        updateAgentProviderVisibility(config.prefix, provider, { skipAsync: true });
         if (typeof window.renderSubAgentCommercialInputs === 'function') {
             window.renderSubAgentCommercialInputs(config.prefix);
         }
@@ -1682,7 +1704,7 @@ function syncProviderVisibilityAndInputs() {
         const select = document.getElementById(`${config.prefix}-provider`);
         if (!select) return;
         const provider = (select.value || getDefaultProvider()).toString().trim().toLowerCase();
-        updateAgentProviderVisibility(config.prefix, provider);
+        updateAgentProviderVisibility(config.prefix, provider, { skipAsync: true });
         if (typeof window.renderSubAgentCommercialInputs === 'function') {
             window.renderSubAgentCommercialInputs(config.prefix);
         }
@@ -1781,10 +1803,19 @@ function onAgentProviderChange(agentPrefix) {
         });
     }
     
-    // Validate current model against new provider
+    // Validate current model against new provider.
+    // `options` is not in scope here -- b482190b passed a variable this function
+    // never had, so every provider change threw a ReferenceError and abandoned the
+    // rest of the handler (inheritance hints, control bindings, the autosave).
+    // This handler runs for real user edits AND for the change events
+    // setAgentProvider() dispatches while applyAgentConfigs() replays stored
+    // values on load. A user edit wants full validation including the async
+    // check; the stored-replay pass must suppress it, exactly like the other
+    // bulk/load-time callers pass skipAsync -- otherwise every OpenAI-qualified
+    // agent fires an /api/validate-model POST on page load.
     const currentModel = getActiveAgentModelValue(agentPrefix, provider);
     if (currentModel) {
-        validateProviderModelCombination(agentPrefix, provider, currentModel);
+        validateProviderModelCombination(agentPrefix, provider, currentModel, { skipAsync: isApplyingStoredConfig });
     } else {
         clearProviderModelError(agentPrefix);
     }
@@ -1810,7 +1841,7 @@ function refreshAllProviderBlocks() {
         const prefix = select.id.replace(/-provider$/, '');
         const provider = (select.value || getDefaultProvider()).toString().trim().toLowerCase();
         // __dbgLog('H4', 'refreshAllProviderBlocks iterate', { prefix, provider });
-        updateAgentProviderVisibility(prefix, provider);
+        updateAgentProviderVisibility(prefix, provider, { skipAsync: true });
         // Update temperature limit based on provider
         updateTemperatureLimit(prefix, provider);
         if (typeof window.renderSubAgentCommercialInputs === 'function') {
@@ -2336,16 +2367,9 @@ function validateAgentPrompt(agentName) {
 
     // Prefer the live textarea (edit mode); fall back to stored prompt when the
     // panel is collapsed/read-only so Validate works before clicking Edit.
-    const systemTextarea = document.getElementById(`${agentId}-prompt-system`)
-                        || document.getElementById(`${agentId}-prompt-system-2`);
-    let systemVal;
-    if (systemTextarea) {
-        systemVal = (systemTextarea.value || '').trim();
-    } else {
-        const parts = getAgentPromptParts(agentName);
-        // Plain-text prompts land in parts.user; structured (JSON) prompts land in parts.system.
-        systemVal = (parts.system || parts.user || '').trim();
-    }
+    // Shared with the load-time badges so a badge and this button can never
+    // disagree about what was validated.
+    const systemVal = _promptValueForValidation(agentName);
 
     const issues = _collectPromptIssues(agentName, systemVal);
     _renderValidateResult(resultDiv, issues);
@@ -3483,7 +3507,7 @@ function renderAgentModels(lmstudioModels) {
                 providerSelect.value = provider;
             }
             // Update visibility of provider sections
-            updateAgentProviderVisibility(agent.prefix, provider);
+            updateAgentProviderVisibility(agent.prefix, provider, { skipAsync: true });
         });
         if (typeof normalizeWorkflowConfigControlBindings === 'function') {
             normalizeWorkflowConfigControlBindings();
@@ -3952,6 +3976,10 @@ async function testSigmaAgent(articleId) {
 // Auto-save model changes immediately
 // Unified autosave function for all config changes (except prompts which require manual save)
 window.autoSaveConfig = async function autoSaveConfig() {
+    // Same reasoning as autoSaveModelChange: a change the loader made is not an edit.
+    if (isApplyingStoredConfig) {
+        return;
+    }
     // Skip autosave during page initialization to prevent version jumps
     if (isInitializing) {
         console.log('Skipping autosave during initialization');
@@ -3997,7 +4025,7 @@ async function performAutoSave() {
             Object.values(AGENT_CONFIG).forEach(config => {
                 const provider = getAgentProvider(config.prefix) || getDefaultProvider();
                 const model = getAgentModel(config.prefix, provider);
-                if (model && !validateProviderModelCombination(config.prefix, provider, model)) {
+                if (model && !validateProviderModelCombination(config.prefix, provider, model, { skipAsync: true })) {
                     // Only block if this model value differs from what is already stored.
                     // If it matches, the error is pre-existing -- let the save proceed.
                     const storedModel = currentConfig.agent_models[config.modelKey];
@@ -4032,8 +4060,16 @@ async function performAutoSave() {
         
         // Collect all agent configs using unified system
         const collectedAgentConfigs = collectAllAgentConfigs();
-        
+
         const agentModelsData = {
+            // Carry forward every agent_models key the server holds that this form
+            // does not produce (SigmaEmbeddingModel has no config panel, so
+            // collectAllAgentConfigs never emits it). Without this the PUT is a
+            // partial payload and only survives because the backend merges rather
+            // than replaces -- the same shape as the partial-PUT config wipe.
+            // Seeded, not overlaid: keys the form does manage keep their exact
+            // existing semantics, including the deliberate empty-string clears.
+            ...unmanagedStoredAgentModels(collectedAgentConfigs),
             ...collectedAgentConfigs,
             OSDetectionAgent_selected_os: ['Windows']
         };
@@ -4067,6 +4103,15 @@ async function performAutoSave() {
                 }
             } else if (value !== null && value !== '') {
                 cleanedAgentModels[key] = value;
+            } else if (value === '' && typeof currentConfig?.agent_models?.[key] === 'string'
+                       && currentConfig.agent_models[key] !== '') {
+                // The control read back blank because it could not represent the
+                // stored value (a model absent from the selected provider's option
+                // list), not because anyone cleared it. Dropping the key here left
+                // the payload short of what the server holds, so the write only
+                // stayed lossless thanks to the backend's merge. Carry the stored
+                // value instead: the request is now complete on its own.
+                cleanedAgentModels[key] = currentConfig.agent_models[key];
             }
         }
 
@@ -4312,6 +4357,9 @@ function validateAgentModelOnChange(agentPrefix) {
  * Wraps autoSaveConfig with validation.
  */
 window.autoSaveModelChange = function() {
+    // Guard at schedule time, not inside the debounce: applyAgentConfigs() is
+    // synchronous and would have finished long before a 400ms timer fired.
+    if (isApplyingStoredConfig) return Promise.resolve();
     if (autoSaveModelChangeTimeout) clearTimeout(autoSaveModelChangeTimeout);
     return new Promise((resolve) => {
         autoSaveModelChangeTimeout = setTimeout(() => {
@@ -4330,7 +4378,7 @@ window.autoSaveModelChange = function() {
                 Object.values(AGENT_CONFIG).forEach(config => {
                     const provider = getAgentProvider(config.prefix) || getDefaultProvider();
                     const model = getAgentModel(config.prefix, provider);
-                    if (model && !validateProviderModelCombination(config.prefix, provider, model)) {
+                    if (model && !validateProviderModelCombination(config.prefix, provider, model, { skipAsync: true })) {
                         const storedModel = currentConfig.agent_models[config.modelKey];
                         if (model !== storedModel) {
                             hasErrors = true;
@@ -4498,6 +4546,13 @@ function renderAgentPrompts() {
             initWorkflowConfigAgentAccordion();
         }
     }, 50);
+
+    // Single funnel for prompt state: this runs on initial load (via
+    // loadAgentPrompts) and after every save, cancel and preset load, so the
+    // header badges cannot drift from the prompts they describe.
+    if (typeof refreshPromptWarningBadges === 'function') {
+        refreshPromptWarningBadges();
+    }
 }
 
 function getCurrentModelForAgent(agentName) {
@@ -6306,10 +6361,64 @@ function getLMStudioModelsOnly() {
 }
 
 
+/**
+ * Stored agent_models keys that this form never produces.
+ *
+ * `collectAllAgentConfigs()` only emits keys backed by a rendered config panel, so
+ * a key the server stores but the UI has no control for (SigmaEmbeddingModel) is
+ * absent from form state. Read back as `undefined` it compares unequal to its
+ * stored value forever, which is what made the page believe it was dirty the
+ * instant it loaded and autosave on every page view.
+ */
+function unmanagedStoredAgentModels(collected) {
+    const stored = currentConfig?.agent_models || {};
+    const carried = {};
+    for (const key of Object.keys(stored)) {
+        if (!Object.prototype.hasOwnProperty.call(collected, key)) {
+            carried[key] = stored[key];
+        }
+    }
+    return carried;
+}
+
+/**
+ * Compare one agent_models value against its stored counterpart.
+ *
+ * Temperatures are floats read back from text inputs, so they need a tolerance.
+ * Array-valued keys (OSDetectionAgent_selected_os) are rebuilt as a fresh literal
+ * on every call and are never `===` to the previous array, which made that key
+ * report changed on every comparison regardless of its contents.
+ */
+function agentModelValueChanged(key, currentValue, originalValue) {
+    if (key.includes('_temperature')) {
+        const currentNum = typeof currentValue === 'number' ? currentValue : parseFloat(currentValue) || 0.0;
+        const originalNum = typeof originalValue === 'number' ? originalValue : parseFloat(originalValue) || 0.0;
+        return Math.abs(currentNum - originalNum) > 0.0001;
+    }
+    if (Array.isArray(currentValue) || Array.isArray(originalValue)) {
+        const a = Array.isArray(currentValue) ? currentValue : [];
+        const b = Array.isArray(originalValue) ? originalValue : [];
+        return a.length !== b.length || a.some((item, index) => item !== b[index]);
+    }
+    // A model select reads back '' when it cannot represent the stored value --
+    // e.g. ExtractAgent stored as provider lmstudio with an OpenAI model, so the
+    // model is absent from the option list and the select falls back to blank.
+    // That is the form failing to show a value, not the user clearing one, and
+    // performAutoSave() drops empty model values from the payload anyway, so
+    // treating it as a change produces a write that cannot express it: exactly
+    // the phantom save this comparison exists to prevent. RankAgent is excluded
+    // because its empty string IS sent, as a deliberate "clear the override".
+    if (key !== 'RankAgent' && currentValue === '' && typeof originalValue === 'string' && originalValue !== '') {
+        return false;
+    }
+    return currentValue !== originalValue;
+}
+
 // Function to get current form state
 function getCurrentFormState() {
     // Get agent models from form using unified system (includes providers)
-    const agent_models = collectAllAgentConfigs();
+    const collected = collectAllAgentConfigs();
+    const agent_models = { ...unmanagedStoredAgentModels(collected), ...collected };
 
     agent_models.OSDetectionAgent_selected_os = ['Windows'];
 
@@ -6368,18 +6477,7 @@ function checkForUnsavedChanges() {
     const allKeys = new Set([...Object.keys(currentModels), ...Object.keys(originalModels)]);
     
     for (const key of allKeys) {
-        const currentValue = currentModels[key];
-        const originalValue = originalModels[key];
-        
-        // Handle numeric comparison for temperatures (account for floating point precision)
-        if (key.includes('_temperature')) {
-            const currentNum = typeof currentValue === 'number' ? currentValue : parseFloat(currentValue) || 0.0;
-            const originalNum = typeof originalValue === 'number' ? originalValue : parseFloat(originalValue) || 0.0;
-            if (Math.abs(currentNum - originalNum) > 0.0001) return true;
-        } else {
-            // String comparison for model names
-            if (currentValue !== originalValue) return true;
-        }
+        if (agentModelValueChanged(key, currentModels[key], originalModels[key])) return true;
     }
     
     // Compare sigma_fallback_enabled
@@ -6676,6 +6774,9 @@ if (workflowConfigForm) {
                     showNotification('Save cancelled - fix the prompt issues above', 'warning');
                     return;
                 }
+                // The server runs the same scan and rejects the save by default. Carry the
+                // operator's explicit "Save Anyway" through so the override is deliberate.
+                formData.allow_prompt_warnings = true;
             }
         }
     } catch (validationError) {
@@ -6805,6 +6906,11 @@ if (workflowConfigForm) {
                     }).join('\n');
                 } else if (typeof error.detail === 'string') {
                     errorMessage = error.detail;
+                } else if (error.detail.message && Array.isArray(error.detail.warnings)) {
+                    // Server-side prompt-validation rejection: render the warning list
+                    // rather than dumping raw JSON at the operator.
+                    errorMessage = error.detail.message + '\n' +
+                        error.detail.warnings.map(w => `\u2022 ${w}`).join('\n');
                 } else {
                     errorMessage = JSON.stringify(error.detail, null, 2);
                 }

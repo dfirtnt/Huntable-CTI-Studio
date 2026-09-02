@@ -1,6 +1,14 @@
 # Makefile for CTIScraper test suite
 
-.PHONY: test-up test-down test test-unit test-integration test-ui test-e2e test-docs
+.PHONY: css test-up test-down test test-unit test-integration test-ui test-e2e test-docs
+
+# Rebuild the local Tailwind stylesheet.
+# Run after changing templates, static JS, or any Python module holding class
+# strings; the generated file is committed, so a stale one ships silently.
+# Version is pinned to match what the CDN served before the local build.
+css:
+	@echo "Building src/web/static/css/tailwind.css..."
+	@npx --yes tailwindcss@3.4.17 -c tailwind.config.js -i tailwind.input.css -o src/web/static/css/tailwind.css --minify
 
 # Start test containers
 test-up:

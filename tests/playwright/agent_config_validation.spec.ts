@@ -24,6 +24,58 @@ test.describe('Agent Config Validation', () => {
   });
 });
 
+// Regression guard: validateProviderModelCombination() previously fired its
+// async /api/validate-model POST as a side effect from every bulk/load-time
+// pass over all ~30 agents (applyProviderSelections, syncProviderVisibilityAndInputs,
+// refreshAllProviderBlocks, autosave's pre-save validation loops), not just from
+// a real user-driven change. A fix added an opt-in `skipAsync` option to those
+// bulk call sites; this test pins the observable behavior (request counts) so a
+// future edit that drops the option is caught here rather than as log noise.
+test.describe('Agent Config Validation - validate-model request volume', () => {
+  test('loading the config page issues zero /api/validate-model requests', async ({ page }) => {
+    const validateModelRequests: string[] = [];
+    page.on('request', (req) => {
+      if (req.url().includes('/api/validate-model')) {
+        validateModelRequests.push(req.url());
+      }
+    });
+
+    await page.goto(`${BASE}/workflow#config`);
+    await page.waitForLoadState('networkidle');
+    await page.waitForSelector('#workflowConfigForm', { timeout: 10000 });
+    await page.waitForFunction(() => (window as any).isInitializing === false, { timeout: 10000 });
+    // Bulk sync/refresh passes run synchronously off the same load event; give
+    // any stray async validation call a moment to have fired if it were going to.
+    await page.waitForTimeout(1000);
+
+    expect(validateModelRequests).toHaveLength(0);
+  });
+
+  test('an explicit single-agent validation call still triggers exactly one request', async ({ page }) => {
+    await page.goto(`${BASE}/workflow#config`);
+    await page.waitForLoadState('networkidle');
+    await page.waitForSelector('#workflowConfigForm', { timeout: 10000 });
+    await page.waitForFunction(() => (window as any).isInitializing === false, { timeout: 10000 });
+
+    const validateModelRequests: string[] = [];
+    page.on('request', (req) => {
+      if (req.url().includes('/api/validate-model')) {
+        validateModelRequests.push(req.url());
+      }
+    });
+
+    // Mirrors the real call path a genuine provider/model change takes
+    // (onAgentProviderChange / validateAgentModelOnChange), which pass no
+    // skipAsync option and so must keep firing the async check.
+    await page.evaluate(() => {
+      (window as any).validateProviderModelCombination('rankagent', 'openai', 'gpt-4o');
+    });
+    await page.waitForTimeout(1000);
+
+    expect(validateModelRequests).toHaveLength(1);
+  });
+});
+
 const PANEL_STEP_MAP: Record<string, string[]> = {
   'os-detection-panel': ['s0'], 'other-thresholds-panel': ['s1', 's5'],
   'rank-agent-configs-panel': ['s2'],

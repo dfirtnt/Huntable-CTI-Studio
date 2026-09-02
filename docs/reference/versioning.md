@@ -13,9 +13,9 @@ Huntable CTI Studio uses a combination of semantic versioning and planetary moon
 
 ## Current Version
 
-**v7.8.0 "Europa"** - Current stable release
-**v7.7.0 "Europa"** - Previous stable release
-**v7.6.0 "Europa"** - Earlier stable release
+**v7.8.1 "Europa"** - Current stable release
+**v7.8.0 "Europa"** - Previous stable release
+**v7.7.0 "Europa"** - Earlier stable release
 
 ## Planetary Moon Naming System
 
@@ -46,19 +46,32 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 - Callisto (v5.0 - v5.3)
 - Ganymede (v5.2)
 - Io (v6.0 - v6.2)
-- Europa (v7.0 - v7.6)
+- Europa (v7.0 - v7.8)
 
 ## Version History
+
+### v7.8.1 "Europa" (2026-09-02)
+- **Named After**: Europa, one of Jupiter's four Galilean moons; patch release continues the Europa codename
+- **Significance**: The Sigma eval subsystem is removed as measuring the wrong quantity (superseded by Eval1/Eval2 and rule-validity enforcement), Sigma enrichment gains Codex support, and a broad correctness/security/accessibility hardening pass lands across `/articles`, `/workflow`, `/diags`, `/sources`, `/settings`, and Junk Filter Tuning, including two stored-XSS fixes and a race-free workflow-config version allocator
+- **Features**:
+    - Sigma eval subsystem decommissioned: it measured resemblance to one analyst's rule set rather than detection quality; removed `sigma_eval_scorer.py`, `sigma_eval_service.py`, the `/mlops/sigma-evals` page, four API endpoints, the `SigmaEvaluationTable` model, and its eval fixtures
+    - Two stored-XSS fixes (article body; dashboard/hunt-metrics/article-detail chunk dialogs) and Subresource Integrity restored on every remaining third-party script
+    - Security response headers added, including a two-tier Content Security Policy; stored credentials no longer returned to the browser on Settings
+    - `agentic_workflow_config.version` made unique and race-free via a Postgres sequence, closing a read-modify-write race that had produced 164 duplicate versions
+    - `PUT /api/workflow/config` refuses configs whose enabled extractors have no prompt; Sigma rule validation no longer silently runs the wrong provider
+    - `/diags` Queue Status and Job History attribution fixes; the false "TESSERACT missing" alarm replaced with an honest health signal
+    - Keyboard operability restored on the Workflow Configuration tab, Junk Filter Tuning, and `/sources` filter chips; 30 redundant `/api/validate-model` requests eliminated from `/workflow#config` page load
+    - Articles no longer silently dropped when re-scraping a known URL; eval scoring no longer grades a no-output extraction as 100% precision
+    - Full itemized list in `docs/CHANGELOG.md` under `[7.8.1 "Europa"]`
 
 ### v7.8.0 "Europa" (2026-08-19)
 - **Named After**: Europa, one of Jupiter's four Galilean moons; minor release continues the Europa codename
 - **Significance**: Role-specific Docker runtimes with the Docker socket confined to a token-authenticated maintenance service, a subscription-backed Codex workflow provider, Langfuse v4 trace-lookup migration off the endpoint Langfuse Cloud removes on 2026-11-16, and completion of the externalized-config-snapshot hydration across every remaining consumer
 - **Features**:
-    - Role-specific runtime images (web / ingest / workflow / semantic / maintenance) replacing the single monolithic image; the web container no longer ships a Docker CLI or socket, and backup/restore is proxied to an internal-only, shared-token maintenance service that allowlists fixed scripts
-    - Docker socket confined to the `maintenance` service across every Compose stack, with a parametrized contract test failing any stack that mounts it elsewhere
+    - Role-specific runtime images (web / scheduler / ingest / workflow / semantic / maintenance) replacing the single monolithic image; the web container no longer ships a Docker CLI or socket, and backup/restore is proxied to an internal-only, shared-token maintenance service that allowlists fixed scripts    - Docker socket confined to the `maintenance` service across every Compose stack, with a parametrized contract test failing any stack that mounts it elsewhere
     - Subscription-backed Codex workflow provider (`WORKFLOW_CODEX_ENABLED`) using a deployment-managed ChatGPT login, plus three gpt-5.6 quickstart presets
     - Langfuse trace lookup migrated from the deprecated `GET /traces` to `GET /v2/observations`; `client.create_score()` corrected for the v4 API; fallback host consolidated to one constant and corrected to the US region; langfuse pinned to 4.14.4
-    - Externalized config snapshots hydrated by retry, age-based retention, `exclude_evals`, and the executions list/detail responses -- an eval retry no longer degrades into a seven-extractor run, and the eval corpus keeps its age-purge protection
+    - Externalized config snapshots hydrated by retry, age-based retention, `exclude_evals`, and the executions list/detail responses — an eval retry no longer degrades into a seven-extractor run, and the eval corpus keeps its age-purge protection
     - Evals2 item-level scoring restored for structured extractors, with a dry-run-first rescore of historical count-only rows
     - Per-group Sigma generation steered to its own logsource category, cutting rules discarded by the output-side class gate
     - Save-time prompt validation on the workflow config, and Sigma eval rejecting a config with missing enabled-extractor prompts before dispatch
@@ -66,10 +79,18 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
     - 8 dormant/dead DB subsystems removed, plus completion of a 3-month-orphaned source-healing cleanup
 
 ### v7.7.0 "Europa" (2026-08-06)
-<!-- TODO: fill Significance and Features before merging to main; pull content from docs/CHANGELOG.md [7.7.0] section. -->
-- **Named After**: <fill>
-- **Significance**: <fill>
-- **Features**: <fill>
+- **Named After**: Europa, one of Jupiter's four Galilean moons; minor release continues the Europa codename
+- **Significance**: Three P1 security fixes (crontab command-injection, SSRF, stored DOM-XSS) land alongside a database-integrity audit that reconciled schema drift across 25 of 29 tables, MCP Gateway HTTP transport support, eval diagnosis moved off the server-side LLM call to an MCP + agent-skill-only path, and workflow execution configuration made immutable via content-addressed snapshots
+- **Features**:
+    - Three P1 security fixes: crontab command-injection via `PUT /api/cron` closed (admin-only), SSRF in `/api/scrape-url` closed via a shared DNS-pinning fetch helper, and stored DOM-XSS in article annotations closed
+    - Schema drift reconciliation: 25 of 29 tables had silently lost primary keys, foreign keys, and indexes because hand-rolled `migrate_*.py` scripts bypassed SQLAlchemy's `create_all()` reconciliation; applied 113 DDL statements (16 PKs, 84 indexes, 13 FKs) in production, with a new drift detector now checked at every startup
+    - Data retention made real: `cleanup_old_data` had logged success while deleting nothing; new `src/services/data_retention_service.py` implements guarded, batched, dry-run-capable age-based retention for source checks, URL-tracking cache, and stale workflow executions
+    - Eval diagnosis moved to MCP + agent-skill only, removing the server-side LLM call and its per-click provider billing; replaced by `get_eval_diagnosis_context`/`save_eval_diagnosis` MCP tools with fail-closed, caller-attested save confirmation
+    - Workflow execution configuration made immutable via content-addressed, SHA-256-hashed snapshots resolved before dispatch, closing the gap where editing a live prompt, model, or threshold changed the behavior of runs already queued or in flight
+    - MCP server reachable from Docker MCP Gateway over streamable-HTTP, via a bearer-token-authenticated ASGI wrapper that fails closed without a 32+ character token
+    - Sync and async database managers unified on shared SQLAlchemy statement builders (`src/database/statements.py`), closing three-way query drift across sort order, filters, and a dead CLI search/export path
+    - HTML-to-text extraction no longer invents whitespace between inline elements, fixing split process names, file paths, and IOCs produced by mid-token markup
+    - `escapeHtml` consolidated into one canonical implementation in `/static/js/utils.js`, fixing attribute-context escaping across seven templates that previously carried eight mutually incompatible copies
 
 ### v7.6.0 "Europa" (2026-07-10)
 - **Named After**: Europa, one of Jupiter's four Galilean moons; minor release continues the Europa codename
@@ -172,7 +193,7 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 
 ### v6.1.1 "Io" (2026-04-28)
 - **Named After**: Io, innermost of Jupiter's four Galilean moons; most volcanically active body in the solar system
-- **Significance**: Security hardening patch -- two CodeQL alerts closed (ReDoS, stack-trace exposure), Vision LLM API key handling hardened, and browser extension MV3 compatibility fixes
+- **Significance**: Security hardening patch — two CodeQL alerts closed (ReDoS, stack-trace exposure), Vision LLM API key handling hardened, and browser extension MV3 compatibility fixes
 - **Features**: Vision LLM proxied through backend; image fetch moved to background service worker (MV3 fix); OCR block append-on-revisit; ReDoS fix; error messages no longer leak internals to HTTP clients
 
 ### v6.1.0 "Io" (2026-04-27)
@@ -182,7 +203,7 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 
 ### v6.0.0 "Io" (2026-04-23)
 - **Named After**: Io, innermost of Jupiter's four Galilean moons; most volcanically active body in the solar system
-- **Significance**: Major version introducing the Io codename -- browser extension Vision LLM mode, source self-healing, SSRF protection, and large-scale UI overhaul
+- **Significance**: Major version introducing the Io codename — browser extension Vision LLM mode, source self-healing, SSRF protection, and large-scale UI overhaul
 - **Features**: Browser extension Vision LLM extraction mode; source healing trafilatura probe; eval concurrency throttle; GPT-5 family in model catalog; SSRF protection; workflow config v1->v2 migration; extractor contract runtime validators
 
 ### v5.3.0 "Callisto" (2026-04-14)
@@ -207,4 +228,5 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 ### v4.0.0 "Kepler" (2025-11-04)
 - **Named After**: Johannes Kepler, known for planetary motion laws
 
-_Last updated: 2026-07-04_
+_Last updated: 2026-08-22_
+_Last reviewed: 2026-09-01_

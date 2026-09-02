@@ -31,7 +31,7 @@ marker (`AUTH_TRUSTED_PROXY_HEADER` == `AUTH_TRUSTED_PROXY_VALUE`) and, if
 In production, `AUTH_TRUSTED_PROXY_IPS` is **required** for trusted-header mode:
 an empty allowlist would accept identity headers from any direct peer, letting a
 client forge admin. Startup fails closed unless
-`ALLOW_INSECURE_PRODUCTION_TRUSTED_PROXY_OPEN=true` is set — use that override
+`ALLOW_INSECURE_PRODUCTION_TRUSTED_PROXY_OPEN=true` is set. Use that override
 only when direct network access to the app is blocked outside the application
 (the network-level isolation this contract already assumes).
 
@@ -79,7 +79,7 @@ is only authenticated (no role) must be listed in an explicit allowlist
 Initial roles and their group env vars (`_ROLE_ENV` in `src/web/security/config.py`):
 
 - `analyst` (`AUTH_ANALYST_GROUPS`): annotation and ingest-oriented analyst actions
-- `rule_reviewer` (`AUTH_REVIEWER_GROUPS` -- note the shortened env var name): Sigma queue review actions
+- `rule_reviewer` (`AUTH_REVIEWER_GROUPS`; note the shortened env var name): Sigma queue review actions
 - `operator` (`AUTH_OPERATOR_GROUPS`): workflow/source/scheduled-job operations
 - `admin` (`AUTH_ADMIN_GROUPS`): settings, credentials, audit, backup/restore, model management, and
   dangerous maintenance
@@ -109,6 +109,49 @@ Service callers (`actor_type == "service"`) and routes classified
 CSRF is layered on top of identity and role checks, not a replacement for them.
 
 In local `AUTH_MODE=disabled` development, CSRF is inactive (no token required).
+
+## Security response headers
+
+`SecurityHeadersMiddleware` (`src/web/security/headers.py`) is registered
+**outermost**, so headers reach every response, including authorization
+denials, error pages and static assets, which are precisely the responses an
+unauthenticated caller can reach.
+
+| Header | Value |
+|---|---|
+| `Content-Security-Policy` | `object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'` |
+| `Content-Security-Policy-Report-Only` | strict policy (see below) |
+| `X-Frame-Options` | `DENY` (for browsers predating `frame-ancestors`) |
+| `X-Content-Type-Options` | `nosniff` |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+
+The split is deliberate.
+
+**Enforced** carries only directives the app already complies with, so enabling
+it cannot break a page. These are useful on their own: `base-uri` stops an
+injected `<base>` repointing every relative URL, and `form-action` stops an
+injected form posting operator data off-origin.
+
+**Report-Only** carries the policy we cannot enforce yet. The blocker is
+`script-src`: the templates contain 26 inline `<script>` blocks (~22,000 lines)
+and **341 inline event-handler attributes**. Nonces would authorise the blocks,
+but nothing authorises a handler attribute: allowing `onclick=` necessarily
+allows an injected `onerror=`, which is the payload the escaping fixes were
+about. Enforcing `script-src` therefore requires migrating those handlers to
+`addEventListener` first; Report-Only measures that surface in the meantime.
+Violations surface in the browser console; there is no collector endpoint.
+
+`style-src` keeps `'unsafe-inline'` on purpose: inline styles are pervasive and
+much lower risk than script, and reporting each one would bury the script
+violations that matter.
+
+**HSTS is not sent from the app.** The dev app is plain HTTP, and a stray
+`max-age` pinned against localhost is a footgun with no benefit. It belongs with
+the TLS-terminating deployment config.
+
+CSP is a second layer, not a substitute for escaping. See
+[`docs/development/web-app-testing.md`](../development/web-app-testing.md) for
+the escaping contracts that are the primary control.
 
 ## Audit events
 
@@ -164,7 +207,7 @@ hanging a privileged request. Covered:
 
 One consequence worth knowing: a full-database restore replaces `audit_events`
 along with every other table, so the pre-restore `attempted` row does not survive
-a *successful* restore -- the post-restore terminal row is what persists. The
+a *successful* restore; the post-restore terminal row is what persists. The
 attempt row is what remains when a restore fails, times out, or is killed
 partway, which is the case where the record matters most.
 
@@ -176,8 +219,8 @@ shape, and by value-level scrubbing of embedded credentials (URL `user:pass@`,
 updates record presence/change booleans and hashes, not raw tokens.
 
 > **Model version management** (listing and comparing versions) is read-only and
-> therefore not audited; the mutating operations on those routes -- retrain,
-> evaluate, rollback -- are covered above.
+> therefore not audited; the mutating operations on those routes (retrain,
+> evaluate, rollback) are covered above.
 
 Admin-only audit endpoints:
 
@@ -197,3 +240,5 @@ direct database write access can alter or delete rows.
 
 For higher assurance, forward audit exports, database logs, or infrastructure
 logs to a SIEM or append-only log store controlled outside the app database.
+
+_Last reviewed: 2026-09-01_

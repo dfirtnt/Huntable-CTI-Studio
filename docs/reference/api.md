@@ -41,6 +41,8 @@ These endpoints control source state and manual collection.
 - `GET /api/articles/{article_id}/similar`
 - `POST /api/articles/{article_id}/mark-reviewed`
 - `DELETE /api/articles/{article_id}`
+- `GET /api/articles/{article_id}/chunk-debug` — Chunk-level breakdown of the junk filter's keep/remove decisions, powering the Junk Filter Tuning modal. Local sklearn inference only; no LLM provider calls.
+- `GET /api/articles/{article_id}/chunk-debug/progress` — Progress snapshot for an in-flight `chunk-debug` run. Returns `in_progress: false` when nothing is running; otherwise `phase`, `processed_chunks`, `total_chunks`, `article_total_chunks` and `chunk_limit_applied`. `phase` is `filtering` (full-article pass, no per-chunk counter yet) → `analyzing` (`processed_chunks` advancing toward `total_chunks`) → `finalizing` (assembling the response); only `analyzing` counts chunks, so a client must not render a counter during the other two. `total_chunks` is what this pass will analyse, `article_total_chunks` is what the article holds — they differ whenever `chunk_limit_applied` is true. Progress lives in Redis, not process memory, because a poll can land on a different uvicorn worker than the analysis.
 
 These are the main article browsing and maintenance endpoints.
 
@@ -60,7 +62,7 @@ These power the semantic search workflow. For conversational retrieval, use the 
 
 ### Embeddings And Vector Coverage
 
-- `GET /api/embeddings/stats` -- Embedding coverage summary. Response includes a **`sigma_corpus`** block (SigmaHQ `sigma_rules` row counts vs rows with embeddings), distinct from the AI **sigma_rule_queue**. Used by CLI `embed stats` and MCP `get_stats`.
+- `GET /api/embeddings/stats` — Embedding coverage summary. Response includes a **`sigma_corpus`** block (SigmaHQ `sigma_rules` row counts vs rows with embeddings), distinct from the AI **sigma_rule_queue**. Used by CLI `embed stats` and MCP `get_stats`.
 
 ### Workflow Execution
 
@@ -77,7 +79,9 @@ The workflow engine writes its state into `agentic_workflow_executions` and expo
 ### Workflow Configuration
 
 - `GET /api/workflow/config`
-- `PUT /api/workflow/config`
+- `PUT /api/workflow/config` — Rejects a config whose **enabled** extractors have no prompt (HTTP 400), because such a config produces runs that complete with zero observables and no error. Send `allow_prompt_warnings: true` to override deliberately ("Save Anyway"). Settings-only autosaves and disabled agents are exempt. See `src/web/routes/workflow_config.py`.
+
+    Also rejects (HTTP 400, **no override**) an agent whose provider is paired with a model the catalog attributes to a different provider — for example `lmstudio` with `gpt-5.6-sol`. Such a pair fails later at call time with a confusing "model not found" from the wrong provider. `openai` and `codex` share one model namespace, so `codex` + `gpt-5.6-*` is valid. Only pairs this request *changes* are checked, so a config carrying a pre-existing mismatch stays saveable and can be repaired. Models absent from `config/provider_model_catalog.json` (LMStudio local models, newly released models) are never rejected.
 - `GET /api/workflow/config/prompts`
 - `GET /api/workflow/config/prompts/{agent_name}`
 - `PUT /api/workflow/config/prompts`
@@ -98,7 +102,7 @@ Each prompt object is a JSON dict with these fields:
 
 | Field | Type | Purpose |
 |-------|------|---------|
-| `role` (or `system`) | string | Agent persona -- identity and expertise statement |
+| `role` (or `system`) | string | Agent persona — identity and expertise statement |
 | `task` (or `objective`) | string | What the agent does this run |
 | `instructions` | string | Rules, constraints, output format, JSON enforcement |
 | `json_example` | string or dict | Concrete output schema example |
@@ -110,13 +114,21 @@ The strict configuration contract is defined in `src/config/workflow_config_sche
 
 ### Settings And Integrations
 
-- `GET /api/settings/*`
+- `GET /api/settings/*` — Reads never return a stored credential. For a key matching
+  `_is_sensitive_setting` the response carries `value: null` plus `configured` and a short
+  `hint`; non-sensitive settings round-trip their value as before. Both read routes send
+  `Cache-Control: no-store`.
 - `POST /api/settings/codex/test` — Verify the deployment-managed Codex login without invoking a workflow model.
+- `POST /api/settings/github/test` — Verify the stored GitHub PAT against the configured
+  repository, server-side. Accepts optional `token` / `repo` overrides so a freshly typed
+  credential can be checked before it is saved.
 - `POST /api/test-openai-key`
 - `POST /api/test-anthropic-key`
 - `POST /api/test-lmstudio-connection`
 
-These endpoints manage runtime settings and provider connectivity.
+These endpoints manage runtime settings and provider connectivity. The provider key tests
+accept an empty `api_key` and fall back to the stored credential, since the Settings page
+cannot read one back to resend it.
 
 ### Models And MLOps
 
@@ -125,6 +137,9 @@ These endpoints manage runtime settings and provider connectivity.
 - `GET /api/model/versions` — List model versions with metrics. Query params: `page` (optional; omit for unpaginated), `limit` (default 10, max 100), `version` (exact version number search)
 - `POST /api/model/evaluate` — Run evaluation of the current model on the annotated test set
 - `GET /api/model/eval-chunk-count` — Count of chunks in the evaluation dataset
+- `GET /api/feedback/chunk-classification/{article_id}` — All stored chunk feedback for an article, keyed by chunk id (newest per chunk). One request replaces the per-chunk lookups the Junk Filter Tuning modal used to issue while rendering.
+- `GET /api/feedback/chunk-classification/{article_id}/{chunk_id}` — Feedback for a single chunk, or `feedback: null`. Used to re-read one chunk after a write.
+- `POST /api/feedback/chunk-classification` — Record user feedback on a chunk classification (writes into the ML training corpus).
 - `GET /api/model/feedback-count` — Count of available feedback and annotation samples for retraining
 - `POST /api/model/rollback/{version_id}` — Roll back to a specific model version. Copies the saved artifact to the live path, flips `is_current`, clears the ContentFilter cache, and starts a background chunk re-scoring backfill
 - `GET /api/model/compare/{version_id}` — Get or generate comparison results between a version and its predecessor
@@ -141,10 +156,13 @@ Route module: `src/web/routes/models.py`. Version data is stored in the `ml_mode
 
 - `GET /workflow/queue` — HTML page for the Sigma queue console (redirects to `/workflow#queue`; uses `/api/sigma-queue/*` for data).
 - `GET /api/sigma-queue/list` — List queued Sigma rules with pagination. Query params: `status` (optional, values: `pending`, `needs_review`, `approved`, `rejected`, `submitted`), `workflow_execution_id` (optional, filter to one workflow job's rules), `limit` (default 50, max 500), `offset` (default 0). Response: `{ "items": [...], "total": N, "limit": L, "offset": O }`.
+- `POST /api/sigma-queue/{queue_id}/enrich` — Enrich a queued rule with OpenAI, Anthropic, LM Studio, or the optional Codex subscription provider. The configured provider credential stays server-side. A successful response includes the enriched YAML and `conversation_id` for a persisted, rule-scoped follow-up conversation.
+- `GET /api/sigma-queue/{queue_id}/enrichment-chat` — Return the latest persisted enrichment conversation for the rule. System prompts are excluded from the browser response.
+- `POST /api/sigma-queue/{queue_id}/enrichment-chat/{conversation_id}/turn` — Continue that conversation through its original provider and model. Follow-up turns are limited to revising the current Sigma rule or discussing earlier enrichment turns.
 - `POST /api/sigma-queue/{queue_id}/validate` — Validate and optionally LLM-enrich a queued rule. Returns `{ "validated_yaml": ... }`.
 - `GET /api/sigma-queue/*` (other endpoints)
 - `GET /api/eval/os-detection-manual-results` and `GET /api/eval/observables-count-results` — remaining legacy evaluation result routes (`src/web/routes/evaluation.py`)
-- `/mlops/agent-evals`, `/mlops/agent-evals2`, and `/mlops/sigma-evals` — HTML evaluation pages registered in `src/web/routes/pages.py`
+- `/mlops/agent-evals` and `/mlops/agent-evals2` — HTML evaluation pages registered in `src/web/routes/pages.py`
 
 #### Subagent Evaluation Endpoints
 
@@ -183,3 +201,4 @@ Start in `src/web/routes/__init__.py`, then open the matching module:
 - UI flows that call the API: run `python3 run_tests.py ui` or `python3 run_tests.py e2e`
 
 _Last updated: 2026-08-13_
+_Last reviewed: 2026-09-01_

@@ -4,8 +4,8 @@ This guide is the fastest way for a coding agent or new contributor to get orien
 
 ## Read In This Order
 
-1. [`AGENTS.md`](https://github.com/dfirtnt/Huntable-CTI-Studio/blob/main/AGENTS.md) (repository root; not under `docs/`)
-2. [`README.md`](https://github.com/dfirtnt/Huntable-CTI-Studio/blob/main/README.md) (repository root)
+1. `AGENTS.md` (repository root; not under `docs/`)
+2. `README.md` (repository root)
 3. [`docs/index.md`](../index.md)
 4. This document
 5. The files tied to the change you are making
@@ -39,7 +39,7 @@ Open these files early:
 | `config/` | Source YAML, presets, model catalog, eval article data |
 | `tests/` | Pytest suites, Playwright specs, fixtures, helpers |
 | `docs/` | Human-facing docs; useful for orientation, secondary to code |
-| `src/huntable_mcp/` | Read-only Model Context Protocol server (`run_mcp.py`, `python3 -m src.huntable_mcp`); [tool reference](../reference/mcp-tools.md) |
+| `src/huntable_mcp/` | Model Context Protocol server -- read tools plus scoped, audited write tools (`run_mcp.py`, `python3 -m src.huntable_mcp`); [tool reference](../reference/mcp-tools.md) |
 | `.claude/skills/` | Project-scoped Claude Code skills (auto-discovered as `/slash-commands`); see individual `SKILL.md` files |
 
 ## Source Of Truth Hierarchy
@@ -59,7 +59,7 @@ Examples:
 
 ## Task Lookup
 
-| If you are changing… | Read these first |
+| If you are changing... | Read these first |
 |---|---|
 | A page, modal, or UI flow | `src/web/modern_main.py`, `src/web/routes/__init__.py`, relevant route module, `docs/development/testing.md`, Playwright specs under `tests/playwright/` |
 | An API endpoint | relevant `src/web/routes/*.py`, `src/database/models.py`, `docs/reference/api.md`, API tests under `tests/api/` |
@@ -105,3 +105,4 @@ python3 run_tests.py all
 ```
 
 _Last updated: 2026-07-03_
+_Last reviewed: 2026-09-01_

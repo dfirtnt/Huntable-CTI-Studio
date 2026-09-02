@@ -1,12 +1,12 @@
 # Add a Feed or Source
 
-> **Quick path:** Use the `/add-source` Claude Code skill for guided, automated source addition — it handles RSS discovery, selector inspection, YAML generation, and safe sync. See `.claude/skills/add-source/SKILL.md`.
+> **Quick path:** Use the `/add-source` Claude Code skill for guided, automated source addition. It handles RSS discovery, selector inspection, YAML generation, and safe sync. See `.claude/skills/add-source/SKILL.md`.
 
 Sources are defined in `config/sources.yaml`, seeded into PostgreSQL, and used by the scheduler and collectors. Runtime always reads from the database; YAML is only used for seeding and manual syncs.
 
 ## Precedence rules
 - Database values win at runtime.
-- On startup, YAML seeding only runs if fewer than 5 sources exist (see `../guides/source-config.md`).
+- On startup, YAML seeding only runs if fewer than 5 sources exist (see [Source Configuration](source-config.md)).
 - Manual sync: `./run_cli.sh sync-sources` overwrites database entries with YAML values unless `--no-remove` is set.
 
 ## Steps to add a source
@@ -45,3 +45,4 @@ Sources are defined in `config/sources.yaml`, seeded into PostgreSQL, and used b
 - If a new source starts failing repeatedly, check the Sources page in the UI for error details and manually update the source config as needed.
 
 _Last updated: 2026-07-05_
+_Last reviewed: 2026-09-01_

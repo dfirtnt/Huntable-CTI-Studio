@@ -1049,6 +1049,11 @@ class RunTestRunner:
         """Run tests based on configuration."""
         logger.info(f"Running {self.config.test_type.value} tests in {self.config.context.value} context")
 
+        # Fresh failure registry per test type: run_tests() is invoked once per
+        # type in a multi-type CLI call, and stale names from a prior type would
+        # otherwise leak into the next type's FAILED TESTS listing.
+        self.failed_test_names = []
+
         # Start debugging components
         self.start_debugging()
 
@@ -1248,12 +1253,13 @@ class RunTestRunner:
                                     # xdist: "[gw0] FAILED tests/x.py::test"
                                     parts = stripped.split(None, 2)
                                     if len(parts) >= 3:
-                                        self.failed_test_names.append(parts[2].strip())
+                                        self._note_failed(parts[2].strip())
                                 else:
                                     # plain: "tests/x.py::test FAILED"
+                                    # or the short-summary "FAILED tests/x.py::test - reason"
                                     name = stripped.split(" FAILED")[0].split(" ERROR")[0].strip()
                                     if name:
-                                        self.failed_test_names.append(name)
+                                        self._note_failed(name)
 
                         # Category detection: works at any verbosity level.
                         # -v:      "tests/smoke/test_foo.py::test PASSED"
@@ -1455,12 +1461,6 @@ class RunTestRunner:
                             print(line, end="", flush=True)
                             if any(w in line.lower() for w in ["passed", "failed", "skipped"]):
                                 pw_test_count += 1
-                                # Capture failed Playwright test names
-                                # List reporter: "  1) [chromium] > test.spec.ts:10:5 > suite > test name"
-                                # or lines containing "failed" with a bracket project prefix
-                                stripped = line.strip()
-                                if "failed" in stripped.lower() and ("[" in stripped or ">>" in stripped):
-                                    self.failed_test_names.append(f"[playwright] {stripped}")
                             if time.time() - pw_last_update > 3.0 and playwright_groups and sys.stdout.isatty():
                                 elapsed = time.time() - playwright_start_time
                                 est = min(len(playwright_groups), max(1, pw_test_count // 5))
@@ -1480,6 +1480,16 @@ class RunTestRunner:
 
                         # Parse test counts from output
                         playwright_counts = self._parse_playwright_output(stdout_text + stderr_text)
+
+                        # Register genuinely failed Playwright tests. The old
+                        # heuristic (any line containing "failed" with a bracket)
+                        # misfired on passing specs whose titles contain the word
+                        # "failed" (e.g. settings_credentials [SETTINGS-CRED-001])
+                        # and skipped real failures whose titles do not. The list
+                        # reporter's numbered failure entries name only tests that
+                        # ultimately failed, so parse those instead.
+                        for fail_name in self._parse_playwright_failures(stdout_text + stderr_text):
+                            self._note_failed(f"[playwright] {fail_name}")
 
                         self.results["playwright"] = {
                             "success": playwright_success,
@@ -1765,6 +1775,26 @@ class RunTestRunner:
 
         logger.info(f"Failure log saved to: {failure_log_path}")
 
+    def _note_failed(self, name: str) -> None:
+        """Record a failed test name, normalized and deduplicated.
+
+        Pytest can emit the same failure twice (result line plus the short
+        summary "FAILED <name> - reason"), and Playwright retries may repeat a
+        title. Strip the leading FAILED/ERROR markers and keep the first clean
+        occurrence so the FAILED TESTS listing shows each test once.
+        """
+        normalized = name.strip()
+        for prefix in ("FAILED ", "ERROR "):
+            if normalized.startswith(prefix):
+                normalized = normalized[len(prefix) :].strip()
+        # Pytest's short summary appends " - <reason>"; drop it so the summary
+        # line dedupes against the result-line capture of the same test.
+        marker = normalized.find(" - ")
+        if marker > 0:
+            normalized = normalized[:marker].strip()
+        if normalized and normalized not in self.failed_test_names:
+            self.failed_test_names.append(normalized)
+
     def _parse_playwright_output(self, output: str) -> dict[str, int]:
         """Parse Playwright output to extract test counts.
 
@@ -1787,6 +1817,30 @@ class RunTestRunner:
             counts["total"] = counts["passed"] + counts["failed"] + counts["skipped"]
 
         return counts
+
+    def _parse_playwright_failures(self, output: str) -> list[str]:
+        """Extract genuinely failed Playwright test names from reporter output.
+
+        The list reporter emits one numbered failure detail line per test that
+        ultimately failed (after retries), of the form
+        "   1) [project] file.spec.ts:line > suite > test". Tests that pass on a
+        retry never appear there, and passing tests whose titles contain the
+        word "failed" are not picked up by a substring scan. If the summary
+        claims failures but no numbered entries parsed, fall back to the exact
+        summary line so the failure is at least visible to the operator.
+        """
+        import re
+
+        failures: list[str] = []
+        for match in re.finditer(r"^\s+\d+\)\s+(.+?)\s*$", output, re.M):
+            name = match.group(1).strip()
+            if name and name not in failures:
+                failures.append(name)
+        if not failures:
+            summary = re.search(r"[^\n]*\b\d+\s+failed\b[^\n]*", output)
+            if summary:
+                failures.append(summary.group(0).strip())
+        return failures
 
     def _install_playwright_dependencies(self) -> bool:
         """Install Playwright and npm dependencies."""

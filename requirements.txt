@@ -9,6 +9,7 @@
 # Phase 5 security updates: 2026-04-19 (cryptography 46.0.7, transitive dep floor pins)
 # Phase 6 security updates: 2026-05-12 (urllib3 2.7.0, python-multipart 0.0.27, GitPython 3.1.50, langchain-core 1.3.3, Mako 1.3.12)
 # Phase 7 security updates: 2026-06-22 (starlette 1.3.1, pydantic-settings 2.14.2, pypdf 6.13.3, langsmith 0.8.18; test-only pip 26.1.2 + msgpack 1.2.1 pinned in pyproject)
+# Phase 8 security updates: 2026-09-02 (pypdf 6.16.1; test-only pip 26.2 + nltk 3.10.3 pinned in pyproject)
 
 # Core scraping and processing
 requests==2.33.1
@@ -17,9 +18,6 @@ brotli==1.2.0  # Brotli decompression support for httpx
 beautifulsoup4==4.14.3
 lxml==6.1.1
 feedparser==6.0.12
-extruct==0.18.0
-iocextract==1.16.1
-trafilatura==2.0.0  # Content extraction fallback for selector inference in source healing
 playwright==1.60.0  # Headless browser for JS-rendered content
 
 # Data processing and storage
@@ -66,7 +64,7 @@ python-multipart==0.0.32
 cryptography==50.0.0  # CVE-2026-34073, CVE-2026-39892 + GHSA-537c-gmf6-5ccf (vulnerable bundled OpenSSL) fixes
 
 # PDF processing
-pypdf==6.15.0  # CVE-2026-54530/54531 (infinite-loop DoS) + GHSA-jm82-fx9c-mx94 + CVE-2026-71852/71870 fixes
+pypdf==6.16.1  # CVE-2026-54530/54531 (infinite-loop DoS) + GHSA-jm82-fx9c-mx94 + CVE-2026-71852/71870 + CVE-2026-84309/84310/84311 fixes
 
 # SIGMA rule validation and repository management
 pysigma==1.3.3

@@ -1,7 +1,26 @@
 # Huntable CTI Studio
 <img width="952" height="64" alt="image" src="https://github.com/user-attachments/assets/4b29bc70-b518-4559-af0c-caf23b86000d" />
 
-**Huntable CTI Studio v7.8.0 "Europa"** - A Cyber Threat Intelligence ML/AI workbench that automates collection, extraction, and detection rule generation from 38 seeded OSINT sources (see `config/sources.yaml`; runtime may add or replace rows after DB sync).
+**Reports to Rules... in Record time.** Huntable CTI Studio is an AI-assisted workbench for detection engineers and threat hunters. It ingests open-source threat intelligence from RSS feeds and web scraping, extracts platform-aware observables (command lines, process trees, registry keys, services, scheduled tasks, network indicators, hunt queries) across Windows, Linux, and macOS, and turns them into Sigma rules you can validate, review, and ship.
+
+## Who Is This For?
+
+| Role | What you get |
+|------|--------------|
+| **Detection Engineers** | Auto-generated Sigma rules from CTI articles, validated and de-duplicated against SigmaHQ |
+| **Threat Hunters** | Extracted command-lines, process trees, and hunt queries ready for triage |
+| **SOC Analysts** | Curated, scored intelligence feed with semantic search via MCP |
+| **Contributors and agents** | A Docker-first stack with explicit workflow, config, and persistence contracts |
+
+## ** SECURITY WARNING **
+!! The DEFAULT mode is UNAUTHENTICATED (`AUTH_MODE=disabled`) -- intended for research, learning, and automation on a trusted/local network. DO NOT expose the default mode to a hostile network.
+
+For hardened deployments, an optional enterprise boundary is available: SSO through a trusted-header reverse proxy (Google / GitHub / Microsoft), role-based access control, CSRF protection, fail-closed production startup, and a redacted, actor-attributed audit trail. See [Authentication](docs/guides/authentication.md) and [Enterprise SSO Setup](docs/guides/enterprise-sso.md).
+
+Even when hardened, the phase-one audit log is database-backed and mutable by database administrators (forward exports to a SIEM for higher assurance), and the app is not intended to store classified or proprietary threat intelligence at this time.
+##
+
+**Huntable CTI Studio v7.8.1 "Europa"** - A Cyber Threat Intelligence ML/AI workbench that automates collection, extraction, and detection rule generation from 38 seeded OSINT sources (see `config/sources.yaml`; runtime may add or replace rows after DB sync).
 
 ## Purpose
 
@@ -10,7 +29,7 @@ Aggregates cybersecurity threat intelligence from RSS feeds and web scraping; us
 ## Architecture
 
 - **8 default services**: PostgreSQL (pgvector), Redis, FastAPI web app, maintenance runtime, Celery workers (default + workflow), scheduler, and a one-shot Codex auth initializer
-- **LangGraph**: Orchestrates the 7-step agentic workflow as a linear pipeline with conditional early-exit gates (state machine, checkpointing)
+- **LangGraph**: Orchestrates the 7-step agentic workflow as a linear pipeline with conditional early-exit gates; execution state is persisted to dedicated Postgres tables
 - **Database-backed workflows**: Articles, workflow executions, Sigma rules, presets, settings, evals, and supporting metadata
 - **Source healing**: operator-invoked Claude Code skill diagnoses failing sources (RSS inspection, sitemap discovery, JS-rendering detection, WP JSON API probing) and proposes a config fix for approval — never auto-applies, never runs on a schedule
 - **Multi-model AI**: OpenAI and Anthropic, an optional local LM Studio provider, and an optional subscription-backed Codex provider for workflows

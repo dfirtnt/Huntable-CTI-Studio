@@ -42,10 +42,10 @@ workflow_worker:
 
 ## Benefits
 
-1. **Isolation:** Workflow tasks never blocked by source checks
-2. **Performance:** Dedicated workers ensure fast workflow execution
-3. **Scalability:** Can scale workflow workers independently
-4. **Reliability:** Workflow failures don't affect other tasks
+1. **Isolation:** Workflow tasks are never blocked by source checks.
+2. **Performance:** Dedicated workers run workflow execution without contention from other queues.
+3. **Scalability:** Workflow workers scale independently of the main worker (see [Scaling](#scaling)).
+4. **Reliability:** Workflow failures don't affect other task types.
 
 ## Deployment
 
@@ -96,8 +96,12 @@ docker logs cti_workflow_worker --tail 50 -f
 
 ### Check Queue Depth
 ```bash
-docker exec cti_redis redis-cli LLEN celery
+docker exec cti_redis redis-cli LLEN workflows
 ```
+
+### Check Overall Worker Health
+
+For a broader view (not just the workflows queue), see [Agent Orientation -- Workers and schedules](agent-orientation.md#runtime-entry-points) and the `AGENTS.md` "Runtime" section (repository root) for the restart requirement on `cti_worker` / `cti_workflow_worker` after `.py` changes.
 
 ### Check Workflow Worker Stats
 ```bash
@@ -172,3 +176,4 @@ workflow_worker:
 - `src/worker/celery_app.py` - `trigger_agentic_workflow` task
 
 _Last updated: 2026-07-03_
+_Last reviewed: 2026-09-01_

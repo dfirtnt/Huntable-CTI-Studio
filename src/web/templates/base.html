@@ -47,12 +47,12 @@
     <!-- Theme variables (canonical source for app colors) -->
     <link rel="stylesheet" href="/static/css/theme-variables.css">
     
-    <!-- Tailwind CSS via CDN -->
-    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
-    <script>
-      // Force class-based dark mode so `dark:` variants always activate on our dark-only theme
-      tailwind.config = { darkMode: 'class' };
-    </script>
+    <!-- Tailwind CSS, built locally from tailwind.config.js (see `make css`).
+         Replaces the former runtime cdn.tailwindcss.com script: that host sends no
+         access-control-allow-origin, so `integrity` could never be added to it (SRI on a
+         cross-origin script forces a CORS fetch, which the host would fail) -- see the
+         2026-07-20 revert in cff9e7ba. darkMode:'class' now lives in the build config. -->
+    <link rel="stylesheet" href="{{ asset_url('css/tailwind.css') }}">
     
     <!-- Chart.js for visualizations -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js" integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ" crossorigin="anonymous"></script>
@@ -237,6 +237,8 @@
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 min-h-screen flex flex-col pt-[70px]" style="background-color: var(--panel-bg-0);">
 
+    <a href="#main-content" class="skip-link">Skip to content</a>
+
     <!-- Navigation -->
     <nav class="gradient-bg shadow-lg border-b fixed top-0 left-0 right-0 z-50 overflow-x-auto" style="border-color: var(--border-muted);" aria-label="Main navigation">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-w-0">
@@ -249,7 +251,7 @@
                 <div class="flex-shrink-0 mr-6">
                     <a href="/" class="flex items-center gap-2 cursor-pointer transition-opacity hover:opacity-80">
                         <img src="/static/icons/huntable-icon.svg" alt="Huntable" class="w-[57px] h-[57px] nav-brand-accent" />
-                        <h1 class="text-xl font-bold leading-tight" style="color: var(--text-primary);">Huntable<br>CTI Studio</h1>
+                        <div class="text-xl font-bold leading-tight" style="color: var(--text-primary);">Huntable<br>CTI Studio</div>
                     </a>
                 </div>
                 <div class="hidden md:flex items-center justify-center gap-8 flex-1 min-w-0 shrink">
@@ -319,7 +321,7 @@
     </nav>
 
     <!-- Main Content -->
-    <main class="flex-1" style="background-color: var(--panel-bg-0);">
+    <main id="main-content" class="flex-1" style="background-color: var(--panel-bg-0);">
         {% block content %}{% endblock %}
     </main>
 
@@ -327,7 +329,7 @@
     <footer class="bg-gray-800 dark:bg-gray-800 text-white mt-auto">
         <div class="max-w-7xl mx-auto py-2 px-4 sm:px-6 lg:px-8">
             <div class="text-center text-xs text-gray-400">
-                <p>&copy; 2025 Huntable CTI Studio &middot; TTP -> SIGMA Workbench</p>
+                <p>&copy; {{ current_year() }} Huntable CTI Studio &middot; TTP -> SIGMA Workbench</p>
             </div>
         </div>
     </footer>
@@ -367,17 +369,29 @@
         }
 
         // Global toast notification (use theme vars; no literal hex)
+        function getNotificationStack() {
+            let stack = document.getElementById('notificationStack');
+            if (!stack) {
+                stack = document.createElement('div');
+                stack.id = 'notificationStack';
+                stack.className = 'fixed right-4 z-[60] flex flex-col items-end gap-2 max-w-sm';
+                stack.style.top = 'calc(70px + 1rem)';
+                document.body.appendChild(stack);
+            }
+            return stack;
+        }
         function showNotification(message, type) {
             type = type || 'info';
             const bg = type === 'success' ? 'var(--action-execute)' : type === 'error' ? 'var(--action-danger)' : type === 'warning' ? 'var(--action-warning)' : 'var(--action-info)';
             const el = document.createElement('div');
             el.setAttribute('role', 'alert');
-            el.className = 'fixed top-4 right-4 z-[60] px-4 py-3 rounded-md shadow-lg text-white text-sm font-medium max-w-sm';
+            el.className = 'px-4 py-3 rounded-md shadow-lg text-white text-sm font-medium w-full';
             el.style.backgroundColor = bg;
             el.style.color = 'var(--text-emphasis)';
             el.style.border = '1px solid rgba(255,255,255,0.2)';
+            el.style.whiteSpace = 'pre-line';
             el.textContent = typeof message === 'string' ? message : String(message);
-            document.body.appendChild(el);
+            getNotificationStack().appendChild(el);
             setTimeout(function() {
                 if (el.parentNode) el.remove();
             }, 5000);

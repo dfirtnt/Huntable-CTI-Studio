@@ -175,3 +175,60 @@ def test_workflow_enrich_modal_has_help_button():
         re.DOTALL,
     )
     assert pattern.search(TEMPLATE), "enrichModal header is missing its showHelp() button"
+
+
+def test_similarity_threshold_help_states_inclusive_suppression_boundary():
+    """Boundary wording matches the code: >= threshold is suppressed, not queued.
+
+    The queue gate promotes on ``rule_max_sim < similarity_threshold``, so a rule
+    scoring exactly the threshold is suppressed. The help text previously said
+    "If similarity <= threshold: rule is queued", which is wrong at the boundary.
+    """
+    section = re.search(
+        r"'similarityThreshold'\s*:\s*\{(.+?)\}\s*(?:,\s*\n\s*'|\s*$)",
+        HELP_TEXTS_BLOCK,
+        re.DOTALL,
+    )
+    assert section, "Could not isolate similarityThreshold section"
+    body = section.group(1)
+
+    assert "at or above" in body, "help text must state the boundary is inclusive"
+    assert "≤ threshold: rule is queued" not in body
+    assert "<= threshold: rule is queued" not in body
+
+
+def test_similarity_threshold_help_documents_per_rule_scope():
+    """Suppression is per-rule; the text must not imply batch-wide behavior."""
+    section = re.search(
+        r"'similarityThreshold'\s*:\s*\{(.+?)\}\s*(?:,\s*\n\s*'|\s*$)",
+        HELP_TEXTS_BLOCK,
+        re.DOTALL,
+    )
+    assert section, "Could not isolate similarityThreshold section"
+    body = section.group(1)
+
+    assert "Each rule is judged independently" in body
+
+
+def test_similarity_threshold_help_documents_inconclusive_fail_open():
+    """Unassessable rules are queued for review, not treated as duplicates."""
+    section = re.search(
+        r"'similarityThreshold'\s*:\s*\{(.+?)\}\s*(?:,\s*\n\s*'|\s*$)",
+        HELP_TEXTS_BLOCK,
+        re.DOTALL,
+    )
+    assert section, "Could not isolate similarityThreshold section"
+    body = section.group(1)
+
+    assert "cannot be assessed" in body
+
+
+def test_similarity_slider_caption_states_inclusive_boundary():
+    """The inline slider caption must not say "above" for an inclusive gate.
+
+    Second instance of the same off-by-boundary wording as the help bubble: the
+    queue gate suppresses on ``>= threshold``, so a rule scoring exactly the
+    threshold is a duplicate, not queued.
+    """
+    assert "rules above this are considered duplicates" not in TEMPLATE
+    assert "rules at or above this are considered duplicates" in TEMPLATE

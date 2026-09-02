@@ -212,7 +212,7 @@ The original section is retained below for traceability.
 
 **Signals (compute both):**
 1. **Fraction of generated rules with literal `*` in any value.**
-2. **Rank-change rate.** For each rule with a literal `*`, find its current top-5 nearest atom-distance neighbors. Run a *hypothetical* transformation that folds `\foo\*` → `endswith \foo\` and similar (leading `*` → `endswith`, trailing `*` → `startswith`, `*…*` → `contains`). Re-rank. Count how often the top-1 changes.
+2. **Rank-change rate.** For each rule with a literal `*`, find its current top-5 nearest atom-distance neighbors. Run a *hypothetical* transformation that folds `\foo\*` → `endswith \foo\` and similar (leading `*` → `endswith`, trailing `*` → `startswith`, `*...*` → `contains`). Re-rank. Count how often the top-1 changes.
 
 **Decision thresholds (pre-commit, write down before running):**
 
@@ -576,10 +576,10 @@ The risk: if the atom-less guard is later refactored, removed, or has its own bu
 - `src/services/sigma_novelty_service.py` near `assess_novelty` — the atom-less guard added in `bd71d9cc`.
 - `src/services/sigma_sync_service.py:551, 615` — where `exact_hash` and `canonical_text` are populated during indexing.
 - Affected rules today (4 known, in 2 collision groups):
-  - `2ece8816-…` — CVE-2023-20198 (Cisco IOS XE Web UI exploitation)
-  - `ef0ff092-…` — Cisco Dot1x Disabled
-  - `4c9d903d-…` — CVE-2018-15473 (SSHD)
-  - `8b244735-…` — CVE-2023-2283 (libssh)
+  - `2ece8816-...` — CVE-2023-20198 (Cisco IOS XE Web UI exploitation)
+  - `ef0ff092-...` — Cisco Dot1x Disabled
+  - `4c9d903d-...` — CVE-2018-15473 (SSHD)
+  - `8b244735-...` — CVE-2023-2283 (libssh)
 
 All four have `positive_atoms = null`. The deterministic extractor (`atom_extractor.py`) doesn't model keyword-only Sigma selections — `AtomNode` requires field/operator/value.
 
@@ -636,8 +636,8 @@ Concretely, the residual collisions in the live corpus are:
 
 | Group | Rule A | Rule B | Rule C | atom_count | atoms (verbatim from canonical_json) |
 |---|---|---|---|---:|---|
-| `db89432b…` | `65354b83-…` Cross Site Scripting Strings | `ada3bc4f-…` Server Side Template Injection Strings | — | 2 | `Sc-status=404 negative`, `Cs-method=GET positive` |
-| `e0cf7d23…` | `4cb57c2f-…` System Shutdown/Reboot - Linux | `b3cec4e7-…` File Time Attribute Change - Linux | `eae8ce9f-…` Suspicious History File Operations - Linux | 1 | `Type=EXECVE positive` |
+| `db89432b...` | `65354b83-...` Cross Site Scripting Strings | `ada3bc4f-...` Server Side Template Injection Strings | — | 2 | `Sc-status=404 negative`, `Cs-method=GET positive` |
+| `e0cf7d23...` | `4cb57c2f-...` System Shutdown/Reboot - Linux | `b3cec4e7-...` File Time Attribute Change - Linux | `eae8ce9f-...` Suspicious History File Operations - Linux | 1 | `Type=EXECVE positive` |
 
 The XSS and SSTI rules differ only in their `keywords:` payload patterns (which the extractor doesn't model); the auditd rules differ in `c-uri`/`a*` `keywords:` content. The extractor reports the common HTTP filter (or EXECVE flag) as the atom set and the unique content vanishes.
 
@@ -1223,8 +1223,8 @@ SELECT engine, COUNT(*) AS hits FROM (
 | `windows.process_creation` | 2 |
 
 **The two atom-less process_creation rules** (extraction edge cases — `AtomNode` couldn't model the YAML structure):
-- `71158e3f-…` — *Execution Of Non-Existing File* (`rules/windows/process_creation/proc_creation_win_susp_image_missing.yml`)
-- `c09dad97-…` — *Execution of Suspicious File Type Extension* (`rules/windows/process_creation/proc_creation_win_susp_non_exe_image.yml`)
+- `71158e3f-...` — *Execution Of Non-Existing File* (`rules/windows/process_creation/proc_creation_win_susp_image_missing.yml`)
+- `c09dad97-...` — *Execution of Suspicious File Type Extension* (`rules/windows/process_creation/proc_creation_win_susp_non_exe_image.yml`)
 
 **Interpretation:** the static 49.1% gap is **not** the legacy fallback firing on half the comparisons. The candidate-retrieval SQL filters by `canonical_class`, which is NULL for the 1,827 non-process_creation rules — they're never returned as candidates at all. The scorer is precise on what it sees; the corpus gap manifests as *invisible rules*, not as imprecise scoring. Per the spec's threshold ("<5% legacy → later"), Item 8 is demoted. Promote it when expanding canonical_class coverage to registry / network / file becomes a goal in its own right.
 
@@ -1378,8 +1378,8 @@ The "atom-less rows" count (1,829) reflects `positive_atoms IS NULL` (the semant
 
 | Group | Rules | atom_count | Atoms produced by extractor | Why they collide |
 |---|---|---:|---|---|
-| `db89432b…` | XSS Strings (`65354b83`), SSTI Strings (`ada3bc4f`) | 2 | `Sc-status=404 negative` + `Cs-method=GET positive` | Both rules' XSS / SSTI payload-detection content lives in `keywords:` arrays the extractor doesn't model. Only the shared HTTP filter + selection get atomized → identical atom strings → identical hash. |
-| `e0cf7d23…` | Linux Shutdown/Reboot (`4cb57c2f`), File Time Attr Change (`b3cec4e7`), Susp History File Ops (`eae8ce9f`) | 1 | `Type=EXECVE positive` | Same shape — the unique detection signal (command name patterns, file paths) lives in unmodeled selections; only the universal `Type=EXECVE` Linux-auditd flag remains. |
+| `db89432b...` | XSS Strings (`65354b83`), SSTI Strings (`ada3bc4f`) | 2 | `Sc-status=404 negative` + `Cs-method=GET positive` | Both rules' XSS / SSTI payload-detection content lives in `keywords:` arrays the extractor doesn't model. Only the shared HTTP filter + selection get atomized → identical atom strings → identical hash. |
+| `e0cf7d23...` | Linux Shutdown/Reboot (`4cb57c2f`), File Time Attr Change (`b3cec4e7`), Susp History File Ops (`eae8ce9f`) | 1 | `Type=EXECVE positive` | Same shape — the unique detection signal (command name patterns, file paths) lives in unmodeled selections; only the universal `Type=EXECVE` Linux-auditd flag remains. |
 
 Item 12 is documented above. It is **reachable in production** (unlike the original Item 11 latent) because `inapp_atoms` for these rules is non-empty, so the `bd71d9cc` `assess_novelty:280` guard does not fire. A proposed rule with the same minimal skeleton could trigger a false DUPLICATE today.
 
@@ -1487,7 +1487,7 @@ End of addendum.
 
 ## Addendum 2026-06-01 — Item 5 skipped (scope clarification: desired corpus is SigmaHQ + customer repo, already covered by `sigma_rules`)
 
-**Item(s) affected:** 5 (now `⊘ skipped`). With Item 5 closed the audit follow-up arc is fully resolved — all ⓘ ten substantive items landed, two ⓘ skipped (3 disproved, 5 reframed), one ⓘ deferred (8 demoted by 4b measurement).
+**Item(s) affected:** 5 (now `⊘ skipped`). With Item 5 closed the audit follow-up arc is fully resolved — all ten substantive items landed, two skipped (3 disproved, 5 reframed), one deferred (8 demoted by 4b measurement).
 
 **Decision / result:** Item 5 was originally framed as "queue rules are excluded from the scorer's corpus → near-duplicate LLM proposals get false-NOVEL during the approve→merge window." A scope discussion 2026-06-01 reframed the question: the desired comparison corpus is **SigmaHQ + the customer's own Sigma rules repo**, which is *exactly* what the `sigma_rules` table already contains (populated by `./run_cli.sh sigma index` for SigmaHQ and `./run_cli.sh sigma index-customer-repo` for the customer repo, both writing to the same table). The queue is workflow state — not committed via PR merge — and the operator explicitly chose to keep it outside the scorer.
 
@@ -1622,7 +1622,7 @@ End of addendum.
 
 **Spike A finding (gates the webserver portion + informs the collapse-extractors issue):** ran the XSS and SSTI webserver detections through the precomputed extraction pipeline (`normalize_detection` → `build_ast` → `ast_to_dnf` → `extract_positive_atoms`). **Both produced empty atom sets** — the precomputed (pySigma) extractor does not model keyword-list selections at all (and the cs-method/sc-status field atoms also did not survive the keyword-only condition structure). Consequence: adding `*.webserver` to the registry would route webserver rules to the precomputed path and store empty atoms, **regressing** the currently-working on-the-fly keyword comparison (the on-the-fly `extract_atomic_predicates` models keywords post-Item-12; webserver rules reach it today via the `logsource_key` fallback because they have no `canonical_class`). So `*.webserver` is deferred — it must wait on keyword parity in the precomputed extractor (the "collapse the two extractors into one" / Conditional B work). This is concrete evidence for that issue: the two extractors disagree on keyword-list selections, and the precomputed one is the gap.
 
-**Still open in the Coverage-Chain (tracked in Todoist, SigmaSim-prefixed):** Option B (`image_load`, `network_connection`), the long tail (PowerShell/macOS/proxy/DNS/…), and `*.webserver` (gated on keyword parity).
+**Still open in the Coverage-Chain (tracked in Todoist, SigmaSim-prefixed):** Option B (`image_load`, `network_connection`), the long tail (PowerShell/macOS/proxy/DNS/...), and `*.webserver` (gated on keyword parity).
 
 **Operational:** the registry/file consolidation is live only after image rebuild (`sigma_semantic_similarity` is COPY'd, not bind-mounted) + `./run_cli.sh sigma recompute-semantics`. Not run here (parallel session active; rebuild/restart is the operator's call).
 
@@ -1654,7 +1654,7 @@ End of addendum.
 
 - pure keyword (`{"keywords": [".git/"], "condition": "keywords"}`) → `|contains|contains|.git/` ✓ (was `[]` pre-Conditional-B)
 - keyword + `not filter` (Log4j) → positive `${jndi:ldap:/` etc. **and** negative `w.nessus.org/nessus` — negation flows correctly through the condition tree ✓
-- mixed field + keyword (Kemp CVE-2024-1212) → `cs-method|eq||get`, `cs-uri-stem|contains|contains|all|…` **and** `|contains|contains|basic jz` ✓
+- mixed field + keyword (Kemp CVE-2024-1212) → `cs-method|eq||get`, `cs-uri-stem|contains|contains|all|...` **and** `|contains|contains|basic jz` ✓
 
 So webserver rules no longer extract empty atoms; routing them to the deterministic path no longer regresses keyword comparison.
 

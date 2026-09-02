@@ -1,0 +1,7 @@
+/* Tailwind build input for Huntable CTI Studio. Compiled to
+ * src/web/static/css/tailwind.css by `make css`. Kept at the repo root beside
+ * tailwind.config.js because build/ is gitignored and this file must be
+ * committed for the build to be reproducible. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

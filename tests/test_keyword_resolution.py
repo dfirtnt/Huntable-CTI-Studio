@@ -39,6 +39,27 @@ def test_intelligence_uses_canonical_orange_styles() -> None:
     assert meta.dimension == "context"
 
 
+def test_points_label_reads_as_a_per_match_weight_not_earned_points() -> None:
+    """`-10 pts` on a "No matches" card read as points this article earned,
+    when it is really the category's static per-match weight. Every category's
+    label must say "each" so the number can't be misread as an earned score."""
+    for meta in KEYWORD_CATEGORY_METADATA.values():
+        assert meta.points_label.endswith(" each"), (
+            f"{meta.key!r} points_label {meta.points_label!r} does not read as a per-match weight"
+        )
+
+
+def test_panel_groups_points_label_reaches_the_rendered_context() -> None:
+    """The template reads points_label off panel_groups, not the category
+    metadata directly -- prove the "each" qualifier actually reaches that
+    dict, not just the underlying constant."""
+    context = build_keyword_resolution_context("no matches here", {})
+
+    panel_groups = {group["key"]: group for group in context["panel_groups"]}
+    assert panel_groups["negative"]["points_label"] == "-10 pts each"
+    assert panel_groups["perfect"]["points_label"] == "75 pts each"
+
+
 def test_adjacent_and_nested_matches_resolve_without_overlap() -> None:
     content = "rundll32.exe javascript:"
     metadata = {
@@ -133,3 +154,92 @@ def test_perfect_discriminator_supersedes_overlapping_keyword_matches() -> None:
     assert [(match.text, match.category) for match in resolved] == [("cmd.exe", "perfect")]
     assert resolved[0].source_categories == ("perfect", "good", "lolbas")
     assert "Highest-priority match among: Perfect, Good, LOLBAS" in resolved[0].title
+
+
+def _only_highlight_spans(rendered: str) -> list[str]:
+    """Extract just the highlighted text runs, in document order."""
+    import re
+
+    return re.findall(r'<span class="keyword-highlight[^"]*"[^>]*>([^<]*)</span>', rendered)
+
+
+def test_partial_keyword_highlight_covers_the_whole_word_not_a_mid_word_fragment() -> None:
+    """Regression for the "detection"/"detections" split: a PARTIAL_MATCH_KEYWORDS
+    entry matches a substring by design (for scoring), but the *rendered* highlight
+    must cover the whole surrounding word so the highlight never begins or ends
+    inside an alphanumeric run."""
+    content = "We observed detections of malware on the host."
+    metadata = {
+        "perfect_keyword_matches": [],
+        "good_keyword_matches": ["detection"],
+        "lolbas_matches": [],
+        "intelligence_matches": [],
+        "negative_matches": [],
+    }
+
+    resolved = resolve_keyword_matches(content, metadata)
+    # The underlying match -- what the Keyword Matches panel counts and displays --
+    # is unchanged: the narrow "detection" substring, not the whole word.
+    assert [match.text for match in resolved] == ["detection"]
+
+    rendered = render_highlighted_content(content, resolved)
+    assert _only_highlight_spans(rendered) == ["detections"]
+    assert rendered.count("<span") == 1
+
+
+def test_defanged_ip_highlight_stays_one_continuous_token() -> None:
+    """Regression for `45.153.34[.]132` rendering as three fragments when only
+    the `[.]` defang marker matched."""
+    content = "Traffic to 45.153.34[.]132 was logged by the sensor."
+    metadata = {
+        "perfect_keyword_matches": [],
+        "good_keyword_matches": ["[.]"],
+        "lolbas_matches": [],
+        "intelligence_matches": [],
+        "negative_matches": [],
+    }
+
+    resolved = resolve_keyword_matches(content, metadata)
+    assert [match.text for match in resolved] == ["[.]"]
+
+    rendered = render_highlighted_content(content, resolved)
+    assert _only_highlight_spans(rendered) == ["45.153.34[.]132"]
+
+
+def test_two_distinct_matches_in_one_hyphenated_token_render_as_a_single_span() -> None:
+    """Regression for "command-and-con" / "trol"-style splits: two *separate*
+    keyword matches ("command" and "control") landing in the same hyphenated
+    compound must not each independently truncate at their own raw boundary --
+    they merge into one combined highlight covering the whole compound."""
+    content = "Observed command-and-control traffic on the network."
+    metadata = {
+        "perfect_keyword_matches": [],
+        "good_keyword_matches": ["command", "control"],
+        "lolbas_matches": [],
+        "intelligence_matches": [],
+        "negative_matches": [],
+    }
+
+    resolved = resolve_keyword_matches(content, metadata)
+    # Panel data still shows two distinct matches -- merging is a render-only concern.
+    assert [match.text for match in resolved] == ["command", "control"]
+
+    rendered = render_highlighted_content(content, resolved)
+    assert _only_highlight_spans(rendered) == ["command-and-control"]
+
+
+def test_highlight_span_does_not_swallow_unrelated_punctuation_past_the_word() -> None:
+    """Expansion must stop at real token boundaries (quotes, angle brackets,
+    "="), not run through arbitrary non-whitespace text."""
+    content = '<b class="x">already</b> wrapped'
+    metadata = {
+        "perfect_keyword_matches": [],
+        "good_keyword_matches": ["already"],
+        "lolbas_matches": [],
+        "intelligence_matches": [],
+        "negative_matches": [],
+    }
+
+    resolved = resolve_keyword_matches(content, metadata)
+    rendered = render_highlighted_content(content, resolved)
+    assert _only_highlight_spans(rendered) == ["already"]

@@ -6,7 +6,7 @@ These tests validate the complete preset lifecycle including save/restore, impor
 
 **File:** `tests/api/test_workflow_preset_lifecycle.py`
 **Tests:** 9
-**Markers:** `@pytest.mark.api`, `@pytest.mark.integration_full`
+**Markers:** `@pytest.mark.api`, `@pytest.mark.integration_full`, module-level `@pytest.mark.agent_config_mutation`
 
 ---
 
@@ -198,16 +198,19 @@ User Action: Import Quickstart-LMStudio-Qwen3.json
 - Upsert behavior (update if exists, create if not)
 - Same ID returned on update
 - Message indicates "Preset updated" not "Preset saved"
-- Values properly updated
-- `created_at` unchanged, `updated_at` changed
+- Values properly updated (description reflects the second save)
 
 ---
 
-### Test: RankAgent Model Key on Legacy Conversion
+### 2. RankAgent Legacy Conversion Regression (1 test)
+
+#### Test 7: RankAgent Model Key on Legacy Conversion
 
 **Function:** `test_to_legacy_returns_rankagent_model_key`
 
-**Purpose:** Regression test -- a V2 preset with `RankAgent` configured must convert to legacy
+**Markers:** also carries `@pytest.mark.regression`
+
+**Purpose:** Regression test, a V2 preset with `RankAgent` configured must convert to legacy
 format with `agent_models['RankAgent']` set to the bare model name (not `RankAgent_model`),
 since the frontend `applyPreset()` reads that exact key for the model dropdown.
 
@@ -218,47 +221,43 @@ since the frontend `applyPreset()` reads that exact key for the model dropdown.
 
 ---
 
-### 2. Preset Validation Tests (2 tests)
+### 3. Preset Validation Tests (2 tests)
 
-#### Test 7: Invalid Schema Validation
+#### Test 8: Invalid Schema Validation
 
 **Function:** `test_export_invalid_preset_schema`
 
-**Purpose:** Ensure invalid presets are rejected
+**Purpose:** Ensure an invalid preset is rejected.
 
-**Test Cases:**
+**Test Case (the only one this test asserts):**
 ```python
 # Invalid: similarity_threshold > 1.0
 {"thresholds": {"similarity_threshold": 2.5}}  # -> 400 Error
-
-# Invalid: ranking_threshold > 10.0
-{"thresholds": {"ranking_threshold": 15.0}}    # -> 400 Error
-
-# Invalid: missing required fields
-{"thresholds": {}}                             # -> 400 Error
 ```
 
 **Validates:**
-- Validation errors caught
-- Returns 400 with detail message
+- Validation error caught for `similarity_threshold` out of range
+- Returns 400 with a `detail` message
 - Invalid data rejected before save
 
 ---
 
-#### Test 8: Missing Required Fields
+#### Test 9: Missing Required Fields
 
 **Function:** `test_save_preset_missing_required_fields`
 
-**Purpose:** Verify required fields are enforced
+**Purpose:** Verify required fields are enforced.
 
 **Required Fields:**
 - `name` (string)
 - `config` (dict)
 
+**Test Case:** a single payload omitting both `name` and `config` (see
+`tests/api/test_workflow_preset_lifecycle.py:409-419`); the test does not assert the two
+fields individually.
+
 **Validates:**
-- Missing `name` returns 422
-- Missing `config` returns 422
-- Empty payload handled correctly
+- Payload missing `name` and `config` returns 422
 
 ---
 
@@ -269,7 +268,6 @@ since the frontend `applyPreset()` reads that exact key for the model dropdown.
 | `/api/workflow/config` | GET | Get active config |
 | `/api/workflow/config` | PUT | Update config |
 | `/api/workflow/config/preset/save` | POST | Save/update preset |
-| `/api/workflow/config/preset/list` | GET | List all presets |
 | `/api/workflow/config/preset/{id}` | GET | Get preset details |
 | `/api/workflow/config/preset/{id}` | DELETE | Delete preset |
 | `/api/workflow/config/preset/export` | POST | Export to V2 format |
@@ -280,7 +278,7 @@ since the frontend `applyPreset()` reads that exact key for the model dropdown.
 ## Comparison: Import/Export vs File Operations
 
 ### Import Workflow
-```
+```text
 config/presets/AgentConfigs/quickstart/Quickstart-*.json  (File System)
            |
     [Read JSON File]
@@ -293,7 +291,7 @@ workflow_config_presets  (Database)
 ```
 
 ### Export Workflow
-```
+```text
 workflow_config_presets  (Database)
            |
 GET /api/workflow/config/preset/{id}  (API)
@@ -315,12 +313,25 @@ python3 run_tests.py api
 ```
 
 ### Run This File Only
+
+This module carries `@pytest.mark.agent_config_mutation`, so a bare `pytest` invocation needs
+`TEST_DATABASE_URL` and `USE_ASGI_CLIENT=1` or it fails fast (see
+`tests/TEST_DATABASE_SETUP.md` Option 3):
+
 ```bash
+export APP_ENV=test
+export TEST_DATABASE_URL="postgresql+asyncpg://cti_user:K1LZXPsrF2uft4fNL6UB2C0u@localhost:5433/cti_scraper_test"
+export USE_ASGI_CLIENT=1
+
 .venv/bin/pytest tests/api/test_workflow_preset_lifecycle.py -v
 ```
 
 ### Run a Specific Test
 ```bash
+export APP_ENV=test
+export TEST_DATABASE_URL="postgresql+asyncpg://cti_user:K1LZXPsrF2uft4fNL6UB2C0u@localhost:5433/cti_scraper_test"
+export USE_ASGI_CLIENT=1
+
 .venv/bin/pytest tests/api/test_workflow_preset_lifecycle.py::TestPresetLifecycle::test_full_preset_workflow_create_apply_delete -v
 ```
 
@@ -331,17 +342,17 @@ python3 run_tests.py api
 ### Config Protection
 - Original config saved before each test
 - Config restored after test completes
-- Best-effort restore -- doesn't fail if restore fails
-- Unique test names -- no collision with production presets
+- Best-effort restore; doesn't fail if restore fails
+- Unique test names; no collision with production presets
 
 ### Cleanup
 - Test presets deleted after validation
 - No orphaned data left in database
-- Idempotent tests -- can run multiple times
+- Idempotent tests; can run multiple times
 
 ### Isolation
-- Each test independent -- doesn't rely on other tests
-- Unique identifiers -- uses `id(self)` in preset names
+- Each test independent; doesn't rely on other tests
+- Unique identifiers; uses `id(self)` in preset names
 - Skips if preconditions not met (e.g., no presets available)
 
 ---
@@ -367,9 +378,14 @@ Tests require:
 If restore fails:
 - Test continues (doesn't fail)
 - Warning printed to console
-- Production config may remain modified
+- Test-database config may remain modified
 
-**Mitigation:** Run in isolated test environment
+**Mitigation:** the module-level `agent_config_mutation` marker keeps this scenario off the
+operator's live config in the first place: `tests/conftest.py::_live_server_blocked_reason`
+hard-fails the test before it runs if `async_client` would otherwise target the dev app on
+`127.0.0.1:8001` without `USE_ASGI_CLIENT=1`. Best-effort restore only matters for the
+test database itself; run with `USE_ASGI_CLIENT=1` (see "Running the Tests" above) so any
+residue lands in `TEST_DATABASE_URL`, not the dev database.
 
 ---
 
@@ -399,10 +415,13 @@ If restore fails:
 
 ## References
 
-- **Quickstart Presets:** `config/presets/AgentConfigs/quickstart/`
+- **Quickstart Presets:** `config/presets/AgentConfigs/quickstart/` (12 preset files as of this review)
 - **API Routes:** `src/web/routes/workflow_config.py`
 - **Config Loader:** `src/config/workflow_config_loader.py`
 - **Database Model:** `src/database/models.py` (`WorkflowConfigPresetTable`)
 - **Config Schema:** `src/config/workflow_config_schema.py`
+- **Test database setup:** `tests/TEST_DATABASE_SETUP.md`
+- **Test marker reference:** [Testing overview](testing.md)
 
 _Last updated: 2026-07-03_
+_Last reviewed: 2026-09-01_

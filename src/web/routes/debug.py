@@ -11,17 +11,167 @@ import numpy as np
 from fastapi import APIRouter, HTTPException
 
 from src.database.async_manager import async_db_manager
-from src.utils.llm_optimizer import estimate_gpt4o_cost  # Backward compatibility
+from src.utils.llm_optimizer import GPT4O_INPUT_COST_PER_MILLION_TOKENS, estimate_gpt4o_cost  # Backward compatibility
 from src.web.dependencies import get_content_filter, logger
 
 router = APIRouter(tags=["Debug"])
+
+_CHUNK_DEBUG_PROGRESS_TTL_SECONDS = 300
+
+# Reported phases. The per-chunk loop is only a fraction of the wall time -- on
+# article 7216 (1,250 chunks) a 65s run spent ~28s in filter_content before the
+# loop started and ~29s building the response after it finished -- so progress
+# that covered only the loop left the operator watching a static spinner for
+# ~89% of the run, which is the complaint this reporting exists to answer.
+_PHASE_FILTERING = "filtering"
+_PHASE_ANALYZING = "analyzing"
+_PHASE_FINALIZING = "finalizing"
+
+
+def _redis_client():
+    """Same REDIS_URL resolution used by tasks.py/health.py.
+
+    The web service runs multiple uvicorn workers (docker-compose.yml
+    --workers 2), so chunk-debug progress must live in Redis rather than
+    process memory -- a poll can land on a different worker than the one
+    running the analysis.
+    """
+    import redis
+
+    redis_url = os.getenv("REDIS_URL") or (
+        "redis://localhost:6379/0" if os.getenv("APP_ENV") == "test" else "redis://redis:6379/0"
+    )
+    return redis.from_url(redis_url, decode_responses=True)
+
+
+def _chunk_debug_progress_key(article_id: int) -> str:
+    return f"chunk_debug_progress:{article_id}"
+
+
+def _init_chunk_debug_progress(
+    article_id: int,
+    *,
+    total_chunks: int,
+    article_total_chunks: int,
+    chunk_limit_applied: bool,
+    concurrency_limit: int,
+    per_chunk_timeout_seconds: float,
+    phase: str = _PHASE_FILTERING,
+) -> None:
+    """Best-effort: a Redis outage should degrade progress reporting, not the analysis itself."""
+    try:
+        client = _redis_client()
+        try:
+            key = _chunk_debug_progress_key(article_id)
+            client.hset(
+                key,
+                mapping={
+                    "processed_chunks": 0,
+                    "total_chunks": total_chunks,
+                    "article_total_chunks": article_total_chunks,
+                    "chunk_limit_applied": int(chunk_limit_applied),
+                    "concurrency_limit": concurrency_limit,
+                    "per_chunk_timeout_seconds": per_chunk_timeout_seconds,
+                    "phase": phase,
+                },
+            )
+            client.expire(key, _CHUNK_DEBUG_PROGRESS_TTL_SECONDS)
+        finally:
+            client.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("chunk-debug progress init failed for article %s: %s", article_id, exc)
+
+
+def _set_chunk_debug_phase(article_id: int, phase: str) -> None:
+    """Advance the reported phase without disturbing the counters.
+
+    Only writes to an existing key: a phase update after the key has expired or
+    been cleared must not resurrect a zeroed progress record that would report
+    a finished run as freshly started.
+    """
+    try:
+        client = _redis_client()
+        try:
+            key = _chunk_debug_progress_key(article_id)
+            if client.exists(key):
+                client.hset(key, "phase", phase)
+                client.expire(key, _CHUNK_DEBUG_PROGRESS_TTL_SECONDS)
+        finally:
+            client.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("chunk-debug progress phase update failed for article %s: %s", article_id, exc)
+
+
+def _clear_chunk_debug_progress(article_id: int) -> None:
+    try:
+        client = _redis_client()
+        try:
+            client.delete(_chunk_debug_progress_key(article_id))
+        finally:
+            client.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("chunk-debug progress cleanup failed for article %s: %s", article_id, exc)
+
+
+def _read_chunk_debug_progress(article_id: int) -> dict | None:
+    try:
+        client = _redis_client()
+        try:
+            data = client.hgetall(_chunk_debug_progress_key(article_id))
+        finally:
+            client.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("chunk-debug progress read failed for article %s: %s", article_id, exc)
+        return None
+
+    if not data:
+        return None
+    return {
+        "processed_chunks": int(data.get("processed_chunks", 0)),
+        "total_chunks": int(data.get("total_chunks", 0)),
+        "article_total_chunks": int(data.get("article_total_chunks", 0)),
+        "chunk_limit_applied": bool(int(data.get("chunk_limit_applied", 0))),
+        "concurrency_limit": int(data.get("concurrency_limit", 0)),
+        "per_chunk_timeout_seconds": float(data.get("per_chunk_timeout_seconds", 0)),
+        # A key written before phases existed can only be from the per-chunk loop,
+        # which is what that code instrumented -- so analyzing is the true reading.
+        "phase": data.get("phase", _PHASE_ANALYZING),
+    }
+
+
+def _humanize_feature_name(name: str) -> str:
+    """cmdline_artifact_count -> 'cmdline artifact count', for use mid-sentence."""
+    return name.replace("_", " ").strip()
+
+
+def _build_chunk_reason(is_huntable: bool, feature_contribution: dict[str, float] | None) -> str:
+    """Per-chunk reason for the Junk Filter Tuning modal.
+
+    ContentFilter.filter_content's own reason ("Content filtered successfully" /
+    "No huntable content found") describes a whole-article filter pass, not a
+    single chunk's keep/remove decision -- reused per-chunk, "Content filtered
+    successfully" reads as "this chunk was filtered out" when it means the
+    opposite. This names the chunk's actual outcome and, when the model exposes
+    feature importances, the top contributing feature so the reason answers
+    what a tuning UI exists to answer.
+    """
+    top_feature = next(iter(feature_contribution), None) if feature_contribution else None
+
+    if is_huntable:
+        if top_feature:
+            return f"Kept - {_humanize_feature_name(top_feature)} was the strongest signal"
+        return "Kept - huntable content detected"
+
+    if top_feature:
+        return f"Not kept - confidence stayed below threshold ({_humanize_feature_name(top_feature)} was the strongest signal)"
+    return "Not kept - no huntable content found"
 
 
 def calculate_filtered_costs(
     original_length: int,
     filtered_length: int,
     prompt_tokens: int = 500,
-    input_rate_per_million: float = 5.0,
+    input_rate_per_million: float = GPT4O_INPUT_COST_PER_MILLION_TOKENS,
 ) -> dict:
     """
     Estimate token counts and costs for filtered content.
@@ -96,6 +246,21 @@ async def api_chunk_debug(
             overlap,
         )
 
+        # Both totals are known as soon as chunking is done, so progress starts
+        # here rather than after the filter_content call below (see _PHASE_*).
+        total_chunks = len(original_chunks)
+        chunk_limit = total_chunks if full_analysis else min(total_chunks, max_chunks_setting)
+
+        _init_chunk_debug_progress(
+            article_id,
+            total_chunks=chunk_limit,
+            article_total_chunks=total_chunks,
+            chunk_limit_applied=chunk_limit < total_chunks,
+            concurrency_limit=concurrency_limit,
+            per_chunk_timeout_seconds=per_chunk_timeout,
+            phase=_PHASE_FILTERING,
+        )
+
         filter_result = await asyncio.to_thread(
             content_filter.filter_content,
             article.content,
@@ -104,13 +269,13 @@ async def api_chunk_debug(
             hunt_score,
         )
 
-        total_chunks = len(original_chunks)
         removed_chunks = len(filter_result.removed_chunks or [])
         kept_chunks = max(total_chunks - removed_chunks, 0)
 
-        chunk_limit = total_chunks if full_analysis else min(total_chunks, max_chunks_setting)
         semaphore = asyncio.Semaphore(concurrency_limit)
         chunk_analysis_results = []
+
+        _set_chunk_debug_phase(article_id, _PHASE_ANALYZING)
 
         async def analyze_chunk(chunk_id: int, start: int, end: int, chunk_text: str):
             async with semaphore:
@@ -206,7 +371,9 @@ async def api_chunk_debug(
                         "text": chunk_text,
                         "is_kept": chunk_result.is_huntable,
                         "confidence": chunk_result.confidence,
-                        "reason": chunk_result.reason,
+                        "reason": _build_chunk_reason(
+                            chunk_result.is_huntable, ml_details.get("feature_contribution") if ml_details else None
+                        ),
                         "features": sanitized_features,
                         "ml_details": ml_details,
                         "has_threat_keywords": has_keywords,
@@ -257,10 +424,40 @@ async def api_chunk_debug(
                         "ml_prediction_correct": None,
                     }
 
-        for chunk_id, (start, end, chunk_text) in enumerate(original_chunks[:chunk_limit]):
-            chunk_analysis_results.append(analyze_chunk(chunk_id, start, end, chunk_text))
+        # One shared client for the whole run rather than one per chunk -- a
+        # full analysis can complete over 1,000 chunks, and opening a fresh
+        # Redis connection per increment would add real per-chunk overhead.
+        try:
+            progress_redis_client = _redis_client()
+        except Exception as exc:  # noqa: BLE001
+            progress_redis_client = None
+            logger.warning("chunk-debug progress client unavailable for article %s: %s", article_id, exc)
 
-        chunk_analysis = await asyncio.gather(*chunk_analysis_results)
+        def _increment_chunk_debug_progress() -> None:
+            if progress_redis_client is None:
+                return
+            try:
+                progress_redis_client.hincrby(_chunk_debug_progress_key(article_id), "processed_chunks", 1)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("chunk-debug progress increment failed for article %s: %s", article_id, exc)
+
+        async def _analyze_chunk_and_track(chunk_id: int, start: int, end: int, chunk_text: str):
+            result = await analyze_chunk(chunk_id, start, end, chunk_text)
+            _increment_chunk_debug_progress()
+            return result
+
+        for chunk_id, (start, end, chunk_text) in enumerate(original_chunks[:chunk_limit]):
+            chunk_analysis_results.append(_analyze_chunk_and_track(chunk_id, start, end, chunk_text))
+
+        try:
+            chunk_analysis = await asyncio.gather(*chunk_analysis_results)
+        finally:
+            if progress_redis_client is not None:
+                progress_redis_client.close()
+            # Not cleared here: assembling and serialising the response is itself a
+            # long step on a large article, and clearing at this point put the
+            # loading modal back to a frozen count for the rest of the run.
+            _set_chunk_debug_phase(article_id, _PHASE_FINALIZING)
         chunk_analysis = [chunk for chunk in chunk_analysis if chunk is not None]
         chunk_analysis.sort(key=lambda chunk: chunk["chunk_id"])
 
@@ -269,7 +466,7 @@ async def api_chunk_debug(
         original_tokens = len(article.content) // 4
         filtered_tokens = len(filter_result.filtered_content or "") // 4
         tokens_saved = max(original_tokens - filtered_tokens, 0)
-        input_cost_per_token = 5.0 / 1_000_000
+        input_cost_per_token = GPT4O_INPUT_COST_PER_MILLION_TOKENS / 1_000_000
         actual_cost_savings = tokens_saved * input_cost_per_token
 
         processed_predictions = [chunk for chunk in chunk_analysis if chunk.get("ml_prediction_correct") is not None]
@@ -328,3 +525,34 @@ async def api_chunk_debug(
     except Exception as exc:  # noqa: BLE001
         logger.error("Chunk debug error: %s", exc)
         raise HTTPException(status_code=500, detail="Internal server error") from exc
+    finally:
+        # Runs after the response dict is built but before it is returned, so the
+        # finalizing phase covers response assembly. Only the framework's own JSON
+        # serialisation is left uninstrumented -- it happens outside this handler.
+        # Also clears on the error path, where the key would otherwise sit until
+        # its TTL and report a dead run as still in progress.
+        _clear_chunk_debug_progress(article_id)
+
+
+@router.get("/api/articles/{article_id}/chunk-debug/progress")
+async def api_chunk_debug_progress(article_id: int):
+    """Poll-friendly progress snapshot for an in-flight chunk-debug analysis.
+
+    A long analysis (article 7216's 1,250 chunks took 62s) previously gave no
+    indication of size or progress until the whole request finished. The main
+    endpoint writes progress to Redis as it works; this reads it back so the
+    loading modal can poll instead of guessing. Redis, not process memory,
+    because the poll and the analysis can land on different uvicorn workers
+    (docker-compose.yml --workers 2).
+
+    ``phase`` distinguishes the three stages, because only one of them counts
+    chunks: ``filtering`` (the full-article pass, no per-chunk counter yet),
+    ``analyzing`` (``processed_chunks`` of ``total_chunks`` advancing), and
+    ``finalizing`` (assembling the response). ``total_chunks`` is how many this
+    pass will analyse; ``article_total_chunks`` is how many the article has,
+    which differ whenever ``chunk_limit_applied`` is true.
+    """
+    progress = _read_chunk_debug_progress(article_id)
+    if progress is None:
+        return {"in_progress": False, "processed_chunks": 0, "total_chunks": 0}
+    return {"in_progress": True, **progress}

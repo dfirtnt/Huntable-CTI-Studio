@@ -6,7 +6,7 @@ The **`huntable-cti-studio`** MCP server exposes read tools plus scoped, audited
 
 **Running by hand (debugging).** `scripts/run_mcp_server.sh` runs the server **inside the Docker `cli` container** — required because query-time semantic search loads the local embedding model (torch / sentence-transformers), which has no `macosx_x86_64` wheel and so cannot run in a bare host process on an Intel Mac. Use `bash scripts/run_mcp_server.sh` (Docker must be running); it passes stdio through transparently for the JSON-RPC handshake.
 
-**Article IDs:** Search tools label each hit with **`Article ID`** (database primary key `articles.id`). Pass that value to `get_article`. The numbered list position (1, 2, …) is **not** the article ID.
+**Article IDs:** Search tools label each hit with **`Article ID`** (database primary key `articles.id`). Pass that value to `get_article`. The numbered list position (1, 2, ...) is **not** the article ID.
 
 **Sigma Rule IDs:** Search tools label each Sigma hit with **`Rule ID`** (the SigmaHQ UUID, e.g. `5f1abf38-...`). Pass that value to `get_sigma_rule` for the full YAML.
 
@@ -38,9 +38,9 @@ MCP writes are intentionally not action-parity with the web app. Huntable ingest
 
 | # | Tool | Summary |
 |---|------|---------|
-| 1 | `get_stats` | Database health overview: articles (total + embedding coverage %), **SigmaHQ corpus** (`sigma_rules`: total + vector count/coverage -- not the AI review queue), active vs total sources. Same Sigma block is on **`GET /api/embeddings/stats`** as `sigma_corpus`. CLI hints when corpus or vectors are missing. |
+| 1 | `get_stats` | Database health overview: articles (total + embedding coverage %), **SigmaHQ corpus** (`sigma_rules`: total + vector count/coverage — not the AI review queue), active vs total sources. Same Sigma block is on **`GET /api/embeddings/stats`** as `sigma_corpus`. CLI hints when corpus or vectors are missing. |
 | 2 | `get_article` | Full article body, summary, metadata, and source — by **`articles.id`** (from **Article ID** in search output, not list rank). |
-| 3 | `get_sigma_rule` | Full YAML + metadata for a single Sigma rule — by **SigmaHQ UUID** (`rule_id`, from **Rule ID** in search output). Returns title, status, level, author, date, tags, references, false positives, description, and the raw YAML block. Errors: `{"error": "Invalid rule_id format"}` for malformed UUIDs; `{"error": "No rule found with ID …"}` for unknown IDs. Raw YAML requires `sigma index` (or `index-metadata`) to have been run; if missing, re-run with `--force`. |
+| 3 | `get_sigma_rule` | Full YAML + metadata for a single Sigma rule — by **SigmaHQ UUID** (`rule_id`, from **Rule ID** in search output). Returns title, status, level, author, date, tags, references, false positives, description, and the raw YAML block. Errors: `{"error": "Invalid rule_id format"}` for malformed UUIDs; `{"error": "No rule found with ID ..."}` for unknown IDs. Raw YAML requires `sigma index` (or `index-metadata`) to have been run; if missing, re-run with `--force`. |
 | 4 | `search_articles` | Semantic (embedding) search over articles; chunk-level retrieval with previews. Params: `query`, `top_k`, `threshold`, optional `min_hunt_score`, optional `source_name` (substring match on source name). |
 | 5 | `search_articles_by_keywords` | Case-insensitive keyword match in **title or content** (OR across terms). Params: `keywords` (list), `limit`. Good for CVE IDs, malware names, tool names. |
 | 6 | `search_sigma_rules` | Semantic search over the indexed SigmaHQ (and related) rule corpus. Params: `query`, `top_k`, `threshold` (threshold labels **meets_threshold**; best matches are returned even below it). |
@@ -65,7 +65,7 @@ MCP writes are intentionally not action-parity with the web app. Huntable ingest
 | 25 | `update_sigma_queue_rule_yaml` | Confirmation-required write. Validates proposed Sigma YAML and creates a pending confirmation request; does not edit from MCP. Params: `queue_number`, `rule_yaml`. |
 | 26 | `add_sigma_rule_to_queue` | Confirmation-required write. Validates proposed Sigma YAML/JSON and creates a pending confirmation request; does not enqueue from MCP. Params: `rule_yaml` or `rule_json`, optional `article_id`. |
 | 27 | `get_eval_bundle` | Full `eval_bundle_v1` JSON export for one workflow execution and agent. Defaults to full bundles (`slim=false`) so MCP clients can inspect complete request/response/input context. Params: `execution_id`, `agent_name`, optional `attempt`, `slim`, `include_langfuse`, `inline_large_text`, `max_inline_chars`. |
-| 28 | `get_eval_diagnosis_context` | Read-only. Returns the `eval_diagnosis_context_v1` evidence packet for one eval run: the eval bundle, `docs/contracts/extractor-standard.md`, the agent's own contract, the scoring context, and the diagnosis instructions/schema. **No server-side LLM call and no provider API key** -- the calling agent is the reasoner. Params: `execution_id`, `agent_name`, optional `slim` (default true), `include_langfuse`. |
+| 28 | `get_eval_diagnosis_context` | Read-only. Returns the `eval_diagnosis_context_v1` evidence packet for one eval run: the eval bundle, `docs/contracts/extractor-standard.md`, the agent's own contract, the scoring context, and the diagnosis instructions/schema. **No server-side LLM call and no provider API key** — the calling agent is the reasoner. Params: `execution_id`, `agent_name`, optional `slim` (default true), `include_langfuse`. |
 | 29 | `list_eval_diagnoses` | Returns saved diagnosis runs for an execution, newest first, optionally filtered by agent. Params: `execution_id`, optional `agent_name`. |
 | 30 | `export_diagnosed_eval_bundles` | JSON equivalent of a diagnosis-oriented bundle export for MCP clients: finds completed eval records for a config version/subagent that already have saved diagnoses, then returns each diagnosis plus its generated eval bundle. Defaults to full bundles (`slim=false`) and caps output with `max_bundles` (hard cap 100). Params: `config_version`, `subagent`, optional `slim`, `include_langfuse`, `max_bundles`. |
 | 31 | `get_eval_bundles_by_config` | Returns completed eval bundles for a config run, optionally filtered by subagent. `config_version` accepts `5114` for every run or a run label such as `v5114a` / `v5114b` for the first/second replicate. Omitting `subagent` includes all supported extractor evals. Params: `config_version`, optional `subagent`, `slim`, `include_langfuse`, `max_bundles` (hard cap 100). |
@@ -81,4 +81,4 @@ Implementation lives under `src/huntable_mcp/` (`stdio_server.py`, `resources.py
 `sigma_rules.raw_yaml` (TEXT, nullable) stores the verbatim YAML from the SigmaHQ repo file. It is populated during `sigma index` / `sigma index-metadata`. Run `scripts/migrate_sigma_raw_yaml.py` once on existing databases before re-indexing.
 
 _Last updated: 2026-08-03_
-_Last reviewed: 2026-08-03_
+_Last reviewed: 2026-09-01_

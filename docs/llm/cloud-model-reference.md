@@ -9,7 +9,7 @@ Source: docs.anthropic.com (2026-06-02). All models support `max_tokens` + `temp
 | claude-opus-5 | 1,000,000 | — | 1M default; max output not yet verified |
 | claude-sonnet-5 | 1,000,000 | — | 1M default; max output not yet verified |
 | claude-fable-5 | 1,000,000 | — | 1M default; max output not yet verified |
-| claude-opus-4-8 | 1,000,000 | 128,000 | 1M default — no beta header required |
+| claude-opus-4-8 | 1,000,000 | 128,000 | 1M default, no beta header required |
 | claude-opus-4-7 | 1,000,000 | 64,000 | 1M default |
 | claude-opus-4-6 | 1,000,000 | 64,000 | 1M default |
 | claude-opus-4-5-20251101 | 200,000 | 64,000 | Dated snapshot |
@@ -31,7 +31,9 @@ Older Claude 3.x / 4.0-4.5 models cap at 200K by default; they can be extended t
 
 ## OpenAI Chat Models
 
-Source: platform.openai.com/docs/models (Jan 2025)
+Source: platform.openai.com/docs/models (capture date unconfirmed -- the stated "Jan 2025"
+predates the gpt-5.4/5.5/5.6 rows below, so it is wrong; re-verify against the live docs).
+<!-- TODO: verify: the real capture date for this table against platform.openai.com/docs/models. -->
 
 ### Chat Completions Models (text-in, text-out)
 
@@ -64,11 +66,11 @@ Source: platform.openai.com/docs/models (Jan 2025)
 | gpt-4.1-nano | 1,047,576 | 32,768 | `max_tokens`, `temperature` |
 | **Reasoning (o-series)** | | | |
 | o3 | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
-| o3-pro | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
+| o3-pro * | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
 | o3-mini | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
 | o4-mini | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
 | o1 | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
-| o1-pro | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
+| o1-pro * | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
 | **GPT-4o series** | | | |
 | gpt-4o | 128,000 | 16,384 | `max_tokens`, `temperature` |
 | gpt-4o-mini | 128,000 | 16,384 | `max_tokens`, `temperature` |
@@ -76,6 +78,11 @@ Source: platform.openai.com/docs/models (Jan 2025)
 | gpt-4-turbo | 128,000 | 4,096 | `max_tokens`, `temperature` |
 | gpt-4 | 8,192 | 4,096 | `max_tokens`, `temperature` |
 | gpt-3.5-turbo | 16,385 | 4,096 | `max_tokens`, `temperature` |
+
+\* `o3-pro` and `o1-pro` are accepted by `src/utils/model_validation.py` but are **not** in
+`MODEL_CONTEXT_TOKENS` (`src/services/provider_model_catalog.py`) or
+`config/provider_model_catalog.json`. Unlike every other row here their context window is not
+sourced from the app catalog, and they do not appear in the Agents config dropdown.
 
 <!-- TODO: verify: max output tokens for gpt-5.6-luna / gpt-5.6-sol / gpt-5.6-terra.
      Context windows above are taken from MODEL_CONTEXT_TOKENS in
@@ -97,7 +104,9 @@ Source: platform.openai.com/docs/models (Jan 2025)
 - **Image**: gpt-image-1.5, gpt-image-1
 - **TTS/Transcribe**: gpt-4o-mini-tts, gpt-4o-transcribe
 
-### Codex Subscription Provider (Workflow Only)
+---
+
+## Codex Subscription Provider (Workflow Only)
 
 Huntable also supports an optional, deployment-managed Codex subscription for
 workflow inference. This is distinct from the OpenAI API and from the
@@ -136,7 +145,7 @@ Examples: `claude-sonnet-4-5-20250929`, `gpt-4o-2024-05-13`
 These are **frozen**. That exact model version is preserved indefinitely. The date is
 part of the identifier, not metadata.
 
-Use these when reproducibility matters -- eval baselines, regression comparisons, or
+Use these when reproducibility matters: eval baselines, regression comparisons, or
 any case where a silent model update could change your output in a way you would not
 immediately notice.
 
@@ -156,8 +165,12 @@ overwrites it, so note it externally if you need it long-term.
 
 | Identifier type | Updates automatically | Use when |
 |---|---|---|
-| Bare (`claude-sonnet-4-6`) | Yes -- provider-controlled | Normal workflows |
-| Dated (`claude-sonnet-4-5-20250929`) | No -- frozen forever | Evals, baselines, audits |
+| Bare (`claude-sonnet-4-6`) | Yes, provider-controlled | Normal workflows |
+| Dated (`claude-sonnet-4-5-20250929`) | No, frozen forever | Evals, baselines, audits |
+
+See [Model Selection Guide](model-selection.md) for choosing between cloud and local models, and
+[Context Window Rationale](context-window-rationale.md#cloud-model-defaults-and-why-they-differ)
+for why cloud defaults differ from the 16K local default.
 
 ---
 
@@ -174,15 +187,17 @@ other cloud model tested, and it adheres to fail-closed instructions (return emp
 than infer) without needing heavy scaffolding.
 
 **gpt-4o-mini** is a viable alternative when cost is a constraint. It requires more explicit
-prompting -- additional guardrails, redundant "do not infer" instructions, and worked examples
-for edge cases -- to match the behavior that gpt-4o produces from leaner prompts.
+prompting: additional guardrails, redundant "do not infer" instructions, and worked examples
+for edge cases, to match the behavior that gpt-4o produces from leaner prompts.
 
 ---
 
 ## Eval Signal Transfer Between gpt-4o-mini and gpt-4o
 
 Improvements measured on gpt-4o-mini do not reliably predict the same improvements on gpt-4o.
-Directional improvement may carry over, but magnitude and even sign can change.
+Directional improvement may carry over, but magnitude and even sign can change. See
+[Extract Agent Evaluation](extract-agent-eval.md) for the eval methodology and metrics referenced
+throughout this section.
 
 ### Capability ceiling vs. constraint sensitivity
 
@@ -194,8 +209,8 @@ over-constraining a model that did not need the guardrails.
 ### Error profile shifts
 
 The two models fail in different directions. gpt-4o-mini tends to under-extract or miss edge
-cases -- improvements typically come from clarity and redundancy. gpt-4o tends to
-over-generalize or fill gaps creatively -- improvements typically come from stricter
+cases; improvements typically come from clarity and redundancy. gpt-4o tends to
+over-generalize or fill gaps creatively; improvements typically come from stricter
 fail-closed rules and negative examples. A change that fixes under-extraction in mini may not
 address, and could worsen, over-extraction in the full model.
 
@@ -216,12 +231,12 @@ mildly negative.
 Treat improvements on mini as hypothesis-generating, not predictive. Expect roughly 60-80%
 directional transfer on well-scoped, mechanical changes such as clearer field names or
 explicit "EXCLUDE if..." rules. Expect low transfer on changes that add verbosity, redundancy,
-or heavy guardrails -- those changes are compensating for mini's specific weaknesses, not
+or heavy guardrails; those changes are compensating for mini's specific weaknesses, not
 improving the prompt in a model-agnostic way.
 
 ### Recommended workflow
 
-1. Use gpt-4o-mini for rapid iteration -- cheaper signal, faster turnaround.
+1. Use gpt-4o-mini for rapid iteration: cheaper signal, faster turnaround.
 2. Re-run the top candidate prompt variants on gpt-4o before treating any change as a
    regression or improvement.
 3. Track delta by failure mode (misses vs. false positives), not just aggregate score.
@@ -231,3 +246,4 @@ improving the prompt in a model-agnostic way.
    tiers diverge significantly.
 
 _Last updated: 2026-07-03_
+_Last reviewed: 2026-09-01_

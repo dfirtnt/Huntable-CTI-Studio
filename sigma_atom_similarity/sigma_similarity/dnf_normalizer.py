@@ -30,6 +30,10 @@ def _distribute_to_dnf(node: OrNode | AndNode | NotNode | AtomNode) -> list[list
     if isinstance(node, NotNode):
         if isinstance(node.child, AtomNode):
             return [[(True, node.child)]]
+        # NOT(NOT(x)) = x - involution. Collapse before any other NOT handling, otherwise
+        # the inner NotNode falls through to `return []` and empties the whole branch list.
+        if isinstance(node.child, NotNode):
+            return _distribute_to_dnf(node.child.child)
         # NOT(OR(...)) -> AND(NOT each) - will distribute
         inner = _distribute_to_dnf(node.child)
         if not inner:

@@ -10,6 +10,7 @@ Tests cover the four provider availability states from the task spec:
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -19,6 +20,7 @@ from src.services.workflow_provider_options import (
     _is_embedding_model,
     _read_settings,
     get_provider_options,
+    resolve_provider_api_key,
 )
 
 pytestmark = pytest.mark.unit
@@ -131,6 +133,107 @@ class TestReadSettings:
         monkeypatch.delenv("WORKFLOW_LMSTUDIO_ENABLED", raising=False)
         result = _read_settings(session)
         assert result.get("WORKFLOW_LMSTUDIO_ENABLED", "false") == "false"
+
+
+class TestResolveProviderApiKey:
+    """The server-side key lookup that replaced the browser forwarding keys.
+
+    `/api/settings` no longer returns credential values, so anything that needs a
+    provider key to make a call resolves it here. Getting the precedence wrong
+    would silently use the wrong account, and returning a stray empty string would
+    be sent to the provider as if it were a key.
+    """
+
+    @staticmethod
+    def _ctx(stored: str | None):
+        """Async DB context whose single-row lookup returns *stored* (or nothing)."""
+        session = MagicMock()
+        result = MagicMock()
+        if stored is None:
+            result.scalar_one_or_none.return_value = None
+        else:
+            result.scalar_one_or_none.return_value = SimpleNamespace(value=stored)
+        session.execute = AsyncMock(return_value=result)
+
+        class Ctx:
+            async def __aenter__(self):
+                return session
+
+            async def __aexit__(self, *a):
+                return False
+
+        return Ctx()
+
+    @pytest.mark.asyncio
+    async def test_returns_the_stored_settings_value(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-from-env")
+        with patch("src.database.async_manager.async_db_manager") as manager:
+            manager.get_session.return_value = self._ctx("sk-from-settings")
+            assert await resolve_provider_api_key("openai") == "sk-from-settings"
+
+    @pytest.mark.asyncio
+    async def test_falls_back_to_env_when_nothing_is_stored(self, monkeypatch):
+        monkeypatch.delenv("WORKFLOW_OPENAI_API_KEY", raising=False)
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-from-env")
+        with patch("src.database.async_manager.async_db_manager") as manager:
+            manager.get_session.return_value = self._ctx(None)
+            assert await resolve_provider_api_key("openai") == "sk-from-env"
+
+    @pytest.mark.asyncio
+    async def test_workflow_prefixed_env_var_wins_over_the_bare_one(self, monkeypatch):
+        """Mirrors the precedence the Settings page itself used."""
+        monkeypatch.setenv("WORKFLOW_OPENAI_API_KEY", "sk-workflow")
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-bare")
+        with patch("src.database.async_manager.async_db_manager") as manager:
+            manager.get_session.return_value = self._ctx(None)
+            assert await resolve_provider_api_key("openai") == "sk-workflow"
+
+    @pytest.mark.asyncio
+    async def test_whitespace_only_stored_value_is_not_a_key(self, monkeypatch):
+        """A blanked settings row must not be forwarded as a credential."""
+        monkeypatch.delenv("WORKFLOW_OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        with patch("src.database.async_manager.async_db_manager") as manager:
+            manager.get_session.return_value = self._ctx("   ")
+            assert await resolve_provider_api_key("openai") is None
+
+    @pytest.mark.asyncio
+    async def test_surrounding_whitespace_is_stripped(self, monkeypatch):
+        """Pasted keys routinely carry a trailing newline."""
+        with patch("src.database.async_manager.async_db_manager") as manager:
+            manager.get_session.return_value = self._ctx("  sk-padded\n")
+            assert await resolve_provider_api_key("openai") == "sk-padded"
+
+    @pytest.mark.asyncio
+    async def test_anthropic_resolves_from_its_own_key(self, monkeypatch):
+        monkeypatch.delenv("WORKFLOW_ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-env")
+        with patch("src.database.async_manager.async_db_manager") as manager:
+            manager.get_session.return_value = self._ctx(None)
+            assert await resolve_provider_api_key("anthropic") == "sk-ant-env"
+
+    @pytest.mark.asyncio
+    async def test_provider_without_a_key_returns_none(self, monkeypatch):
+        """lmstudio needs no key, and an unknown provider must not borrow one."""
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-should-not-be-used")
+        for provider in ("lmstudio", "codex", "nonsense"):
+            assert await resolve_provider_api_key(provider) is None, provider
+
+    @pytest.mark.asyncio
+    async def test_database_failure_falls_through_to_env(self, monkeypatch):
+        """A DB hiccup must degrade to env, not take the calling route down."""
+        monkeypatch.setenv("WORKFLOW_OPENAI_API_KEY", "sk-env-fallback")
+
+        class ExplodingCtx:
+            async def __aenter__(self):
+                raise RuntimeError("connection refused")
+
+            async def __aexit__(self, *a):
+                return False
+
+        with patch("src.database.async_manager.async_db_manager") as manager:
+            manager.get_session.return_value = ExplodingCtx()
+            assert await resolve_provider_api_key("openai") == "sk-env-fallback"
 
 
 # ---------------------------------------------------------------------------

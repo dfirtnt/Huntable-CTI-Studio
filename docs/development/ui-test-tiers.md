@@ -1,8 +1,8 @@
 # UI Test Tiers
 
-The UI suite (117 pytest browser tests + 235 Playwright specs across 35 files)
-takes ~45 minutes end to end. The tier system below lets you pick the right
-slice for the moment so you do not pay the full cost on every change.
+The UI suite (130+ pytest browser tests + 48 Playwright spec files) takes
+~45 minutes end to end. The tier system below lets you pick the right slice
+for the moment so you do not pay the full cost on every change.
 
 ## Tiers at a glance
 
@@ -31,13 +31,13 @@ disjoint set of spec files:
 
 | Area           | Files | What it covers                                             |
 |----------------|-------|------------------------------------------------------------|
-| `agent-config` | 14    | `agent_config_*.spec.ts` -- presets, validation, autosave  |
-| `workflow`     | 8     | execution detail tabs, prompt editor, workflow config persistence/versions, platform badge/detection |
+| `agent-config` | 17    | `agent_config_*.spec.ts` -- presets, validation, autosave  |
+| `workflow`     | 11    | execution detail tabs, prompt editor, workflow config persistence/versions/pollution-guard, platform badge/detection/capability-matrix, auto-refresh cadence |
 | `sources`      | 1     | sources page                                                |
-| `articles`     | 3     | article detail, dashboard, jobs                             |
+| `articles`     | 8     | article detail, clipboard copy, article-content/annotation/chunk-dialog XSS, chunk debug modal, dashboard, jobs |
 | `intelligence` | 3     | sigma enrich, sigma queue lifecycle, sigma similarity unification |
-| `ui-misc`      | 4     | collapsible sections, modals, settings                     |
-| `quarantine`   | 0     | patterns reference files that no longer exist (dead config; see audit note) |
+| `ui-misc`      | 8     | collapsible sections, health-check diagnostics, modals, hunt-comparison error handling, settings |
+| `quarantine`   | 0     | empty on purpose -- the UI test diet (commit 1a490501) removed the flaky suites this project used to hold; kept so `--project=quarantine` still resolves instead of erroring |
 
 Run a single area: `npx playwright test --config tests/playwright.config.ts --project=sources`
 or via the runner: `python3 run_tests.py ui-fast --area=sources`.
@@ -55,8 +55,8 @@ or via the runner: `python3 run_tests.py ui-fast --area=sources`.
 
 ## Parallelism
 
-- Pytest UI tiers run with `-n 4` workers by default (matches Playwright's
-  worker cap on macOS to avoid `ENFILE` overflow).
+- Pytest UI tiers run with `-n 4` workers by default (`-n 2` for `ui-smoke`),
+  matching Playwright's worker cap on macOS to avoid `ENFILE` overflow.
 - `--serial` disables pytest parallelism (useful when chasing flakes).
 - `--parallel` opts into `-n auto` (all CPU cores) -- only safe for
   pytest-only runs that do not also start Playwright.
@@ -70,4 +70,5 @@ When you add `tests/playwright/your_spec.spec.ts`, update
 project's `testMatch` list. If a spec is not in any project, the default run
 will silently skip it.
 
-_Last updated: 2026-07-03_
+_Last updated: 2026-08-20_
+_Last reviewed: 2026-09-01_

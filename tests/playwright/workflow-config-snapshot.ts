@@ -71,6 +71,89 @@ export function assertConfigMutationAllowed(specName: string): void {
   }
 }
 
+/**
+ * Marker string carried by the hermetic CmdlineExtract seed that
+ * `expanded_prompt_editor_save.spec.ts` writes into the shared config.
+ *
+ * Defined HERE, not in the spec, and imported by the spec — so the pollution
+ * detector below can never drift out of sync with the seed it must recognise.
+ * A new seed that does not carry this marker is a bug in the spec, not here.
+ */
+export const TEST_SEED_MARKER = 'Hermetic test seed';
+
+/**
+ * Where global-setup parks the pristine baseline for global-teardown to restore.
+ *
+ * Deliberately NOT under `test-results/`: that is Playwright's `outputDir`, and
+ * Playwright clears it when a run starts -- which silently deletes the baseline
+ * between setup and teardown, leaving teardown with nothing to restore. This
+ * directory is owned by us and is git-ignored.
+ */
+export const BASELINE_PATH = path.join(
+  __dirname, '..', '..', '.playwright-state', 'workflow-config-baseline.json'
+);
+
+/**
+ * Report every known corruption shape present in a config payload.
+ *
+ * Returns [] for a healthy config. These are the two damage shapes observed in
+ * the live dev config, both written by UI specs against :8001:
+ *   - JSON-null / missing `agent_prompts` (partial-PUT wipe; row 5396)
+ *   - a CmdlineExtract prompt that is empty, or is the hermetic test seed
+ *     left behind when a spec's restore never ran (row 7949)
+ */
+export function findConfigPollution(cfg: any): string[] {
+  const damage: string[] = [];
+  if (cfg === null || cfg === undefined) return ['config payload is null'];
+
+  if (cfg.agent_prompts === null || cfg.agent_prompts === undefined) {
+    damage.push('agent_prompts is null (partial-PUT wipe)');
+    return damage;
+  }
+  if (cfg.agent_models === null || cfg.agent_models === undefined) {
+    damage.push('agent_models is null (partial-PUT wipe)');
+  }
+
+  const serialized = JSON.stringify(cfg.agent_prompts);
+  if (serialized.includes(TEST_SEED_MARKER)) {
+    damage.push(`agent_prompts contains the "${TEST_SEED_MARKER}" test seed`);
+  }
+
+  for (const [agent, record] of Object.entries<any>(cfg.agent_prompts)) {
+    // `agent_prompts` is not uniformly prompt records: `ExtractAgentSettings`
+    // is a settings blob (`disabled_agents`) with no prompt at all. Only judge
+    // entries that actually carry a `prompt` key, or every run reports a
+    // false positive and the real signal gets tuned out.
+    if (!record || typeof record !== 'object' || !('prompt' in record)) continue;
+    const prompt = record.prompt;
+    if (typeof prompt !== 'string' || prompt.trim() === '') {
+      damage.push(`agent_prompts.${agent}.prompt is empty`);
+    }
+  }
+  return damage;
+}
+
+/**
+ * Split post-run damage into what this run caused and what was already there.
+ *
+ * Teardown must not report the operator's pre-existing config problems as a
+ * restore failure: an alarm that fires every run is an alarm that gets ignored,
+ * which is the exact failure mode this module exists to prevent. Only damage
+ * that is absent from the baseline but present afterwards is attributable to
+ * the run.
+ */
+export function classifyPostRunDamage(
+  baseline: WorkflowConfigSnapshot,
+  current: any
+): { introduced: string[]; preExisting: string[] } {
+  const before = new Set(findConfigPollution(baseline));
+  const now = findConfigPollution(current);
+  return {
+    introduced: now.filter((d) => !before.has(d)),
+    preExisting: now.filter((d) => before.has(d)),
+  };
+}
+
 /** Read the canonical CmdlineExtract prompt envelope from the committed preset. */
 export function canonicalCmdlinePrompt(): { prompt: string; instructions: string } {
   const preset = JSON.parse(fs.readFileSync(CANONICAL_PRESET, 'utf-8'));
@@ -84,10 +167,12 @@ export function canonicalCmdlinePrompt(): { prompt: string; instructions: string
 /**
  * Capture the full active config.
  *
- * If the stored CmdlineExtract prompt is empty -- the residue of the historical
- * partial-restore bug -- repair it from the canonical preset so the snapshot we
- * later restore is a HEALTHY config rather than a faithful copy of the damage.
- * A non-empty prompt is always preserved verbatim.
+ * If the stored CmdlineExtract prompt is damaged -- empty (the residue of the
+ * historical partial-restore bug) or the hermetic test seed (the residue of an
+ * interrupted `expanded_prompt_editor_save.spec.ts` run) -- repair it from the
+ * canonical preset so the snapshot we later restore is a HEALTHY config rather
+ * than a faithful copy of the damage. Any other prompt is preserved verbatim,
+ * so an operator's legitimate customisation is never overwritten.
  */
 export async function snapshotWorkflowConfig(
   request: APIRequestContext,
@@ -99,11 +184,16 @@ export async function snapshotWorkflowConfig(
 
   const agentPrompts: Record<string, any> = cfg.agent_prompts ?? {};
   const cmdline = agentPrompts.CmdlineExtract;
-  if (!cmdline || typeof cmdline.prompt !== 'string' || cmdline.prompt.trim() === '') {
+  const isEmpty = !cmdline || typeof cmdline.prompt !== 'string' || cmdline.prompt.trim() === '';
+  const isSeed = JSON.stringify(cmdline ?? null).includes(TEST_SEED_MARKER);
+  if (isEmpty || isSeed) {
     const canonical = canonicalCmdlinePrompt();
+    const cause = isEmpty
+      ? 'is empty (legacy partial-restore pollution)'
+      : `is the "${TEST_SEED_MARKER}" stub left by an interrupted spec`;
     console.warn(
-      '[config-snapshot] stored CmdlineExtract prompt is empty (legacy partial-restore ' +
-      'pollution); seeding snapshot from the canonical quickstart preset so restore heals it.'
+      `[config-snapshot] stored CmdlineExtract prompt ${cause}; seeding snapshot from ` +
+      'the canonical quickstart preset so restore heals it rather than preserving the damage.'
     );
     agentPrompts.CmdlineExtract = { ...(cmdline ?? {}), ...canonical };
   }
@@ -228,4 +318,51 @@ async function verifyRestored(
   }
 
   return '';
+}
+
+/**
+ * Persist a baseline for `global-teardown.ts` to restore.
+ *
+ * `filePath` is overridable so tests can exercise persistence against a temp
+ * file. Tests must NOT write or clear the real BASELINE_PATH -- doing so
+ * destroys the baseline global-setup captured for the current run, and teardown
+ * then silently declines to restore.
+ *
+ * Written to disk rather than held in module state because Playwright's global
+ * setup and teardown are separate module instantiations -- an in-memory handoff
+ * silently yields `undefined` at teardown.
+ */
+export function writeBaseline(
+  snapshot: WorkflowConfigSnapshot,
+  filePath: string = BASELINE_PATH
+): void {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify(snapshot, null, 2), 'utf-8');
+}
+
+/**
+ * Load the baseline global-setup captured, or null if there is none.
+ *
+ * A missing file is not an error: it means setup never got far enough to take a
+ * snapshot (server unhealthy, run aborted during setup), in which case teardown
+ * has nothing trustworthy to restore and must leave config alone rather than
+ * guess.
+ */
+export function readBaseline(filePath: string = BASELINE_PATH): WorkflowConfigSnapshot | null {
+  try {
+    if (!fs.existsSync(filePath)) return null;
+    return JSON.parse(fs.readFileSync(filePath, 'utf-8')) as WorkflowConfigSnapshot;
+  } catch (err: any) {
+    console.warn(`[config-snapshot] baseline at ${filePath} is unreadable: ${err.message}`);
+    return null;
+  }
+}
+
+/** Remove the baseline once teardown has successfully restored it. */
+export function clearBaseline(filePath: string = BASELINE_PATH): void {
+  try {
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  } catch {
+    /* Best-effort: a stale baseline is re-captured by the next global-setup. */
+  }
 }

@@ -14,6 +14,7 @@
   user-select:none;
 }
 .stat-chip:hover { transform:scale(1.04); }
+.stat-chip:focus-visible { outline:2px solid var(--action-info); outline-offset:2px; }
 .stat-chip.chip-selected { box-shadow:0 0 0 2px currentColor; }
 .stat-chip.sc-active  { background:rgba(34,197,94,0.15);  color:#86efac; border-color:rgba(34,197,94,0.3); }
 .stat-chip.sc-inactive{ background:rgba(239,68,68,0.15);  color:#fca5a5; border-color:rgba(239,68,68,0.3); }
@@ -78,6 +79,7 @@
 .count-block { display:flex; flex-direction:column; align-items:flex-end; gap:0.05rem; flex-shrink:0; }
 .article-count { font-size: 1rem; font-weight:700; color:var(--text-primary); line-height:1; }
 .article-count-label { font-size: 0.625rem; color:var(--text-muted-slate); }
+.hunt-score-badge { font-size: 0.7rem; font-weight:600; color:#fde047; margin-top:0.15rem; }
 
 .src-status-badge {
   display:inline-flex; align-items:center; gap:0.25rem;
@@ -96,12 +98,12 @@
 .method-badge.web        { background:rgba(20,184,166,0.2);  color:#5eead4; }
 .method-badge.manual-m   { background:rgba(71,85,105,0.4);   color:var(--text-muted-slate); }
 
-/* Card meta */
-.card-meta { display:flex; gap:1.1rem; flex-wrap:wrap; margin-bottom:0.55rem; }
-.meta-item { display:flex; flex-direction:column; gap:0.08rem; }
+/* Card meta -- fixed columns so DOMAIN/LAST CHECK/FREQUENCY/LOOKBACK align across cards */
+.card-meta { display:grid; grid-template-columns:minmax(0,1fr) 84px 62px 58px; column-gap:1.1rem; margin-bottom:0.55rem; }
+.meta-item { display:flex; flex-direction:column; gap:0.08rem; min-width:0; }
 .meta-label { font-size: 0.625rem; color:var(--text-muted-slate); font-weight:500; text-transform:uppercase; letter-spacing:0.04em; }
-.meta-value { font-size: 0.75rem; color:var(--text-secondary); font-weight:500; }
-.meta-value a { color:var(--text-muted-slate); text-decoration:none; font-size:0.75rem; }
+.meta-value { font-size: 0.75rem; color:var(--text-secondary); font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.meta-value a { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-muted-slate); text-decoration:none; font-size:0.75rem; }
 .meta-value a:hover { color:var(--action-info); text-decoration:underline; }
 .meta-time-ok     { color:var(--action-success-light,#22c55e) !important; }
 .meta-time-stale  { color:var(--action-warning,#eab308) !important; }
@@ -115,19 +117,28 @@
 .failure-note.warn { background:rgba(234,179,8,0.15); color:#fde047; border:1px solid rgba(234,179,8,0.2); }
 .failure-note.crit { background:rgba(239,68,68,0.15); color:#fca5a5; border:1px solid rgba(239,68,68,0.2); }
 
-/* Card actions */
+/* Card actions -- Configure/Toggle Status/Stats are the frequent, cheap actions and
+   stay visible as one-click secondary buttons; Collect Now starts a live scrape job
+   (rarer, costlier) so it is styled as a de-emphasized outline button, pinned right. */
 .card-actions {
-  display:flex; align-items:center; gap:0.45rem;
+  display:flex; align-items:center; flex-wrap:wrap; gap:0.45rem;
   padding-top:0.55rem; border-top:1px solid var(--border-muted);
 }
-.btn-collect {
+.btn-secondary {
   display:inline-flex; align-items:center; gap:0.3rem;
-  padding:0.33rem 0.7rem; background:var(--purple-primary); color:#fff;
-  border:none; border-radius:6px; font-size: 0.75rem; font-weight:600;
-  cursor:pointer; font-family:inherit; transition:background 0.15s;
+  padding:0.33rem 0.65rem; background:var(--panel-bg-4,#161e34); color:var(--text-secondary);
+  border:1px solid var(--border-muted); border-radius:6px; font-size: 0.75rem; font-weight:500;
+  cursor:pointer; font-family:inherit; transition:border-color 0.15s, color 0.15s, background 0.15s;
 }
-.btn-collect:hover:not(:disabled) { background:var(--purple-hover); }
-.btn-collect:disabled { background:var(--purple-muted,#4b4e77); cursor:not-allowed; opacity:0.55; }
+.btn-secondary:hover { border-color:var(--border-subtle); color:var(--text-primary); background:var(--panel-bg-5,#1a2238); }
+.btn-collect {
+  display:inline-flex; align-items:center; gap:0.3rem; margin-left:auto;
+  padding:0.33rem 0.7rem; background:transparent; color:var(--purple-light);
+  border:1px solid var(--purple-muted); border-radius:6px; font-size: 0.75rem; font-weight:600;
+  cursor:pointer; font-family:inherit; transition:background 0.15s, border-color 0.15s;
+}
+.btn-collect:hover:not(:disabled) { background:rgba(139,92,246,0.12); border-color:var(--purple-primary); }
+.btn-collect:disabled { color:var(--text-muted-slate); border-color:var(--border-muted); cursor:not-allowed; opacity:0.55; }
 
 .overflow-wrap { position:relative; }
 .btn-overflow {
@@ -224,21 +235,21 @@
         </h1>
 
         <div class="stats-bar">
-            <span class="stat-chip sc-active" data-filter="active" onclick="toggleChipFilter(this)" title="Click to filter Active sources">
+            <span class="stat-chip sc-active" data-filter="active" role="button" tabindex="0" aria-pressed="false" onclick="toggleChipFilter(this)" title="Click to filter Active sources">
                 <span class="stat-dot" style="background:var(--action-success-light,#22c55e);"></span>
                 {{ source_counts.active }} Active
             </span>
-            <span class="stat-chip sc-inactive" data-filter="inactive" onclick="toggleChipFilter(this)" title="Click to filter Inactive sources">
+            <span class="stat-chip sc-inactive" data-filter="inactive" role="button" tabindex="0" aria-pressed="false" onclick="toggleChipFilter(this)" title="Click to filter Inactive sources">
                 <span class="stat-dot" style="background:var(--action-danger,#dc2626);"></span>
                 {{ source_counts.inactive }} Inactive
             </span>
             {% if source_counts.failing > 0 %}
-            <span class="stat-chip sc-failing" data-filter="failing" onclick="toggleChipFilter(this)" title="Click to filter Failing sources">
+            <span class="stat-chip sc-failing" data-filter="failing" role="button" tabindex="0" aria-pressed="false" onclick="toggleChipFilter(this)" title="Click to filter Failing sources">
                 <span class="stat-dot" style="background:var(--action-warning,#eab308);"></span>
                 ⚠ {{ source_counts.failing }} Failing
             </span>
             {% endif %}
-            <span class="stat-chip sc-total" data-filter="all" onclick="toggleChipFilter(this)" title="Click to show all sources">
+            <span class="stat-chip sc-total" data-filter="all" role="button" tabindex="0" aria-pressed="true" onclick="toggleChipFilter(this)" title="Click to show all sources">
                 <span class="stat-dot" style="background:var(--text-muted-slate);"></span>
                 {{ source_counts.total }} Sources
             </span>
@@ -281,7 +292,7 @@
     <!-- Section header -->
     <div class="flex items-center justify-between mb-3">
         <span class="text-sm font-medium" style="color:var(--text-secondary);"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/></svg> Configured Sources</span>
-        <span class="text-xs" style="color:var(--purple-light);">↓ Hunt Score</span>
+        <span class="text-xs" style="color:var(--text-muted-slate);" title="Cards are ordered by hunt score, highest first. This is a fixed sort order, not a clickable control.">↓ Sorted by Hunt Score</span>
     </div>
 
     <!-- Source grid -->
@@ -339,6 +350,10 @@
                 <div class="count-block" aria-label="{{ source.total_articles or 0 }} articles collected">
                     <span class="article-count">{{ source.total_articles or 0 }}</span>
                     <span class="article-count-label">articles</span>
+                    {% set hs = hunt_score_lookup.get(source.id) if hunt_score_lookup else none %}
+                    <span class="hunt-score-badge" title="Average hunt score across this source's scored articles -- this is what the list is sorted by">
+                        ★ {{ '%.1f'|format(hs.avg_hunt_score) if hs and hs.scored_articles else '—' }}
+                    </span>
                 </div>
             </div>
 
@@ -355,7 +370,7 @@
             <div class="card-meta">
                 <div class="meta-item">
                     <span class="meta-label">Domain</span>
-                    <span class="meta-value"><a href="{{ source.url }}" target="_blank" rel="noopener" data-url="{{ source.url }}">{{ source.url }}</a></span>
+                    <span class="meta-value"><a href="{{ source.url }}" target="_blank" rel="noopener noreferrer" data-url="{{ source.url }}">{{ source.url }}</a></span>
                 </div>
                 <div class="meta-item">
                     <span class="meta-label">Last Check</span>
@@ -375,23 +390,18 @@
             </div>
 
             <div class="card-actions">
+                <button class="btn-secondary"
+                        data-image-ocr="{{ (source.config.image_ocr_enabled | default(none)) | tojson if source.config else 'null' }}"
+                        onclick="openSourceConfig(this, {{ source.id }}, {{ source.lookback_days }}, {{ source.check_frequency // 60 }}, {{ source.config.min_content_length if source.config and source.config.min_content_length else 200 }})">Configure</button>
+                <button class="btn-secondary" onclick="toggleSourceStatus({{ source.id }})">Toggle Status</button>
+                <button class="btn-secondary" onclick="showSourceStats({{ source.id }})">Stats</button>
                 <button type="button" onclick="collectFromSource({{ source.id }})"
                         class="btn-collect"
                         {% if not source.active %}disabled{% endif %}
-                        title="Fetch new articles from this source now (runs a collection job)."
+                        title="{{ 'Source is inactive — activate it before collecting.' if not source.active else 'Fetch new articles from this source now (runs a collection job).' }}"
                         aria-label="Collect articles from {{ source.name }}">
                     Collect Now
                 </button>
-                <div class="overflow-wrap">
-                    <button class="btn-overflow" onclick="toggleOverflow(this)" title="More actions" aria-label="More actions for {{ source.name }}" aria-expanded="false">...</button>
-                    <div class="src-dropdown">
-                        <button class="dd-item"
-                                data-image-ocr="{{ (source.config.image_ocr_enabled | default(none)) | tojson if source.config else 'null' }}"
-                                onclick="openSourceConfig(this, {{ source.id }}, {{ source.lookback_days }}, {{ source.check_frequency // 60 }}, {{ source.config.min_content_length if source.config and source.config.min_content_length else 200 }})">Configure</button>
-                        <button class="dd-item" onclick="toggleSourceStatus({{ source.id }})">Toggle Status</button>
-                        <button class="dd-item" onclick="showSourceStats({{ source.id }})">Stats</button>
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -492,7 +502,7 @@
 </div>
 
 <!-- Source Configuration Modal -->
-<div id="sourceConfigModal" role="dialog" aria-modal="true" aria-label="Source configuration" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50">
+<div id="sourceConfigModal" role="dialog" aria-modal="true" aria-labelledby="sourceConfigModalTitle" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50">
     <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <div class="fixed inset-0 transition-opacity" aria-hidden="true"><div class="absolute inset-0 bg-black/60"></div></div>
         <div class="inline-block align-bottom rounded-xl shadow-2xl text-left overflow-hidden transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full" style="background-color:var(--mlops-card-bg); border:1px solid var(--mlops-card-border);">
@@ -582,12 +592,23 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.meta-value a[data-url]').forEach(a => {
         const domain = shortDomain(a.dataset.url);
         a.textContent = domain + ' ↗';
+        const card = a.closest('.source-card');
+        if (card) card.dataset.domain = domain.toLowerCase();
     });
     // Register modals
     if (window.ModalManager) {
         window.ModalManager.register('resultModal', { hasInput: false, isDynamic: false });
         const submitBtn = document.getElementById('saveSourceConfigBtn');
-        window.ModalManager.register('sourceConfigModal', { hasInput: true, submitButton: submitBtn, isDynamic: false });
+        window.ModalManager.register('sourceConfigModal', {
+            hasInput: true,
+            submitButton: submitBtn,
+            isDynamic: false,
+            onClose: closeSourceConfigCleanup,
+            // modal-manager.js auto-registers any [id$="Modal"] on its own DOMContentLoaded
+            // listener, which runs before this one -- forceUpdate wins the race so onClose
+            // actually takes effect instead of being silently dropped.
+            forceUpdate: true
+        });
     }
 
     applySourceDeepLink();
@@ -612,8 +633,9 @@ document.addEventListener('click', () => {
 function syncChipHighlight() {
     const val = document.getElementById('statusFilter').value;
     document.querySelectorAll('.stat-chip[data-filter]').forEach(c => {
-        c.classList.toggle('chip-selected', c.dataset.filter === val
-            || (val === 'all' && c.dataset.filter === 'all'));
+        const selected = c.dataset.filter === val || (val === 'all' && c.dataset.filter === 'all');
+        c.classList.toggle('chip-selected', selected);
+        c.setAttribute('aria-pressed', selected ? 'true' : 'false');
     });
 }
 
@@ -629,25 +651,38 @@ function toggleChipFilter(chip) {
     }
     // Update selected visual state on all chips
     document.querySelectorAll('.stat-chip[data-filter]').forEach(c => {
-        c.classList.toggle('chip-selected', c.dataset.filter === sel.value
-            || (sel.value === 'all' && c.dataset.filter === 'all'));
+        const selected = c.dataset.filter === sel.value || (sel.value === 'all' && c.dataset.filter === 'all');
+        c.classList.toggle('chip-selected', selected);
+        c.setAttribute('aria-pressed', selected ? 'true' : 'false');
     });
     filterSources();
 }
 
+// ── Chip keyboard activation (Enter/Space) ──
+document.querySelectorAll('.stat-chip[data-filter]').forEach(chip => {
+    chip.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggleChipFilter(chip);
+        }
+    });
+});
+
 // ── Filter / search ──
 function filterSources() {
-    const q = document.getElementById('sourceSearch').value.toLowerCase();
+    const q = document.getElementById('sourceSearch').value.toLowerCase().trim();
     const status = document.getElementById('statusFilter').value;
     const method = document.getElementById('methodFilter').value;
     const cards = document.querySelectorAll('#sourceGrid .source-card:not([hidden])');
     let visible = 0;
     cards.forEach(card => {
         const matchName   = (card.dataset.name || '').includes(q);
+        const matchDomain = (card.dataset.domain || '').includes(q);
+        const matchQuery  = matchName || matchDomain;
         const matchStatus = status === 'all'
             || (status === 'failing' ? card.dataset.failing === 'true' : card.dataset.status === status);
         const matchMethod = method === 'all' || card.dataset.method === method;
-        const show = matchName && matchStatus && matchMethod;
+        const show = matchQuery && matchStatus && matchMethod;
         card.style.display = show ? '' : 'none';
         if (show) visible++;
     });
@@ -777,7 +812,12 @@ async function toggleSourceStatus(sourceId) {
                     card.classList.add(newActive ? 'health-ok' : 'health-inactive');
                     // Update collect button
                     const collectBtn = card.querySelector('.btn-collect');
-                    if (collectBtn) collectBtn.disabled = !newActive;
+                    if (collectBtn) {
+                        collectBtn.disabled = !newActive;
+                        collectBtn.title = newActive
+                            ? 'Fetch new articles from this source now (runs a collection job).'
+                            : 'Source is inactive — activate it before collecting.';
+                    }
                 }
                 // Re-run filter to reflect status change
                 filterSources();
@@ -809,8 +849,43 @@ function closeModal() {
 
 // ── Source config ──
 let currentSourceId = null;
+let sourceConfigTriggerEl = null;
+
+// Focus trap: keep Tab/Shift+Tab cycling within the modal's focusable elements
+// rather than escaping to the page behind (background is not inert/aria-hidden).
+function getSourceConfigFocusable() {
+    const modal = document.getElementById('sourceConfigModal');
+    return Array.from(modal.querySelectorAll(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )).filter(el => el.offsetParent !== null);
+}
+function trapSourceConfigTab(e) {
+    if (e.key !== 'Tab') return;
+    const focusable = getSourceConfigFocusable();
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+    }
+}
+function closeSourceConfigCleanup() {
+    document.body.style.overflow = '';
+    document.removeEventListener('keydown', trapSourceConfigTab);
+    if (sourceConfigTriggerEl && typeof sourceConfigTriggerEl.focus === 'function') {
+        sourceConfigTriggerEl.focus();
+    }
+    sourceConfigTriggerEl = null;
+    currentSourceId = null;
+}
+
 function openSourceConfig(el, sourceId, currentDays, currentCheckFrequencyMinutes, currentMinLength) {
     currentSourceId = sourceId;
+    sourceConfigTriggerEl = el || null;
     document.getElementById('configLookbackDays').value = currentDays;
     document.getElementById('configCheckFrequency').value = currentCheckFrequencyMinutes;
     document.getElementById('configMinContentLength').value = currentMinLength;
@@ -818,13 +893,17 @@ function openSourceConfig(el, sourceId, currentDays, currentCheckFrequencyMinute
     const raw = el ? el.dataset.imageOcr : 'null';
     document.getElementById('configImageOcr').value =
         raw === 'true' ? 'on' : (raw === 'false' ? 'off' : 'inherit');
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', trapSourceConfigTab);
     if (window.ModalManager) { window.ModalManager.open('sourceConfigModal'); }
     else { document.getElementById('sourceConfigModal').classList.remove('hidden'); }
 }
 function closeSourceConfig() {
     if (window.ModalManager) { window.ModalManager.close('sourceConfigModal'); }
-    else { document.getElementById('sourceConfigModal').classList.add('hidden'); }
-    currentSourceId = null;
+    else {
+        document.getElementById('sourceConfigModal').classList.add('hidden');
+        closeSourceConfigCleanup();
+    }
 }
 function saveSourceConfig() {
     const days = parseInt(document.getElementById('configLookbackDays').value);

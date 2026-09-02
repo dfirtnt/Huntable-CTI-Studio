@@ -15,7 +15,7 @@ Workflow agent configuration uses a **normalized hierarchical schema (v2)** with
   - **Features**: SigmaFallbackEnabled, CmdlineAttentionPreprocessorEnabled, ProcTreeAttentionPreprocessorEnabled. (Rank Agent enablement is controlled via `Agents.RankAgent.Enabled`. The `OSDetectionFallback` agent was removed; any stale `Agents.OSDetectionFallback` entries are stripped automatically by the v1→v2 migration.)
   - **Prompts**: Per-agent prompt/instructions for prompt-bearing agents. `ExtractAgent` is excluded because it supplies only model/provider fallback configuration.
   - **Execution**: ExtractAgentSettings.DisabledAgents, OsDetectionSelectedOs.
-- **Naming normalization**: All QA agent names (`RankAgentQA`, `CmdLineQA`, `CmdlineQA`, `ProcTreeQA`, `HuntQueriesQA`, `RegistryQA`, `ServicesQA`, `ScheduledTasksQA`) are automatically removed by the migration. The QA agent subsystem was fully removed in v7.2.0 (commit `b9645305`, 2026-05-22; released 2026-05-29).
+- **Naming normalization**: All QA agent names (`RankAgentQA`, `CmdLineQA`, `CmdlineQA`, `ProcTreeQA`, `HuntQueriesQA`, `RegistryQA`, `ServicesQA`, `ScheduledTasksQA`) are automatically removed by the migration. The QA agent subsystem was fully removed in v7.2.0 (commit `b9645305`, 2026-05-22; released 2026-05-29); see [QA Loops](qa-loops.md) for what replaced it.
 - **No unknown keys**: Schema validation forbids unknown root keys; validation errors are explicit.
 
 ## Backward compatibility
@@ -51,10 +51,11 @@ Until those checks pass, these paths are compatibility boundaries, not removable
 
 ## Example and presets
 
-- **Quickstart presets**: `config/presets/AgentConfigs/quickstart/*.json` are committed v2 presets ready for import via the UI “Import from file” dialog. The loader migrates v1 -> v2 on load, so older exported presets also work.
+- **Quickstart presets**: `config/presets/AgentConfigs/quickstart/*.json` are committed v2 presets ready for import via the UI "Import from file" dialog. The loader migrates v1 -> v2 on load, so older exported presets also work.
 
 ## ExtractAgent
 
 ExtractAgent is the parent config; sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract, NetworkIndicatorExtract) inherit provider/model from ExtractAgent when not configured. The schema types `Agents.ExtractAgent` explicitly; fallback behavior is implemented in the workflow and LLMService. It has no key in the v2 `Prompts` section.
 
 _Last updated: 2026-08-13_
+_Last reviewed: 2026-09-01_

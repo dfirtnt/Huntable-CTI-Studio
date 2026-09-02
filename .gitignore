@@ -309,3 +309,10 @@ deploy/sso/local/oauth2-proxy.env
 tests/static/js/jsdom_venv/
 tests/static/js/_aria_driver.js
 tests/static/js/_obs_driver.js
+
+# Playwright global-setup/teardown state (workflow config baseline)
+.playwright-state/
+
+# Dogfood QA session output (reports, screenshots) -- generated, not source
+dogfood-output/
+p1-ml-model-performance.png

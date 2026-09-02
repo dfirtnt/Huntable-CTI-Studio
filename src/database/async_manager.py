@@ -1006,6 +1006,11 @@ class AsyncDatabaseManager:
                     if article.article_metadata and "threat_hunting_score" in article.article_metadata:
                         new_article.article_metadata = article.article_metadata
                         await session.commit()
+                        # commit expires every attribute (expire_on_commit=True); the
+                        # synchronous _db_article_to_model() below reads .content, and an
+                        # implicit reload from sync context raises greenlet_spawn. Reload
+                        # eagerly here, same as the created path does.
+                        await session.refresh(new_article)
                         logger.info("Updated existing article metadata with threat hunting scoring")
                     # Return the existing article
                     return self._db_article_to_model(new_article)

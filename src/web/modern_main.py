@@ -11,6 +11,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -23,6 +25,7 @@ from src.services.source_sync import SourceSyncService
 from src.web.dependencies import DEFAULT_SOURCE_USER_AGENT, logger, templates
 from src.web.routes import register_routes
 from src.web.security.config import load_security_config
+from src.web.security.headers import SecurityHeadersMiddleware
 from src.web.security.middleware import (
     AuthorizationMiddleware,
     CsrfMiddleware,
@@ -228,14 +231,17 @@ app.add_middleware(
     TrustedHostMiddleware,
     allowed_hosts=list(SECURITY_CONFIG.trusted_hosts) if _prod else ["*"],
 )
-# Middleware execution order (request inbound): RequestID -> Identity ->
-# Authorization -> CSRF -> handler. add_middleware registers outermost-last, so
-# CSRF is added first (runs after authorization, only ever seeing authenticated
-# requests) and RequestID last (wraps everything, so denials still carry it).
+# Middleware execution order (request inbound): SecurityHeaders -> RequestID ->
+# Identity -> Authorization -> CSRF -> handler. add_middleware registers
+# outermost-last, so CSRF is added first (runs after authorization, only ever
+# seeing authenticated requests) and SecurityHeaders last -- outermost, so the
+# headers land on every response including authorization denials and error
+# pages, which are exactly the responses an attacker can reach unauthenticated.
 app.add_middleware(CsrfMiddleware, config=SECURITY_CONFIG)
 app.add_middleware(AuthorizationMiddleware, config=SECURITY_CONFIG)
 app.add_middleware(IdentityMiddleware, config=SECURITY_CONFIG)
 app.add_middleware(RequestIDMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 
 app.mount("/static", StaticFiles(directory="src/web/static"), name="static")
 
@@ -255,8 +261,26 @@ async def not_found_handler(request: Request, exc: HTTPException):
     return templates.TemplateResponse(
         request,
         "error.html",
-        {"error": "Page not found"},
+        {"title": "Page Not Found", "error": "Page not found", "show_db_hint": False},
         status_code=404,
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(request: Request, exc: RequestValidationError):
+    """Handle FastAPI request validation errors (e.g. `/articles/abc`).
+
+    JSON API responses keep FastAPI's default structured 422 body; HTML page
+    requests get the styled error template instead of a raw JSON blob.
+    """
+    if request.url.path.startswith("/api/"):
+        return await request_validation_exception_handler(request, exc)
+
+    return templates.TemplateResponse(
+        request,
+        "error.html",
+        {"error": "Invalid request parameters."},
+        status_code=422,
     )
 
 

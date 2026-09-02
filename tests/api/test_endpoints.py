@@ -58,6 +58,17 @@ class TestArticlesEndpoints:
         assert response.status_code == 200
 
     @pytest.mark.api
+    @pytest.mark.asyncio
+    async def test_articles_zero_result_search_shows_no_articles_not_a_1_0_range(self, async_client: httpx.AsyncClient):
+        """A search matching nothing must not render the nonsensical "Articles
+        1-0 of 0" header (start_idx is always >= 1 even when total is 0)."""
+        response = await async_client.get("/articles?search=zzzzqqqxnotarealterm12345")
+        assert response.status_code == 200
+        assert "No articles" in response.text
+        assert "Articles 1-0" not in response.text
+        assert "Articles 0-0" not in response.text
+
+    @pytest.mark.api
     @pytest.mark.smoke
     @pytest.mark.asyncio
     async def test_article_detail(self, async_client: httpx.AsyncClient):
@@ -159,10 +170,33 @@ class TestErrorHandling:
 
     @pytest.mark.api
     @pytest.mark.asyncio
+    async def test_404_page_uses_not_found_title_not_database_advice(self, async_client: httpx.AsyncClient):
+        """A route 404 must not use the generic "Something went wrong" title or
+        send the operator to check database connectivity for a simple bad path."""
+        response = await async_client.get("/nonexistent-page")
+        assert response.status_code == 404
+        assert "Page Not Found" in response.text
+        assert "Something went wrong" not in response.text
+        assert "database connection" not in response.text
+
+    @pytest.mark.api
+    @pytest.mark.asyncio
     async def test_invalid_article_id(self, async_client: httpx.AsyncClient):
         """Test handling of invalid article IDs."""
         response = await async_client.get("/articles/999999")
         assert response.status_code == 404
+
+    @pytest.mark.api
+    @pytest.mark.asyncio
+    async def test_invalid_article_id_uses_not_found_title_not_database_advice(self, async_client: httpx.AsyncClient):
+        """A nonexistent article ID must show an "Article Not Found" title, not
+        the generic "Something went wrong" title with a database-connectivity
+        hint that sends the operator to debug infrastructure that is fine."""
+        response = await async_client.get("/articles/999999")
+        assert response.status_code == 404
+        assert "Article Not Found" in response.text
+        assert "Something went wrong" not in response.text
+        assert "database connection" not in response.text
 
     @pytest.mark.api
     @pytest.mark.asyncio
@@ -171,6 +205,38 @@ class TestErrorHandling:
         response = await async_client.get("/articles?limit=invalid")
         # Should handle gracefully and not 5xx
         assert response.status_code in [200, 400]
+
+    @pytest.mark.api
+    @pytest.mark.asyncio
+    async def test_non_integer_article_id_shows_styled_error_page(self, async_client: httpx.AsyncClient):
+        """A non-integer article ID must render the styled error page, not a raw
+        FastAPI validation JSON blob."""
+        response = await async_client.get("/articles/abc")
+        assert response.status_code == 422
+        assert "Error - Huntable CTI Studio" in response.text
+        assert "Invalid request parameters" in response.text
+
+    @pytest.mark.api
+    @pytest.mark.asyncio
+    async def test_non_integer_per_page_shows_styled_error_page(self, async_client: httpx.AsyncClient):
+        """A non-integer per_page query param must render the styled error page,
+        not a raw FastAPI validation JSON blob."""
+        response = await async_client.get("/articles?per_page=abc")
+        assert response.status_code == 422
+        assert "Error - Huntable CTI Studio" in response.text
+        assert "Invalid request parameters" in response.text
+
+    @pytest.mark.api
+    @pytest.mark.asyncio
+    async def test_non_integer_id_on_api_route_keeps_structured_json_error(self, async_client: httpx.AsyncClient):
+        """API routes must keep FastAPI's default structured validation error
+        contract unchanged -- only HTML page routes get the styled error page."""
+        response = await async_client.get("/api/articles/abc")
+        assert response.status_code == 422
+        data = response.json()
+        assert "detail" in data
+        assert isinstance(data["detail"], list)
+        assert data["detail"][0]["type"] == "int_parsing"
 
 
 class TestProviderCatalog:
@@ -228,7 +294,11 @@ class TestWorkflowConfig:
         version = active["version"]
         assert isinstance(version, int)
 
-        versions_resp = await async_client.get("/api/workflow/config/versions")
+        # Filter by the active version's own number rather than reading the default
+        # (unfiltered, page-1) listing: it's sorted by version desc, so a restored
+        # older version stays active while never appearing on page 1 once newer,
+        # inactive versions exist above it.
+        versions_resp = await async_client.get("/api/workflow/config/versions", params={"version": str(version)})
         assert versions_resp.status_code == 200
         versions_data = versions_resp.json()
         assert versions_data.get("success") is True
@@ -467,7 +537,14 @@ class TestCriticalAPIs:
             "missing",
             "error",
             "not_configured",
+            "not_applicable",
         ), f"unexpected tesseract status: {services['tesseract']['status']}"
+        # "not_applicable" is the web process's own by-design absence of the
+        # optional pytesseract package -- it must never carry a raw exception
+        # string, unlike a genuine "missing"/"error" on a process that expects OCR.
+        if services["tesseract"]["status"] == "not_applicable":
+            message = services["tesseract"].get("message", "")
+            assert "Error" not in message and "Traceback" not in message
 
     @pytest.mark.api
     @pytest.mark.smoke

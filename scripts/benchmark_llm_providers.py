@@ -2,8 +2,12 @@
 """
 Comprehensive LLM Provider Benchmark Script
 
-Tests all 5 LLM providers (OpenAI, Anthropic, LM Studio, MLX, llama.cpp)
+Tests LLM providers (OpenAI, Anthropic, LM Studio, Codex, MLX, llama.cpp)
 across different model sizes and measures performance metrics.
+
+Dispatches through LLMService (src/services/llm_client.py), the same
+provider-dispatch chain the running app uses, so a provider added there is
+automatically exercised here too.
 
 Usage:
     python scripts/benchmark_llm_providers.py
@@ -29,7 +33,7 @@ from rich.table import Table
 
 sys.path.append(str(Path(__file__).parent.parent))
 
-from src.services.llm_generation_service import LLMGenerationService
+from src.services.llm_service import LLMService
 
 console = Console()
 
@@ -38,7 +42,10 @@ class LLMBenchmark:
     """Comprehensive LLM provider benchmarking tool."""
 
     def __init__(self):
-        self.service = LLMGenerationService()
+        self.service = LLMService()
+        # This script benchmarks LM Studio directly regardless of whether it's
+        # enabled for agentic workflows (a separate, workflow-scoped toggle).
+        self.service.workflow_lmstudio_enabled = True
         self.results = []
         self.test_prompts = [
             "Analyze this threat intelligence about PowerShell malware execution with encoded commands.",
@@ -53,13 +60,20 @@ class LLMBenchmark:
         start_time = time.time()
 
         try:
-            self.service._refresh_api_keys()
-            selected_provider = self.service._select_provider(provider)
-            response_text = await self.service._call_llm(
-                system_prompt="You are a cybersecurity threat intelligence analyst.",
-                user_prompt=prompt,
-                provider=selected_provider,
+            messages = [
+                {"role": "system", "content": "You are a cybersecurity threat intelligence analyst."},
+                {"role": "user", "content": prompt},
+            ]
+            result = await self.service.request_chat(
+                provider=provider,
+                model_name=self.service.provider_defaults.get(provider),
+                messages=messages,
+                max_tokens=2000,
+                temperature=0.3,
+                timeout=60.0,
+                failure_context="benchmark_llm_providers",
             )
+            response_text = result["choices"][0]["message"]["content"]
 
             end_time = time.time()
             response_time = end_time - start_time
@@ -97,6 +111,8 @@ class LLMBenchmark:
             return {"available": False, "reason": "OpenAI API key not configured"}
         if provider == "anthropic" and not self.service.anthropic_api_key:
             return {"available": False, "reason": "Anthropic API key not configured"}
+        if provider == "codex" and not self.service.workflow_codex_enabled:
+            return {"available": False, "reason": "Codex provider not enabled (set WORKFLOW_CODEX_ENABLED=true)"}
 
         results = []
 
@@ -149,7 +165,7 @@ class LLMBenchmark:
     async def run_benchmark(self, providers: list[str] | None = None, quick: bool = False) -> dict[str, Any]:
         """Run comprehensive benchmark across all providers."""
         if providers is None:
-            providers = ["openai", "anthropic", "lmstudio", "mlx", "llamacpp"]
+            providers = ["openai", "anthropic", "lmstudio", "codex", "mlx", "llamacpp"]
 
         console.print(
             Panel.fit(
@@ -173,7 +189,7 @@ class LLMBenchmark:
                 task = progress.add_task(f"Testing {provider}...", total=100)
 
                 # Get model name for this provider
-                model_name = self.service._get_model_name(provider)
+                model_name = self.service.provider_defaults.get(provider, "n/a")
 
                 # Run benchmark
                 result = await self.benchmark_provider(provider, model_name)
@@ -204,12 +220,12 @@ class LLMBenchmark:
         for provider, result in results.items():
             if not result.get("available", False):
                 table.add_row(
-                    provider.title(), self.service._get_model_name(provider), "❌ No", "-", "-", "-", "-", style="red"
+                    provider.title(), self.service.provider_defaults.get(provider, "n/a"), "❌ No", "-", "-", "-", "-", style="red"
                 )
             elif not result.get("successful", False):
                 table.add_row(
                     provider.title(),
-                    self.service._get_model_name(provider),
+                    self.service.provider_defaults.get(provider, "n/a"),
                     "⚠️ Failed",
                     f"{result.get('cold_start_time', 0):.2f}s",
                     "-",
@@ -220,7 +236,7 @@ class LLMBenchmark:
             else:
                 table.add_row(
                     provider.title(),
-                    self.service._get_model_name(provider),
+                    self.service.provider_defaults.get(provider, "n/a"),
                     "✅ Yes",
                     f"{result.get('cold_start_time', 0):.2f}s",
                     f"{result.get('avg_warm_time', 0):.2f}s",
@@ -265,17 +281,16 @@ class LLMBenchmark:
             f.write("|----------|-------|-----------|------------|----------|--------------|------------|\n")
 
             for provider, result in results.items():
+                model_name = self.service.provider_defaults.get(provider, "n/a")
                 if not result.get("available", False):
-                    f.write(
-                        f"| {provider.title()} | {self.service._get_model_name(provider)} | ❌ No | - | - | - | - |\n"
-                    )
+                    f.write(f"| {provider.title()} | {model_name} | ❌ No | - | - | - | - |\n")
                 elif not result.get("successful", False):
                     f.write(
-                        f"| {provider.title()} | {self.service._get_model_name(provider)} | ⚠️ Failed | {result.get('cold_start_time', 0):.2f}s | - | {result.get('success_rate', 0):.1%} | - |\n"
+                        f"| {provider.title()} | {model_name} | ⚠️ Failed | {result.get('cold_start_time', 0):.2f}s | - | {result.get('success_rate', 0):.1%} | - |\n"
                     )
                 else:
                     f.write(
-                        f"| {provider.title()} | {self.service._get_model_name(provider)} | ✅ Yes | {result.get('cold_start_time', 0):.2f}s | {result.get('avg_warm_time', 0):.2f}s | {result.get('success_rate', 0):.1%} | {result.get('avg_response_length', 0):.0f} |\n"
+                        f"| {provider.title()} | {model_name} | ✅ Yes | {result.get('cold_start_time', 0):.2f}s | {result.get('avg_warm_time', 0):.2f}s | {result.get('success_rate', 0):.1%} | {result.get('avg_response_length', 0):.0f} |\n"
                     )
 
             f.write("\n## Detailed Results\n\n")

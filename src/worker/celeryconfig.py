@@ -60,10 +60,10 @@ task_queues = {
         "exchange": "source_checks",
         "routing_key": "source_checks",
     },
-    "priority_checks": {
-        "exchange": "priority_checks",
-        "routing_key": "priority_checks",
-    },
+    # "priority_checks" was intentionally removed here: no task_routes entry
+    # ever routed to it, and neither cti_worker nor cti_workflow_worker's `-Q`
+    # flags (docker-compose.yml) consume it -- a queue definition with zero
+    # producers and zero consumers, not a queue temporarily idle.
     "maintenance": {
         "exchange": "maintenance",
         "routing_key": "maintenance",
@@ -98,6 +98,10 @@ task_store_errors_even_if_ignored = True
 
 # Result backend settings
 result_expires = 1800  # 30 minutes (reduced to free memory faster)
+# Store name/args/kwargs/worker/queue alongside status/result -- the Diags Job
+# History card attributes each row to its real task name and queue via this,
+# instead of guessing from the task UUID (see src/web/routes/tasks.py).
+result_extended = True
 result_persistent = True
 
 # Monitoring

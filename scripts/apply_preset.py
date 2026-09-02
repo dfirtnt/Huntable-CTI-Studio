@@ -30,8 +30,10 @@ DEFAULT_PRESET = (
     / "config/presets/AgentConfigs/quickstart/Quickstart-openai-gpt-4.1-mini.json"
 )
 
+# Keep in sync with _PROVIDER_TO_SETTINGS_KEY in src/web/routes/workflow_config.py.
 _PROVIDER_TO_SETTINGS_KEY = {
     "openai": "WORKFLOW_OPENAI_ENABLED",
+    "codex": "WORKFLOW_CODEX_ENABLED",
     "anthropic": "WORKFLOW_ANTHROPIC_ENABLED",
     "lmstudio": "WORKFLOW_LMSTUDIO_ENABLED",
 }
@@ -140,7 +142,8 @@ def main() -> int:
         agent_models = legacy.get("agent_models") or {}
         providers = extract_providers_from_agent_models(agent_models)
         if not providers:
-            print("   Warning: No known providers in preset (openai, anthropic, lmstudio)")
+            known = ", ".join(sorted(_PROVIDER_TO_SETTINGS_KEY))
+            print(f"   Warning: No known providers in preset ({known})")
         else:
             print(f"   Providers in preset: {', '.join(sorted(providers))}")
 

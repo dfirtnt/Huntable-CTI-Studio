@@ -1,6 +1,6 @@
 [project]
 name = "cti-scraper"
-version = "7.8.0"
+version = "7.8.1"
 description = "CTI Scraper - Threat intelligence aggregator"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -12,9 +12,6 @@ dependencies = [
     "beautifulsoup4==4.14.3",
     "lxml==6.1.1",
     "feedparser==6.0.12",
-    "extruct==0.18.0",
-    "iocextract==1.16.1",
-    "trafilatura==2.0.0",
     # Data processing and storage
     "pandas==2.3.3",
     "numpy==2.4.6",
@@ -53,7 +50,7 @@ dependencies = [
     "python-multipart==0.0.32",
     "cryptography==50.0.0",
     # PDF processing
-    "pypdf==6.15.0", # CVE-2026-54530/54531 + GHSA-jm82-fx9c-mx94 + CVE-2026-71852/71870 fixes
+    "pypdf==6.16.1", # CVE-2026-54530/54531 + GHSA-jm82-fx9c-mx94 + CVE-2026-71852/71870 + CVE-2026-84309/84310/84311 fixes
     # SIGMA rule validation
     "pysigma==1.3.3",
     "GitPython==3.1.58", # 5 GHSA advisories fixed in 3.1.58; still zero import sites (flagged for removal)
@@ -137,15 +134,19 @@ test = [
     "bandit==1.9.4",
     # pip-audit pulls pip-api -> pip and cachecontrol[filecache] -> msgpack
     # (all test-only; pip-audit reads uv.lock metadata in CI, never installs
-    # untrusted archives). The two transitive pins below close their CVEs:
-    #   pip==26.1.2     -> PYSEC-2026-196 (affects pip 26.1). Also clears the prior
-    #                      GHSA-58qw-9mgm-455v concern (pip<=26.0.1, Dependabot alert
-    #                      #152 dismissed tolerable_risk), now moot since pip>26.0.1.
+    # untrusted archives). The transitive pins below close their CVEs:
+    #   pip==26.2       -> PYSEC-2026-3721 (affects pip 26.1.2). Also clears the prior
+    #                      PYSEC-2026-196/GHSA-58qw-9mgm-455v concerns, now moot.
     #   msgpack==1.2.1  -> GHSA-6v7p-g79w-8964.
     # Exact pins per single-parent convention (pip<-pip-api, msgpack<-cachecontrol).
     "pip-audit==2.10.0",
-    "pip==26.1.2",
+    "pip==26.2",
     "msgpack==1.2.1",
+    # safety -> nltk 3.10.0 carries a batch of freshly-disclosed CVEs (GHSA-rf74-v2fm-23pw
+    # family plus PYSEC-2026-3733/3735/3737-3741/3748-3752 and CVE-2026-12876/71513/71514/
+    # 72818/78680/81723); 3.10.3 fixes all of them. Single-parent transitive pin (safety
+    # is the sole parent).
+    "nltk==3.10.3",
     "safety==3.8.1",
     "black==26.3.1",
     "isort==5.12.0",

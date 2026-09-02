@@ -92,7 +92,9 @@ Auth, RBAC, and CSRF are configured entirely via environment variables (`AUTH_MO
 | `OPENAI_API_KEY` | OpenAI API key | No |
 | `ANTHROPIC_API_KEY` | Anthropic Claude API key | No |
 
-**Keys set during `./setup.sh`**: Keys entered when `setup.sh` prompts you are written to `.env` only. The application uses these values at runtime; you do not need to enter them again in the Settings page. The Settings page shows values stored in the database, so the OpenAI/Anthropic fields may appear empty even though the keys are active. To make keys visible and editable in Settings, add them there; values saved in Settings are stored in the database and take precedence over `.env` for the workflow UI.
+**Keys set during `./setup.sh`**: Keys entered when `setup.sh` prompts you are written to `.env` only. The application uses these values at runtime; you do not need to enter them again in the Settings page. Values saved in Settings are stored in the database and take precedence over `.env` for the workflow UI.
+
+**Credential fields never show a stored value.** The settings API does not return secrets to the browser, so every credential input loads empty regardless of whether one is configured. The line under the field is what tells you: *Configured* (with a short hint and a **Clear stored** control) or *Not set*. Type a new value to replace what is stored; leaving the field empty leaves it untouched. Removing a credential is a deliberate act via **Clear stored**, never a side effect of an empty field.
 
 ### Workflow-Specific LLM Configuration
 
@@ -116,7 +118,7 @@ Codex uses its own managed ChatGPT authentication; do not configure a subscripti
 docker compose exec workflow_worker codex login
 ```
 
-The workflow configuration UI lists the models available to that login. Use the **Test subscription** control in Settings (or `POST /api/settings/codex/test`) to verify connectivity without running a workflow.
+The workflow configuration and SIGMA enrichment modals list the models available to that login. Use the **Test subscription** control in Settings (or `POST /api/settings/codex/test`) to verify connectivity without running a workflow.
 
 ### Optional LM Studio LLM Provider
 

@@ -43,9 +43,19 @@ def test_highlight_keywords_accepts_pre_resolved_matches() -> None:
     assert "keyword-highlight--intelligence" in rendered
 
 
-def test_highlight_keywords_avoids_rehighlighting_existing_markup() -> None:
+def test_highlight_keywords_escapes_existing_markup_instead_of_passing_it_through() -> None:
+    """Stored markup is escaped, so it cannot nest spans or reach the DOM live.
+
+    This previously short-circuited on the literal substring ``<span class=`` and
+    returned ``content`` verbatim into a ``|safe`` template.
+    """
     content = '<span class="existing">already wrapped</span>'
 
     rendered = highlight_keywords(content, {"perfect_keyword_matches": ["already"]})
 
-    assert rendered == content
+    assert rendered != content
+    assert '<span class="existing"' not in rendered
+    assert "&lt;span class=&quot;existing&quot;&gt;" in rendered
+    assert "&lt;/span&gt;" in rendered
+    assert "wrapped" in rendered
+    assert 'class="keyword-highlight' in rendered

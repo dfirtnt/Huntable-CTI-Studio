@@ -6,16 +6,38 @@ This guide covers the day-to-day edit loop. For what the on-disk `src/prompts/` 
 
 ## Where prompts live
 
-- **Live prompts** — in the database, under the active workflow config's `agent_prompts`. These are what workflows actually use at runtime.
-- **Seed defaults** — files in `src/prompts/`. Read only on first boot, when `agent_prompts` is empty, or when you click **Reset to Defaults**. Editing a seed file does **not** change a running install.
+- **Live prompts**: in the database, under the active workflow config's `agent_prompts`. These are what workflows actually use at runtime.
+- **Seed defaults**: files in `src/prompts/`. Read only on first boot, when `agent_prompts` is empty, or when you click **Reset to Defaults**. Editing a seed file does **not** change a running install.
 
 ## The edit loop
 
 1. **Open** `http://localhost:8001/workflow` → **Config** tab → select an agent (e.g., `ServicesExtract`).
 2. **Edit** the prompt body and/or `instructions` field.
 3. **Save**. The UI creates a new entry in `agent_prompt_versions` and bumps the workflow config version.
-4. **Test** against an eval article (either the in-UI **Test Agent** button or `./scripts/run_prompt_test.sh` — see [Prompt Testing Script](https://github.com/dfirtnt/Huntable-CTI-Studio/blob/main/scripts/README_prompt_testing.md)).
+4. **Test** against an eval article (either the in-UI **Test Agent** button or `./scripts/run_prompt_test.sh`; see [Prompt Testing Script](https://github.com/dfirtnt/Huntable-CTI-Studio/blob/main/scripts/README_prompt_testing.md)).
 5. **Roll back** if it regressed: same page, **Versions** → pick a prior version → **Rollback**.
+
+## Prompt warnings on the Config tab
+
+Opening the Config tab validates every agent prompt with no click. Any agent whose
+prompt fails a contract check carries a pill on its collapsed row, and the owning
+step header (Step 2 Rank, Step 3 Extract, Step 4 SIGMA) carries the aggregate, so
+drift is visible without expanding anything.
+
+- **Amber (`N warnings`)**: the prompt is missing expected contract language
+  (for example the section 12 `[ ]` verification checklist). The agent still runs.
+- **Red (`N errors`)**: a required key is missing or empty (`system`/`role`,
+  `instructions`, `json_example`). Extraction sub-agents raise
+  `PromptConfigValidationError` and abort before reaching the model.
+
+Warnings never block **Save** or a workflow run; they are signal, not a gate. For
+the specific findings, expand the agent's Prompt panel and click **Validate**;
+the badge and that button run identical checks on identical input.
+
+An agent with **no stored prompt** is not badged: it is running the shipped default
+from `src/prompts/` (`src/utils/default_agent_prompts.py`), which is the baseline
+state rather than drift. RankAgent ships this way today. This exemption does not
+apply to extraction sub-agents, where an empty prompt is a genuine hard-fail.
 
 ## What the system expects from an extract prompt
 
@@ -30,15 +52,15 @@ Every extract sub-agent must emit **per-item traceability fields** on every extr
 | `extraction_justification` | string | Which prompt rule or rubric triggered this extraction |
 | `confidence_score` | number 0.0–1.0 | Model's self-reported confidence |
 
-**Deprecated — do not reintroduce:** `raw_text_snippet`, `confidence_level`. The contract test (`tests/config/test_subagent_traceability_contract.py`) will fail CI if either name appears in a prompt file or preset.
+**Deprecated, do not reintroduce:** `raw_text_snippet`, `confidence_level`. The contract test (`tests/config/test_subagent_traceability_contract.py`) will fail CI if either name appears in a prompt file or preset.
 
 ### Confidence calibration (convention)
 
 Use the same bands across prompts so scores stay comparable:
 
-- **0.9+** — all key fields explicitly stated and attacker-attributed
-- **0.6–0.89** — partial but clear attribution
-- **0.3–0.59** — attribution present but specifics ambiguous
+- **0.9+**: all key fields explicitly stated and attacker-attributed
+- **0.6-0.89**: partial but clear attribution
+- **0.3-0.59**: attribution present but specifics ambiguous
 
 Confidence is **self-reported by the model**, not derived from log-probs. The runtime does not call any token-probability API (providers differ; Anthropic doesn't expose them). If you omit the calibration guide, scores drift per model.
 
@@ -58,14 +80,14 @@ All seven extract sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtrac
 
 | Key | Role |
 |-----|------|
-| `role` | System prompt persona — who the agent is and what it will *not* do |
+| `role` | System prompt persona: who the agent is and what it will *not* do |
 | `task` | One-line statement of the extraction goal |
 | `json_example` | A populated JSON example matching the required output schema |
-| `instructions` | Long-form rules: extraction scope, field rules, exclusions, validation checklist. If absent, the runtime substitutes `"Output valid JSON only."` — no schema constraints are enforced. |
+| `instructions` | Long-form rules: extraction scope, field rules, exclusions, validation checklist. If absent, the runtime substitutes `"Output valid JSON only."`; no schema constraints are enforced. |
 
 **`role` is required.** If the parsed prompt config contains neither `role` nor `system`, `_validate_preprocess_invariants` in `src/services/llm_service.py` raises a `PreprocessInvariantError` and aborts the call before it reaches the model. This is classified as `infra_failed`, not a model failure (`src/services/eval_bundle_service.py` marks it distinctly for eval scoring). The symptom is a silent extraction failure with no LLM response logged.
 
-**`user_template` is code-owned — do not store it in presets.** The user message scaffold (Title/URL/Content headers, traceability block, and instructions footer) is an inline f-string assembled at runtime in `run_extraction_agent()` (`src/services/llm_service.py`). Preset authors control the system message content via the four keys above; the runtime controls how they are assembled into the user message. Any `user_template` key found in a saved prompt is ignored by the backend.
+**`user_template` is code-owned; do not store it in presets.** The user message scaffold (Title/URL/Content headers, traceability block, and instructions footer) is an inline f-string assembled at runtime in `run_extraction_agent()` (`src/services/llm_service.py`). Preset authors control the system message content via the four keys above; the runtime controls how they are assembled into the user message. Any `user_template` key found in a saved prompt is ignored by the backend.
 
 ## QA
 
@@ -82,19 +104,28 @@ Relevant API endpoints:
 - `GET  /api/workflow/config/prompts/{agent_name}/versions`
 - `GET  /api/workflow/config/prompts/{agent_name}/by-config-version/{config_version}`
 - `POST /api/workflow/config/prompts/{agent_name}/rollback`
-- `POST /api/workflow/config/prompts/bootstrap` — re-seed from `src/prompts/` (creates a new version; nothing is lost)
+- `POST /api/workflow/config/prompts/bootstrap`: re-seed from `src/prompts/` (creates a new version; nothing is lost)
 
 ## Presets
 
 A **preset** is a full workflow config snapshot (thresholds, agent models, and all agent prompts) exported as JSON. You can use one to restore a known-good state or bootstrap a fresh install.
 
-Quickstart presets for the three supported providers are in `config/presets/AgentConfigs/quickstart/`:
+Quickstart presets are in `config/presets/AgentConfigs/quickstart/`. There are 12, covering four providers:
 
 | File | Provider |
 |------|----------|
 | `Quickstart-anthropic-sonnet-4-6.json` | Anthropic / Claude Sonnet 4.6 |
+| `Quickstart-anthropic-haiku-4-5.json` | Anthropic / Claude Haiku 4.5 |
 | `Quickstart-openai-gpt-4.1-mini.json` | OpenAI / gpt-4.1-mini |
+| `Quickstart-openai-gpt-4.1.json` | OpenAI / gpt-4.1 |
+| `Quickstart-openai-gpt-4o-mini.json` | OpenAI / gpt-4o-mini |
+| `Quickstart-openai-gpt-4o.json` | OpenAI / gpt-4o |
+| `Quickstart-openai-gpt-5.json` | OpenAI / gpt-5 |
+| `Quickstart-codex-gpt-5.6-luna.json` | Codex / gpt-5.6-luna |
+| `Quickstart-codex-gpt-5.6-sol.json` | Codex / gpt-5.6-sol |
+| `Quickstart-codex-gpt-5.6-terra.json` | Codex / gpt-5.6-terra |
 | `Quickstart-LMStudio-Qwen3.json` | LM Studio / Qwen 3 (local) |
+| `Quickstart-LMStudio-Gemma4B.json` | LM Studio / Gemma 4B (local) |
 
 **To import**: Workflow page → **Import from file** → select the JSON. This replaces the active config (thresholds + all agent prompts). The previous config is preserved in version history and can be rolled back.
 
@@ -111,11 +142,12 @@ See [Workflow Presets](../getting-started/configuration.md#workflow-presets) for
 
 ## Related
 
-- [Agents and Responsibilities](../concepts/agents.md) — which agents run in what order
-- [Extract Observables](extract-observables.md) — observable shape and downstream consumers
-- [Agent Evals](../features/agent-evals.md) — measuring prompt changes against eval articles via the `/mlops/agent-evals` UI
-- [Agent Config Schema](../architecture/agent-config-schema.md) — Pydantic contract for the broader config
-- [Workflow Presets](../getting-started/configuration.md#workflow-presets) -- quickstart preset files and how to import/export configs
-- Contract test: `tests/config/test_subagent_traceability_contract.py` -- authoritative schema enforcement
+- [Agents and Responsibilities](../concepts/agents.md): which agents run in what order
+- [Extract Observables](extract-observables.md): observable shape and downstream consumers
+- [Agent Evals](../features/agent-evals.md): measuring prompt changes against eval articles via the `/mlops/agent-evals` UI
+- [Agent Config Schema](../architecture/agent-config-schema.md): Pydantic contract for the broader config
+- [Workflow Presets](../getting-started/configuration.md#workflow-presets): quickstart preset files and how to import/export configs
+- Contract test: `tests/config/test_subagent_traceability_contract.py`: authoritative schema enforcement
 
 _Last updated: 2026-08-13_
+_Last reviewed: 2026-09-01_

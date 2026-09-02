@@ -110,5 +110,6 @@ The test runner auto-manages the isolated test environment when needed. See [Tes
 - [Testing](testing.md)
 - [Workflow Queue](workflow-queue.md)
 - [Architecture Overview](../architecture/overview.md)
-
+- [Database Queries](database-queries.md)
 _Last updated: 2026-07-03_
+_Last reviewed: 2026-09-01_

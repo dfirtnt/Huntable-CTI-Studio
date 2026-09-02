@@ -231,7 +231,7 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
             let indentClass = '';
             if (m.indentLevel === 2) indentClass = 'ml-12';
             else if (m.indentLevel === 1) indentClass = 'ml-6';
-            return `<li class="text-xs ${indentClass}">${m.text}${m.badge || ''}</li>`;
+            return `<li class="text-xs break-words ${indentClass}">${m.text}${m.badge || ''}</li>`;
         }).join('')}</ul></div>`
         : '';
     

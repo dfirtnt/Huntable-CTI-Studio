@@ -68,6 +68,13 @@ async function mockEnrichmentEndpoints(page: Page) {
       }),
     }),
   );
+  await page.route('**/api/sigma-queue/**/enrichment-chat', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, conversation: null }),
+    }),
+  );
   // The success path auto-runs an A/B diff; mock it so it stays deterministic.
   await page.route('**/api/sigma-ab-test/compare', (route) =>
     route.fulfill({
@@ -158,6 +165,132 @@ test.describe('Sigma enrich modal — no duplicate Original Rule', () => {
 
     await expect(page.locator('#rulePreviewContent')).toContainText('Platform:');
     await expect(page.locator('#rulePreviewContent')).toContainText('Linux');
+  });
+
+  test('offers the enabled Codex subscription and its available models', async ({ page }) => {
+    await page.route('**/api/workflow/provider-options', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          providers: {
+            lmstudio: { enabled: false, models: [] },
+            openai: { enabled: false, models: [] },
+            codex: { enabled: true, models: ['gpt-5.6-luna'] },
+            anthropic: { enabled: false, models: [] },
+          },
+        }),
+      }),
+    );
+    await page.reload();
+    await page.waitForLoadState('domcontentloaded');
+
+    await page.evaluate(async (ruleId) => {
+      const w = window as any;
+      await w.loadQueue();
+      try {
+        await w.previewRule(ruleId);
+      } catch (_) {
+        /* render is not relevant to this regression */
+      }
+      await w.openEnrichModal();
+    }, RULE_ID);
+
+    const provider = page.locator('#enrichProviderSelect');
+    await expect(provider.locator('option[value="codex"]')).toHaveText('Codex Subscription');
+    await provider.selectOption('codex');
+    await expect(page.locator('#enrichModelSelect')).toHaveValue('gpt-5.6-luna');
+  });
+
+  test('submits the selected Codex provider and model for enrichment', async ({ page }) => {
+    let enrichmentPayload: Record<string, unknown> | undefined;
+    await page.unroute('**/api/sigma-queue/**/enrich');
+    await page.route('**/api/sigma-queue/**/enrich', (route) => {
+      enrichmentPayload = route.request().postDataJSON();
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          enriched_yaml: ENRICHED_YAML,
+          raw_response: RAW_LLM_RESPONSE,
+        }),
+      });
+    });
+    await page.route('**/api/workflow/provider-options', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          providers: {
+            lmstudio: { enabled: false, models: [] },
+            openai: { enabled: false, models: [] },
+            codex: { enabled: true, models: ['gpt-5.6-luna'] },
+            anthropic: { enabled: false, models: [] },
+          },
+        }),
+      }),
+    );
+    await page.reload();
+    await page.waitForLoadState('domcontentloaded');
+
+    await page.evaluate(async (ruleId) => {
+      const w = window as any;
+      await w.loadQueue();
+      try {
+        await w.previewRule(ruleId);
+      } catch (_) {
+        /* render is not relevant to this regression */
+      }
+      await w.openEnrichModal();
+    }, RULE_ID);
+    await page.locator('#enrichProviderSelect').selectOption('codex');
+    await page.locator('#enrichBtn').click();
+    await expect(page.locator('#enrichResult')).toBeVisible();
+    expect(enrichmentPayload).toMatchObject({ provider: 'codex', model: 'gpt-5.6-luna' });
+  });
+
+  test('starts a rule-scoped chat from the completed enhancement', async ({ page }) => {
+    await page.unroute('**/api/sigma-queue/**/enrich');
+    await page.route('**/api/sigma-queue/**/enrich', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          enriched_yaml: ENRICHED_YAML,
+          raw_response: RAW_LLM_RESPONSE,
+          conversation_id: 73,
+        }),
+      }),
+    );
+    await page.unroute('**/api/sigma-queue/**/enrichment-chat');
+    await page.route('**/api/sigma-queue/**/enrichment-chat', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          conversation: {
+            id: 73,
+            provider: 'lmstudio',
+            model: 'test-model',
+            messages: [
+              { role: 'user', content: 'Initial enrichment request' },
+              { role: 'assistant', content: 'Initial enrichment response' },
+            ],
+          },
+        }),
+      }),
+    );
+
+    await openEnrichModal(page);
+    await page.locator('#enrichBtn').click();
+    await expect(page.locator('#startEnrichmentChatBtn')).toBeVisible();
+    await page.locator('#startEnrichmentChatBtn').click();
+    await expect(page.locator('#enrichmentChatModal')).toBeVisible();
+    await expect(page.locator('#enrichmentChatModal')).toContainText('Restricted to this SIGMA rule and earlier turns.');
+    await expect(page.locator('#enrichmentChatTranscript')).toContainText('Initial enrichment response');
   });
 
   test('hides the standalone Original Rule once the comparison view is shown, and keeps it hidden in the editor sub-view', async ({ page }) => {

@@ -48,7 +48,6 @@ test.describe('Settings - Save and Persistence', () => {
 
     await header.click();
     await expect(page.locator('#refreshScheduledJobsBtn')).toBeVisible();
-    await expect(page.locator('#saveScheduledJobsBtn')).toBeVisible();
     await expect(page.locator('#scheduledJobsList')).toBeVisible();
     await expect(page.getByText('Generate Daily Report', { exact: true })).toHaveCount(0);
 
@@ -206,5 +205,77 @@ test.describe('Settings - API', () => {
 
     const updateResp = await request.post('/api/settings', { data: updateData });
     expect([200, 422]).toContain(updateResp.status());
+  });
+});
+
+test.describe('Settings - Accessibility & control state', () => {
+  test.skip(SKIP_TESTS, 'Settings tests disabled.');
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto(`${BASE}/settings`);
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('#saveSettings')).toBeVisible();
+  });
+
+  // Regression guard: these 5 icon-only reveal toggles previously had empty
+  // textContent, no aria-label, no title, and no aria-pressed -- unreadable to
+  // a screen reader. Each lives behind its own collapsible panel (and, for the
+  // two commercial providers, an additional enable checkbox) before it renders.
+  const PASSWORD_TOGGLES: { id: string; panel: string; enableCheckbox?: string }[] = [
+    { id: 'toggleWorkflowOpenaiApiKey', panel: 'agenticWorkflowConfig', enableCheckbox: 'workflowOpenaiEnabled' },
+    { id: 'toggleWorkflowAnthropicApiKey', panel: 'agenticWorkflowConfig', enableCheckbox: 'workflowAnthropicEnabled' },
+    { id: 'toggleLangfusePublicKey', panel: 'agenticWorkflowConfig' },
+    { id: 'toggleLangfuseSecretKey', panel: 'agenticWorkflowConfig' },
+    { id: 'toggleGithubToken', panel: 'githubPRConfig' },
+  ];
+
+  for (const { id: toggleId, panel, enableCheckbox } of PASSWORD_TOGGLES) {
+    test(`[SETTINGS-060] ${toggleId} exposes an accessible name and pressed state`, async ({ page }) => {
+      await page.locator(`[data-collapsible-panel="${panel}"]`).click();
+      if (enableCheckbox) {
+        const checkbox = page.locator(`#${enableCheckbox}`);
+        if (!(await checkbox.isChecked().catch(() => false))) {
+          await checkbox.check();
+        }
+      }
+
+      const toggle = page.locator(`#${toggleId}`);
+      const hasToggle = await toggle.isVisible({ timeout: 3000 }).catch(() => false);
+      test.skip(!hasToggle, `${toggleId} not rendered in current runtime`);
+
+      await expect(toggle).toHaveAttribute('aria-label', 'Show API key');
+      await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+
+      await toggle.click();
+      await expect(toggle).toHaveAttribute('aria-label', 'Hide API key');
+      await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    });
+  }
+
+  test('[SETTINGS-061] disabled backup cron buttons use not-allowed cursor, not progress', async ({ page }) => {
+    const applyBtn = page.locator('#applyBackupCronBtn');
+    const isDisabled = await applyBtn.isDisabled().catch(() => false);
+    test.skip(!isDisabled, 'Cron controls are enabled in this environment (host crontab reachable)');
+
+    await expect(applyBtn).toHaveCSS('cursor', 'not-allowed');
+  });
+
+  test('[SETTINGS-062] backup retention inputs reject a zero minimum', async ({ page }) => {
+    for (const id of ['dailyRetention', 'weeklyRetention', 'monthlyRetention']) {
+      await expect(page.locator(`#${id}`)).toHaveAttribute('min', '1');
+    }
+  });
+
+  test('[SETTINGS-063] auto-trigger hunt score threshold accepts a fractional value', async ({ page }) => {
+    const threshold = page.locator('#autoTriggerHuntScoreThreshold');
+    if (!(await threshold.isVisible({ timeout: 1000 }).catch(() => false))) {
+      const header = page.locator('[data-collapsible-panel="agenticWorkflowConfig"]');
+      await header.click();
+    }
+    await expect(threshold).toBeVisible({ timeout: 5000 });
+    await expect(threshold).toHaveAttribute('step', '0.1');
+    await threshold.fill('90.5');
+    const isValid = await threshold.evaluate((el: HTMLInputElement) => el.checkValidity());
+    expect(isValid).toBe(true);
   });
 });

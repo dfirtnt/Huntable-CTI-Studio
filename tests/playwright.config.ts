@@ -54,7 +54,11 @@ const featureProjects = [
     use: browser,
     testMatch: [
       /playwright\/article_detail\.spec\.ts$/,
+      /playwright\/articles_copy_clipboard\.spec\.ts$/,
+      /playwright\/article_content_xss_regression\.spec\.ts$/,
       /playwright\/annotation_xss_regression\.spec\.ts$/,
+      /playwright\/chunk_dialogs_xss_regression\.spec\.ts$/,
+      /playwright\/chunk_debug_modal_polish\.spec\.ts$/,
       /playwright\/dashboard\.spec\.ts$/,
       /playwright\/jobs\.spec\.ts$/,
     ],
@@ -73,21 +77,22 @@ const featureProjects = [
     use: browser,
     testMatch: [
       /playwright\/collapsible_sections\.spec\.ts$/,
+      /playwright\/diags_.*\.spec\.ts$/,
       /playwright\/modal_.*\.spec\.ts$/,
+      /playwright\/ml_hunt_comparison_error_handling\.spec\.ts$/,
       /playwright\/settings\.spec\.ts$/,
+      /playwright\/settings_credentials\.spec\.ts$/,
+      /playwright\/settings_save_model\.spec\.ts$/,
     ],
   },
 ];
 
-/* No specs currently match the quarantine patterns -- the UI test diet
- * (commit 1a490501) removed the flaky suites this project targeted. Kept as
- * an empty project (rather than deleted) so --project=quarantine still
- * resolves and doesn't error; add patterns here if a new suite needs
- * quarantining. */
 const quarantineProject = {
   name: 'quarantine',
   use: browser,
-  testMatch: [] as RegExp[],
+  testMatch: [
+    /playwright\/quarantined_workflow_config_phantom_003\.spec\.ts$/,
+  ],
 };
 
 export default defineConfig({
@@ -154,4 +159,11 @@ export default defineConfig({
 
   /* Global setup to check web server health before tests */
   globalSetup: require.resolve('./playwright/global-setup.ts'),
+
+  /* Process-level restore of the shared workflow config. Per-spec restores live
+   * inside test workers and mostly need a live `page`, so they do not fire when
+   * a worker is killed or the global timeout trips -- which is how a hermetic
+   * test seed became the live CmdlineExtract prompt. This backstop runs once, in
+   * Node, regardless of how the run ended. */
+  globalTeardown: require.resolve('./playwright/global-teardown.ts'),
 });

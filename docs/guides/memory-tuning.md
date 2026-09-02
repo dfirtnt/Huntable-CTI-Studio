@@ -151,7 +151,13 @@ If containers are consistently near their limits, increase them. If they're well
 
 **System still hanging:**
 - Check total memory usage: `docker stats`
-- Ensure total limits don't exceed available RAM
+- Confirm total limits don't exceed available RAM
 - Consider reducing limits further if system has < 8GB RAM
 
+## Related
+
+- [Docker Architecture](../deployment/docker-architecture.md): full per-service resource-limit reference
+- [Workflow Queue](../development/workflow-queue.md): what runs on the `workflows` queue vs. the default worker queues
+
 _Last updated: 2026-07-05_
+_Last reviewed: 2026-09-01_

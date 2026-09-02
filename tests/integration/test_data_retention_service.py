@@ -30,7 +30,6 @@ from src.database.models import (  # noqa: E402
     AppSettingsTable,
     ArticleTable,
     Base,
-    SigmaEvaluationTable,
     SigmaRuleQueueTable,
     SourceCheckTable,
     SourceTable,
@@ -41,7 +40,9 @@ from src.services.data_retention_service import (  # noqa: E402
     RETENTION_POLICY_MAP,
     STALE_EXECUTION_SETTING_KEY,
     purgeable_execution_ids,
+    purgeable_workflow_config_ids,
     reap_stale_executions,
+    resolve_min_retained,
     resolve_retention_days,
     run_retention,
 )
@@ -64,7 +65,6 @@ _TABLES = (
     AgenticWorkflowExecutionTable,
     SigmaRuleQueueTable,
     SubagentEvaluationTable,
-    SigmaEvaluationTable,
     SourceCheckTable,
     AppSettingsTable,
 )
@@ -215,7 +215,6 @@ class TestExecutionPurgeGuards:
         "model,column",
         [
             (SubagentEvaluationTable, "article_url"),
-            (SigmaEvaluationTable, "article_url"),
         ],
     )
     def test_evaluation_referenced_execution_is_never_purged(self, session, model, column):
@@ -224,8 +223,6 @@ class TestExecutionPurgeGuards:
         kwargs = {"workflow_execution_id": execution.id, column: "x"}
         if model is SubagentEvaluationTable:
             kwargs.update({"subagent_name": "cmdline", "expected_count": 1})
-        if model is SigmaEvaluationTable:
-            kwargs.update({"expected_rule_count": 1})
         session.add(model(**kwargs))
         session.flush()
 
@@ -349,3 +346,109 @@ class TestRunRetention:
 
         assert result.as_dict()["total_deleted"] == 0
         assert set(result.deleted) == set(RETENTION_POLICY_MAP)
+
+
+def _add_config(session, *, version: int, age_days: float, is_active: bool = False):
+    config = AgenticWorkflowConfigTable(
+        version=version,
+        is_active=is_active,
+        description=f"v{version}",
+        created_at=NOW - timedelta(days=age_days),
+        updated_at=NOW - timedelta(days=age_days),
+    )
+    session.add(config)
+    session.flush()
+    return config
+
+
+class TestWorkflowConfigPurgeGuards:
+    """Config history is an undo log, so the exclusions are what make pruning safe.
+
+    The live table reached 8,152 rows with exactly one active because nothing pruned
+    it. Pruning it wrongly is worse than not pruning: this history is how a bad
+    prompt write gets reverted, and it carries the provenance of recorded evals.
+    """
+
+    def _cutoff(self, session):
+        policy = RETENTION_POLICY_MAP["workflow_config"]
+        return NOW - timedelta(days=resolve_retention_days(session, policy))
+
+    def test_old_superseded_revision_is_purgeable(self, session):
+        _add_config(session, version=1, age_days=400)
+        _add_config(session, version=2, age_days=1, is_active=True)
+
+        ids = purgeable_workflow_config_ids(session, self._cutoff(session), keep_revisions=0)
+
+        assert [
+            c.version for c in session.query(AgenticWorkflowConfigTable).filter(AgenticWorkflowConfigTable.id.in_(ids))
+        ] == [1]
+
+    def test_active_revision_is_never_purged(self, session):
+        active = _add_config(session, version=1, age_days=400, is_active=True)
+
+        ids = purgeable_workflow_config_ids(session, self._cutoff(session), keep_revisions=0)
+
+        assert active.id not in ids
+
+    def test_eval_referenced_revision_is_never_purged(self, session):
+        article_id = _seed_article(session)
+        referenced = _add_config(session, version=1, age_days=400)
+        _add_config(session, version=2, age_days=1, is_active=True)
+        session.add(
+            SubagentEvaluationTable(
+                subagent_name="CmdlineExtract",
+                article_url="http://example.test/a",
+                article_id=article_id,
+                expected_count=1,
+                workflow_config_id=referenced.id,
+            )
+        )
+        session.flush()
+
+        ids = purgeable_workflow_config_ids(session, self._cutoff(session), keep_revisions=0)
+
+        assert referenced.id not in ids, "an eval's provenance row was selected for deletion"
+
+    def test_revision_floor_outranks_the_age_window(self, session):
+        """Whichever of the two keeps more rows wins, and here that is the count."""
+        old = [_add_config(session, version=v, age_days=400) for v in range(1, 6)]
+        _add_config(session, version=99, age_days=1, is_active=True)
+
+        # Every `old` row is far outside the window, but the floor spans all of them.
+        ids = purgeable_workflow_config_ids(session, self._cutoff(session), keep_revisions=10)
+        assert ids == []
+
+        # Drop the floor below the row count and the window applies again.
+        ids = purgeable_workflow_config_ids(session, self._cutoff(session), keep_revisions=2)
+        assert set(ids) == {c.id for c in old[:4]}, "the floor must keep the newest rows, not an arbitrary subset"
+
+    def test_recent_revision_is_retained_even_below_the_floor(self, session):
+        recent = _add_config(session, version=1, age_days=1)
+        _add_config(session, version=2, age_days=1, is_active=True)
+
+        ids = purgeable_workflow_config_ids(session, self._cutoff(session), keep_revisions=0)
+
+        assert recent.id not in ids
+
+    def test_default_floor_is_generous_enough_to_survive_a_busy_day(self, session):
+        """632 config rows were written on 2026-08-19 alone; the floor must exceed that."""
+        policy = RETENTION_POLICY_MAP["workflow_config"]
+        assert resolve_min_retained(session, policy) >= 632
+
+    def test_setting_overrides_the_floor(self, session):
+        policy = RETENTION_POLICY_MAP["workflow_config"]
+        session.add(AppSettingsTable(key=policy.min_retained_setting_key, value="7"))
+        session.flush()
+
+        assert resolve_min_retained(session, policy) == 7
+
+    def test_run_retention_reports_the_config_policy(self, session):
+        _add_config(session, version=1, age_days=400)
+        _add_config(session, version=2, age_days=1, is_active=True)
+        session.add(AppSettingsTable(key="RETENTION_MIN_WORKFLOW_CONFIG_REVISIONS", value="1"))
+        session.flush()
+
+        result = run_retention(session, now=NOW)
+
+        assert result.deleted["workflow_config"] == 1
+        assert session.query(AgenticWorkflowConfigTable).count() == 1

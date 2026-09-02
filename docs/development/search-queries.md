@@ -72,11 +72,10 @@ Searches are case-insensitive by default. No need to provide multiple case varia
 - Special characters may need quotes: `"[.]"`
 
 ### Query Optimization
-1. Put most specific/rare terms first
-2. Use AND to narrow results
-3. Use OR to broaden results
-4. Group related terms with parentheses
-5. Use NOT sparingly (expensive operation)
+1. Put the most specific or rarest terms first.
+2. Use AND to narrow results.
+3. Use OR to broaden results.
+4. Use NOT sparingly; it is the more expensive operation.
 
 ## Advanced Patterns
 
@@ -106,9 +105,9 @@ Searches are case-insensitive by default. No need to provide multiple case varia
 ## Search Implementation Notes
 
 The boolean search parser handles:
-- Operator precedence (NOT > AND > OR)
+- NOT terms as an exclusion filter, checked before AND/OR
 - Quoted phrase matching
-- Mixed operators in complex expressions
+- Mixed AND/OR terms, evaluated as `all(AND terms) and any(OR terms)` -- there is no real expression-tree precedence, so this is not equivalent to standard boolean grouping (see the AND/quoting caveat above)
 
 Parentheses are stripped rather than parsed as grouping (see note above); do not rely on
 them to control evaluation order.
@@ -118,3 +117,4 @@ See `src/utils/search_parser.py` for implementation details.
 ---
 
 _Last updated: 2026-07-03_
+_Last reviewed: 2026-09-01_

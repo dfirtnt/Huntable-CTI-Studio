@@ -43,17 +43,11 @@ async function requireFirstNonManualSource(request: APIRequestContext): Promise<
 }
 
 // Post-refresh (commit 9103ee41), source cards use `.source-card[data-source-id]`
-// instead of Tailwind `.rounded-lg` wrappers. Configure/Toggle/Stats buttons live
-// inside a `.src-dropdown` that is `display:none` until the `.btn-overflow` button
-// is clicked (toggleOverflow() adds `.open`).
+// instead of Tailwind `.rounded-lg` wrappers. Configure/Toggle Status/Stats are
+// always-visible `.btn-secondary` buttons directly in `.card-actions` (no overflow
+// menu -- that was inverted prominence vs. Collect Now, fixed separately).
 function cardForSource(page: Page, id: number): Locator {
   return page.locator(`.source-card[data-source-id="${id}"]`);
-}
-
-async function openSourceOverflow(page: Page, id: number): Promise<void> {
-  await cardForSource(page, id).locator('.btn-overflow').click();
-  // Dropdown animates open via class toggle; wait for it to be visible.
-  await expect(cardForSource(page, id).locator('.src-dropdown.open')).toBeVisible();
 }
 
 test.describe('Sources Page - Executable Test Plan', () => {
@@ -149,7 +143,6 @@ test.describe('Sources Page - Executable Test Plan', () => {
 
   test('[SOURCES-024] Configure button opens modal', async ({ page, request }) => {
     const source = await requireFirstNonManualSource(request);
-    await openSourceOverflow(page, source.id);
     const button = page.locator(`button[onclick^="openSourceConfig(this, ${source.id},"]`).first();
     await button.click();
     await expect(page.locator('#sourceConfigModal')).toBeVisible();
@@ -176,14 +169,12 @@ test.describe('Sources Page - Executable Test Plan', () => {
       });
     });
 
-    await openSourceOverflow(page, source.id);
     await page.locator(`button[onclick="toggleSourceStatus(${source.id})"]`).click();
     await expect.poll(() => called).toBeTruthy();
   });
 
   test('[SOURCES-040] Configuration modal form fields exist', async ({ page, request }) => {
     const source = await requireFirstNonManualSource(request);
-    await openSourceOverflow(page, source.id);
     await page.locator(`button[onclick^="openSourceConfig(this, ${source.id},"]`).first().click();
     await expect(page.locator('#configLookbackDays')).toBeVisible();
     await expect(page.locator('#configCheckFrequency')).toBeVisible();
@@ -192,7 +183,6 @@ test.describe('Sources Page - Executable Test Plan', () => {
 
   test('[SOURCES-041] Configuration input constraints', async ({ page, request }) => {
     const source = await requireFirstNonManualSource(request);
-    await openSourceOverflow(page, source.id);
     await page.locator(`button[onclick^="openSourceConfig(this, ${source.id},"]`).first().click();
 
     await expect(page.locator('#configLookbackDays')).toHaveAttribute('min', '1');
@@ -204,7 +194,6 @@ test.describe('Sources Page - Executable Test Plan', () => {
 
   test('[SOURCES-042] Current source values pre-populate configuration form', async ({ page, request }) => {
     const source = await requireFirstNonManualSource(request);
-    await openSourceOverflow(page, source.id);
     await page.locator(`button[onclick^="openSourceConfig(this, ${source.id},"]`).first().click();
 
     const lookback = await page.locator('#configLookbackDays').inputValue();
@@ -233,7 +222,6 @@ test.describe('Sources Page - Executable Test Plan', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) });
     });
 
-    await openSourceOverflow(page, source.id);
     await page.locator(`button[onclick^="openSourceConfig(this, ${source.id},"]`).first().click();
     await page.locator('#configLookbackDays').fill('30');
     await page.locator('#configCheckFrequency').fill('60');
@@ -252,7 +240,6 @@ test.describe('Sources Page - Executable Test Plan', () => {
       await route.continue();
     });
 
-    await openSourceOverflow(page, source.id);
     await page.locator(`button[onclick^="openSourceConfig(this, ${source.id},"]`).first().click();
     await page.locator('#configLookbackDays').fill('1000');
     await page.locator('#saveSourceConfigBtn').click();
@@ -286,5 +273,51 @@ test.describe('Sources Page - Executable Test Plan', () => {
     await expect.poll(() => requestBody !== null).toBeTruthy();
     expect(Array.isArray(requestBody.urls)).toBeTruthy();
     expect(requestBody.urls[0]).toBe('https://example.com/article');
+  });
+
+  test('[SOURCES-060] status filter chips are keyboard-focusable and activate on Enter', async ({ page }) => {
+    const totalChip = page.locator('.stat-chip[data-filter="all"]');
+    await expect(totalChip).toHaveAttribute('tabindex', '0');
+    await expect(totalChip).toHaveAttribute('role', 'button');
+
+    const activeChip = page.locator('.stat-chip[data-filter="active"]');
+    await activeChip.focus();
+    await expect(activeChip).toBeFocused();
+    await expect(activeChip).toHaveAttribute('aria-pressed', 'false');
+
+    await page.keyboard.press('Enter');
+    await expect(activeChip).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#statusFilter')).toHaveValue('active');
+
+    // Space toggles it back off
+    await page.keyboard.press(' ');
+    await expect(activeChip).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('#statusFilter')).toHaveValue('all');
+  });
+
+  test('[SOURCES-061] config modal traps Tab and restores focus to the trigger on close', async ({ page, request }) => {
+    const source = await requireFirstNonManualSource(request);
+    const trigger = page.locator(`button[onclick^="openSourceConfig(this, ${source.id},"]`).first();
+
+    await trigger.focus();
+    await trigger.click();
+    await expect(page.locator('#configLookbackDays')).toBeFocused();
+
+    // Shift+Tab from the first field should wrap to the last focusable element (Cancel).
+    await page.keyboard.press('Shift+Tab');
+    await expect(page.locator('#cancelSourceConfigBtn')).toBeFocused();
+
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#sourceConfigModal')).toBeHidden();
+    await expect(trigger).toBeFocused();
+  });
+
+  test('[SOURCES-062] each card displays the hunt score the list is sorted by', async ({ page }) => {
+    const firstBadge = page.locator('.source-card:not([hidden]) .hunt-score-badge').first();
+    await expect(firstBadge).toBeVisible();
+    await expect(firstBadge).toContainText('★');
+
+    const sortLabel = page.getByText('Sorted by Hunt Score', { exact: false });
+    await expect(sortLabel).toBeVisible();
   });
 });

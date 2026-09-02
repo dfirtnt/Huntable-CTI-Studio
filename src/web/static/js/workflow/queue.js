@@ -24,6 +24,7 @@ let queuePage = 1;
 let queueTotal = 0;
 let queueLimit = 50;
 let queueSelectedIds = new Set();
+let enrichmentChatConversationId = null;
 
 // ── Bulk selection helpers ───────────────────────────────────────────────────
 
@@ -346,11 +347,13 @@ function updateQueueStats(statusCounts) {
     const approvedEl = document.getElementById('approvedCount');
     const rejectedEl = document.getElementById('rejectedCount');
     const submittedEl = document.getElementById('submittedCount');
+    const needsReviewEl = document.getElementById('needsReviewCount');
 
     if (pendingEl) pendingEl.textContent = get('pending');
     if (approvedEl) approvedEl.textContent = get('approved');
     if (rejectedEl) rejectedEl.textContent = get('rejected');
     if (submittedEl) submittedEl.textContent = get('submitted');
+    if (needsReviewEl) needsReviewEl.textContent = get('needs_review');
 
     // Reflect active filter on stat cards
     const activeFilter = (document.getElementById('queueStatusFilter') || {}).value || '';
@@ -1130,8 +1133,8 @@ async function showValidationConversationModal(data, provider, model) {
             </div>
             
             <div class="mb-4 text-sm text-gray-600 dark:text-gray-400">
-                <span class="font-medium">Provider:</span> ${provider.charAt(0).toUpperCase() + provider.slice(1)} | 
-                <span class="font-medium">Model:</span> ${model} |
+                <span class="font-medium">Provider:</span> ${escapeHtml(String(provider).charAt(0).toUpperCase() + String(provider).slice(1))} |
+                <span class="font-medium">Model:</span> ${escapeHtml(String(model))} |
                 <span class="font-medium">Attempts:</span> ${attempts}
             </div>
             
@@ -1461,6 +1464,8 @@ async function loadEnrichProviderModelCatalog() {
     let defaultProvider = null;
     if (enabledProviders.lmstudio) {
         defaultProvider = 'lmstudio';
+    } else if (enabledProviders.codex && commercialModelCatalog.codex) {
+        defaultProvider = 'codex';
     } else if (enabledProviders.openai && commercialModelCatalog.openai) {
         defaultProvider = 'openai';
     } else if (enabledProviders.anthropic && commercialModelCatalog.anthropic) {
@@ -1482,7 +1487,7 @@ function populateEnrichProviderDropdown() {
 
     providerSelect.innerHTML = '<option value="">Select provider...</option>';
 
-    const providers = ['lmstudio', 'openai', 'anthropic'];
+    const providers = ['lmstudio', 'openai', 'codex', 'anthropic'];
     providers.forEach(provider => {
         if (provider === 'lmstudio') {
             const option = document.createElement('option');
@@ -1492,7 +1497,9 @@ function populateEnrichProviderDropdown() {
         } else if (commercialModelCatalog[provider] && commercialModelCatalog[provider].length > 0) {
             const option = document.createElement('option');
             option.value = provider;
-            option.textContent = provider.charAt(0).toUpperCase() + provider.slice(1);
+            option.textContent = provider === 'codex'
+                ? 'Codex Subscription'
+                : provider.charAt(0).toUpperCase() + provider.slice(1);
             providerSelect.appendChild(option);
         }
     });
@@ -1564,6 +1571,144 @@ async function populateEnrichModelDropdown(provider) {
 
 // Track if preview modal was open when opening enrich modal
 // previewModalWasOpen removed - using modal stack instead
+
+function _setEnrichmentChatConversation(conversationId) {
+    enrichmentChatConversationId = conversationId || null;
+    let button = document.getElementById('startEnrichmentChatBtn');
+    if (!button) {
+        const cancelButton = document.getElementById('enrichCancelBtn');
+        if (!cancelButton) return;
+        button = document.createElement('button');
+        button.type = 'button';
+        button.id = 'startEnrichmentChatBtn';
+        button.className = 'hidden rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700';
+        button.textContent = 'Start Chat';
+        button.addEventListener('click', startEnrichmentChat);
+        cancelButton.before(button);
+    }
+    if (button) button.classList.toggle('hidden', !enrichmentChatConversationId);
+}
+
+function _renderEnrichmentChat(conversation) {
+    const transcript = document.getElementById('enrichmentChatTranscript');
+    if (!transcript) return;
+    transcript.replaceChildren();
+    (conversation.messages || []).forEach((message) => {
+        const entry = document.createElement('div');
+        const isUser = message.role === 'user';
+        entry.className = `rounded-lg p-3 ${isUser ? 'bg-blue-50 dark:bg-blue-900/30' : 'bg-gray-100 dark:bg-gray-800'}`;
+        const label = document.createElement('p');
+        label.className = 'text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1';
+        label.textContent = isUser ? 'You' : 'Enrichment agent';
+        const content = document.createElement('pre');
+        content.className = 'whitespace-pre-wrap break-words text-sm text-gray-900 dark:text-gray-100 font-sans';
+        content.textContent = message.content || '';
+        entry.append(label, content);
+        transcript.appendChild(entry);
+    });
+    transcript.scrollTop = transcript.scrollHeight;
+}
+
+function _ensureEnrichmentChatModal() {
+    let modal = document.getElementById('enrichmentChatModal');
+    if (modal) return modal;
+    modal = document.createElement('div');
+    modal.id = 'enrichmentChatModal';
+    modal.className = 'fixed inset-0 z-[70] hidden overflow-y-auto bg-gray-900/60 p-4';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', 'Rule revision chat');
+    modal.innerHTML = `
+        <div class="mx-auto flex min-h-full max-w-3xl items-center">
+            <div class="w-full rounded-xl bg-white shadow-xl dark:bg-gray-900">
+                <div class="flex items-start justify-between border-b border-gray-200 p-5 dark:border-gray-700">
+                    <div><h2 class="text-lg font-semibold text-gray-900 dark:text-white">Rule revision chat</h2><p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Restricted to this SIGMA rule and earlier turns.</p></div>
+                    <button type="button" id="closeEnrichmentChatBtn" class="rounded p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Close rule revision chat">Close</button>
+                </div>
+                <div id="enrichmentChatTranscript" class="max-h-[55vh] space-y-3 overflow-y-auto p-5"></div>
+                <div class="border-t border-gray-200 p-5 dark:border-gray-700">
+                    <label for="enrichmentChatInput" class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">Message</label>
+                    <textarea id="enrichmentChatInput" rows="4" maxlength="8000" class="w-full rounded-md border border-gray-300 bg-white p-3 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-white" placeholder="Ask about a previous turn or request a revision to this rule."></textarea>
+                    <div class="mt-3 flex justify-end gap-3"><button type="button" id="enrichmentChatSendBtn" class="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">Send</button></div>
+                </div>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+    modal.querySelector('#closeEnrichmentChatBtn').addEventListener('click', closeEnrichmentChat);
+    modal.querySelector('#enrichmentChatSendBtn').addEventListener('click', sendEnrichmentChatTurn);
+    modal.querySelector('#enrichmentChatInput').addEventListener('keydown', (event) => {
+        if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+            event.preventDefault();
+            sendEnrichmentChatTurn();
+        }
+    });
+    modal.addEventListener('click', (event) => {
+        if (event.target === modal) closeEnrichmentChat();
+    });
+    return modal;
+}
+
+function closeEnrichmentChat() {
+    if (window.ModalManager) window.ModalManager.close('enrichmentChatModal');
+    else document.getElementById('enrichmentChatModal')?.classList.add('hidden');
+}
+
+async function startEnrichmentChat() {
+    if (!currentRuleId || !enrichmentChatConversationId) return;
+    const modal = _ensureEnrichmentChatModal();
+    if (window.ModalManager) {
+        window.ModalManager.register('enrichmentChatModal', { isDynamic: true, hasInput: true });
+        window.ModalManager.open('enrichmentChatModal', true);
+    } else {
+        modal.classList.remove('hidden');
+    }
+    try {
+        const response = await fetch(`/api/sigma-queue/${currentRuleId}/enrichment-chat`);
+        const data = await response.json();
+        if (!response.ok || !data.conversation) throw new Error(data.detail || 'Conversation is unavailable.');
+        _setEnrichmentChatConversation(data.conversation.id);
+        _renderEnrichmentChat(data.conversation);
+        modal.querySelector('#enrichmentChatInput').focus();
+    } catch (error) {
+        closeEnrichmentChat();
+        showNotification(error.message || 'Could not open the enrichment chat.', 'error');
+    }
+}
+
+async function sendEnrichmentChatTurn() {
+    const input = document.getElementById('enrichmentChatInput');
+    const button = document.getElementById('enrichmentChatSendBtn');
+    const message = input?.value.trim();
+    if (!message || !currentRuleId || !enrichmentChatConversationId) return;
+    button.disabled = true;
+    button.textContent = 'Sending...';
+    try {
+        const response = await fetch(`/api/sigma-queue/${currentRuleId}/enrichment-chat/${enrichmentChatConversationId}/turn`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || 'Could not continue the chat.');
+        input.value = '';
+        _renderEnrichmentChat(data.conversation);
+    } catch (error) {
+        showNotification(error.message || 'Could not continue the enrichment chat.', 'error');
+    } finally {
+        button.disabled = false;
+        button.textContent = 'Send';
+    }
+}
+
+async function _loadLatestEnrichmentChat() {
+    _setEnrichmentChatConversation(null);
+    if (!currentRuleId) return;
+    try {
+        const response = await fetch(`/api/sigma-queue/${currentRuleId}/enrichment-chat`);
+        const data = await response.json();
+        if (response.ok && data.conversation) _setEnrichmentChatConversation(data.conversation.id);
+    } catch (error) {
+        console.debug('No persisted enrichment chat available:', error);
+    }
+}
 
 async function openEnrichModal() {
     const rule = queue.find(r => r.id === currentRuleId);
@@ -1819,6 +1964,7 @@ END SYSTEM PROMPT`;
     // Load provider/model catalog and populate dropdowns, then restore last preset if any
     await loadEnrichProviderModelCatalog();
     await restoreLastEnrichmentPreset();
+    await _loadLatestEnrichmentChat();
 }
 
 function _collectEnrichSPIssues(sp) {
@@ -2606,41 +2752,9 @@ async function enrichRule() {
         return;
     }
 
-    // Get API key from server-side settings (not needed for LMStudio)
-    let apiKey = null;
-    if (selectedProvider !== 'lmstudio') {
-        try {
-            const response = await fetch('/api/settings');
-            if (response.ok) {
-                const data = await response.json();
-                const settings = data.settings || {};
-
-                // Get API key based on selected provider
-                if (selectedProvider === 'openai') {
-                    apiKey = settings.WORKFLOW_OPENAI_API_KEY || settings.OPENAI_API_KEY;
-                } else if (selectedProvider === 'anthropic') {
-                    apiKey = settings.WORKFLOW_ANTHROPIC_API_KEY || settings.ANTHROPIC_API_KEY;
-                }
-            }
-        } catch (error) {
-            console.warn('Could not fetch API key from settings API:', error);
-        }
-
-        if (!apiKey || !apiKey.trim()) {
-            const providerName = selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1);
-            document.getElementById('enrichError').textContent = `Please configure your ${providerName} API key in Settings first.`;
-            document.getElementById('enrichError').classList.remove('hidden');
-            console.error('API key not found for provider:', selectedProvider);
-            enrichBtn.disabled = false;
-            enrichBtn.textContent = 'Enrich Rule';
-            enrichBtn.classList.remove('opacity-75', 'cursor-not-allowed');
-            return;
-        }
-
-        // Trim API key to remove any whitespace
-        apiKey = apiKey.trim();
-    }
-
+    // The API key stays server-side: /api/settings no longer returns credential
+    // values, and the enrich route resolves the stored key itself. If none is
+    // configured the server says so and the message is surfaced below.
     const instruction = 'Validate and minimally enrich this SIGMA rule per the enabled directives. Preserve detection logic. Return the JSON output contract only.';
     const systemPrompt = document.getElementById('enrichSystemPrompt').value.trim();
 
@@ -2651,19 +2765,12 @@ async function enrichRule() {
     document.getElementById('enrichResult').classList.add('hidden');
     
     try {
-        // Determine which header to use based on provider (LMStudio doesn't need API key)
         const headers = {
             'Content-Type': 'application/json'
         };
-        if (selectedProvider !== 'lmstudio' && apiKey) {
-            const headerKey = selectedProvider === 'openai' ? 'X-OpenAI-API-Key' :
-                             selectedProvider === 'anthropic' ? 'X-Anthropic-API-Key' :
-                             'X-OpenAI-API-Key';
-            headers[headerKey] = apiKey;
-        }
-        
+
         const includeArticleContent = document.getElementById('includeArticleContent').checked;
-        
+
         const requestBody = {
             instruction: instruction || undefined,
             system_prompt: systemPrompt || undefined,
@@ -2672,14 +2779,13 @@ async function enrichRule() {
             include_article_content: includeArticleContent,
             current_rule_yaml: document.getElementById('enrichOriginalRule').value
         };
-        
+
         console.log('Sending enrich request:', {
             url: `/api/sigma-queue/${currentRuleId}/enrich`,
             provider: selectedProvider,
-            model: selectedModel,
-            hasApiKey: !!apiKey
+            model: selectedModel
         });
-        
+
         const response = await fetch(`/api/sigma-queue/${currentRuleId}/enrich`, {
             method: 'POST',
             headers: headers,
@@ -2700,6 +2806,7 @@ async function enrichRule() {
         if (data.success) {
             const enrichedYaml = data.enriched_yaml;
             const rawResponse = data.raw_response || enrichedYaml;
+            _setEnrichmentChatConversation(data.conversation_id);
             enrichIteration++;
             
             // Determine what to compare against (before updating currentEnrichedYaml)
@@ -2872,37 +2979,8 @@ async function enrichRuleFurther() {
         return;
     }
     
-    // Get API key from server-side settings (not needed for LMStudio)
-    let apiKey = null;
-    if (selectedProvider !== 'lmstudio') {
-        try {
-            const response = await fetch('/api/settings');
-            if (response.ok) {
-                const data = await response.json();
-                const settings = data.settings || {};
-                
-                // Get API key based on selected provider
-                if (selectedProvider === 'openai') {
-                    apiKey = settings.WORKFLOW_OPENAI_API_KEY || settings.OPENAI_API_KEY;
-                } else if (selectedProvider === 'anthropic') {
-                    apiKey = settings.WORKFLOW_ANTHROPIC_API_KEY || settings.ANTHROPIC_API_KEY;
-                }
-            }
-        } catch (error) {
-            console.warn('Could not fetch API key from settings API:', error);
-        }
-        
-        if (!apiKey || !apiKey.trim()) {
-            const providerName = selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1);
-            document.getElementById('enrichError').textContent = `Please configure your ${providerName} API key in Settings first.`;
-            document.getElementById('enrichError').classList.remove('hidden');
-            return;
-        }
-        
-        // Trim API key
-        apiKey = apiKey.trim();
-    }
-    
+    // The API key stays server-side -- see enrichRule() above.
+
     // Prompt for new instruction
     const newInstruction = await ModalManager.prompt('Enter additional enrichment instructions (or leave empty for default):\n\nThis will enrich the already-enriched rule further.', '', { title: 'Enrich Rule', confirmText: 'Enrich', placeholder: 'Additional instructions' });
     
@@ -2921,17 +2999,10 @@ async function enrichRuleFurther() {
     document.getElementById('enrichError').classList.add('hidden');
     
     try {
-        // Determine which header to use based on provider (LMStudio doesn't need API key)
         const headers = {
             'Content-Type': 'application/json'
         };
-        if (selectedProvider !== 'lmstudio' && apiKey) {
-            const headerKey = selectedProvider === 'openai' ? 'X-OpenAI-API-Key' :
-                             selectedProvider === 'anthropic' ? 'X-Anthropic-API-Key' :
-                             'X-OpenAI-API-Key';
-            headers[headerKey] = apiKey;
-        }
-        
+
         const response = await fetch(`/api/sigma-queue/${currentRuleId}/enrich`, {
             method: 'POST',
             headers: headers,
@@ -2959,6 +3030,7 @@ async function enrichRuleFurther() {
         if (data.success) {
             const enrichedYaml = data.enriched_yaml;
             const rawResponse = data.raw_response || enrichedYaml;
+            _setEnrichmentChatConversation(data.conversation_id);
             enrichIteration++;
             
             // Get previous version for comparison

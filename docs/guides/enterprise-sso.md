@@ -46,7 +46,7 @@ The repository ships a ready-to-run edge under `deploy/sso/` (nginx + oauth2-pro
 `setup.sh` configures the app side and scaffolds the proxy for you.
 
 ```bash
-./setup.sh           # answer "yes" at the "Enable enterprise SSO?" prompt
+./setup.sh           # answer "yes" at the "Enable enterprise SSO via a trusted-header reverse proxy?" prompt
 ```
 
 It asks for the hostname, provider, and group-to-role mappings, then:
@@ -76,7 +76,7 @@ CSRF_ENABLED=auto
 # Production trusted_header fails closed unless one of these is set. Prefer the
 # proxy's literal IP(s) when it has a static address; use the override only when
 # direct access to the app is blocked at the network level (the SSO overlay's
-# posture once the direct 8001 port mapping is removed -- container IPs are dynamic).
+# posture once the direct 8001 port mapping is removed; container IPs are dynamic).
 AUTH_TRUSTED_PROXY_IPS=<static proxy IP, if you have one>
 # ...or: ALLOW_INSECURE_PRODUCTION_TRUSTED_PROXY_OPEN=true
 
@@ -239,7 +239,7 @@ the gate. To force every visitor through the Entra login, run `./config.sh entra
 (or `deploy/sso/local/gate.sh up`): it confirms a working login, then un-publishes the
 app's host port so the proxy is the only way in, and `./config.sh entra off` restores
 direct access. This is the localhost equivalent of *Step 4* above. Remember it is a
-login gate (authentication only) -- every Entra user who logs in still gets the app's
+login gate (authentication only); every Entra user who logs in still gets the app's
 default admin access until you move to the trusted-header RBAC setup.
 
 ## Production checklist
@@ -265,6 +265,8 @@ default admin access until you move to the trusted-header RBAC setup.
 
 ## See also
 
-- [Authentication](authentication.md) - the identity, role, CSRF, and audit contract.
-- `deploy/sso/README.md` - the proxy scaffold and file layout.
-- `.env.example` - the full environment-variable reference.
+- [Authentication](authentication.md): the identity, role, CSRF, and audit contract.
+- `deploy/sso/README.md`: the proxy scaffold and file layout.
+- `.env.example`: the full environment-variable reference.
+
+_Last reviewed: 2026-09-01_

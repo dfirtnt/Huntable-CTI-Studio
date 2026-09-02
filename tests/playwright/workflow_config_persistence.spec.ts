@@ -264,11 +264,22 @@ test.describe('Workflow Config Persistence', () => {
 
       // Regression guard: this used to block with "Rank Agent model is required"
       // even though Rank Agent was disabled.
+      //
+      // Submit the form directly rather than clicking #save-config-button. The
+      // button is now disabled whenever there is nothing pending, and autosave
+      // has already persisted the two edits above by this point -- so a click
+      // would be a no-op and this would hang waiting for a PUT. It used to work
+      // only because the dirty check reported a permanent phantom change and left
+      // the button enabled forever, which is the defect that check now fixes.
+      // The validation under test lives in the submit handler, so driving that
+      // handler is both the real path and race-free.
       const savePromise = page.waitForResponse(
         r => r.url().includes('/api/workflow/config') && r.request().method() === 'PUT',
         { timeout: 15000 }
       );
-      await page.locator('#save-config-button').click();
+      await page.evaluate(() => {
+        (document.getElementById('workflowConfigForm') as HTMLFormElement | null)?.requestSubmit();
+      });
       const response = await savePromise;
       expect(response.status()).toBe(200);
 

@@ -87,17 +87,17 @@ for cat, data in subresults.items():
         if isinstance(item, dict):
             normalized_value = item.get("value", item)
 
-        all_observables.append({
+        obs_entry = {
             "type": cat,
             "value": normalized_value,
             "original_data": item if isinstance(item, dict) else None,
             "source": "supervisor_aggregation",
-            "platform": "linux",
-            "platform_confidence": "medium",
-            "telemetry_category": "process_creation",
-            "telemetry_confidence": "medium",
-            "logsource_hint": {"product": "linux", "category": "process_creation"}
-        })
+        }
+        # platform, platform_confidence, telemetry_category, telemetry_confidence,
+        # and logsource_hint are added by _enrich_observable_metadata(), which infers
+        # platform per-observable (windows/linux/macos/unknown) rather than a fixed value.
+        _enrich_observable_metadata(obs_entry, item=item, observable_type=cat, article_platforms=article_platforms)
+        all_observables.append(obs_entry)
         content_summary.append(f"- {json.dumps(item, indent=None) if isinstance(item, dict) else item}")
     content_summary.append("")
 
@@ -106,7 +106,7 @@ extraction_result = {
     "summary": {
         "count": len(all_observables),
         "source_url": article.canonical_url,
-        "platforms_detected": ["linux"]
+        "platforms_detected": article_platforms  # list of detected platforms, e.g. ["windows"]
     },
     "discrete_huntables_count": len(all_observables),
     "subresults": subresults,
@@ -203,8 +203,6 @@ condition count) is retained; the less specific is dropped and logged at WARNING
 the *existing* rule library — it never sees sibling rules generated in the same batch. Without
 this pass, near-identical rules emitted by multiple generation groups (e.g., parent-vs-child
 perspective on the same execution chain) all score as "novel" and all get queued.
-
-
 
 ```python
 sigma_fallback_enabled = config_obj.sigma_fallback_enabled if config_obj and hasattr(config_obj, 'sigma_fallback_enabled') else False
@@ -397,18 +395,23 @@ Every workflow execution creates a Langfuse trace with session tracking for debu
 The Langfuse integration is implemented in `src/utils/langfuse_client.py`:
 
 ```python
-from langfuse.types import TraceContext
+from langfuse import propagate_attributes
 
-trace_context = TraceContext(
+# propagate_attributes sets session.id / user.id on the OTEL context so the SDK
+# attaches them to every trace/span created inside this block. TraceContext only
+# carries trace_id / parent_span_id for span linkage (see Session Association below).
+attributes_cm = propagate_attributes(
     session_id=f"workflow_exec_{execution_id}",
     user_id=f"article_{article_id}",
+    trace_name=f"agentic_workflow_execution_{execution_id}",
+    tags=[...],
 )
+attributes_cm.__enter__()
 
 span_cm = client.start_as_current_observation(
-    trace_context=trace_context,
     name=f"agentic_workflow_execution_{execution_id}",
-    input={"execution_id": execution_id, "article_id": article_id},
-    metadata={"workflow_type": "agentic_workflow", ...},
+    input={"execution_id": execution_id, "article_id": article_id, "workflow_type": "agentic_workflow"},
+    metadata={"execution_id": execution_id, "article_id": article_id, "workflow_type": "agentic_workflow"},
 )
 span = span_cm.__enter__()
 trace_id = getattr(span, "trace_id", None) or getattr(span, "id", None)
@@ -416,7 +419,7 @@ trace_id = getattr(span, "trace_id", None) or getattr(span, "id", None)
 
 ### Session Association
 
-The workflow trace is created with `TraceContext(session_id=..., user_id=...)`. Child LLM generations are linked to that workflow trace by reusing the active `trace_id` plus the same `workflow_exec_{execution_id}` session identifier.
+The workflow trace's session/user identity is set via `propagate_attributes(session_id=..., user_id=...)` (Langfuse v4 OTEL-context API), not via `TraceContext`. Child LLM generations are linked to that workflow trace by passing `TraceContext(trace_id=resolved_trace_id)` — used only for trace/span-hierarchy linkage — alongside the same `workflow_exec_{execution_id}` session identifier via their own `propagate_attributes` call.
 
 ### Trace Storage
 
@@ -483,7 +486,7 @@ User action / automated trigger
 - `src/worker/celery_app.py` — `trigger_agentic_workflow` task
 - `src/web/routes/workflow_executions.py` — `/api/workflow/articles/{article_id}/trigger` and `/api/workflow/executions/{execution_id}/retry` endpoints
 
-**Note:** The UI still appends `use_langgraph_server` query flags for compatibility, but the backend ignores that parameter—the LangGraph graph always executes inside the Celery task now. The standalone LangGraph server referenced in earlier docs no longer exists.
+**Note:** The UI still appends `use_langgraph_server` query flags for compatibility, but the backend ignores that parameter; the LangGraph graph always executes inside the Celery task now. The standalone LangGraph server referenced in earlier docs no longer exists.
 
 ### 2. Direct Execution (Testing - Single Agent)
 
@@ -538,4 +541,5 @@ Test button → test_sub_agent() endpoint → llm_service.run_extraction_agent()
 - **Direct test trigger**: `src/web/routes/workflow_config.py` — `test_sub_agent()`
 - **Database model**: `src/database/models.py` — `AgenticWorkflowExecutionTable`
 
-_Last updated: 2026-07-04_
+_Last updated: 2026-09-01_
+_Last reviewed: 2026-09-01_
