@@ -204,8 +204,6 @@ the *existing* rule library — it never sees sibling rules generated in the sam
 this pass, near-identical rules emitted by multiple generation groups (e.g., parent-vs-child
 perspective on the same execution chain) all score as "novel" and all get queued.
 
-
-
 ```python
 sigma_fallback_enabled = config_obj.sigma_fallback_enabled if config_obj and hasattr(config_obj, 'sigma_fallback_enabled') else False
 extraction_result = state.get('extraction_result', {})
@@ -253,8 +251,6 @@ _Note: `sigma_fallback_enabled` defaults to `False`, so Sigma generation normall
 **Important:** When every sub-agent returns zero items and fallback is disabled, SIGMA generation returns early with `termination_reason: 'no_sigma_rules_generated'` (the value of the `TERMINATION_REASON_NO_SIGMA_RULES` constant in `src/workflows/status_utils.py`).
 
 ## Celery vs Direct Execution
-
-<!-- AUDIT: Clarity -- this section and "Execution Methods: Celery (LangGraph state machine) vs Direct Testing" below cover the same topic at different depths. Consider merging them into the later, fuller section on a future pass. -->
 
 ### Same Workflow Implementation
 
@@ -546,5 +542,4 @@ Test button → test_sub_agent() endpoint → llm_service.run_extraction_agent()
 - **Database model**: `src/database/models.py` — `AgenticWorkflowExecutionTable`
 
 _Last updated: 2026-09-01_
-<!-- AUDIT: Accuracy -- footer said 2026-07-04, but commit 961f9850 (2026-09-01) substantively revised the supervisor-aggregation example (_enrich_observable_metadata) and the Langfuse propagate_attributes section. -->
 _Last reviewed: 2026-09-01_

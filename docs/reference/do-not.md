@@ -374,8 +374,7 @@ Before making any changes:
 
 If you've made a mistake:
 1. **Stop**: `docker compose down`
-2. **Restore**: `./run_cli.sh backup list` to find the backup name, then `./run_cli.sh backup restore <BACKUP_NAME>` <!-- AUDIT: Accuracy -- `restore` takes BACKUP_NAME as a required positional argument (src/cli/commands/backup.py); the bare command in the prior revision fails with a missing-argument error. -->
-3. **Verify**: `docker exec -it cti_postgres psql -U cti_user -d cti_scraper -c "SELECT COUNT(*) FROM articles;"`
+2. **Restore**: `./run_cli.sh backup list` to find the backup name, then `./run_cli.sh backup restore <BACKUP_NAME>`3. **Verify**: `docker exec -it cti_postgres psql -U cti_user -d cti_scraper -c "SELECT COUNT(*) FROM articles;"`
 4. **Restart**: `docker compose up -d`
 5. **Check**: `curl http://localhost:8001/health`
 

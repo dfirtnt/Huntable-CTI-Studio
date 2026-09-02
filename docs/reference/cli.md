@@ -309,8 +309,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 
 **Options (index-customer-repo):** `--force` — re-index all customer rules; `--no-embeddings` — metadata only.
 
-**Options (match):** `--threshold T` (default `0.7`). <!-- AUDIT: Accuracy -- removed `--save`; `sigma_commands.py` `match_article` has no such option and never writes to the database, it only prints a results table. -->
-
+**Options (match):** `--threshold T` (default `0.7`).
 **Examples:**
 
 ```bash

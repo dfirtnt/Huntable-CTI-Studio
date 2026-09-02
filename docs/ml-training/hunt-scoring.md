@@ -1,6 +1,5 @@
 # Hunt Scoring
 
-
 ## ML-Based Hunt Scoring System
 
 The `ml_hunt_score` is an article-level score produced by a RandomForest classifier operating on text chunks. It complements the keyword-based `threat_hunting_score` (0-100) with a model-trained perspective.
@@ -116,8 +115,6 @@ Average confidence of chunks above a 50% threshold.
 
 The ML vs Hunt Comparison Dashboard (`POST /api/ml-model-performance/backfill`) reruns chunk-level predictions across all articles with `hunt_score > 50`. It does not rewrite `ml_hunt_score`; chunk analysis results are the current scoring surface.
 
-
-
 ## Comparison with Keyword-Based Score
 
 | Aspect | Keyword score (`threat_hunting_score`) | ML score (`ml_hunt_score`) |
@@ -165,7 +162,6 @@ The ML vs Hunt Comparison Dashboard (`POST /api/ml-model-performance/backfill`) 
 
 ## ML vs Hunt Comparison Dashboard
 
-
 The ML vs Hunt Comparison Dashboard compares RandomForest predictions against the keyword hunt score across model versions. Use it to monitor model drift, trigger retraining, run evaluations, and process backfill.
 
 ### Accessing the Dashboard
@@ -205,14 +201,6 @@ Retraining is cumulative: each session builds on all prior data.
 3. All previous annotations (from every prior retraining session)
 4. New feedback and annotations (since last retraining)
 
-<!-- AUDIT: Accuracy -- this section omits the 2026-05-22 quality gate. The
-     retrained model is written to a staging path first and only promoted to
-     the live model if it clears recall_huntable >= 0.30 and f1_huntable >=
-     0.30 against outputs/evaluation_data/eval_set.csv; otherwise the staged
-     model is discarded and the live model is unchanged. See
-     [ML Model Runbook](../operations/ml-model-runbook.md) [VERIFY LINK] for
-     the current promotion logic. -->
-
 ### Prerequisites
 
 - User feedback collected via the chunk debugging interface
@@ -226,11 +214,6 @@ Retraining is cumulative: each session builds on all prior data.
 4. Review the new model version and performance metrics.
 
 After retraining, new feedback is marked "used." Previously used feedback stays in the training dataset and is reused in subsequent sessions.
-
-<!-- AUDIT: Accuracy -- scripts/retrain_with_feedback.py marks feedback/annotations
-     used_for_training=TRUE as soon as training succeeds, before the quality gate
-     runs. A retrain that later fails the gate (rejected, live model unchanged)
-     still consumes that feedback; it is not replayed in the next session. -->
 
 ---
 
@@ -255,12 +238,6 @@ After retraining, new feedback is marked "used." Previously used feedback stays 
 ### Test Set
 
 - **Size**: 317 annotated chunks (the committed `eval_set.csv`; was 240 before the 2026-05 fixture sync)
-<!-- AUDIT: Accuracy -- eval_set.csv is built by scripts/prepare_eval_set.py from
-     config/labeled_chunks/, not read directly from article_annotations. Chunks
-     labeled via the article detail view land in article_annotations first and
-     are folded into a labeled_chunks source file as a separate step; the CSV
-     is regenerated and committed, not queried live. See
-     [ML Model Runbook](../operations/ml-model-runbook.md) [VERIFY LINK]. -->
 - **Source**: `config/labeled_chunks/` source files, built into `outputs/evaluation_data/eval_set.csv` by `scripts/prepare_eval_set.py`
 - **Labeling**: manually annotated by users
 
@@ -294,7 +271,6 @@ Processes articles with `hunt_score > 50` to populate chunk analysis data for th
 ---
 
 ## API Endpoints
-
 
 ### Model Management (`/api/model/*`)
 

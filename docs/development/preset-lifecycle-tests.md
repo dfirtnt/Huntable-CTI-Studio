@@ -8,8 +8,6 @@ These tests validate the complete preset lifecycle including save/restore, impor
 **Tests:** 9
 **Markers:** `@pytest.mark.api`, `@pytest.mark.integration_full`, module-level `@pytest.mark.agent_config_mutation`
 
-<!-- AUDIT: Accuracy -- doc omitted the agent_config_mutation marker (tests/api/test_workflow_preset_lifecycle.py:21-24). This marker is load-bearing: tests/conftest.py::_live_server_blocked_reason (line 264) hard-fails any test carrying it if async_client would target the dev app on 127.0.0.1:8001 without USE_ASGI_CLIENT=1, because PUT /api/workflow/config and the preset endpoints write real active-config versions into the operator's live DB. -->
-
 ---
 
 ## Key Features
@@ -202,8 +200,6 @@ User Action: Import Quickstart-LMStudio-Qwen3.json
 - Message indicates "Preset updated" not "Preset saved"
 - Values properly updated (description reflects the second save)
 
-<!-- AUDIT: Accuracy -- removed a "created_at unchanged, updated_at changed" claim. tests/api/test_workflow_preset_lifecycle.py:286-325 never asserts timestamps; it only checks preset_id equality, the "Preset updated" message, and the updated description. -->
-
 ---
 
 ### 2. RankAgent Legacy Conversion Regression (1 test)
@@ -238,8 +234,6 @@ since the frontend `applyPreset()` reads that exact key for the model dropdown.
 # Invalid: similarity_threshold > 1.0
 {"thresholds": {"similarity_threshold": 2.5}}  # -> 400 Error
 ```
-
-<!-- AUDIT: Accuracy -- the previous version of this doc listed ranking_threshold > 10.0 and an empty thresholds dict as additional cases "validated" by this test. tests/api/test_workflow_preset_lifecycle.py:391-404 only builds and asserts the similarity_threshold case; the other two are not exercised here. -->
 
 **Validates:**
 - Validation error caught for `similarity_threshold` out of range
@@ -278,8 +272,6 @@ fields individually.
 | `/api/workflow/config/preset/{id}` | DELETE | Delete preset |
 | `/api/workflow/config/preset/export` | POST | Export to V2 format |
 | `/api/workflow/config/preset/to-legacy` | POST | Convert to V1 format |
-
-<!-- AUDIT: Accuracy -- dropped `/api/workflow/config/preset/list` (GET). The route exists in src/web/routes/workflow_config.py but grep confirms no test in tests/api/test_workflow_preset_lifecycle.py calls it, so it does not belong in "Tested" endpoints. -->
 
 ---
 
@@ -333,8 +325,6 @@ export USE_ASGI_CLIENT=1
 
 .venv/bin/pytest tests/api/test_workflow_preset_lifecycle.py -v
 ```
-
-<!-- AUDIT: Accuracy -- the previous bare `.venv/bin/pytest tests/api/test_workflow_preset_lifecycle.py -v` command omitted TEST_DATABASE_URL (tests/utils/test_environment.py:20-23 raises RuntimeError without it) and USE_ASGI_CLIENT=1. Without the latter, tests/conftest.py::_live_server_blocked_reason refuses to run against the dev app on :8001 (agent_config_mutation guard), so the command as written would fail, not silently mutate the dev config. -->
 
 ### Run a Specific Test
 ```bash
@@ -397,8 +387,6 @@ hard-fails the test before it runs if `async_client` would otherwise target the 
 test database itself; run with `USE_ASGI_CLIENT=1` (see "Running the Tests" above) so any
 residue lands in `TEST_DATABASE_URL`, not the dev database.
 
-<!-- AUDIT: Accuracy -- previously implied "Production config may remain modified" was the residual risk with no further mitigation offered. tests/conftest.py:264-286 (added 2026-07-21, docs/CHANGELOG.md:206) hard-blocks agent_config_mutation-marked tests from reaching the dev app's live config; the only real best-effort-restore risk is leftover state in the test database. -->
-
 ---
 
 ## Integration with Existing Tests
@@ -433,7 +421,7 @@ residue lands in `TEST_DATABASE_URL`, not the dev database.
 - **Database Model:** `src/database/models.py` (`WorkflowConfigPresetTable`)
 - **Config Schema:** `src/config/workflow_config_schema.py`
 - **Test database setup:** `tests/TEST_DATABASE_SETUP.md`
-- **Test marker reference:** [Testing overview](testing.md) [VERIFY LINK]
+- **Test marker reference:** [Testing overview](testing.md)
 
 _Last updated: 2026-07-03_
 _Last reviewed: 2026-09-01_

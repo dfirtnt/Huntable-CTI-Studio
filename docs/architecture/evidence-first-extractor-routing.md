@@ -111,7 +111,6 @@ The registry path is strong local Windows evidence. It routes to `RegistryExtrac
 A paragraph says the malware "used a service for persistence" but provides no service name, command, registry path, or API behavior.
 
 The deterministic detector marks it ambiguous. The semantic adjudicator receives that paragraph and adjacent context. It may route, reject, or abstain. Abstention defaults to routing, because a missed route cannot be recovered later.
-<!-- AUDIT: Grammar -- "widens to routing" reworded to "defaults to routing"; the original phrasing could be misread as the abstention itself expanding. Matches the recall-first policy stated in "Recall and precision policy". -->
 
 ### Hunt query
 
@@ -243,6 +242,5 @@ The principal requirement is lower cost or fan-out without meaningful loss in do
 ## Detailed specification
 
 The implementation contract, schemas, migration steps, tests, and acceptance criteria are in the [build spec](../superpowers/specs/2026-08-13-evidence-first-extractor-routing-build-spec.md).
-<!-- AUDIT: Hyperlinks -- converted the plain-text spec path to a relative link. Verified: the target exists and mkdocs build --strict passes, but superpowers/specs/ is excluded from the rendered site, so the link resolves on GitHub only. Same accepted pattern as features/image-ocr-ingest.md. -->
 
 _Last reviewed: 2026-09-01_

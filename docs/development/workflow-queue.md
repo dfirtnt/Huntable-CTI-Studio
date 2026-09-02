@@ -98,16 +98,10 @@ docker logs cti_workflow_worker --tail 50 -f
 ```bash
 docker exec cti_redis redis-cli LLEN workflows
 ```
-<!-- AUDIT: Accuracy (High) -- original command checked `LLEN celery`, which is not one of this
-app's queue keys. celeryconfig.py's task_queues has no "celery" entry; the general queue is
-named "default" and the workflow queue is "workflows" (both keyed by queue name under Celery's
-redis transport). `LLEN celery` would read an unrelated/empty list and mislead a reader
-troubleshooting workflow backlog. Check `default` too if source-check/maintenance backlog is
-the concern: `docker exec cti_redis redis-cli LLEN default`. -->
 
 ### Check Overall Worker Health
 
-For a broader view (not just the workflows queue), see [Agent Orientation -- Workers and schedules](agent-orientation.md#runtime-entry-points) [VERIFY LINK] and the `AGENTS.md` "Runtime" section (repository root) for the restart requirement on `cti_worker` / `cti_workflow_worker` after `.py` changes.
+For a broader view (not just the workflows queue), see [Agent Orientation -- Workers and schedules](agent-orientation.md#runtime-entry-points) and the `AGENTS.md` "Runtime" section (repository root) for the restart requirement on `cti_worker` / `cti_workflow_worker` after `.py` changes.
 
 ### Check Workflow Worker Stats
 ```bash

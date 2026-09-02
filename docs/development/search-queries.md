@@ -12,10 +12,6 @@ The search system supports boolean operators for complex queries:
 - **Parentheses**: Not functionally supported for grouping; `(` and `)` are silently stripped from the query
 - **Quotes**: Exact phrase match (e.g., `"remote code execution"`)
 
-<!-- AUDIT: Accuracy (High) -- verified against src/utils/search_parser.py by running BooleanSearchParser directly: when every term in a query is quoted, AND is silently ignored. Quoted terms are extracted and assigned operator="DEFAULT" *before* the AND/OR scan runs, so a visible "AND" between quoted groups never attaches to anything. Once 2+ terms end up DEFAULT, parse_query's step 6 converts them ALL to OR. Confirmed: `("createremotethread" OR "virtualallocex" OR "writeprocessmemory") AND "injection"` matches an article containing only "createremotethread" and NOT "injection" -- i.e. it behaves as a 4-way OR, not (A OR B OR C) AND D. Every fully-quoted "AND of OR-groups" example below (Process Injection Patterns, Registry Manipulation, Network Activity, and everything under Advanced Patterns) has this problem. To force a real AND, mix at least one unquoted bare word with the AND keyword, e.g. `"createremotethread" OR "virtualallocex" OR "writeprocessmemory" AND injection` (unquoted `injection`), and verify behavior before relying on it. -->
-<!-- AUDIT: Candidate for deletion -- if this is a known limitation rather than a bug to fix, consider replacing the affected examples below with syntax that actually AND-narrows results, or removing the AND framing from these examples entirely. -->
-
-
 ## Example Windows Threat Queries
 
 ### Malware Indicators
@@ -80,8 +76,6 @@ Searches are case-insensitive by default. No need to provide multiple case varia
 2. Use AND to narrow results.
 3. Use OR to broaden results.
 4. Use NOT sparingly; it is the more expensive operation.
-
-<!-- AUDIT: Accuracy -- removed "group related terms with parentheses" (previously item 4): this directly contradicted the "Boolean Search Syntax" section above, which states parentheses are stripped and not parsed as grouping. Confirmed against src/utils/search_parser.py: term_pattern excludes "(" and ")", and evaluate_article has no grouping logic. -->
 
 ## Advanced Patterns
 

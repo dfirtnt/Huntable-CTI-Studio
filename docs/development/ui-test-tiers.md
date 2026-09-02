@@ -4,9 +4,6 @@ The UI suite (130+ pytest browser tests + 48 Playwright spec files) takes
 ~45 minutes end to end. The tier system below lets you pick the right slice
 for the moment so you do not pay the full cost on every change.
 
-<!-- AUDIT: Accuracy -- counts corrected 2026-09-01 by grepping tests/ui and tests/playwright (previous text said "117 pytest browser tests + 235 Playwright specs across 35 files"; actual: 131 `def test_` matches in tests/ui, 48 .spec.ts files in tests/playwright). Re-verify with `python3 run_tests.py ui --dry-run` when the suite grows again; exact per-file counts drift fast enough that a hardcoded number goes stale within a few PRs. -->
-
-
 ## Tiers at a glance
 
 | Tier         | Command                              | What it runs                                      | Target time |
@@ -41,8 +38,6 @@ disjoint set of spec files:
 | `intelligence` | 3     | sigma enrich, sigma queue lifecycle, sigma similarity unification |
 | `ui-misc`      | 8     | collapsible sections, health-check diagnostics, modals, hunt-comparison error handling, settings |
 | `quarantine`   | 0     | empty on purpose -- the UI test diet (commit 1a490501) removed the flaky suites this project used to hold; kept so `--project=quarantine` still resolves instead of erroring |
-
-<!-- AUDIT: Accuracy -- per-area file counts recounted 2026-09-01 against tests/playwright/*.spec.ts and the testMatch patterns in tests/playwright.config.ts (previous counts: agent-config 14, workflow 10, articles 5, ui-misc 4 -- all stale). -->
 
 Run a single area: `npx playwright test --config tests/playwright.config.ts --project=sources`
 or via the runner: `python3 run_tests.py ui-fast --area=sources`.

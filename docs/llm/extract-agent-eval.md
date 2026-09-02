@@ -273,5 +273,4 @@ pip install torch --index-url https://download.pytorch.org/whl/cu118
 ---
 
 _Last updated: 2026-07-05_
-<!-- AUDIT: Accuracy -- the previous "_Last reviewed: 2026-05-23_" predated "_Last updated: 2026-07-05_", which is not chronologically possible; bumped to the date of this audit pass. -->
 _Last reviewed: 2026-09-01_

@@ -65,8 +65,6 @@ The extension blocks ingestion from private/local IP addresses (`127.0.0.1`, `19
 
 Check the browser console (Chrome DevTools -> Console) for debug log lines prefixed with `CTIScraper Debug:`.
 
-<!-- AUDIT: Accuracy -- manifest.json registers content.js with matches: ["<all_urls>"], run_at: document_end. It is not optional; it runs automatically on every page. -->
-
 ## File Structure
 
 ```text

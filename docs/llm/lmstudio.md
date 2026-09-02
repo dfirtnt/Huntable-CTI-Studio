@@ -42,7 +42,6 @@ In the web interface, select `lmstudio` as the LLM provider in chat settings.
 - **Connection refused**: Ensure LMStudio server is running and accessible
 - **Model not found**: Verify model name matches exactly in LMStudio
 - **Timeout errors**: Increase the `timeout` argument passed to `_post_lmstudio_chat()` in `src/services/llm_client.py` if needed
-<!-- AUDIT: Accuracy -- this pointed to a `_call_lmstudio()` method that does not exist in the codebase; the actual LM Studio chat call is `LLMClient._post_lmstudio_chat()` in src/services/llm_client.py, which delegates to `LMStudioChatClient.post_chat()` in src/services/llm_provider_clients.py. -->
 - **Context length errors**: 
   - Error: "context overflow" or "context length of only X tokens, which is not enough"
   - **Solution**: Increase context length in LMStudio UI (Context tab) to at least 16384 tokens for article scoring

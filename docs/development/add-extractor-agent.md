@@ -45,7 +45,6 @@ These five pitfalls are flagged **High** because they produce silent failures: t
 2. **Prompt File Seeds DB Once Only**: `src/prompts/{Agent}` is read only on first DB seed. After that the DB is authoritative. Refresh via preset re-import (only if embedded prompt was regenerated) or manual paste.
 3. **Preset `Prompt.prompt` Left Empty**: use the checklist script to embed prompts; do not hand-write. `TestPresetFiles` must assert the value is truthy.
 4. **Sibling Preset Embedded Prompts Go Stale**: editing disk prompts does not update the JSON-encoded strings in all 12 preset files. Run the regeneration script after any disk prompt change.
-<!-- AUDIT: Accuracy (Med) -- was "9 preset files", contradicting the "All 12 quickstart presets" cell in the Layer 6 table above. Verified: config/presets/AgentConfigs/quickstart/ holds 12 Quickstart-*.json files. -->
 5. **Execution Card Rendering Array Drift**: `workflow.html` (Category 11) maintains the `subAgents` rendering array that drives the execution-detail cards. Missing an entry there silently drops the extractor's execution detail card. `TestSubAgentsRenderingArray` locks the array, including its exact entry count.
 
 ## Sigma `canonical_class` (conditional Layer 8)

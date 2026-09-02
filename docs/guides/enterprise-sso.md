@@ -45,8 +45,6 @@ The repository ships a ready-to-run edge under `deploy/sso/` (nginx + oauth2-pro
 
 `setup.sh` configures the app side and scaffolds the proxy for you.
 
-<!-- AUDIT: Accuracy -- the prompt text (scripts/configure_auth.sh) reads "Enable enterprise SSO via a trusted-header reverse proxy?", not the shortened form previously quoted here. -->
-
 ```bash
 ./setup.sh           # answer "yes" at the "Enable enterprise SSO via a trusted-header reverse proxy?" prompt
 ```

@@ -38,8 +38,6 @@ See [Docker Architecture](../deployment/docker-architecture.md) for the authorit
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-<!-- AUDIT: Clarity (Low) -- the "Sources" bullet under Data Sources duplicates the box's own title with no more specificity (unlike its siblings "RSS Feeds", "Web Scraping", "Browser Ext."), and its box-drawing padding was off by 4 characters, breaking alignment -- both are consistent with a truncated edit (padding has been fixed here). It also omits the mcp_http service (see Docker Architecture) and Codex/LM Studio, which sit in Background Tasks/Database in practice. Author: confirm what "Sources" was meant to say, or replace with something more specific (e.g. "Source Config UI"). -->
-
 ## 2. Article Collection Workflow
 
 See [Source Configuration](../guides/source-config.md) for how individual sources are configured (schedule, crawl policy, selectors).
@@ -152,8 +150,6 @@ See [Source Configuration](../guides/source-config.md) for how individual source
 See [Threat Hunting Scoring](../architecture/scoring.md) for the full scoring mechanics (diagram 4 below covers the category weights, but that page is the source of truth).
 
 ## 4. Threat Hunting Scoring System
-
-<!-- AUDIT: Accuracy (High) -- this diagram was internally inconsistent with docs/architecture/scoring.md, which is the maintained, accurate reference for the same subsystem (src/utils/content.py::ThreatHuntingScorer). Two things were wrong here and are fixed below: (1) the category numbers (75/10/10/5/-15) are NOT flat per-match point totals -- each is a geometric-series cap (`score = max_points * (1 - 0.5^n)`) with 50% diminishing returns per additional keyword match in that category, so the score approaches but never reaches the cap; (2) the example keywords for Perfect/LOLBAS were missing the `.exe` suffix the live config/keyword_registry.yaml actually stores (verified: rundll32.exe, certutil.exe, cmd.exe, schtasks.exe, wmic.exe, bitsadmin.exe are all tier-tagged with `.exe`) -- this codebase treats `foo` and `foo.exe` as distinct observables elsewhere (see Cmdline extractor conventions), so a reader grepping the registry for the old bare keywords would get no hits. Author: prefer linking to docs/architecture/scoring.md over maintaining a second copy of this table, since it has already drifted out of sync once. -->
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────────┐
@@ -274,8 +270,6 @@ API Endpoints:
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-<!-- AUDIT: Accuracy (High) -- this listed the health endpoint as `/api/health`; it is actually mounted at `/health` with no `/api` prefix (src/web/routes/health.py's router has no prefix, and src/web/routes/__init__.py includes it unprefixed). This matches the Docker healthcheck itself (`curl -f http://localhost:8001/health` in docker-compose.yml / Dockerfile). A reader curling `/api/health` would get a 404. Fixed above. -->
-
 ## 6. Background Task Processing
 
 ```text
@@ -334,8 +328,6 @@ API Endpoints:
 │ • Health Metrics│
 └─────────────────┘
 ```
-
-<!-- AUDIT: Hyperlinks -- "collection x2" is shorthand for the two collection-related queues (`collection` and `collection_immediate`, the latter used for the user-triggered "Collect Now" action); see [Docker Architecture](../deployment/docker-architecture.md) for the full, named queue list per worker. [VERIFY LINK] -->
 
 ## 7. Database Schema
 
@@ -460,8 +452,6 @@ See [Pipelines](../concepts/pipelines.md) for the full agentic extraction execut
             └─────────────────┘    └─────────────────┘
 ```
 
-<!-- AUDIT: Accuracy (Low) -- "LLM Services" listed only LM Studio, OpenAI, and Anthropic. The optional Codex workflow provider (WORKFLOW_CODEX_ENABLED, WORKFLOW_CODEX_MODEL in docker-compose.yml) is a fourth provider option for workflow tasks; added it above. -->
-
 ## 9. ML Training Data Annotation System
 
 ```text
@@ -519,8 +509,6 @@ See [Pipelines](../concepts/pipelines.md) for the full agentic extraction execut
 │ • Mark as Used  │
 └─────────────────┘
 ```
-
-<!-- AUDIT: Accuracy (Low) -- the hard validation ceiling is 1050 chars, not 1000 (src/web/static/js/annotation-manager-mobile.js:495 rejects only when length < 950 or > 1050). 1000 is the auto-expand target/UI display threshold, not the max. Fixed above. -->
 
 ## 10. Automated Backup System
 

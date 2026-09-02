@@ -81,9 +81,6 @@ make test-down      # Tear down
 `run_tests.py` auto-starts `cti_postgres_test` and `cti_redis_test` when
 running `api`, `ui` (including `ui-smoke`, `ui-fast`, `ui-full`), `integration`,
 `e2e`, `all-no-ui`, `all`, or `coverage`.
-<!-- AUDIT: Accuracy -- previous text listed only api/ui/integration/e2e/all;
-tests_runner/runner.py's setup_environment() stateful_test_types set also
-includes UI_SMOKE, UI_FAST, UI_FULL, ALL_NO_UI, and COVERAGE. -->
 
 ## Fixture Strategy
 
@@ -195,11 +192,6 @@ Requires `PERFORMANCE_TEST_ENABLED=true`. Not run in standard CI.
 ### ai
 **Command:** `python3 run_tests.py ai`  
 **Path:** `tests/integration/test_ai_cross_model_integration.py` (no marker filter applied)  
-<!-- AUDIT: Accuracy -- previous text said this group ran `tests/integration/test_ai_*.py`
-filtered by `@pytest.mark.ai`. run_tests.py's test_path_map (tests_runner/runner.py)
-maps RunTestType.AI to a single explicit file, and its default_markers_map entry for
-AI is empty, so no marker filter is applied. The `ai` pytest marker exists
-(pyproject.toml) but is not used by this command. -->
 AI/LLM integration tests. Require secrets; run only in scheduled/manual
 workflows if at all.
 

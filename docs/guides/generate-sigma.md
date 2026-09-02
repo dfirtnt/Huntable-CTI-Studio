@@ -43,7 +43,6 @@ Run similarity matching outside the workflow or re-classify coverage:
 ```bash
 ./run_cli.sh sigma match ${ARTICLE_ID} --threshold 0.7
 ```
-<!-- AUDIT: Accuracy: `sigma match` (src/cli/sigma_commands.py) takes only `--threshold`; there is no `--save` flag, and the command only queries and prints a results table (no session.commit() or insert). It does not persist anything to the database. -->
 This compares the article (and its chunks) to indexed Sigma rules and prints a ranked table with coverage classification; it does not write results to the database.
 
 ## 5) Submit approved rules as PR (optional)

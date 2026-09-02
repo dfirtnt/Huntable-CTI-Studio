@@ -7,7 +7,7 @@
 
 ## Background
 
-The content filter is a RandomForest binary classifier (`models/content_filter.pkl`) that labels article chunks "Huntable" or "Not Huntable". It runs in the `cti_web` container and is trained on human-labeled feedback from the annotation UI. See [Content Filtering](../features/content-filtering.md) [VERIFY LINK] for how the filter fits into the extraction pipeline.
+The content filter is a RandomForest binary classifier (`models/content_filter.pkl`) that labels article chunks "Huntable" or "Not Huntable". It runs in the `cti_web` container and is trained on human-labeled feedback from the annotation UI. See [Content Filtering](../features/content-filtering.md) for how the filter fits into the extraction pipeline.
 
 **Key paths**
 
@@ -30,13 +30,6 @@ The content filter is a RandomForest binary classifier (`models/content_filter.p
 1. Docker services start and DB migrates.
 2. `setup.sh` calls `docker exec cti_web python3 scripts/seed_model.py --no-register` if `models/content_filter.pkl` is absent.
 3. `seed_model.py` trains from `config/eval_articles_data/` fixtures and then calls `prepare_eval_set.py` to write `outputs/evaluation_data/eval_set.csv`.
-
-<!-- AUDIT: Accuracy -- setup.sh (line ~738) passes --no-register, which skips the
-     scripts/seed_model.py database-version-registration step (scripts/seed_model.py:217-220).
-     A model seeded through the automated fresh-install path therefore does NOT create
-     a version row: the MLOps page shows 0 versions until the first successful retrain,
-     not "version 1" as previously stated here. Only the manual command below (without
-     --no-register) registers a version immediately. -->
 
 If the seed step is skipped or fails, run it manually (this also registers a DB version, since it omits `--no-register`):
 
@@ -130,12 +123,6 @@ SELECT selected_text, annotation_type FROM article_annotations
 WHERE used_for_training = FALSE
 AND LENGTH(selected_text) BETWEEN 950 AND 1050
 ```
-
-<!-- AUDIT: Accuracy -- the LENGTH filter is not cosmetic: scripts/retrain_with_feedback.py
-     (~line 100-104) hard-codes a 950-1050 char window on aa.selected_text. A labeled chunk
-     outside that range is silently excluded from every retrain, which is a common cause of
-     "I labeled it but the model didn't change." Added here since the original simplified
-     query omitted it. -->
 
 (The retrain script aliases these as `highlighted_text`/`classification` internally — `scripts/retrain_with_feedback.py`.)
 
@@ -280,7 +267,7 @@ docker logs cti_web 2>&1 | grep "\[retrain"
 | `scripts/seed_model.py` | Train initial model from eval article fixtures; also runs `prepare_eval_set.py` |
 | `scripts/retrain_with_feedback.py` | Full retrain pipeline (stage → evaluate → gate → promote) |
 | `scripts/prepare_eval_set.py` | Build `eval_set.csv` from `config/labeled_chunks/` |
-| `src/utils/content_filter.py` | Feature extraction (v1/v2/v3) and model I/O; see [ML Model Feature Definitions](../reference/ml-features.md) [VERIFY LINK] |
+| `src/utils/content_filter.py` | Feature extraction (v1/v2/v3) and model I/O; see [ML Model Feature Definitions](../reference/ml-features.md) |
 | `src/utils/model_evaluation.py` | `ModelEvaluator` — runs holdout evaluation |
 | `src/utils/model_versioning.py` | Version DB records, artifact resolution, rollback |
 | `src/web/routes/models.py` | API routes: `/retrain`, `/rollback/{id}`, `/versions` |

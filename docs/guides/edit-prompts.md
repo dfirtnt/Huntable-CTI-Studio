@@ -112,8 +112,6 @@ A **preset** is a full workflow config snapshot (thresholds, agent models, and a
 
 Quickstart presets are in `config/presets/AgentConfigs/quickstart/`. There are 12, covering four providers:
 
-<!-- AUDIT: Accuracy: the directory holds 12 preset files across four providers (anthropic, openai, codex, LMStudio), not the 3 previously listed here. Any prompt change must be propagated to all 12, not just a sample. -->
-
 | File | Provider |
 |------|----------|
 | `Quickstart-anthropic-sonnet-4-6.json` | Anthropic / Claude Sonnet 4.6 |

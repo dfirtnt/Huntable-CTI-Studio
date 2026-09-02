@@ -7,7 +7,6 @@ This guide is the fastest way for a coding agent or new contributor to get orien
 1. `AGENTS.md` (repository root; not under `docs/`)
 2. `README.md` (repository root)
 3. [`docs/index.md`](../index.md)
-<!-- AUDIT: Accuracy (Med) -- links 1-2 pointed at hardcoded GitHub blob URLs on `main`; a local checkout on another branch (e.g. europa-dev) could disagree with what the reader lands on. Converted to plain code-spans (no link) since a relative path from this file resolves outside `docs/` and fails `mkdocs build --strict`; matches the code-span convention used for the same references in run-tests-improvements-spec.md and sigma-novelty-audit-followup-2026-06-01.md. -->
 4. This document
 5. The files tied to the change you are making
 

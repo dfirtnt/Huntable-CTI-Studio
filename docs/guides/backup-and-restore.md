@@ -20,8 +20,6 @@ Comprehensive guide for Huntable CTI Studio backup and restore operations, inclu
 10. [Best Practices](#best-practices)
 11. [Migration from Database-Only to Full System](#migration-from-database-only-to-full-system)
 12. [Cross-Machine Backup Restore](#cross-machine-backup-restore)
-<!-- AUDIT: Clarity -- added the three trailing top-level sections (Best Practices, Migration, Cross-Machine Backup Restore) that existed in the doc but were missing from the Table of Contents. -->
-
 
 ---
 
@@ -854,8 +852,6 @@ Full system backups provide:
 
 ## Cross-Machine Backup Restore
 
-<!-- AUDIT: Clarity -- this section (through "Summary" below) kept the top-level heading depth of its source file (operations/CROSS_MACHINE_RESTORE.md) after the merge noted at the top of this file, producing duplicate/confusing top-level headings (a second Overview, Best Practices, etc.) not reflected in the Table of Contents. Demoted one level so it nests correctly under this section. -->
-
 ### Overview
 
 Backups created on one computer can be restored on another computer. The backup format is portable and doesn't contain machine-specific paths.
@@ -1077,7 +1073,6 @@ If verification fails for empty directories (outputs/logs), this is normal - emp
 ✅ **Web UI and CLI both support** cross-machine restore  
 
 The only requirement is that Docker containers are running with the expected names on the target machine.
-
 
 ---
 

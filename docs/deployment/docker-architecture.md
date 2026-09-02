@@ -15,9 +15,7 @@ This reflects the current `docker-compose.yml`.
 | **codex_auth_init** | `busybox:1.36.1` | One-shot initializer that grants the application user ownership of the shared Codex authentication volume. |
 | **scheduler** | `Dockerfile:scheduler-runtime` | Celery beat: `celery -A src.worker.celery_app beat --loglevel=${CELERY_LOG_LEVEL:-info}`. |
 | **cli** | `Dockerfile:semantic-tools-runtime` | Profile `tools`. Command: `python -m src.cli.main`. Same Postgres/Redis as app. Local embeddings (Torch + sentence-transformers). |
-| **mcp_http** | `Dockerfile:semantic-tools-runtime` | Profile `mcp`. FastMCP over streamable-HTTP for the Docker MCP Gateway (bearer-protected via `HUNTABLE_MCP_TOKEN`; fails closed without it). Published on `127.0.0.1:${HUNTABLE_MCP_PORT:-8009}` only. Same tools/write-risk tiers as the stdio MCP server. See [MCP Gateway](../guides/mcp-gateway.md) and [MCP Tools Reference](../reference/mcp-tools.md). <!-- VERIFY LINK --> |
-
-<!-- AUDIT: Accuracy (High) -- `mcp_http` was absent from this table even though it has been in docker-compose.yml since 2026-08-06, six days before this doc's last edit (2026-08-12). It is also missing from Networking (port 8009) and Health checks below; both are now filled in. Author: confirm the added description matches intent, especially the bearer-auth/fail-closed behavior pulled from the compose file's inline comment. -->
+| **mcp_http** | `Dockerfile:semantic-tools-runtime` | Profile `mcp`. FastMCP over streamable-HTTP for the Docker MCP Gateway (bearer-protected via `HUNTABLE_MCP_TOKEN`; fails closed without it). Published on `127.0.0.1:${HUNTABLE_MCP_PORT:-8009}` only. Same tools/write-risk tiers as the stdio MCP server. See [MCP Gateway](../guides/mcp-gateway.md) and [MCP Tools Reference](../reference/mcp-tools.md). |
 
 ## Key environment
 
@@ -33,7 +31,6 @@ This reflects the current `docker-compose.yml`.
 - **App bind mounts (web / workers):** `./src`, `./config`, `./logs`, `./tests`, `./models`, `./outputs`, `./scripts`, `./test-results`, `${HOME}/Huntable-SIGMA-Rules` → `/app/sigma-repo`. Web only: `./docs/contracts`, `./data/diagnoses`, `./backups`, host timezone at `/etc/localtime`, and the `hf_cache` volume. The maintenance service alone mounts `/var/run/docker.sock`. The Sigma repo is set up during `./setup.sh` (clone or create with rules structure); see [Configuration](../getting-started/configuration.md) (SIGMA / GitHub Integration).
 - **CLI:** `./src`, `./config`, `./scripts`, `./logs`, `./tests`, `./data`, `${HOME}/Huntable-SIGMA-Rules` → `/app/sigma-repo`, `./backups`, and the `hf_cache` volume.
 - **mcp_http:** `./src`, `./config`, `./scripts`, `./logs`, `./data`, and the `hf_cache` volume. No Sigma-repo or backups mount.
-<!-- AUDIT: Accuracy (Low) -- mcp_http's mount list added for the same reason as the row above: the service was previously undocumented entirely. -->
 
 ## Resource limits (env-overridable)
 
@@ -44,7 +41,6 @@ This reflects the current `docker-compose.yml`.
 - workflow_worker: `WORKFLOW_WORKER_MEMORY_LIMIT` / `WORKFLOW_WORKER_MEMORY_RESERVATION` (defaults 2G / 512M), `WORKFLOW_WORKER_CONCURRENCY` (default 2).
 - scheduler: 512M / 128M (fixed in compose).
 - maintenance, cli, mcp_http: no `deploy.resources` block in compose; unbounded by default.
-<!-- AUDIT: Accuracy (Low) -- added the no-limits note for completeness now that mcp_http is documented; maintenance and cli were already silently uncovered by this section. -->
 
 ## Health checks
 

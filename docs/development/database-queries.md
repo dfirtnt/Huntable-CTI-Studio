@@ -29,11 +29,6 @@ docker exec cti_postgres psql -U cti_user -d cti_scraper -c "YOUR_QUERY_HERE"
 
 ### From Within a Container
 
-<!-- AUDIT: Accuracy -- verified against Dockerfile (web-runtime target, ~line 89): the psql
-client is not installed in cti_web (or any other currently-used app container). Only the
-unused `development-runtime` target installs postgresql-client. Use the Host Machine method
-above (docker exec into cti_postgres) instead. -->
-
 ```bash
 # cti_postgres is the only container with a psql client installed.
 # Use the "From Host Machine" commands above, or exec directly into it:
@@ -308,10 +303,6 @@ ORDER BY SIMILARITY(a1.title, a2.title) DESC;
 - `embedding_model`: Model used for embedding generation
 - `embedded_at`: When embedding was generated
 
-<!-- AUDIT: Accuracy -- `usage` and `used_for_training` were missing from this table; they
-determine which annotations feed training vs. eval/gold sets and are load-bearing for eval
-bundle correctness (src/database/models.py ArticleAnnotationTable). -->
-
 ### Additional Tables
 
 #### `source_checks`
@@ -365,7 +356,7 @@ SELECT * FROM article_stats ORDER BY total_articles DESC;
 
 For routine backups, use the project's backup tooling instead of raw `pg_dump`, since it
 also handles retention and full-system (not just database) backups: see
-[Backup and Restore](../guides/backup-and-restore.md) [VERIFY LINK] and `scripts/backup_restore.sh`.
+[Backup and Restore](../guides/backup-and-restore.md) and `scripts/backup_restore.sh`.
 
 For a quick ad hoc database-only dump:
 

@@ -11,10 +11,8 @@ The agentic workflow's `Thresholds` config block (`src/config/workflow_config_sc
 | `SimilarityThreshold` | 0.5 | 0.0-1.0 | Whether a generated SIGMA rule is queued or dropped as a near-duplicate |
 
 All three live in `AgenticWorkflowConfigTable` (`src/database/models.py:456-458`),
-<!-- AUDIT: Accuracy (Med) -- Line range was 555-557, which now falls inside AgenticWorkflowExecutionSnapshotTable/SigmaRuleQueueTable, not AgenticWorkflowConfigTable. Corrected to 456-458, where min_hunt_score/ranking_threshold/similarity_threshold are actually declared. -->
 are read at runtime from `state["config"]` inside `src/workflows/agentic_workflow.py`,
 and can be changed via `PUT /api/workflow/config` (`src/web/routes/workflow_config.py:468`)
-<!-- AUDIT: Accuracy (Med) -- Line was 353, which now falls inside _merge_default_prompts, not the PUT /config route. Corrected to 468. -->
 or the workflow config UI.
 
 ## `RankingThreshold` (6.0)
@@ -25,7 +23,6 @@ workflow terminates with `TERMINATION_REASON_RANK_THRESHOLD` and never reaches
 extraction or SIGMA generation.
 
 Code: `src/workflows/agentic_workflow.py:1712`
-<!-- AUDIT: Accuracy (Med) -- Line was cited as 1847-1848; the check now lives at line 1712. -->
 (`should_continue = ranking_score >= ranking_threshold`).
 
 **Raising it** makes the workflow pickier: fewer articles reach extraction,
@@ -39,7 +36,6 @@ Gates SIGMA rule novelty/deduplication in two places, both in
 `src/workflows/agentic_workflow.py`:
 
 1. **Context filtering** (~line 3045): when assessing novelty against existing
-   <!-- AUDIT: Accuracy (Med) -- Line was cited as ~3148, which is actually where the queue-promotion gate's threshold lookup starts. The top-10 "similar rules" filter (`filtered_rules = [r for r in similar_rules if r.get("similarity", 0.0) >= similarity_threshold][:10]`) is at line 3045. -->
    rules, only candidates with `similarity >= SimilarityThreshold` are kept as
    "similar rules" context (top 10).
 2. **Queue-promotion gate** (`select_queueable_rule_indices`, threshold lookup at ~line 3149): after generation,

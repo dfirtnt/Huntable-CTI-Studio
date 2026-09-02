@@ -17,8 +17,6 @@ Huntable CTI Studio uses a combination of semantic versioning and planetary moon
 - **v7.7.0 "Europa"** — previous stable release
 - **v7.6.0 "Europa"** — earlier stable release
 
-<!-- AUDIT: Grammar -- these three lines had no list markers, so Markdown would render them as one run-together paragraph instead of three distinct entries. -->
-
 ## Planetary Moon Naming System
 
 Major versions are named after prominent planetary moons, honoring discovery, exploration, and planetary science achievements.
@@ -56,8 +54,7 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 - **Named After**: Europa, one of Jupiter's four Galilean moons; minor release continues the Europa codename
 - **Significance**: Role-specific Docker runtimes with the Docker socket confined to a token-authenticated maintenance service, a subscription-backed Codex workflow provider, Langfuse v4 trace-lookup migration off the endpoint Langfuse Cloud removes on 2026-11-16, and completion of the externalized-config-snapshot hydration across every remaining consumer
 - **Features**:
-    - Role-specific runtime images (web / scheduler / ingest / workflow / semantic / maintenance) replacing the single monolithic image; the web container no longer ships a Docker CLI or socket, and backup/restore is proxied to an internal-only, shared-token maintenance service that allowlists fixed scripts <!-- AUDIT: Accuracy -- prior revision omitted `scheduler`, which is its own Dockerfile target (`scheduler-runtime`) per docs/CHANGELOG.md's 2026-08-12 entry ("web app, scheduler, ingest worker, workflow worker, and semantic tools"). -->
-    - Docker socket confined to the `maintenance` service across every Compose stack, with a parametrized contract test failing any stack that mounts it elsewhere
+    - Role-specific runtime images (web / scheduler / ingest / workflow / semantic / maintenance) replacing the single monolithic image; the web container no longer ships a Docker CLI or socket, and backup/restore is proxied to an internal-only, shared-token maintenance service that allowlists fixed scripts    - Docker socket confined to the `maintenance` service across every Compose stack, with a parametrized contract test failing any stack that mounts it elsewhere
     - Subscription-backed Codex workflow provider (`WORKFLOW_CODEX_ENABLED`) using a deployment-managed ChatGPT login, plus three gpt-5.6 quickstart presets
     - Langfuse trace lookup migrated from the deprecated `GET /traces` to `GET /v2/observations`; `client.create_score()` corrected for the v4 API; fallback host consolidated to one constant and corrected to the US region; langfuse pinned to 4.14.4
     - Externalized config snapshots hydrated by retry, age-based retention, `exclude_evals`, and the executions list/detail responses — an eval retry no longer degrades into a seven-extractor run, and the eval corpus keeps its age-purge protection
