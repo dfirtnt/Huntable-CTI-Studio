@@ -109,6 +109,15 @@ The documentation is organized under `/docs` and is published with MkDocs Materi
 - **Reference**: `docs/reference/api.md`, `docs/reference/schemas.md`, `docs/reference/mcp-tools.md`
 - **Security & Auth**: [`docs/guides/authentication.md`](docs/guides/authentication.md), [`docs/guides/enterprise-sso.md`](docs/guides/enterprise-sso.md)
 
+
+## ** SECURITY WARNING **
+!! The DEFAULT mode is UNAUTHENTICATED (`AUTH_MODE=disabled`) -- intended for research, learning, and automation on a trusted/local network. DO NOT expose the default mode to a hostile network.
+
+For hardened deployments, an optional enterprise boundary is available: SSO through a trusted-header reverse proxy (Google / GitHub / Microsoft), role-based access control, CSRF protection, fail-closed production startup, and a redacted, actor-attributed audit trail. See [Authentication](docs/guides/authentication.md) and [Enterprise SSO Setup](docs/guides/enterprise-sso.md).
+
+Even when hardened, the phase-one audit log is database-backed and mutable by database administrators (forward exports to a SIEM for higher assurance), and the app is not intended to store classified or proprietary threat intelligence at this time.
+##
+
 ## License
 
 MIT License — see [LICENSE](LICENSE) for details.
