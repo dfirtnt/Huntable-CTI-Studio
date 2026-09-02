@@ -1807,11 +1807,15 @@ function onAgentProviderChange(agentPrefix) {
     // `options` is not in scope here -- b482190b passed a variable this function
     // never had, so every provider change threw a ReferenceError and abandoned the
     // rest of the handler (inheritance hints, control bindings, the autosave).
-    // This is the interactive path, so full validation including the async check is
-    // what is wanted; the skipAsync callers pass it explicitly.
+    // This handler runs for real user edits AND for the change events
+    // setAgentProvider() dispatches while applyAgentConfigs() replays stored
+    // values on load. A user edit wants full validation including the async
+    // check; the stored-replay pass must suppress it, exactly like the other
+    // bulk/load-time callers pass skipAsync -- otherwise every OpenAI-qualified
+    // agent fires an /api/validate-model POST on page load.
     const currentModel = getActiveAgentModelValue(agentPrefix, provider);
     if (currentModel) {
-        validateProviderModelCombination(agentPrefix, provider, currentModel);
+        validateProviderModelCombination(agentPrefix, provider, currentModel, { skipAsync: isApplyingStoredConfig });
     } else {
         clearProviderModelError(agentPrefix);
     }
