@@ -172,6 +172,7 @@ async def resolve_provider_api_key(provider: str) -> str | None:
             # credential values, and CodeQL's clear-text-logging query taints
             # anything derived from it (including settings_key's own name, which
             # is never the secret itself -- row.value is, and it's never logged).
+            # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
             logger.warning("Could not read the %s API key from the database: %s", provider, type(exc).__name__)
 
     for env_key in _ENV_KEY_FALLBACKS.get(provider.lower(), ()):
