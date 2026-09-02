@@ -4103,14 +4103,17 @@ async function performAutoSave() {
                 }
             } else if (value !== null && value !== '') {
                 cleanedAgentModels[key] = value;
-            } else if (value === '' && typeof currentConfig?.agent_models?.[key] === 'string'
-                       && currentConfig.agent_models[key] !== '') {
+            } else if (value === '' && typeof currentConfig?.agent_models?.[key] === 'string') {
                 // The control read back blank because it could not represent the
                 // stored value (a model absent from the selected provider's option
-                // list), not because anyone cleared it. Dropping the key here left
-                // the payload short of what the server holds, so the write only
-                // stayed lossless thanks to the backend's merge. Carry the stored
-                // value instead: the request is now complete on its own.
+                // list, or a catalog/provider fetch still in flight when this
+                // debounced collection ran), not because anyone cleared it.
+                // Dropping the key here left the payload short of what the server
+                // holds, so the write only stayed lossless thanks to the backend's
+                // merge. Carry the stored value instead -- even when that stored
+                // value is itself '' -- so the request names every key the server
+                // already tracks and is complete on its own, rather than silently
+                // omitting a key the moment its last-known value happens to be blank.
                 cleanedAgentModels[key] = currentConfig.agent_models[key];
             }
         }
