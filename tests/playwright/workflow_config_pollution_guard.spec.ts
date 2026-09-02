@@ -172,6 +172,11 @@ test.describe('baseline persistence', () => {
   test('the real baseline is untouched by this spec', () => {
     // Guards the invariant above: if a future edit points these at
     // BASELINE_PATH, teardown stops restoring and nothing else would notice.
+    // Skipped when global-setup itself never captured a baseline (this spec
+    // isn't in playwright.config.ts's CTI_EXCLUDE_AGENT_CONFIG_TESTS
+    // testIgnore list, so it still runs in that mode) -- there is nothing to
+    // assert "untouched" about in that case.
+    test.skip(process.env.CTI_EXCLUDE_AGENT_CONFIG_TESTS === '1', 'global-setup does not capture a baseline in this mode');
     expect(readBaseline()).not.toBeNull();
   });
 });

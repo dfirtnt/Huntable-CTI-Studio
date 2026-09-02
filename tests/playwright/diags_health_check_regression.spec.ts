@@ -173,9 +173,34 @@ test.describe('Diags health check regression', () => {
   });
 
   test('[DIAGS-TESSERACT-002] tesseract not applicable in the web process renders a neutral icon and a healthy card', async ({ page }) => {
-    // Live, unmocked: this dev/test web container never has pytesseract
-    // installed (it's an optional worker-only extra), so this exercises the
-    // real by-design "not_applicable" path end to end.
+    // Mocked, like DIAGS-TESSERACT-001 above: the production web container never
+    // has pytesseract installed (it's an optional worker-only extra), but this
+    // spec's own test harness installs the 'ingest' dependency group for every
+    // job (test -> ingest -> pytesseract), so pytesseract is always importable
+    // here and the real "not_applicable" branch can never be exercised live.
+    await page.route('**/api/health**', async (route) => {
+      const url = route.request().url();
+      if (url.endsWith('/api/health/services')) {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            status: 'healthy',
+            timestamp: new Date().toISOString(),
+            services: {
+              redis: { status: 'healthy', info: {} },
+              tesseract: {
+                status: 'not_applicable',
+                version: null,
+                message: 'OCR runs in the worker process; pytesseract is not installed in the web container.',
+              },
+            },
+          }),
+        });
+      }
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'healthy', timestamp: new Date().toISOString() }) });
+    });
+
     await page.locator('#runAllHealthChecks').click();
     await expect(page.locator('#loadingOverlay')).toBeHidden({ timeout: 10000 });
 
