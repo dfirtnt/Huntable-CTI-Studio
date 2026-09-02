@@ -167,7 +167,10 @@ async def resolve_provider_api_key(provider: str) -> str | None:
                 if row and row.value and row.value.strip():
                     return row.value.strip()
         except Exception as exc:
-            logger.warning("Could not read %s from the database: %s", settings_key, exc)
+            # Log the exception type only, not str(exc) -- this query touches
+            # AppSettingsTable, which stores credential values, and CodeQL's
+            # clear-text-logging query treats anything derived from it as tainted.
+            logger.warning("Could not read %s from the database: %s", settings_key, type(exc).__name__)
 
     for env_key in _ENV_KEY_FALLBACKS.get(provider.lower(), ()):
         value = os.getenv(env_key, "")

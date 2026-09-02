@@ -55,6 +55,8 @@ def test_tailwind_is_served_locally_not_from_a_cdn() -> None:
     # Asserted against parsed tags rather than the raw text: the template
     # explains the removal in a comment that names the host, and a bare substring
     # check flags that comment while an inert commented-out tag harms nothing.
+    # lgtm[py/incomplete-url-substring-sanitization] -- substring absence check on
+    # trusted, repo-controlled template markup, not URL sanitization of untrusted input.
     assert soup.find("script", src=lambda value: value and "tailwindcss.com" in value) is None
     assert soup.find("link", href=lambda value: value and "css/tailwind.css" in value) is not None
 

@@ -287,8 +287,8 @@ def _eval_referenced_config_ids(session: Session) -> set[int]:
         exists = session.execute(text("SELECT to_regclass(:name)"), {"name": table_name}).scalar()
         if exists is None:
             continue
-        # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
         rows = session.execute(
+            # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
             text(f"SELECT DISTINCT workflow_config_id FROM {table_name} WHERE workflow_config_id IS NOT NULL")  # noqa: S608 -- name from a module constant, not input
         ).fetchall()
         referenced.update(row[0] for row in rows)

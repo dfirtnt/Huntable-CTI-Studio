@@ -87,12 +87,15 @@ class TestNoClientSideCredentialReads:
 
     def test_no_page_calls_the_github_api_directly(self):
         """The PAT reached a third-party origin from the page; it is server-side now."""
+        # lgtm[py/incomplete-url-substring-sanitization] -- substring absence check on
+        # trusted, repo-controlled source files, not URL sanitization of untrusted input.
         offenders = [
             str(path.relative_to(_REPO_ROOT))
             for path in _client_side_sources()
             if "api.github.com" in path.read_text(encoding="utf-8", errors="replace")
         ]
         settings_html = (_TEMPLATES / "settings.html").read_text(encoding="utf-8")
+        # lgtm[py/incomplete-url-substring-sanitization] -- same as above.
         if "api.github.com" in settings_html:
             offenders.append("src/web/templates/settings.html")
 
