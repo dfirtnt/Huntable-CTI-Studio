@@ -300,7 +300,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 | `index-customer-repo` | Index approved rules from customer repo (SIGMA_REPO_PATH) for similarity search |
 | `backfill-metadata` | Recompute canonical fields for existing rules (no repo access needed) |
 | `recompute-atoms` | Backfill `canonical_class`, `atoms`, `surface_score` for all indexed rules (requires `sigma_similarity` package) |
-| `match ARTICLE_ID` | Match one article to Sigma rules; `--save` to persist |
+| `match ARTICLE_ID` | Match one article to Sigma rules; prints the top 10 matches with coverage classification (does not persist) |
 | `stats` | Show Sigma rule and match statistics |
 
 **Options (sync):** `--force` — force re-clone.
@@ -309,7 +309,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 
 **Options (index-customer-repo):** `--force` — re-index all customer rules; `--no-embeddings` — metadata only.
 
-**Options (match):** `--threshold T` (default `0.7`), `--save`.
+**Options (match):** `--threshold T` (default `0.7`). <!-- AUDIT: Accuracy -- removed `--save`; `sigma_commands.py` `match_article` has no such option and never writes to the database, it only prints a results table. -->
 
 **Examples:**
 
@@ -322,7 +322,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 ./run_cli.sh sigma backfill-metadata          # Backfill canonical_json/exact_hash/logsource_key for rules missing them
 ./run_cli.sh sigma backfill-metadata --force  # Recompute those fields for ALL rules (use when the canonical logic changed)
 ./run_cli.sh sigma recompute-atoms   # Backfill canonical_class, atoms, surface_score (requires sigma_similarity)
-./run_cli.sh sigma match 123 --threshold 0.7 --save
+./run_cli.sh sigma match 123 --threshold 0.7
 ./run_cli.sh sigma stats
 ```
 
@@ -396,7 +396,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 
 ### archive
 
-**When:** Soft-delete articles (archive) or restore them (unarchive). Useful for cleaning up or hiding a source’s articles without losing data.
+**When:** Soft-delete articles (archive) or restore them (unarchive). Useful for cleaning up or hiding a source's articles without losing data.
 
 **Subcommands:**
 
@@ -446,3 +446,4 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 | `archive add/remove/list/cleanup` | Soft-delete, or restore, or clean up articles |
 
 _Last updated: 2026-07-03_
+_Last reviewed: 2026-09-01_
