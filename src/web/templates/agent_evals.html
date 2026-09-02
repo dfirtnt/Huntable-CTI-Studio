@@ -3014,12 +3014,16 @@ async function showCommandlines(executionId, articleUrl, count) {
                 `;
                 return;
             }
-            let emptyMessage = 'No commandlines found for this execution.';
-            if (resultType === 'process_lineage' || subagentEval === 'process_lineage') {
-                emptyMessage = 'No process lineage relationships found for this execution.';
-            } else if (resultType === 'hunt_queries' || subagentEval === 'hunt_queries') {
-                emptyMessage = 'No hunt queries found for this execution.';
-            }
+            const emptyLabels = {
+                process_lineage: 'process lineage relationships',
+                hunt_queries: 'hunt queries',
+                registry_artifacts: 'registry artifacts',
+                windows_services: 'Windows services',
+                scheduled_tasks: 'scheduled tasks',
+                network_indicators: 'network indicators',
+            };
+            const emptyLabel = emptyLabels[resultType] || emptyLabels[subagentEval] || 'commandlines';
+            const emptyMessage = `No ${emptyLabel} found for this execution.`;
             content.innerHTML = `
                 <div class="py-4">
                     <p class="text-sm text-gray-500 dark:text-gray-400">
