@@ -13,9 +13,9 @@ Huntable CTI Studio uses a combination of semantic versioning and planetary moon
 
 ## Current Version
 
-- **v7.8.0 "Europa"** — current stable release
-- **v7.7.0 "Europa"** — previous stable release
-- **v7.6.0 "Europa"** — earlier stable release
+**v7.8.0 "Europa"** - Current stable release
+**v7.7.0 "Europa"** - Previous stable release
+**v7.6.0 "Europa"** - Earlier stable release
 
 ## Planetary Moon Naming System
 
