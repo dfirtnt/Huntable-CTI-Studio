@@ -422,6 +422,77 @@ def test_switching_subagent_discards_late_results_from_previous_subagent(page: P
     expect(page.locator("#modelFilter option", has_text="hunt-model")).to_have_count(1)
 
 
+@pytest.mark.ui
+def test_load_eval_articles_discards_stale_response_after_subagent_switch(page: Page):
+    """Regression companion to the results-table race: a slow Load Eval Articles
+    request must not populate the article list with the subagent that was selected
+    when the request started, once the user has switched to a different subagent.
+
+    loadEvalArticles() guards on getEffectiveSubagent() != subagentSelect (see
+    src/web/templates/agent_evals.html) but that guard is only reachable via this
+    button -- the select's own change handler never calls loadEvalArticles -- so it
+    needs a dedicated manual Load-then-switch test rather than the auto-load race
+    covered by test_switching_subagent_discards_late_results_from_previous_subagent.
+    """
+    held_cmdline_routes: list = []
+
+    def handle_articles(route):
+        if "subagent=cmdline" in route.request.url:
+            held_cmdline_routes.append(route)
+            return
+        route.fulfill(
+            status=200,
+            body=json.dumps({"articles": []}),
+            headers={"Content-Type": "application/json"},
+        )
+
+    page.route("**/api/evaluations/subagent-eval-articles**", handle_articles)
+    page.route(
+        "**/api/evaluations/subagent-eval-results**", _json_route({"subagent": "cmdline", "total": 0, "results": []})
+    )
+    page.route("**/api/evaluations/subagent-eval-models**", _json_route({"subagent": "cmdline", "models": []}))
+    page.route("**/api/evaluations/subagent-eval-aggregate**", _json_route({"aggregates": [], "eval_set_total": 0}))
+    page.route("**/api/evaluations/config-versions-models**", _json_route({"models_by_version": {}}))
+
+    page.goto("http://127.0.0.1:8001/mlops/agent-evals")
+    page.wait_for_load_state("load")
+
+    load_btn = page.locator("#loadEvalArticlesBtn")
+    load_btn.click()
+    for _ in range(100):
+        if held_cmdline_routes:
+            break
+        page.wait_for_timeout(100)
+    assert held_cmdline_routes, "Load Eval Articles never fired its request"
+    expect(load_btn).to_have_text("Loading...")
+
+    page.select_option("#subagentSelect", "hunt_queries")
+
+    # Release the stale CommandLine response after the switch.
+    held_cmdline_routes[0].fulfill(
+        status=200,
+        body=json.dumps(
+            {
+                "articles": [
+                    {
+                        "url": "http://example.test/stale-cmdline",
+                        "title": "Stale CommandLine article",
+                        "expected_count": 1,
+                        "found": True,
+                    }
+                ]
+            }
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+    page.wait_for_timeout(500)
+
+    assert page.locator("#subagentSelect").input_value() == "hunt_queries"
+    expect(page.get_by_text("Stale CommandLine article")).to_have_count(0)
+    expect(load_btn).to_have_text("Load Eval Articles")
+    expect(load_btn).not_to_be_disabled()
+
+
 _EMPTY_STATE_LABELS = {
     "cmdline": "No commandlines found",
     "process_lineage": "No process lineage relationships found",
