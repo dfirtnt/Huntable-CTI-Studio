@@ -52,6 +52,11 @@ EXPANSION_MAX_PROMPT_CHARS = 40000
 # Repair prompts must carry the whole broken rule; a 500-char preview forced the model to
 # invent the truncated remainder. Cap only to protect the provider context window.
 REPAIR_RULE_MAX_CHARS = 8000
+# Completion budgets for _call_provider_for_sigma. A complete rule is roughly 250-400 tokens,
+# so the old 800-token standard budget truncated any multi-rule response after about two
+# rules (finish_reason=length). Reasoning-style models also spend budget before the YAML.
+SIGMA_MAX_TOKENS_REASONING = 10000
+SIGMA_MAX_TOKENS_STANDARD = 4000
 DEFAULT_SIGMA_SYSTEM_PROMPT = (
     "You are a Sigma detection engineering expert. You produce production-ready, behaviorally grounded Sigma "
     "rules for Huntable CTI Studio strictly from the provided observables and article evidence. Output ONLY valid "
@@ -214,7 +219,7 @@ def _is_reasoning_model(provider: str, model_name: str) -> bool:
         # before emitting final YAML. Treat all OpenAI models as reasoning-style here.
         # Codex-provider models are the same GPT-5.x reasoning family reached over the
         # Codex app-server, where max_tokens is a textual output-length instruction —
-        # an 800-token budget caps every article at roughly one rule.
+        # the standard budget would cap every article at a handful of rules.
         return True
     return "r1" in model_lower or "reasoning" in model_lower
 
@@ -1255,7 +1260,7 @@ Focus on generating rules for the uncovered categories listed above."""
         converted_messages = self.llm_service._convert_messages_for_model(messages, model_name)
 
         is_reasoning_model = _is_reasoning_model(provider, model_name)
-        max_tokens = 10000 if is_reasoning_model else 800
+        max_tokens = SIGMA_MAX_TOKENS_REASONING if is_reasoning_model else SIGMA_MAX_TOKENS_STANDARD
 
         sigma_metadata: dict[str, Any] = {
             "agent_name": "generate_sigma",

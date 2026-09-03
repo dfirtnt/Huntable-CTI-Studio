@@ -1590,6 +1590,45 @@ level: low
         assert output.startswith("title: Codex Rule")
         assert service.llm_service.request_chat.call_args.kwargs["max_tokens"] == 10000
 
+    @pytest.mark.asyncio
+    async def test_call_provider_for_sigma_standard_budget_fits_multi_rule_output(self, service):
+        """Non-reasoning providers get SIGMA_MAX_TOKENS_STANDARD, not the old 800-token cap.
+
+        A complete rule is roughly 250-400 tokens, so 800 truncated any multi-rule
+        response after about two rules (finish_reason=length).
+        """
+        from src.services.sigma_generation_service import SIGMA_MAX_TOKENS_STANDARD
+
+        service.llm_service.provider_sigma = "lmstudio"
+        service.llm_service.model_sigma = "qwen/qwen3.6-27b"
+        service.llm_service.provider_defaults = {"lmstudio": "qwen/qwen3.6-27b"}
+        service.llm_service.temperature_sigma = 1.0
+        service.llm_service.top_p_sigma = 1.0
+        service.llm_service.seed = None
+        service.llm_service._convert_messages_for_model = Mock(side_effect=lambda messages, _model: messages)
+        service.llm_service.request_chat = AsyncMock(
+            return_value={
+                "choices": [
+                    {
+                        "message": {"content": "title: Local Rule\nid: local-rule\n"},
+                        "finish_reason": "stop",
+                    }
+                ],
+                "usage": {"prompt_tokens": 10, "completion_tokens": 200, "total_tokens": 210},
+            }
+        )
+
+        with (
+            patch("src.services.sigma_generation_service.trace_llm_call", return_value=contextlib.nullcontext(None)),
+            patch("src.services.sigma_generation_service.log_llm_completion"),
+            patch("src.services.sigma_generation_service.log_llm_error"),
+        ):
+            output = await service._call_provider_for_sigma("prompt", provider="lmstudio")
+
+        assert output.startswith("title: Local Rule")
+        assert SIGMA_MAX_TOKENS_STANDARD >= 4000
+        assert service.llm_service.request_chat.call_args.kwargs["max_tokens"] == SIGMA_MAX_TOKENS_STANDARD
+
 
 # ---------------------------------------------------------------------------
 # Tests for changes made in this session

@@ -162,7 +162,7 @@ Rule standard now originates in generation and is mirrored, not re-invented, dow
    Config, and the enrichment modal's saved-prompt history).
 3. Add the SigmaHQ validator set to the in-app `SigmaValidator` (P1) so queue validation is
    deterministic where the prompt can only advise.
-4. Raise `max_tokens` for non-reasoning models in `_call_provider_for_sigma` (P2).
+4. DONE 2026-09-03: `SIGMA_MAX_TOKENS_STANDARD = 4000` (was 800) in `_call_provider_for_sigma`, with a regression test. `tests/unit/test_sigma_prompt_files.py` now pins the prompt files to their caller kwargs and the seed to the runtime file.
 5. `src/web/static/js/workflow/config.js` `LOCKED_SIGMA_USER_TEMPLATE` (the effective-prompt
    preview on the Workflow Config page) is a hand-copied mirror of the pre-audit
    `sigma_generate_multi.txt`; it now shows a template that matches neither the file nor the
