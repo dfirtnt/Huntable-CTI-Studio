@@ -157,9 +157,10 @@ Rule standard now originates in generation and is mirrored, not re-invented, dow
    `dns_query`, `network_connection`, `firewall`; about 12k -> 2.5k characters per preset), the
    REQUIRED FIELDS line now points at the supplied author/date, and every preset's user scaffold
    carries `- author: {author}` / `- date: {date}` so the service's kwargs reach the model.
-2. Reset the saved enrichment prompt version on the running instance (E7) and any customised
-   `SigmaAgent` persona in the DB; both keep their old text until reset (Settings -> Workflow
-   Config, and the enrichment modal's saved-prompt history).
+2. DONE 2026-09-03 on the running instance: `SigmaAgent` reset to the on-disk default via
+   `POST /api/workflow/config/prompts/reset-to-defaults` (config version 8371, md5 matches the
+   file) and enrichment prompt version 7 saved from the new constants, replacing the
+   conflicting version 6 (E7).
 3. DONE 2026-09-03: `validate_sigma_rule` runs the rules repo's blocking set
    (`src/services/sigma_validation_blocking.yml`, pySigma-validators-sigmahq 0.21.0); issues
    surface as `SigmaHQ <Issue>` errors and `metadata["sigmahq"]`. See the CHANGELOG entry
