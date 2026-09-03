@@ -670,7 +670,11 @@ class ModernScraper:
             word_count = len(article_data["content"].split()) if article_data["content"] else 0
             collected_at = datetime.now()
 
-            # Build article
+            # Build article. Carry the JSON-LD / selector metadata through: before this,
+            # authors, tags and summary were extracted and then dropped, so every
+            # discovery-path article was stored with no author (2026-09-02).
+            authors = article_data.get("authors") or []
+            tags = article_data.get("tags") or []
             article = ArticleCreate(
                 source_id=source.id,
                 url=url,
@@ -678,6 +682,9 @@ class ModernScraper:
                 title=article_data["title"],
                 published_at=article_data.get("published_at") or datetime.now(),
                 content=article_data["content"],
+                summary=article_data.get("summary"),
+                authors=[str(a) for a in authors if a],
+                tags=[str(t) for t in tags if t],
                 content_hash=content_hash,
                 word_count=word_count,
                 collected_at=collected_at,

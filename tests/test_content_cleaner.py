@@ -488,13 +488,28 @@ class TestContentCleaner:
         assert text.startswith("x\n")
         assert "weird" in text and "token" in text
 
-    def test_looks_like_html(self):
-        assert ContentCleaner.looks_like_html("<p>hi</p>")
-        assert ContentCleaner.looks_like_html('<div class="x">')
-        assert ContentCleaner.looks_like_html("text<br/>more")
-        assert not ContentCleaner.looks_like_html("detection:\n    selection:\n        a < b and b > c")
-        assert not ContentCleaner.looks_like_html("CommandLine|contains: '<script'")
-        assert not ContentCleaner.looks_like_html("")
+    @pytest.mark.parametrize(
+        "text",
+        ["<p>hi</p>", '<div class="x">', "text<br/>more", "<P>upper</P>", "<a href='x'>link</a>", "<PRE>code</PRE>"],
+    )
+    def test_looks_like_html_true_for_real_markup(self, text):
+        assert ContentCleaner.looks_like_html(text)
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "",
+            "detection:\n    selection:\n        a < b and b > c",
+            "CommandLine|contains: '<script'",
+            # Angle-bracket placeholders in detection content are not markup (Hunter's Ledger, 2026-09-02):
+            "net user <password> /add",
+            "CommandLine|re: 'taskhostw-<digits>\\.exe'",
+            "curl http://<ip>/<domain>/payload as <user>",
+            "<C2_SERVER> beacon every <interval> seconds",
+        ],
+    )
+    def test_looks_like_html_false_for_plain_text_and_placeholders(self, text):
+        assert not ContentCleaner.looks_like_html(text)
 
     def test_normalize_whitespace_keeps_titles_single_line(self):
         """The shared normalize_whitespace stays single-line (used for titles/tags)."""

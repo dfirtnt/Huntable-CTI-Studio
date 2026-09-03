@@ -212,6 +212,96 @@ class TestURLDiscovery:
         assert "https://example.com/other" not in urls
 
 
+class TestHuntersLedgerDiscoveryShape:
+    """Pin the config semantics the hunters_ledger stanza relies on (2026-09-02).
+
+    The detections index links omit the trailing slash, the index itself must be excluded
+    by the ``[href!=...]`` selector, and the widened ``post_url_regex`` must accept the
+    no-slash detections URL while rejecting the bare index and off-domain links.
+    """
+
+    _REGEX = [
+        "^https://the-hunters-ledger\\.com/reports/.+",
+        "^https://the-hunters-ledger\\.com/hunting-detections/.+",
+    ]
+    _SELECTOR = 'a[href^="/hunting-detections/"][href!="/hunting-detections/"]'
+    _INDEX_HTML = (
+        "<html><body><nav><a href='/hunting-detections/'>Detection Library</a><a href='/reports/'>Reports</a></nav>"
+        "<main>"
+        "<a href='/hunting-detections/PULSAR-RAT-detections'>PULSAR RAT</a>"
+        "<a href='/hunting-detections/agent-exe-detections'>agent.exe</a>"
+        "<a href='/hunting-detections/'>All detections</a>"
+        "<a href='https://hunt.io'>Sponsor</a>"
+        "</main></body></html>"
+    )
+
+    def _source(self):
+        return create_test_source(
+            id=42,
+            identifier="hunters_ledger",
+            name="The Hunter's Ledger",
+            url="https://the-hunters-ledger.com/",
+            rss_url="https://the-hunters-ledger.com/feed.xml",
+            active=True,
+            config={
+                "allow": ["the-hunters-ledger.com"],
+                "post_url_regex": list(self._REGEX),
+                "discovery": {
+                    "strategies": [
+                        {
+                            "listing": {
+                                "urls": ["https://the-hunters-ledger.com/hunting-detections/"],
+                                "max_pages": 1,
+                                "post_link_selector": self._SELECTOR,
+                            }
+                        }
+                    ]
+                },
+            },
+        )
+
+    def test_scope_regex_accepts_detections_pages_and_rejects_index(self):
+        discovery = URLDiscovery(Mock(spec=HTTPClient))
+        urls = [
+            "https://the-hunters-ledger.com/hunting-detections/PULSAR-RAT-detections",  # no trailing slash
+            "https://the-hunters-ledger.com/hunting-detections/agent-exe-detections/",  # with slash
+            "https://the-hunters-ledger.com/reports/cloudsync-assembler-toolkit/",
+            "https://the-hunters-ledger.com/hunting-detections/",  # the index itself
+            "https://the-hunters-ledger.com/wire/",
+            "https://hunt.io/hunting-detections/x",
+        ]
+        kept = discovery._filter_by_scope(urls, self._source())
+        assert kept == [
+            "https://the-hunters-ledger.com/hunting-detections/PULSAR-RAT-detections",
+            "https://the-hunters-ledger.com/hunting-detections/agent-exe-detections/",
+            "https://the-hunters-ledger.com/reports/cloudsync-assembler-toolkit/",
+        ]
+
+    def test_listing_selector_excludes_the_index_link(self):
+        """soupsieve supports the non-standard ``[attr!=value]``; the index link must not match."""
+        from bs4 import BeautifulSoup
+
+        hrefs = [a["href"] for a in BeautifulSoup(self._INDEX_HTML, "lxml").select(self._SELECTOR)]
+        assert hrefs == ["/hunting-detections/PULSAR-RAT-detections", "/hunting-detections/agent-exe-detections"]
+
+    @pytest.mark.asyncio
+    async def test_listing_discovery_yields_absolute_detections_urls_only(self):
+        client = Mock(spec=HTTPClient)
+        response = create_async_mock_response(text=self._INDEX_HTML, status_code=200)
+        response.raise_for_status = Mock()
+        client.get = AsyncMock(return_value=response)
+        discovery = URLDiscovery(client)
+
+        with patch("src.core.modern_scraper.asyncio.sleep", new=AsyncMock()):
+            urls = await discovery.discover_urls(self._source())
+
+        assert sorted(urls) == [
+            "https://the-hunters-ledger.com/hunting-detections/PULSAR-RAT-detections",
+            "https://the-hunters-ledger.com/hunting-detections/agent-exe-detections",
+        ]
+        client.get.assert_awaited_once()
+
+
 class TestStructuredDataExtractor:
     """Test StructuredDataExtractor functionality."""
 
@@ -873,6 +963,94 @@ class TestModernScraper:
         result = modern_scraper._extract_with_selector_list(soup, selectors)
 
         assert result is None
+
+
+class TestExtractArticleCarriesMetadata:
+    """``_extract_article`` must not drop authors/tags/summary it extracted (2026-09-02).
+
+    Before the fix the ArticleCreate was built without them, so every discovery-path
+    article on every source was stored with ``authors == []``.
+    """
+
+    _BODY = "Detection engineering write-up body text. " * 12
+
+    @staticmethod
+    def _scraper_with(html):
+        client = Mock(spec=HTTPClient)
+        client.configure_source_robots = Mock()
+        response = create_async_mock_response(text=html, status_code=200)
+        response.raise_for_status = Mock()
+        client.get = AsyncMock(return_value=response)
+        return ModernScraper(client)
+
+    @staticmethod
+    def _source(author_selectors):
+        return create_test_source(
+            id=42,
+            identifier="hunters_ledger",
+            name="The Hunter's Ledger",
+            url="https://the-hunters-ledger.com/",
+            rss_url=None,
+            active=True,
+            config={
+                "extract": {
+                    "prefer_jsonld": True,
+                    "title_selectors": ["h1"],
+                    "body_selectors": ["article"],
+                    "author_selectors": author_selectors,
+                }
+            },
+        )
+
+    @pytest.mark.asyncio
+    async def test_jsonld_author_tags_and_summary_reach_article_create(self):
+        html = f"""<html><head>
+        <script type="application/ld+json">{{"@type":"BlogPosting","headline":"CloudSync Report"}}</script>
+        <script type="application/ld+json">{{"@type":"TechArticle","headline":"CloudSync Report",
+          "author":{{"@type":"Person","name":"Joseph Harrison"}},"keywords":"cloudsync, rat",
+          "description":"An intrusion tool write-up","datePublished":"2026-08-02T20:00:00Z",
+          "url":"https://the-hunters-ledger.com/reports/cloudsync/"}}</script>
+        </head><body><h1>CloudSync Report</h1><article>{self._BODY}</article></body></html>"""
+        scraper = self._scraper_with(html)
+
+        article = await scraper._extract_article("https://the-hunters-ledger.com/reports/cloudsync", self._source([]))
+
+        assert article is not None
+        assert article.authors == ["Joseph Harrison"]
+        assert article.tags == ["cloudsync", "rat"]
+        assert article.summary == "An intrusion tool write-up"
+        assert article.canonical_url == "https://the-hunters-ledger.com/reports/cloudsync/"
+
+    @pytest.mark.asyncio
+    async def test_selector_fallback_author_when_jsonld_has_none(self):
+        """Detections pages: JSON-LD BlogPosting without author -> og:site_name selector fallback."""
+        html = f"""<html><head>
+        <meta property="og:site_name" content="The Hunter's Ledger">
+        <script type="application/ld+json">{{"@type":"BlogPosting","headline":"Detection Rules: PULSAR RAT",
+          "url":"https://the-hunters-ledger.com/hunting-detections/PULSAR-RAT-detections/"}}</script>
+        </head><body><h1>Detection Rules: PULSAR RAT</h1><article>{self._BODY}</article></body></html>"""
+        scraper = self._scraper_with(html)
+        source = self._source(["meta[name='author']::attr(content)", "meta[property='og:site_name']::attr(content)"])
+
+        article = await scraper._extract_article(
+            "https://the-hunters-ledger.com/hunting-detections/PULSAR-RAT-detections", source
+        )
+
+        assert article is not None
+        assert article.authors == ["The Hunter's Ledger"]
+        # Canonical comes from JSON-LD with the trailing slash even though discovery had none.
+        assert article.canonical_url == "https://the-hunters-ledger.com/hunting-detections/PULSAR-RAT-detections/"
+
+    @pytest.mark.asyncio
+    async def test_no_author_anywhere_stays_empty_list(self):
+        html = f"<html><body><h1>Plain Page</h1><article>{self._BODY}</article></body></html>"
+        scraper = self._scraper_with(html)
+
+        article = await scraper._extract_article("https://example.com/plain", self._source([]))
+
+        assert article is not None
+        assert article.authors == []
+        assert article.tags == []
 
 
 class TestLegacyScraper:

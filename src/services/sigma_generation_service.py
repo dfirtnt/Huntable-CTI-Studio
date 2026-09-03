@@ -8,7 +8,7 @@ import logging
 import re
 import uuid
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 import yaml
@@ -21,6 +21,29 @@ from src.utils.llm_optimizer import optimize_article_content
 logger = logging.getLogger(__name__)
 
 SIGMA_RULE_AUTHOR = "Huntable CTI Studio"
+
+# Optional top-level Sigma fields preserved from the generated YAML into the stored rule
+# dict (and therefore the queue YAML).
+SIGMA_OPTIONAL_RULE_FIELDS = ("author", "date", "modified", "references", "falsepositives", "fields")
+
+
+def _json_safe_rule_field(value: Any) -> Any:
+    """Coerce an optional Sigma field to a JSON-serializable shape.
+
+    ``yaml.safe_load`` turns an ISO ``date: 2026-08-03`` into ``datetime.date``, which the
+    JSONB ``sigma_rules`` column cannot store (execution 3889 failed on exactly that).
+    Dates become ISO strings, other scalars become strings, lists keep string items.
+    """
+    if value is None:
+        return None
+    if isinstance(value, datetime | date):
+        return value.isoformat()
+    if isinstance(value, list):
+        return [item.isoformat() if isinstance(item, datetime | date) else str(item) for item in value]
+    if isinstance(value, str):
+        return value
+    return str(value)
+
 
 # Phase 4 expansion prompt budget. The expansion turn is grounded in the uncovered-category
 # observables, so it does not need the full article body underneath a full observable dump.
@@ -716,6 +739,14 @@ class SigmaGenerationService:
                                     "detection": detection,
                                     "generation_phase": rule_result.generation_phase,
                                 }
+                                # Carry the optional standard Sigma fields the model emitted. Before
+                                # this, the fixed key list above silently dropped them, so the
+                                # AUTHOR PRESERVATION directive could never reach the review queue
+                                # (Hunter's Ledger detections pages, execution 3865, 2026-09-02).
+                                for optional_field in SIGMA_OPTIONAL_RULE_FIELDS:
+                                    value = _json_safe_rule_field(parsed_yaml.get(optional_field))
+                                    if value not in (None, "", []):
+                                        rule_metadata[optional_field] = value
                                 if rule_result.observables_used is not None:
                                     rule_metadata["observables_used"] = rule_result.observables_used
                                     if rule_result.observables_used_inferred:

@@ -1,6 +1,7 @@
 """Tests for SIGMA generation service functionality."""
 
 import contextlib
+import json
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -204,6 +205,112 @@ level: medium
                         assert generation_call["invalid_rule_count"] == 0
                         assert generation_call["messages"][0]["role"] == "system"
                         assert generation_call["messages"][1]["role"] == "user"
+
+    @pytest.mark.asyncio
+    async def test_generate_sigma_rules_keeps_author_date_references_falsepositives(self, service, sample_article_data):
+        """Optional standard Sigma fields the model emitted must survive into the returned rule dicts.
+
+        Regression: the rebuilt rule dict used a fixed key list, so the AUTHOR PRESERVATION
+        directive's output never reached the review queue (execution 3865, 2026-09-02).
+        """
+        rule_with_author = """
+title: CloudSync RAT Guest Dollar Local Account Persistence Command
+id: 301385e1-0331-459e-b547-6229cf0788ff
+status: experimental
+description: Detects a net user command targeting a local account named Guest$ without the /domain switch
+references:
+    - https://the-hunters-ledger.com/hunting-detections/cloudsync-assembler-toolkit-91-197-98-188-detections/
+author: The Hunters Ledger
+date: 2026-08-03
+tags:
+    - attack.persistence
+    - attack.t1136.001
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        CommandLine|contains|all:
+            - 'net user'
+            - 'Guest$'
+    condition: selection
+falsepositives:
+    - Administrators creating machine-account-style local users
+level: high
+"""
+        with patch("src.services.sigma_generation_service.optimize_article_content") as mock_optimize:
+            mock_optimize.return_value = {
+                "success": True,
+                "filtered_content": sample_article_data["content"],
+                "tokens_saved": 0,
+            }
+            with patch("src.utils.prompt_loader.format_prompt_async") as mock_prompt:
+                mock_prompt.return_value = "Generate SIGMA rule"
+                with patch.object(service, "_call_provider_for_sigma") as mock_call:
+                    mock_call.return_value = rule_with_author
+                    with patch("src.services.sigma_generation_service.validate_sigma_rule") as mock_validate:
+                        mock_validate.return_value = ValidationResult(
+                            is_valid=True,
+                            errors=[],
+                            warnings=[],
+                            metadata={"rule": yaml.safe_load(rule_with_author)},
+                            content_preview=rule_with_author,
+                        )
+                        result = await service.generate_sigma_rules(
+                            article_title=sample_article_data["title"],
+                            article_content=sample_article_data["content"],
+                            source_name=sample_article_data["source_name"],
+                            url=sample_article_data["url"],
+                        )
+
+        rule = result["rules"][0]
+        assert rule["author"] == "The Hunters Ledger"
+        # YAML parses an ISO date into datetime.date; the rule dict must hold a JSON-safe string
+        # (execution 3889 failed persisting sigma_rules with "Object of type date is not JSON serializable").
+        assert rule["date"] == "2026-08-03"
+        assert isinstance(rule["date"], str)
+        json.dumps(rule)
+        assert rule["references"] == [
+            "https://the-hunters-ledger.com/hunting-detections/cloudsync-assembler-toolkit-91-197-98-188-detections/"
+        ]
+        assert rule["falsepositives"] == ["Administrators creating machine-account-style local users"]
+        # Fixed-key fields are untouched.
+        assert rule["title"] == "CloudSync RAT Guest Dollar Local Account Persistence Command"
+        assert rule["detection"]["condition"] == "selection"
+
+    @pytest.mark.asyncio
+    async def test_generate_sigma_rules_omits_optional_fields_when_absent(
+        self, service, sample_article_data, sample_sigma_rule
+    ):
+        """A rule without author/date/references/falsepositives gains no empty placeholders."""
+        with patch("src.services.sigma_generation_service.optimize_article_content") as mock_optimize:
+            mock_optimize.return_value = {
+                "success": True,
+                "filtered_content": sample_article_data["content"],
+                "tokens_saved": 0,
+            }
+            with patch("src.utils.prompt_loader.format_prompt_async") as mock_prompt:
+                mock_prompt.return_value = "Generate SIGMA rule"
+                with patch.object(service, "_call_provider_for_sigma") as mock_call:
+                    mock_call.return_value = sample_sigma_rule
+                    with patch("src.services.sigma_generation_service.validate_sigma_rule") as mock_validate:
+                        mock_validate.return_value = ValidationResult(
+                            is_valid=True,
+                            errors=[],
+                            warnings=[],
+                            metadata={"rule": yaml.safe_load(sample_sigma_rule)},
+                            content_preview=sample_sigma_rule,
+                        )
+                        result = await service.generate_sigma_rules(
+                            article_title=sample_article_data["title"],
+                            article_content=sample_article_data["content"],
+                            source_name=sample_article_data["source_name"],
+                            url=sample_article_data["url"],
+                        )
+
+        rule = result["rules"][0]
+        for field in ("author", "date", "modified", "references", "falsepositives", "fields"):
+            assert field not in rule
 
     @pytest.mark.asyncio
     async def test_generate_sigma_rules_injects_linux_guidance(self, service, sample_article_data, sample_sigma_rule):

@@ -29,10 +29,18 @@ _BLOCK_BREAK = "\x00"
 _PRE_PLACEHOLDER = "\x02"
 _PRE_PLACEHOLDER_RE = re.compile(rf"{_PRE_PLACEHOLDER}(\d{{1,6}}){_PRE_PLACEHOLDER}")
 
-# Cheap "is this still HTML?" probe for text that already went through the cleaner:
-# an opening/closing tag name followed by whitespace, '>', or '/'. Bounded so it is
-# not a polynomial-regex shape on long inputs.
-_HTML_TAG_RE = re.compile(r"</?[A-Za-z][A-Za-z0-9-]{0,30}(?:\s[^<>]{0,200})?/?>")
+# Cheap "is this still HTML?" probe for text that already went through the cleaner.
+# Matches only real HTML element names: detection content is full of angle-bracket
+# placeholders (``<password>``, ``<digits>``, ``<ip>``, ``<domain>``) that a generic
+# ``<word>`` pattern mistook for markup, which sent already-clean Sigma text back
+# through the HTML cleaner (indentation stripped, placeholders swallowed).
+# Bounded so it is not a polynomial-regex shape on long inputs.
+_HTML_TAG_NAMES = (
+    "a|abbr|article|aside|b|blockquote|body|br|caption|cite|code|dd|del|details|div|dl|dt|em|figcaption|figure|"
+    "footer|form|h1|h2|h3|h4|h5|h6|head|header|hr|html|i|iframe|img|ins|kbd|li|main|mark|nav|ol|p|pre|q|s|samp|"
+    "script|section|small|span|strong|style|sub|summary|sup|table|tbody|td|tfoot|th|thead|title|tr|u|ul|var|video"
+)
+_HTML_TAG_RE = re.compile(rf"</?(?:{_HTML_TAG_NAMES})(?:\s[^<>]{{0,200}})?/?>", re.IGNORECASE)
 
 # Elements that imply a line break in extracted text. html_to_text() takes no
 # text-node separator, so this list is the sole source of block separation --
