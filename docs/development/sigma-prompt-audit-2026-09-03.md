@@ -171,7 +171,8 @@ fresh `POST /api/workflow/articles/{id}/trigger?force=true` snapshots the curren
   prompt tells the model the group's observables are authoritative), so
   `_rule_logsource_matches_group` dropped it as out-of-class instead of re-homing it to the
   `process_creation` group. Under the old prompt the same rule came out of the process_creation
-  call. Consider re-homing out-of-class rules whose logsource matches another group.
+  call. FIXED the same day: `_find_rehome_group` re-homes such rules (see CHANGELOG), with
+  regression tests built from this execution.
 
 ## Follow-ups
 

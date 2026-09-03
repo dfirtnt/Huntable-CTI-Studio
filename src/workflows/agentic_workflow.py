@@ -487,6 +487,29 @@ def _rebase_group_observable_indices(rule: dict[str, Any], original_indices: lis
     rule["observables_used"] = rebased
 
 
+def _find_rehome_group(
+    rule: dict[str, Any], emitting_group: dict[str, Any], groups: list[dict[str, Any]]
+) -> dict[str, Any] | None:
+    """Return the group that should own ``rule``: the emitting group when its logsource fits,
+    else the first other group in the execution whose logsource hint it matches, else None.
+
+    Every group's call sees the whole article, so a model regularly emits a rule that belongs
+    to a sibling group (execution 3898: the network_connection call produced the article's
+    wscript -> node.exe process_creation rule). Dropping it lost a valid detection; re-homing
+    keeps it and lets the sibling group's attribution and dedup handle it.
+    """
+    if _rule_logsource_matches_group(rule, emitting_group):
+        return emitting_group
+    for candidate in groups:
+        if candidate is emitting_group:
+            continue
+        if candidate.get("telemetry_category") == "full_content":
+            continue
+        if _rule_logsource_matches_group(rule, candidate):
+            return candidate
+    return None
+
+
 def _logsource_key(rule: dict[str, Any]) -> tuple[str, str]:
     """Return (category, product) logsource key for a rule dict."""
     ls = rule.get("logsource") or {}
@@ -2719,36 +2742,52 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 group_rules = generation_result.get("rules", []) if generation_result else []
                 group_error = generation_result.get("errors") if generation_result else "No generation result"
                 kept_group_rules = []
+                rehomed_group_rules = []
 
                 for rule in group_rules:
                     if not isinstance(rule, dict):
                         continue
-                    if not _rule_logsource_matches_group(rule, group):
+                    home = _find_rehome_group(rule, group, sigma_generation_groups)
+                    if home is None:
                         logger.warning(
                             f"[Workflow {state['execution_id']}] Dropping SIGMA rule {rule.get('title')!r}: "
-                            f"logsource {rule.get('logsource')} does not match generation group "
-                            f"{group.get('logsource_hint')}"
+                            f"logsource {rule.get('logsource')} matches no generation group "
+                            f"(emitted for {group.get('logsource_hint')})"
                         )
                         continue
-                    kept_group_rules.append(rule)
+                    if home is group:
+                        kept_group_rules.append(rule)
+                    else:
+                        rehomed_group_rules.append(rule)
+                        logger.info(
+                            f"[Workflow {state['execution_id']}] Re-homing SIGMA rule {rule.get('title')!r} from "
+                            f"group {group.get('logsource_hint')} to {home.get('logsource_hint')}"
+                        )
+                    # observables_used indices are positions in the EMITTING group's observable
+                    # list, so rebasing always uses the emitting group; ownership uses the home.
                     _rebase_group_observable_indices(rule, group["original_indices"])
                     _repair_empty_observable_attribution(
                         rule,
                         extraction_result=extraction_result,
-                        group_original_indices=group["original_indices"],
-                        group_logsource_hint=group["logsource_hint"],
+                        group_original_indices=home["original_indices"],
+                        group_logsource_hint=home["logsource_hint"],
                     )
-                    rule.setdefault("platform", group["platform"])
-                    rule.setdefault("telemetry_category", group["telemetry_category"])
-                    rule.setdefault("logsource_hint", group["logsource_hint"])
-                    rule.setdefault("generation_basis", f"{group['telemetry_category']}_generic")
+                    rule.setdefault("platform", home["platform"])
+                    rule.setdefault("telemetry_category", home["telemetry_category"])
+                    rule.setdefault("logsource_hint", home["logsource_hint"])
+                    rule.setdefault("generation_basis", f"{home['telemetry_category']}_generic")
                     rule.setdefault("detection_readiness", "generic")
                     rule["sigma_generation_group"] = {
-                        "platform": group["platform"],
-                        "telemetry_category": group["telemetry_category"],
-                        "logsource_hint": group["logsource_hint"],
-                        "observable_indices": group["original_indices"],
+                        "platform": home["platform"],
+                        "telemetry_category": home["telemetry_category"],
+                        "logsource_hint": home["logsource_hint"],
+                        "observable_indices": home["original_indices"],
                     }
+                    if home is not group:
+                        rule["sigma_generation_group"]["rehomed_from"] = {
+                            "platform": group["platform"],
+                            "telemetry_category": group["telemetry_category"],
+                        }
                     sigma_rules.append(rule)
 
                 if group_error and not group_rules:
@@ -2778,7 +2817,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         "logsource_hint": group["logsource_hint"],
                         "observable_indices": group["original_indices"],
                         "generated_rules": len(kept_group_rules),
-                        "dropped_rules": len(group_rules) - len(kept_group_rules),
+                        "rehomed_rules": len(rehomed_group_rules),
+                        "dropped_rules": len(group_rules) - len(kept_group_rules) - len(rehomed_group_rules),
                         "error": group_error if group_error and not group_rules else None,
                         # A Phase 4 expansion failure is non-fatal for the group, so it never
                         # reaches `error`. Carry it separately, otherwise a group that lost every

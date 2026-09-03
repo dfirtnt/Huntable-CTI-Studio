@@ -409,13 +409,13 @@ def _make_generate_side_effect():
     return side_effect
 
 
-async def _run_generate_sigma(article, execution, config_obj, extraction_result):
+async def _run_generate_sigma(article, execution, config_obj, extraction_result, side_effect=None):
     """Drive the real generate_sigma node for an extraction fixture; return its state."""
     db_session = _make_db_session(article, execution)
     nodes = _capture_nodes(db_session, config_obj)
     with patch("src.services.sigma_generation_service.SigmaGenerationService") as mock_sigma_cls:
         mock_sigma = Mock()
-        mock_sigma.generate_sigma_rules = AsyncMock(side_effect=_make_generate_side_effect())
+        mock_sigma.generate_sigma_rules = AsyncMock(side_effect=side_effect or _make_generate_side_effect())
         mock_sigma_cls.return_value = mock_sigma
         result = await nodes["generate_sigma"](
             _default_state(
@@ -640,3 +640,135 @@ def test_extractor_capability_matrix_matches_phase_one_intent():
         assert AGENT_PLATFORM_CAPABILITIES[extractor] == {"windows"}
     for extractor in ("CmdlineExtract", "ProcTreeExtract", "NetworkIndicatorExtract", "HuntQueriesExtract"):
         assert {"windows", "linux"}.issubset(AGENT_PLATFORM_CAPABILITIES[extractor])
+
+
+# ---------------------------------------------------------------------------
+# Out-of-class rules are re-homed to the group whose logsource they match
+# (regression for execution 3898, 2026-09-03: the network_connection group's call
+# emitted the article's best rule, a wscript -> node.exe process_creation rule, and
+# the gate dropped it as out-of-class instead of moving it to the process_creation
+# group that was generated in the same execution).
+# ---------------------------------------------------------------------------
+
+
+def _two_windows_groups_extraction():
+    return _enriched_extraction(
+        [
+            ("cmdline", {"platform": "windows", "value": "net user /domain"}),
+            (
+                "network_indicators",
+                {"platform": "windows", "value": "10.0.0.5:5985", "telemetry_category": "network_connection"},
+            ),
+        ],
+        article_platforms=["windows"],
+    )
+
+
+def _rule(title, category, selection, observables_used=None):
+    return {
+        "title": title,
+        "id": f"aaaaaaaa-0000-0000-0000-{abs(hash(title)) % 10**12:012d}",
+        "status": "experimental",
+        "description": f"Detects {title.lower()}",
+        "logsource": {"category": category, "product": "windows"},
+        "detection": {"selection": selection, "condition": "selection"},
+        "falsepositives": ["Administrative tooling"],
+        "level": "medium",
+        "observables_used": observables_used if observables_used is not None else [0],
+    }
+
+
+def _execution_3898_side_effect():
+    """The network_connection group emits its own rule AND a process_creation rule."""
+
+    async def side_effect(*args, **kwargs):
+        group = kwargs["extraction_result"]["sigma_generation_group"]
+        if group["telemetry_category"] == "process_creation":
+            rules = [
+                _rule("Net User Domain Account Discovery", "process_creation", {"CommandLine|contains": "/domain"})
+            ]
+        else:
+            rules = [
+                _rule(
+                    "Node.js Staged Payload Execution from AppData by WScript",
+                    "process_creation",
+                    {"Image|endswith": "\\node.exe", "ParentImage|endswith": "\\wscript.exe"},
+                    observables_used=[],
+                ),
+                _rule("PowerShell WinRM Connection", "network_connection", {"DestinationPort": 5985}),
+            ]
+        return {"rules": rules, "metadata": {"total_attempts": 1, "valid_rules": len(rules)}, "errors": None}
+
+    return side_effect
+
+
+@pytest.mark.asyncio
+async def test_out_of_class_rule_is_rehomed_to_matching_group(article, execution, config_obj):
+    result = await _run_generate_sigma(
+        article, execution, config_obj, _two_windows_groups_extraction(), side_effect=_execution_3898_side_effect()
+    )
+    rules = {r["title"]: r for r in result["sigma_rules"]}
+    assert "Node.js Staged Payload Execution from AppData by WScript" in rules, list(rules)
+    rehomed = rules["Node.js Staged Payload Execution from AppData by WScript"]
+    assert rehomed["telemetry_category"] == "process_creation"
+    assert rehomed["logsource_hint"] == {"product": "windows", "category": "process_creation"}
+    assert rehomed["sigma_generation_group"]["telemetry_category"] == "process_creation"
+    assert rehomed["sigma_generation_group"]["rehomed_from"] == {
+        "platform": "windows",
+        "telemetry_category": "network_connection",
+    }
+    summaries = {g["telemetry_category"]: g for g in execution.error_log["generate_sigma"]["sigma_generation_groups"]}
+    assert summaries["network_connection"]["dropped_rules"] == 0
+    assert summaries["network_connection"]["rehomed_rules"] == 1
+
+
+@pytest.mark.asyncio
+async def test_rule_matching_no_group_is_still_dropped(article, execution, config_obj):
+    async def side_effect(*args, **kwargs):
+        group = kwargs["extraction_result"]["sigma_generation_group"]
+        rules = [
+            _rule(f"{group['telemetry_category']} rule", group["telemetry_category"], {"Image|endswith": "\\x.exe"})
+        ]
+        if group["telemetry_category"] == "network_connection":
+            stray = _rule("Linux Cron Persistence", "process_creation", {"CommandLine|contains": "crontab"})
+            stray["logsource"]["product"] = "linux"
+            rules.append(stray)
+        return {"rules": rules, "metadata": {"total_attempts": 1, "valid_rules": len(rules)}, "errors": None}
+
+    result = await _run_generate_sigma(
+        article, execution, config_obj, _two_windows_groups_extraction(), side_effect=side_effect
+    )
+    assert "Linux Cron Persistence" not in {r["title"] for r in result["sigma_rules"]}
+    summaries = {g["telemetry_category"]: g for g in execution.error_log["generate_sigma"]["sigma_generation_groups"]}
+    assert summaries["network_connection"]["dropped_rules"] == 1
+    assert summaries["network_connection"]["rehomed_rules"] == 0
+
+
+def test_find_rehome_group_uses_execution_3898_groups():
+    from src.workflows.agentic_workflow import _find_rehome_group
+
+    process_group = {
+        "platform": "windows",
+        "telemetry_category": "process_creation",
+        "logsource_hint": {"product": "windows", "category": "process_creation"},
+        "original_indices": [0, 1, 2, 3, 4],
+    }
+    network_group = {
+        "platform": "windows",
+        "telemetry_category": "network_connection",
+        "logsource_hint": {"product": "windows", "category": "network_connection"},
+        "original_indices": [7, 8, 9, 10, 11, 12, 13, 14],
+    }
+    node_rule = {
+        "title": "Node.js Staged Payload Execution from AppData by WScript",
+        "logsource": {"category": "process_creation", "product": "windows"},
+    }
+    winrm_rule = {
+        "title": "PowerShell WinRM Connection",
+        "logsource": {"category": "network_connection", "product": "windows"},
+    }
+    linux_rule = {"title": "Cron", "logsource": {"category": "process_creation", "product": "linux"}}
+    groups = [process_group, network_group]
+    assert _find_rehome_group(node_rule, network_group, groups) is process_group
+    assert _find_rehome_group(winrm_rule, network_group, groups) is network_group
+    assert _find_rehome_group(linux_rule, network_group, groups) is None
