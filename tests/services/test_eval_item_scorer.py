@@ -182,15 +182,14 @@ def test_registry_hive_abbreviation_canonicalizes_across_forms():
 
 @pytest.mark.unit
 def test_registry_structured_item_scores_against_path_ground_truth():
-    """The regression: the item's `value` is a stringified dict that must be
-    ignored; identity is built from registry_hive + registry_key_path."""
+    """Identity is built from the contract's `key` field (registry-extract.md);
+    `value` is a same-valued duplicate per the contract, not a stringified dict."""
     expected = ["HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest"]
     actual = [
         {
-            "value": "{'registry_hive': 'HKEY_LOCAL_MACHINE', 'registry_key_path': 'SYSTEM\\\\...'}",
-            "registry_hive": "HKEY_LOCAL_MACHINE",
-            "registry_key_path": "SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest",
-            "registry_value_name": None,
+            "key": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest",
+            "value": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest",
+            "value_name": None,
         }
     ]
     result = score_items(expected, actual, subagent_name="registry_artifacts")
@@ -200,13 +199,12 @@ def test_registry_structured_item_scores_against_path_ground_truth():
 
 
 @pytest.mark.unit
-def test_registry_stringified_value_dict_never_false_matches_without_subagent():
-    """Without agent-aware identity the stringified dict cannot match a clean
-    GT path -- documents the pre-fix failure mode as a guard."""
+def test_registry_missing_key_never_false_matches_on_garbage_value():
+    """When `key` is absent, `value` is used as a fallback candidate; garbage
+    content there must not falsely match a clean GT path."""
     expected = ["HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest"]
     actual = [{"value": "{'registry_hive': 'HKEY_LOCAL_MACHINE', 'registry_key_path': 'SYSTEM\\\\...'}"}]
     result = score_items(expected, actual, subagent_name="registry_artifacts")
-    # The item has no structured fields, so it yields no candidate -> missed, not a false match.
     assert result.matched_count == 0
     assert result.missed_count == 1
 
@@ -216,9 +214,8 @@ def test_registry_value_name_candidate_matches_gt_with_trailing_value():
     expected = ["HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\App"]
     actual = [
         {
-            "registry_hive": "HKCU",
-            "registry_key_path": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
-            "registry_value_name": "App",
+            "key": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+            "value_name": "App",
         }
     ]
     result = score_items(expected, actual, subagent_name="registry_artifacts")
@@ -281,7 +278,9 @@ def test_hunt_queries_match_on_query_field():
 def test_item_candidates_ignore_generic_value_for_structured_agents():
     stringified = {"value": "{'service_name': 'X'}"}
     assert item_candidates("windows_services", stringified) == []
-    assert item_candidates("registry_artifacts", {"value": "{'registry_hive': 'HKLM'}"}) == []
+    # registry_artifacts is the exception: per the contract, `value` duplicates
+    # `key`, so it is a legitimate fallback candidate when `key` is absent.
+    assert item_candidates("registry_artifacts", {"value": "HKLM\\SOFTWARE\\X"}) == ["HKLM\\SOFTWARE\\X"]
 
 
 @pytest.mark.unit
