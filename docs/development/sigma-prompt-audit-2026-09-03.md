@@ -169,6 +169,12 @@ fresh `POST /api/workflow/articles/{id}/trigger?force=true` snapshots the curren
   raw-text record as a persona because of the sibling `model` key, so the template went out
   twice (unformatted as system, formatted as user) and three rules came back with
   `author: '{author}'`. Fixed in the parser; all three runs today were on the doubled prompt.
+- Defect found (pipeline, not prompt; execution 3900): the LMStudio context-window truncation ran
+  for every provider because the workflow passes `ai_model="lmstudio"` as a placeholder, cutting
+  the user prompt at 12,000 characters and removing the tail of the standard on every workflow
+  run in the log. The earlier runs only complied because the persona bug had smuggled the whole
+  template in as the system message. Fixed: cap keyed on the resolved provider; local models trim
+  article content, never instructions. Open: the 13.5k template exceeds the local budgets.
 - Behaviour to watch (pipeline, not prompt): 5 rules generated, 2 queued. The wscript -> node.exe
   rule, arguably the best detection in the article, was emitted only inside the
   `network_connection` group's call (observables 5-6 belonged to no eligible group, and the new

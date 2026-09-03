@@ -615,9 +615,9 @@ level: low
             mock_optimize.return_value = {"success": True, "filtered_content": long_content, "tokens_saved": 0}
 
             with patch("src.utils.prompt_loader.format_prompt_async") as mock_prompt:
-                # Return a prompt longer than context window
-                long_prompt = "Generate rule: " + long_content
-                mock_prompt.return_value = long_prompt
+                # A prompt builder that embeds the article content, so trimming the content
+                # (the current contract) shrinks the prompt; a fixed return value could not.
+                mock_prompt.side_effect = lambda _name, **kwargs: "Generate rule: " + kwargs["content"]
 
                 with patch.object(service, "_call_provider_for_sigma") as mock_call:
                     mock_call.return_value = "title: Test\nid: test\n"
@@ -639,11 +639,13 @@ level: low
                             ai_model="lmstudio",
                         )
 
-                        # Verify prompt was truncated (check that truncation message is in prompt)
+                        # The article content is trimmed so the rebuilt prompt fits the 7b
+                        # budget (12000 chars); the instructions are never cut.
                         call_args = mock_call.call_args
                         prompt_passed = call_args[0][0] if call_args else ""
-                        # Prompt should be truncated for 7b model (12000 chars max)
-                        assert len(prompt_passed) <= 12000 or "[Prompt truncated" in prompt_passed
+                        assert len(prompt_passed) <= 12000
+                        assert "[Article content truncated" in prompt_passed
+                        assert "[Prompt truncated" not in prompt_passed
 
     @pytest.mark.asyncio
     async def test_generate_sigma_rules_validation_error(self, service, sample_article_data):
@@ -2490,3 +2492,57 @@ def test_platform_sigma_guidance_empty_for_non_linux():
     assert _platform_sigma_guidance({"sigma_generation_group": {"platform": "macos"}}) == ""
     assert _platform_sigma_guidance({}) == ""
     assert _platform_sigma_guidance(None) == ""
+
+
+class TestPromptTruncationFollowsResolvedProvider:
+    """The workflow passes ai_model="lmstudio" as a placeholder and lets config_models resolve the
+    real provider, but the context-window truncation keyed on that placeholder, so every workflow
+    run on Codex/OpenAI/Anthropic cut the user prompt at 8-12k characters. With the 13.5k
+    generation template and a normal article the tail of the standard (metadata, output format,
+    final check) never reached the model (execution 3900, 2026-09-03). When truncation is needed
+    for a real local model it must trim the article content, not the instructions.
+    """
+
+    @staticmethod
+    def _service(provider: str, lmstudio_model: str = "qwen/qwen3-8b"):
+        llm = Mock()
+        llm.provider_sigma = provider
+        llm.lmstudio_model = lmstudio_model
+        llm._canonicalize_provider = Mock(side_effect=lambda p: p)
+        with patch("src.services.sigma_generation_service.LLMService", return_value=llm):
+            return SigmaGenerationService()
+
+    @staticmethod
+    async def _captured_prompt(service, content: str) -> str:
+        with patch("src.services.sigma_generation_service.optimize_article_content") as mock_optimize:
+            mock_optimize.return_value = {"success": True, "filtered_content": content, "tokens_saved": 0}
+            with patch.object(service, "_call_provider_for_sigma", new=AsyncMock(return_value="")) as mock_call:
+                await service.generate_sigma_rules(
+                    article_title="Long article",
+                    article_content=content,
+                    source_name="Source",
+                    url="https://example.com/report",
+                    ai_model="lmstudio",  # workflow placeholder; provider comes from config
+                    enable_multi_rule_expansion=False,
+                )
+        return mock_call.call_args.args[0]
+
+    @pytest.mark.asyncio
+    async def test_cloud_provider_gets_the_whole_prompt(self):
+        service = self._service("codex")
+        prompt = await self._captured_prompt(service, "Article body line.\n" * 1500)  # ~28k chars
+        assert "FINAL CHECK" in prompt
+        assert "[Prompt truncated" not in prompt
+        assert len(prompt) > 20000
+
+    @pytest.mark.asyncio
+    async def test_local_model_trims_article_content_not_instructions(self):
+        service = self._service("lmstudio", lmstudio_model="qwen/qwen3-8b")
+        prompt = await self._captured_prompt(service, "Article body line.\n" * 1500)
+        # The 13.5k template alone exceeds the 12k local budget, so the content is trimmed to
+        # (almost) nothing and the instructions are kept whole; the prompt is never cut mid-template.
+        assert prompt.count("Article body line.") <= 1
+        assert "FINAL CHECK" in prompt, "instructions must survive truncation"
+        assert "observables_used" in prompt
+        assert "[Article content truncated" in prompt
+        assert "[Prompt truncated" not in prompt

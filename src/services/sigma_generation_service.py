@@ -510,97 +510,102 @@ class SigmaGenerationService:
 
             # Load SIGMA generation prompt (async to avoid blocking)
             # Use provided template from database if available, otherwise load from file
-            sigma_prompt = None
-            if sigma_prompt_template:
-                # Format the database prompt template with article data
-                try:
-                    sigma_prompt = sigma_prompt_template.format(
-                        title=article_title,
-                        source=source_name,
-                        url=url or "N/A",
-                        content=content_to_analyze,
-                        observables_section=observables_section,
-                        date=_sigma_rule_date(),
-                        author=SIGMA_RULE_AUTHOR,
-                    )
-                    logger.info(f"Using database prompt template for SIGMA generation (len={len(sigma_prompt)} chars)")
-                except (KeyError, AttributeError, ValueError) as e:
-                    logger.warning(f"Database prompt template formatting failed ({e}), falling back to file")
-                    sigma_prompt = None  # Ensure it's None so we fall through to file loading
+            from src.utils.prompt_loader import format_prompt_async
 
-            if not sigma_prompt:
-                # Fallback to file-based prompt (use new multi-rule prompt, fallback to old for compatibility)
-                from src.utils.prompt_loader import format_prompt_async
-
-                try:
-                    sigma_prompt = await format_prompt_async(
-                        "sigma_generate_multi",
-                        title=article_title,
-                        source=source_name,
-                        url=url or "N/A",
-                        content=content_to_analyze,
-                        observables_section=observables_section,
-                        date=_sigma_rule_date(),
-                        author=SIGMA_RULE_AUTHOR,
-                    )
-                    if sigma_prompt and isinstance(sigma_prompt, str):
-                        logger.info(
-                            f"Using file-based multi-rule prompt for SIGMA generation (len={len(sigma_prompt)} chars)"
+            async def build_prompt(content_text: str) -> str:
+                sigma_prompt: str | None = None
+                if sigma_prompt_template:
+                    # Format the database prompt template with article data
+                    try:
+                        sigma_prompt = sigma_prompt_template.format(
+                            title=article_title,
+                            source=source_name,
+                            url=url or "N/A",
+                            content=content_text,
+                            observables_section=observables_section,
+                            date=_sigma_rule_date(),
+                            author=SIGMA_RULE_AUTHOR,
                         )
-                except Exception as e:
-                    # Fallback to old prompt for backward compatibility
-                    logger.warning(f"Failed to load sigma_generate_multi prompt, falling back to sigma_generation: {e}")
-                    sigma_prompt = await format_prompt_async(
-                        "sigma_generation",
-                        title=article_title,
-                        source=source_name,
-                        url=url or "N/A",
-                        content=content_to_analyze,
-                        observables_section=observables_section,
-                        date=_sigma_rule_date(),
-                        author=SIGMA_RULE_AUTHOR,
-                    )
-                    if sigma_prompt and isinstance(sigma_prompt, str):
-                        logger.info(f"Using file-based prompt for SIGMA generation (len={len(sigma_prompt)} chars)")
+                        logger.info(
+                            f"Using database prompt template for SIGMA generation (len={len(sigma_prompt)} chars)"
+                        )
+                    except (KeyError, AttributeError, ValueError) as e:
+                        logger.warning(f"Database prompt template formatting failed ({e}), falling back to file")
+                        sigma_prompt = None  # Ensure it's None so we fall through to file loading
 
-            # Ensure we have a valid prompt
-            if not sigma_prompt or not isinstance(sigma_prompt, str):
-                raise ValueError("Failed to load SIGMA generation prompt from both database and file")
+                if not sigma_prompt:
+                    # Fallback to file-based prompt (use new multi-rule prompt, fallback to old for compatibility)
+                    try:
+                        sigma_prompt = await format_prompt_async(
+                            "sigma_generate_multi",
+                            title=article_title,
+                            source=source_name,
+                            url=url or "N/A",
+                            content=content_text,
+                            observables_section=observables_section,
+                            date=_sigma_rule_date(),
+                            author=SIGMA_RULE_AUTHOR,
+                        )
+                        if sigma_prompt and isinstance(sigma_prompt, str):
+                            logger.info(
+                                f"Using file-based multi-rule prompt for SIGMA generation (len={len(sigma_prompt)} chars)"
+                            )
+                    except Exception as e:
+                        # Fallback to old prompt for backward compatibility
+                        logger.warning(
+                            f"Failed to load sigma_generate_multi prompt, falling back to sigma_generation: {e}"
+                        )
+                        sigma_prompt = await format_prompt_async(
+                            "sigma_generation",
+                            title=article_title,
+                            source=source_name,
+                            url=url or "N/A",
+                            content=content_text,
+                            observables_section=observables_section,
+                            date=_sigma_rule_date(),
+                            author=SIGMA_RULE_AUTHOR,
+                        )
+                        if sigma_prompt and isinstance(sigma_prompt, str):
+                            logger.info(f"Using file-based prompt for SIGMA generation (len={len(sigma_prompt)} chars)")
 
-            # Append observables section only if the template did not already substitute it via {observables_section}
-            if observables_section and observables_section.strip():
-                if not sigma_prompt_template or "{observables_section}" not in sigma_prompt_template:
-                    sigma_prompt = sigma_prompt.rstrip() + "\n\n" + observables_section.strip()
+                # Ensure we have a valid prompt
+                if not sigma_prompt or not isinstance(sigma_prompt, str):
+                    raise ValueError("Failed to load SIGMA generation prompt from both database and file")
 
-            # Platform-aware guidance for the per-platform/logsource group (e.g. Linux).
-            platform_guidance = _platform_sigma_guidance(extraction_result)
-            if platform_guidance:
-                sigma_prompt = sigma_prompt.rstrip() + platform_guidance
+                # Append observables section only if the template did not already substitute it via {observables_section}
+                if observables_section and observables_section.strip():
+                    if not sigma_prompt_template or "{observables_section}" not in sigma_prompt_template:
+                        sigma_prompt = sigma_prompt.rstrip() + "\n\n" + observables_section.strip()
 
-            category_guidance = _category_sigma_guidance(extraction_result)
-            if category_guidance:
-                sigma_prompt = sigma_prompt.rstrip() + category_guidance
+                # Platform-aware guidance for the per-platform/logsource group (e.g. Linux).
+                platform_guidance = _platform_sigma_guidance(extraction_result)
+                if platform_guidance:
+                    sigma_prompt = sigma_prompt.rstrip() + platform_guidance
 
-            # Handle context window limits for LMStudio
-            if ai_model == "lmstudio":
-                lmstudio_model_name = self.llm_service.lmstudio_model
-                if not lmstudio_model_name or not isinstance(lmstudio_model_name, str):
+                category_guidance = _category_sigma_guidance(extraction_result)
+                if category_guidance:
+                    sigma_prompt = sigma_prompt.rstrip() + category_guidance
+                return sigma_prompt
+
+            sigma_prompt = await build_prompt(content_to_analyze)
+
+            # Context-window limits apply to local LMStudio models only. The workflow passes
+            # ai_model="lmstudio" as a placeholder and lets config_models pick the provider, so
+            # the decision keys on the resolved provider, not the argument. When trimming is
+            # needed, trim the article content and rebuild: cutting the composed prompt removed
+            # the tail of the template (metadata, output format, final check) on every run.
+            if self._resolve_sigma_provider(ai_model) == "lmstudio":
+                max_prompt_chars = self._lmstudio_max_prompt_chars()
+                overflow = len(sigma_prompt) - max_prompt_chars
+                if overflow > 0:
+                    marker = "\n\n[Article content truncated to fit model context window]"
+                    keep = max(0, len(content_to_analyze) - overflow - len(marker))
                     logger.warning(
-                        f"lmstudio_model is None or not a string: {lmstudio_model_name}, using default context window"
+                        f"Trimming article content from {len(content_to_analyze)} to {keep} chars so the "
+                        f"prompt fits the {max_prompt_chars}-char LMStudio budget"
                     )
-                    max_prompt_chars = 8000
-                elif "8b" in lmstudio_model_name.lower() or "7b" in lmstudio_model_name.lower():
-                    max_prompt_chars = 12000
-                elif "3b" in lmstudio_model_name.lower():
-                    max_prompt_chars = 9000
-                else:
-                    max_prompt_chars = 8000
-
-                if len(sigma_prompt) > max_prompt_chars:
-                    logger.warning(f"Truncating prompt from {len(sigma_prompt)} to {max_prompt_chars} chars")
-                    sigma_prompt = (
-                        sigma_prompt[:max_prompt_chars] + "\n\n[Prompt truncated to fit model context window]"
-                    )
+                    content_to_analyze = content_to_analyze[:keep] + marker
+                    sigma_prompt = await build_prompt(content_to_analyze)
 
             # Phase 1: Multi-rule generation (structurally constrained)
             logger.info("Phase 1: Multi-rule generation")
@@ -834,6 +839,33 @@ class SigmaGenerationService:
             logger.error(f"Error generating SIGMA rules: {e}")
             return {"rules": [], "metadata": {}, "errors": str(e)}
 
+    def _resolve_sigma_provider(self, ai_model: str) -> str:
+        """The provider a generation call will really use.
+
+        ``ai_model`` is a caller hint; "lmstudio" is also the workflow's placeholder meaning
+        "use the configured provider", so it never overrides ``provider_sigma``.
+        """
+        sigma_provider = self.llm_service.provider_sigma
+        requested_provider = self.llm_service._canonicalize_provider(ai_model)
+        if ai_model and ai_model != "lmstudio" and requested_provider != "lmstudio":
+            sigma_provider = requested_provider
+        return sigma_provider
+
+    def _lmstudio_max_prompt_chars(self) -> int:
+        """Character budget for the user prompt on the configured local model."""
+        lmstudio_model_name = self.llm_service.lmstudio_model
+        if not lmstudio_model_name or not isinstance(lmstudio_model_name, str):
+            logger.warning(
+                f"lmstudio_model is None or not a string: {lmstudio_model_name}, using default context window"
+            )
+            return 8000
+        name = lmstudio_model_name.lower()
+        if "8b" in name or "7b" in name:
+            return 12000
+        if "3b" in name:
+            return 9000
+        return 8000
+
     async def _generate_multi_rules(
         self,
         sigma_prompt: str,
@@ -844,10 +876,7 @@ class SigmaGenerationService:
     ) -> str:
         """Phase 1: Generate multi-rule YAML with structural constraints."""
         # Call LLM API
-        sigma_provider = self.llm_service.provider_sigma
-        requested_provider = self.llm_service._canonicalize_provider(ai_model)
-        if ai_model and ai_model != "lmstudio" and requested_provider != "lmstudio":
-            sigma_provider = requested_provider
+        sigma_provider = self._resolve_sigma_provider(ai_model)
 
         sigma_response = await self._call_provider_for_sigma(
             sigma_prompt,
