@@ -283,8 +283,8 @@ Feature work lands on the release branch — the `europa-*` line (currently `eur
 # On the release branch (europa-*, e.g. europa-dev), working tree clean:
 scripts/release_cut.py 7.1.0 "Codename" --summary "<one-line>"
 
-scripts/release_unlock.sh              # remove protection
-git push origin europa-dev             # push release branch; open PR -> main
+scripts/release_unlock.sh              # drop read-only lock; required CI checks stay in force
+git push origin europa-dev             # push release branch; open PR -> main (merges only when green)
 git push origin v7.1.0                 # triggers release.yml
 scripts/release_lock.sh                # restore read-only lock
 ```
