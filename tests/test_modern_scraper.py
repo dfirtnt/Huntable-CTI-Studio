@@ -434,6 +434,87 @@ class TestStructuredDataExtractorDateFallback:
         article = StructuredDataExtractor.find_article_jsonld(structured)
         assert article is not None
 
+    def test_find_article_jsonld_matches_techarticle_type(self):
+        """@type 'TechArticle' (common on security-research sites) is recognised as an article block."""
+        structured = {"json-ld": [{"@type": "TechArticle", "headline": "E", "datePublished": "2025-04-01"}]}
+        article = StructuredDataExtractor.find_article_jsonld(structured)
+        assert article is not None
+        assert article["@type"] == "TechArticle"
+
+    @pytest.mark.parametrize("item_type", ["ScholarlyArticle", "Report"])
+    def test_find_article_jsonld_matches_other_article_types(self, item_type):
+        structured = {"json-ld": [{"@type": item_type, "headline": "F"}]}
+        assert StructuredDataExtractor.find_article_jsonld(structured) is not None
+
+    # ------------------------------------------------------------------
+    # multi-block preference (The Hunter's Ledger shape, 2026-09-02)
+    # ------------------------------------------------------------------
+
+    def test_find_article_jsonld_prefers_block_with_author(self):
+        """BlogPosting without author followed by TechArticle with author -> the TechArticle wins."""
+        structured = {
+            "json-ld": [
+                {"@type": "BlogPosting", "headline": "CloudSync Assembler Toolkit", "datePublished": "2026-09-01"},
+                {
+                    "@type": "TechArticle",
+                    "headline": "CloudSync Assembler Toolkit",
+                    "author": {"@type": "Person", "name": "Joseph Harrison"},
+                },
+            ]
+        }
+        article = StructuredDataExtractor.find_article_jsonld(structured)
+        assert article is not None
+        assert article["@type"] == "TechArticle"
+        assert StructuredDataExtractor.extract_from_jsonld(article)["authors"] == ["Joseph Harrison"]
+
+    def test_find_article_jsonld_author_preference_is_order_independent(self):
+        """The authored block wins even when it comes first."""
+        structured = {
+            "json-ld": [
+                {"@type": "TechArticle", "headline": "X", "author": "Jane Analyst"},
+                {"@type": "BlogPosting", "headline": "X", "articleBody": "body"},
+            ]
+        }
+        assert StructuredDataExtractor.find_article_jsonld(structured)["@type"] == "TechArticle"
+
+    def test_find_article_jsonld_prefers_article_body_when_no_author(self):
+        structured = {
+            "json-ld": [
+                {"@type": "BlogPosting", "headline": "Y"},
+                {"@type": "Article", "headline": "Y", "articleBody": "full text"},
+            ]
+        }
+        assert StructuredDataExtractor.find_article_jsonld(structured)["@type"] == "Article"
+
+    def test_find_article_jsonld_falls_back_to_document_order(self):
+        """No author and no body anywhere -> first article-typed block, as before."""
+        structured = {
+            "json-ld": [
+                {"@type": "Person", "name": "Someone"},
+                {"@type": "BlogPosting", "headline": "first"},
+                {"@type": "NewsArticle", "headline": "second"},
+            ]
+        }
+        assert StructuredDataExtractor.find_article_jsonld(structured)["headline"] == "first"
+
+    @pytest.mark.parametrize("empty_author", [[], {}, "", {"@type": "Person"}, [{"@type": "Organization"}]])
+    def test_find_article_jsonld_empty_author_does_not_count(self, empty_author):
+        """An author field with no usable name must not outrank a block that has one."""
+        structured = {
+            "json-ld": [
+                {"@type": "BlogPosting", "headline": "Z", "author": empty_author},
+                {"@type": "TechArticle", "headline": "Z", "author": {"name": "Real Author"}},
+            ]
+        }
+        assert StructuredDataExtractor.find_article_jsonld(structured)["@type"] == "TechArticle"
+
+    def test_find_article_jsonld_single_block_without_author_unchanged(self):
+        """Single-block pages behave exactly as before: the lone article block is returned."""
+        structured = {"json-ld": [{"@type": "BlogPosting", "headline": "solo"}, {"@type": "WebPage"}]}
+        article = StructuredDataExtractor.find_article_jsonld(structured)
+        assert article is not None
+        assert article["headline"] == "solo"
+
     # ------------------------------------------------------------------
     # extract_from_jsonld date field logic
     # ------------------------------------------------------------------
