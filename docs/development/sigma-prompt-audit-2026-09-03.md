@@ -18,7 +18,7 @@ rules repository's blocking and advisory configs against probe rules, not inferr
 |---|---|---|
 | Generation (DB record is persona-only, the canonical save shape) | persona from DB, else `DEFAULT_SIGMA_SYSTEM_PROMPT` | `src/prompts/sigma_generate_multi.txt` |
 | Generation (quickstart preset applied) | the preset's long strategy text (the whole rule standard on this path) | the preset's short `user` scaffold ("Threat Intel Input: ... Generate all applicable rules now."); `parse_sigma_agent_prompt_data` extracts it and it formats cleanly, so the file is not used |
-| Generation (raw-text DB record, what `reset-to-defaults` / `bootstrap` write) | `DEFAULT_SIGMA_SYSTEM_PROMPT` | the DB text itself, formatted directly (seeded from `sigma_generation.txt`) |
+| Generation (raw-text DB record, what `reset-to-defaults` / `bootstrap` write) | `DEFAULT_SIGMA_SYSTEM_PROMPT` (before the 2026-09-03 parser fix: the raw template itself, unformatted, on top of the user message) | the DB text itself, formatted directly (seeded from `sigma_generation.txt`) |
 | Generation repair | same as generation | `sigma_repair_single.txt` (or the DB `SigmaRepair` record) |
 | Queue validate, attempt 1 | inline literal in `sigma_queue.py` | inline f-string in `sigma_queue.py` (now `sigma_validate_single.txt`) |
 | Queue validate, attempts 2-3 | same | `sigma_repair_single.txt` |
@@ -165,6 +165,10 @@ fresh `POST /api/workflow/articles/{id}/trigger?force=true` snapshots the curren
   article has no Sigma rule; the author-preservation clause was tightened (see CHANGELOG).
 - Defect found (pipeline, not prompt): every queued rule carried `generation_phase`, which the
   rules repo CI would block; fixed in `promote_to_queue`.
+- Defect found (pipeline, not prompt; execution 3899): `parse_sigma_agent_prompt_data` treated the
+  raw-text record as a persona because of the sibling `model` key, so the template went out
+  twice (unformatted as system, formatted as user) and three rules came back with
+  `author: '{author}'`. Fixed in the parser; all three runs today were on the doubled prompt.
 - Behaviour to watch (pipeline, not prompt): 5 rules generated, 2 queued. The wscript -> node.exe
   rule, arguably the best detection in the article, was emitted only inside the
   `network_connection` group's call (observables 5-6 belonged to no eligible group, and the new
