@@ -359,6 +359,17 @@ def test_switching_subagent_discards_late_results_from_previous_subagent(page: P
     replaced the table, so every clickable cell opened a cmdline execution.
     """
     held_cmdline_routes: list = []
+    held_cmdline_model_routes: list = []
+
+    def handle_models(route):
+        if "subagent=cmdline" in route.request.url:
+            held_cmdline_model_routes.append(route)
+            return
+        route.fulfill(
+            status=200,
+            body=json.dumps({"subagent": "hunt_queries", "models": [{"name": "hunt-model", "config_count": 1}]}),
+            headers={"Content-Type": "application/json"},
+        )
 
     def handle_results(route):
         if "subagent=cmdline" in route.request.url:
@@ -373,6 +384,7 @@ def test_switching_subagent_discards_late_results_from_previous_subagent(page: P
         )
 
     page.route("**/api/evaluations/subagent-eval-results**", handle_results)
+    page.route("**/api/evaluations/subagent-eval-models**", handle_models)
     _mock_eval_articles_api(page, [])
     page.route("**/api/evaluations/subagent-eval-aggregate**", _json_route({"aggregates": [], "eval_set_total": 0}))
     page.route("**/api/evaluations/config-versions-models**", _json_route({"models_by_version": {}}))
@@ -387,15 +399,90 @@ def test_switching_subagent_discards_late_results_from_previous_subagent(page: P
 
     page.select_option("#subagentSelect", "hunt_queries")
     expect(page.locator('[data-exec-id="222222"]')).to_have_count(1, timeout=10000)
+    expect(page.locator("#modelFilter option", has_text="hunt-model")).to_have_count(1)
 
-    # Release the stale CommandLine response after the Hunt Queries table is on screen.
+    # Release the stale CommandLine responses after the Hunt Queries table is on screen.
     held_cmdline_routes[0].fulfill(
         status=200,
         body=json.dumps({"subagent": "cmdline", "total": 1, "results": [_eval_row(111111, 1, "cmdline", 5000)]}),
         headers={"Content-Type": "application/json"},
     )
+    for route in held_cmdline_model_routes:
+        route.fulfill(
+            status=200,
+            body=json.dumps({"subagent": "cmdline", "models": [{"name": "cmd-model", "config_count": 1}]}),
+            headers={"Content-Type": "application/json"},
+        )
     page.wait_for_timeout(1500)
 
     assert page.locator("#subagentSelect").input_value() == "hunt_queries"
     expect(page.locator('[data-exec-id="111111"]')).to_have_count(0)
     expect(page.locator('[data-exec-id="222222"]')).to_have_count(1)
+    expect(page.locator("#modelFilter option", has_text="cmd-model")).to_have_count(0)
+    expect(page.locator("#modelFilter option", has_text="hunt-model")).to_have_count(1)
+
+
+_EMPTY_STATE_LABELS = {
+    "cmdline": "No commandlines found",
+    "process_lineage": "No process lineage relationships found",
+    "hunt_queries": "No hunt queries found",
+    "registry_artifacts": "No registry artifacts found",
+    "windows_services": "No Windows services found",
+    "scheduled_tasks": "No scheduled tasks found",
+    "network_indicators": "No network indicators found",
+}
+
+_MODAL_TITLES = {
+    "cmdline": "Extracted Commandlines",
+    "process_lineage": "Extracted Process Lineage",
+    "hunt_queries": "Extracted Hunt Queries",
+    "registry_artifacts": "Extracted Registry Artifacts",
+    "windows_services": "Extracted Windows Services",
+    "scheduled_tasks": "Extracted Scheduled Tasks",
+    "network_indicators": "Extracted Network Indicators",
+}
+
+
+@pytest.mark.ui
+def test_results_modal_empty_state_names_the_extractor(page: Page):
+    """Regression: an empty result for any extractor must not read 'No commandlines found'.
+
+    Only process_lineage and hunt_queries were special-cased, so an empty Windows
+    Services (or registry, scheduled-task, network-indicator) run showed the right
+    title over the wrong sentence.
+    """
+    subagents = list(_EMPTY_STATE_LABELS)
+    exec_ids = {subagent: 900000 + i for i, subagent in enumerate(subagents)}
+    by_exec_id = {str(v): k for k, v in exec_ids.items()}
+
+    def handle(route):
+        exec_id = route.request.url.rsplit("/execution/", 1)[1].split("/", 1)[0]
+        subagent = by_exec_id[exec_id]
+        route.fulfill(
+            status=200,
+            body=json.dumps(
+                {
+                    "execution_id": int(exec_id),
+                    "article_id": 1,
+                    "article_title": "Fixture article",
+                    "article_url": "http://example.test/article",
+                    "commandlines": [],
+                    "count": 0,
+                    "subagent_eval": subagent,
+                    "result_type": subagent,
+                    "warnings": None,
+                    "context_length_exceeded": False,
+                }
+            ),
+            headers={"Content-Type": "application/json"},
+        )
+
+    page.route("**/api/evaluations/execution/*/commandlines", handle)
+    page.goto("http://127.0.0.1:8001/mlops/agent-evals")
+    page.wait_for_load_state("load")
+
+    for subagent in subagents:
+        page.evaluate(f"showCommandlines({exec_ids[subagent]}, 'http://example.test/article', 0)")
+        expect(page.locator("#commandlinesModalTitle")).to_have_text(_MODAL_TITLES[subagent])
+        expect(page.locator("#commandlinesContent")).to_contain_text(_EMPTY_STATE_LABELS[subagent])
+        expect(page.locator("#commandlinesContent")).to_contain_text(f"#{exec_ids[subagent]}")
