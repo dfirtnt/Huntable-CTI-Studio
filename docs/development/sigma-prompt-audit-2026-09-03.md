@@ -27,7 +27,7 @@ rules repository's blocking and advisory configs against probe rules, not inferr
 Consequence: `sigma_generate_multi.txt` is the live generation prompt only on the persona-only and
 file-fallback paths. On the quickstart-preset path the preset's own `system` text is the entire
 standard and its `user` scaffold carries no `{date}`/`{author}` placeholders, so the preset text
-must be corrected in place (follow-up 1); nothing in the file reaches those runs. On a raw-text
+must be corrected in place (follow-up 1, done); nothing in the file reaches those runs. On a raw-text
 DB record (the shape `reset-to-defaults` writes), the DB copy is formatted directly, so the DB
 must be re-seeded after the file changes (follow-up 2). The three copies disagreed before this
 audit (tag format, date format, author, field order).
@@ -143,7 +143,7 @@ Rule standard now originates in generation and is mirrored, not re-invented, dow
 | `src/web/routes/sigma_queue.py` | Validate attempt 1 loads `sigma_validate_single`; validation system prompt is a YAML-only detection-engineering persona that never asks for `observables_used`; enrichment fallback system prompt and default instruction are constants; retry preview cap raised from 500 to 8000 chars. |
 | `src/services/sigma_generation_service.py` | `DEFAULT_SIGMA_SYSTEM_PROMPT` refreshed (instruction boundary, nested mappings); repair preview cap 500 -> 8000 (`REPAIR_RULE_MAX_CHARS`); `_sigma_rule_date()` emits ISO `YYYY-MM-DD`. |
 | `src/web/static/js/workflow/queue.js` | Modal default system prompt replaced by the same short constant as the route; default instruction aligned with d4. |
-| `config/presets/AgentConfigs/quickstart/*.json` (12) | Tactic underscores -> hyphens and `date: YYYY-MM-DD` inside the `SigmaAgent` prompt. The preset network section still teaches non-SigmaHQ field names (see follow-ups). |
+| `config/presets/AgentConfigs/quickstart/*.json` (12) | Tactic underscores -> hyphens and `date: YYYY-MM-DD` inside the `SigmaAgent` prompt; then (follow-up commit) the network block rewritten with SigmaHQ fields and `{author}`/`{date}` added to the user scaffold. |
 | `docs/contracts/sigma-generate.md` | v1.1: hyphenated tactics, all-tactics rule, field-name requirement, author and date corrected, live-file note. |
 | `docs/reference/prompt-mapping-table.md` | Added `sigma_validate_single.txt`; clarified enrichment wiring. |
 | `src/web/templates/workflow.html` | Static content of the `#enrichSystemPrompt` textarea (a third copy of the old 150-line enrichment system prompt, overwritten by JS at runtime) replaced with the short constant. |
@@ -152,10 +152,11 @@ Rule standard now originates in generation and is mirrored, not re-invented, dow
 
 ## Follow-ups
 
-1. Rewrite the network abstraction block inside the 3 preset variants with SigmaHQ field
-   names (the file prompt is fixed; presets still carry `url`/`UserAgent`/`ServerName`
-   examples). Use the `sync-prompt-presets` skill; the variants differ, so apply the delta,
-   not a blind overwrite.
+1. DONE 2026-09-03 (follow-up commit): the network abstraction block inside the 3 preset
+   variants was replaced with a SigmaHQ-field version (proxy `c-uri`/`c-useragent`/`cs-method`,
+   `dns_query`, `network_connection`, `firewall`; about 12k -> 2.5k characters per preset), the
+   REQUIRED FIELDS line now points at the supplied author/date, and every preset's user scaffold
+   carries `- author: {author}` / `- date: {date}` so the service's kwargs reach the model.
 2. Reset the saved enrichment prompt version on the running instance (E7) and any customised
    `SigmaAgent` persona in the DB; both keep their old text until reset (Settings -> Workflow
    Config, and the enrichment modal's saved-prompt history).
