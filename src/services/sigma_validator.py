@@ -51,8 +51,37 @@ SIGMA_GROUNDING_METADATA_FIELDS: frozenset[str] = frozenset(
         "sigma_generation_group",
         "observable_attribution",
         "observable_attribution_warnings",
+        "generation_phase",
     }
 )
+
+# Canonical SigmaHQ field order for rules the pipeline publishes; unknown keys keep their
+# relative order after these.
+SIGMA_CANONICAL_FIELD_ORDER: tuple[str, ...] = (
+    "title",
+    "id",
+    "status",
+    "description",
+    "references",
+    "author",
+    "date",
+    "modified",
+    "tags",
+    "logsource",
+    "detection",
+    "fields",
+    "falsepositives",
+    "level",
+)
+
+
+def canonical_sigma_rule_dict(rule: dict[str, Any]) -> dict[str, Any]:
+    """Drop pipeline grounding keys and order the rest the way SigmaHQ rules are written."""
+    ordered = {key: rule[key] for key in SIGMA_CANONICAL_FIELD_ORDER if key in rule}
+    for key, value in rule.items():
+        if key not in ordered and key not in SIGMA_GROUNDING_METADATA_FIELDS:
+            ordered[key] = value
+    return ordered
 
 
 class ValidationError(Exception):

@@ -158,3 +158,43 @@ def test_layer_degrades_loudly_when_plugin_missing(monkeypatch):
         assert "unavailable" in result.metadata["sigmahq"]["reason"]
     finally:
         sv._load_sigmahq_blocking_config.cache_clear()
+
+
+def test_canonical_sigma_rule_dict_strips_pipeline_keys_and_orders_fields():
+    from src.services.sigma_validator import canonical_sigma_rule_dict
+
+    rule = {
+        "title": "T",
+        "description": "Detects x",
+        "id": "5f3c9a7e-1b2d-4c8e-9f0a-6d7e8b9c0a1b",
+        "tags": ["attack.execution"],
+        "level": "medium",
+        "status": "experimental",
+        "logsource": {"category": "process_creation", "product": "windows"},
+        "detection": {"selection": {"Image|endswith": "\\x.exe"}, "condition": "selection"},
+        "generation_phase": "generation",
+        "observables_used": [0],
+        "observable_attribution": "grounded",
+        "author": "Huntable CTI Studio",
+        "date": "2026-09-03",
+        "references": ["https://example.com"],
+        "falsepositives": ["Admin tooling"],
+        "custom_extra": "kept but last",
+    }
+    out = canonical_sigma_rule_dict(rule)
+    assert list(out) == [
+        "title",
+        "id",
+        "status",
+        "description",
+        "references",
+        "author",
+        "date",
+        "tags",
+        "logsource",
+        "detection",
+        "falsepositives",
+        "level",
+        "custom_extra",
+    ]
+    assert "generation_phase" not in out and "observables_used" not in out

@@ -108,7 +108,7 @@ METADATA
 - status: experimental
 - description: one or two sentences starting with "Detects", stating what fires and why it matters to an analyst.
 - references: the article URL when available.
-- author: {author}. AUTHOR PRESERVATION: if the article contains a verbatim Sigma rule with a non-blank author, reproduce that author exactly instead.
+- author: {author}, always, unless the article itself contains a complete Sigma rule in YAML (its own title, logsource and detection) whose author field is non-blank; only then reproduce that rule's author exactly. The article's author, publisher, blog or vendor name is never the rule author.
 - date: {date} (YYYY-MM-DD)
 - observables_used: 0-based indices of the observables that directly informed the detection; `[]` only when the rule is grounded purely in article text. The pipeline strips this field before publication. Always the last field.
 

@@ -150,6 +150,29 @@ Rule standard now originates in generation and is mirrored, not re-invented, dow
 | `src/web/routes/ai.py` | Rule export `date` now ISO `YYYY-MM-DD` (was the last writer of the slash format). |
 | `docs/features/sigma-rules.md` | Repair prompt receives the rule up to 8,000 characters, not 500. |
 
+## First live run on the new prompt (execution 3898, 2026-09-03, Codex gpt-5.6-terra)
+
+Same article as the morning's execution 3895 (old prompt, 6 queued rules). A `retry` reuses the
+original execution's config snapshot, so execution 3897 silently re-ran the OLD prompt; only a
+fresh `POST /api/workflow/articles/{id}/trigger?force=true` snapshots the current config.
+
+- Model compliance: every rule carried tactic + technique tags (3895: 5 of 6 technique-only),
+  `|windash` on the `/domain` flag, `all of selection_*` conditions, `level: medium`,
+  descriptions starting with "Detects", concrete false positives, ISO dates. The generic
+  single-token rules the old prompt produced (net session, net use, msiexec /qn) were not
+  emitted, as the negative scope intends.
+- Defect found: `author: Microsoft Security Blog - Defender` in 2 of 3 calls although the
+  article has no Sigma rule; the author-preservation clause was tightened (see CHANGELOG).
+- Defect found (pipeline, not prompt): every queued rule carried `generation_phase`, which the
+  rules repo CI would block; fixed in `promote_to_queue`.
+- Behaviour to watch (pipeline, not prompt): 5 rules generated, 2 queued. The wscript -> node.exe
+  rule, arguably the best detection in the article, was emitted only inside the
+  `network_connection` group's call (observables 5-6 belonged to no eligible group, and the new
+  prompt tells the model the group's observables are authoritative), so
+  `_rule_logsource_matches_group` dropped it as out-of-class instead of re-homing it to the
+  `process_creation` group. Under the old prompt the same rule came out of the process_creation
+  call. Consider re-homing out-of-class rules whose logsource matches another group.
+
 ## Follow-ups
 
 1. DONE 2026-09-03 (follow-up commit): the network abstraction block inside the 3 preset

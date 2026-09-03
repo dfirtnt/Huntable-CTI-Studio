@@ -3195,20 +3195,13 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         rule_max_sim = rule_similarity.get("max_similarity")
 
                         if idx in queueable_indices:
-                            # Strip non-Sigma grounding metadata from rule YAML; keep it in rule_metadata.
-                            non_sigma_metadata_fields = {
-                                "observables_used",
-                                "observables_used_inferred",
-                                "observable_attribution",
-                                "platform",
-                                "telemetry_category",
-                                "generation_basis",
-                                "detection_readiness",
-                                "logsource_hint",
-                                "sigma_generation_group",
-                                "observable_attribution_warnings",
-                            }
-                            rule_for_yaml = {k: v for k, v in rule.items() if k not in non_sigma_metadata_fields}
+                            # Strip non-Sigma grounding metadata from rule YAML (kept in rule_metadata)
+                            # and write the remaining keys in SigmaHQ order. The queue YAML is what
+                            # the PR service commits verbatim, so a leaked pipeline key such as
+                            # generation_phase fails the rules repo's custom-attribute check.
+                            from src.services.sigma_validator import canonical_sigma_rule_dict
+
+                            rule_for_yaml = canonical_sigma_rule_dict(rule)
                             rule_yaml = yaml.dump(rule_for_yaml, default_flow_style=False, sort_keys=False)
 
                             # Guard: confirm the generated YAML round-trips to a dict with required keys.
