@@ -378,6 +378,124 @@ class TestContentCleaner:
         flat2 = " ".join(content_cleaner.html_to_text(titled).split())
         assert "BlogJump" not in flat2
 
+    # ------------------------------------------------------------------
+    # <pre> blocks keep their indentation (Hunter's Ledger detections pages, 2026-09-02)
+    # ------------------------------------------------------------------
+
+    _SIGMA_RULE = (
+        "title: CloudSync Assembler Toolkit Staging\n"
+        "author: The Hunters Ledger\n"
+        "logsource:\n"
+        "    category: process_creation\n"
+        "    product: windows\n"
+        "detection:\n"
+        "    selection:\n"
+        "        CommandLine|contains|all:\n"
+        "            - 'assembler'\n"
+        "            - '--stage'\n"
+        "    condition: selection\n"
+        "level: high\n"
+    )
+
+    def test_clean_html_preserves_indented_sigma_rule_inside_pre(self, content_cleaner):
+        """An indented Sigma rule in <pre><code> round-trips as parseable YAML."""
+        import yaml
+
+        html = (
+            "<html><body><article><p>Detection rule:</p>"
+            f"<pre><code>{self._SIGMA_RULE}</code></pre>"
+            "<p>Deploy it.</p></article></body></html>"
+        )
+
+        text = content_cleaner.clean_html(html)
+
+        start = text.index("title:")
+        end = text.index("level: high") + len("level: high")
+        assert yaml.safe_load(text[start:end]) == yaml.safe_load(self._SIGMA_RULE)
+        assert "    selection:\n        CommandLine|contains|all:\n            - 'assembler'" in text
+        assert text.startswith("Detection rule:\n")
+        assert text.endswith("\nDeploy it.")
+
+    def test_clean_html_prose_outside_pre_is_unchanged(self, content_cleaner):
+        """Prose and inline code keep today's exact normalization (captured before the <pre> change)."""
+        html = (
+            "<html><body><article>\n"
+            "    <h2>Detection   notes</h2>\n"
+            "    <p>Run <code>net   user</code> and then\n"
+            "        review the <em>output</em> carefully.</p>\n"
+            '    <p>Second paragraph with a <a href="#">link</a>.</p>\n'
+            "    <ul><li>alpha</li><li>beta</li></ul>\n"
+            "</article></body></html>"
+        )
+
+        text = content_cleaner.clean_html(html)
+
+        assert text == (
+            "Detection notes\n\nRun net user and then\nreview the output carefully.\n\n"
+            "Second paragraph with a link.\n\nalpha\nbeta"
+        )
+
+    def test_html_to_text_pre_keeps_tabs_and_inner_spans(self, content_cleaner):
+        """Highlighter <span> wrappers add no spaces; tabs inside <pre> survive."""
+        html = (
+            "<pre><span class='k'>detection</span>:\n"
+            "\t<span class='n'>selection</span>:\n"
+            "\t\t<span class='n'>Image</span>|endswith: <span class='s'>'\\\\cmd.exe'</span></pre>"
+        )
+
+        text = content_cleaner.html_to_text(html)
+
+        assert text == "detection:\n\tselection:\n\t\tImage|endswith: '\\\\cmd.exe'"
+
+    def test_html_to_text_pre_with_br_and_div_lines_keeps_indentation(self, content_cleaner):
+        """Line-per-element highlighter markup still breaks lines, without eating indentation."""
+        html_br = "<pre>detection:<br>    selection:<br>        Image: cmd.exe</pre>"
+        html_div = "<pre><div>detection:</div><div>    selection:</div><div>        Image: cmd.exe</div></pre>"
+
+        expected = "detection:\n    selection:\n        Image: cmd.exe"
+        assert content_cleaner.html_to_text(html_br) == expected
+        assert content_cleaner.html_to_text(html_div) == expected
+
+    def test_html_to_text_pre_is_separated_from_surrounding_prose(self, content_cleaner):
+        html = "<p>Before</p><pre>  indented\n    more</pre><p>After</p>"
+
+        text = content_cleaner.html_to_text(html)
+
+        assert text == "Before\n  indented\n    more\nAfter"
+
+    def test_html_to_text_multiple_pre_blocks_restore_in_order(self, content_cleaner):
+        html = "<pre>a:\n    1</pre><p>mid</p><pre>b:\n    2</pre>"
+
+        text = content_cleaner.html_to_text(html)
+
+        assert text == "a:\n    1\nmid\nb:\n    2"
+
+    def test_html_to_text_placeholder_never_leaks(self, content_cleaner):
+        html = "<pre>x</pre><p>literal \x02 0 \x02 in prose</p>"
+
+        text = content_cleaner.html_to_text(html)
+
+        assert "\x02" not in text
+        assert text.startswith("x\n")
+
+    def test_html_to_text_placeholder_shaped_text_with_bad_index_does_not_crash(self, content_cleaner):
+        """A literal placeholder-shaped sequence pointing past the stash must not raise (or fall back to raw HTML)."""
+        html = "<pre>x</pre><p>weird \x0299\x02 token</p>"
+
+        text = content_cleaner.html_to_text(html)
+
+        assert "<p>" not in text
+        assert text.startswith("x\n")
+        assert "weird" in text and "token" in text
+
+    def test_looks_like_html(self):
+        assert ContentCleaner.looks_like_html("<p>hi</p>")
+        assert ContentCleaner.looks_like_html('<div class="x">')
+        assert ContentCleaner.looks_like_html("text<br/>more")
+        assert not ContentCleaner.looks_like_html("detection:\n    selection:\n        a < b and b > c")
+        assert not ContentCleaner.looks_like_html("CommandLine|contains: '<script'")
+        assert not ContentCleaner.looks_like_html("")
+
     def test_normalize_whitespace_keeps_titles_single_line(self):
         """The shared normalize_whitespace stays single-line (used for titles/tags)."""
         assert ContentCleaner.normalize_whitespace("Title\nwith\r\nbreaks") == "Title with breaks"

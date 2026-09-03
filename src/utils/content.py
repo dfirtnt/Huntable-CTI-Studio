@@ -22,6 +22,18 @@ logger = logging.getLogger(__name__)
 # they are folded into real newlines. Never survives into returned text.
 _BLOCK_BREAK = "\x00"
 
+# Wraps the index of a stashed <pre> block during html_to_text() so preformatted
+# text (indented Sigma/YAML/code) bypasses whitespace normalization and is put back
+# verbatim afterwards. Not whitespace, so the normalizer never touches it; stripped
+# by clean_text_characters if it ever leaked, which the restore step prevents.
+_PRE_PLACEHOLDER = "\x02"
+_PRE_PLACEHOLDER_RE = re.compile(rf"{_PRE_PLACEHOLDER}(\d{{1,6}}){_PRE_PLACEHOLDER}")
+
+# Cheap "is this still HTML?" probe for text that already went through the cleaner:
+# an opening/closing tag name followed by whitespace, '>', or '/'. Bounded so it is
+# not a polynomial-regex shape on long inputs.
+_HTML_TAG_RE = re.compile(r"</?[A-Za-z][A-Za-z0-9-]{0,30}(?:\s[^<>]{0,200})?/?>")
+
 # Elements that imply a line break in extracted text. html_to_text() takes no
 # text-node separator, so this list is the sole source of block separation --
 # an element missing here glues to its neighbour. <td>/<th> are handled
@@ -190,6 +202,18 @@ class ContentCleaner:
         return None
 
     @staticmethod
+    def looks_like_html(text: str) -> bool:
+        """True when ``text`` still carries HTML markup.
+
+        Every producer (modern scraper, RSS parser, Playwright scraper) hands the
+        processor text that already went through :meth:`clean_html`. Re-cleaning
+        plain text re-parses it as HTML, and with no ``<pre>`` left to protect it,
+        the whitespace normalizer strips the indentation the first pass preserved.
+        Callers use this probe to skip that redundant second pass.
+        """
+        return bool(text) and _HTML_TAG_RE.search(text) is not None
+
+    @staticmethod
     def clean_html(html: str) -> str:
         """Clean HTML content and extract readable text."""
         # Temporarily disabled readability due to Python 3 compatibility issues
@@ -254,6 +278,31 @@ class ContentCleaner:
 
             soup = BeautifulSoup(html, "lxml")
 
+            # Stash <pre> blocks verbatim before any normalization. Inside <pre>,
+            # whitespace is content: an indented Sigma rule or code sample must come
+            # back with its indentation, otherwise the embedded YAML stops parsing
+            # (The Hunter's Ledger detections pages, 2026-09-02). Block descendants
+            # still break lines via the sentinel so highlighter markup that wraps
+            # each line in a <div> or <br> keeps its line structure, but the fold
+            # here deliberately does NOT eat horizontal whitespace next to the
+            # sentinel the way the prose fold below does.
+            preformatted: list[str] = []
+            for pre in soup.find_all("pre"):
+                if pre.parent is None or pre.find_parent("pre") is not None:
+                    continue
+                for tag in pre.find_all(_BLOCK_LEVEL_TAGS):
+                    tag.insert_before(_BLOCK_BREAK)
+                    tag.insert_after(_BLOCK_BREAK)
+                for tag in pre.find_all(["td", "th"]):
+                    tag.insert_before(" ")
+                    tag.insert_after(" ")
+                block = pre.get_text(separator="", strip=False)
+                block = re.sub(rf"\n?{_BLOCK_BREAK}+\n?", "\n", block)
+                block = block.replace("\r\n", "\n").replace("\r", "\n").strip("\n")
+                pre.clear()
+                pre.append(f"{_PRE_PLACEHOLDER}{len(preformatted)}{_PRE_PLACEHOLDER}")
+                preformatted.append(block)
+
             # Mark block boundaries. Because get_text() below uses no separator,
             # _BLOCK_LEVEL_TAGS is the ONLY source of block separation. Mark BOTH
             # sides: marking only the trailing side leaves the first block in a run
@@ -289,6 +338,13 @@ class ContentCleaner:
             # Clean up whitespace and normalize (preserve block newlines so
             # command-line / multi-line artifacts stay segmentable downstream)
             text = ContentCleaner.normalize_whitespace_keep_newlines(text)
+
+            # Put the preformatted blocks back, untouched by the normalizer.
+            if preformatted:
+                text = _PRE_PLACEHOLDER_RE.sub(
+                    lambda m: preformatted[int(m.group(1))] if int(m.group(1)) < len(preformatted) else m.group(0),
+                    text,
+                )
 
             # Remove non-printable characters
             text = ContentCleaner.clean_text_characters(text)
