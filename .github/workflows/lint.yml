@@ -138,3 +138,49 @@ jobs:
 
       - name: Run vulture
         run: uv run vulture src scripts vulture_whitelist.py --min-confidence 80
+
+  lockfile:
+    name: Lockfile Up To Date
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+
+      - name: Setup Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6
+        with:
+          python-version: '3.12'
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78  # v7
+        with:
+          enable-cache: true
+
+      # Every other job installs with --frozen, which trusts uv.lock as-is and
+      # never checks it against pyproject.toml. A stale lock therefore passes
+      # CI silently. --check fails if re-locking would change the file.
+      - name: Verify uv.lock matches pyproject.toml
+        run: uv lock --check
+
+  paired-surfaces:
+    name: Paired Surfaces
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    # Needs a PR base to diff against; pushes have no meaningful pair boundary.
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+        with:
+          fetch-depth: 0
+
+      # models.py must move with a scripts/migrate_*.py (migrations are never
+      # auto-applied); src/prompts and workflow_config_schema.py must move with
+      # config/presets (the runtime reads presets, not the prompt files).
+      # Escape labels: no-migration-needed, no-preset-sync-needed.
+      - name: Check paired surfaces moved together
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: python3 scripts/check_paired_surfaces.py --base "origin/$BASE_REF" --head HEAD --labels "$PR_LABELS"

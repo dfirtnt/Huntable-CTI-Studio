@@ -90,11 +90,11 @@ confirmation -- it is outside the Autonomy Envelope.
 4. Reset main to the last release tag and force-push:
 
    ```bash
-   scripts/release_unlock.sh
+   scripts/release_unlock.sh --allow-force-push   # plain unlock keeps force-push blocked
    git checkout main
    git reset --hard "$LATEST_TAG"
    git push origin main --force-with-lease
-   scripts/release_lock.sh
+   scripts/release_lock.sh                        # re-blocks force-push
    ```
 
 `--force-with-lease` (not `--force`) refuses the push if someone else has
