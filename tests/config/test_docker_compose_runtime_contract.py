@@ -20,6 +20,8 @@ pytestmark = pytest.mark.unit
 _REPO = Path(__file__).resolve().parent.parent.parent
 _DOCKERFILE = _REPO / "Dockerfile"
 _COMPOSE = _REPO / "docker-compose.yml"
+_DEV2_COMPOSE = _REPO / "docker-compose.dev2.yml"
+_MULTI_INSTANCE_GUIDE = _REPO / "docs" / "development" / "multi-instance.md"
 
 # Every built Compose service and the Dockerfile stage it must target.
 EXPECTED_SERVICE_TARGETS = {
@@ -171,6 +173,24 @@ def test_cli_module_starts_without_browser_imports():
         text=True,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_dev2_postgres_uses_the_shared_init_scripts_directory():
+    """Dev2 must not create a stray `init.sql` directory on first startup."""
+    compose = yaml.safe_load(_DEV2_COMPOSE.read_text())
+    volumes = compose["services"]["postgres"]["volumes"]
+
+    assert "./init-scripts:/docker-entrypoint-initdb.d" in volumes
+    assert not any("init.sql" in volume for volume in volumes)
+
+
+def test_multi_instance_guide_declares_dev2_service_boundaries():
+    """Dev2 intentionally excludes privileged and workflow-specific services."""
+    guide = _MULTI_INSTANCE_GUIDE.read_text()
+
+    assert "intentionally limited" in guide
+    for service in ("workflow_worker", "maintenance", "mcp_http", "codex_auth_init"):
+        assert service in guide
 
 
 class TestDockerSocketBoundary:

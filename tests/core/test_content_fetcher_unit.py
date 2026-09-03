@@ -89,6 +89,21 @@ class TestShouldUsePlaywright:
         assert fetcher._should_use_playwright(source) is False
 
 
+@pytest.mark.asyncio
+async def test_playwright_source_reports_when_browser_dependency_is_unavailable(monkeypatch):
+    fetcher = ContentFetcher()
+    source = _make_source(config={"use_playwright": True})
+    source.rss_url = None
+    monkeypatch.setattr(fetcher, "_playwright_scraper_class", lambda: None)
+
+    async with fetcher:
+        result = await fetcher.fetch_source(source)
+
+    assert result.success is False
+    assert result.method == "playwright_unavailable"
+    assert "Playwright is unavailable" in result.error
+
+
 # -- _has_modern_config -------------------------------------------------------
 
 

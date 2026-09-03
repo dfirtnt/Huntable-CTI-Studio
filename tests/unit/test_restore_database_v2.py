@@ -204,6 +204,43 @@ def test_restore_restarts_containers_after_failure(restore, tmp_path):
     assert len(started) > 0, "Containers were not restarted after restore failure"
 
 
+def test_force_does_not_skip_the_v2_snapshot(restore, tmp_path):
+    """The noninteractive upload restore must still create a rollback snapshot."""
+    import gzip
+
+    sql_gz = tmp_path / "backup.sql.gz"
+    with gzip.open(sql_gz, "wt") as f:
+        f.write("-- PostgreSQL database dump\nSELECT 1;\n")
+
+    with (
+        patch.object(restore, "check_prerequisites", return_value=True),
+        patch.object(restore, "create_database_snapshot", return_value=None) as snapshot,
+        patch("subprocess.run", return_value=_make_ok()),
+    ):
+        result = restore.restore_database(sql_gz, create_snapshot=True, force=True)
+
+    assert result is False
+    snapshot.assert_called_once()
+
+
+def test_no_snapshot_skips_the_v2_snapshot(restore, tmp_path):
+    import gzip
+
+    sql_gz = tmp_path / "backup.sql.gz"
+    with gzip.open(sql_gz, "wt") as f:
+        f.write("-- PostgreSQL database dump\nSELECT 1;\n")
+
+    with (
+        patch.object(restore, "check_prerequisites", return_value=True),
+        patch.object(restore, "create_database_snapshot") as snapshot,
+        patch("subprocess.run", return_value=_make_ok()),
+    ):
+        result = restore.restore_database(sql_gz, create_snapshot=False, force=True)
+
+    assert result is True
+    snapshot.assert_not_called()
+
+
 # ---------------------------------------------------------------------------
 # Silent psql statement-error detection (regression for Todoist 6h682J4fPgRR39X3)
 # ---------------------------------------------------------------------------

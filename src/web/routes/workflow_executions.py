@@ -1503,46 +1503,6 @@ async def trigger_workflow_for_article(
 
             trigger_service = WorkflowTriggerService(db_session)
 
-            # Check for existing active executions BEFORE triggering
-            # Also check for stuck pending executions (older than 5 minutes)
-            from datetime import timedelta
-
-            cutoff_time = datetime.now() - timedelta(minutes=5)
-
-            existing_execution = (
-                db_session.query(AgenticWorkflowExecutionTable)
-                .filter(
-                    AgenticWorkflowExecutionTable.article_id == article_id,
-                    AgenticWorkflowExecutionTable.status.in_(["pending", "running"]),
-                )
-                .first()
-            )
-
-            if existing_execution:
-                # Check if it's a stuck pending execution (older than 5 minutes and never started)
-                if (
-                    existing_execution.status == "pending"
-                    and existing_execution.created_at < cutoff_time
-                    and existing_execution.started_at is None
-                ):
-                    logger.warning(
-                        f"Found stuck pending execution {existing_execution.id} for article {article_id} "
-                        f"(created {existing_execution.created_at}, never started). Marking as failed."
-                    )
-                    existing_execution.status = "failed"
-                    existing_execution.error_message = (
-                        existing_execution.error_message
-                        or f"Execution stuck in pending status for more than 5 minutes (created: {existing_execution.created_at})"
-                    )
-                    existing_execution.completed_at = datetime.now()
-                    db_session.commit()
-                    # Continue to create new execution
-                else:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Article {article_id} already has an active workflow execution (ID: {existing_execution.id})",
-                    )
-
             initiated_by = initiating_actor_metadata(getattr(request.state, "identity", None))
             triggered, fail_detail = trigger_service.trigger_workflow(
                 article_id,

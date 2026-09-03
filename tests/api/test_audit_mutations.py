@@ -431,6 +431,25 @@ class TestWorkflowAudit:
         assert event.target_id == "5"
         assert event.metadata == {"article_id": 7, "force": True}
 
+    def test_trigger_route_delegates_active_execution_recovery_to_trigger_service(self):
+        """The route must not preempt the service's updated_at-based recovery check."""
+        import asyncio
+
+        from src.web.routes.workflow_executions import trigger_workflow_for_article
+
+        session = _chaining_session(first_row=MagicMock(status="running"))
+
+        with (
+            patch("src.web.routes.workflow_executions.get_db_manager") as mock_get,
+            patch("src.services.workflow_trigger_service.WorkflowTriggerService") as mock_service_cls,
+        ):
+            mock_get.return_value.get_session.return_value = session
+            mock_service_cls.return_value.trigger_workflow.return_value = (True, None)
+            result = asyncio.run(trigger_workflow_for_article(_fake_request(), article_id=7, force=True))
+
+        assert result["success"] is True
+        mock_service_cls.return_value.trigger_workflow.assert_called_once()
+
     def test_trigger_route_surfaces_audit_failure_as_500(self):
         """A trigger whose mandatory audit fails must reach the operator as a 500,
         never a false 'triggered' success (WorkflowAuditError -> generic 500 path)."""

@@ -47,6 +47,13 @@ workflow_worker:
 3. **Scalability:** Workflow workers scale independently of the main worker (see [Scaling](#scaling)).
 4. **Reliability:** Workflow failures don't affect other task types.
 
+## Restart Recovery
+
+If a worker restart interrupts a workflow, its execution may remain marked `running`. On the next
+trigger attempt for that article, an execution with no `updated_at` change for 30 minutes is marked
+`failed` with a recovery message, which permits a forced retry. Recent executions are left running;
+this recovers the trigger path only and does not resume interrupted work.
+
 ## Deployment
 
 ### Restart Services

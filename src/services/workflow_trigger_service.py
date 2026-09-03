@@ -20,6 +20,37 @@ from src.utils.default_agent_prompts import get_default_agent_prompts
 logger = logging.getLogger(__name__)
 
 
+# A complete workflow normally takes 7--10 minutes, but local-model extraction can
+# take longer. Thirty minutes without an updated row is therefore strong evidence
+# that a worker restart orphaned the execution, while preserving healthy slow runs.
+ORPHANED_RUNNING_STALE_AFTER = timedelta(minutes=30)
+
+
+def recover_orphaned_running_execution(
+    execution: AgenticWorkflowExecutionTable, *, now: datetime | None = None
+) -> bool:
+    """Fail an inert running execution so a later trigger can proceed.
+
+    Workers update ``updated_at`` as they advance through workflow steps.  This
+    intentionally does not use ``started_at`` because legitimate workflows can
+    run for longer than the recovery threshold.
+    """
+    if execution.status != "running" or execution.updated_at is None:
+        return False
+
+    reference = now or datetime.now()
+    if execution.updated_at >= reference - ORPHANED_RUNNING_STALE_AFTER:
+        return False
+
+    execution.status = "failed"
+    execution.completed_at = reference
+    execution.error_message = (
+        "Recovered during workflow trigger: no activity for over 30 minutes "
+        f"while running at {execution.current_step or 'unknown step'}; the worker may have restarted."
+    )
+    return True
+
+
 class WorkflowAuditError(RuntimeError):
     """Mandatory audit write failed while triggering a workflow; the trigger was rolled back."""
 
@@ -117,6 +148,15 @@ class WorkflowTriggerService:
             )
 
             if existing_execution:
+                if recover_orphaned_running_execution(existing_execution):
+                    logger.warning(
+                        "Recovered orphaned running execution %s for article %s during trigger eligibility check",
+                        existing_execution.id,
+                        article.id,
+                    )
+                    self.db.commit()
+                    return True, None
+
                 if (
                     existing_execution.status == "pending"
                     and existing_execution.created_at < cutoff_time
