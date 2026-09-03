@@ -2,13 +2,13 @@
 
 ## Anthropic Claude Models
 
-Source: docs.anthropic.com (2026-06-02). All models support `max_tokens` + `temperature` (0.0–1.0).
+Source: docs.anthropic.com (2026-09-03). All models support `max_tokens` + `temperature` (0.0–1.0).
 
 | Model | Context Window | Max Output Tokens | Notes |
 |-------|----------------|-------------------|-------|
-| claude-opus-5 | 1,000,000 | — | 1M default; max output not yet verified |
-| claude-sonnet-5 | 1,000,000 | — | 1M default; max output not yet verified |
-| claude-fable-5 | 1,000,000 | — | 1M default; max output not yet verified |
+| claude-opus-5 | 1,000,000 | 128,000 | 1M default |
+| claude-sonnet-5 | 1,000,000 | 128,000 | 1M default |
+| claude-fable-5 | 1,000,000 | 128,000 | 1M default |
 | claude-opus-4-8 | 1,000,000 | 128,000 | 1M default, no beta header required |
 | claude-opus-4-7 | 1,000,000 | 64,000 | 1M default |
 | claude-opus-4-6 | 1,000,000 | 64,000 | 1M default |
@@ -22,27 +22,20 @@ Source: docs.anthropic.com (2026-06-02). All models support `max_tokens` + `temp
 
 Older Claude 3.x / 4.0-4.5 models cap at 200K by default; they can be extended to 1M via the `context-1m-2025-08-07` beta header. Opus 4.6+ and Sonnet 4.6+ no longer require it.
 
-<!-- TODO: verify: max output tokens for claude-opus-5 / claude-sonnet-5 / claude-fable-5.
-     Context windows above are taken from MODEL_CONTEXT_TOKENS in
-     src/services/provider_model_catalog.py; max output is not recorded anywhere in the repo
-     and must be confirmed against docs.anthropic.com. -->
-
 ---
 
 ## OpenAI Chat Models
 
-Source: platform.openai.com/docs/models (capture date unconfirmed -- the stated "Jan 2025"
-predates the gpt-5.4/5.5/5.6 rows below, so it is wrong; re-verify against the live docs).
-<!-- TODO: verify: the real capture date for this table against platform.openai.com/docs/models. -->
+Source: platform.openai.com/docs/models (2026-09-03).
 
 ### Chat Completions Models (text-in, text-out)
 
 | Model | Context Window | Max Output Tokens | API Params |
 |-------|----------------|-------------------|------------|
 | **GPT-5 series** | | | |
-| gpt-5.6-luna | 1,050,000 | — | `max_completion_tokens`, no `temperature`; max output not yet verified |
-| gpt-5.6-sol | 1,050,000 | — | `max_completion_tokens`, no `temperature`; max output not yet verified |
-| gpt-5.6-terra | 1,050,000 | — | `max_completion_tokens`, no `temperature`; max output not yet verified |
+| gpt-5.6-luna | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
+| gpt-5.6-sol | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
+| gpt-5.6-terra | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
 | gpt-5.5 | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
 | gpt-5.5-pro | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
 | gpt-5.4 | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
@@ -66,11 +59,11 @@ predates the gpt-5.4/5.5/5.6 rows below, so it is wrong; re-verify against the l
 | gpt-4.1-nano | 1,047,576 | 32,768 | `max_tokens`, `temperature` |
 | **Reasoning (o-series)** | | | |
 | o3 | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
-| o3-pro * | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
+| o3-pro | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
 | o3-mini | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
 | o4-mini | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
 | o1 | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
-| o1-pro * | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
+| o1-pro | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
 | **GPT-4o series** | | | |
 | gpt-4o | 128,000 | 16,384 | `max_tokens`, `temperature` |
 | gpt-4o-mini | 128,000 | 16,384 | `max_tokens`, `temperature` |
@@ -79,15 +72,8 @@ predates the gpt-5.4/5.5/5.6 rows below, so it is wrong; re-verify against the l
 | gpt-4 | 8,192 | 4,096 | `max_tokens`, `temperature` |
 | gpt-3.5-turbo | 16,385 | 4,096 | `max_tokens`, `temperature` |
 
-\* `o3-pro` and `o1-pro` are accepted by `src/utils/model_validation.py` but are **not** in
-`MODEL_CONTEXT_TOKENS` (`src/services/provider_model_catalog.py`) or
-`config/provider_model_catalog.json`. Unlike every other row here their context window is not
-sourced from the app catalog, and they do not appear in the Agents config dropdown.
-
-<!-- TODO: verify: max output tokens for gpt-5.6-luna / gpt-5.6-sol / gpt-5.6-terra.
-     Context windows above are taken from MODEL_CONTEXT_TOKENS in
-     src/services/provider_model_catalog.py; max output is not recorded anywhere in the repo
-     and must be confirmed against platform.openai.com/docs/models. -->
+The `o3-pro` and `o1-pro` rows are catalog-sourced at 200,000 context tokens and now appear in
+the Agents config dropdown alongside the other supported reasoning models.
 
 ### API Parameter Rules
 

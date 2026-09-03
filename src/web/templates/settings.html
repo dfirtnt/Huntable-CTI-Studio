@@ -3077,6 +3077,15 @@
                     <span>Last Backup:</span>
                     <span>${status.last_backup || 'Never'}</span>
                 </div>
+                <div class="flex justify-between">
+                    <span>Backup Age:</span>
+                    <span>${status.backup_age_days === null ? 'Unknown' : `${status.backup_age_days} days`}</span>
+                </div>
+                ${status.backup_stale ? `
+                    <div data-testid="backup-stale-warning" role="alert" class="rounded-lg border border-red-700 bg-red-900/30 px-3 py-2 text-sm text-red-200">
+                        Warning: the most recent backup is older than ${status.backup_stale_after_days} days.
+                    </div>
+                ` : ''}
             </div>
         `;
 
