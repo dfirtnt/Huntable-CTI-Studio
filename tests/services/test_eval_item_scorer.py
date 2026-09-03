@@ -5,6 +5,8 @@ agentic_workflow.py depends on (especially the zero-extraction case where the
 model returned no items but expected_items still has ground truth).
 """
 
+from pathlib import Path
+
 import pytest
 
 from src.services.eval_item_scorer import (
@@ -14,6 +16,8 @@ from src.services.eval_item_scorer import (
     normalize_identity,
     score_items,
 )
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 @pytest.mark.unit
@@ -220,6 +224,26 @@ def test_registry_value_name_candidate_matches_gt_with_trailing_value():
     ]
     result = score_items(expected, actual, subagent_name="registry_artifacts")
     assert result.matched_count == 1
+
+
+@pytest.mark.unit
+def test_registry_item_candidates_stay_in_sync_with_shipped_prompt_schema():
+    """Regression guard for the registry_hive/registry_key_path bug: read the
+    example item straight from the live RegistryExtract prompt (the schema the
+    LLM actually targets) and confirm the scorer's field names still resolve
+    it to a matching candidate. Catches future drift automatically instead of
+    relying on a hand-typed fixture that can itself go stale."""
+    import json
+
+    prompt_path = _REPO_ROOT / "src" / "prompts" / "RegistryExtract"
+    prompt_data = json.loads(prompt_path.read_text())
+    example = prompt_data["json_example"]
+    example = json.loads(example) if isinstance(example, str) else example
+    shipped_item = example["registry_artifacts"][0]
+
+    result = score_items([shipped_item["key"]], [shipped_item], subagent_name="registry_artifacts")
+    assert result.matched_count == 1
+    assert result.missed_count == 0
 
 
 @pytest.mark.unit
