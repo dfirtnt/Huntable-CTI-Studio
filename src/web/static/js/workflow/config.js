@@ -1934,61 +1934,36 @@ function isLockedCanonicalPrompt(agentName) {
 
 const LOCKED_EXTRACTION_USER_TEMPLATE = 'Title: {title}\nURL: {url}\n\nContent:\n{content}\n\n{instructions}';
 const LOCKED_RANK_USER_TEMPLATE = 'Article Title: {title}\nSource: {source}\nURL: {url}\n\nContent:\n{content}';
-// Mirrors src/prompts/sigma_generate_multi.txt — SigmaAgent's user message template. The backend
-// formats this with {title}, {source}, {url}, {content}, {observables_section}.
-const LOCKED_SIGMA_USER_TEMPLATE = [
-    'Generate Sigma detection rules from the following threat intelligence. Produce multiple rules if the behaviors differ.',
-    '',
-    'Threat Intel Input:',
-    '- title: {title}',
-    '- source: {source}',
-    '- url: {url}',
-    '- content: {content}',
-    '{observables_section}',
-    '',
-    'Objectives:',
-    '- Extract every distinct behavioral TTP (command execution, process lineage, persistence, defense evasion, system modification).',
-    '- Create 1 rule per behavior when possible.',
-    '- Extract all command-line patterns with arguments; include all unique process-creation observables.',
-    '',
-    'Structural Requirements (YAML Syntax):',
-    '- Output ONLY valid YAML document structure.',
-    '- Use --- (three dashes) as separator between multiple rules.',
-    '- NO prose, explanations, comments, or narrative text of any kind.',
-    '- NO code fences.',
-    '- Start your response immediately with title: - nothing before it.',
-    '- 2-space indentation only; no tabs.',
-    '- All field names lowercase.',
-    '',
-    'CRITICAL: Your response will be parsed as YAML. If you include ANY narrative text before or within the YAML, parsing will fail. Output ONLY the YAML rule structure(s).',
-    '',
-    'Required Structure (per rule):',
-    'title: [descriptive rule title]',
-    'id: [UUID]',
-    'description: [behavior detected]',
-    'observables_used: [list of 0-based indices from the Observables list above that this rule uses; omit if no observables provided]',
-    'logsource:',
-    '  category: [process_creation/network_connection/registry_event/file_event/powershell/wmi]',
-    '  product: [windows/linux/macos]',
-    'detection:',
-    '  selection:',
-    '    [criteria]',
-    '  condition: selection',
-    'level: [low/medium/high/critical]',
-    'tags:',
-    '  - attack.[technique]',
-    'references:',
-    '  - {url}',
-    '',
-    'Behavioral Extraction Rules:',
-    '- For process creation TTPs: include all command-line patterns with args; include parent-child relationships when inferable; include LOLBin/scripting abuse.',
-    '- For system modification: include registry, services, scheduled tasks.',
-    '- For defense evasion: include AV disablement, AMSI bypass, obfuscation flags.',
-    '- For network activity: include C2 connections, lateral movement, data exfiltration.',
-    '',
-    'Final Instruction:',
-    'Generate all applicable SIGMA rules from the threat intelligence above. Use --- to separate multiple rules. Output ONLY YAML starting with title:.'
-].join('\n');
+// SigmaAgent's code-owned user template lives in src/prompts/sigma_generate_multi.txt and is
+// fetched from GET /api/workflow/config/prompts/defaults/SigmaAgent on first use, so the preview
+// can never drift from the file the backend actually formats. Empty until loaded.
+let LOCKED_SIGMA_USER_TEMPLATE = '';
+// DEFAULT_SIGMA_SYSTEM_PROMPT from sigma_generation_service.py: the system message the backend
+// sends when the SigmaAgent DB record carries no persona (raw-text template records).
+let LOCKED_SIGMA_SYSTEM_DEFAULT = '';
+let _sigmaUserTemplatePromise = null;
+
+function ensureSigmaUserTemplateLoaded() {
+    if (!_sigmaUserTemplatePromise) {
+        _sigmaUserTemplatePromise = fetch('/api/workflow/config/prompts/defaults/SigmaAgent')
+            .then(r => (r.ok ? r.json() : null))
+            .then(data => {
+                if (data && typeof data.user_template === 'string') {
+                    LOCKED_SIGMA_USER_TEMPLATE = data.user_template;
+                }
+                if (data && typeof data.system_default === 'string') {
+                    LOCKED_SIGMA_SYSTEM_DEFAULT = data.system_default;
+                }
+                return LOCKED_SIGMA_USER_TEMPLATE;
+            })
+            .catch(err => {
+                console.warn('Could not load the SigmaAgent user template from the backend:', err);
+                _sigmaUserTemplatePromise = null;
+                return LOCKED_SIGMA_USER_TEMPLATE;
+            });
+    }
+    return _sigmaUserTemplatePromise;
+}
 
 function isLockedExtractorPrompt(agentName) {
     return LOCKED_EXTRACTOR_AGENTS.includes(agentName);
@@ -2015,6 +1990,8 @@ const EFFECTIVE_PROMPT_PLACEHOLDER_DOCS = {
     content: 'Full article body text',
     instructions: "Extraction instructions (from the agent's DB prompt config)",
     observables_section: 'Optional "Observables" block — present only when behaviors were extracted upstream',
+    author: 'Rule author (SIGMA_RULE_AUTHOR, "Huntable CTI Studio")',
+    date: "Today's date, YYYY-MM-DD",
     objective: 'QA task objective',
     task: "The original extractor's task string",
     extraction_instructions: "Paired extractor's instructions",
@@ -2050,21 +2027,40 @@ function _effReadCurrentSystem(agentName) {
     const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
     const ta = document.getElementById(`${agentId}-prompt-system`)
             || document.getElementById(`${agentId}-prompt-system-2`);
-    if (ta && typeof ta.value === 'string') return ta.value;
+    if (ta && typeof ta.value === 'string' && ta.value.trim()) return ta.value;
     const promptData = (typeof agentPrompts !== 'undefined' && agentPrompts) ? agentPrompts[agentName] : null;
     const raw = promptData ? (promptData.prompt || '') : '';
     const parts = (typeof parsePromptParts === 'function') ? parsePromptParts(raw) : { system: raw, user: '' };
+    if (agentName === 'SigmaAgent') {
+        // A raw-text SigmaAgent record is the *user* template; the backend then sends its
+        // code default as the system message, not the template twice.
+        return parts.system || LOCKED_SIGMA_SYSTEM_DEFAULT;
+    }
     // Plain-text prompts land in parts.user; structured (JSON) prompts land in parts.system.
     return parts.system || parts.user || '';
+}
+
+function _effSystemIsCodeDefault(agentName, system) {
+    return agentName === 'SigmaAgent' && !!LOCKED_SIGMA_SYSTEM_DEFAULT && system === LOCKED_SIGMA_SYSTEM_DEFAULT;
 }
 
 function _effReadCurrentUserTemplate(agentName) {
     // Locked (code-owned) template wins — that's what the backend actually
     // concatenates before hitting the LLM. If the agent has no locked template,
     // fall back to whatever the user has in the DB (editable user textarea).
+    // SigmaAgent is the exception: when its DB record carries a user template (a quickstart
+    // preset or a raw-text record), parse_sigma_agent_prompt_data hands that to the service
+    // and the file is never read, so the DB text is the effective one.
+    const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
+    if (agentName === 'SigmaAgent') {
+        const promptData = (typeof agentPrompts !== 'undefined' && agentPrompts) ? agentPrompts[agentName] : null;
+        const raw = promptData ? (promptData.prompt || '') : '';
+        const parts = (typeof parsePromptParts === 'function') ? parsePromptParts(raw) : { system: '', user: raw };
+        if (parts.user && parts.user.trim()) return { text: parts.user, source: 'db' };
+        return { text: LOCKED_SIGMA_USER_TEMPLATE, source: 'locked' };
+    }
     const locked = getLockedUserTemplate(agentName);
     if (locked) return { text: locked, source: 'locked' };
-    const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
     const ta = document.getElementById(`${agentId}-prompt-user`)
             || document.getElementById(`${agentId}-prompt-user-2`);
     if (ta && typeof ta.value === 'string') return { text: ta.value, source: 'db' };
@@ -2074,9 +2070,10 @@ function _effReadCurrentUserTemplate(agentName) {
     return { text: parts.user || '', source: 'db' };
 }
 
-function showEffectivePrompt(agentName) {
+async function showEffectivePrompt(agentName) {
     const existing = document.getElementById('effectivePromptModal');
     if (existing) existing.remove();
+    if (agentName === 'SigmaAgent') await ensureSigmaUserTemplateLoaded();
 
     const system = _effReadCurrentSystem(agentName);
     const userTpl = _effReadCurrentUserTemplate(agentName);
@@ -2096,6 +2093,9 @@ function showEffectivePrompt(agentName) {
           }</ul>`;
 
     const safeAgentAttr = _effEscape(agentName);
+    const systemSourceBadge = _effSystemIsCodeDefault(agentName, system)
+        ? '<span class="inline-block px-2 py-0.5 text-[10px] rounded bg-amber-200 text-amber-900 font-semibold" title="No persona is saved for this agent, so the backend sends DEFAULT_SIGMA_SYSTEM_PROMPT">default · code-owned</span>'
+        : '<span class="inline-block px-2 py-0.5 text-[10px] rounded bg-blue-200 text-blue-900 font-semibold">editable · from DB</span>';
 
     const modal = document.createElement('div');
     modal.id = 'effectivePromptModal';
@@ -2134,7 +2134,7 @@ function showEffectivePrompt(agentName) {
             <div class="flex items-center justify-between mb-2">
               <div class="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                 <span>System message</span>
-                <span class="inline-block px-2 py-0.5 text-[10px] rounded bg-blue-200 text-blue-900 font-semibold">editable · from DB</span>
+                ${systemSourceBadge}
               </div>
               <button type="button" onclick="copyEffectivePromptSection('eff-system-raw')" class="px-2 py-0.5 text-[11px] rounded bg-gray-600 hover:bg-gray-700 text-white">Copy</button>
             </div>
@@ -2187,7 +2187,8 @@ function copyEffectivePromptSection(elementId) {
     }
 }
 
-function copyEffectivePromptJSON(agentName) {
+async function copyEffectivePromptJSON(agentName) {
+    if (agentName === 'SigmaAgent') await ensureSigmaUserTemplateLoaded();
     const system = _effReadCurrentSystem(agentName);
     const userTpl = _effReadCurrentUserTemplate(agentName);
     const payload = [

@@ -1395,6 +1395,38 @@ def get_agent_prompts(request: Request):
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+# Code-owned user-message templates the runtime formats when the DB record carries no user
+# template of its own. Served so the Workflow Config "effective prompt" preview shows the file
+# that is actually sent instead of a hand-copied JS mirror.
+CODE_OWNED_USER_TEMPLATES: dict[str, str] = {
+    "SigmaAgent": "sigma_generate_multi",
+}
+
+
+@router.get("/config/prompts/defaults/{agent_name}")
+def get_agent_default_user_template(request: Request, agent_name: str):
+    """Return the on-disk user-message template the runtime falls back to for an agent."""
+    prompt_name = CODE_OWNED_USER_TEMPLATES.get(agent_name)
+    if not prompt_name:
+        raise HTTPException(status_code=404, detail=f"No code-owned user template for agent {agent_name}")
+    from src.services.sigma_generation_service import DEFAULT_SIGMA_SYSTEM_PROMPT
+    from src.utils.prompt_loader import load_prompt
+
+    try:
+        template = load_prompt(prompt_name)
+    except Exception as e:
+        logger.error(f"Error loading default user template for {agent_name}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+    return {
+        "agent_name": agent_name,
+        "prompt_name": prompt_name,
+        "source_file": f"src/prompts/{prompt_name}.txt",
+        "user_template": template,
+        # System message the runtime sends when the DB record carries no persona.
+        "system_default": DEFAULT_SIGMA_SYSTEM_PROMPT if agent_name == "SigmaAgent" else "",
+    }
+
+
 @router.get("/config/prompts/{agent_name}")
 def get_agent_prompt(request: Request, agent_name: str):
     """Get prompt for a specific agent from active workflow configuration."""

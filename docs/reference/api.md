@@ -84,6 +84,7 @@ The workflow engine writes its state into `agentic_workflow_executions` and expo
     Also rejects (HTTP 400, **no override**) an agent whose provider is paired with a model the catalog attributes to a different provider — for example `lmstudio` with `gpt-5.6-sol`. Such a pair fails later at call time with a confusing "model not found" from the wrong provider. `openai` and `codex` share one model namespace, so `codex` + `gpt-5.6-*` is valid. Only pairs this request *changes* are checked, so a config carrying a pre-existing mismatch stays saveable and can be repaired. Models absent from `config/provider_model_catalog.json` (LMStudio local models, newly released models) are never rejected.
 - `GET /api/workflow/config/prompts`
 - `GET /api/workflow/config/prompts/{agent_name}`
+- `GET /api/workflow/config/prompts/defaults/{agent_name}` -- on-disk user template the runtime falls back to (SigmaAgent: `sigma_generate_multi.txt`) plus the code-default system prompt; used by the effective-prompt preview
 - `PUT /api/workflow/config/prompts`
 - `GET /api/workflow/config/prompts/{agent_name}/versions`
 - `GET /api/workflow/config/prompts/{agent_name}/by-config-version/{config_version}`

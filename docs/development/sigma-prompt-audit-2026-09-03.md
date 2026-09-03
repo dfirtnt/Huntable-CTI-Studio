@@ -165,12 +165,12 @@ Rule standard now originates in generation and is mirrored, not re-invented, dow
    surface as `SigmaHQ <Issue>` errors and `metadata["sigmahq"]`. See the CHANGELOG entry
    for the three gotchas (grounding keys, per-call validator instances, crash isolation).
 4. DONE 2026-09-03: `SIGMA_MAX_TOKENS_STANDARD = 4000` (was 800) in `_call_provider_for_sigma`, with a regression test. `tests/unit/test_sigma_prompt_files.py` now pins the prompt files to their caller kwargs and the seed to the runtime file.
-5. `src/web/static/js/workflow/config.js` `LOCKED_SIGMA_USER_TEMPLATE` (the effective-prompt
-   preview on the Workflow Config page) is a hand-copied mirror of the pre-audit
-   `sigma_generate_multi.txt`; it now shows a template that matches neither the file nor the
-   preset path. Serve the real template from the backend instead of maintaining a JS copy. The
-   fallback defaults in `src/web/templates/article_detail.html` (old system prompt and user
-   template, overwritten when the API fetch succeeds) have the same problem.
+5. DONE 2026-09-03: the preview fetches `GET /api/workflow/config/prompts/defaults/SigmaAgent`
+   (file user template + `DEFAULT_SIGMA_SYSTEM_PROMPT`) instead of a JS mirror, prefers the DB
+   user template when the record carries one (preset / raw-text path), and labels the code
+   default system message. Still open: the fallback defaults in
+   `src/web/templates/article_detail.html` (old system prompt and user template, overwritten
+   when the API fetch succeeds) are stale but harmless while the fetch works.
 6. DONE 2026-09-03: https://github.com/dfirtnt/Huntable-SIGMA-Rules/pull/10 re-tags all 18 rules
    (hyphenated tactics, every tactic per technique, author/date backfilled from first-commit
    date, revoked t1089 dropped); blocking set 0 issues, remaining advisory hits are the bundled
