@@ -70,6 +70,21 @@ Generation uses temperature 0.2 for deterministic output.
 - All attempt logs (prompts, responses, validation results) are stored for
   post-mortem review
 
+### SigmaHQ Blocking Validators
+
+After pySigma parses a rule, `validate_sigma_rule` runs the same validator set the
+Huntable-SIGMA-Rules CI treats as blocking (`src/services/sigma_validation_blocking.yml`, a
+mirror of that repository's `.sigma/validation-blocking.yml`, executed with
+`pySigma-validators-sigmahq`). Field names must exist in the SigmaHQ taxonomy for the
+logsource, the category/product pair must be a known logsource, `service: sysmon` needs an
+EventID, `id`/`status`/`level`/`description` must be present, and non-Sigma top-level keys
+fail -- except the pipeline's own grounding keys (`SIGMA_GROUNDING_METADATA_FIELDS`), which
+are stripped before publication. Each issue is an error prefixed `SigmaHQ <Issue>` and the
+full list is in `metadata["sigmahq"]["issues"]`; when the plugin is not installed the layer
+reports `metadata["sigmahq"]["available"] == False` and validation falls back to pySigma
+plus the policy pass. Keep the YAML in step with the rules repository so a queue-approved rule
+cannot fail the PR check.
+
 ### ATT&CK Tag Validation
 
 After pySigma accepts a rule, the Huntable policy pass (`SigmaValidator` in

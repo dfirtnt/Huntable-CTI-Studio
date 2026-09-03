@@ -160,8 +160,10 @@ Rule standard now originates in generation and is mirrored, not re-invented, dow
 2. Reset the saved enrichment prompt version on the running instance (E7) and any customised
    `SigmaAgent` persona in the DB; both keep their old text until reset (Settings -> Workflow
    Config, and the enrichment modal's saved-prompt history).
-3. Add the SigmaHQ validator set to the in-app `SigmaValidator` (P1) so queue validation is
-   deterministic where the prompt can only advise.
+3. DONE 2026-09-03: `validate_sigma_rule` runs the rules repo's blocking set
+   (`src/services/sigma_validation_blocking.yml`, pySigma-validators-sigmahq 0.21.0); issues
+   surface as `SigmaHQ <Issue>` errors and `metadata["sigmahq"]`. See the CHANGELOG entry
+   for the three gotchas (grounding keys, per-call validator instances, crash isolation).
 4. DONE 2026-09-03: `SIGMA_MAX_TOKENS_STANDARD = 4000` (was 800) in `_call_provider_for_sigma`, with a regression test. `tests/unit/test_sigma_prompt_files.py` now pins the prompt files to their caller kwargs and the seed to the runtime file.
 5. `src/web/static/js/workflow/config.js` `LOCKED_SIGMA_USER_TEMPLATE` (the effective-prompt
    preview on the Workflow Config page) is a hand-copied mirror of the pre-audit

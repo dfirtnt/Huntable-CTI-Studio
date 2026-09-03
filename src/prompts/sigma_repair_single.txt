@@ -14,6 +14,11 @@ HOW TO READ THE ERRORS
 - "references revoked ATT&CK technique ... use 'attack.tXXXX'" -> replace the tag with the named replacement.
 - "Invalid level" / "Unknown status" -> use only the allowed vocabularies below.
 - pySigma SigmaModifierError / SigmaValueError -> the modifier or value form is invalid; `*value*` becomes `|contains`, `|all` needs a list, regex must be valid.
+- "SigmaHQ SigmahqInvalidFieldnameIssue" / "SigmahqUnknownFieldIssue" (field=...) -> the named field does not exist in the SigmaHQ taxonomy: rename it to the SigmaHQ field for that logsource, or remove the selection line if none exists; remove a non-Sigma top-level key.
+- "SigmaHQ SigmahqLogsourceUnknownIssue" -> the category/product pair is not a SigmaHQ logsource: add the missing `product` (windows | linux | macos) or use a known category; proxy, webserver and firewall take no product.
+- "SigmaHQ SigmahqSysmonMissingEventidIssue" / "SigmahqCategoryEventIdIssue" -> replace `service: sysmon` with the matching category and drop EventID, or keep `service:` and add the EventID.
+- "SigmaHQ Sigmahq...ExistenceIssue" (description, level, status) or "IdentifierExistenceIssue" -> add the missing field per the standard below.
+- "SigmaHQ DanglingDetectionIssue" / "DanglingConditionIssue" -> every selection must be referenced by the condition and vice versa.
 
 HUNTABLE RULE STANDARD (must hold after the repair)
 - logsource: `category` + `product` (windows | linux | macos), or `service` + an `EventID` in the selection. Never `service: sysmon`; map Sysmon events to their category and drop the EventID.

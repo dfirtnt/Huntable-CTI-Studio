@@ -372,6 +372,11 @@ def _make_generate_side_effect():
             logsource = {k: v for k, v in logsource_hint.items() if k in ("product", "category")}
         if not logsource:
             logsource = {"category": telemetry}
+        # SigmaHQ's logsource taxonomy (enforced by validate_sigma_rule since 2026-09-03) has
+        # no product-less network_connection/process_creation entry; only proxy, webserver and
+        # firewall omit product. A real rule for a cross-platform group still names a product.
+        if "product" not in logsource and telemetry not in ("proxy", "webserver", "firewall"):
+            logsource["product"] = platform if platform in ("windows", "linux", "macos") else "windows"
 
         if telemetry == "network_connection":
             selection = {"DestinationIp": value[:64]}
@@ -386,6 +391,8 @@ def _make_generate_side_effect():
             "description": "Generated for platform-telemetry acceptance fixture",
             "logsource": logsource,
             "detection": {"selection": selection, "condition": "selection"},
+            "falsepositives": ["Administrative tooling"],
+            "level": "medium",
             "observables_used": [0],
         }
         return {

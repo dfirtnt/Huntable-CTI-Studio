@@ -14,7 +14,12 @@ from typing import Any
 import yaml
 
 from src.services.llm_service import LLMService
-from src.services.sigma_validator import ValidationResult, clean_sigma_rule, validate_sigma_rule
+from src.services.sigma_validator import (
+    SIGMA_GROUNDING_METADATA_FIELDS,
+    ValidationResult,
+    clean_sigma_rule,
+    validate_sigma_rule,
+)
 from src.utils.langfuse_client import log_llm_completion, log_llm_error, trace_llm_call
 from src.utils.llm_optimizer import optimize_article_content
 
@@ -68,16 +73,8 @@ DEFAULT_SIGMA_SYSTEM_PROMPT = (
 )
 _TRACE_MESSAGE_MAX_CHARS = 3000
 _TRACE_RESPONSE_MAX_CHARS = 20000
-SIGMA_GROUNDING_METADATA_FIELDS = {
-    "observables_used",
-    "observables_used_inferred",
-    "platform",
-    "telemetry_category",
-    "generation_basis",
-    "detection_readiness",
-    "logsource_hint",
-    "sigma_generation_group",
-}
+# SIGMA_GROUNDING_METADATA_FIELDS is imported from sigma_validator so the SigmaHQ layer and the
+# pipeline strip the same keys.
 
 # Platform-specific Sigma-generation guidance, injected per platform/logsource group
 # (the group platform is carried on extraction_result["sigma_generation_group"]). The

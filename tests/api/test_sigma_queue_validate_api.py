@@ -322,10 +322,16 @@ class TestValidateRuleEndpoint:
                 "src.web.routes.sigma_queue._get_sigma_agent_llm_from_workflow",
                 return_value=("openai", "gpt-4o-mini", "sk-test"),
             ):
+                # A rule the SigmaHQ blocking layer accepts: id/status/level present and no
+                # EventID inside a category-based logsource (sigmahq_category_event_id).
                 yaml_response = (
-                    "title: Queue validation test rule\ndescription: A queue validation test rule description\n"
+                    "title: Queue validation test rule\n"
+                    "id: 3f6a1c2e-8b4d-4e9f-a1b2-c3d4e5f60718\n"
+                    "status: experimental\n"
+                    "description: A queue validation test rule description\n"
                     "logsource:\n  category: process_creation\n  product: windows\n"
-                    "detection:\n  selection:\n    EventID: 1\n  condition: selection"
+                    "detection:\n  selection:\n    Image|endswith: '\\\\cmd.exe'\n  condition: selection\n"
+                    "level: medium"
                 )
                 with patch(
                     "src.services.openai_chat_client.openai_chat_completions",
@@ -380,11 +386,16 @@ class TestValidateRuleEndpoint:
         assert all(item["errors"][0].startswith("pySigma SigmaModifierError:") for item in result["validation_results"])
 
 
+# Accepted by pySigma, the Huntable policy pass and the SigmaHQ blocking layer (no EventID
+# inside a category logsource; id/status/level present).
 VALID_SIGMA_YAML = (
     "title: Queue validation test rule\n"
+    "id: 3f6a1c2e-8b4d-4e9f-a1b2-c3d4e5f60718\n"
+    "status: experimental\n"
     "description: A queue validation test rule description\n"
     "logsource:\n  category: process_creation\n  product: windows\n"
-    "detection:\n  selection:\n    EventID: 1\n  condition: selection"
+    "detection:\n  selection:\n    Image|endswith: '\\\\cmd.exe'\n  condition: selection\n"
+    "level: medium"
 )
 
 

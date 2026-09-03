@@ -1042,7 +1042,7 @@ level: medium
             "id: 8c6f2f6a-3f1c-4d9e-9a4e-5b4c9f6d1e72\n"
             "status: experimental\n"
             'description: "Detects PowerShell DownloadString usage."\n'
-            "logsource:\n  category: process_creation\n"
+            "logsource:\n  category: process_creation\n  product: windows\n"
             "detection:\n"
             "  selection:\n"
             '    Image|endswith: "\\powershell.exe"\n'
@@ -1058,7 +1058,7 @@ level: medium
             "id: 8c6f2f6a-3f1c-4d9e-9a4e-5b4c9f6d1e72\n"
             "status: experimental\n"
             "description: Detects PowerShell DownloadString usage.\n"
-            "logsource:\n  category: process_creation\n"
+            "logsource:\n  category: process_creation\n  product: windows\n"
             "detection:\n"
             "  selection:\n"
             "    Image|endswith: '\\powershell.exe'\n"

@@ -523,19 +523,9 @@ def _rule_logsource_matches_group(rule: dict[str, Any], group: dict[str, Any]) -
 
 
 def _metadata_without_grounding_fields(rule: dict[str, Any]) -> dict[str, Any]:
-    grounding_fields = {
-        "observables_used",
-        "observables_used_inferred",
-        "observable_attribution",
-        "platform",
-        "telemetry_category",
-        "generation_basis",
-        "detection_readiness",
-        "logsource_hint",
-        "sigma_generation_group",
-        "observable_attribution_warnings",
-    }
-    return {k: v for k, v in rule.items() if k not in grounding_fields}
+    from src.services.sigma_validator import SIGMA_GROUNDING_METADATA_FIELDS
+
+    return {k: v for k, v in rule.items() if k not in SIGMA_GROUNDING_METADATA_FIELDS}
 
 
 def _append_observable_attribution_warning(rule: dict[str, Any], warning: str) -> None:
