@@ -11,6 +11,8 @@ from typing import Any
 
 import yaml
 
+from src.services.attack_taxonomy import AttackTaxonomy, check_attack_tag, load_attack_taxonomy
+
 try:
     from sigma.collection import SigmaCollection
 
@@ -307,10 +309,13 @@ class SigmaRule:
 class SigmaValidator:
     """Huntable policy checks applied after pySigma validates a rule."""
 
-    def __init__(self):
+    def __init__(self, attack_taxonomy: AttackTaxonomy | None = None):
         self.custom_validators = {}
         self.whitelists = {}
         self.blacklists = {}
+        # Cached MITRE ATT&CK taxonomy (config/attack_taxonomy.json). An empty taxonomy
+        # (file missing/unreadable) disables the attack.* tag check rather than failing rules.
+        self.attack_taxonomy = attack_taxonomy if attack_taxonomy is not None else load_attack_taxonomy()
 
     def add_validator(self, name: str, validator_func):
         """Add a custom validator function."""
@@ -511,6 +516,12 @@ class SigmaValidator:
                 )
             elif not tag.replace(".", "").replace("_", "").replace("-", "").isalnum():
                 warnings.append(f"Tag contains invalid special characters: {tag}")
+            elif tag.lower().startswith("attack."):
+                # Real MITRE ATT&CK check: unknown/revoked/deprecated IDs are errors,
+                # unrecognized tactic names are warnings (see attack_taxonomy.py).
+                tag_errors, tag_warnings = check_attack_tag(tag, self.attack_taxonomy)
+                errors.extend(tag_errors)
+                warnings.extend(tag_warnings)
 
 
 _REGISTRY_FIELDS = re.compile(

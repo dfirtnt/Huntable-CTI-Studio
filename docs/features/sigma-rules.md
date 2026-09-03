@@ -70,6 +70,33 @@ Generation uses temperature 0.2 for deterministic output.
 - All attempt logs (prompts, responses, validation results) are stored for
   post-mortem review
 
+### ATT&CK Tag Validation
+
+After pySigma accepts a rule, the Huntable policy pass (`SigmaValidator` in
+`src/services/sigma_validator.py`) checks every `attack.*` tag against a cached copy of
+the MITRE ATT&CK taxonomy (`config/attack_taxonomy.json`, loaded once by
+`src/services/attack_taxonomy.py`; no network call at validation time).
+
+- **Errors** (rule fails, goes to the repair pass): a technique, sub-technique, group,
+  software, mitigation, or campaign ID that does not exist, was revoked, or is deprecated.
+  Revoked IDs name their replacement, for example
+  `Tag 'attack.t1086' references revoked ATT&CK technique T1086 (PowerShell); it was
+  replaced by T1059.001 (PowerShell) -- use 'attack.t1059.001'`. An unknown sub-technique
+  names its existing parent.
+- **Warnings only**: an unrecognized tactic name (`attack.persistance`). The Sigma tag
+  taxonomy lags MITRE -- ATT&CK v19 renamed Enterprise `defense-evasion`, which SigmaHQ
+  still uses -- so tactic names never fail a rule.
+- Tags outside the `attack.` namespace (`cve.*`, `detection.*`, `car.*`) are not checked.
+- A missing or unreadable taxonomy file disables the check with one logged warning rather
+  than failing every rule.
+
+The taxonomy covers the Enterprise, Mobile, and ICS domains. Regenerate it when MITRE
+ships a new ATT&CK release (roughly twice a year) and commit the result:
+
+```bash
+python scripts/build_attack_taxonomy.py
+```
+
 ### Repair Pass (SigmaRepair)
 
 After the initial generation attempt, any rules that failed pySigma validation
@@ -869,6 +896,10 @@ therefore encodes two texts per rule. (The deprecated
 - Common issues: missing required fields (title, logsource, detection), invalid YAML,
   incorrect metadata types, unknown field modifiers, malformed or undefined detection
   conditions, and Huntable grounding or quality-policy failures
+- `references unknown/revoked/deprecated ATT&CK ...`: the rule cites a MITRE ATT&CK ID
+  that is not current (see [ATT&CK Tag Validation](#attck-tag-validation)); the error names
+  the replacement when MITRE recorded one. If the taxonomy itself is stale, regenerate
+  `config/attack_taxonomy.json` with `scripts/build_attack_taxonomy.py`
 
 ### Slow Performance
 
