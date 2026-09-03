@@ -577,8 +577,8 @@
                     <button id="exportEvalBundleBtn" class="hidden eval-btn eval-btn--secondary eval-btn--sm" title="Export evaluation bundle (JSON)">
                         Export Bundle
                     </button>
-                    <button id="diagnosisHelpBtn" class="hidden eval-btn eval-btn--secondary eval-btn--sm" title="How to diagnose this run through MCP" onclick="showHelp('diagnosisWorkflow')">
-                        Diagnose via MCP
+                    <button id="diagnosisHelpBtn" class="hidden eval-btn eval-btn--secondary eval-btn--sm" title="Diagnose this run through your MCP agent -- opens the prompt and steps" onclick="showHelp('diagnosisWorkflow')">
+                        How to Diagnose
                     </button>
                     <button id="closeCommandlinesModal" class="eval-btn eval-btn--secondary eval-btn--sm" style="padding: 0.4rem;">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1135,6 +1135,22 @@ async function applyDiagnosisCounts() {
     } catch (_) { /* non-critical -- badge is optional */ }
 }
 
+// Copy the "Ask your agent" diagnosis prompt from the help modal.
+async function copyDiagnosisPrompt() {
+    const promptEl = document.getElementById('diagnosisAgentPrompt');
+    const btn = document.getElementById('copyDiagnosisPromptBtn');
+    if (!promptEl) return;
+    try {
+        await navigator.clipboard.writeText(promptEl.textContent);
+        if (btn) {
+            btn.textContent = 'Copied';
+            setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+        }
+    } catch (_) {
+        showNotification('Clipboard unavailable -- select the prompt text and copy it manually', 'warning');
+    }
+}
+
 // Help modal function
 function showHelp(fieldName) {
     const diagnosisButton = document.getElementById('diagnosisHelpBtn');
@@ -1144,22 +1160,28 @@ function showHelp(fieldName) {
     const helpTexts = {
         'diagnosisWorkflow': {
             title: 'Diagnosing an Eval Run',
-            content: `<p class="mb-3">Diagnosis runs in your MCP client agent, not on the server. This app makes no LLM call and spends no provider tokens for it -- so there is no provider or model to configure.</p>
-                      <p class="mb-2"><strong>Workflow</strong> (the <code>huntable-eval-diagnosis</code> skill drives this for you):</p>
+            content: `<p class="mb-3">Diagnosis runs in your MCP client agent (Claude Code, Codex, or any client connected to the <code>huntable-cti-studio</code> MCP server), not in this app. Nothing here calls an LLM or spends provider tokens, so there is no provider or model to configure.</p>
+                      <p class="mb-2"><strong>Ask your agent:</strong></p>
+                      <div class="flex items-center gap-2 mb-4">
+                          <code id="diagnosisAgentPrompt" class="px-2 py-1 rounded" style="background: rgba(139,92,246,0.12);">${escapeHtml(diagnosisPrompt)}</code>
+                          <button type="button" id="copyDiagnosisPromptBtn" class="eval-btn eval-btn--secondary eval-btn--sm" onclick="copyDiagnosisPrompt()" title="Copy the prompt to your clipboard">Copy</button>
+                      </div>
+                      <p class="mb-2"><strong>What happens next</strong> (the <code>huntable-eval-diagnosis</code> skill drives this):</p>
                       <ol class="list-decimal list-inside mb-3 space-y-1">
-                          <li><code>get_eval_diagnosis_context</code> -- returns the eval bundle, extractor contracts, scoring context, and the diagnosis schema</li>
-                          <li>The agent treats packet contents as untrusted evidence and proposes a diagnosis</li>
-                          <li>You explicitly approve one save action</li>
-                          <li><code>save_eval_diagnosis(..., evidence_sha256=..., confirmed_by_user=true)</code> -- verifies the reviewed packet, validates, and persists the diagnosis to <code>data/diagnoses/</code>, audited as <code>evaluation.bundle_diagnosed</code></li>
+                          <li>The agent pulls this run's evidence packet (eval bundle, extractor contracts, scoring context) over MCP with <code>get_eval_diagnosis_context</code>.</li>
+                          <li>It treats everything in the packet -- article text, model output, contracts -- as untrusted evidence and proposes a diagnosis: summary, failure category, run signals, root causes with evidence, and recommendations.</li>
+                          <li>You review the proposal and explicitly approve one save action. Nothing is written until you do.</li>
+                          <li>The agent saves it with <code>save_eval_diagnosis(..., confirmed_by_user=true)</code>. The server re-checks the evidence digest, validates the schema, writes one file to <code>data/diagnoses/</code>, and audits it as <code>evaluation.bundle_diagnosed</code>.</li>
                       </ol>
-                      <p class="mb-3">Saved diagnoses load automatically in this modal and stamp the <code>[dx N]</code> badge on the results table.</p>
-                      <p class="mb-2"><strong>Ask your agent:</strong> <code id="diagnosisAgentPrompt">${escapeHtml(diagnosisPrompt)}</code></p>
-                      <p class="mb-2"><strong>Diagnosis instructions and schema</strong> live in <code>src/services/eval_diagnosis_service.py</code> (<code>DIAGNOSIS_INSTRUCTIONS</code>).</p>
-                      <p class="mb-2"><strong>Extractor contracts</strong> included in every context packet:</p>
-                      <ul class="list-disc list-inside mb-3 space-y-1">
-                          <li><code>docs/contracts/extractor-standard.md</code> -- mandatory rules for all extractors</li>
-                          <li><code>docs/contracts/cmdline-extract.md</code>, <code>proctree-extract.md</code>, etc. -- agent-specific contracts</li>
-                      </ul>`
+                      <p class="mb-3">Reopen this modal to see the saved diagnosis; the results table shows a <code>[dx N]</code> badge on every run that has one. Diagnosing again adds a new numbered run instead of replacing the last.</p>
+                      <p class="mb-3"><strong>Read the run signals first.</strong> Truncation (<code>finish_reason: length</code>) and high context pressure corrupt output even when the count delta is 0, so a run that "passes" on count can still carry a real defect.</p>
+                      <details class="mt-2">
+                          <summary class="cursor-pointer text-xs" style="color: var(--text-muted);">For maintainers: where the schema and contracts live</summary>
+                          <ul class="list-disc list-inside mt-2 space-y-1 text-xs">
+                              <li>Diagnosis instructions and schema: <code>src/services/eval_diagnosis_service.py</code> (<code>DIAGNOSIS_INSTRUCTIONS</code>); the validator that gates saves is <code>normalize_diagnosis</code> in the same module.</li>
+                              <li>Contracts in every packet: <code>docs/contracts/extractor-standard.md</code> plus the agent's own contract (<code>cmdline-extract.md</code>, <code>proctree-extract.md</code>, ...).</li>
+                          </ul>
+                      </details>`
         },
         'evalCurrentConfig': {
             title: 'Eval Configuration Constraints',
@@ -3282,6 +3304,33 @@ function renderDiagnosisPanel(d, cached = false, runNumber = null) {
             </div>`;
     }
 
+    // run_signals is required by the v2 schema and is the first thing the skill
+    // checks: truncation and context pressure corrupt output even when the count
+    // delta is 0, so surface it ahead of root causes and flag the bad values.
+    let signalsHtml = '';
+    const rs = d.run_signals;
+    if (rs && typeof rs === 'object') {
+        const truncated = rs.truncation_detected === true;
+        const finish = rs.finish_reason || 'unknown';
+        const pressure = rs.context_pressure || 'unknown';
+        const compliance = rs.contract_compliance || 'unknown';
+        const utilKnown = typeof rs.token_utilization_pct === 'number';
+        const util = utilKnown ? `${rs.token_utilization_pct}%` : 'n/a';
+        const chip = (label, value, isBad) =>
+            `<span class="diagnosis-signal text-xs font-mono px-1.5 py-0.5 rounded ${isBad ? 'text-red-600 dark:text-red-400 font-semibold' : ''}" style="background: rgba(139,92,246,0.08);${isBad ? '' : ' color: var(--text-muted-slate);'}">${escapeHtml(label)}: ${escapeHtml(String(value))}</span>`;
+        signalsHtml = `
+            <div class="mt-3">
+                <h5 class="text-xs font-semibold uppercase tracking-wide mb-1" style="color: var(--text-muted-slate);">Run Signals</h5>
+                <div class="diagnosis-run-signals flex flex-wrap gap-1.5">
+                    ${chip('truncation', truncated ? 'detected' : 'none', truncated)}
+                    ${chip('finish_reason', finish, finish === 'length' || finish === 'error')}
+                    ${chip('context_pressure', pressure, pressure === 'high')}
+                    ${chip('contract_compliance', compliance, compliance === 'violated' || compliance === 'partial')}
+                    ${chip('token_utilization', util, utilKnown && rs.token_utilization_pct >= 80)}
+                </div>
+            </div>`;
+    }
+
     const runLabel = runNumber !== null ? `Run ${runNumber}` : '';
     const runTs = d.created_at ? new Date(d.created_at).toLocaleString() : '';
 
@@ -3315,6 +3364,7 @@ function renderDiagnosisPanel(d, cached = false, runNumber = null) {
             </div>
         </div>
         <p class="text-sm mb-3" style="color: var(--text-secondary);">${escapeHtml(d.summary || '')}</p>
+        ${signalsHtml}
         ${rootCausesHtml ? `
         <div class="mt-3">
             <h5 class="text-xs font-semibold uppercase tracking-wide mb-1" style="color: var(--text-muted-slate);">Root Causes</h5>

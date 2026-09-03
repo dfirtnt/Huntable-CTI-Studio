@@ -53,22 +53,10 @@ def _json_response(payload: Any) -> str:
 
 
 def _load_saved_diagnoses(execution_id: int, agent_name: str | None = None) -> list[dict[str, Any]]:
-    diagnoses_dir = eval_diagnosis_service.DIAGNOSES_DIR
-    matches = sorted(
-        diagnoses_dir.glob(f"{execution_id}_*.json") if diagnoses_dir.exists() else [],
-        key=lambda p: p.stat().st_mtime,
-        reverse=True,
-    )
+    """Saved diagnoses newest-first, tagged with their bare filename (never a host path)."""
     diagnoses: list[dict[str, Any]] = []
-    for path in matches:
-        try:
-            diagnosis = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as e:
-            logger.warning("Skipping unreadable diagnosis file %s: %s", path, e)
-            continue
-        if agent_name and diagnosis.get("agent_name") != agent_name:
-            continue
-        diagnosis.setdefault("_source_file", str(path))
+    for path, diagnosis in eval_diagnosis_service.load_saved_diagnoses(execution_id, agent_name=agent_name):
+        diagnosis.setdefault("_source_file", path.name)
         diagnoses.append(diagnosis)
     return diagnoses
 

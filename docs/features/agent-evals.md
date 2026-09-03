@@ -35,7 +35,7 @@ Each cell in the table represents one article evaluated by one config version.
 Clicking a completed cell opens the full execution detail (messages, extracted
 items, process lineage) so you can inspect what the agent actually returned.
 
-![Execution detail modal listing extracted commandlines with Export Bundle and Diagnose via MCP buttons](../assets/screenshots/14-agent-evals-execution-modal.png)
+![Execution detail modal listing extracted commandlines with Export Bundle and How to Diagnose buttons](../assets/screenshots/14-agent-evals-execution-modal.png)
 
 ---
 
@@ -302,8 +302,9 @@ or missing `summary`). The agent corrects the proposal and asks for fresh
 confirmation before retrying. A stale evidence digest requires retrieving and
 reviewing a fresh context packet first.
 
-The **Diagnose via MCP** button in the execution detail modal is a help affordance
-that explains this workflow -- it does not trigger anything.
+The **How to Diagnose** button in the execution detail modal opens the prompt to
+give your agent (with a Copy button) and the steps above. It does not trigger
+anything on the server.
 
 ### What it returns
 
@@ -312,6 +313,7 @@ that explains this workflow -- it does not trigger anything.
 | **Summary** | 1-2 sentence plain-English explanation of the failure |
 | **Failure category** | `prompt_gap`, `model_limitation`, `input_noise`, `infrastructure`, or `correct_behavior` |
 | **Confidence** | 0.0-1.0 estimate of how certain the diagnosis is |
+| **Run signals** | Truncation, finish reason, context pressure, contract compliance, and token utilization. Populated for every run and rendered ahead of root causes, because a delta-0 run can still be truncated or non-compliant; bad values are highlighted |
 | **Root causes** | List of causes with evidence and severity (high/medium/low) |
 | **Recommendations** | Ordered action items with rationale |
 | **Contract violations** | Specific rules from the extractor contract that were broken |
@@ -326,7 +328,15 @@ replacing the last; the panels are numbered newest-first. Call
 Saved files carry `schema_version: eval_diagnosis_v2`, `source: mcp_agent`, and
 `authored_by` (whatever the agent passed). Diagnosis files written before this
 change instead carry `provider_used` / `model_used` from the retired server-side
-call; the UI reads both and attributes each panel accordingly.
+call; the UI reads both and attributes each panel accordingly. Runs are ordered by
+each file's `created_at` stamp (file mtime only for legacy files without one), so
+restoring or copying `data/diagnoses/` does not reorder history.
+
+The evidence digest covers the bundle's integrity warnings, which record whether
+request/response messages were recovered from Langfuse. If Langfuse availability
+changes between `get_eval_diagnosis_context` and `save_eval_diagnosis`, the save
+is rejected with `context_refresh_required` rather than persisting a diagnosis of
+evidence you did not review; pull a fresh packet and confirm again.
 
 ### Editing the diagnosis instructions
 

@@ -2906,19 +2906,13 @@ async def get_saved_diagnosis(execution_id: int):
     """
     Return the most recent saved diagnosis for an execution, or 404 if none exists.
     """
-    import json as _json
+    from src.services.eval_diagnosis_service import load_saved_diagnoses
 
-    from src.services.eval_diagnosis_service import DIAGNOSES_DIR
-
-    matches = sorted(
-        DIAGNOSES_DIR.glob(f"{execution_id}_*.json"),
-        key=lambda p: p.stat().st_mtime,
-        reverse=True,
-    )
-    if not matches:
+    entries = load_saved_diagnoses(execution_id)
+    if not entries:
         raise HTTPException(status_code=404, detail="No diagnosis found")
 
-    return _json.loads(matches[0].read_text(encoding="utf-8"))
+    return entries[0][1]
 
 
 @router.get("/evals/diagnosis-counts")
@@ -2948,16 +2942,9 @@ async def list_saved_diagnoses(execution_id: int):
     Return all saved diagnoses for an execution, newest first.
     Returns an empty list (not 404) when none exist.
     """
-    import json as _json
+    from src.services.eval_diagnosis_service import load_saved_diagnoses
 
-    from src.services.eval_diagnosis_service import DIAGNOSES_DIR
-
-    matches = sorted(
-        DIAGNOSES_DIR.glob(f"{execution_id}_*.json"),
-        key=lambda p: p.stat().st_mtime,
-        reverse=True,
-    )
-    return [_json.loads(p.read_text(encoding="utf-8")) for p in matches]
+    return [diagnosis for _path, diagnosis in load_saved_diagnoses(execution_id)]
 
 
 # Map subagent canonical names to agent names used in eval bundles

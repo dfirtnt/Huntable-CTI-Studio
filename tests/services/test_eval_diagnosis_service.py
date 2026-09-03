@@ -441,3 +441,15 @@ class TestNoServerSideLlmPath:
         service = EvalDiagnosisService()
         assert not hasattr(service, "llm_service")
         assert not hasattr(service, "diagnose_bundle")
+
+
+@pytest.mark.unit
+def test_build_context_reports_integer_ids_matching_save_and_list_tools():
+    """Bundle metadata carries ids as strings; the packet must match the int ids the tools use."""
+    from src.services.eval_diagnosis_service import build_diagnosis_context
+
+    bundle = {"workflow": {"execution_id": "3671", "article_id": "6557"}, "integrity": {"warnings": []}}
+    context = build_diagnosis_context(bundle, "CmdlineExtract")
+
+    assert context["execution_id"] == 3671
+    assert context["article_id"] == 6557

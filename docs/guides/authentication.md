@@ -201,8 +201,9 @@ hanging a privileged request. Covered:
   event keeps human attribution)
 - bulk embedding rebuild and per-article embedding generation (dispatch only:
   the worker-side outcome is not observable from the route)
-- evaluation runs (workflow, subagent, Sigma), eval bundle export, and
-  LLM-powered bundle diagnosis
+- evaluation runs (workflow, subagent, Sigma), eval bundle export, and eval
+  diagnosis persistence (the MCP `save_eval_diagnosis` write, audited as
+  `evaluation.bundle_diagnosed`; the server-side diagnose route no longer exists)
 - observable training and observable evaluation runs
 
 One consequence worth knowing: a full-database restore replaces `audit_events`

@@ -921,3 +921,19 @@ async def test_get_workflow_execution_trace_reports_error_on_failure():
     assert payload["error"] == "execution not found"
     assert payload["execution_id"] == 999999
     session.close.assert_called_once()
+
+
+@pytest.mark.unit
+def test_load_saved_diagnoses_reports_bare_filename_not_host_path(tmp_path):
+    """MCP clients get the diagnosis filename, never the server's absolute path."""
+    from src.huntable_mcp.tools.evals import _load_saved_diagnoses
+
+    (tmp_path / "3468_CmdlineExtract_abc12345.json").write_text(
+        json.dumps({"diagnosis_id": "abc12345", "agent_name": "CmdlineExtract"})
+    )
+    with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", tmp_path):
+        diagnoses = _load_saved_diagnoses(3468, agent_name="CmdlineExtract")
+
+    assert len(diagnoses) == 1
+    assert diagnoses[0]["_source_file"] == "3468_CmdlineExtract_abc12345.json"
+    assert str(tmp_path) not in diagnoses[0]["_source_file"]
