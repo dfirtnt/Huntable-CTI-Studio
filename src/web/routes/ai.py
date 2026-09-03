@@ -2295,7 +2295,7 @@ async def api_get_sigma_rule_yaml(rule_id: str):
                 rule_dict["author"] = rule.author
 
             if rule.date:
-                rule_dict["date"] = rule.date.strftime("%Y/%m/%d")
+                rule_dict["date"] = rule.date.strftime("%Y-%m-%d")
 
             if rule.tags:
                 rule_dict["tags"] = list(rule.tags)

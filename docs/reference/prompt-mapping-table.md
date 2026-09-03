@@ -39,7 +39,8 @@ These agents have both a seed file in `src/prompts/` and a database entry in wor
 | File | Purpose |
 |------|---------|
 | `sigma_generate_multi.txt` | Multi-rule Sigma generation |
-| `sigma_enrichment.txt` | Sigma rule enrichment |
+| `sigma_validate_single.txt` | First attempt of `POST /api/sigma-queue/{queue_id}/validate`; receives `{rule_yaml}`. Later attempts use `sigma_repair_single.txt` |
+| `sigma_enrichment.txt` | User message for `POST /api/sigma-queue/{queue_id}/enrich`; the system message is `DEFAULT_SIGMA_ENRICHMENT_SYSTEM_PROMPT` in `src/web/routes/sigma_queue.py` unless the modal overrides it |
 | `sigma_repair_single.txt` | Seed default for the `SigmaRepair` per-rule repair prompt (see Workflow Agents table above). Repair reuses the `SigmaAgent` model/provider/params — `SigmaRepair` is a prompt-only config key, not a separate model config. |
 
 ## Priority Order
@@ -47,5 +48,5 @@ These agents have both a seed file in `src/prompts/` and a database entry in wor
 1. **Database** (workflow config `agent_prompts`) — takes precedence
 2. **Seed file** (`src/prompts/`) — fallback on bootstrap or reset
 
-_Last updated: 2026-08-13_
-_Last reviewed: 2026-09-01_
+_Last updated: 2026-09-03_
+_Last reviewed: 2026-09-03_

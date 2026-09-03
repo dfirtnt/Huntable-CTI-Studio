@@ -109,7 +109,7 @@ are sent through a dedicated per-rule repair loop before the result is finalized
    values:
    - `{validation_errors}` -- the list of pySigma error strings from the failed
      attempt
-   - `{original_rule}` -- the first 500 characters of the broken YAML
+   - `{original_rule}` -- the broken YAML (up to 8,000 characters, `REPAIR_RULE_MAX_CHARS`)
 3. The LLM returns a corrected rule; pySigma re-validates it.
 4. This repeats up to `max_repair_attempts_per_rule` times (default: 3) per rule.
 

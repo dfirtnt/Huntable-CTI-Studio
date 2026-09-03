@@ -1,0 +1,24 @@
+Validate the Sigma rule below and correct only what is needed for it to pass pySigma parsing and the Huntable rule standard. Preserve the detection logic.
+
+CURRENT RULE
+{rule_yaml}
+
+WHAT TO FIX
+- YAML syntax: indentation, tabs, quoting, unclosed scalars, stray prose or code fences. Every string value in detection is single-quoted; Windows paths keep single backslashes.
+- Sigma structure: `detection` has at least one selection mapping and a `condition` string that references only selections that exist; `logsource` has `category` and `product`, or `service` with an `EventID` in the selection. Never `service: sysmon`; map Sysmon events to their category (1 -> process_creation, 3 -> network_connection, 7 -> image_load, 11 -> file_event, 12/13 -> registry_add/registry_set, 22 -> dns_query) and remove the EventID.
+- Field names: SigmaHQ taxonomy only (process_creation: Image, CommandLine, ParentImage, ParentCommandLine, OriginalFileName, User; registry_*: TargetObject, Details, Image; file_event: TargetFilename, Image; network_connection: Image, Initiated, DestinationIp, DestinationPort, DestinationHostname; dns_query: QueryName, Image; ps_script: ScriptBlockText; image_load: ImageLoaded, Image; proxy: c-uri, c-uri-extension, c-useragent, cs-method, cs-host). Rename an obvious alias (EventCode -> EventID, url -> c-uri, UserAgent -> c-useragent); if no SigmaHQ field exists for the intent, leave the value and report nothing else.
+- Modifiers: `*value*` wildcards become `|contains`; `|contains|all` only on a list; `|re` only where no modifier fits.
+- Tags: each behavior needs `attack.<tactic>` AND `attack.t<id>[.<sub>]`; tactic names are lowercase and hyphenated (defense-evasion, command-and-control, credential-access, privilege-escalation, lateral-movement, initial-access, resource-development). Add the missing tactic for a technique; fix underscores; never invent a technique.
+- Metadata: title in Title Case without a "Detects" prefix and at most 120 characters; description starts with "Detects"; `status: experimental`; `level` is one of informational, low, medium, high, critical; `falsepositives` is a non-empty list with a concrete scenario (never "None" or "Unknown"); `date` is YYYY-MM-DD; `id` is a UUIDv4 (generate one only if missing or invalid).
+- Remove non-Sigma keys: observables_used, observables_used_inferred, platform, telemetry_category, generation_basis, detection_readiness, logsource_hint, and any other custom key.
+
+WHAT NOT TO CHANGE
+- Do not broaden or narrow the detection, add or remove selections, change values, or reorder conditions beyond what a syntax fix requires.
+- Do not change `level`, `tags`, `title`, or `description` unless they are invalid under the rules above.
+- Do not improve, enrich, or restyle the rule. Enrichment is a separate step.
+
+OUTPUT FORMAT
+- Output ONLY the corrected rule as YAML. Start immediately with `title:`. No explanations, markdown, or code fences before or after.
+- 2-space indentation, lowercase keys.
+- Wrap title or description in double quotes if the value contains any of `? : [ ] {{ }} | & * # @ \``.
+- Field order: title, id, status, description, references, author, date, tags, logsource, detection, falsepositives, level.
