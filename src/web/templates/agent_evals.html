@@ -748,6 +748,9 @@ let activeConfig = null;
 let _configIsRunnable = true; // false when no agent models are configured
 let selectedArticleUrls = new Set();
 let currentSubagent = 'cmdline';
+// Bumped by every results load. The initial CommandLine load takes seconds; a
+// response from an older load must not overwrite a newer subagent's table.
+let _subagentLoadSeq = 0;
 let executionResults = {};
 const excludedVersions = [594, 603, 606, 633, 665, 668, 962, 1013, 1022, 1029, 1034, 1037, 5220, 7666, 7667];
 
@@ -807,6 +810,12 @@ async function loadEvalArticles() {
         }
         
         const data = await response.json();
+        if (getEffectiveSubagent() !== subagentSelect) {
+            // Select moved while loading; the list belongs to the new subagent now.
+            loadBtn.disabled = false;
+            loadBtn.textContent = 'Load Eval Articles';
+            return;
+        }
         
         if (!data || !Array.isArray(data.articles)) {
             throw new Error('Invalid response format: articles array not found');
@@ -2333,6 +2342,7 @@ async function loadAggregateScores() {
     const agentName = SUBAGENT_MAP[subagent] || 'CmdlineExtract';
     const aggregateScores = document.getElementById('aggregateScores');
     const aggregateScoresContent = document.getElementById('aggregateScoresContent');
+    const loadSeq = _subagentLoadSeq;
     
     // Debug logging
     console.log(`Loading aggregate scores for subagent: ${subagent}, apiSubagent: ${apiSubagent}, agentName: ${agentName}`);
@@ -2345,6 +2355,7 @@ async function loadAggregateScores() {
         }
         
         const data = await response.json();
+        if (loadSeq !== _subagentLoadSeq) return;
         const aggregates = data.aggregates || [];
         const evalSetTotal = Number(data.eval_set_total) || 0;
 
@@ -2366,6 +2377,7 @@ async function loadAggregateScores() {
         if (versions.length > 0) {
             try {
                 const modelData = await _fetchConfigVersionsModels(versions);
+                if (loadSeq !== _subagentLoadSeq) return;
                 const modelsByVersion = modelData.models_by_version || {};
 
                 // Extract agent-specific parameters for each version
@@ -2517,9 +2529,12 @@ async function loadPreviousResults() {
 
     resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Loading previous results...</p>';
     _configVersionsModelsCache.clear();
+    const loadSeq = ++_subagentLoadSeq;
+    const isStale = () => loadSeq !== _subagentLoadSeq;
 
     // Load aggregate scores
     await loadAggregateScores();
+    if (isStale()) return;
     
     try {
         const response = await fetch(`/api/evaluations/subagent-eval-results?subagent=${apiSubagent}`);
@@ -2530,6 +2545,7 @@ async function loadPreviousResults() {
         }
         
         const data = await response.json();
+        if (isStale()) return;
         let results = data.results || [];
         
         // No filtering needed - hunt_queries is now a single type
@@ -2681,9 +2697,11 @@ async function loadPreviousResults() {
             return (a.url || '').localeCompare(b.url || '');
         });
 
+        if (isStale()) return;
         renderSubagentResultsPivot(articleRows, filteredVersions, modelsByVersion);
         
     } catch (error) {
+        if (isStale()) return;
         console.error('Error loading previous results:', error);
         resultsTable.textContent = '';
         const errEl = document.createElement('p');
@@ -2805,9 +2823,11 @@ async function loadModelFilter() {
     if (!modelSelect) return;
     setModelFilterPlaceholder('-- loading --');
     try {
-        const resp = await fetch(`/api/evaluations/subagent-eval-models?subagent=${encodeURIComponent(currentSubagent)}`);
+        const subagent = getEffectiveSubagent();
+        const resp = await fetch(`/api/evaluations/subagent-eval-models?subagent=${encodeURIComponent(subagent)}`);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json();
+        if (getEffectiveSubagent() !== subagent) return;
         const models = Array.isArray(data.models) ? data.models : [];
         while (modelSelect.firstChild) modelSelect.removeChild(modelSelect.firstChild);
         const allOpt = document.createElement('option');
@@ -2865,6 +2885,7 @@ function getEffectiveSubagent() {
 
 // Auto-load previous results when subagent changes
 document.getElementById('subagentSelect').addEventListener('change', () => {
+    currentSubagent = getEffectiveSubagent();
     // Clear current results
     const resultsTable = document.getElementById('resultsTable');
     resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Loading previous results...</p>';

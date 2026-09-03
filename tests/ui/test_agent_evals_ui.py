@@ -322,3 +322,80 @@ def test_poller_survives_transient_fetch_failures(page: Page):
     expect(status).to_contain_text("completed", timeout=15000)
     # and it must never have shown the fatal "Error polling results" message.
     assert "Error polling results" not in status.inner_text()
+
+
+def _json_route(payload: dict):
+    def handle(route):
+        route.fulfill(status=200, body=json.dumps(payload), headers={"Content-Type": "application/json"})
+
+    return handle
+
+
+def _eval_row(execution_id: int, article_id: int, subagent: str, config_version: int) -> dict:
+    return {
+        "id": execution_id,
+        "execution_id": execution_id,
+        "article_id": article_id,
+        "url": f"http://example.test/{subagent}/{article_id}",
+        "title": f"{subagent} article {article_id}",
+        "subagent_name": subagent,
+        "status": "completed",
+        "actual_count": 1,
+        "expected_count": 1,
+        "score": 0,
+        "config_version": config_version,
+        "created_at": "2026-09-02T00:00:00",
+        "completed_at": "2026-09-02T00:00:01",
+        "warnings": None,
+    }
+
+
+@pytest.mark.ui
+def test_switching_subagent_discards_late_results_from_previous_subagent(page: Page):
+    """Regression: a slow initial CommandLine load must not overwrite a newer subagent's table.
+
+    The page auto-loads CommandLine results on open (~4s live). Switching the select
+    within that window rendered Hunt Queries, then the late CommandLine response
+    replaced the table, so every clickable cell opened a cmdline execution.
+    """
+    held_cmdline_routes: list = []
+
+    def handle_results(route):
+        if "subagent=cmdline" in route.request.url:
+            held_cmdline_routes.append(route)  # keep the initial load in flight
+            return
+        route.fulfill(
+            status=200,
+            body=json.dumps(
+                {"subagent": "hunt_queries", "total": 1, "results": [_eval_row(222222, 2, "hunt_queries", 6000)]}
+            ),
+            headers={"Content-Type": "application/json"},
+        )
+
+    page.route("**/api/evaluations/subagent-eval-results**", handle_results)
+    _mock_eval_articles_api(page, [])
+    page.route("**/api/evaluations/subagent-eval-aggregate**", _json_route({"aggregates": [], "eval_set_total": 0}))
+    page.route("**/api/evaluations/config-versions-models**", _json_route({"models_by_version": {}}))
+
+    page.goto("http://127.0.0.1:8001/mlops/agent-evals")
+    page.wait_for_load_state("load")
+    for _ in range(100):
+        if held_cmdline_routes:
+            break
+        page.wait_for_timeout(100)
+    assert held_cmdline_routes, "initial cmdline results request never fired"
+
+    page.select_option("#subagentSelect", "hunt_queries")
+    expect(page.locator('[data-exec-id="222222"]')).to_have_count(1, timeout=10000)
+
+    # Release the stale CommandLine response after the Hunt Queries table is on screen.
+    held_cmdline_routes[0].fulfill(
+        status=200,
+        body=json.dumps({"subagent": "cmdline", "total": 1, "results": [_eval_row(111111, 1, "cmdline", 5000)]}),
+        headers={"Content-Type": "application/json"},
+    )
+    page.wait_for_timeout(1500)
+
+    assert page.locator("#subagentSelect").input_value() == "hunt_queries"
+    expect(page.locator('[data-exec-id="111111"]')).to_have_count(0)
+    expect(page.locator('[data-exec-id="222222"]')).to_have_count(1)
