@@ -171,6 +171,7 @@ Rule standard now originates in generation and is mirrored, not re-invented, dow
    preset path. Serve the real template from the backend instead of maintaining a JS copy. The
    fallback defaults in `src/web/templates/article_detail.html` (old system prompt and user
    template, overwritten when the API fetch succeeds) have the same problem.
-6. Re-tag the 8 rules already in Huntable-SIGMA-Rules that carry underscored tactics or a
-   technique without its tactic, and add `author`/`date` to the 8 that lack them (advisory
-   run output is in the session log).
+6. DONE 2026-09-03: https://github.com/dfirtnt/Huntable-SIGMA-Rules/pull/10 re-tags all 18 rules
+   (hyphenated tactics, every tactic per technique, author/date backfilled from first-commit
+   date, revoked t1089 dropped); blocking set 0 issues, remaining advisory hits are the bundled
+   ATT&CK v19 dataset and style items.
