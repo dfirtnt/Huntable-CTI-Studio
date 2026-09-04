@@ -72,7 +72,7 @@ These power the semantic search workflow. For conversational retrieval, use the 
 - `POST /api/workflow/executions/{execution_id}/retry`
 - `POST /api/workflow/executions/{execution_id}/cancel`
 - `POST /api/workflow/executions/cleanup-stale`
-- `POST /api/workflow/executions/trigger-stuck` — Re-dispatches every `pending` execution onto the Celery workflow queue (one `trigger_agentic_workflow` task per row). Use it when a Celery task was lost — worker down at dispatch time, broker restart. It queues work; it does not run the LangGraph pipeline in the web process, which cannot import `langgraph` (see `src/web/routes/workflow_executions.py`).
+- `POST /api/workflow/executions/trigger-stuck` — Re-dispatches **stuck** `pending` executions onto the Celery workflow queue (one `trigger_agentic_workflow` task per row). Use it when a Celery task was lost — worker down at dispatch time, broker restart. Only rows pending longer than `STUCK_PENDING_AFTER` (5 min) and never started qualify; fresher rows are reported under `skipped` because their task is probably still queued and re-dispatching would run the same execution row twice concurrently. `WorkflowTriggerService.is_stuck_pending_execution` is the single shared definition — the article-trigger path fails these same rows. It queues work; it does not run the LangGraph pipeline in the web process, which cannot import `langgraph`.
 
 The workflow engine writes its state into `agentic_workflow_executions` and exposes it through these endpoints.
 

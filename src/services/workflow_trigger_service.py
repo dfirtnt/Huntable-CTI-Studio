@@ -25,6 +25,26 @@ logger = logging.getLogger(__name__)
 # that a worker restart orphaned the execution, while preserving healthy slow runs.
 ORPHANED_RUNNING_STALE_AFTER = timedelta(minutes=30)
 
+# How long a row may sit at ``pending`` before its Celery task is presumed lost.
+# Workers claim a task within seconds, so a fresher row almost certainly still has
+# a live task queued. Both consumers of "stuck pending" MUST share this one
+# definition: the trigger eligibility check below fails such a row and starts a new
+# execution, while ``POST /api/workflow/executions/trigger-stuck`` re-dispatches it.
+# If they disagree, the same row gets failed by one path and re-queued by the other,
+# and re-dispatching a row that still has a live task runs it twice concurrently --
+# two workers on one execution row, both writing results.
+STUCK_PENDING_AFTER = timedelta(minutes=5)
+
+
+def is_stuck_pending_execution(execution: AgenticWorkflowExecutionTable, *, now: datetime | None = None) -> bool:
+    """True when a pending row has waited long enough that its task is presumed lost."""
+    if execution.status != "pending" or execution.started_at is not None:
+        return False
+    if execution.created_at is None:
+        return False
+    reference = now or datetime.now()
+    return execution.created_at < reference - STUCK_PENDING_AFTER
+
 
 def recover_orphaned_running_execution(
     execution: AgenticWorkflowExecutionTable, *, now: datetime | None = None
@@ -136,8 +156,6 @@ class WorkflowTriggerService:
                         "Lower the threshold in Settings → Workflow, or use an article with a higher RegexHunt score."
                     )
 
-            cutoff_time = datetime.now() - timedelta(minutes=5)
-
             existing_execution = (
                 self.db.query(AgenticWorkflowExecutionTable)
                 .filter(
@@ -157,11 +175,7 @@ class WorkflowTriggerService:
                     self.db.commit()
                     return True, None
 
-                if (
-                    existing_execution.status == "pending"
-                    and existing_execution.created_at < cutoff_time
-                    and existing_execution.started_at is None
-                ):
+                if is_stuck_pending_execution(existing_execution):
                     logger.warning(
                         f"Found stuck pending execution {existing_execution.id} for article {article.id} "
                         f"(created {existing_execution.created_at}, never started). Marking as failed."
@@ -169,7 +183,8 @@ class WorkflowTriggerService:
                     existing_execution.status = "failed"
                     existing_execution.error_message = (
                         existing_execution.error_message
-                        or f"Execution stuck in pending status for more than 5 minutes (created: {existing_execution.created_at})"
+                        or f"Execution stuck in pending status for more than {STUCK_PENDING_AFTER} "
+                        f"(created: {existing_execution.created_at})"
                     )
                     existing_execution.completed_at = datetime.now()
                     self.db.commit()

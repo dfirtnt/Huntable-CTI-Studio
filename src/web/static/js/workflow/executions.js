@@ -1974,11 +1974,16 @@ async function triggerStuckExecutions() {
         
         if (response.ok) {
             if (data.count === 0) {
-                showNotification('No pending executions found.', 'success');
+                // Server explains why: nothing pending, or everything pending is too
+                // fresh to be stuck (its Celery task is probably still queued).
+                showNotification(data.message || 'No stuck executions found.', 'success');
             } else {
-                const message = `✅ Re-queued ${data.count} execution(s) on the workflow worker\n\n` +
+                let message = `✅ Re-queued ${data.count} stuck execution(s) on the workflow worker\n\n` +
                               `Dispatched: ${data.successful}\n` +
                               `Failed to dispatch: ${data.failed}`;
+                if (data.skipped) {
+                    message += `\nSkipped (task still queued): ${data.skipped}`;
+                }
                 showNotification(message, 'info');
             }
             await loadExecutions();

@@ -977,24 +977,33 @@ async def stream_execution_updates(execution_id: int):
 @router.post("/executions/trigger-stuck")
 async def trigger_stuck_executions(request: Request):
     """
-    Re-dispatch every pending workflow execution onto the Celery queue.
+    Re-dispatch workflow executions whose Celery task is presumed lost.
 
-    Pending rows are executions that were created but whose Celery task never
-    ran (worker down at dispatch time, broker restart, task lost). This hands
-    each one back to ``trigger_agentic_workflow`` so the *worker* runs the
-    LangGraph pipeline. It must not run the graph in-process: the web image's
-    venv is built with ``uv sync --frozen --no-default-groups`` (Dockerfile
-    stage ``builder-web``), so ``langgraph`` is not installed in ``cti_web``
-    and an in-process run raises ModuleNotFoundError on the first request.
+    Only rows that are *stuck* pending qualify -- pending for longer than
+    ``STUCK_PENDING_AFTER`` and never started. Workers claim a task within
+    seconds, so a fresher pending row almost certainly still has a live task
+    queued, and re-dispatching it runs the same execution row twice
+    concurrently (measured: two fork-pool workers on one row, both writing
+    results). ``WorkflowTriggerService`` fails these same rows on retrigger,
+    so both paths share ``is_stuck_pending_execution`` and cannot disagree
+    about which rows are stuck.
+
+    Dispatch goes to the worker, never in-process: the web image's venv is
+    built with ``uv sync --frozen --no-default-groups`` (Dockerfile stage
+    ``builder-web``), so ``langgraph`` is not installed in ``cti_web`` and an
+    in-process run raises ModuleNotFoundError on the first request.
     """
     try:
+        from src.services.workflow_trigger_service import (
+            STUCK_PENDING_AFTER,
+            is_stuck_pending_execution,
+        )
         from src.worker.celery_app import trigger_agentic_workflow
 
         db_manager = get_db_manager()
         db_session = db_manager.get_session()
 
         try:
-            # Find all pending executions
             pending_executions = (
                 db_session.query(AgenticWorkflowExecutionTable)
                 .filter(AgenticWorkflowExecutionTable.status == "pending")
@@ -1002,11 +1011,34 @@ async def trigger_stuck_executions(request: Request):
                 .all()
             )
 
-            if not pending_executions:
-                return {"success": True, "message": "No pending executions found", "count": 0, "results": []}
+            # A row too fresh to be stuck is one whose task is probably still queued.
+            # Skipping it is the whole point: re-dispatching would double-run it.
+            stuck = [e for e in pending_executions if is_stuck_pending_execution(e)]
+            skipped = len(pending_executions) - len(stuck)
+
+            if not stuck:
+                if skipped:
+                    return {
+                        "success": True,
+                        "message": (
+                            f"No stuck executions found. {skipped} pending execution(s) are newer than "
+                            f"{STUCK_PENDING_AFTER} and still have a live task queued; re-dispatching them "
+                            "would run them twice."
+                        ),
+                        "count": 0,
+                        "skipped": skipped,
+                        "results": [],
+                    }
+                return {
+                    "success": True,
+                    "message": "No pending executions found",
+                    "count": 0,
+                    "skipped": 0,
+                    "results": [],
+                }
 
             results = []
-            for execution in pending_executions:
+            for execution in stuck:
                 execution_id = execution.id
                 article_id = execution.article_id
                 try:
@@ -1049,15 +1081,20 @@ async def trigger_stuck_executions(request: Request):
             successful = sum(1 for r in results if r["success"])
             failed = len(results) - successful
 
+            message = (
+                f"Queued {len(results)} stuck execution(s) on the workflow worker: "
+                f"{successful} dispatched, {failed} failed to dispatch"
+            )
+            if skipped:
+                message += f". Skipped {skipped} pending execution(s) newer than {STUCK_PENDING_AFTER}"
+
             return {
                 "success": True,
-                "message": (
-                    f"Queued {len(results)} execution(s) on the workflow worker: "
-                    f"{successful} dispatched, {failed} failed to dispatch"
-                ),
+                "message": message,
                 "count": len(results),
                 "successful": successful,
                 "failed": failed,
+                "skipped": skipped,
                 "results": results,
             }
 
