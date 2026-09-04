@@ -1961,7 +1961,7 @@ async function triggerStuckExecutions() {
     const btn = document.getElementById('triggerStuckBtn');
     const originalText = btn.textContent;
     
-    if (!await ModalManager.confirm('Trigger all stuck pending executions? This will bypass Celery and run them directly.', { title: 'Trigger Stuck', confirmText: 'Trigger All', confirmClass: 'bg-orange-600 hover:bg-orange-700', cancelText: 'Cancel' })) {
+    if (!await ModalManager.confirm('Re-queue all stuck pending executions? They will be handed back to the workflow worker via Celery.', { title: 'Trigger Stuck', confirmText: 'Re-queue All', confirmClass: 'bg-orange-600 hover:bg-orange-700', cancelText: 'Cancel' })) {
         return;
     }
     
@@ -1976,9 +1976,9 @@ async function triggerStuckExecutions() {
             if (data.count === 0) {
                 showNotification('No pending executions found.', 'success');
             } else {
-                const message = `✅ Triggered ${data.count} execution(s)\n\n` +
-                              `Successful: ${data.successful}\n` +
-                              `Failed: ${data.failed}`;
+                const message = `✅ Re-queued ${data.count} execution(s) on the workflow worker\n\n` +
+                              `Dispatched: ${data.successful}\n` +
+                              `Failed to dispatch: ${data.failed}`;
                 showNotification(message, 'info');
             }
             await loadExecutions();

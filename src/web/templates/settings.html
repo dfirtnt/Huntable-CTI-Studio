@@ -918,8 +918,9 @@
                            placeholder=""
                            class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        Repository in format <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">owner/repo</code>
+                        Optional override, in format <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">owner/repo</code>. Leave blank to use the repository the SIGMA repo clone already points at. Set it only to open PRs against a different repo than the one you push to.
                     </p>
+                    <p id="githubRepoEffective" class="text-sm text-gray-500 dark:text-gray-400 mt-1"></p>
                 </div>
 
                 <!-- Git User Configuration -->
@@ -2267,6 +2268,9 @@
         // The page state now matches what was written, so anything still differing
         // is a genuine pending edit.
         captureSettingsBaseline();
+
+        // A saved or cleared override changes which repository PRs target.
+        refreshResolvedGithubRepo();
     }
 
     // Persistent per-section outcome, unlike the toast which times out in 5s.
@@ -2445,6 +2449,37 @@
     }
     
     // Load GitHub PR settings from database
+    // The clone names its own GitHub repo, so a blank field is not "unconfigured".
+    // Show what submission will actually target, and where that came from, so the
+    // field is not filled in with a guess.
+    async function refreshResolvedGithubRepo() {
+        const el = document.getElementById('githubRepoEffective');
+        if (!el) return;
+        const input = document.getElementById('githubRepo');
+        try {
+            const response = await fetch('/api/settings/github/resolved-repo');
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            if (!data.repo) {
+                el.textContent = 'No repository resolved: the SIGMA repo clone has no recognizable GitHub origin remote. Enter owner/repo above.';
+                el.className = 'text-sm mt-1 text-amber-500';
+                if (input) input.placeholder = 'owner/repo';
+                return;
+            }
+            const origin = {
+                setting: 'from this field',
+                environment: 'from the GITHUB_REPO environment variable',
+                remote: "from the SIGMA repo clone's origin remote"
+            }[data.source] || 'in effect';
+            el.textContent = `PRs will target ${data.repo} (${origin}).`;
+            el.className = 'text-sm text-gray-500 dark:text-gray-400 mt-1';
+            if (input && data.source === 'remote') input.placeholder = data.repo;
+        } catch (error) {
+            console.warn('Could not resolve effective GitHub repository:', error);
+            el.textContent = '';
+        }
+    }
+
     async function loadGitHubPRSettings() {
         const settings = scrubLegacyLocalSecretSettings(JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}'));
 
@@ -2455,6 +2490,10 @@
             loadManagedCredential('gitUserName', { fallback: settings.gitUserName || 'Huntable CTI Studio' }),
             loadManagedCredential('gitUserEmail', { fallback: settings.gitUserEmail || 'cti-studio@huntable.local' })
         ]);
+
+        // Advisory only: a failure here must not be reported as a credential
+        // load failure, which would block the next save.
+        refreshResolvedGithubRepo();
 
         const ids = ['githubToken', 'sigmaRepoPath', 'githubRepo', 'gitUserName', 'gitUserEmail'];
         return ids.filter((id, index) => !results[index]);

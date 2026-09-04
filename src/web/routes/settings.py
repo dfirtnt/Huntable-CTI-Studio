@@ -2,6 +2,7 @@
 API endpoints for managing application settings.
 """
 
+import asyncio
 import logging
 import os
 from typing import Any
@@ -83,6 +84,28 @@ class GitHubConnectionTest(BaseModel):
     repo: str | None = None
 
 
+def _describe_github_repo() -> dict[str, Any]:
+    """Resolve the effective PR target repository. Never raises."""
+    try:
+        from src.services.sigma_pr_service import SigmaPRService
+
+        return SigmaPRService().describe_github_repo()
+    except Exception as exc:  # noqa: BLE001 - a display helper must not break the page
+        logger.warning("Could not resolve the effective GitHub repository: %s", exc)
+        return {"repo": None, "source": "unresolved"}
+
+
+@router.get("/github/resolved-repo")
+async def get_resolved_github_repo():
+    """Report which owner/repo PR submission will target, and where that came from.
+
+    The clone already names its GitHub repository, so the Settings field is an
+    override rather than the source of truth. Surfacing the effective value stops
+    a blank field from reading as "unconfigured" and inviting a wrong value.
+    """
+    return await asyncio.to_thread(_describe_github_repo)
+
+
 @router.post("/github/test")
 async def test_github_connection(body: GitHubConnectionTest | None = None):
     """Test the stored GitHub PAT against the configured repo, server-side.
@@ -97,11 +120,20 @@ async def test_github_connection(body: GitHubConnectionTest | None = None):
     overrides = body or GitHubConnectionTest()
     token = (overrides.token or "").strip() or await _read_setting_value("GITHUB_TOKEN")
     repo = (overrides.repo or "").strip() or await _read_setting_value("GITHUB_REPO")
+    if not repo:
+        # Blank setting means the clone's own remote decides, so test that.
+        repo = (await asyncio.to_thread(_describe_github_repo)).get("repo") or ""
 
     if not token:
         return {"valid": False, "message": "No GitHub token is configured. Enter one and save first."}
     if not repo or "/" not in repo:
-        return {"valid": False, "message": "Set the repository as owner/repo first."}
+        return {
+            "valid": False,
+            "message": (
+                "No repository to test: the SIGMA repo clone has no recognizable GitHub "
+                "origin remote, and no owner/repo is set here."
+            ),
+        }
 
     owner, _, repo_name = repo.partition("/")
     try:

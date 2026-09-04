@@ -2698,7 +2698,7 @@ def get_similar_rules_for_queued_rule(request: Request, queue_id: int, force: bo
             # Single source of truth (todo 001, C1+C2): an inconclusive comparator
             # (candidates evaluated, 0 behavioral matches) yields None, never a
             # fake 0.0 that masquerades as a confident novelty score.
-            from src.workflows.agentic_workflow import summarize_rule_novelty
+            from src.services.sigma_novelty_service import summarize_rule_novelty
 
             _summary = summarize_rule_novelty(match_result)
             max_similarity = _summary["max_similarity"]  # None when inconclusive

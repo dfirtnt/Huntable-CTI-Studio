@@ -36,6 +36,10 @@ from src.services.llm_service import LLMService
 from src.services.lmstudio_model_loader import auto_load_workflow_models
 from src.services.sigma_generation_service import _infer_observables_used
 from src.services.sigma_matching_service import SigmaMatchingService
+
+# Re-exported: the novelty summariser lives in the service layer so langgraph-free
+# callers (the web container's sigma-queue routes) can import it too.
+from src.services.sigma_novelty_service import summarize_rule_novelty
 from src.services.workflow_config_snapshot import build_config_snapshot, snapshot_is_complete
 from src.services.workflow_provider_options import _probe_lmstudio
 from src.services.workflow_trigger_service import WorkflowTriggerService
@@ -760,47 +764,6 @@ def _all_extractors_errored(extraction_result: dict | None) -> tuple[bool, str |
     if len(unique_errors) > 2:
         reason += f" (and {len(unique_errors) - 2} more)"
     return True, reason
-
-
-def summarize_rule_novelty(match_result: dict, threshold: float = 0.5) -> dict:
-    """Classify one rule's novelty comparison for the review queue (todo 001, C1+C2).
-
-    Distinguishes a *scored* low/zero result from an *inconclusive* one: the
-    comparator evaluated candidates but found zero behavioral matches. The old
-    code collapsed the inconclusive case into ``max_similarity=0.0``, which
-    silently disabled novelty suppression for ~86% of the queue.
-
-    Inconclusive => ``max_similarity=None`` (unscored), never a confident ``0.0``.
-
-    Two distinct ``total==0`` cases must NOT be conflated:
-    - **Empty corpus / nothing to compare against** (no ``no_atoms_extracted`` flag):
-      genuinely novel, NOT inconclusive — keep the ``0.0`` semantics.
-    - **Proposed rule produced no atoms** (``no_atoms_extracted`` set by the
-      assess_novelty guard): a FAILURE TO ASSESS. This IS inconclusive, so it routes
-      to needs_review and a human sees it — fail open, but never silently as a
-      confident pending novel.
-    """
-    matches = match_result.get("matches", []) or []
-    total = int(match_result.get("total_candidates_evaluated", 0) or 0)
-    behavioral = int(match_result.get("behavioral_matches_found", 0) or 0)
-    no_atoms = bool(match_result.get("no_atoms_extracted"))
-    sims = [m.get("similarity", 0.0) for m in matches]
-    inconclusive = no_atoms or (total > 0 and behavioral == 0)
-    # SigmaSim Finding B: surface whether the proposed rule's logsource resolved to a
-    # canonical telemetry class. None => the rule fell to the weak logsource_key fallback
-    # (e.g. SigmaAgent emitting bare `service: sysmon` with no category/EventID for a
-    # process_creation-shaped rule). We keep the rule (fail open) but flag the degraded-dedup
-    # condition so it is visible — logged + queryable via rule_metadata — instead of silent.
-    canonical_class = match_result.get("canonical_class")
-    return {
-        "max_similarity": None if inconclusive else (max(sims) if sims else 0.0),
-        "total_candidates_evaluated": total,
-        "behavioral_matches_found": behavioral,
-        "comparator_inconclusive": inconclusive,
-        "canonical_class": canonical_class,
-        "logsource_unresolved": canonical_class is None,
-        "logsource_lint_failures": ["unresolved_logsource"] if canonical_class is None else [],
-    }
 
 
 def select_queueable_rule_indices(similarity_results: list[dict[str, Any]], similarity_threshold: float) -> list[int]:

@@ -38,6 +38,16 @@ if not os.environ.get("DATABASE_URL"):
         os.environ["DATABASE_URL"] = f"postgresql+asyncpg://cti_user:{_pw}@localhost:5432/cti_scraper"
         _url_built_from_pw = True
 
+# Same host-side default for the Celery broker. Compose sets REDIS_URL for every
+# container, but a desktop client running this server on the host sets neither
+# REDIS_URL nor CELERY_BROKER_URL, and celeryconfig then falls back to the
+# compose-internal "redis" hostname, which does not resolve on the host. The
+# cti_redis container publishes 6379, so localhost is the host-side broker.
+_redis_url_defaulted = False
+if not os.environ.get("REDIS_URL") and not os.environ.get("CELERY_BROKER_URL"):
+    os.environ["REDIS_URL"] = "redis://localhost:6379/0"
+    _redis_url_defaulted = True
+
 # Stdio MCP: logs must go to stderr only — stdout is reserved for JSON-RPC.
 logging.basicConfig(
     level=logging.INFO,
@@ -51,6 +61,8 @@ if _url_built_from_pw:
     logger.info(
         "DATABASE_URL assembled from POSTGRES_PASSWORD: postgresql+asyncpg://cti_user:***@localhost:5432/cti_scraper"
     )
+if _redis_url_defaulted:
+    logger.info("REDIS_URL defaulted for a host-side MCP server: redis://localhost:6379/0")
 
 mcp = FastMCP(
     "huntable-cti-studio",
@@ -74,6 +86,13 @@ mcp = FastMCP(
         "for explicit confirmation before calling save_eval_diagnosis with the packet evidence_sha256 and "
         "confirmed_by_user=true; this is a caller attestation, so the MCP host should enforce approval. "
         "There is no server-side diagnosis LLM call and no provider API key on this path. "
+        "To start an eval run, call run_subagent_eval first with confirmed_by_user=false: it returns the plan "
+        "(config version, provider, model, execution count, per-URL status, billing line) and writes nothing. "
+        "Show that plan to the user and obtain explicit approval for that launch, then call it again with "
+        "confirmed_by_user=true. Approval never carries over: every launch call needs a fresh "
+        "confirmed_by_user=true. A launch bills the extractor's configured provider unless it is lmstudio. "
+        "Then poll get_subagent_eval_status with the returned run_label until is_complete, retrieve bundles "
+        "with get_eval_run, and diagnose as above. "
         "Use get_sigma_rule to fetch the full YAML and metadata for a Sigma rule by its UUID (Rule ID from search results). "
         "Use list_tables to discover the database schema, then execute_sql to run a read-only SELECT query directly. "
         "execute_sql is permanently read-only. "

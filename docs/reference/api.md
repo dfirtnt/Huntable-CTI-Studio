@@ -170,7 +170,7 @@ Route module: `src/web/routes/models.py`. Version data is stored in the `ml_mode
 These support per-subagent extraction evals (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract, NetworkIndicatorExtract):
 
 - `GET /api/evaluations/subagent-eval-articles` — List seeded eval articles for a given subagent.
-- `POST /api/evaluations/run-subagent-eval` — Trigger a subagent eval run.
+- `POST /api/evaluations/run-subagent-eval` — Trigger a subagent eval run against the active config (the legacy `use_active_config` field is ignored). Rejected with 422 before any write when a URL has no committed fixture or the run exceeds `MAX_EVAL_EXECUTIONS_PER_LAUNCH` (default 100). Shares its planner with the `run_subagent_eval` MCP tool.
 - `GET /api/evaluations/subagent-eval-results` — Get results for completed subagent eval runs (includes `expected_items`, `actual_items`, `matched_count`, `missed_count`, `extra_count` when item-level ground truth is set).
 - `GET /api/evaluations/subagent-eval-status/{eval_record_id}` — Poll status of a single eval record.
 - `DELETE /api/evaluations/subagent-eval-clear-pending` — Clear pending/stuck eval records.

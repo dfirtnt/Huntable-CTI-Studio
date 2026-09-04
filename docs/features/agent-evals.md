@@ -129,6 +129,41 @@ well below the TPM ceiling.
 
 ---
 
+## Launching from MCP
+
+An MCP client can start the same run the **RUN** button starts, without the
+page. The `run_subagent_eval` tool plans first and launches only on explicit,
+per-call approval:
+
+1. Call `run_subagent_eval(subagent="cmdline")` with `confirmed_by_user`
+   left false. It resolves the active config, the committed article set (or
+   the `article_urls` you pass), `replicates`, and each URL's status, and
+   returns the plan with the extractor's provider, model, execution count
+   and a billing line. Nothing is written.
+2. Show the plan to the operator. Tokens are billed to the extractor's
+   configured provider unless it is `lmstudio`.
+3. Call it again with `confirmed_by_user=true`. Approval never carries over;
+   each launch call needs its own confirmation. The tool checks the Celery
+   broker before writing, then creates the same execution and eval rows the
+   page creates, tagged `initiated_by: service:mcp` in the snapshot, and
+   audits `evaluation.run_requested`. The stagger and throttle above apply
+   unchanged.
+4. Poll `get_subagent_eval_status(run="v<version>", subagent="cmdline")`
+   until `is_complete`, then fetch bundles with `get_eval_run`.
+
+Two guards apply to every launch, from the page and from MCP:
+
+| Guard | Default | Behavior |
+|---|---|---|
+| `MAX_EVAL_EXECUTIONS_PER_LAUNCH` | 100 | Environment variable. A plan whose execution count (URLs x replicates) exceeds it is rejected before any row is written: the page returns HTTP 422, MCP returns an error alongside the plan. |
+| Missing fixture | -- | A URL with no committed fixture under `config/eval_articles_data/` fails the page request with HTTP 422 and is reported as `skipped` by MCP. |
+
+MCP never runs an extractor inside the MCP server process: a URL that has a
+fixture but no article row in the database is skipped, whereas the page runs
+it inline. Startup seeding normally guarantees the row exists.
+
+---
+
 ## Maintaining the Eval Dataset
 
 The eval dataset lives in two places that must stay in sync:

@@ -977,12 +977,18 @@ async def stream_execution_updates(execution_id: int):
 @router.post("/executions/trigger-stuck")
 async def trigger_stuck_executions(request: Request):
     """
-    Manually trigger all pending workflow executions.
+    Re-dispatch every pending workflow execution onto the Celery queue.
 
-    This bypasses Celery and directly runs the workflow for any stuck pending executions.
+    Pending rows are executions that were created but whose Celery task never
+    ran (worker down at dispatch time, broker restart, task lost). This hands
+    each one back to ``trigger_agentic_workflow`` so the *worker* runs the
+    LangGraph pipeline. It must not run the graph in-process: the web image's
+    venv is built with ``uv sync --frozen --no-default-groups`` (Dockerfile
+    stage ``builder-web``), so ``langgraph`` is not installed in ``cti_web``
+    and an in-process run raises ModuleNotFoundError on the first request.
     """
     try:
-        from src.workflows.agentic_workflow import run_workflow
+        from src.worker.celery_app import trigger_agentic_workflow
 
         db_manager = get_db_manager()
         db_session = db_manager.get_session()
@@ -1001,36 +1007,54 @@ async def trigger_stuck_executions(request: Request):
 
             results = []
             for execution in pending_executions:
+                execution_id = execution.id
+                article_id = execution.article_id
                 try:
-                    logger.info(f"Triggering stuck execution {execution.id} for article {execution.article_id}")
-                    result = await run_workflow(execution.article_id, db_session, execution_id=execution.id)
+                    logger.info(f"Re-dispatching stuck execution {execution_id} for article {article_id} via Celery")
+                    trigger_agentic_workflow.delay(article_id, execution_id)
+
+                    AuditService.record_mandatory(
+                        db_session,
+                        _workflow_audit_event(
+                            request,
+                            ACTION_WORKFLOW_TRIGGERED,
+                            execution_id,
+                            f"Re-dispatched stuck workflow execution {execution_id}",
+                            {"article_id": article_id, "source": "trigger_stuck"},
+                        ),
+                    )
 
                     results.append(
                         {
-                            "execution_id": execution.id,
-                            "article_id": execution.article_id,
-                            "success": result.get("success", False),
-                            "message": result.get("message", "Workflow completed"),
+                            "execution_id": execution_id,
+                            "article_id": article_id,
+                            "success": True,
+                            "message": "Queued for the workflow worker",
                         }
                     )
 
                 except Exception as e:
-                    logger.error(f"Error triggering execution {execution.id}: {e}", exc_info=True)
+                    logger.error(f"Error re-dispatching execution {execution_id}: {e}", exc_info=True)
                     results.append(
                         {
-                            "execution_id": execution.id,
-                            "article_id": execution.article_id,
+                            "execution_id": execution_id,
+                            "article_id": article_id,
                             "success": False,
                             "message": type(e).__name__,
                         }
                     )
+
+            db_session.commit()
 
             successful = sum(1 for r in results if r["success"])
             failed = len(results) - successful
 
             return {
                 "success": True,
-                "message": f"Triggered {len(results)} execution(s): {successful} successful, {failed} failed",
+                "message": (
+                    f"Queued {len(results)} execution(s) on the workflow worker: "
+                    f"{successful} dispatched, {failed} failed to dispatch"
+                ),
                 "count": len(results),
                 "successful": successful,
                 "failed": failed,
