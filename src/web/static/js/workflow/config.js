@@ -6550,6 +6550,13 @@ function agentModelValueChanged(key, currentValue, originalValue) {
         const b = Array.isArray(originalValue) ? originalValue : [];
         return a.length !== b.length || a.some((item, index) => item !== b[index]);
     }
+    // Effort has two spellings for one state: the select reads back '' for
+    // "Provider default", and a config that never chose a tier carries no
+    // `{Agent}_effort` key at all. Comparing those raw ('' !== undefined) marks
+    // every agent dirty on load, which lights up Save on an untouched page.
+    if (key.endsWith('_effort')) {
+        return (currentValue || '') !== (originalValue || '');
+    }
     // A model select reads back '' when it cannot represent the stored value --
     // e.g. ExtractAgent stored as provider lmstudio with an OpenAI model, so the
     // model is absent from the option list and the select falls back to blank.
