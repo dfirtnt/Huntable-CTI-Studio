@@ -100,8 +100,11 @@ API-oriented Codex model identifiers above: it uses Codex-managed ChatGPT
 authentication, not an API key.
 
 Set `WORKFLOW_CODEX_ENABLED=true`, authenticate the shared workflow-worker
-state with `docker compose exec workflow_worker codex login`, and select one of
-the models the managed Codex login reports in the workflow configuration UI.
+state with `docker compose exec workflow_worker codex login --device-auth`, and
+select one of the models the managed Codex login reports in the workflow
+configuration UI. The device-code flow is what works from inside a container;
+plain `codex login` waits on a container-local browser callback the host cannot
+reach.
 `WORKFLOW_CODEX_MODEL` supplies the fallback when that model list is
 unavailable. Use `POST /api/settings/codex/test` to test the subscription
 without running a workflow. See [Configuration](../getting-started/configuration.md#optional-codex-subscription-provider)

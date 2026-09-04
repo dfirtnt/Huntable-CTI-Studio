@@ -645,11 +645,12 @@
 
                             <div id="workflowCodexSection" class="provider-body hidden text-sm text-gray-400">
                                 <p>Use a shared Codex subscription instead of an API key.</p>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">Connection is managed by an administrator.</p>
-                                <details class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                                    <summary class="cursor-pointer">Administrator setup</summary>
-                                    <p class="mt-1">After rebuilding, run <code>docker compose exec workflow_worker codex login --device-auth</code>.</p>
-                                </details>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Connect it once from a shell on the Docker host. The login is stored in the shared <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">codex_auth</code> volume, so the web and worker containers pick it up without a restart:</p>
+                                <div class="relative mt-2">
+                                    <pre class="text-sm bg-gray-900 text-gray-100 p-3 pr-16 rounded-lg overflow-x-auto"><code id="codexLoginCommand">docker compose exec workflow_worker codex login --device-auth</code></pre>
+                                    <button id="copyCodexLoginCommandBtn" type="button" title="Copy command" aria-label="Copy command" class="absolute top-2 right-2 settings-btn-secondary px-2 py-1 text-xs settings-btn-immediate">Copy</button>
+                                </div>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2"><code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">--device-auth</code> prints a URL and a code to open in your own browser. Plain <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">codex login</code> waits on a callback inside the container that your browser cannot reach. The account needs a ChatGPT Plus, Pro, or Business plan.</p>
                                 {{ test_action('testWorkflowCodexSubscription', 'workflowCodexStatus', 'Test subscription') }}
                             </div>
                         </div>
@@ -2312,6 +2313,19 @@
         }
     }
 
+    function wireCopyCommandButton(buttonId, commandId) {
+        safeAddListener(buttonId, 'click', function() {
+            const btn = document.getElementById(buttonId);
+            const source = document.getElementById(commandId);
+            if (!btn || !source) return;
+            navigator.clipboard.writeText(source.textContent).then(function() {
+                const orig = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(function() { btn.textContent = orig; }, 1500);
+            });
+        });
+    }
+
     function setTestStatus(element, message, state) {
         element.textContent = message;
         element.className = 'settings-test-status' + (state ? ' is-' + state : '');
@@ -2789,15 +2803,8 @@
 
         // GitHub PR settings
         safeAddListener('toggleGithubToken', 'click', toggleGithubTokenVisibility);
-        safeAddListener('copyMkdocsCommandBtn', 'click', function() {
-            const btn = document.getElementById('copyMkdocsCommandBtn');
-            const command = document.getElementById('mkdocsServeCommand').textContent;
-            navigator.clipboard.writeText(command).then(function() {
-                const orig = btn.textContent;
-                btn.textContent = 'Copied!';
-                setTimeout(function() { btn.textContent = orig; }, 1500);
-            });
-        });
+        wireCopyCommandButton('copyMkdocsCommandBtn', 'mkdocsServeCommand');
+        wireCopyCommandButton('copyCodexLoginCommandBtn', 'codexLoginCommand');
         safeAddListener('testGitHubConnection', 'click', testGitHubConnection);
 
         // Test workflow API key buttons

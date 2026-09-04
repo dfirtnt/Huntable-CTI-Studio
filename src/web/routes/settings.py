@@ -28,6 +28,15 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/settings", tags=["Settings"])
 
+# Whoever runs this deployment is its administrator, so the failure messages carry
+# the command instead of telling the operator to go find someone. --device-auth is
+# the flag that matters: plain `codex login` waits on a browser callback bound
+# inside the container, which the host browser cannot reach.
+CODEX_LOGIN_COMMAND = "docker compose exec workflow_worker codex login --device-auth"
+CODEX_NOT_LOGGED_IN_MESSAGE = f"Codex is not logged in. Run: {CODEX_LOGIN_COMMAND}"
+CODEX_WRONG_AUTH_MESSAGE = f"Codex is logged in, but not with a ChatGPT subscription. Run: {CODEX_LOGIN_COMMAND}"
+CODEX_UNREACHABLE_MESSAGE = f"Codex app-server could not be reached. If it is not logged in, run: {CODEX_LOGIN_COMMAND}"
+
 
 @router.post("/codex/test")
 async def test_codex_subscription():
@@ -38,16 +47,28 @@ async def test_codex_subscription():
         logger.warning("Codex subscription test failed: %s", exc)
         return {
             "valid": False,
-            "message": "Codex subscription is not connected. Ask an administrator to connect it.",
+            "message": CODEX_UNREACHABLE_MESSAGE,
         }
 
-    account = result.get("account") if isinstance(result.get("account"), dict) else result
-    auth_mode = account.get("type") or account.get("authMode") if isinstance(account, dict) else None
-    plan_type = account.get("planType") if isinstance(account, dict) else None
+    account = result.get("account") if isinstance(result, dict) else None
+    if not isinstance(account, dict):
+        # A logged-out app-server answers {"account": null, "requiresOpenaiAuth": true},
+        # so a missing account means "not logged in" and must not fall through to the
+        # wrong-auth branch. Older shapes put the account fields at the top level, which
+        # is only assumed when one of those fields is actually present.
+        account = result if isinstance(result, dict) and ("type" in result or "authMode" in result) else None
+    if account is None:
+        return {
+            "valid": False,
+            "message": CODEX_NOT_LOGGED_IN_MESSAGE,
+        }
+
+    auth_mode = account.get("type") or account.get("authMode")
+    plan_type = account.get("planType")
     if auth_mode != "chatgpt":
         return {
             "valid": False,
-            "message": "Codex subscription is not connected. Ask an administrator to connect it.",
+            "message": CODEX_WRONG_AUTH_MESSAGE,
         }
     message = "Codex subscription is ready"
     if isinstance(plan_type, str) and plan_type:
