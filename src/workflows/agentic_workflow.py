@@ -261,7 +261,11 @@ def _logsource_hint_for_observable(platform: str, telemetry_category: str) -> di
     if telemetry_category == "service_creation":
         return {"product": "windows", "category": "service_creation"}
     if telemetry_category == "scheduled_task":
-        return {"product": "windows", "category": "scheduled_task"}
+        # Scheduled-task telemetry resolves as windows.scheduled_task only via the SigmaHQ
+        # service form (service: taskscheduler); there is no `category: scheduled_task` in the
+        # taxonomy. The category form `category: taskscheduler` also resolves but is non-standard
+        # ("forward-compat"), and the 6 corpus rules all use the service form.
+        return {"product": "windows", "service": "taskscheduler"}
     return None
 
 
@@ -522,6 +526,24 @@ def _logsource_key(rule: dict[str, Any]) -> tuple[str, str]:
     return (str(ls.get("category") or ""), str(ls.get("product") or ""))
 
 
+def _canonical_class_or_none(rule_like: dict[str, Any]) -> str | None:
+    """Return the canonical telemetry class for a rule/logsource, or None when it does not resolve.
+
+    ``sigma_similarity`` is optional (it is COPY'd into the runtime images rather than installed
+    everywhere), so an absent package degrades to raw-slot comparison instead of raising.
+    """
+    try:
+        from sigma_similarity.canonical_logsource import resolve_canonical_class
+        from sigma_similarity.errors import UnknownTelemetryClassError
+    except ImportError:
+        return None
+    try:
+        return resolve_canonical_class(rule_like)
+    except (UnknownTelemetryClassError, AttributeError, TypeError, ValueError):
+        # Class resolution is a routing aid, never a reason to lose a rule.
+        return None
+
+
 def _rule_logsource_matches_group(rule: dict[str, Any], group: dict[str, Any]) -> bool:
     """Return False when a generated rule crossed out of its Sigma generation group."""
     if group.get("telemetry_category") == "full_content":
@@ -531,9 +553,27 @@ def _rule_logsource_matches_group(rule: dict[str, Any], group: dict[str, Any]) -
     if not isinstance(hint, dict):
         return True
 
+    # Canonical-class equivalence first. One telemetry class has several legitimate SigmaHQ
+    # spellings, and the repair loop actively rewrites between them: execution 22 repaired
+    # `category: scheduled_task` into `service: security` + EventID 4698 -- the same
+    # windows.scheduled_task class as this group's `service: taskscheduler` hint. Comparing raw
+    # slots alone dropped both of those rules *after* repair had already made them valid.
+    hint_class = _canonical_class_or_none({"logsource": hint})
+    if hint_class is not None:
+        rule_class = _canonical_class_or_none(rule)
+        if rule_class is not None:
+            return rule_class == hint_class
+
+    # Slot comparison stays the fallback for hints or rules that resolve to no canonical class
+    # (linux / product-less network_connection), where the class is not a usable key.
     expected_category = str(hint.get("category") or "").strip().lower()
     expected_product = str(hint.get("product") or "").strip().lower()
-    if not expected_category and not expected_product:
+    # Service-keyed hints (e.g. scheduled_task -> service: taskscheduler) carry no category.
+    # Without comparing service, a service-keyed hint would leave expected_category empty and
+    # match ANY rule sharing the product, silently disabling the cross-category drop this
+    # function exists to perform (a process_creation rule would be kept in the taskscheduler group).
+    expected_service = str(hint.get("service") or "").strip().lower()
+    if not expected_category and not expected_product and not expected_service:
         return True
 
     logsource = rule.get("logsource") or {}
@@ -542,9 +582,12 @@ def _rule_logsource_matches_group(rule: dict[str, Any], group: dict[str, Any]) -
 
     actual_category = str(logsource.get("category") or "").strip().lower()
     actual_product = str(logsource.get("product") or "").strip().lower()
+    actual_service = str(logsource.get("service") or "").strip().lower()
     if expected_category and actual_category != expected_category:
         return False
     if expected_product and actual_product != expected_product:
+        return False
+    if expected_service and actual_service != expected_service:
         return False
     return True
 
@@ -2790,7 +2833,12 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     }
                 )
 
-            sigma_errors = "; ".join(group_errors) if group_errors and not sigma_rules else None
+            # `sigma_errors` stays fatal-only: None whenever any group produced a rule, so a
+            # partial success still completes rather than failing the whole execution.
+            # `group_error_summary` is retained regardless so a group that died completely is
+            # visible in error_log even when a sibling succeeded (previously erased to null).
+            group_error_summary = "; ".join(group_errors) if group_errors else None
+            sigma_errors = group_error_summary if group_errors and not sigma_rules else None
 
             # Drop intra-batch duplicates before similarity search. The similarity
             # search only compares against the existing rule library — it never sees
@@ -2850,9 +2898,13 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 validation_results = sigma_metadata.get("validation_results", [])
 
                 # Store if we have conversation_log (even if empty), validation_results, or errors
-                if "conversation_log" in sigma_metadata or validation_results or sigma_errors:
+                if "conversation_log" in sigma_metadata or validation_results or sigma_errors or group_error_summary:
                     error_log_entry = {
                         "errors": sigma_errors,
+                        # Always present when any group errored, even on partial success where
+                        # `errors` (fatal-only) is null -- the operator can otherwise not tell a
+                        # group died from a clean run.
+                        "group_errors": group_error_summary,
                         "total_attempts": sigma_metadata.get(
                             "total_attempts", len(conversation_log) if conversation_log else 0
                         ),
@@ -3259,8 +3311,9 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                                     f"[Workflow {state['execution_id']}] Generated rule idx={idx} "
                                     f"({rule.get('title')!r}) has an unclassifiable logsource "
                                     f"{rule.get('logsource')} — no canonical_class, dedup degraded to "
-                                    f"logsource_key fallback (SigmaSim Finding B). Prefer a SigmaHQ "
-                                    f"`category:` (e.g. process_creation) over bare `service:`."
+                                    f"logsource_key fallback (SigmaSim Finding B). Use a logsource "
+                                    f"that maps to a registered canonical class (e.g. `category: "
+                                    f"process_creation`, or `service: taskscheduler` for scheduled tasks)."
                                 )
 
                             # Create queue entry

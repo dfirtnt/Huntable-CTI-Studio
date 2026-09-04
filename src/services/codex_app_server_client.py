@@ -77,7 +77,13 @@ def normalize_completed_turn(
         message = error.get("message") if isinstance(error, dict) else None
         raise CodexAppServerError(message or f"Codex turn ended with status '{turn.get('status')}'.")
     if not agent_text.strip():
-        raise CodexAppServerError("Codex completed without an agent message.")
+        # A completed turn carrying no agentMessage is the one Codex outcome whose cause is
+        # absent from the error itself -- a refusal, a reasoning-only turn and a throttled
+        # turn are indistinguishable here. The turn is not persisted anywhere else, so
+        # naming the item types it did carry is the only forensic trace that survives.
+        item_types = sorted({str(item.get("type")) for item in (turn.get("items") or []) if isinstance(item, dict)})
+        detail = f" Turn items: {', '.join(item_types)}." if item_types else " Turn carried no items."
+        raise CodexAppServerError(f"Codex completed without an agent message.{detail}")
 
     usage = turn.get("usage") if isinstance(turn.get("usage"), dict) else {}
     return {

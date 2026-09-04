@@ -40,8 +40,10 @@ from src.workflows.agentic_workflow import (
     _agent_supported_for_platforms,
     _build_sigma_generation_groups,
     _enrich_observable_metadata,
+    _logsource_hint_for_observable,
     _make_skip_record,
     _observable_sigma_eligible,
+    _rule_logsource_matches_group,
     create_agentic_workflow,
 )
 from src.workflows.status_utils import TERMINATION_REASON_NO_SIGMA_RULES
@@ -742,6 +744,121 @@ async def test_rule_matching_no_group_is_still_dropped(article, execution, confi
     summaries = {g["telemetry_category"]: g for g in execution.error_log["generate_sigma"]["sigma_generation_groups"]}
     assert summaries["network_connection"]["dropped_rules"] == 1
     assert summaries["network_connection"]["rehomed_rules"] == 0
+
+
+def test_scheduled_task_hint_uses_service_form_and_resolves():
+    """scheduled_task must emit the SigmaHQ service form so it resolves to a canonical class.
+    The old `category: scheduled_task` hint is absent from the taxonomy (canonical_class=null,
+    similarity 0 against the corpus). Regression for source_id 26, execs 5/6/7 (2026-09-04)."""
+    from sigma_similarity.canonical_logsource import resolve_canonical_class
+
+    hint = _logsource_hint_for_observable("windows", "scheduled_task")
+    assert hint == {"product": "windows", "service": "taskscheduler"}
+    assert resolve_canonical_class({"logsource": hint}) == "windows.scheduled_task"
+
+
+def test_resolvable_hints_resolve_to_a_canonical_class():
+    """Every logsource hint the router emits for a resolvable shape maps to a canonical class.
+    (linux/product-less network_connection are a known unresolved gap -- see the test below.)"""
+    from sigma_similarity.canonical_logsource import resolve_canonical_class
+
+    resolvable = [
+        ("windows", "process_creation"),
+        ("linux", "process_creation"),
+        ("windows", "network_connection"),
+        ("windows", "registry"),
+        ("windows", "service_creation"),
+        ("windows", "scheduled_task"),
+    ]
+    for platform, category in resolvable:
+        hint = _logsource_hint_for_observable(platform, category)
+        assert hint is not None, f"{platform}/{category} produced no hint"
+        # Must not raise UnknownTelemetryClassError.
+        resolve_canonical_class({"logsource": hint})
+
+
+def test_service_keyed_hint_still_drops_cross_category_rules():
+    """A service-keyed group must not silently keep a foreign-category rule. Before service was
+    compared, expected_category was empty and the hint matched ANY windows rule, disabling the
+    cross-category drop this matcher exists to perform."""
+    task_group = {
+        "platform": "windows",
+        "telemetry_category": "scheduled_task",
+        "logsource_hint": {"product": "windows", "service": "taskscheduler"},
+    }
+    task_rule = {"logsource": {"product": "windows", "service": "taskscheduler"}}
+    process_rule = {"logsource": {"product": "windows", "category": "process_creation"}}
+    assert _rule_logsource_matches_group(task_rule, task_group) is True
+    assert _rule_logsource_matches_group(process_rule, task_group) is False
+
+
+def test_repair_rewritten_logsource_stays_in_its_group():
+    """The repair loop rewrites a rule into a different but EQUIVALENT SigmaHQ logsource form,
+    so group matching must compare canonical classes, not raw slots.
+
+    Measured in execution 22 (article 989, 2026-09-04): the model obeyed the group hint and
+    emitted `category: scheduled_task`; the blocking validator rejected it; repair attempt 2
+    produced `service: security` + EventID 4698 and PASSED. Raw-slot comparison then dropped
+    both rules (generated_rules=0, dropped_rules=2) after repair had already made them valid.
+    Both forms resolve to windows.scheduled_task, so both belong to the group.
+    """
+    task_group = {
+        "platform": "windows",
+        "telemetry_category": "scheduled_task",
+        "logsource_hint": {"product": "windows", "service": "taskscheduler"},
+    }
+    repaired_rule = {
+        "logsource": {"service": "security", "product": "windows"},
+        "detection": {
+            "selection": {"EventID": 4698, "TaskName": "WindowsTimeSync", "UserName": "SYSTEM"},
+            "condition": "selection",
+        },
+    }
+    assert _rule_logsource_matches_group(repaired_rule, task_group) is True
+
+    # The cross-category drop must survive the canonical-class comparison.
+    process_rule = {
+        "logsource": {"product": "windows", "category": "process_creation"},
+        "detection": {"selection": {"Image": "\\schtasks.exe"}, "condition": "selection"},
+    }
+    assert _rule_logsource_matches_group(process_rule, task_group) is False
+
+    # An unresolvable logsource must not be rescued by the canonical path.
+    unresolvable_rule = {
+        "logsource": {"product": "windows", "category": "scheduled_task"},
+        "detection": {"selection": {"TaskName": "WinJenkinsHeartbeat"}, "condition": "selection"},
+    }
+    assert _rule_logsource_matches_group(unresolvable_rule, task_group) is False
+
+
+@pytest.mark.asyncio
+async def test_partial_group_failure_surfaces_group_error(article, execution, config_obj):
+    """A group that fails completely must stay visible in error_log even when a sibling group
+    produced rules. Previously the top-level error was nulled on any success, so a 100%-failing
+    arm was indistinguishable from a clean run (source_id 26, 2026-09-04)."""
+    codex_err = "Codex completed without an agent message. Turn items: error, reasoning."
+
+    async def side_effect(*args, **kwargs):
+        group = kwargs["extraction_result"]["sigma_generation_group"]
+        if group["telemetry_category"] == "process_creation":
+            rules = [
+                _rule("Net User Domain Account Discovery", "process_creation", {"CommandLine|contains": "/domain"})
+            ]
+            return {"rules": rules, "metadata": {"total_attempts": 1, "valid_rules": 1}, "errors": None}
+        return {"rules": [], "metadata": {}, "errors": codex_err}
+
+    result = await _run_generate_sigma(
+        article, execution, config_obj, _two_windows_groups_extraction(), side_effect=side_effect
+    )
+    # The successful group's rule still lands, so the execution completes (not failed).
+    assert result["sigma_rules"], "the surviving group's rule must still be produced"
+    entry = execution.error_log["generate_sigma"]
+    # Fatal-only `errors` stays null on partial success, but the per-group failure is retained.
+    assert entry["errors"] is None
+    assert entry["group_errors"] and codex_err in entry["group_errors"]
+    summaries = {g["telemetry_category"]: g for g in entry["sigma_generation_groups"]}
+    assert summaries["network_connection"]["error"] == codex_err
+    assert summaries["network_connection"]["generated_rules"] == 0
 
 
 def test_find_rehome_group_uses_execution_3898_groups():

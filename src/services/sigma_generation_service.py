@@ -107,6 +107,19 @@ def _platform_sigma_guidance(extraction_result: dict[str, Any] | None) -> str:
     return ""
 
 
+# The logsource category/service values _logsource_hint_for_observable can emit, used to build
+# the "do NOT generate any other logsource" exclusion by removing the group's own channel. These
+# are logsource identifiers (service form for scheduled tasks), not telemetry_category names.
+_SIGMA_LOGSOURCE_CHANNELS = (
+    "process_creation",
+    "network_connection",
+    "registry_event",
+    "service_creation",
+    "taskscheduler",
+    "file_event",
+)
+
+
 def _category_sigma_guidance(extraction_result: dict[str, Any] | None) -> str:
     """Return logsource-category steering guidance for the group, or empty string.
 
@@ -122,20 +135,32 @@ def _category_sigma_guidance(extraction_result: dict[str, Any] | None) -> str:
     if not isinstance(hint, dict):
         return ""
     category = str(hint.get("category") or "").strip()
-    if not category:
+    # A hint may key on `service:` instead of `category:` (scheduled_task -> service:
+    # taskscheduler). Steering only on category left service-keyed groups with no logsource
+    # guidance at all, so the model reverted to its default process_creation spread and every
+    # rule was discarded by _rule_logsource_matches_group.
+    service = str(hint.get("service") or "").strip()
+    if not category and not service:
         return ""
     product = str(hint.get("product") or "").strip()
-    target = f"category: {category}" + (f", product: {product}" if product else "")
+    if category:
+        channel_field, channel_value = "category", category
+    else:
+        channel_field, channel_value = "service", service
+    target = f"{channel_field}: {channel_value}" + (f", product: {product}" if product else "")
+    # Exclude every OTHER channel, never the group's own. The previous hardcoded list named the
+    # group's own category (e.g. a scheduled_task group was told both "MUST use scheduled_task"
+    # and "do NOT generate scheduled_task"), a self-contradiction the model could not satisfy.
+    other_channels = [c for c in _SIGMA_LOGSOURCE_CHANNELS if c != channel_value]
     return (
         f"\n\nLOGSOURCE TARGET FOR THIS GROUP:\n"
         f"- The observables above are {target}.\n"
-        f"- Every rule you generate MUST use `logsource.category: {category}`"
+        f"- Every rule you generate MUST use `logsource.{channel_field}: {channel_value}`"
         + (f" and `logsource.product: {product}`" if product else "")
         + ".\n"
-        "- Do NOT generate rules for any other logsource category (e.g. process_creation, "
-        "network_connection, registry_event, scheduled_task, file_event) -- those are handled by "
-        "separate calls for their own observable groups and any rule with a mismatched logsource "
-        "will be discarded.\n"
+        f"- Do NOT generate rules for any other logsource ({', '.join(other_channels)}) -- those "
+        "are handled by separate calls for their own observable groups and any rule with a "
+        "mismatched logsource will be discarded.\n"
     )
 
 
@@ -494,6 +519,8 @@ class SigmaGenerationService:
         Returns:
             Dict with 'rules' (list of validated rules), 'metadata', 'errors'
         """
+        # Bound before the try so the exception path can still capture what was sent to the model.
+        sigma_prompt: str | None = None
         try:
             # Optimize content with filtering
             optimization_result = await optimize_article_content(article_content, min_confidence=min_confidence)
@@ -837,7 +864,35 @@ class SigmaGenerationService:
             if isinstance(e, ValueError):
                 raise
             logger.error(f"Error generating SIGMA rules: {e}")
-            return {"rules": [], "metadata": {}, "errors": str(e)}
+            # Preserve the Phase-1 prompt so a generation failure -- e.g. Codex returning a
+            # completed turn with no agent message -- is diagnosable. metadata={} previously
+            # erased the only record of what was sent, leaving nothing to explain the empty
+            # completion. sigma_prompt is None if the failure preceded prompt assembly.
+            failure_log: list[dict[str, Any]] = []
+            if isinstance(sigma_prompt, str):
+                failure_log.append(
+                    {
+                        "event_type": "generation_call",
+                        "generation_phase": "generation",
+                        "attempt": 1,
+                        "messages": [
+                            {
+                                "role": "system",
+                                "content": _truncate_trace_text(
+                                    sigma_system_prompt or DEFAULT_SIGMA_SYSTEM_PROMPT, _TRACE_MESSAGE_MAX_CHARS
+                                ),
+                            },
+                            {"role": "user", "content": _truncate_trace_text(sigma_prompt, _TRACE_MESSAGE_MAX_CHARS)},
+                        ],
+                        "llm_response": "",
+                        "error": str(e),
+                    }
+                )
+            return {
+                "rules": [],
+                "metadata": {"conversation_log": failure_log, "total_attempts": 1},
+                "errors": str(e),
+            }
 
     def _resolve_sigma_provider(self, ai_model: str) -> str:
         """The provider a generation call will really use.

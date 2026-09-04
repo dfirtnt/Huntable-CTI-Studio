@@ -12,6 +12,7 @@ from src.services.sigma_generation_service import (
     EXPANSION_MAX_PROMPT_CHARS,
     SigmaGenerationService,
     _build_observables_section,
+    _category_sigma_guidance,
     _extract_message_text,
     _extract_observables_used_fallback,
     _infer_observables_used,
@@ -21,6 +22,40 @@ from src.services.sigma_validator import ValidationResult
 
 # Mark all tests in this file as unit tests (use mocks, no real infrastructure)
 pytestmark = pytest.mark.unit
+
+
+def _guidance_for(hint):
+    return _category_sigma_guidance({"sigma_generation_group": {"logsource_hint": hint}})
+
+
+def test_category_guidance_steers_on_service_when_no_category():
+    """A service-keyed hint (scheduled_task -> service: taskscheduler) must still steer the
+    model. Steering only on `category` left such groups with no guidance, so the model
+    reverted to process_creation and every rule was discarded."""
+    guidance = _guidance_for({"product": "windows", "service": "taskscheduler"})
+    assert "logsource.service: taskscheduler" in guidance
+    assert "logsource.product: windows" in guidance
+
+
+def test_category_guidance_never_excludes_the_groups_own_channel():
+    """The exclusion clause must not name the group's own logsource -- the old hardcoded list
+    told a scheduled_task group both 'MUST use taskscheduler' and 'do NOT generate taskscheduler',
+    a self-contradiction with no satisfiable output."""
+    # Service-keyed group: its own channel (taskscheduler) is excluded from the "do NOT" list.
+    task_guidance = _guidance_for({"product": "windows", "service": "taskscheduler"})
+    exclusion = task_guidance.split("Do NOT generate rules for any other logsource (", 1)[1]
+    assert "taskscheduler" not in exclusion
+    assert "process_creation" in exclusion
+    # Category-keyed group: same invariant.
+    proc_guidance = _guidance_for({"product": "windows", "category": "process_creation"})
+    proc_exclusion = proc_guidance.split("Do NOT generate rules for any other logsource (", 1)[1]
+    assert "process_creation" not in proc_exclusion
+    assert "network_connection" in proc_exclusion
+
+
+def test_category_guidance_empty_when_no_channel():
+    assert _guidance_for({"product": "windows"}) == ""
+    assert _guidance_for({}) == ""
 
 
 def test_extract_message_text_handles_openai_content_parts():
@@ -437,6 +472,43 @@ level: high
                 extraction_result=None,
             )
             assert all("LOGSOURCE TARGET FOR THIS GROUP" not in p for p in _prompts(mock_gen))
+
+    @pytest.mark.asyncio
+    async def test_generation_failure_preserves_prompt_in_conversation_log(self, service, sample_article_data):
+        """A Phase-1 generation failure (e.g. Codex returning a completed turn with no agent
+        message) must still return a conversation_log carrying the prompt that was sent.
+
+        Regression: the exception path returned metadata={}, erasing the only record of what
+        was sent to the model -- leaving nothing to diagnose an empty completion (execs 5/6/7,
+        source_id 26, 2026-09-04).
+        """
+        err = "Codex completed without an agent message. Turn items: error, reasoning."
+        with (
+            patch("src.services.sigma_generation_service.optimize_article_content") as mock_optimize,
+            patch("src.utils.prompt_loader.format_prompt_async", return_value="PROMPT-BODY: generate sigma"),
+            patch.object(service, "_generate_multi_rules", new_callable=AsyncMock, side_effect=RuntimeError(err)),
+        ):
+            mock_optimize.return_value = {
+                "success": True,
+                "filtered_content": sample_article_data["content"],
+                "tokens_saved": 0,
+            }
+            result = await service.generate_sigma_rules(
+                article_title=sample_article_data["title"],
+                article_content=sample_article_data["content"],
+                source_name=sample_article_data["source_name"],
+                url=sample_article_data["url"],
+            )
+
+        assert result["rules"] == []
+        assert result["errors"] == err
+        conversation_log = result["metadata"].get("conversation_log")
+        assert conversation_log, "failure path must preserve a conversation_log entry"
+        entry = conversation_log[0]
+        assert entry["event_type"] == "generation_call"
+        assert entry["error"] == err
+        assert entry["messages"][1]["role"] == "user"
+        assert "PROMPT-BODY" in entry["messages"][1]["content"]
 
     @pytest.mark.asyncio
     async def test_generate_sigma_rules_with_retry(self, service, sample_article_data):
