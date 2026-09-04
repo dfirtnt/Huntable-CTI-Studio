@@ -85,7 +85,6 @@ def test_destructive_article_routes_require_a_role():
     for key in (
         "DELETE /api/articles/{article_id}",
         "POST /api/articles/bulk-action",
-        "POST /api/articles/{article_id}/mark-reviewed",
     ):
         entry = entries[key]
         assert entry.route_module == "articles"

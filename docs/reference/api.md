@@ -39,7 +39,6 @@ These endpoints control source state and manual collection.
 - `GET /api/articles`
 - `GET /api/articles/{article_id}`
 - `GET /api/articles/{article_id}/similar`
-- `POST /api/articles/{article_id}/mark-reviewed`
 - `DELETE /api/articles/{article_id}`
 - `GET /api/articles/{article_id}/chunk-debug` — Chunk-level breakdown of the junk filter's keep/remove decisions, powering the Junk Filter Tuning modal. Local sklearn inference only; no LLM provider calls.
 - `GET /api/articles/{article_id}/chunk-debug/progress` — Progress snapshot for an in-flight `chunk-debug` run. Returns `in_progress: false` when nothing is running; otherwise `phase`, `processed_chunks`, `total_chunks`, `article_total_chunks` and `chunk_limit_applied`. `phase` is `filtering` (full-article pass, no per-chunk counter yet) → `analyzing` (`processed_chunks` advancing toward `total_chunks`) → `finalizing` (assembling the response); only `analyzing` counts chunks, so a client must not render a counter during the other two. `total_chunks` is what this pass will analyse, `article_total_chunks` is what the article holds — they differ whenever `chunk_limit_applied` is true. Progress lives in Redis, not process memory, because a poll can land on a different uvicorn worker than the analysis.

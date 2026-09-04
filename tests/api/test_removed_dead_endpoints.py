@@ -41,6 +41,11 @@ observables-count-results) read from other sources (result files / DB
 tables unrelated to AgentEvaluationTable) and must remain registered.
 POST /api/test-hf-key also stays: it has a direct test caller
 (tests/api/test_ai_key_test_logging.py) and validates HF tokens.
+
+Also removed 2026-09-04 (observables-mode marker vestige -- the button
+never rendered, `markObservablesReviewed()` was unreachable, and the MCP
+tool/route were inert no-op writes with no consumer):
+- POST /api/articles/{article_id}/mark-reviewed
 """
 
 from unittest.mock import MagicMock, patch
@@ -117,3 +122,12 @@ class TestRemovedDeadEndpoints:
         """POST /api/test-hf-key has a live test caller and must stay."""
         paths = _route_paths()
         assert "/api/test-hf-key" in paths
+
+    def test_removed_mark_reviewed_endpoint_is_gone(self):
+        """Regression guard: 2026-09-04 observables-mode marker vestige removal.
+
+        POST /api/articles/{article_id}/mark-reviewed was an inert write with no
+        UI callers; it must not reappear in the route table.
+        """
+        paths = _route_paths()
+        assert "/api/articles/{article_id}/mark-reviewed" not in paths

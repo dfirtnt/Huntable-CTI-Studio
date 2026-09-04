@@ -547,45 +547,6 @@
                         </div>
                     </div>
                     <div class="flex flex-wrap items-center gap-3 mt-4 relative z-10">
-                        <!-- INACTIVE: Observables Mode - Planned for future release -->
-                        <!--
-                        <div class="inline-flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
-                            <button id="annotation-mode-observables" onclick="setAnnotationMode('observables')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white border-l border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors relative z-10" style="pointer-events: auto;">
-                                Observables Mode
-                            </button>
-                        </div>
-                        -->
-                        <!-- INACTIVE: Observable Type Picker - Planned for future release -->
-                        <!--
-                        <div id="observable-type-picker" class="hidden items-center gap-2">
-                            <span class="text-xs font-semibold text-gray-600 dark:text-gray-300">Observable Type:</span>
-                            <div class="inline-flex rounded-lg border border-purple-300 dark:border-purple-700 overflow-hidden">
-                                <button data-observable-type="CMD" onclick="setObservableType('CMD')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white">
-                                    CMD
-                                </button>
-                                <button data-observable-type="PROC_LINEAGE" onclick="setObservableType('PROC_LINEAGE')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-400 border-l border-purple-200 dark:border-purple-600" style="background-color: var(--color-border-subtle);">
-                                    PROC_LINEAGE
-                                </button>
-                            </div>
-                        </div>
-                        <div id="observable-usage-picker" class="hidden items-center gap-2">
-                            <span class="text-xs font-semibold text-gray-600 dark:text-gray-300">Dataset:</span>
-                            <div id="observableUsageButtons" class="inline-flex rounded-lg border border-purple-300 dark:border-purple-700 overflow-hidden">
-                                <button data-dataset-usage="train" onclick="setObservableDatasetUsage('train')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white">
-                                    Training
-                                </button>
-                                <button data-dataset-usage="eval" onclick="setObservableDatasetUsage('eval')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-400 border-l border-purple-200 dark:border-purple-600">
-                                    Evaluation
-                                </button>
-                                <button data-dataset-usage="gold" onclick="setObservableDatasetUsage('gold')" class="px-3 py-1 text-xs font-semibold text-gray-600 dark:text-gray-300 bg-white border-l border-purple-200 dark:border-purple-600">
-                                    Gold <span class="text-[10px] text-gray-400">(locked)</span>
-                                </button>
-                            </div>
-                        </div>
-                        <button id="mark-observable-reviewed" class="hidden px-3 py-1 text-xs font-semibold btn-workflow text-white rounded-lg transition-colors" onclick="markObservablesReviewed({{ article.id }})">
-                            Reviewed (No Observables)
-                        </button>
-                        -->
                     </div>
                 </div>
                 <div class="prose max-w-none relative">
@@ -1626,7 +1587,6 @@ Please provide a detailed analysis based on the article content and the user's s
             const huntabilityBtn = document.getElementById('annotation-mode-huntability');
             const observablesBtn = document.getElementById('annotation-mode-observables');
             const observablePicker = document.getElementById('observable-type-picker');
-            const reviewedButton = document.getElementById('mark-observable-reviewed');
             const richContent = this.richContentElement;
             const plainContent = this.plainContentElement;
 
@@ -1657,10 +1617,6 @@ Please provide a detailed analysis based on the article content and the user's s
             const usagePicker = document.getElementById('observable-usage-picker');
             if (usagePicker) {
                 usagePicker.classList.toggle('hidden', this.annotationMode !== OBSERVABLE_MODE);
-            }
-
-            if (reviewedButton) {
-                reviewedButton.classList.toggle('hidden', this.annotationMode !== OBSERVABLE_MODE);
             }
 
             this.updateObservableTypeButtons();
@@ -4367,23 +4323,6 @@ modal.setAttribute('aria-modal', 'true');
         addiPhoneInstructions();
     }
 
-    async function markObservablesReviewed(articleId) {
-        try {
-            showNotification('Marking article as reviewed...', 'info');
-            const response = await fetch(`/api/articles/${articleId}/mark-reviewed`, {
-                method: 'POST'
-            });
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Failed to update status: ${errorText}`);
-            }
-            const result = await response.json();
-            showNotification(`Article marked as ${result.processing_status}`, 'success');
-        } catch (error) {
-            console.error('Failed to mark article reviewed:', error);
-            showNotification(`Failed to mark reviewed: ${error.message}`, 'error');
-        }
-    }
     // Add mobile-friendly touch handlers for modal buttons
     function addMobileModalHandlers(modal, start, end) {
         // Huntable button

@@ -20,7 +20,6 @@ from src.services.audit_service import (
     ACTION_ANNOTATION_DELETED,
     ACTION_ANNOTATION_UPDATED,
     ACTION_ARTICLE_DELETE_REQUESTED,
-    ACTION_ARTICLE_REVIEWED,
 )
 from src.services.rag_service import RAGService
 
@@ -186,44 +185,6 @@ def register(mcp: FastMCP, rag: RAGService, db: AsyncDatabaseManager) -> None:
         except Exception as e:
             logger.error(f"get_article failed: {e}")
             return f"Error retrieving article {article_id}: {e}"
-
-    @mcp.tool()
-    async def mark_article_reviewed(article_id: int, reviewed: bool = True) -> str:
-        """Mark an article reviewed or unreviewed in article metadata.
-
-        Risk tier: auto-executable. This is reversible and scoped to one article.
-
-        Args:
-            article_id: Database primary key ``articles.id``.
-            reviewed: True to mark reviewed, false to clear the reviewed flag.
-        """
-        try:
-            async with db.get_session() as session:
-                result = await session.execute(select(ArticleTable).where(ArticleTable.id == article_id).limit(1))
-                article = result.scalar_one_or_none()
-                if article is None:
-                    return f"Article {article_id} not found."
-
-                metadata = dict(article.article_metadata or {})
-                metadata["reviewed"] = reviewed
-                metadata["reviewed_by"] = "service:mcp" if reviewed else None
-                metadata["reviewed_at"] = datetime.now().isoformat() if reviewed else None
-                article.article_metadata = metadata
-                article.updated_at = datetime.now()
-                await record_mcp_audit(
-                    session,
-                    ACTION_ARTICLE_REVIEWED,
-                    "article",
-                    article_id,
-                    f"Marked article {article_id} reviewed={reviewed}",
-                    {"reviewed": reviewed},
-                )
-                await session.commit()
-
-            return f"Article {article_id} reviewed={reviewed}."
-        except Exception as e:
-            logger.error(f"mark_article_reviewed failed: {e}")
-            return f"Error marking article {article_id} reviewed: {e}"
 
     @mcp.tool()
     async def delete_article(article_id: int) -> str:

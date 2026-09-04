@@ -266,7 +266,7 @@ UNSAFE_ROUTE_RULES: tuple[RouteRule, ...] = (
         AuditRequirement.BEST_EFFORT,
         CsrfRequirement.REQUIRED,
     ),
-    # Destructive article-data mutations (delete, bulk delete/update, mark-reviewed)
+    # Destructive article-data mutations (delete, bulk delete/update)
     # live in the `articles` module and must require a role, not just authentication.
     # This rule precedes the authenticated catch-all so zero-role users cannot delete
     # articles. (The `ai`/`llm_optimized_endpoint` article actions are role-gated above.)
