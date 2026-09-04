@@ -88,6 +88,10 @@ const providerDefaults = {
 
 // Cache from /api/workflow/provider-options; undefined = not yet fetched, null = fetched but empty
 let _cachedLMStudioModels;
+// provider -> model id -> {supports_temperature, supports_top_p, effort_levels, default_effort, source}
+// Filled from /api/workflow/provider-options. Missing entries fall back to the name
+// heuristics in resolveModelCapabilities().
+let modelCapabilitiesByProvider = {};
 // Flag: provider-options already loaded this page session (skip redundant catalog re-fetch)
 let _workflowProviderOptionsLoaded = false;
 
@@ -118,6 +122,11 @@ async function loadEnabledProviders() {
             if (providers[p] && Array.isArray(providers[p].models) && providers[p].models.length > 0) {
                 newCatalog[p] = providers[p].models;
             }
+            // Per-model parameter capabilities: OpenAI/Anthropic from
+            // config/model_capabilities.json, Codex live from model/list.
+            if (providers[p] && providers[p].model_capabilities && typeof providers[p].model_capabilities === 'object') {
+                modelCapabilitiesByProvider[p] = providers[p].model_capabilities;
+            }
         });
         if (Object.keys(newCatalog).length > 0) {
             commercialModelCatalog = newCatalog;
@@ -143,6 +152,8 @@ async function loadEnabledProviders() {
         if (typeof refreshAllProviderBlocks === 'function') {
             refreshAllProviderBlocks();
         }
+        // Capabilities arrived with this response; re-gate every agent's controls.
+        refreshAllModelCapabilityUI();
     } catch (error) {
         console.error('Error loading provider options:', error);
     }
@@ -636,6 +647,7 @@ const AGENT_CONFIG = {
         modelKey: 'RankAgent',
         temperatureKey: 'RankAgent_temperature',
         topPKey: 'RankAgent_top_p',
+        effortKey: 'RankAgent_effort',
         name: 'RankAgent',
         isSubAgent: false,
         isQA: false,
@@ -647,6 +659,7 @@ const AGENT_CONFIG = {
         modelKey: 'ExtractAgent',
         temperatureKey: 'ExtractAgent_temperature',
         topPKey: 'ExtractAgent_top_p',
+        effortKey: 'ExtractAgent_effort',
         name: 'ExtractAgent',
         isSubAgent: false,
         isQA: false,
@@ -658,6 +671,7 @@ const AGENT_CONFIG = {
         modelKey: 'SigmaAgent',
         temperatureKey: 'SigmaAgent_temperature',
         topPKey: 'SigmaAgent_top_p',
+        effortKey: 'SigmaAgent_effort',
         name: 'SigmaAgent',
         isSubAgent: false,
         isQA: false,
@@ -670,6 +684,7 @@ const AGENT_CONFIG = {
         modelKey: 'CmdlineExtract_model',
         temperatureKey: 'CmdlineExtract_temperature',
         topPKey: 'CmdlineExtract_top_p',
+        effortKey: 'CmdlineExtract_effort',
         name: 'CmdlineExtract',
         isSubAgent: true,
         isQA: false,
@@ -682,6 +697,7 @@ const AGENT_CONFIG = {
         modelKey: 'ProcTreeExtract_model',
         temperatureKey: 'ProcTreeExtract_temperature',
         topPKey: 'ProcTreeExtract_top_p',
+        effortKey: 'ProcTreeExtract_effort',
         name: 'ProcTreeExtract',
         isSubAgent: true,
         isQA: false,
@@ -694,6 +710,7 @@ const AGENT_CONFIG = {
         modelKey: 'HuntQueriesExtract_model',
         temperatureKey: 'HuntQueriesExtract_temperature',
         topPKey: 'HuntQueriesExtract_top_p',
+        effortKey: 'HuntQueriesExtract_effort',
         name: 'HuntQueriesExtract',
         isSubAgent: true,
         isQA: false,
@@ -706,6 +723,7 @@ const AGENT_CONFIG = {
         modelKey: 'RegistryExtract_model',
         temperatureKey: 'RegistryExtract_temperature',
         topPKey: 'RegistryExtract_top_p',
+        effortKey: 'RegistryExtract_effort',
         name: 'RegistryExtract',
         isSubAgent: true,
         isQA: false,
@@ -718,6 +736,7 @@ const AGENT_CONFIG = {
         modelKey: 'ServicesExtract_model',
         temperatureKey: 'ServicesExtract_temperature',
         topPKey: 'ServicesExtract_top_p',
+        effortKey: 'ServicesExtract_effort',
         name: 'ServicesExtract',
         isSubAgent: true,
         isQA: false,
@@ -730,6 +749,7 @@ const AGENT_CONFIG = {
         modelKey: 'ScheduledTasksExtract_model',
         temperatureKey: 'ScheduledTasksExtract_temperature',
         topPKey: 'ScheduledTasksExtract_top_p',
+        effortKey: 'ScheduledTasksExtract_effort',
         name: 'ScheduledTasksExtract',
         isSubAgent: true,
         isQA: false,
@@ -742,6 +762,7 @@ const AGENT_CONFIG = {
         modelKey: 'NetworkIndicatorExtract_model',
         temperatureKey: 'NetworkIndicatorExtract_temperature',
         topPKey: 'NetworkIndicatorExtract_top_p',
+        effortKey: 'NetworkIndicatorExtract_effort',
         name: 'NetworkIndicatorExtract',
         isSubAgent: true,
         isQA: false,
@@ -926,6 +947,15 @@ function normalizeWorkflowConfigControlBindings() {
                 setAttr(topPEl, 'data-config-key', config.topPKey);
                 setAttr(topPEl, 'data-config-control-type', 'top_p');
                 setAttr(topPEl, 'aria-label', `${labelBase} Top_P`);
+            }
+        }
+        if (config.effortKey) {
+            const effortEl = document.getElementById(`${config.prefix}-effort`);
+            if (effortEl) {
+                setAttr(effortEl, 'name', `agent_models[${config.effortKey}]`);
+                setAttr(effortEl, 'data-config-key', config.effortKey);
+                setAttr(effortEl, 'data-config-control-type', 'effort');
+                setAttr(effortEl, 'aria-label', `${labelBase} Effort`);
             }
         }
     });
@@ -1172,6 +1202,14 @@ function collectAllAgentConfigs(models = null) {
                 }
             }
         }
+
+        // Effort: '' is the "Provider default" option; the server clears the key on ''.
+        if (config.effortKey) {
+            const effortSelect = document.getElementById(`${config.prefix}-effort`);
+            if (effortSelect) {
+                collected[config.effortKey] = (effortSelect.value || '').toString().trim().toLowerCase();
+            }
+        }
     });
     
     return collected;
@@ -1241,10 +1279,12 @@ function applyAgentConfigs(models = null) {
         if (model) setAgentModel(config.prefix, model, provider);
     });
 
-    // 4) Update temp/top_p slider value displays
+    // 4) Update temp/top_p slider value displays, then gate the controls and the
+    //    Effort tiers by the capabilities of the model that was just applied.
     Object.values(AGENT_CONFIG).forEach(config => {
         if (config.temperatureKey) updateThresholdDisplay(`${config.prefix}-temperature`);
         if (config.topPKey) updateThresholdDisplay(`${config.prefix}-top-p`);
+        updateTemperatureCapabilityUI(config.prefix, { effort: config.effortKey ? agentModelsData[config.effortKey] : undefined });
     });
 
     } finally {
@@ -2671,10 +2711,25 @@ async function rollbackPrompt(agentName, versionId) {
 }
 
 // Build temperature + top_p slider pair HTML (for dynamic agent model rows). tempMax defaults to 2.
-function buildTempTopPSliderRow(prefix, tempVal, topPVal, tempKey, topPKey, tempMax) {
+// Mirrors the temperature_sliders macro in components/provider_model_macros.html:
+// the same ids, names and capability hooks, rendered from JS for the main agents.
+// updateTemperatureCapabilityUI(prefix) owns enabling/disabling and the Effort tiers.
+function buildTempTopPSliderRow(prefix, tempVal, topPVal, tempKey, topPKey, tempMax, effortKey) {
     const t = typeof tempVal === 'number' ? tempVal : parseFloat(tempVal) || 0;
     const p = typeof topPVal === 'number' ? topPVal : parseFloat(topPVal) || 0.9;
     const maxT = tempMax !== undefined ? tempMax : 2;
+    const resolvedEffortKey = effortKey || (getAgentConfig(prefix) || {}).effortKey || '';
+    const effortBlock = resolvedEffortKey ? `
+    <div id="${prefix}-effort-container" class="flex-1 hidden" data-capability-control="effort">
+        <div class="flex justify-between items-center mb-1">
+            <label for="${prefix}-effort" class="block text-xs font-semibold" style="color: var(--text-primary) !important;">Effort</label>
+        </div>
+        <select id="${prefix}-effort" name="agent_models[${resolvedEffortKey}]" onchange="autoSaveModelChange()"
+                class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+            <option value="">Provider default</option>
+        </select>
+        <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Reasoning effort. Higher tiers spend more tokens per call.</p>
+    </div>` : '';
     return `
     <div class="flex-1 threshold-slider">
         <div class="flex justify-between items-center mb-1">
@@ -2684,6 +2739,7 @@ function buildTempTopPSliderRow(prefix, tempVal, topPVal, tempKey, topPKey, temp
         <input type="range" id="${prefix}-temperature" name="agent_models[${tempKey}]" min="0" max="${maxT}" step="0.1" value="${t}"
                class="threshold-slider-input w-full" oninput="updateThresholdDisplay('${prefix}-temperature'); autoSaveModelChange()">
         <div class="flex justify-between text-[10px] text-gray-500 dark:text-gray-400 mt-1"><span>0</span><span>${maxT}</span></div>
+        <p id="${prefix}-temperature-reasoning-hint" class="text-[10px] text-amber-500 dark:text-amber-400 mt-1 hidden" data-capability-note="temperature">Not supported by this model</p>
     </div>
     <div class="flex-1 threshold-slider">
         <div class="flex justify-between items-center mb-1">
@@ -2693,7 +2749,8 @@ function buildTempTopPSliderRow(prefix, tempVal, topPVal, tempKey, topPKey, temp
         <input type="range" id="${prefix}-top-p" name="agent_models[${topPKey}]" min="0" max="1" step="0.01" value="${p}"
                class="threshold-slider-input w-full" oninput="updateThresholdDisplay('${prefix}-top-p'); autoSaveModelChange()">
         <div class="flex justify-between text-[10px] text-gray-500 dark:text-gray-400 mt-1"><span>0.0</span><span>1.0</span></div>
-    </div>`;
+        <p id="${prefix}-top-p-reasoning-hint" class="text-[10px] text-amber-500 dark:text-amber-400 mt-1 hidden" data-capability-note="top_p">Not supported by this model</p>
+    </div>${effortBlock}`;
 }
 
 // Update threshold slider value display (call on input and when loading config)
@@ -3219,6 +3276,7 @@ function renderAgentModels(lmstudioModels) {
             </div>
         `;
         ['rankagent-temperature', 'rankagent-top-p'].forEach(updateThresholdDisplay);
+        updateTemperatureCapabilityUI('rankagent', { effort: (agentModels || {})['RankAgent_effort'] });
     }
     
     // Render OS Detection Model
@@ -3313,6 +3371,7 @@ function renderAgentModels(lmstudioModels) {
              </div>
         `;
         ['extractagent-temperature', 'extractagent-top-p'].forEach(updateThresholdDisplay);
+        updateTemperatureCapabilityUI('extractagent', { effort: (agentModels || {})['ExtractAgent_effort'] });
     }
     
     // Render SIGMA Agent Model
@@ -3376,6 +3435,7 @@ function renderAgentModels(lmstudioModels) {
              </div>
         `;
         ['sigmaagent-temperature', 'sigmaagent-top-p'].forEach(updateThresholdDisplay);
+        updateTemperatureCapabilityUI('sigmaagent', { effort: (agentModels || {})['SigmaAgent_effort'] });
     }
     
     // Populate sub-agent model dropdowns using unified system
@@ -4104,6 +4164,11 @@ async function performAutoSave() {
                 }
             } else if (value !== null && value !== '') {
                 cleanedAgentModels[key] = value;
+            } else if (value === '' && key.endsWith('_effort')) {
+                // Effort blank is the deliberate "Provider default" option, not a
+                // control that failed to represent its stored value: send it so the
+                // server clears the override (it drops a blank `_effort` key).
+                cleanedAgentModels[key] = '';
             } else if (value === '' && typeof currentConfig?.agent_models?.[key] === 'string') {
                 // The control read back blank because it could not represent the
                 // stored value (a model absent from the selected provider's option
@@ -4308,41 +4373,122 @@ function isOpenAIReasoningModel(modelName) {
 }
 
 /**
- * Disables or enables the temperature slider for an agent based on whether the
- * currently selected model supports variable temperature. For reasoning models
- * (o1/o3/o4/gpt-5.x) the slider is locked at 0 and a hint is shown.
+ * Resolve what request parameters a (provider, model) pair accepts.
+ * Catalog data comes from /api/workflow/provider-options (server-owned:
+ * config/model_capabilities.json for OpenAI/Anthropic, live model/list for Codex).
+ * Unknown models fall back to the legacy name heuristics: OpenAI reasoning families
+ * reject sampling parameters; Codex never receives them; everything else takes them.
  */
-function updateTemperatureCapabilityUI(agentPrefix) {
-    const provider = getAgentProvider(agentPrefix) || getDefaultProvider();
-    const model = getAgentModel(agentPrefix, provider);
-    const slider = document.getElementById(`${agentPrefix}-temperature`);
-    if (!slider) return;
+function resolveModelCapabilities(provider, modelName) {
+    const p = (provider || '').toString().trim().toLowerCase();
+    const m = (modelName || '').toString().trim();
+    const cataloged = modelCapabilitiesByProvider[p] && m ? modelCapabilitiesByProvider[p][m] : null;
+    if (cataloged && typeof cataloged === 'object') {
+        return {
+            supportsTemperature: cataloged.supports_temperature !== false,
+            supportsTopP: cataloged.supports_top_p !== false,
+            effortLevels: Array.isArray(cataloged.effort_levels) ? cataloged.effort_levels.slice() : [],
+            defaultEffort: cataloged.default_effort || null,
+            effortDescriptions: cataloged.effort_descriptions || {},
+            source: cataloged.source || 'catalog',
+        };
+    }
+    const samplingUnsupported = p === 'codex' || (p === 'openai' && isOpenAIReasoningModel(m));
+    return {
+        supportsTemperature: !samplingUnsupported,
+        supportsTopP: !samplingUnsupported,
+        effortLevels: [],
+        defaultEffort: null,
+        effortDescriptions: {},
+        source: 'fallback',
+    };
+}
 
-    const isReasoning = provider === 'openai' && isOpenAIReasoningModel(model);
-    const hintId = `${agentPrefix}-temperature-reasoning-hint`;
-    let hint = document.getElementById(hintId);
-
-    if (isReasoning) {
-        slider.disabled = true;
-        slider.value = '0';
-        slider.style.opacity = '0.4';
-        slider.style.cursor = 'not-allowed';
-        const valueSpan = document.getElementById(`${agentPrefix}-temperature-value`);
-        if (valueSpan) valueSpan.textContent = '0';
-        if (!hint) {
-            hint = document.createElement('p');
-            hint.id = hintId;
-            hint.className = 'text-[10px] text-amber-500 dark:text-amber-400 mt-1';
-            hint.textContent = 'Temperature not supported for reasoning models';
-            slider.parentElement && slider.parentElement.appendChild(hint);
-        }
-        hint.classList.remove('hidden');
-    } else {
+function _setSliderSupported(slider, noteId, supported) {
+    const note = document.getElementById(noteId);
+    if (supported) {
         slider.disabled = false;
         slider.style.opacity = '';
         slider.style.cursor = '';
-        if (hint) hint.classList.add('hidden');
+        slider.removeAttribute('data-capability-unsupported');
+        if (note) note.classList.add('hidden');
+        return;
     }
+    // Disable, do not hide: the operator sees the control exists and why it is inert.
+    slider.disabled = true;
+    slider.style.opacity = '0.4';
+    slider.style.cursor = 'not-allowed';
+    slider.setAttribute('data-capability-unsupported', 'true');
+    if (note) {
+        note.textContent = 'Not supported by this model';
+        note.classList.remove('hidden');
+    }
+}
+
+/**
+ * Gate Temperature / Top_P and populate the Effort select for one agent from the
+ * capabilities of its currently selected provider+model.
+ *   - Unsupported sliders are disabled (not hidden) with a "Not supported by this model" note.
+ *   - The Effort select lists exactly the model's tiers after a "Provider default" option
+ *     and is hidden entirely when the model has no effort control.
+ * options.effort: stored value to select (from agent_models); when omitted the select
+ * keeps its current value unless the new model no longer lists it.
+ */
+function updateTemperatureCapabilityUI(agentPrefix, options = {}) {
+    const provider = getAgentProvider(agentPrefix) || getDefaultProvider();
+    const model = getAgentModel(agentPrefix, provider);
+    const caps = resolveModelCapabilities(provider, model);
+
+    const tempSlider = document.getElementById(`${agentPrefix}-temperature`);
+    if (tempSlider) {
+        _setSliderSupported(tempSlider, `${agentPrefix}-temperature-reasoning-hint`, caps.supportsTemperature);
+    }
+    const topPSlider = document.getElementById(`${agentPrefix}-top-p`);
+    if (topPSlider) {
+        _setSliderSupported(topPSlider, `${agentPrefix}-top-p-reasoning-hint`, caps.supportsTopP);
+    }
+
+    const effortSelect = document.getElementById(`${agentPrefix}-effort`);
+    const effortContainer = document.getElementById(`${agentPrefix}-effort-container`);
+    if (!effortSelect) return caps;
+
+    const requested = options.effort !== undefined && options.effort !== null
+        ? options.effort.toString().trim().toLowerCase()
+        : (effortSelect.value || '').toString().trim().toLowerCase();
+    const levels = caps.effortLevels;
+    const selected = requested && levels.includes(requested) ? requested : '';
+
+    effortSelect.innerHTML = '';
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = caps.defaultEffort ? `Provider default (${caps.defaultEffort})` : 'Provider default';
+    effortSelect.appendChild(defaultOption);
+    levels.forEach(level => {
+        const option = document.createElement('option');
+        option.value = level;
+        const description = caps.effortDescriptions && caps.effortDescriptions[level];
+        option.textContent = description ? `${level} - ${description}` : level;
+        effortSelect.appendChild(option);
+    });
+    effortSelect.value = selected;
+    effortSelect.setAttribute('data-capability-source', caps.source);
+
+    if (effortContainer) {
+        effortContainer.classList.toggle('hidden', levels.length === 0);
+    }
+    return caps;
+}
+
+function refreshAllModelCapabilityUI() {
+    const stored = (currentConfig && currentConfig.agent_models) || agentModels || {};
+    Object.values(AGENT_CONFIG).forEach(config => {
+        updateTemperatureCapabilityUI(config.prefix, { effort: config.effortKey ? stored[config.effortKey] : undefined });
+    });
+}
+if (typeof window !== 'undefined') {
+    window.resolveModelCapabilities = resolveModelCapabilities;
+    window.updateTemperatureCapabilityUI = updateTemperatureCapabilityUI;
+    window.refreshAllModelCapabilityUI = refreshAllModelCapabilityUI;
 }
 
 /**

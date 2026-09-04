@@ -2,7 +2,10 @@
 
 ## Anthropic Claude Models
 
-Source: docs.anthropic.com (2026-09-03). All models support `max_tokens` + `temperature` (0.0–1.0).
+Source: docs.anthropic.com (2026-09-03). All models take `max_tokens`. `temperature` / `top_p`
+(0.0–1.0) are accepted by Sonnet 4.6, Opus 4.6 and older; Opus 4.7, Opus 4.8, Opus 5, Sonnet 5 and
+Fable 5 reject them with a 400, and the app omits them for those models. See
+[Model Parameter Capabilities](#model-parameter-capabilities-and-reasoning-effort).
 
 | Model | Context Window | Max Output Tokens | Notes |
 |-------|----------------|-------------------|-------|
@@ -77,10 +80,12 @@ the Agents config dropdown alongside the other supported reasoning models.
 
 ### API Parameter Rules
 
-| Model Family | Token Param | Temperature |
-|--------------|-------------|-------------|
-| gpt-5.x, o1, o3, o4 | `max_completion_tokens` | Not supported |
-| gpt-4.x, gpt-4o, gpt-3.5 | `max_tokens` | Supported |
+| Model Family | Token Param | Temperature | `reasoning_effort` |
+|--------------|-------------|-------------|--------------------|
+| gpt-5.x, o1, o3, o4 | `max_completion_tokens` | Not supported | Model-dependent tiers (see below) |
+| gpt-4.x, gpt-4o, gpt-3.5 | `max_tokens` | Supported | Not supported |
+
+The per-model tier list is the source of truth in `config/model_capabilities.json`, not this table.
 
 ### Specialized (not Chat Completions)
 
@@ -91,6 +96,67 @@ the Agents config dropdown alongside the other supported reasoning models.
 - **TTS/Transcribe**: gpt-4o-mini-tts, gpt-4o-transcribe
 
 ---
+
+## Model Parameter Capabilities and Reasoning Effort
+
+Which request parameters a model accepts is catalog knowledge, not something the
+provider APIs report. `config/model_capabilities.json` is that catalog, keyed by model
+id (`version`, `verified_at`, `sources`, then `models`):
+
+```json
+"gpt-5.6-luna": {
+  "supports_temperature": false,
+  "supports_top_p": false,
+  "effort_levels": ["none", "low", "medium", "high", "xhigh", "max"],
+  "default_effort": "medium"
+}
+```
+
+`get_model_capabilities(provider, model)` in `src/services/provider_model_catalog.py`
+resolves it, and everything downstream consumes that one answer:
+
+| Consumer | Behaviour |
+|---|---|
+| `llm_client.py` (OpenAI) | Sends `temperature` only when `supports_temperature`; sends `reasoning_effort` only when the configured tier is in `effort_levels`. |
+| `llm_client.py` (Anthropic) | Sends `temperature` only when `supports_temperature` (Opus 4.7+/4.8/5, Sonnet 5, Fable 5 reject it); sends `output_config.effort` only for a listed tier. |
+| `codex_app_server_client.py` | Never sends sampling parameters. Tiers are discovered live from `model/list` (`supportedReasoningEfforts`, `defaultReasoningEffort`); the configured tier is passed as the `turn/start.effort` override. |
+| `model_supports_variable_temperature()` (`src/utils/model_validation.py`) | Thin wrapper over the resolver; `openai_chat_client.py` and the RAG / enrichment paths keep calling it unchanged. |
+| `GET /api/workflow/provider-options` | Returns `model_capabilities` per provider so the Agents page can gate the Temperature / Top_P sliders (disabled with a "Not supported by this model" note, never hidden) and populate the Effort select. |
+| `PUT /api/workflow/config` | Rejects an `{Agent}_effort` the resolved model does not list (Codex tiers are live, so only the token shape is checked there). |
+
+**Fallback rule.** A model id with no entry does not raise. The resolver falls back to
+the legacy name-prefix heuristics (`o1`/`o3`/`o4`/`gpt-5*` reject sampling; everything
+else accepts it) with **no effort tiers**, so an unclassified model runs with provider
+default effort and no Effort control in the UI until someone adds its entry.
+
+**Per-agent effort.** `Effort` is an optional per-agent field in the v2 config contract
+(`src/config/workflow_config_schema.py`), flat key `{Agent}_effort`, `None` = provider
+default. Extractors inherit `ExtractAgent_effort` when they have no value of their own.
+The default is always "Provider default": the shipped presets and existing DB configs
+carry no effort and need no edit. Higher tiers spend more tokens per call.
+
+**Provider defaults (verified 2026-09-04).** OpenAI: gpt-5.1 / 5.2 / 5.4 default `none`,
+gpt-5 and o-series `medium`, gpt-5.5 / 5.6 `medium`; `*-pro` models are Responses-API only
+and are not callable through the app's `/v1/chat/completions` path. Anthropic: default
+`high` everywhere; `xhigh` exists on Opus 4.7+, Opus 5, Sonnet 5 and Fable 5 but not on
+Opus/Sonnet 4.6; Opus 4.5 takes `low|medium|high`; Haiku 4.5 and Sonnet 4.5 have no
+effort control.
+
+**Keeping the file current.** Two mechanisms split the work:
+
+- *Gaps* (a new id with no entry) are detected in-app. The daily
+  `update_provider_model_catalogs` job (`scripts/maintenance/update_provider_model_catalogs.py`,
+  cron `0 4 * * *`) already fetches the provider model lists; after writing the catalog it
+  diffs them against `config/model_capabilities.json`, prints a `⚠️` line per gap, and the
+  Celery task logs a WARNING and returns `unclassified_models: ["openai:<id>", ...]` in its
+  result payload, visible in the Scheduled Jobs UI.
+- *Values* (tier lists, sampling support) have no API source. The
+  `refresh-model-context-windows` skill (`.claude/skills/refresh-model-context-windows/`)
+  verifies each existing entry against the current OpenAI and Anthropic docs alongside its
+  context-window check.
+- *Runtime drift alarm.* When the file marks a model `supports_temperature: true` and OpenAI
+  rejects the value anyway, the existing 400 retry logs `CAPABILITY DRIFT: ... <model>` and
+  continues without temperature. That WARNING is the production signal that a value is stale.
 
 ## Codex Subscription Provider (Workflow Only)
 

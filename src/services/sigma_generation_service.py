@@ -1316,6 +1316,7 @@ Focus on generating rules for the uncovered categories listed above."""
                     failure_context=f"Failed to generate SIGMA rules via {provider}",
                     top_p=self.llm_service.top_p_sigma,
                     seed=self.llm_service.seed,
+                    effort=getattr(self.llm_service, "effort_sigma", None),
                 )
 
                 message = result["choices"][0]["message"]

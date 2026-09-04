@@ -1,4 +1,6 @@
 import json
+import logging
+from dataclasses import dataclass
 from pathlib import Path
 
 from fastapi import HTTPException
@@ -7,9 +9,13 @@ from src.utils.model_validation import (
     filter_anthropic_models_latest_only,
     filter_openai_models_latest_only,
     filter_openai_models_project_allowlist,
+    heuristic_supports_variable_temperature,
 )
 
+logger = logging.getLogger(__name__)
+
 CATALOG_PATH = Path(__file__).resolve().parents[2] / "config" / "provider_model_catalog.json"
+CAPABILITIES_PATH = Path(__file__).resolve().parents[2] / "config" / "model_capabilities.json"
 DEFAULT_CATALOG = {
     "openai": [
         "gpt-5",
@@ -137,6 +143,134 @@ MODEL_CONTEXT_TOKENS: dict[str, int] = {
 
 def get_model_context_tokens(model_name: str) -> int | None:
     return MODEL_CONTEXT_TOKENS.get(model_name)
+
+
+# Providers whose model parameters are never sent by this app. The Codex adapter
+# only forwards `effort`; its tiers come from model/list at request time, so the
+# static file deliberately has no codex entries.
+_LIVE_CAPABILITY_PROVIDERS = frozenset({"codex"})
+
+
+@dataclass(frozen=True)
+class ModelCapabilities:
+    """What request parameters a (provider, model) pair accepts.
+
+    `source` records where the answer came from: "catalog" for an entry in
+    config/model_capabilities.json, "fallback" for the name-prefix heuristics that
+    cover models the file does not know yet, and "live" for providers whose tiers
+    are discovered at request time (Codex).
+    """
+
+    supports_temperature: bool
+    supports_top_p: bool
+    effort_levels: tuple[str, ...]
+    default_effort: str | None
+    source: str
+
+    def to_dict(self) -> dict:
+        return {
+            "supports_temperature": self.supports_temperature,
+            "supports_top_p": self.supports_top_p,
+            "effort_levels": list(self.effort_levels),
+            "default_effort": self.default_effort,
+            "source": self.source,
+        }
+
+
+_capabilities_cache: tuple[float, dict[str, dict]] | None = None
+
+
+def load_model_capabilities() -> dict[str, dict]:
+    """Return the raw model-id -> capability mapping from config/model_capabilities.json.
+
+    Cached on file mtime so the resolver stays cheap on the per-request paths that
+    call it (every LLM call, every provider-options fetch) while still picking up a
+    hand edit without a restart. An unreadable file degrades to {} -- every model
+    then takes the fallback path -- rather than failing an unrelated request.
+    """
+    global _capabilities_cache
+    try:
+        mtime = CAPABILITIES_PATH.stat().st_mtime
+    except OSError:
+        return {}
+    if _capabilities_cache and _capabilities_cache[0] == mtime:
+        return _capabilities_cache[1]
+    try:
+        raw = json.loads(CAPABILITIES_PATH.read_text())
+    except (json.JSONDecodeError, OSError, UnicodeDecodeError) as exc:
+        logger.warning("Could not read %s: %s", CAPABILITIES_PATH.name, exc)
+        return {}
+    models = raw.get("models") if isinstance(raw, dict) else None
+    models = models if isinstance(models, dict) else {}
+    _capabilities_cache = (mtime, models)
+    return models
+
+
+def _fallback_capabilities(provider: str, model: str) -> ModelCapabilities:
+    # The prefix heuristics only ever knew OpenAI reasoning families; for every
+    # other provider an unknown model is assumed to take sampling parameters and no
+    # effort tier, which is the only combination that cannot produce a 400.
+    if provider in ("openai", "codex", ""):
+        supports_sampling = heuristic_supports_variable_temperature(model)
+    else:
+        supports_sampling = True
+    return ModelCapabilities(
+        supports_temperature=supports_sampling,
+        supports_top_p=supports_sampling,
+        effort_levels=(),
+        default_effort=None,
+        source="fallback",
+    )
+
+
+def get_model_capabilities(provider: str | None, model: str | None) -> ModelCapabilities:
+    """Resolve the parameter capabilities of a model.
+
+    Catalog entries win. Unknown models fall back to the legacy name heuristics so
+    a newly released model degrades to "no effort control, sampling as before"
+    instead of raising. Codex is always `source="live"`: the adapter never sends
+    temperature/top_p, and its effort tiers come from `model/list`.
+    """
+    provider = (provider or "").strip().lower()
+    model = (model or "").strip()
+    if provider in _LIVE_CAPABILITY_PROVIDERS:
+        return ModelCapabilities(
+            supports_temperature=False,
+            supports_top_p=False,
+            effort_levels=(),
+            default_effort=None,
+            source="live",
+        )
+    entry = load_model_capabilities().get(model) if model else None
+    if not isinstance(entry, dict):
+        return _fallback_capabilities(provider, model)
+    levels = entry.get("effort_levels") or []
+    default = entry.get("default_effort")
+    return ModelCapabilities(
+        supports_temperature=bool(entry.get("supports_temperature", True)),
+        supports_top_p=bool(entry.get("supports_top_p", entry.get("supports_temperature", True))),
+        effort_levels=tuple(str(level) for level in levels if isinstance(level, str)),
+        default_effort=str(default) if isinstance(default, str) else None,
+        source="catalog",
+    )
+
+
+def find_unclassified_models(catalog: dict[str, list[str]]) -> dict[str, list[str]]:
+    """Return provider -> model ids present in `catalog` but absent from the capabilities file.
+
+    The provider model-list APIs return ids only, so tier values cannot be fetched;
+    this is the gap detector the daily refresh job runs so a new id is noticed the
+    day it appears. Live-capability providers (Codex) are excluded.
+    """
+    known = load_model_capabilities()
+    gaps: dict[str, list[str]] = {}
+    for provider, models in catalog.items():
+        if provider in _LIVE_CAPABILITY_PROVIDERS or not isinstance(models, list):
+            continue
+        missing = sorted(m for m in models if isinstance(m, str) and m and m not in known)
+        if missing:
+            gaps[provider] = missing
+    return gaps
 
 
 def load_catalog() -> dict[str, list[str]]:

@@ -11,7 +11,8 @@ import httpx
 from src.services.codex_app_server_client import CodexAppServerClient
 from src.services.llm_prompting import PreprocessInvariantError
 from src.services.llm_provider_clients import LMStudioChatClient, parse_retry_after, post_anthropic_with_retry
-from src.utils.model_validation import clamp_temperature_for_provider, model_supports_variable_temperature
+from src.services.provider_model_catalog import get_model_capabilities
+from src.utils.model_validation import clamp_temperature_for_provider
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +66,15 @@ class LLMClientMixin:
         top_p: float | None = None,
         seed: int | None = None,
         cancellation_event: asyncio.Event | None = None,
+        effort: str | None = None,
     ) -> dict[str, Any]:
+        """Dispatch one chat completion to the configured provider.
+
+        `effort` is the per-agent reasoning-effort override (`{Agent}_effort`);
+        None means the provider default. Each provider client sends it under its own
+        field name only when config/model_capabilities.json (or Codex's live
+        model/list) says the model accepts it.
+        """
         # LAST-LINE CIRCUIT BREAKER: panic button -- never invoke model with empty messages
         if not messages or (isinstance(messages, list) and len(messages) == 0):
             raise PreprocessInvariantError(
@@ -81,6 +90,7 @@ class LLMClientMixin:
         logger.debug(f"request_chat called with provider={provider}, model_name={model_name}")
         self._validate_provider(provider)
         temperature = clamp_temperature_for_provider(provider, temperature)
+        effort = (effort or "").strip().lower() or None
 
         resolved_model = model_name or self.provider_defaults.get(provider) or self.lmstudio_model
 
@@ -131,6 +141,7 @@ class LLMClientMixin:
                 temperature=temperature,
                 max_tokens=max_tokens,
                 timeout=timeout,
+                effort=effort,
             )
         if provider == "codex":
             return await self._call_codex_chat(
@@ -138,6 +149,7 @@ class LLMClientMixin:
                 model_name=resolved_model,
                 max_tokens=max_tokens,
                 timeout=timeout,
+                effort=effort,
             )
         if provider == "anthropic":
             return await self._call_anthropic_chat(
@@ -146,22 +158,33 @@ class LLMClientMixin:
                 temperature=temperature,
                 max_tokens=max_tokens,
                 timeout=timeout,
+                effort=effort,
             )
         raise RuntimeError(f"Provider '{provider}' is not implemented for agentic workflows.")
 
     async def _call_codex_chat(
-        self, *, messages: list, model_name: str, max_tokens: int, timeout: float
+        self, *, messages: list, model_name: str, max_tokens: int, timeout: float, effort: str | None = None
     ) -> dict[str, Any]:
         if not messages:
             raise PreprocessInvariantError("LLM invoked with empty messages (Codex path)")
+        # Codex tiers are live (model/list), so any configured tier is forwarded as the
+        # turn/start override; Codex rejects an unsupported one with its own message.
         return await CodexAppServerClient(timeout=timeout).complete(
             messages=messages,
             model_name=model_name,
             max_tokens=max_tokens,
+            effort=effort,
         )
 
     async def _call_openai_chat(
-        self, *, messages: list, model_name: str, temperature: float, max_tokens: int, timeout: float
+        self,
+        *,
+        messages: list,
+        model_name: str,
+        temperature: float,
+        max_tokens: int,
+        timeout: float,
+        effort: str | None = None,
     ) -> dict[str, Any]:
         # Defense-in-depth: circuit breaker at HTTP boundary
         if not messages or (isinstance(messages, list) and len(messages) == 0):
@@ -188,13 +211,25 @@ class LLMClientMixin:
 
         # gpt-4.1/gpt-5.x require max_completion_tokens (max_tokens unsupported).
         # Reasoning models (o1/o3/o4/gpt-5.x) reject temperature -- omit proactively.
+        # Capabilities come from config/model_capabilities.json; unknown ids fall back
+        # to the name-prefix heuristic.
+        capabilities = get_model_capabilities("openai", model_name)
         payload: dict[str, Any] = {
             "model": model_name,
             "messages": messages,
             "max_completion_tokens": max_tokens,
         }
-        if model_supports_variable_temperature(model_name):
+        if capabilities.supports_temperature:
             payload["temperature"] = temperature
+        if effort and effort in capabilities.effort_levels:
+            payload["reasoning_effort"] = effort
+        elif effort:
+            logger.info(
+                "OpenAI model %s does not list effort '%s' (supported: %s); sending provider default.",
+                model_name,
+                effort,
+                ", ".join(capabilities.effort_levels) or "none",
+            )
 
         def _temperature_unsupported(resp: httpx.Response) -> bool:
             if resp.status_code != 400:
@@ -225,6 +260,16 @@ class LLMClientMixin:
 
             # Defense-in-depth: if an unrecognized model rejects temperature, retry without it.
             if _temperature_unsupported(response):
+                if capabilities.source == "catalog":
+                    # The catalog positively claimed support and the provider disagreed:
+                    # that is a stale *value* in config/model_capabilities.json, which no
+                    # API can refresh. This WARNING is the production drift alarm.
+                    logger.warning(
+                        "CAPABILITY DRIFT: config/model_capabilities.json marks %s supports_temperature=true "
+                        "but OpenAI rejected temperature=%s; update the entry (refresh-model-context-windows skill).",
+                        model_name,
+                        temperature,
+                    )
                 logger.warning(
                     "OpenAI model %s rejected non-default temperature=%s; retrying request without temperature.",
                     model_name,
@@ -248,7 +293,14 @@ class LLMClientMixin:
         return result
 
     async def _call_anthropic_chat(
-        self, *, messages: list, model_name: str, temperature: float, max_tokens: int, timeout: float
+        self,
+        *,
+        messages: list,
+        model_name: str,
+        temperature: float,
+        max_tokens: int,
+        timeout: float,
+        effort: str | None = None,
     ) -> dict[str, Any]:
         # Defense-in-depth: circuit breaker at HTTP boundary
         if not messages or (isinstance(messages, list) and len(messages) == 0):
@@ -272,13 +324,27 @@ class LLMClientMixin:
             anthropic_placeholder = messages[0].get("content", "") if messages else ""
             anthropic_messages.append({"role": "user", "content": anthropic_placeholder})
 
-        payload = {
+        # Opus 4.7+/4.8/5, Sonnet 5 and Fable 5 return 400 on temperature/top_p; the
+        # catalog says which models still take sampling parameters. Effort rides in
+        # output_config.effort and is only sent when the model lists that tier.
+        capabilities = get_model_capabilities("anthropic", model_name)
+        payload: dict[str, Any] = {
             "model": model_name,
             "max_tokens": max_tokens,
-            "temperature": temperature,
             "system": system_prompt,
             "messages": anthropic_messages,
         }
+        if capabilities.supports_temperature:
+            payload["temperature"] = temperature
+        if effort and effort in capabilities.effort_levels:
+            payload["output_config"] = {"effort": effort}
+        elif effort:
+            logger.info(
+                "Anthropic model %s does not list effort '%s' (supported: %s); sending provider default.",
+                model_name,
+                effort,
+                ", ".join(capabilities.effort_levels) or "none",
+            )
 
         response = await self._call_anthropic_with_retry(
             api_key=self.anthropic_api_key, payload=payload, anthropic_api_url=anthropic_api_url, timeout=timeout
