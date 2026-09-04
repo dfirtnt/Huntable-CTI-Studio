@@ -131,12 +131,6 @@ generate_password() {
 configure_llm() {
     print_header "LLM Configuration"
     
-    echo -e "${CYAN}LLM provider options:${NC}"
-    echo "  1. LM Studio  (local)"
-    echo "  2. OpenAI API"
-    echo "  3. Anthropic Claude API"
-    echo ""
-    
     # Check if running on Intel Mac (LM Studio's macOS build requires Apple Silicon;
     # Windows/Linux x86_64 builds of LM Studio exist and are unaffected by this check).
     IS_INTEL_MAC=false
