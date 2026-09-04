@@ -35,7 +35,7 @@ curl -s "http://localhost:8001/api/workflow/executions/${EXECUTION_ID}" \
 Each entry includes validation details, attempt logs, and similarity matches against the indexed repository.
 
 UI paths:
-- Article page Sigma section: `http://localhost:8001/articles/${ARTICLE_ID}#sigma`
+- Workflow page Sigma queue: generated rules land there for review, enrichment and PR submission.
 - Workflow page execution detail: shows Sigma attempts and coverage classifications.
 
 ## 4) Match existing rules from CLI (optional)

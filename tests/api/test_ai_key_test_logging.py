@@ -1,7 +1,7 @@
 """
 Regression tests guarding the secret-logging fix in src/web/routes/ai.py.
 
-Prior to the fix, api_test_openai_key / api_test_hf_key / api_generate_sigma
+Prior to the fix, api_test_openai_key / api_test_hf_key
 logged partial API key/token material (first 8 + last 4 chars, e.g.
 "starts_with=sk-abcd12..., ends_with=...wxyz"). These tests assert the safe,
 presence/length-only log format is used and that the submitted secret never
@@ -9,14 +9,13 @@ appears in any log record emitted by these routes.
 """
 
 import json
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from fastapi import HTTPException
 from starlette.requests import Request
 
-from src.web.routes.ai import api_generate_sigma, api_test_hf_key, api_test_openai_key
+from src.web.routes.ai import api_test_hf_key, api_test_openai_key
 
 pytestmark = pytest.mark.api
 
@@ -102,37 +101,6 @@ class TestHuggingFaceKeyTestLogging:
         assert any("Testing Hugging Face token: present=yes, length=" in r.getMessage() for r in caplog.records), (
             "expected safe presence/length-only log line, not found"
         )
-
-
-class TestGenerateSigmaKeyLogging:
-    """POST /api/articles/{id}/generate-sigma must never log key material."""
-
-    @pytest.mark.asyncio
-    async def test_no_key_material_logged_when_cached(self, caplog):
-        fake_key = "sk-" + "c" * 30
-        article = SimpleNamespace(
-            id=42,
-            content="some article content",
-            article_metadata={"sigma_rules": {"rules": [{"title": "cached rule"}], "metadata": {}}},
-            source_id=1,
-        )
-
-        with (
-            patch("src.web.routes.ai.async_db_manager.get_article", AsyncMock(return_value=article)),
-            caplog.at_level("INFO"),
-        ):
-            result = await api_generate_sigma(
-                42,
-                _make_request({"ai_model": "chatgpt", "api_key": fake_key, "skip_matching": True}),
-            )
-
-        # Cached-rules short-circuit: confirms the log line ran before any generation work.
-        assert result["cached"] is True
-        _assert_secret_not_logged(caplog, fake_key)
-        assert any(
-            "SIGMA generation requested with ai_model='chatgpt', api_key present: True" in r.getMessage()
-            for r in caplog.records
-        ), "expected safe presence-only log line, not found"
 
 
 @pytest.mark.api

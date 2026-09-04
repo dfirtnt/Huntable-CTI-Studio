@@ -1677,395 +1677,49 @@ async def api_detect_os(article_id: int, request: Request):
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.post("/{article_id}/generate-sigma")
-async def api_generate_sigma(article_id: int, request: Request):
-    """Generate SIGMA detection rules from an article using AI."""
+def _queued_rules_for_article(article_id: int) -> list[dict[str, Any]]:
+    """Parsed Sigma rules queued for an article, oldest first.
+
+    Rejected rules are excluded: they are not part of the article's proposed coverage,
+    so counting them would inflate the novelty summary. A row whose YAML no longer
+    parses is skipped rather than failing the whole assessment.
+    """
+    import yaml
+
+    from src.database.manager import DatabaseManager
+    from src.database.models import SigmaRuleQueueTable
+
+    rules: list[dict[str, Any]] = []
+    db_manager = DatabaseManager()
+    session = db_manager.get_session()
     try:
-        # Get the article
-        article = await async_db_manager.get_article(article_id)
-        if not article:
-            raise HTTPException(status_code=404, detail="Article not found")
-
-        # Get request body
-        body = await request.json()
-
-        # Try header first (prevents corruption with large payloads), fallback to body for backward compatibility
-        # Support both OpenAI and Anthropic headers
-        api_key_raw = (
-            request.headers.get("X-OpenAI-API-Key") or request.headers.get("X-Anthropic-API-Key") or body.get("api_key")
-        )
-
-        # Strip whitespace from API key (common issue when copying/pasting)
-        api_key = api_key_raw.strip() if api_key_raw else None
-
-        ai_model = body.get("ai_model", "chatgpt")
-        author_name = body.get("author_name", "Huntable CTI Studio User")
-        force_regenerate = body.get("force_regenerate", False)
-        skip_matching = body.get("skip_matching", False)  # Option to skip matching phase
-
-        logger.info(f"SIGMA generation requested with ai_model='{ai_model}', api_key present: {bool(api_key)}")
-
-        # Only require API key for ChatGPT
-        if ai_model == "chatgpt" and not api_key:
-            raise HTTPException(
-                status_code=400,
-                detail="OpenAI API key is required for ChatGPT. Please configure it in Settings.",
+        rows = (
+            session.query(SigmaRuleQueueTable)
+            .filter(
+                SigmaRuleQueueTable.article_id == article_id,
+                SigmaRuleQueueTable.status != "rejected",
             )
-
-        # === NEW: Match-First Logic ===
-        # Phase 1: Match article to existing Sigma rules (unless skipped)
-        matched_rules = []
-        coverage_summary = {"covered": 0, "extend": 0, "new": 0, "total": 0}
-
-        if not skip_matching:
+            .order_by(SigmaRuleQueueTable.id.asc())
+            .all()
+        )
+        for row in rows:
             try:
-                from src.database.manager import DatabaseManager
-                from src.database.models import SigmaRuleTable
-                from src.services.sigma_coverage_service import SigmaCoverageService
-                from src.services.sigma_matching_service import SigmaMatchingService
-
-                logger.info(f"Matching article {article_id} to existing Sigma rules...")
-
-                db_manager = DatabaseManager()
-                db_session = db_manager.get_session()
-
-                matching_service = SigmaMatchingService(db_session)
-                coverage_service = SigmaCoverageService(db_session)
-
-                # Match at article level (no threshold - return all sorted by similarity)
-                article_matches = matching_service.match_article_to_rules(article_id, threshold=0.0, limit=10)
-
-                # Process matches and classify coverage
-                for match in article_matches:
-                    rule = db_session.query(SigmaRuleTable).filter_by(rule_id=match["rule_id"]).first()
-                    if rule:
-                        classification = coverage_service.classify_match(article_id, rule, match["similarity"])
-
-                        matched_rules.append(
-                            {
-                                "rule_id": match["rule_id"],
-                                "title": match["title"],
-                                "description": match["description"],
-                                "similarity": match["similarity"],
-                                "level": match.get("level"),
-                                "status": match.get("status"),
-                                "coverage_status": classification["coverage_status"],
-                                "coverage_confidence": classification["coverage_confidence"],
-                                "matched_behaviors": classification["matched_discriminators"][:5],
-                            }
-                        )
-
-                        # Update coverage summary
-                        status = classification["coverage_status"]
-                        if status in coverage_summary:
-                            coverage_summary[status] += 1
-
-                coverage_summary["total"] = len(matched_rules)
-                db_session.close()
-
-                logger.info(
-                    f"Found {len(matched_rules)} matching rules: "
-                    f"{coverage_summary['covered']} covered, "
-                    f"{coverage_summary['extend']} extend, "
-                    f"{coverage_summary['new']} new"
-                )
-
-                # Phase 2: Decision - skip generation if well covered
-                if coverage_summary["covered"] >= 2 and not force_regenerate:
-                    logger.info("Article is well covered by existing Sigma rules, skipping generation")
-                    return {
-                        "success": True,
-                        "matched_rules": matched_rules,
-                        "coverage_summary": coverage_summary,
-                        "generated_rules": [],
-                        "recommendation": f"Article behaviors are covered by {coverage_summary['covered']} existing Sigma rule(s). No new rules needed.",
-                        "skipped_generation": True,
-                        "error": None,
-                    }
-
-            except Exception as e:
-                logger.warning(f"Error during Sigma matching: {e}. Proceeding with generation.")
-                # Continue to generation phase even if matching fails
-
-        # Check for existing SIGMA rules (unless force regeneration is requested)
-        if not force_regenerate and article.article_metadata and article.article_metadata.get("sigma_rules"):
-            existing_rules = article.article_metadata.get("sigma_rules")
-            return {
-                "success": True,
-                "rules": existing_rules.get("rules", []),
-                "metadata": existing_rules.get("metadata", {}),
-                "matched_rules": matched_rules,
-                "coverage_summary": coverage_summary,
-                "cached": True,
-                "error": None,
-            }
-
-        # Prepare the article content for analysis
-        if not article.content:
-            raise HTTPException(
-                status_code=400,
-                detail="Article content is required for SIGMA rule generation",
-            )
-
-        # Get the source name from source_id
-        source = await async_db_manager.get_source(article.source_id)
-        source_name = source.name if source else f"Source {article.source_id}"
-
-        # Load active workflow config to use SigmaAgent settings
-        from src.database.manager import DatabaseManager
-        from src.database.models import AgenticWorkflowConfigTable
-
-        db_manager = DatabaseManager()
-        db_session = db_manager.get_session()
-
-        try:
-            config = (
-                db_session.query(AgenticWorkflowConfigTable)
-                .filter(AgenticWorkflowConfigTable.is_active == True)
-                .order_by(AgenticWorkflowConfigTable.version.desc())
-                .first()
-            )
-
-            if not config:
-                logger.warning("No active workflow configuration found, using defaults")
-                config = None
-        except Exception as e:
-            logger.warning(f"Error loading workflow config: {e}, using defaults")
-            config = None
-
-        # Get SigmaAgent prompt from config if available
-        sigma_prompt_template = None
-        sigma_system_prompt = None
-        sigma_repair_template = None
-        if config and config.agent_prompts and "SigmaRepair" in config.agent_prompts:
-            from src.utils.prompt_loader import parse_sigma_repair_prompt_data
-
-            sigma_repair_template = parse_sigma_repair_prompt_data(config.agent_prompts["SigmaRepair"])
-            if sigma_repair_template:
-                logger.info(f"Using SigmaRepair prompt from workflow config (len={len(sigma_repair_template)} chars)")
-        if config and config.agent_prompts and "SigmaAgent" in config.agent_prompts:
-            from src.utils.prompt_loader import parse_sigma_agent_prompt_data
-
-            sigma_prompt_template, sigma_system_prompt = parse_sigma_agent_prompt_data(
-                config.agent_prompts["SigmaAgent"]
-            )
-            if sigma_prompt_template:
-                logger.info(
-                    f"Using SigmaAgent prompt from workflow config (template_len={len(sigma_prompt_template)} chars, system_len={len(sigma_system_prompt or '')} chars)"
-                )
-            else:
-                logger.warning("SigmaAgent prompt in config is not a string, using default")
-        else:
-            logger.info("No SigmaAgent prompt in workflow config, using default prompt")
-
-        # Get agent models from config
-        agent_models = config.agent_models if config and config.agent_models else {}
-
-        # Apply content filtering to optimize for SIGMA generation
-        from src.utils.llm_optimizer import optimize_article_content
-
-        # Use content filtering with high confidence threshold for SIGMA generation
-        min_confidence = 0.7
-        logger.info(f"Optimizing content for SIGMA generation with confidence threshold {min_confidence}")
-        optimization_result = await optimize_article_content(article.content, min_confidence)
-
-        if optimization_result["success"]:
-            content_to_analyze = optimization_result["filtered_content"]
-            cost_savings = optimization_result["cost_savings"]
-            tokens_saved = optimization_result["tokens_saved"]
-            chunks_removed = optimization_result["chunks_removed"]
-
-            logger.info(
-                f"Content optimization completed for SIGMA generation: "
-                f"{tokens_saved:,} tokens saved, "
-                f"${cost_savings:.4f} cost savings, "
-                f"{chunks_removed} chunks removed"
-            )
-        else:
-            logger.warning("Content optimization failed for SIGMA generation, using original content")
-            content_to_analyze = article.content
-            cost_savings = 0.0
-            tokens_saved = 0
-            chunks_removed = 0
-
-        # Use SigmaGenerationService with workflow config (same as test_sigma_agent_task)
-        from src.services.sigma_generation_service import SigmaGenerationService
-
-        # Determine provider from config or fallback to ai_model parameter
-        sigma_provider = agent_models.get("SigmaAgent_provider") if agent_models else None
-        if not sigma_provider:
-            # Fallback: use ai_model parameter (lmstudio or chatgpt)
-            sigma_provider = "lmstudio" if ai_model == "lmstudio" else "openai"
-
-        logger.info(
-            f"Using SigmaGenerationService with provider={sigma_provider}, config_models={'present' if agent_models else 'default'}"
-        )
-
-        # Initialize service with config
-        sigma_service = SigmaGenerationService(config_models=agent_models)
-
-        # Generate SIGMA rules using service
-        generation_result = await sigma_service.generate_sigma_rules(
-            article_title=article.title,
-            article_content=content_to_analyze,
-            source_name=source_name,
-            url=article.canonical_url or "",
-            ai_model=sigma_provider,  # Use provider from config
-            api_key=api_key if sigma_provider == "openai" else None,
-            max_attempts=3,
-            min_confidence=min_confidence,
-            execution_id=None,  # Not part of workflow execution
-            article_id=article_id,
-            sigma_prompt_template=sigma_prompt_template,  # Use prompt from config if available
-            sigma_system_prompt=sigma_system_prompt,  # Use system prompt from config if available
-            sigma_repair_template=sigma_repair_template,  # Use repair prompt from config if available
-        )
-
-        # Extract results from service
-        rules = generation_result.get("rules", []) if generation_result else []
-        sigma_errors = generation_result.get("errors")
-        sigma_metadata = generation_result.get("metadata", {}) if generation_result else {}
-        validation_results = sigma_metadata.get("validation_results", [])
-        conversation_log = sigma_metadata.get("conversation_log", [])
-
-        # Track truncation warnings
-        sigma_content_truncation_warning = None
-        sigma_prompt_truncation_warning = None
-        sigma_response_truncation_warning = None
-
-        # Close DB session
-        if db_session:
-            db_session.close()
-
-        # Legacy compatibility: Convert rules to old format if needed
-        # (SigmaGenerationService already returns proper format, but ensure compatibility)
-        formatted_rules = []
-        for rule in rules:
-            if isinstance(rule, dict):
-                formatted_rules.append(rule)
-            else:
-                # Fallback: create dict from rule content
-                formatted_rules.append(
-                    {"content": str(rule), "title": "Generated Rule", "level": "medium", "validated": True}
-                )
-
-        rules = formatted_rules
-
-        # Log final results
-        if validation_results and all(result.get("is_valid", False) for result in validation_results):
-            logger.info(f"SIGMA generation completed successfully after {len(conversation_log)} attempts")
-        else:
-            logger.warning(f"SIGMA generation completed with errors after {len(conversation_log)} attempts")
-
-        # Get model name for metadata from config or fallback
-        if agent_models and agent_models.get("SigmaAgent"):
-            model_name = agent_models.get("SigmaAgent")
-        elif sigma_provider == "lmstudio":
-            model_name = agent_models.get("SigmaAgent") if agent_models else "lmstudio"
-        else:
-            model_name = "gpt-4o-mini"
-
-        # Update article metadata with generated SIGMA rules
-        current_metadata = article.article_metadata or {}
-
-        # Get temperature and top_p from config if available
-        sigma_temperature = agent_models.get("SigmaAgent_temperature", 0.0) if agent_models else 0.0
-        sigma_top_p = agent_models.get("SigmaAgent_top_p", 0.9) if agent_models else 0.9
-
-        current_metadata["sigma_rules"] = {
-            "rules": rules,
-            "metadata": {
-                "generated_at": datetime.now().isoformat(),
-                "ai_model": sigma_provider,  # Use provider from config
-                "model_name": model_name,
-                "author": author_name,
-                "temperature": float(sigma_temperature),
-                "top_p": float(sigma_top_p),
-                "total_rules": len(rules),
-                "valid_rules": len([r for r in rules if r.get("validated", False)]),
-                "validation_results": validation_results,
-                "conversation": conversation_log,
-                "attempts": len(conversation_log) if conversation_log else 0,
-                "successful": len(rules) > 0 and all(r.get("validated", False) for r in rules),
-                "optimization": {
-                    "enabled": True,
-                    "cost_savings": cost_savings,
-                    "tokens_saved": tokens_saved,
-                    "chunks_removed": chunks_removed,
-                    "min_confidence": min_confidence,
-                },
-                "errors": sigma_errors,
-            },
-        }
-
-        # Update the article in the database
-        from src.models.article import ArticleUpdate
-
-        update_data = ArticleUpdate(article_metadata=current_metadata)
-        await async_db_manager.update_article(article_id, update_data)
-
-        # Compare generated rules to existing SigmaHQ rules
-        from src.database.manager import DatabaseManager
-        from src.services.sigma_matching_service import SigmaMatchingService
-
-        similar_rules_by_generated = []
-        try:
-            db_manager = DatabaseManager()
-            sync_session = db_manager.get_session()
-            matching_service = SigmaMatchingService(sync_session)
-
-            # For each generated rule, find similar existing Sigma rules
-            for rule in rules:
-                match_result = matching_service.assess_rule_novelty(proposed_rule=rule, threshold=0.0)
-                similar_matches = [m for m in match_result.get("matches", []) if m.get("similarity", 0.0) > 0]
-                if similar_matches:
-                    similar_rules_by_generated.append(
-                        {
-                            "generated_rule": {
-                                "title": rule.get("title"),
-                                "description": rule.get("description"),
-                            },
-                            "similar_existing_rules": similar_matches[:5],  # Top 5 matches
-                        }
-                    )
-
-            sync_session.close()
-        except Exception as e:
-            logger.warning(f"Failed to compare generated rules to SigmaHQ: {e}")
-
-        # Collect all truncation warnings
-        sigma_warnings = []
-        if sigma_content_truncation_warning:
-            sigma_warnings.append(sigma_content_truncation_warning)
-        if sigma_prompt_truncation_warning:
-            sigma_warnings.append(sigma_prompt_truncation_warning)
-        if sigma_response_truncation_warning:
-            sigma_warnings.append(sigma_response_truncation_warning)
-
-        return {
-            "success": len(rules) > 0,
-            "rules": rules,
-            "metadata": current_metadata["sigma_rules"]["metadata"],
-            "matched_rules": matched_rules,
-            "coverage_summary": coverage_summary,
-            "similar_rules": similar_rules_by_generated,  # Similarity results for each generated rule
-            "cached": False,
-            "error": None if len(rules) > 0 else "No valid SIGMA rules could be generated",
-            "warnings": sigma_warnings if sigma_warnings else None,
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"SIGMA rules generation error: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+                parsed = yaml.safe_load(row.rule_yaml)
+            except yaml.YAMLError as exc:
+                logger.warning("Queued rule %s has unparseable YAML, skipping: %s", row.id, exc)
+                continue
+            if isinstance(parsed, dict):
+                rules.append(parsed)
+    finally:
+        session.close()
+    return rules
 
 
 @router.post("/{article_id}/sigma-matches")
 async def api_get_sigma_matches(article_id: int, force: bool = False):
     """
-    Get Sigma rule matches by comparing generated SIGMA rules to SigmaHQ rules
-    using behavioral novelty assessment.
+    Get Sigma rule matches by comparing this article's queued SIGMA rules to SigmaHQ
+    rules using behavioral novelty assessment.
 
     Sigma-to-Sigma matching uses atom set-math:
     stored atoms when available, live extraction otherwise.
@@ -2111,17 +1765,19 @@ async def api_get_sigma_matches(article_id: int, force: bool = False):
                     "cached": True,
                 }
 
-        # Get generated SIGMA rules from article metadata
-        generated_rules = []
-        if article.article_metadata and article.article_metadata.get("sigma_rules"):
-            generated_rules = article.article_metadata.get("sigma_rules", {}).get("rules", [])
+        # Rules to assess come from this article's Sigma queue. They used to be read from
+        # article_metadata["sigma_rules"], written only by the manual /generate-sigma
+        # endpoint; that endpoint is gone and the live workflow queues its rules instead,
+        # so reading metadata made this route return "generate rules first" for every
+        # article the pipeline had actually produced rules for.
+        generated_rules = _queued_rules_for_article(article_id)
 
         if not generated_rules:
             return {
                 "success": True,
                 "matches": [],
                 "coverage_summary": {"covered": 0, "extend": 0, "new": 0, "total": 0},
-                "message": "No generated SIGMA rules found. Please generate rules first.",
+                "message": "No Sigma rules in the queue for this article yet.",
             }
 
         # Compare each generated rule to existing embedded SigmaHQ rules
