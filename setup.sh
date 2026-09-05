@@ -535,14 +535,17 @@ handle_sigma_repo_setup() {
         (cd "$sigma_repo_dir" && git add rules/ 2>/dev/null && git commit -m "Add rules directory structure" 2>/dev/null || true)
     fi
 
-    # Update .env GITHUB_REPO if different from default
-    if [[ -f ".env" ]] && [[ "$repo_input" != "$default_repo" ]]; then
-        if [[ "$(uname)" == "Darwin" ]]; then
-            sed -i '' "s|GITHUB_REPO=.*|GITHUB_REPO=$repo_input|g" .env
-        else
-            sed -i "s|GITHUB_REPO=.*|GITHUB_REPO=$repo_input|g" .env
-        fi
+    # Persist the selection, including an accepted default and older env files
+    # that do not yet contain this key. Do not report an unchanged value as updated.
+    if [[ ! -f ".env" ]]; then
+        print_warning "Could not update .env GITHUB_REPO: .env is missing"
+    elif [[ "$(grep '^GITHUB_REPO=' .env)" == "GITHUB_REPO=$repo_input" ]]; then
+        print_status ".env GITHUB_REPO is already configured"
+    elif startup_set_env_key ".env" "GITHUB_REPO" "$repo_input" &&
+        [[ "$(grep '^GITHUB_REPO=' .env)" == "GITHUB_REPO=$repo_input" ]]; then
         print_status "Updated .env GITHUB_REPO=$repo_input"
+    else
+        print_warning "Could not update .env GITHUB_REPO; configure it manually"
     fi
 }
 
