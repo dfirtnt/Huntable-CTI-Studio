@@ -23,7 +23,6 @@ def _import_celery_app(env: dict[str, str] | None = None):
             del sys.modules[key]
 
     mocks = {
-        "src.worker.tasks.observable_training": MagicMock(),
         "src.worker.tasks.test_agents": MagicMock(),
     }
 
