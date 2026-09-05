@@ -8,7 +8,11 @@ pytestmark = pytest.mark.unit
 
 
 def _rule(detection: str, *, category: str = "process_creation", metadata: str = "") -> str:
+    # id/status are required by the SigmaHQ blocking layer (identifier_existence,
+    # sigmahq_status_existence), which runs after pySigma parses the rule.
     return f"""title: pySigma enforcement regression rule
+id: 0b6c1f2a-3d4e-4f50-8a9b-1c2d3e4f5a6b
+status: experimental
 description: A sufficiently descriptive rule for the Huntable policy layer
 logsource:
   category: {category}

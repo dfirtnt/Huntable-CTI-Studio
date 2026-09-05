@@ -341,7 +341,7 @@ class TestSigmaEnrichAPI:
         )
         assert "Unit Test Author" in body
         assert toggles_json in body
-        assert "do not fail claiming these are missing" in body.lower()
+        assert "never report them as missing" in body.lower()
 
     def test_sigma_author_from_db(self):
         from unittest.mock import MagicMock

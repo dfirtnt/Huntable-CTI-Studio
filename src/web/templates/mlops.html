@@ -45,66 +45,6 @@
         user-select: none;
     }
 
-    /* ── System pulse indicator ────────────────────────────────── */
-    .status-ring {
-        position: relative;
-        width: 10px;
-        height: 10px;
-        flex-shrink: 0;
-    }
-    .status-ring::before {
-        content: '';
-        position: absolute;
-        inset: -3px;
-        border-radius: 50%;
-        border: 1px solid var(--action-execute);
-        animation: ring-expand 2s ease-out infinite;
-        opacity: 0;
-    }
-    .status-ring::after {
-        content: '';
-        position: absolute;
-        inset: 0;
-        border-radius: 50%;
-        background: var(--action-execute);
-        animation: dot-pulse 2s ease-in-out infinite;
-    }
-    @keyframes ring-expand {
-        0%   { transform: scale(1); opacity: 0.6; }
-        100% { transform: scale(2.2); opacity: 0; }
-    }
-    @keyframes dot-pulse {
-        0%, 100% { opacity: 1; }
-        50%       { opacity: 0.55; }
-    }
-
-    /* ── System stats bar ──────────────────────────────────────── */
-    .mlops-stats {
-        background: var(--panel-bg-1);
-        border: 1px solid var(--purple-border-15);
-        border-radius: 8px;
-        display: flex;
-    }
-    .stat-cell {
-        flex: 1;
-        padding: 14px 20px;
-        border-right: 1px solid var(--purple-border-15);
-    }
-    .stat-cell:last-child { border-right: none; }
-    .stat-label {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.625rem;
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
-        color: var(--text-muted);
-        margin-bottom: 4px;
-    }
-    .stat-value {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.875rem;
-        font-weight: 600;
-    }
-
     /* ── Module cards ──────────────────────────────────────────── */
     .module-card {
         background: var(--panel-bg-2);
@@ -321,10 +261,6 @@
         <span class="mlops-hero-watermark" aria-hidden="true">MLOPS CONTROL CENTER</span>
         <div class="relative z-10 flex items-start justify-between flex-wrap gap-6">
             <div>
-                <div class="flex items-center gap-2 mb-4">
-                    <span class="status-ring"></span>
-                    <span class="text-[10px]" style="font-family:'JetBrains Mono',monospace;letter-spacing:0.2em;text-transform:uppercase;color:var(--action-execute);">System Online</span>
-                </div>
                 <h1 class="text-xl" style="font-family:'Inter', system-ui, sans-serif;font-weight:800;color:var(--text-emphasis);letter-spacing:-0.01em;line-height:1;margin-bottom:10px;">
                     MLOps Control Center
                 </h1>
@@ -333,26 +269,6 @@
                 </p>
             </div>
             <img src="/static/icons/mlops-icon.svg" alt="MLOps" class="w-14 h-14 opacity-60 flex-shrink-0" />
-        </div>
-    </div>
-
-    <!-- System Stats Bar -->
-    <div class="mlops-stats mb-6 fade-up d3">
-        <div class="stat-cell">
-            <div class="stat-label">Modules Active</div>
-            <div class="stat-value" style="color:var(--action-execute);">3 / 3</div>
-        </div>
-        <div class="stat-cell">
-            <div class="stat-label">Evaluation Status</div>
-            <div class="stat-value" style="color:var(--text-primary);">Ready</div>
-        </div>
-        <div class="stat-cell">
-            <div class="stat-label">Model Drift</div>
-            <div class="stat-value" style="color:var(--action-warning);">Monitoring</div>
-        </div>
-        <div class="stat-cell">
-            <div class="stat-label">Last Eval Run</div>
-            <div class="stat-value" style="color:var(--text-muted-slate);"> -- </div>
         </div>
     </div>
 

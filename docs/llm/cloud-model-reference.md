@@ -2,13 +2,16 @@
 
 ## Anthropic Claude Models
 
-Source: docs.anthropic.com (2026-06-02). All models support `max_tokens` + `temperature` (0.0–1.0).
+Source: docs.anthropic.com (2026-09-03). All models take `max_tokens`. `temperature` / `top_p`
+(0.0–1.0) are accepted by Sonnet 4.6, Opus 4.6 and older; Opus 4.7, Opus 4.8, Opus 5, Sonnet 5 and
+Fable 5 reject them with a 400, and the app omits them for those models. See
+[Model Parameter Capabilities](#model-parameter-capabilities-and-reasoning-effort).
 
 | Model | Context Window | Max Output Tokens | Notes |
 |-------|----------------|-------------------|-------|
-| claude-opus-5 | 1,000,000 | — | 1M default; max output not yet verified |
-| claude-sonnet-5 | 1,000,000 | — | 1M default; max output not yet verified |
-| claude-fable-5 | 1,000,000 | — | 1M default; max output not yet verified |
+| claude-opus-5 | 1,000,000 | 128,000 | 1M default |
+| claude-sonnet-5 | 1,000,000 | 128,000 | 1M default |
+| claude-fable-5 | 1,000,000 | 128,000 | 1M default |
 | claude-opus-4-8 | 1,000,000 | 128,000 | 1M default, no beta header required |
 | claude-opus-4-7 | 1,000,000 | 64,000 | 1M default |
 | claude-opus-4-6 | 1,000,000 | 64,000 | 1M default |
@@ -22,27 +25,20 @@ Source: docs.anthropic.com (2026-06-02). All models support `max_tokens` + `temp
 
 Older Claude 3.x / 4.0-4.5 models cap at 200K by default; they can be extended to 1M via the `context-1m-2025-08-07` beta header. Opus 4.6+ and Sonnet 4.6+ no longer require it.
 
-<!-- TODO: verify: max output tokens for claude-opus-5 / claude-sonnet-5 / claude-fable-5.
-     Context windows above are taken from MODEL_CONTEXT_TOKENS in
-     src/services/provider_model_catalog.py; max output is not recorded anywhere in the repo
-     and must be confirmed against docs.anthropic.com. -->
-
 ---
 
 ## OpenAI Chat Models
 
-Source: platform.openai.com/docs/models (capture date unconfirmed -- the stated "Jan 2025"
-predates the gpt-5.4/5.5/5.6 rows below, so it is wrong; re-verify against the live docs).
-<!-- TODO: verify: the real capture date for this table against platform.openai.com/docs/models. -->
+Source: platform.openai.com/docs/models (2026-09-03).
 
 ### Chat Completions Models (text-in, text-out)
 
 | Model | Context Window | Max Output Tokens | API Params |
 |-------|----------------|-------------------|------------|
 | **GPT-5 series** | | | |
-| gpt-5.6-luna | 1,050,000 | — | `max_completion_tokens`, no `temperature`; max output not yet verified |
-| gpt-5.6-sol | 1,050,000 | — | `max_completion_tokens`, no `temperature`; max output not yet verified |
-| gpt-5.6-terra | 1,050,000 | — | `max_completion_tokens`, no `temperature`; max output not yet verified |
+| gpt-5.6-luna | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
+| gpt-5.6-sol | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
+| gpt-5.6-terra | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
 | gpt-5.5 | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
 | gpt-5.5-pro | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
 | gpt-5.4 | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
@@ -66,11 +62,11 @@ predates the gpt-5.4/5.5/5.6 rows below, so it is wrong; re-verify against the l
 | gpt-4.1-nano | 1,047,576 | 32,768 | `max_tokens`, `temperature` |
 | **Reasoning (o-series)** | | | |
 | o3 | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
-| o3-pro * | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
+| o3-pro | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
 | o3-mini | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
 | o4-mini | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
 | o1 | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
-| o1-pro * | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
+| o1-pro | 200,000 | 100,000 | `max_completion_tokens`, no `temperature` |
 | **GPT-4o series** | | | |
 | gpt-4o | 128,000 | 16,384 | `max_tokens`, `temperature` |
 | gpt-4o-mini | 128,000 | 16,384 | `max_tokens`, `temperature` |
@@ -79,22 +75,17 @@ predates the gpt-5.4/5.5/5.6 rows below, so it is wrong; re-verify against the l
 | gpt-4 | 8,192 | 4,096 | `max_tokens`, `temperature` |
 | gpt-3.5-turbo | 16,385 | 4,096 | `max_tokens`, `temperature` |
 
-\* `o3-pro` and `o1-pro` are accepted by `src/utils/model_validation.py` but are **not** in
-`MODEL_CONTEXT_TOKENS` (`src/services/provider_model_catalog.py`) or
-`config/provider_model_catalog.json`. Unlike every other row here their context window is not
-sourced from the app catalog, and they do not appear in the Agents config dropdown.
-
-<!-- TODO: verify: max output tokens for gpt-5.6-luna / gpt-5.6-sol / gpt-5.6-terra.
-     Context windows above are taken from MODEL_CONTEXT_TOKENS in
-     src/services/provider_model_catalog.py; max output is not recorded anywhere in the repo
-     and must be confirmed against platform.openai.com/docs/models. -->
+The `o3-pro` and `o1-pro` rows are catalog-sourced at 200,000 context tokens and now appear in
+the Agents config dropdown alongside the other supported reasoning models.
 
 ### API Parameter Rules
 
-| Model Family | Token Param | Temperature |
-|--------------|-------------|-------------|
-| gpt-5.x, o1, o3, o4 | `max_completion_tokens` | Not supported |
-| gpt-4.x, gpt-4o, gpt-3.5 | `max_tokens` | Supported |
+| Model Family | Token Param | Temperature | `reasoning_effort` |
+|--------------|-------------|-------------|--------------------|
+| gpt-5.x, o1, o3, o4 | `max_completion_tokens` | Not supported | Model-dependent tiers (see below) |
+| gpt-4.x, gpt-4o, gpt-3.5 | `max_tokens` | Supported | Not supported |
+
+The per-model tier list is the source of truth in `config/model_capabilities.json`, not this table.
 
 ### Specialized (not Chat Completions)
 
@@ -106,6 +97,67 @@ sourced from the app catalog, and they do not appear in the Agents config dropdo
 
 ---
 
+## Model Parameter Capabilities and Reasoning Effort
+
+Which request parameters a model accepts is catalog knowledge, not something the
+provider APIs report. `config/model_capabilities.json` is that catalog, keyed by model
+id (`version`, `verified_at`, `sources`, then `models`):
+
+```json
+"gpt-5.6-luna": {
+  "supports_temperature": false,
+  "supports_top_p": false,
+  "effort_levels": ["none", "low", "medium", "high", "xhigh", "max"],
+  "default_effort": "medium"
+}
+```
+
+`get_model_capabilities(provider, model)` in `src/services/provider_model_catalog.py`
+resolves it, and everything downstream consumes that one answer:
+
+| Consumer | Behaviour |
+|---|---|
+| `llm_client.py` (OpenAI) | Sends `temperature` only when `supports_temperature`; sends `reasoning_effort` only when the configured tier is in `effort_levels`. |
+| `llm_client.py` (Anthropic) | Sends `temperature` only when `supports_temperature` (Opus 4.7+/4.8/5, Sonnet 5, Fable 5 reject it); sends `output_config.effort` only for a listed tier. |
+| `codex_app_server_client.py` | Never sends sampling parameters. Tiers are discovered live from `model/list` (`supportedReasoningEfforts`, `defaultReasoningEffort`); the configured tier is passed as the `turn/start.effort` override. |
+| `model_supports_variable_temperature()` (`src/utils/model_validation.py`) | Thin wrapper over the resolver; `openai_chat_client.py` and the RAG / enrichment paths keep calling it unchanged. |
+| `GET /api/workflow/provider-options` | Returns `model_capabilities` per provider so the Agents page can gate the Temperature / Top_P sliders (disabled with a "Not supported by this model" note, never hidden) and populate the Effort select. |
+| `PUT /api/workflow/config` | Rejects an `{Agent}_effort` the resolved model does not list (Codex tiers are live, so only the token shape is checked there). |
+
+**Fallback rule.** A model id with no entry does not raise. The resolver falls back to
+the legacy name-prefix heuristics (`o1`/`o3`/`o4`/`gpt-5*` reject sampling; everything
+else accepts it) with **no effort tiers**, so an unclassified model runs with provider
+default effort and no Effort control in the UI until someone adds its entry.
+
+**Per-agent effort.** `Effort` is an optional per-agent field in the v2 config contract
+(`src/config/workflow_config_schema.py`), flat key `{Agent}_effort`, `None` = provider
+default. Extractors inherit `ExtractAgent_effort` when they have no value of their own.
+The default is always "Provider default": the shipped presets and existing DB configs
+carry no effort and need no edit. Higher tiers spend more tokens per call.
+
+**Provider defaults (verified 2026-09-04).** OpenAI: gpt-5.1 / 5.2 / 5.4 default `none`,
+gpt-5 and o-series `medium`, gpt-5.5 / 5.6 `medium`; `*-pro` models are Responses-API only
+and are not callable through the app's `/v1/chat/completions` path. Anthropic: default
+`high` everywhere; `xhigh` exists on Opus 4.7+, Opus 5, Sonnet 5 and Fable 5 but not on
+Opus/Sonnet 4.6; Opus 4.5 takes `low|medium|high`; Haiku 4.5 and Sonnet 4.5 have no
+effort control.
+
+**Keeping the file current.** Two mechanisms split the work:
+
+- *Gaps* (a new id with no entry) are detected in-app. The daily
+  `update_provider_model_catalogs` job (`scripts/maintenance/update_provider_model_catalogs.py`,
+  cron `0 4 * * *`) already fetches the provider model lists; after writing the catalog it
+  diffs them against `config/model_capabilities.json`, prints a `⚠️` line per gap, and the
+  Celery task logs a WARNING and returns `unclassified_models: ["openai:<id>", ...]` in its
+  result payload, visible in the Scheduled Jobs UI.
+- *Values* (tier lists, sampling support) have no API source. The
+  `refresh-model-context-windows` skill (`.claude/skills/refresh-model-context-windows/`)
+  verifies each existing entry against the current OpenAI and Anthropic docs alongside its
+  context-window check.
+- *Runtime drift alarm.* When the file marks a model `supports_temperature: true` and OpenAI
+  rejects the value anyway, the existing 400 retry logs `CAPABILITY DRIFT: ... <model>` and
+  continues without temperature. That WARNING is the production signal that a value is stale.
+
 ## Codex Subscription Provider (Workflow Only)
 
 Huntable also supports an optional, deployment-managed Codex subscription for
@@ -114,8 +166,11 @@ API-oriented Codex model identifiers above: it uses Codex-managed ChatGPT
 authentication, not an API key.
 
 Set `WORKFLOW_CODEX_ENABLED=true`, authenticate the shared workflow-worker
-state with `docker compose exec workflow_worker codex login`, and select one of
-the models the managed Codex login reports in the workflow configuration UI.
+state with `docker compose exec workflow_worker codex login --device-auth`, and
+select one of the models the managed Codex login reports in the workflow
+configuration UI. The device-code flow is what works from inside a container;
+plain `codex login` waits on a container-local browser callback the host cannot
+reach.
 `WORKFLOW_CODEX_MODEL` supplies the fallback when that model list is
 unavailable. Use `POST /api/settings/codex/test` to test the subscription
 without running a workflow. See [Configuration](../getting-started/configuration.md#optional-codex-subscription-provider)

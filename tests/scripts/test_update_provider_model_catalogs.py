@@ -183,3 +183,44 @@ class TestFetchModelsKeyResolution:
         assert "gpt-4o" in result
         assert "gpt-4o-2024-05-13" not in result
         assert "text-embedding-3-large" not in result
+
+
+# ─── Capability-gap detection ────────────────────────────────────────────────
+
+
+class TestUnclassifiedModelReport:
+    """The daily refresh must flag catalog ids missing from config/model_capabilities.json."""
+
+    def test_reports_gaps_on_stderr_and_a_parseable_marker(self, mod, capsys):
+        with patch.object(mod, "find_unclassified_models", return_value={"openai": ["gpt-9"]}):
+            gaps = mod.report_unclassified_models({"openai": ["gpt-4o", "gpt-9"]})
+        captured = capsys.readouterr()
+        assert gaps == {"openai": ["gpt-9"]}
+        assert "gpt-9" in captured.err and "model_capabilities.json" in captured.err
+        assert 'UNCLASSIFIED_MODELS={"openai": ["gpt-9"]}' in captured.out
+
+    def test_fully_classified_catalog_reports_none(self, mod, capsys):
+        with patch.object(mod, "find_unclassified_models", return_value={}):
+            gaps = mod.report_unclassified_models({"openai": ["gpt-4o"]})
+        captured = capsys.readouterr()
+        assert gaps == {}
+        assert "model_capabilities.json" not in captured.err
+        assert "UNCLASSIFIED_MODELS={}" in captured.out
+
+    def test_main_runs_the_gap_check_after_writing(self, mod):
+        with (
+            patch.object(mod, "load_catalog", return_value={"openai": ["gpt-4o"], "anthropic": ["claude-opus-5"]}),
+            patch.object(mod, "fetch_models", return_value=["gpt-4o", "gpt-9"]),
+            patch.object(mod, "save_catalog") as save,
+            patch.object(mod, "report_unclassified_models", return_value={"openai": ["gpt-9"]}) as report,
+        ):
+            assert mod.main(write=True) == {"openai": ["gpt-9"]}
+        save.assert_called_once()
+        report.assert_called_once()
+        assert report.call_args.args[0]["openai"] == ["gpt-4o", "gpt-9"]
+
+    def test_committed_catalog_is_fully_classified(self, mod, capsys):
+        """Regression guard: adding a model to the catalog without classifying it fails here."""
+        from src.services.provider_model_catalog import load_ownership_catalog
+
+        assert mod.report_unclassified_models(load_ownership_catalog()) == {}

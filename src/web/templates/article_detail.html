@@ -6,13 +6,6 @@
 <div class="container mx-auto px-4 pt-4 pb-6">
     <script src="{{ asset_url('js/components/similarity-display.js') }}"></script>
     <script>
-        // Pre-set annotation mode attribute before paint to avoid flashes of the rich container
-        (function() {
-            const mode = localStorage.getItem('annotationMode') || 'huntability';
-            document.documentElement.setAttribute('data-annotation-mode', mode);
-            document.body?.setAttribute('data-annotation-mode', mode);
-        })();
-        
         /** Normalize FastAPI error payloads: detail may be a string or validation error list. */
         function formatApiErrorDetail(detail) {
             if (detail == null || detail === '') return '';
@@ -212,52 +205,6 @@
             font-size: 0.75rem;
             font-weight: 600;
         }
-        /* Hard switch between rich and plain surfaces to prevent legacy span bleed */
-        html[data-annotation-mode="observables"] #article-content,
-        body[data-annotation-mode="observables"] #article-content {
-            display: none !important;
-            pointer-events: none !important;
-            visibility: hidden !important;
-            position: absolute !important;
-            left: -99999px !important;
-            height: 1px !important;
-            overflow: hidden !important;
-            opacity: 0 !important;
-        }
-        html[data-annotation-mode="observables"] #article-content-plain,
-        body[data-annotation-mode="observables"] #article-content-plain {
-            display: block !important;
-            pointer-events: auto !important;
-            visibility: visible !important;
-            position: static !important;
-            left: auto !important;
-            height: auto !important;
-            overflow: visible !important;
-            opacity: 1 !important;
-        }
-        html[data-annotation-mode="huntability"] #article-content-plain,
-        body[data-annotation-mode="huntability"] #article-content-plain {
-            display: none !important;
-            pointer-events: none !important;
-            visibility: hidden !important;
-            position: absolute !important;
-            left: -99999px !important;
-            height: 1px !important;
-            overflow: hidden !important;
-            opacity: 0 !important;
-        }
-        html[data-annotation-mode="huntability"] #article-content,
-        body[data-annotation-mode="huntability"] #article-content {
-            display: block !important;
-            pointer-events: auto !important;
-            visibility: visible !important;
-            position: static !important;
-            left: auto !important;
-            height: auto !important;
-            overflow: visible !important;
-            opacity: 1 !important;
-        }
-        
         /* CSS changes from browser preview - text color only */
         dd.text-sm {
             color: var(--text-gray-300) !important;
@@ -547,45 +494,6 @@
                         </div>
                     </div>
                     <div class="flex flex-wrap items-center gap-3 mt-4 relative z-10">
-                        <!-- INACTIVE: Observables Mode - Planned for future release -->
-                        <!--
-                        <div class="inline-flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
-                            <button id="annotation-mode-observables" onclick="setAnnotationMode('observables')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white border-l border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors relative z-10" style="pointer-events: auto;">
-                                Observables Mode
-                            </button>
-                        </div>
-                        -->
-                        <!-- INACTIVE: Observable Type Picker - Planned for future release -->
-                        <!--
-                        <div id="observable-type-picker" class="hidden items-center gap-2">
-                            <span class="text-xs font-semibold text-gray-600 dark:text-gray-300">Observable Type:</span>
-                            <div class="inline-flex rounded-lg border border-purple-300 dark:border-purple-700 overflow-hidden">
-                                <button data-observable-type="CMD" onclick="setObservableType('CMD')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white">
-                                    CMD
-                                </button>
-                                <button data-observable-type="PROC_LINEAGE" onclick="setObservableType('PROC_LINEAGE')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-400 border-l border-purple-200 dark:border-purple-600" style="background-color: var(--color-border-subtle);">
-                                    PROC_LINEAGE
-                                </button>
-                            </div>
-                        </div>
-                        <div id="observable-usage-picker" class="hidden items-center gap-2">
-                            <span class="text-xs font-semibold text-gray-600 dark:text-gray-300">Dataset:</span>
-                            <div id="observableUsageButtons" class="inline-flex rounded-lg border border-purple-300 dark:border-purple-700 overflow-hidden">
-                                <button data-dataset-usage="train" onclick="setObservableDatasetUsage('train')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white">
-                                    Training
-                                </button>
-                                <button data-dataset-usage="eval" onclick="setObservableDatasetUsage('eval')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-400 border-l border-purple-200 dark:border-purple-600">
-                                    Evaluation
-                                </button>
-                                <button data-dataset-usage="gold" onclick="setObservableDatasetUsage('gold')" class="px-3 py-1 text-xs font-semibold text-gray-600 dark:text-gray-300 bg-white border-l border-purple-200 dark:border-purple-600">
-                                    Gold <span class="text-[10px] text-gray-400">(locked)</span>
-                                </button>
-                            </div>
-                        </div>
-                        <button id="mark-observable-reviewed" class="hidden px-3 py-1 text-xs font-semibold btn-workflow text-white rounded-lg transition-colors" onclick="markObservablesReviewed({{ article.id }})">
-                            Reviewed (No Observables)
-                        </button>
-                        -->
                     </div>
                 </div>
                 <div class="prose max-w-none relative">
@@ -613,7 +521,6 @@
                     </button>
                 </div>
                 <div id="article-content" class="whitespace-pre-wrap text-base text-gray-900 dark:text-gray-100 font-mono leading-relaxed select-text bg-stone-100 dark:bg-gray-800 px-6 pt-20 pb-6 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-inner" style="color: var(--text-body-dark); background-color: var(--surface-plain-bg);">{{ article.content|highlight_keywords(keyword_resolution.matches)|safe }}</div>
-                <div id="article-content-plain" class="hidden whitespace-pre-wrap text-base text-gray-900 dark:text-gray-100 font-mono leading-relaxed select-text bg-stone-100 dark:bg-gray-800 px-6 pt-20 pb-6 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-inner" style="color: var(--text-print); background-color: var(--surface-plain-bg); border: 1px solid var(--border-warning); box-shadow: 0px 0px 0px 0px rgba(0, 0, 0, 0), 0px 0px 0px 0px rgba(0, 0, 0, 0), inset 0px 2px 4px 0px rgba(0, 0, 0, 0.05);">{{ article.content|e }}</div>
             </div>
         </div>
     </div>
@@ -1525,9 +1432,6 @@ Please provide a detailed analysis based on the article content and the user's s
     });
     
     const HUNTABILITY_MODE = 'huntability';
-    const OBSERVABLE_MODE = 'observables';
-    const OBSERVABLE_TYPES = ['CMD', 'PROC_LINEAGE'];
-    const OBSERVABLE_DATASET_USAGES = ['train', 'eval', 'gold'];
     const ANNOTATION_STYLE_MAP = {
         huntable: {
             label: 'Huntable',
@@ -1536,14 +1440,6 @@ Please provide a detailed analysis based on the article content and the user's s
         not_huntable: {
             label: 'Not Huntable',
             highlightClass: 'bg-red-100 dark:bg-red-900 border-red-300 dark:border-red-700 text-red-800 dark:text-red-200'
-        },
-        CMD: {
-            label: 'CMD',
-            highlightClass: 'bg-purple-100 dark:bg-purple-900 border-purple-300 dark:border-purple-700 text-purple-800 dark:text-purple-200'
-        },
-        PROC_LINEAGE: {
-            label: 'Process Lineage',
-            highlightClass: 'bg-amber-100 dark:bg-amber-900 border-amber-300 dark:border-amber-600 text-amber-800 dark:text-amber-200'
         }
     };
 
@@ -1554,10 +1450,8 @@ Please provide a detailed analysis based on the article content and the user's s
     class SimpleTextManager {
         constructor() {
             this.richContentElement = document.getElementById('article-content');
-            this.plainContentElement = document.getElementById('article-content-plain');
             this.contentElement = this.richContentElement;
             this.canonicalText = CANONICAL_ARTICLE_TEXT; // immutable buffer for offset calculations
-            this.pendingObservableSelection = null; // Stores validated selection when modal opens
             this.userClassifications = new Map();
             this.previousStates = []; // Store previous HTML states for undo
             this.maxUndoStates = 10;
@@ -1568,11 +1462,7 @@ Please provide a detailed analysis based on the article content and the user's s
             this.mouseMoveHandler = null;
             this.mouseUpHandler = null;
             this.annotationMode = localStorage.getItem('annotationMode') || HUNTABILITY_MODE;
-            this.observableType = localStorage.getItem('observableType') || 'CMD';
-            this.observableDatasetUsage = localStorage.getItem('observableDatasetUsage') || 'train';
             this.articleId = {{ article.id|default(0)|int }};
-            this.lastObservableAnnotationKey = null;
-            this.lastObservableAnnotationAt = 0;
             this.currentModal = null; // Store reference to current modal for reliable closing
             
             // Check localStorage for annotation system state (default: enabled)
@@ -1624,11 +1514,6 @@ Please provide a detailed analysis based on the article content and the user's s
         
         updateModeUI() {
             const huntabilityBtn = document.getElementById('annotation-mode-huntability');
-            const observablesBtn = document.getElementById('annotation-mode-observables');
-            const observablePicker = document.getElementById('observable-type-picker');
-            const reviewedButton = document.getElementById('mark-observable-reviewed');
-            const richContent = this.richContentElement;
-            const plainContent = this.plainContentElement;
 
             if (huntabilityBtn) {
                 if (this.annotationMode === HUNTABILITY_MODE) {
@@ -1639,130 +1524,22 @@ Please provide a detailed analysis based on the article content and the user's s
                     huntabilityBtn.classList.add('bg-white', 'text-gray-700', 'dark:text-gray-200');
                 }
             }
-
-            if (observablesBtn) {
-                if (this.annotationMode === OBSERVABLE_MODE) {
-                    observablesBtn.classList.add('bg-blue-600', 'text-white', 'dark:bg-blue-600', 'dark:text-white');
-                    observablesBtn.classList.remove('bg-white', 'text-gray-700', 'dark:text-gray-200');
-                } else {
-                    observablesBtn.classList.remove('bg-blue-600', 'text-white', 'dark:bg-blue-600', 'dark:text-white');
-                    observablesBtn.classList.add('bg-white', 'text-gray-700', 'dark:text-gray-200');
-                }
-            }
-
-            if (observablePicker) {
-                observablePicker.classList.toggle('hidden', this.annotationMode !== OBSERVABLE_MODE);
-            }
-
-            const usagePicker = document.getElementById('observable-usage-picker');
-            if (usagePicker) {
-                usagePicker.classList.toggle('hidden', this.annotationMode !== OBSERVABLE_MODE);
-            }
-
-            if (reviewedButton) {
-                reviewedButton.classList.toggle('hidden', this.annotationMode !== OBSERVABLE_MODE);
-            }
-
-            this.updateObservableTypeButtons();
-
-            // Ensure only the correct surface is visible and interactive
-            this.applyContentVisibility();
-
-            // Toggle content containers
-            if (richContent && plainContent) {
-                if (this.annotationMode === OBSERVABLE_MODE) {
-                    richContent.classList.add('hidden');
-                    plainContent.classList.remove('hidden');
-                } else {
-                    richContent.classList.remove('hidden');
-                    plainContent.classList.add('hidden');
-                }
-            }
         }
 
         setActiveContentElement() {
-            if (this.annotationMode === OBSERVABLE_MODE && this.plainContentElement) {
-                this.contentElement = this.plainContentElement;
-            } else if (this.richContentElement) {
+            if (this.richContentElement) {
                 this.contentElement = this.richContentElement;
             }
         }
 
         applyContentVisibility() {
-            const richContent = this.richContentElement;
-            const plainContent = this.plainContentElement;
-            if (!richContent || !plainContent) return;
-
-            // Mark mode on body for CSS-level enforcement
-            document.body.dataset.annotationMode = this.annotationMode;
-            document.documentElement.dataset.annotationMode = this.annotationMode;
-
-            if (this.annotationMode === OBSERVABLE_MODE) {
-                // Force-hide the rich container so legacy spans never bleed through
-                richContent.classList.add('hidden');
-                richContent.style.setProperty('display', 'none', 'important');
-                richContent.style.setProperty('pointer-events', 'none', 'important');
-                richContent.style.setProperty('visibility', 'hidden', 'important');
-                richContent.style.setProperty('position', 'absolute', 'important');
-                richContent.style.setProperty('left', '-99999px', 'important');
-                richContent.style.setProperty('height', '1px', 'important');
-                richContent.style.setProperty('overflow', 'hidden', 'important');
-                richContent.style.setProperty('opacity', '0', 'important');
-                richContent.setAttribute('aria-hidden', 'true');
-                // Show the plain surface only
-                plainContent.classList.remove('hidden');
-                plainContent.style.setProperty('display', 'block', 'important');
-                plainContent.style.setProperty('pointer-events', 'auto', 'important');
-                plainContent.style.setProperty('visibility', 'visible', 'important');
-                plainContent.style.removeProperty('position');
-                plainContent.style.removeProperty('left');
-                plainContent.style.removeProperty('height');
-                plainContent.style.removeProperty('overflow');
-                plainContent.style.removeProperty('opacity');
-                plainContent.removeAttribute('aria-hidden');
-                this.contentElement = plainContent;
-            } else {
-                plainContent.classList.add('hidden');
-                plainContent.style.setProperty('display', 'none', 'important');
-                plainContent.style.setProperty('pointer-events', 'none', 'important');
-                plainContent.style.setProperty('visibility', 'hidden', 'important');
-                plainContent.style.setProperty('position', 'absolute', 'important');
-                plainContent.style.setProperty('left', '-99999px', 'important');
-                plainContent.style.setProperty('height', '1px', 'important');
-                plainContent.style.setProperty('overflow', 'hidden', 'important');
-                plainContent.style.setProperty('opacity', '0', 'important');
-                plainContent.setAttribute('aria-hidden', 'true');
-                richContent.classList.remove('hidden');
-                richContent.style.setProperty('display', 'block', 'important');
-                richContent.style.setProperty('pointer-events', 'auto', 'important');
-                richContent.style.setProperty('visibility', 'visible', 'important');
-                richContent.style.removeProperty('position');
-                richContent.style.removeProperty('left');
-                richContent.style.removeProperty('height');
-                richContent.style.removeProperty('overflow');
-                richContent.style.removeProperty('opacity');
-                richContent.removeAttribute('aria-hidden');
-                this.contentElement = richContent;
+            if (this.richContentElement) {
+                this.contentElement = this.richContentElement;
             }
         }
 
-        updateObservableTypeButtons() {
-            OBSERVABLE_TYPES.forEach(type => {
-                const button = document.querySelector(`[data-observable-type="${type}"]`);
-                if (button) {
-                    if (this.observableType === type) {
-                        button.classList.add('btn-workflow', 'text-white');
-                        button.classList.remove('bg-white', 'text-gray-700');
-                    } else {
-                        button.classList.remove('btn-workflow', 'text-white');
-                        button.classList.add('bg-white', 'text-gray-700');
-                    }
-                }
-            });
-        }
-
         setAnnotationMode(mode) {
-            if (![HUNTABILITY_MODE, OBSERVABLE_MODE].includes(mode)) {
+            if (mode !== HUNTABILITY_MODE) {
                 return;
             }
             this.annotationMode = mode;
@@ -1772,27 +1549,7 @@ Please provide a detailed analysis based on the article content and the user's s
             this.applyContentVisibility();
             this.detachSelectionListeners();
             this.enableUserSelection();
-            showNotification(`Switched to ${mode === HUNTABILITY_MODE ? 'Huntability' : 'Observables'} mode`, 'info');
-        }
-
-        setObservableType(type) {
-            if (!OBSERVABLE_TYPES.includes(type)) {
-                return;
-            }
-            this.observableType = type;
-            localStorage.setItem('observableType', type);
-            this.updateObservableTypeButtons();
-            showNotification(`Observable type set to ${type}`, 'info');
-        }
-
-        setObservableDatasetUsage(usage) {
-            const normalized = (usage || '').toLowerCase();
-            if (!OBSERVABLE_DATASET_USAGES.includes(normalized)) {
-                return;
-            }
-            this.observableDatasetUsage = normalized;
-            localStorage.setItem('observableDatasetUsage', normalized);
-            updateDatasetUsageButtons();
+            showNotification('Switched to Huntability mode', 'info');
         }
         
         enableAnnotations() {
@@ -1854,10 +1611,6 @@ Please provide a detailed analysis based on the article content and the user's s
         }
         
         addExistingClassification(start, end, classification, text) {
-            // Do not render existing highlights on the plain observables surface
-            if (this.annotationMode === OBSERVABLE_MODE) {
-                return;
-            }
             // Checking existing annotation: ${classification}
             
             // Check if this text is already highlighted by looking for spans with our classes
@@ -1886,10 +1639,6 @@ Please provide a detailed analysis based on the article content and the user's s
         }
         
         addUserClassification(start, end, classification, text) {
-            // Keep observables plain surface unmutated
-            if (this.annotationMode === OBSERVABLE_MODE && this.contentElement === this.plainContentElement) {
-                return;
-            }
             // Always use position-based highlighting to avoid text duplication issues
             // The text-based replacement was causing duplication when the same text appeared multiple times
             this.highlightTextAtPosition(start, end, classification, text);
@@ -1975,12 +1724,6 @@ Please provide a detailed analysis based on the article content and the user's s
             } else if (classification === 'not_huntable') {
                 containerClass = 'bg-red-50 border-red-400';
                 textClass = 'text-red-800';
-            } else if (classification === 'CMD') {
-                containerClass = 'bg-purple-50 border-purple-400';
-                textClass = 'text-purple-800';
-            } else if (classification === 'PROC_LINEAGE') {
-                containerClass = 'bg-amber-50 border-amber-400';
-                textClass = 'text-amber-800';
             }
             indicator.className = `p-2 mb-2 rounded border-l-4 ${containerClass}`;
             indicator.innerHTML = `
@@ -2148,13 +1891,8 @@ Please provide a detailed analysis based on the article content and the user's s
         enableUserSelection() {
             if (!this.annotationsEnabled) return;
             
-            const target = this.annotationMode === OBSERVABLE_MODE ? this.plainContentElement : this.richContentElement;
+            const target = this.richContentElement;
             if (!target) return;
-            // Disable selection entirely on the non-active surface to prevent ghost highlights
-            const inactive = this.annotationMode === OBSERVABLE_MODE ? this.richContentElement : this.plainContentElement;
-            if (inactive) {
-                inactive.style.setProperty('user-select', 'none', 'important');
-            }
             target.style.removeProperty('user-select');
 
             // Prevent duplicate listeners on the same target
@@ -2189,21 +1927,6 @@ Please provide a detailed analysis based on the article content and the user's s
                 if (isSelecting) {
                     isSelecting = false;
                     
-                    // For observables: use strict validation only (no fallbacks)
-                    if (this.annotationMode === OBSERVABLE_MODE) {
-                        const validatedSelection = this.validateAndExtractObservableSelection();
-                        if (validatedSelection) {
-                            this.showObservableModal(
-                                validatedSelection.selectedText,
-                                validatedSelection.start,
-                                validatedSelection.end
-                            );
-                        }
-                        // If validation fails, error already shown
-                        return;
-                    }
-                    
-                    // For huntability: continue with existing logic (allows fallbacks)
                     const selection = window.getSelection();
                     const selectedText = selection ? selection.toString().trim() : '';
                     if (selection && selectedText.length > 0) {
@@ -2227,7 +1950,7 @@ Please provide a detailed analysis based on the article content and the user's s
                         }
                     }
 
-                    // Fallback: use pointer-based offsets (huntability only, can be imprecise on touch/mobile).
+                    // Fallback: use pointer-based offsets (can be imprecise on touch/mobile).
                     endPos = this.getTextPositionFromEvent(e);
                     this.showClassificationOptions(startPos ?? 0, endPos ?? 0);
                 }
@@ -2238,11 +1961,8 @@ Please provide a detailed analysis based on the article content and the user's s
             target.addEventListener('mouseup', this.mouseUpHandler);
             
             // Also listen for native text selection events (as backup)
-            // For observables: use strict validation, no fallbacks
             this.nativeSelectionHandler = (e) => {
                 if (!this.annotationsEnabled) return;
-                // Observables rely solely on the content mouseup handler to avoid parallel selection handlers
-                if (this.annotationMode === OBSERVABLE_MODE) return;
                 // Only handle if the click was within our content area
                 if (this.contentElement.contains(e.target)) {
                     setTimeout(() => {
@@ -2252,21 +1972,6 @@ Please provide a detailed analysis based on the article content and the user's s
                             return;
                         }
                         
-                        // For observables: use strict validation (no fallbacks)
-                        if (this.annotationMode === OBSERVABLE_MODE) {
-                            const validatedSelection = this.validateAndExtractObservableSelection();
-                            if (validatedSelection) {
-                                this.showObservableModal(
-                                    validatedSelection.selectedText,
-                                    validatedSelection.start,
-                                    validatedSelection.end
-                                );
-                            }
-                            // If validation fails, error already shown, just return
-                            return;
-                        }
-                        
-                        // For huntability: continue with existing logic (allows fallbacks)
                         const selection = window.getSelection();
                         const selectedText = selection ? selection.toString().trim() : '';
                         
@@ -2291,7 +1996,7 @@ Please provide a detailed analysis based on the article content and the user's s
                                     this.showClassificationOptions(startPos, endPos);
                                 } else {
                                     console.log('Position calculation mismatch, using fallback');
-                                    // Fallback: try to find the text in the content (huntability only)
+                                    // Fallback: try to find the text in the content
                                     const contentText = this.contentElement.textContent;
                                     const textIndex = contentText.indexOf(selectedText);
                                     if (textIndex !== -1) {
@@ -2300,7 +2005,7 @@ Please provide a detailed analysis based on the article content and the user's s
                                 }
                             } catch (error) {
                                 console.error('Error processing native selection:', error);
-                                // Fallback: try to find the text in the content (huntability only)
+                                // Fallback: try to find the text in the content
                                 const contentText = this.contentElement.textContent;
                                 const textIndex = contentText.indexOf(selectedText);
                                 if (textIndex !== -1) {
@@ -2454,128 +2159,6 @@ Please provide a detailed analysis based on the article content and the user's s
             if (preview) {
                 preview.remove();
             }
-        }
-        
-        /**
-         * Validate and extract observable selection with strict rules.
-         * Returns exact selection: no expansion, no trimming, no guessing.
-         * Returns null if validation fails.
-         */
-        validateAndExtractObservableSelection() {
-            const selection = window.getSelection();
-            
-            // Validation: Must exist and have exactly one contiguous range
-            if (!selection || selection.rangeCount === 0) {
-                showNotification('No selection found. Please highlight text.', 'error');
-                return null;
-            }
-            
-            if (selection.rangeCount !== 1) {
-                showNotification('Multiple selections detected. Please select a single contiguous range.', 'error');
-                return null;
-            }
-            
-            const originalRange = selection.getRangeAt(0);
-            const content = this.contentElement;
-            
-            // Validation: Must exist and be non-empty
-            if (!originalRange || originalRange.collapsed) {
-                showNotification('Selection is empty. Please highlight text.', 'error');
-                return null;
-            }
-            
-            // Clamp selection strictly inside the article content (no expansion beyond boundaries)
-            const contentRange = document.createRange();
-            contentRange.selectNodeContents(content);
-            const clampedRange = originalRange.cloneRange();
-            if (originalRange.compareBoundaryPoints(Range.START_TO_START, contentRange) < 0) {
-                clampedRange.setStart(contentRange.startContainer, contentRange.startOffset);
-            }
-            if (originalRange.compareBoundaryPoints(Range.END_TO_END, contentRange) > 0) {
-                clampedRange.setEnd(contentRange.endContainer, contentRange.endOffset);
-            }
-            if (clampedRange.collapsed) {
-                showNotification('Selection must be within the article content.', 'error');
-                return null;
-            }
-
-            // Exact selected text from clamped DOM range (no trimming)
-            const selectedText = clampedRange.toString();
-            if (!selectedText || selectedText.length === 0) {
-                showNotification('Selection is empty. Please highlight text.', 'error');
-                return null;
-            }
-            
-            const canonical = this.canonicalText || '';
-            
-            // Resolve boundaries to concrete text nodes inside the clamped range
-            const startBoundary = this.resolveBoundaryToText(clampedRange.startContainer, clampedRange.startOffset, true);
-            const endBoundary = this.resolveBoundaryToText(clampedRange.endContainer, clampedRange.endOffset, false);
-            
-            if (!startBoundary || !endBoundary) {
-                showNotification('Selection must be within the article content.', 'error');
-                return null;
-            }
-            
-            // Walk text nodes to compute absolute offsets against the canonical text
-            const computeOffsetFromBoundary = (boundary) => {
-                const walker = document.createTreeWalker(
-                    this.contentElement,
-                    NodeFilter.SHOW_TEXT,
-                    null,
-                    false
-                );
-                
-                let pos = 0;
-                let node;
-                while ((node = walker.nextNode())) {
-                    if (node === boundary.node) {
-                        return pos + Math.min(boundary.offset, node.textContent.length);
-                    }
-                    pos += node.textContent.length;
-                }
-                return null;
-            };
-
-            const startOffset = computeOffsetFromBoundary(startBoundary);
-            const endOffset = computeOffsetFromBoundary(endBoundary);
-
-            if (startOffset === null || endOffset === null) {
-                showNotification('Selection must be within the article content.', 'error');
-                return null;
-            }
-
-            const orderedStart = Math.min(startOffset, endOffset);
-            const orderedEnd = Math.max(startOffset, endOffset);
-
-            if (orderedStart === orderedEnd) {
-                showNotification('Selection is empty. Please highlight text.', 'error');
-                return null;
-            }
-
-            if (orderedStart < 0 || orderedEnd > canonical.length) {
-                showNotification('Invalid selection range. Please try again.', 'error');
-                return null;
-            }
-
-            const canonicalSlice = canonical.substring(orderedStart, orderedEnd);
-            if (canonicalSlice !== selectedText) {
-                console.error('Canonical slice mismatch for selection', {
-                    selectedPreview: selectedText.substring(0, 100),
-                    canonicalPreview: canonicalSlice.substring(0, 100),
-                    start: orderedStart,
-                    end: orderedEnd
-                });
-                showNotification('Selection mismatch. Please re-select the exact text.', 'error');
-                return null;
-            }
-
-            return {
-                start: orderedStart,
-                end: orderedEnd,
-                selectedText: selectedText, // exact user-highlighted text
-                range: originalRange.cloneRange() // Clone for later use
-            };
         }
 
         /**
@@ -2766,23 +2349,6 @@ Please provide a detailed analysis based on the article content and the user's s
             
             if (start === end) return;
             
-            // For observables: use strict validation and exact extraction
-            if (this.annotationMode === OBSERVABLE_MODE) {
-                const observableSelection = this.validateAndExtractObservableSelection();
-                if (!observableSelection) {
-                    // Validation failed, error already shown
-                    return;
-                }
-                
-                // Use exact selection - no modification
-                this.showObservableModal(
-                    observableSelection.selectedText,
-                    observableSelection.start,
-                    observableSelection.end
-                );
-                return;
-            }
-            
             // For huntability: continue using normalization (allows expansion)
             const normalized = this.normalizeSelectionToContent(start, end);
             if (!normalized) {
@@ -2819,195 +2385,6 @@ Please provide a detailed analysis based on the article content and the user's s
             
             // Show classification modal with enhanced features
             this.showClassificationModal(selectedText, min, max);
-        }
-        showObservableModal(text, start, end) {
-            if (this.isUpdatingModal) return;
-
-            // Store the validated selection - this becomes the source of truth
-            // Modal is a confirmation boundary; we save exactly these values
-            this.pendingObservableSelection = {
-                selectedText: text,
-                start: start,
-                end: end
-            };
-
-            const MAX_OBS_LENGTH = 4000;
-            const workingText = text;
-            const workingStart = start;
-            const workingEnd = end;
-
-            const charCount = workingText.length;
-            const targetLength = MAX_OBS_LENGTH;
-            let lengthStatus = 'good';
-            let lengthMessage = '';
-            if (charCount < 30) {
-                lengthStatus = 'short';
-                lengthMessage = 'Too short - highlight the full command line.';
-            } else if (charCount > targetLength) {
-                lengthStatus = 'long';
-                lengthMessage = `Long selection (${charCount}). Commands over ${targetLength} chars may be harder to review.`;
-            }
-
-            const modal = document.createElement('div');
-            modal.id = 'annotationObservableModal';
-            modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center';
-modal.setAttribute('role', 'dialog');
-modal.setAttribute('aria-modal', 'true');
-        modal.setAttribute('aria-label', 'Annotation observable');
-            this.currentModal = modal; // Store reference for reliable closing
-
-            modal.addEventListener('click', function(e) {
-                if (e.target === modal) {
-                    // Clear pending selection on click-away (user cancelled)
-                    this.pendingObservableSelection = null;
-                    this.closeModal();
-                }
-            }.bind(this));
-
-            modal.innerHTML = `
-                <div class="card shadow-2xl p-6 max-w-lg w-full mx-4">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-semibold text-gray-50">Save Observable</h3>
-                        <div class="char-counter ${lengthStatus}">
-                            ${charCount}/${targetLength} chars
-                        </div>
-                    </div>
-                    ${lengthMessage ? `<div class="length-guidance ${lengthStatus} mb-4">${lengthMessage}</div>` : ''}
-                    <p class="text-sm text-gray-300 mb-4 break-words whitespace-pre-wrap">"${workingText.substring(0, 200)}${workingText.length > 200 ? '...' : ''}"</p>
-                    <div class="flex space-x-3">
-                        <button id="observable-save-btn" 
-                                class="flex-1 bg-purple-500 hover:bg-purple-600 text-white px-4 py-3 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900">
-                            Save ${this.observableType}
-                        </button>
-                        <button id="observable-cancel-btn" 
-                                class="px-4 py-3 border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
-                            Cancel
-                        </button>
-                    </div>
-                </div>
-            `;
-
-            document.body.appendChild(modal);
-            this.isUpdatingModal = true;
-
-            const saveBtn = modal.querySelector('#observable-save-btn');
-            const cancelBtn = modal.querySelector('#observable-cancel-btn');
-            
-            // Register with ModalManager and make Escape trigger Cancel button
-            if (window.ModalManager) {
-                // Register modal with ModalManager
-                window.ModalManager.register('annotationObservableModal', {
-                    isDynamic: true,
-                    hasInput: false,
-                    onClose: () => {
-                        // Clear pending selection on close
-                        this.pendingObservableSelection = null;
-                        this.closeModal();
-                    }
-                });
-                
-                // Open modal via ModalManager
-                window.ModalManager.open('annotationObservableModal');
-                
-                // Add Escape handler that triggers Cancel button (only if this is the topmost modal)
-                const modalEscHandler = function(e) {
-                    if ((e.key === 'Escape' || e.keyCode === 27) && 
-                        modal && !modal.classList.contains('hidden')) {
-                        // Check if this is the topmost modal
-                        if (window.ModalManager) {
-                            const stack = window.ModalManager.getStack();
-                            const isTopmost = stack.length > 0 && stack[stack.length - 1] === 'annotationObservableModal';
-                            if (!isTopmost) {
-                                // Not topmost, let ModalManager handle it
-                                return;
-                            }
-                        }
-                        e.preventDefault();
-                        e.stopPropagation();
-                        // Trigger Cancel button click (equivalent to clicking Cancel)
-                        if (cancelBtn) {
-                            cancelBtn.click();
-                        } else {
-                            // Clear pending selection on ESC (user cancelled)
-                            this.pendingObservableSelection = null;
-                            this.closeModal();
-                        }
-                        return false;
-                    }
-                }.bind(this);
-                
-                // Use capture phase with higher priority (runs before ModalManager's handler)
-                document.addEventListener('keydown', modalEscHandler, true);
-                
-                // Store handler reference for cleanup
-                modal._annotationEscHandler = modalEscHandler;
-            }
-
-            if (saveBtn) {
-                saveBtn.addEventListener('click', async () => {
-                    // Use stored validated selection - ignore current window.getSelection()
-                    // IMPORTANT: Submit BEFORE closeModal() because closeModal clears pendingObservableSelection
-                    await this.submitObservableAnnotation();
-                    this.closeModal();
-                });
-            }
-            if (cancelBtn) {
-                cancelBtn.addEventListener('click', () => {
-                    // Clear pending selection on cancel
-                    this.pendingObservableSelection = null;
-                    this.closeModal();
-                });
-            }
-
-            if (!document.getElementById('observable-modal-styles')) {
-                const styles = document.createElement('style');
-                styles.id = 'observable-modal-styles';
-                styles.textContent = `
-                    .char-counter {
-                        font-size: 12px;
-                        font-weight: 600;
-                        padding: 2px 6px;
-                        border-radius: 4px;
-                        margin-left: 8px;
-                    }
-                    .char-counter.good {
-                        background: var(--action-success-bg);
-                        color: var(--action-success-dark);
-                        border: 1px solid var(--action-success);
-                    }
-                    .char-counter.short {
-                        background: var(--surface-highlight);
-                        color: var(--action-warning-dark);
-                        border: 1px solid var(--border-warning);
-                    }
-                    .char-counter.long {
-                        background: var(--action-danger-bg);
-                        color: var(--action-danger);
-                        border: 1px solid var(--action-danger);
-                    }
-                    .length-guidance {
-                        font-size: 12px;
-                        padding: 8px 12px;
-                        border-radius: 6px;
-                        border-left: 4px solid;
-                    }
-                    .length-guidance.short {
-                        background: var(--surface-highlight);
-                        color: var(--action-warning-dark);
-                        border-left-color: var(--border-warning);
-                    }
-                    .length-guidance.long {
-                        background: var(--action-danger-bg);
-                        color: var(--action-danger);
-                        border-left-color: var(--action-danger);
-                    }
-                `;
-                document.head.appendChild(styles);
-            }
-
-            setTimeout(() => {
-                this.isUpdatingModal = false;
-            }, 100);
         }
         showClassificationModal(text, start, end) {
             // Prevent infinite loops when updating existing modal
@@ -3832,12 +3209,8 @@ modal.setAttribute('aria-modal', 'true');
             }
             
             // Close via ModalManager if registered
-            if (this.currentModal && window.ModalManager) {
-                if (this.currentModal.id === 'annotationClassificationModal') {
-                    window.ModalManager.close('annotationClassificationModal');
-                } else if (this.currentModal.id === 'annotationObservableModal') {
-                    window.ModalManager.close('annotationObservableModal');
-                }
+            if (this.currentModal && window.ModalManager && this.currentModal.id === 'annotationClassificationModal') {
+                window.ModalManager.close('annotationClassificationModal');
             }
             
             // First try to use stored modal reference (most reliable)
@@ -3874,12 +3247,6 @@ modal.setAttribute('aria-modal', 'true');
                 if (modal) {
                     modal.remove();
                 }
-            }
-            
-            // Clear pending observable selection when modal closes (unless it was saved)
-            // This ensures cancel/ESC doesn't leave stale state
-            if (this.pendingObservableSelection) {
-                this.pendingObservableSelection = null;
             }
         }
         
@@ -3918,7 +3285,7 @@ modal.setAttribute('aria-modal', 'true');
                     context_after: context.after,
                     confidence_score: 1.0
                 };
-                if (usage && OBSERVABLE_TYPES.includes(classification)) {
+                if (usage) {
                     payload.usage = usage;
                 }
 
@@ -3969,75 +3336,6 @@ modal.setAttribute('aria-modal', 'true');
             return { before: contextBefore, after: contextAfter };
         }
 
-        async submitObservableAnnotation() {
-            // Use stored validated selection from modal open - ignore window.getSelection()
-            // Modal is a confirmation boundary; we save exactly what was validated when modal opened
-            if (!this.pendingObservableSelection) {
-                showNotification('No selection to save. Please select text and try again.', 'error');
-                return;
-            }
-            
-            // Use stored exact values - no re-validation, no modification
-            const normalizedStart = this.pendingObservableSelection.start;
-            const normalizedEnd = this.pendingObservableSelection.end;
-            const selectedText = this.pendingObservableSelection.selectedText;
-            
-            // Clear any current selection (before DOM mutation)
-            const selection = window.getSelection();
-            if (selection) {
-                selection.removeAllRanges();
-            }
-            
-            // Clear pending selection after extracting values
-            this.pendingObservableSelection = null;
-            
-            // Deduplication check
-            const now = Date.now();
-            const dedupeKey = `${this.articleId}:${this.observableType}:${normalizedStart}:${normalizedEnd}`;
-            if (dedupeKey === this.lastObservableAnnotationKey && now - this.lastObservableAnnotationAt < 750) {
-                console.log('Skipping duplicate observable annotation submission');
-                return;
-            }
-            this.lastObservableAnnotationKey = dedupeKey;
-            this.lastObservableAnnotationAt = now;
-            
-            // Final validation: selected text must exist
-            if (!selectedText || selectedText.length === 0) {
-                showNotification('Selection is empty. Please highlight text.', 'error');
-                return;
-            }
-            
-            // Length warning (informational only, not a blocker)
-            const MAX_OBS_LENGTH = 4000;
-            if (selectedText.length > MAX_OBS_LENGTH) {
-                showNotification(`Long selection (${selectedText.length} chars). Saved, but please keep commands concise when possible.`, 'info');
-            }
-            
-            const label = this.getAnnotationLabel(this.observableType);
-            console.log('Creating observable annotation (exact selection):', {
-                start: normalizedStart,
-                end: normalizedEnd,
-                textLength: selectedText.length,
-                textPreview: selectedText.substring(0, 100),
-                type: this.observableType
-            });
-            
-            // Add highlight AFTER offset calculation (DOM mutation happens here)
-            this.addUserClassification(normalizedStart, normalizedEnd, this.observableType, selectedText);
-            
-            // Calculate context from canonical text
-            const context = this.getContextAroundSelection(normalizedStart, normalizedEnd);
-            await this.saveClassification(
-                normalizedStart,
-                normalizedEnd,
-                selectedText,
-                this.observableType,
-                context,
-                this.observableDatasetUsage
-            );
-            
-            this.showSuccessMessage(`Saved ${label} observable`);
-        }
     }
     
     // Initialize the simple text manager
@@ -4047,10 +3345,6 @@ modal.setAttribute('aria-modal', 'true');
         // Expose for automation/tests and inline scripts
         window.simpleTextManager = simpleTextManager;
         window.SimpleTextManager = SimpleTextManager;
-        document.querySelectorAll("#observableUsageButtons [data-dataset-usage]").forEach(button => {
-            button.addEventListener("click", () => setObservableDatasetUsage(button.dataset.datasetUsage));
-        });
-        simpleTextManager.setObservableDatasetUsage(simpleTextManager.observableDatasetUsage);
         
         // Add iPhone touch support
         addiPhoneTouchSupport();
@@ -4092,39 +3386,6 @@ modal.setAttribute('aria-modal', 'true');
     
     // Explicitly attach to window for inline onclick handlers
     window.setAnnotationMode = setAnnotationMode;
-    
-    function setObservableType(type) {
-        try {
-            if (!simpleTextManager) return;
-            simpleTextManager.setObservableType(type);
-        } catch (error) {
-            console.error('Error in setObservableType:', error);
-        }
-    }
-    
-    // Explicitly attach to window for inline onclick handlers
-    window.setObservableType = setObservableType;
-
-    function setObservableDatasetUsage(usage) {
-        if (!simpleTextManager) return;
-        simpleTextManager.setObservableDatasetUsage(usage);
-    }
-
-    function updateDatasetUsageButtons() {
-        if (!simpleTextManager) return;
-        const currentUsage = simpleTextManager.observableDatasetUsage || 'train';
-        document.querySelectorAll("#observableUsageButtons [data-dataset-usage]").forEach(button => {
-            const btnUsage = (button.dataset.datasetUsage || 'train').toLowerCase();
-            if (btnUsage === currentUsage) {
-                button.classList.add('btn-workflow', 'text-white');
-                button.classList.remove('bg-white', 'text-gray-700', 'dark:text-gray-200');
-            } else {
-                button.classList.remove('btn-workflow', 'text-white');
-                button.classList.add('bg-white', 'text-gray-700', 'dark:text-gray-200');
-            }
-        });
-    }
-
     // iPhone Touch Support for Text Selection
     function addiPhoneTouchSupport() {
         // Use the active surface so observables use the plain container
@@ -4215,27 +3476,14 @@ modal.setAttribute('aria-modal', 'true');
                     
                     // Trigger annotation modal
                     if (simpleTextManager && selection.toString().length > 0) {
-                        // For observables: use strict validation (no indexOf fallback)
-                        if (simpleTextManager.annotationMode === OBSERVABLE_MODE) {
-                            const validatedSelection = simpleTextManager.validateAndExtractObservableSelection();
-                            if (validatedSelection) {
-                                simpleTextManager.showObservableModal(
-                                    validatedSelection.selectedText,
-                                    validatedSelection.start,
-                                    validatedSelection.end
-                                );
-                            }
-                        } else {
-                            // For huntability: use indexOf fallback
-                            const selectedText = selection.toString();
-                            const fullText = contentElement.textContent;
-                            const startPos = fullText.indexOf(selectedText);
-                            const endPos = startPos + selectedText.length;
-                            
-                            if (startPos !== -1) {
-                                console.log('📱 iPhone: Triggering annotation modal');
-                                simpleTextManager.showClassificationOptions(startPos, endPos);
-                            }
+                        const selectedText = selection.toString();
+                        const fullText = contentElement.textContent;
+                        const startPos = fullText.indexOf(selectedText);
+                        const endPos = startPos + selectedText.length;
+                        
+                        if (startPos !== -1) {
+                            console.log('📱 iPhone: Triggering annotation modal');
+                            simpleTextManager.showClassificationOptions(startPos, endPos);
                         }
                     }
                 }
@@ -4267,19 +3515,7 @@ modal.setAttribute('aria-modal', 'true');
                 // Get current selection
                 const selection = window.getSelection();
                 if (selection.toString().length > 0) {
-                    // For observables: use strict validation (no indexOf fallback)
-                    if (simpleTextManager && simpleTextManager.annotationMode === OBSERVABLE_MODE) {
-                        const validatedSelection = simpleTextManager.validateAndExtractObservableSelection();
-                        if (validatedSelection) {
-                            console.log('📱 Double tap: Triggering observable modal');
-                            simpleTextManager.showObservableModal(
-                                validatedSelection.selectedText,
-                                validatedSelection.start,
-                                validatedSelection.end
-                            );
-                        }
-                    } else if (simpleTextManager) {
-                        // For huntability: use indexOf fallback
+                    if (simpleTextManager) {
                         const selectedText = selection.toString();
                         const fullText = contentElement.textContent;
                         const startPos = fullText.indexOf(selectedText);
@@ -4333,28 +3569,14 @@ modal.setAttribute('aria-modal', 'true');
                             
                             // Trigger annotation modal
                             if (simpleTextManager) {
-                                // For observables: use strict validation (no indexOf fallback)
-                                if (simpleTextManager.annotationMode === OBSERVABLE_MODE) {
-                                    const validatedSelection = simpleTextManager.validateAndExtractObservableSelection();
-                                    if (validatedSelection) {
-                                        console.log('📱 Double tap: Word selected, triggering observable modal');
-                                        simpleTextManager.showObservableModal(
-                                            validatedSelection.selectedText,
-                                            validatedSelection.start,
-                                            validatedSelection.end
-                                        );
-                                    }
-                                } else {
-                                    // For huntability: use indexOf fallback
-                                    const selectedText = selection.toString();
-                                    const fullText = contentElement.textContent;
-                                    const startPos = fullText.indexOf(selectedText);
-                                    const endPos = startPos + selectedText.length;
-                                    
-                                    if (startPos !== -1) {
-                                        console.log('📱 Double tap: Word selected, triggering modal');
-                                        simpleTextManager.showClassificationOptions(startPos, endPos);
-                                    }
+                                const selectedText = selection.toString();
+                                const fullText = contentElement.textContent;
+                                const startPos = fullText.indexOf(selectedText);
+                                const endPos = startPos + selectedText.length;
+                                
+                                if (startPos !== -1) {
+                                    console.log('📱 Double tap: Word selected, triggering modal');
+                                    simpleTextManager.showClassificationOptions(startPos, endPos);
                                 }
                             }
                         }
@@ -4367,23 +3589,6 @@ modal.setAttribute('aria-modal', 'true');
         addiPhoneInstructions();
     }
 
-    async function markObservablesReviewed(articleId) {
-        try {
-            showNotification('Marking article as reviewed...', 'info');
-            const response = await fetch(`/api/articles/${articleId}/mark-reviewed`, {
-                method: 'POST'
-            });
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Failed to update status: ${errorText}`);
-            }
-            const result = await response.json();
-            showNotification(`Article marked as ${result.processing_status}`, 'success');
-        } catch (error) {
-            console.error('Failed to mark article reviewed:', error);
-            showNotification(`Failed to mark reviewed: ${error.message}`, 'error');
-        }
-    }
     // Add mobile-friendly touch handlers for modal buttons
     function addMobileModalHandlers(modal, start, end) {
         // Huntable button

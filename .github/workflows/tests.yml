@@ -228,6 +228,28 @@ jobs:
             --cov-report=term \
             --cov-fail-under=20
 
+      # Ratchet floors for packages that previously had no gate at all.
+      # Baselines measured 2026-09-02 on this exact selection: web 23%,
+      # workflows 77%, core 30%. Floors sit a few points under so CI/local
+      # drift cannot flap them; they are meant only to rise -- when a PR lifts
+      # a package clearly above its floor, raise the floor with it.
+      - name: Enforce coverage ratchet (web / workflows / core)
+        env:
+          APP_ENV: test
+        run: |
+          uv run python -m coverage erase
+          uv run python -m pytest tests/unit/ tests/core/ tests/workflows/ tests/templates/ \
+            -m "not integration" \
+            -p no:cacheprovider \
+            --cov=src.web \
+            --cov=src.workflows \
+            --cov=src.core \
+            --cov-report=term
+
+          uv run python -m coverage report --include="src/web/*" --fail-under=20
+          uv run python -m coverage report --include="src/workflows/*" --fail-under=72
+          uv run python -m coverage report --include="src/core/*" --fail-under=26
+
       - name: Upload unit test artifacts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7

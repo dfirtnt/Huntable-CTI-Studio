@@ -23,7 +23,6 @@ from src.huntable_mcp.tools import articles, sigma, sources, workflow
 from src.services.audit_service import (
     ACTION_ANNOTATION_CREATED,
     ACTION_ANNOTATION_DELETED,
-    ACTION_ARTICLE_REVIEWED,
     ACTION_MCP_CONFIRMATION_REQUESTED,
     ACTION_SOURCE_TOGGLED,
     ACTION_WORKFLOW_CANCELLED,
@@ -247,6 +246,17 @@ async def test_invalid_sigma_yaml_is_rejected_before_confirmation():
 
 
 @pytest.mark.asyncio
+async def test_mark_article_reviewed_tool_is_not_registered():
+    """Removed 2026-09-04: no consumer reads article metadata `reviewed`.
+
+    The observables-mode `mark_article_reviewed` tool wrote a reviewed flag that
+    nothing in the app reads. It must not be agent-callable as an inert no-op.
+    """
+    tools = _tools_from_register(articles.register, AsyncMock(), _db_with_session(FakeAsyncSession([])))
+    assert "mark_article_reviewed" not in tools
+
+
+@pytest.mark.asyncio
 async def test_delete_article_creates_confirmation_without_deleting_article():
     article = ArticleTable(
         id=42,
@@ -269,35 +279,6 @@ async def test_delete_article_creates_confirmation_without_deleting_article():
     assert confirmations[0].operation == "delete_article"
     assert confirmations[0].target_type == "article"
     assert confirmations[0].target_id == "42"
-
-
-@pytest.mark.asyncio
-async def test_mark_article_reviewed_updates_metadata_and_audits():
-    article = ArticleTable(
-        id=42,
-        source_id=1,
-        canonical_url="https://example.com/a",
-        title="Example Article",
-        published_at=datetime.now(),
-        content="body",
-        content_hash="hash",
-        article_metadata={"existing": "value"},
-    )
-    session = FakeAsyncSession([FakeResult(article)])
-    tools = _tools_from_register(articles.register, AsyncMock(), _db_with_session(session))
-
-    result = await tools["mark_article_reviewed"].fn(article_id=42, reviewed=True)
-
-    assert "reviewed=True" in result
-    assert article.article_metadata["existing"] == "value"
-    assert article.article_metadata["reviewed"] is True
-    assert article.article_metadata["reviewed_by"] == "service:mcp"
-    assert article.article_metadata["reviewed_at"]
-    assert session.committed is True
-    audits = _audit_rows(session)
-    assert len(audits) == 1
-    assert audits[0].action == ACTION_ARTICLE_REVIEWED
-    assert audits[0].event_metadata["reviewed"] is True
 
 
 @pytest.mark.asyncio

@@ -36,6 +36,10 @@ from src.services.llm_service import LLMService
 from src.services.lmstudio_model_loader import auto_load_workflow_models
 from src.services.sigma_generation_service import _infer_observables_used
 from src.services.sigma_matching_service import SigmaMatchingService
+
+# Re-exported: the novelty summariser lives in the service layer so langgraph-free
+# callers (the web container's sigma-queue routes) can import it too.
+from src.services.sigma_novelty_service import summarize_rule_novelty
 from src.services.workflow_config_snapshot import build_config_snapshot, snapshot_is_complete
 from src.services.workflow_provider_options import _probe_lmstudio
 from src.services.workflow_trigger_service import WorkflowTriggerService
@@ -257,7 +261,11 @@ def _logsource_hint_for_observable(platform: str, telemetry_category: str) -> di
     if telemetry_category == "service_creation":
         return {"product": "windows", "category": "service_creation"}
     if telemetry_category == "scheduled_task":
-        return {"product": "windows", "category": "scheduled_task"}
+        # Scheduled-task telemetry resolves as windows.scheduled_task only via the SigmaHQ
+        # service form (service: taskscheduler); there is no `category: scheduled_task` in the
+        # taxonomy. The category form `category: taskscheduler` also resolves but is non-standard
+        # ("forward-compat"), and the 6 corpus rules all use the service form.
+        return {"product": "windows", "service": "taskscheduler"}
     return None
 
 
@@ -487,12 +495,53 @@ def _rebase_group_observable_indices(rule: dict[str, Any], original_indices: lis
     rule["observables_used"] = rebased
 
 
+def _find_rehome_group(
+    rule: dict[str, Any], emitting_group: dict[str, Any], groups: list[dict[str, Any]]
+) -> dict[str, Any] | None:
+    """Return the group that should own ``rule``: the emitting group when its logsource fits,
+    else the first other group in the execution whose logsource hint it matches, else None.
+
+    Every group's call sees the whole article, so a model regularly emits a rule that belongs
+    to a sibling group (execution 3898: the network_connection call produced the article's
+    wscript -> node.exe process_creation rule). Dropping it lost a valid detection; re-homing
+    keeps it and lets the sibling group's attribution and dedup handle it.
+    """
+    if _rule_logsource_matches_group(rule, emitting_group):
+        return emitting_group
+    for candidate in groups:
+        if candidate is emitting_group:
+            continue
+        if candidate.get("telemetry_category") == "full_content":
+            continue
+        if _rule_logsource_matches_group(rule, candidate):
+            return candidate
+    return None
+
+
 def _logsource_key(rule: dict[str, Any]) -> tuple[str, str]:
     """Return (category, product) logsource key for a rule dict."""
     ls = rule.get("logsource") or {}
     if not isinstance(ls, dict):
         return ("", "")
     return (str(ls.get("category") or ""), str(ls.get("product") or ""))
+
+
+def _canonical_class_or_none(rule_like: dict[str, Any]) -> str | None:
+    """Return the canonical telemetry class for a rule/logsource, or None when it does not resolve.
+
+    ``sigma_similarity`` is optional (it is COPY'd into the runtime images rather than installed
+    everywhere), so an absent package degrades to raw-slot comparison instead of raising.
+    """
+    try:
+        from sigma_similarity.canonical_logsource import resolve_canonical_class
+        from sigma_similarity.errors import UnknownTelemetryClassError
+    except ImportError:
+        return None
+    try:
+        return resolve_canonical_class(rule_like)
+    except (UnknownTelemetryClassError, AttributeError, TypeError, ValueError):
+        # Class resolution is a routing aid, never a reason to lose a rule.
+        return None
 
 
 def _rule_logsource_matches_group(rule: dict[str, Any], group: dict[str, Any]) -> bool:
@@ -504,9 +553,27 @@ def _rule_logsource_matches_group(rule: dict[str, Any], group: dict[str, Any]) -
     if not isinstance(hint, dict):
         return True
 
+    # Canonical-class equivalence first. One telemetry class has several legitimate SigmaHQ
+    # spellings, and the repair loop actively rewrites between them: execution 22 repaired
+    # `category: scheduled_task` into `service: security` + EventID 4698 -- the same
+    # windows.scheduled_task class as this group's `service: taskscheduler` hint. Comparing raw
+    # slots alone dropped both of those rules *after* repair had already made them valid.
+    hint_class = _canonical_class_or_none({"logsource": hint})
+    if hint_class is not None:
+        rule_class = _canonical_class_or_none(rule)
+        if rule_class is not None:
+            return rule_class == hint_class
+
+    # Slot comparison stays the fallback for hints or rules that resolve to no canonical class
+    # (linux / product-less network_connection), where the class is not a usable key.
     expected_category = str(hint.get("category") or "").strip().lower()
     expected_product = str(hint.get("product") or "").strip().lower()
-    if not expected_category and not expected_product:
+    # Service-keyed hints (e.g. scheduled_task -> service: taskscheduler) carry no category.
+    # Without comparing service, a service-keyed hint would leave expected_category empty and
+    # match ANY rule sharing the product, silently disabling the cross-category drop this
+    # function exists to perform (a process_creation rule would be kept in the taskscheduler group).
+    expected_service = str(hint.get("service") or "").strip().lower()
+    if not expected_category and not expected_product and not expected_service:
         return True
 
     logsource = rule.get("logsource") or {}
@@ -515,27 +582,20 @@ def _rule_logsource_matches_group(rule: dict[str, Any], group: dict[str, Any]) -
 
     actual_category = str(logsource.get("category") or "").strip().lower()
     actual_product = str(logsource.get("product") or "").strip().lower()
+    actual_service = str(logsource.get("service") or "").strip().lower()
     if expected_category and actual_category != expected_category:
         return False
     if expected_product and actual_product != expected_product:
+        return False
+    if expected_service and actual_service != expected_service:
         return False
     return True
 
 
 def _metadata_without_grounding_fields(rule: dict[str, Any]) -> dict[str, Any]:
-    grounding_fields = {
-        "observables_used",
-        "observables_used_inferred",
-        "observable_attribution",
-        "platform",
-        "telemetry_category",
-        "generation_basis",
-        "detection_readiness",
-        "logsource_hint",
-        "sigma_generation_group",
-        "observable_attribution_warnings",
-    }
-    return {k: v for k, v in rule.items() if k not in grounding_fields}
+    from src.services.sigma_validator import SIGMA_GROUNDING_METADATA_FIELDS
+
+    return {k: v for k, v in rule.items() if k not in SIGMA_GROUNDING_METADATA_FIELDS}
 
 
 def _append_observable_attribution_warning(rule: dict[str, Any], warning: str) -> None:
@@ -747,47 +807,6 @@ def _all_extractors_errored(extraction_result: dict | None) -> tuple[bool, str |
     if len(unique_errors) > 2:
         reason += f" (and {len(unique_errors) - 2} more)"
     return True, reason
-
-
-def summarize_rule_novelty(match_result: dict, threshold: float = 0.5) -> dict:
-    """Classify one rule's novelty comparison for the review queue (todo 001, C1+C2).
-
-    Distinguishes a *scored* low/zero result from an *inconclusive* one: the
-    comparator evaluated candidates but found zero behavioral matches. The old
-    code collapsed the inconclusive case into ``max_similarity=0.0``, which
-    silently disabled novelty suppression for ~86% of the queue.
-
-    Inconclusive => ``max_similarity=None`` (unscored), never a confident ``0.0``.
-
-    Two distinct ``total==0`` cases must NOT be conflated:
-    - **Empty corpus / nothing to compare against** (no ``no_atoms_extracted`` flag):
-      genuinely novel, NOT inconclusive — keep the ``0.0`` semantics.
-    - **Proposed rule produced no atoms** (``no_atoms_extracted`` set by the
-      assess_novelty guard): a FAILURE TO ASSESS. This IS inconclusive, so it routes
-      to needs_review and a human sees it — fail open, but never silently as a
-      confident pending novel.
-    """
-    matches = match_result.get("matches", []) or []
-    total = int(match_result.get("total_candidates_evaluated", 0) or 0)
-    behavioral = int(match_result.get("behavioral_matches_found", 0) or 0)
-    no_atoms = bool(match_result.get("no_atoms_extracted"))
-    sims = [m.get("similarity", 0.0) for m in matches]
-    inconclusive = no_atoms or (total > 0 and behavioral == 0)
-    # SigmaSim Finding B: surface whether the proposed rule's logsource resolved to a
-    # canonical telemetry class. None => the rule fell to the weak logsource_key fallback
-    # (e.g. SigmaAgent emitting bare `service: sysmon` with no category/EventID for a
-    # process_creation-shaped rule). We keep the rule (fail open) but flag the degraded-dedup
-    # condition so it is visible — logged + queryable via rule_metadata — instead of silent.
-    canonical_class = match_result.get("canonical_class")
-    return {
-        "max_similarity": None if inconclusive else (max(sims) if sims else 0.0),
-        "total_candidates_evaluated": total,
-        "behavioral_matches_found": behavioral,
-        "comparator_inconclusive": inconclusive,
-        "canonical_class": canonical_class,
-        "logsource_unresolved": canonical_class is None,
-        "logsource_lint_failures": ["unresolved_logsource"] if canonical_class is None else [],
-    }
 
 
 def select_queueable_rule_indices(similarity_results: list[dict[str, Any]], similarity_threshold: float) -> list[int]:
@@ -2729,36 +2748,52 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 group_rules = generation_result.get("rules", []) if generation_result else []
                 group_error = generation_result.get("errors") if generation_result else "No generation result"
                 kept_group_rules = []
+                rehomed_group_rules = []
 
                 for rule in group_rules:
                     if not isinstance(rule, dict):
                         continue
-                    if not _rule_logsource_matches_group(rule, group):
+                    home = _find_rehome_group(rule, group, sigma_generation_groups)
+                    if home is None:
                         logger.warning(
                             f"[Workflow {state['execution_id']}] Dropping SIGMA rule {rule.get('title')!r}: "
-                            f"logsource {rule.get('logsource')} does not match generation group "
-                            f"{group.get('logsource_hint')}"
+                            f"logsource {rule.get('logsource')} matches no generation group "
+                            f"(emitted for {group.get('logsource_hint')})"
                         )
                         continue
-                    kept_group_rules.append(rule)
+                    if home is group:
+                        kept_group_rules.append(rule)
+                    else:
+                        rehomed_group_rules.append(rule)
+                        logger.info(
+                            f"[Workflow {state['execution_id']}] Re-homing SIGMA rule {rule.get('title')!r} from "
+                            f"group {group.get('logsource_hint')} to {home.get('logsource_hint')}"
+                        )
+                    # observables_used indices are positions in the EMITTING group's observable
+                    # list, so rebasing always uses the emitting group; ownership uses the home.
                     _rebase_group_observable_indices(rule, group["original_indices"])
                     _repair_empty_observable_attribution(
                         rule,
                         extraction_result=extraction_result,
-                        group_original_indices=group["original_indices"],
-                        group_logsource_hint=group["logsource_hint"],
+                        group_original_indices=home["original_indices"],
+                        group_logsource_hint=home["logsource_hint"],
                     )
-                    rule.setdefault("platform", group["platform"])
-                    rule.setdefault("telemetry_category", group["telemetry_category"])
-                    rule.setdefault("logsource_hint", group["logsource_hint"])
-                    rule.setdefault("generation_basis", f"{group['telemetry_category']}_generic")
+                    rule.setdefault("platform", home["platform"])
+                    rule.setdefault("telemetry_category", home["telemetry_category"])
+                    rule.setdefault("logsource_hint", home["logsource_hint"])
+                    rule.setdefault("generation_basis", f"{home['telemetry_category']}_generic")
                     rule.setdefault("detection_readiness", "generic")
                     rule["sigma_generation_group"] = {
-                        "platform": group["platform"],
-                        "telemetry_category": group["telemetry_category"],
-                        "logsource_hint": group["logsource_hint"],
-                        "observable_indices": group["original_indices"],
+                        "platform": home["platform"],
+                        "telemetry_category": home["telemetry_category"],
+                        "logsource_hint": home["logsource_hint"],
+                        "observable_indices": home["original_indices"],
                     }
+                    if home is not group:
+                        rule["sigma_generation_group"]["rehomed_from"] = {
+                            "platform": group["platform"],
+                            "telemetry_category": group["telemetry_category"],
+                        }
                     sigma_rules.append(rule)
 
                 if group_error and not group_rules:
@@ -2788,7 +2823,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         "logsource_hint": group["logsource_hint"],
                         "observable_indices": group["original_indices"],
                         "generated_rules": len(kept_group_rules),
-                        "dropped_rules": len(group_rules) - len(kept_group_rules),
+                        "rehomed_rules": len(rehomed_group_rules),
+                        "dropped_rules": len(group_rules) - len(kept_group_rules) - len(rehomed_group_rules),
                         "error": group_error if group_error and not group_rules else None,
                         # A Phase 4 expansion failure is non-fatal for the group, so it never
                         # reaches `error`. Carry it separately, otherwise a group that lost every
@@ -2797,7 +2833,12 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     }
                 )
 
-            sigma_errors = "; ".join(group_errors) if group_errors and not sigma_rules else None
+            # `sigma_errors` stays fatal-only: None whenever any group produced a rule, so a
+            # partial success still completes rather than failing the whole execution.
+            # `group_error_summary` is retained regardless so a group that died completely is
+            # visible in error_log even when a sibling succeeded (previously erased to null).
+            group_error_summary = "; ".join(group_errors) if group_errors else None
+            sigma_errors = group_error_summary if group_errors and not sigma_rules else None
 
             # Drop intra-batch duplicates before similarity search. The similarity
             # search only compares against the existing rule library — it never sees
@@ -2857,9 +2898,13 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 validation_results = sigma_metadata.get("validation_results", [])
 
                 # Store if we have conversation_log (even if empty), validation_results, or errors
-                if "conversation_log" in sigma_metadata or validation_results or sigma_errors:
+                if "conversation_log" in sigma_metadata or validation_results or sigma_errors or group_error_summary:
                     error_log_entry = {
                         "errors": sigma_errors,
+                        # Always present when any group errored, even on partial success where
+                        # `errors` (fatal-only) is null -- the operator can otherwise not tell a
+                        # group died from a clean run.
+                        "group_errors": group_error_summary,
                         "total_attempts": sigma_metadata.get(
                             "total_attempts", len(conversation_log) if conversation_log else 0
                         ),
@@ -3205,20 +3250,13 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         rule_max_sim = rule_similarity.get("max_similarity")
 
                         if idx in queueable_indices:
-                            # Strip non-Sigma grounding metadata from rule YAML; keep it in rule_metadata.
-                            non_sigma_metadata_fields = {
-                                "observables_used",
-                                "observables_used_inferred",
-                                "observable_attribution",
-                                "platform",
-                                "telemetry_category",
-                                "generation_basis",
-                                "detection_readiness",
-                                "logsource_hint",
-                                "sigma_generation_group",
-                                "observable_attribution_warnings",
-                            }
-                            rule_for_yaml = {k: v for k, v in rule.items() if k not in non_sigma_metadata_fields}
+                            # Strip non-Sigma grounding metadata from rule YAML (kept in rule_metadata)
+                            # and write the remaining keys in SigmaHQ order. The queue YAML is what
+                            # the PR service commits verbatim, so a leaked pipeline key such as
+                            # generation_phase fails the rules repo's custom-attribute check.
+                            from src.services.sigma_validator import canonical_sigma_rule_dict
+
+                            rule_for_yaml = canonical_sigma_rule_dict(rule)
                             rule_yaml = yaml.dump(rule_for_yaml, default_flow_style=False, sort_keys=False)
 
                             # Guard: confirm the generated YAML round-trips to a dict with required keys.
@@ -3273,8 +3311,9 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                                     f"[Workflow {state['execution_id']}] Generated rule idx={idx} "
                                     f"({rule.get('title')!r}) has an unclassifiable logsource "
                                     f"{rule.get('logsource')} — no canonical_class, dedup degraded to "
-                                    f"logsource_key fallback (SigmaSim Finding B). Prefer a SigmaHQ "
-                                    f"`category:` (e.g. process_creation) over bare `service:`."
+                                    f"logsource_key fallback (SigmaSim Finding B). Use a logsource "
+                                    f"that maps to a registered canonical class (e.g. `category: "
+                                    f"process_creation`, or `service: taskscheduler` for scheduled tasks)."
                                 )
 
                             # Create queue entry

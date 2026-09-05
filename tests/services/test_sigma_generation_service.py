@@ -1,6 +1,7 @@
 """Tests for SIGMA generation service functionality."""
 
 import contextlib
+import json
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -11,6 +12,7 @@ from src.services.sigma_generation_service import (
     EXPANSION_MAX_PROMPT_CHARS,
     SigmaGenerationService,
     _build_observables_section,
+    _category_sigma_guidance,
     _extract_message_text,
     _extract_observables_used_fallback,
     _infer_observables_used,
@@ -20,6 +22,40 @@ from src.services.sigma_validator import ValidationResult
 
 # Mark all tests in this file as unit tests (use mocks, no real infrastructure)
 pytestmark = pytest.mark.unit
+
+
+def _guidance_for(hint):
+    return _category_sigma_guidance({"sigma_generation_group": {"logsource_hint": hint}})
+
+
+def test_category_guidance_steers_on_service_when_no_category():
+    """A service-keyed hint (scheduled_task -> service: taskscheduler) must still steer the
+    model. Steering only on `category` left such groups with no guidance, so the model
+    reverted to process_creation and every rule was discarded."""
+    guidance = _guidance_for({"product": "windows", "service": "taskscheduler"})
+    assert "logsource.service: taskscheduler" in guidance
+    assert "logsource.product: windows" in guidance
+
+
+def test_category_guidance_never_excludes_the_groups_own_channel():
+    """The exclusion clause must not name the group's own logsource -- the old hardcoded list
+    told a scheduled_task group both 'MUST use taskscheduler' and 'do NOT generate taskscheduler',
+    a self-contradiction with no satisfiable output."""
+    # Service-keyed group: its own channel (taskscheduler) is excluded from the "do NOT" list.
+    task_guidance = _guidance_for({"product": "windows", "service": "taskscheduler"})
+    exclusion = task_guidance.split("Do NOT generate rules for any other logsource (", 1)[1]
+    assert "taskscheduler" not in exclusion
+    assert "process_creation" in exclusion
+    # Category-keyed group: same invariant.
+    proc_guidance = _guidance_for({"product": "windows", "category": "process_creation"})
+    proc_exclusion = proc_guidance.split("Do NOT generate rules for any other logsource (", 1)[1]
+    assert "process_creation" not in proc_exclusion
+    assert "network_connection" in proc_exclusion
+
+
+def test_category_guidance_empty_when_no_channel():
+    assert _guidance_for({"product": "windows"}) == ""
+    assert _guidance_for({}) == ""
 
 
 def test_extract_message_text_handles_openai_content_parts():
@@ -206,6 +242,112 @@ level: medium
                         assert generation_call["messages"][1]["role"] == "user"
 
     @pytest.mark.asyncio
+    async def test_generate_sigma_rules_keeps_author_date_references_falsepositives(self, service, sample_article_data):
+        """Optional standard Sigma fields the model emitted must survive into the returned rule dicts.
+
+        Regression: the rebuilt rule dict used a fixed key list, so the AUTHOR PRESERVATION
+        directive's output never reached the review queue (execution 3865, 2026-09-02).
+        """
+        rule_with_author = """
+title: CloudSync RAT Guest Dollar Local Account Persistence Command
+id: 301385e1-0331-459e-b547-6229cf0788ff
+status: experimental
+description: Detects a net user command targeting a local account named Guest$ without the /domain switch
+references:
+    - https://the-hunters-ledger.com/hunting-detections/cloudsync-assembler-toolkit-91-197-98-188-detections/
+author: The Hunters Ledger
+date: 2026-08-03
+tags:
+    - attack.persistence
+    - attack.t1136.001
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        CommandLine|contains|all:
+            - 'net user'
+            - 'Guest$'
+    condition: selection
+falsepositives:
+    - Administrators creating machine-account-style local users
+level: high
+"""
+        with patch("src.services.sigma_generation_service.optimize_article_content") as mock_optimize:
+            mock_optimize.return_value = {
+                "success": True,
+                "filtered_content": sample_article_data["content"],
+                "tokens_saved": 0,
+            }
+            with patch("src.utils.prompt_loader.format_prompt_async") as mock_prompt:
+                mock_prompt.return_value = "Generate SIGMA rule"
+                with patch.object(service, "_call_provider_for_sigma") as mock_call:
+                    mock_call.return_value = rule_with_author
+                    with patch("src.services.sigma_generation_service.validate_sigma_rule") as mock_validate:
+                        mock_validate.return_value = ValidationResult(
+                            is_valid=True,
+                            errors=[],
+                            warnings=[],
+                            metadata={"rule": yaml.safe_load(rule_with_author)},
+                            content_preview=rule_with_author,
+                        )
+                        result = await service.generate_sigma_rules(
+                            article_title=sample_article_data["title"],
+                            article_content=sample_article_data["content"],
+                            source_name=sample_article_data["source_name"],
+                            url=sample_article_data["url"],
+                        )
+
+        rule = result["rules"][0]
+        assert rule["author"] == "The Hunters Ledger"
+        # YAML parses an ISO date into datetime.date; the rule dict must hold a JSON-safe string
+        # (execution 3889 failed persisting sigma_rules with "Object of type date is not JSON serializable").
+        assert rule["date"] == "2026-08-03"
+        assert isinstance(rule["date"], str)
+        json.dumps(rule)
+        assert rule["references"] == [
+            "https://the-hunters-ledger.com/hunting-detections/cloudsync-assembler-toolkit-91-197-98-188-detections/"
+        ]
+        assert rule["falsepositives"] == ["Administrators creating machine-account-style local users"]
+        # Fixed-key fields are untouched.
+        assert rule["title"] == "CloudSync RAT Guest Dollar Local Account Persistence Command"
+        assert rule["detection"]["condition"] == "selection"
+
+    @pytest.mark.asyncio
+    async def test_generate_sigma_rules_omits_optional_fields_when_absent(
+        self, service, sample_article_data, sample_sigma_rule
+    ):
+        """A rule without author/date/references/falsepositives gains no empty placeholders."""
+        with patch("src.services.sigma_generation_service.optimize_article_content") as mock_optimize:
+            mock_optimize.return_value = {
+                "success": True,
+                "filtered_content": sample_article_data["content"],
+                "tokens_saved": 0,
+            }
+            with patch("src.utils.prompt_loader.format_prompt_async") as mock_prompt:
+                mock_prompt.return_value = "Generate SIGMA rule"
+                with patch.object(service, "_call_provider_for_sigma") as mock_call:
+                    mock_call.return_value = sample_sigma_rule
+                    with patch("src.services.sigma_generation_service.validate_sigma_rule") as mock_validate:
+                        mock_validate.return_value = ValidationResult(
+                            is_valid=True,
+                            errors=[],
+                            warnings=[],
+                            metadata={"rule": yaml.safe_load(sample_sigma_rule)},
+                            content_preview=sample_sigma_rule,
+                        )
+                        result = await service.generate_sigma_rules(
+                            article_title=sample_article_data["title"],
+                            article_content=sample_article_data["content"],
+                            source_name=sample_article_data["source_name"],
+                            url=sample_article_data["url"],
+                        )
+
+        rule = result["rules"][0]
+        for field in ("author", "date", "modified", "references", "falsepositives", "fields"):
+            assert field not in rule
+
+    @pytest.mark.asyncio
     async def test_generate_sigma_rules_injects_linux_guidance(self, service, sample_article_data, sample_sigma_rule):
         """A linux platform/logsource group gets the additive Linux guidance in the
         generation prompt; a windows group does not. Locks the §10 pilot fix wiring."""
@@ -330,6 +472,43 @@ level: medium
                 extraction_result=None,
             )
             assert all("LOGSOURCE TARGET FOR THIS GROUP" not in p for p in _prompts(mock_gen))
+
+    @pytest.mark.asyncio
+    async def test_generation_failure_preserves_prompt_in_conversation_log(self, service, sample_article_data):
+        """A Phase-1 generation failure (e.g. Codex returning a completed turn with no agent
+        message) must still return a conversation_log carrying the prompt that was sent.
+
+        Regression: the exception path returned metadata={}, erasing the only record of what
+        was sent to the model -- leaving nothing to diagnose an empty completion (execs 5/6/7,
+        source_id 26, 2026-09-04).
+        """
+        err = "Codex completed without an agent message. Turn items: error, reasoning."
+        with (
+            patch("src.services.sigma_generation_service.optimize_article_content") as mock_optimize,
+            patch("src.utils.prompt_loader.format_prompt_async", return_value="PROMPT-BODY: generate sigma"),
+            patch.object(service, "_generate_multi_rules", new_callable=AsyncMock, side_effect=RuntimeError(err)),
+        ):
+            mock_optimize.return_value = {
+                "success": True,
+                "filtered_content": sample_article_data["content"],
+                "tokens_saved": 0,
+            }
+            result = await service.generate_sigma_rules(
+                article_title=sample_article_data["title"],
+                article_content=sample_article_data["content"],
+                source_name=sample_article_data["source_name"],
+                url=sample_article_data["url"],
+            )
+
+        assert result["rules"] == []
+        assert result["errors"] == err
+        conversation_log = result["metadata"].get("conversation_log")
+        assert conversation_log, "failure path must preserve a conversation_log entry"
+        entry = conversation_log[0]
+        assert entry["event_type"] == "generation_call"
+        assert entry["error"] == err
+        assert entry["messages"][1]["role"] == "user"
+        assert "PROMPT-BODY" in entry["messages"][1]["content"]
 
     @pytest.mark.asyncio
     async def test_generate_sigma_rules_with_retry(self, service, sample_article_data):
@@ -508,9 +687,9 @@ level: low
             mock_optimize.return_value = {"success": True, "filtered_content": long_content, "tokens_saved": 0}
 
             with patch("src.utils.prompt_loader.format_prompt_async") as mock_prompt:
-                # Return a prompt longer than context window
-                long_prompt = "Generate rule: " + long_content
-                mock_prompt.return_value = long_prompt
+                # A prompt builder that embeds the article content, so trimming the content
+                # (the current contract) shrinks the prompt; a fixed return value could not.
+                mock_prompt.side_effect = lambda _name, **kwargs: "Generate rule: " + kwargs["content"]
 
                 with patch.object(service, "_call_provider_for_sigma") as mock_call:
                     mock_call.return_value = "title: Test\nid: test\n"
@@ -532,11 +711,13 @@ level: low
                             ai_model="lmstudio",
                         )
 
-                        # Verify prompt was truncated (check that truncation message is in prompt)
+                        # The article content is trimmed so the rebuilt prompt fits the 7b
+                        # budget (12000 chars); the instructions are never cut.
                         call_args = mock_call.call_args
                         prompt_passed = call_args[0][0] if call_args else ""
-                        # Prompt should be truncated for 7b model (12000 chars max)
-                        assert len(prompt_passed) <= 12000 or "[Prompt truncated" in prompt_passed
+                        assert len(prompt_passed) <= 12000
+                        assert "[Article content truncated" in prompt_passed
+                        assert "[Prompt truncated" not in prompt_passed
 
     @pytest.mark.asyncio
     async def test_generate_sigma_rules_validation_error(self, service, sample_article_data):
@@ -935,7 +1116,7 @@ level: medium
             "id: 8c6f2f6a-3f1c-4d9e-9a4e-5b4c9f6d1e72\n"
             "status: experimental\n"
             'description: "Detects PowerShell DownloadString usage."\n'
-            "logsource:\n  category: process_creation\n"
+            "logsource:\n  category: process_creation\n  product: windows\n"
             "detection:\n"
             "  selection:\n"
             '    Image|endswith: "\\powershell.exe"\n'
@@ -951,7 +1132,7 @@ level: medium
             "id: 8c6f2f6a-3f1c-4d9e-9a4e-5b4c9f6d1e72\n"
             "status: experimental\n"
             "description: Detects PowerShell DownloadString usage.\n"
-            "logsource:\n  category: process_creation\n"
+            "logsource:\n  category: process_creation\n  product: windows\n"
             "detection:\n"
             "  selection:\n"
             "    Image|endswith: '\\powershell.exe'\n"
@@ -1482,6 +1663,45 @@ level: low
 
         assert output.startswith("title: Codex Rule")
         assert service.llm_service.request_chat.call_args.kwargs["max_tokens"] == 10000
+
+    @pytest.mark.asyncio
+    async def test_call_provider_for_sigma_standard_budget_fits_multi_rule_output(self, service):
+        """Non-reasoning providers get SIGMA_MAX_TOKENS_STANDARD, not the old 800-token cap.
+
+        A complete rule is roughly 250-400 tokens, so 800 truncated any multi-rule
+        response after about two rules (finish_reason=length).
+        """
+        from src.services.sigma_generation_service import SIGMA_MAX_TOKENS_STANDARD
+
+        service.llm_service.provider_sigma = "lmstudio"
+        service.llm_service.model_sigma = "qwen/qwen3.6-27b"
+        service.llm_service.provider_defaults = {"lmstudio": "qwen/qwen3.6-27b"}
+        service.llm_service.temperature_sigma = 1.0
+        service.llm_service.top_p_sigma = 1.0
+        service.llm_service.seed = None
+        service.llm_service._convert_messages_for_model = Mock(side_effect=lambda messages, _model: messages)
+        service.llm_service.request_chat = AsyncMock(
+            return_value={
+                "choices": [
+                    {
+                        "message": {"content": "title: Local Rule\nid: local-rule\n"},
+                        "finish_reason": "stop",
+                    }
+                ],
+                "usage": {"prompt_tokens": 10, "completion_tokens": 200, "total_tokens": 210},
+            }
+        )
+
+        with (
+            patch("src.services.sigma_generation_service.trace_llm_call", return_value=contextlib.nullcontext(None)),
+            patch("src.services.sigma_generation_service.log_llm_completion"),
+            patch("src.services.sigma_generation_service.log_llm_error"),
+        ):
+            output = await service._call_provider_for_sigma("prompt", provider="lmstudio")
+
+        assert output.startswith("title: Local Rule")
+        assert SIGMA_MAX_TOKENS_STANDARD >= 4000
+        assert service.llm_service.request_chat.call_args.kwargs["max_tokens"] == SIGMA_MAX_TOKENS_STANDARD
 
 
 # ---------------------------------------------------------------------------
@@ -2344,3 +2564,57 @@ def test_platform_sigma_guidance_empty_for_non_linux():
     assert _platform_sigma_guidance({"sigma_generation_group": {"platform": "macos"}}) == ""
     assert _platform_sigma_guidance({}) == ""
     assert _platform_sigma_guidance(None) == ""
+
+
+class TestPromptTruncationFollowsResolvedProvider:
+    """The workflow passes ai_model="lmstudio" as a placeholder and lets config_models resolve the
+    real provider, but the context-window truncation keyed on that placeholder, so every workflow
+    run on Codex/OpenAI/Anthropic cut the user prompt at 8-12k characters. With the 13.5k
+    generation template and a normal article the tail of the standard (metadata, output format,
+    final check) never reached the model (execution 3900, 2026-09-03). When truncation is needed
+    for a real local model it must trim the article content, not the instructions.
+    """
+
+    @staticmethod
+    def _service(provider: str, lmstudio_model: str = "qwen/qwen3-8b"):
+        llm = Mock()
+        llm.provider_sigma = provider
+        llm.lmstudio_model = lmstudio_model
+        llm._canonicalize_provider = Mock(side_effect=lambda p: p)
+        with patch("src.services.sigma_generation_service.LLMService", return_value=llm):
+            return SigmaGenerationService()
+
+    @staticmethod
+    async def _captured_prompt(service, content: str) -> str:
+        with patch("src.services.sigma_generation_service.optimize_article_content") as mock_optimize:
+            mock_optimize.return_value = {"success": True, "filtered_content": content, "tokens_saved": 0}
+            with patch.object(service, "_call_provider_for_sigma", new=AsyncMock(return_value="")) as mock_call:
+                await service.generate_sigma_rules(
+                    article_title="Long article",
+                    article_content=content,
+                    source_name="Source",
+                    url="https://example.com/report",
+                    ai_model="lmstudio",  # workflow placeholder; provider comes from config
+                    enable_multi_rule_expansion=False,
+                )
+        return mock_call.call_args.args[0]
+
+    @pytest.mark.asyncio
+    async def test_cloud_provider_gets_the_whole_prompt(self):
+        service = self._service("codex")
+        prompt = await self._captured_prompt(service, "Article body line.\n" * 1500)  # ~28k chars
+        assert "FINAL CHECK" in prompt
+        assert "[Prompt truncated" not in prompt
+        assert len(prompt) > 20000
+
+    @pytest.mark.asyncio
+    async def test_local_model_trims_article_content_not_instructions(self):
+        service = self._service("lmstudio", lmstudio_model="qwen/qwen3-8b")
+        prompt = await self._captured_prompt(service, "Article body line.\n" * 1500)
+        # The 13.5k template alone exceeds the 12k local budget, so the content is trimmed to
+        # (almost) nothing and the instructions are kept whole; the prompt is never cut mid-template.
+        assert prompt.count("Article body line.") <= 1
+        assert "FINAL CHECK" in prompt, "instructions must survive truncation"
+        assert "observables_used" in prompt
+        assert "[Article content truncated" in prompt
+        assert "[Prompt truncated" not in prompt

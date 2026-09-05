@@ -1,23 +1,54 @@
 ---
 name: refresh-model-context-windows
 description: >
-  Verify and refresh the model context-window data in CTI Studio against the latest
-  public developer docs from Anthropic and OpenAI. Use this skill whenever the user
-  says "refresh context windows", "are the context windows accurate", "check model
-  context windows", "update MODEL_CONTEXT_TOKENS", "verify the model catalog", "sync
-  models against the docs", "is this catalog stale", or similar. Also use it whenever
-  a new model is added to `config/provider_model_catalog.json` and its context window
-  is unknown, or when the user wonders whether a value in the catalog matches what
-  the provider currently advertises. The skill verifies effective behavior for **this
-  app specifically** — not just spec sheets — by checking which API endpoints and
-  beta headers the code actually sends.
+  Verify and refresh the model context-window data AND the per-model parameter
+  capabilities (temperature / top_p support, reasoning-effort tiers, default effort)
+  in CTI Studio against the latest public developer docs from Anthropic and OpenAI.
+  Use this skill whenever the user says "refresh context windows", "are the context
+  windows accurate", "check model context windows", "update MODEL_CONTEXT_TOKENS",
+  "verify the model catalog", "sync models against the docs", "is this catalog stale",
+  "verify effort tiers", "check model_capabilities.json", "does this model support
+  temperature", or similar. Also use it whenever a new model is added to
+  `config/provider_model_catalog.json` and its context window or capabilities are
+  unknown, or when the daily catalog job reports `unclassified_models`. The skill
+  verifies effective behavior for **this app specifically** — not just spec sheets —
+  by checking which API endpoints and beta headers the code actually sends.
 ---
 
 # Refresh Model Context Windows
 
-This skill audits `MODEL_CONTEXT_TOKENS` and the persisted `provider_model_catalog.json`
-against authoritative provider developer docs, surfaces drift, and proposes a single
-diff for the user to approve.
+This skill audits `MODEL_CONTEXT_TOKENS`, the persisted `provider_model_catalog.json`,
+and the per-model parameter capabilities in `config/model_capabilities.json` against
+authoritative provider developer docs, surfaces drift, and proposes a single diff for
+the user to approve.
+
+## Scope split with the daily job (decided 2026-09-02)
+
+Two things can go stale and they are owned by different mechanisms:
+
+- **Gaps** -- a model id that exists in `config/provider_model_catalog.json` but has no
+  entry in `config/model_capabilities.json` -- are detected **in-app**, not by this
+  skill. The daily `update_provider_model_catalogs` job
+  (`scripts/maintenance/update_provider_model_catalogs.py`, Celery task in
+  `src/worker/celery_app.py`, cron `0 4 * * *`) fetches the provider model lists, diffs
+  them against the capabilities file, prints a `⚠️` line per gap, logs a WARNING, and
+  returns `unclassified_models: ["openai:<id>", ...]` in its result payload (visible in
+  the Scheduled Jobs UI). An unclassified model runs with the fallback (sampling per the
+  name heuristic, no effort control) until someone adds its entry. When the operator
+  reports such a WARNING, this skill is the "look the tiers up once" step.
+- **Values** -- `supports_temperature`, `supports_top_p`, `effort_levels`,
+  `default_effort` for entries that already exist -- have no API source (the OpenAI and
+  Anthropic `/v1/models` endpoints return ids only). Verifying them is this skill's
+  job, alongside the context-window check. Providers have added tiers within a single
+  year (`xhigh`, `max`, `none`, `minimal`), so an entry that was right at launch can be
+  wrong now without any code change.
+- **Codex is excluded** from both. Its tiers are discovered live from `model/list`
+  (`supportedReasoningEfforts` / `defaultReasoningEffort`) and the adapter never sends
+  sampling parameters, so the static file deliberately has no codex entries.
+
+A third, runtime signal exists: when the file marks a model `supports_temperature: true`
+and OpenAI rejects the value, `llm_client.py` logs `CAPABILITY DRIFT: ... <model>` on
+its temperature-rejected retry. Treat that WARNING as a request to run this skill.
 
 ## Why this exists
 
@@ -78,14 +109,19 @@ chat-completions support is incidental.
 
 ### Step 2 — Enumerate the models to verify
 
-Pull the canonical list from two places:
+Pull the canonical list from three places:
 
 - `config/provider_model_catalog.json` — the persisted catalog the UI reads
 - `MODEL_CONTEXT_TOKENS` in `src/services/provider_model_catalog.py` — the
   token-budgeting table
+- `config/model_capabilities.json` (`models` map) — the parameter-capability table:
+  `supports_temperature`, `supports_top_p`, `effort_levels`, `default_effort`, optional
+  `note`
 
 A model appearing in only one place is a sign of drift. Note the asymmetry but
-don't assume which list is right — that's what the audit determines.
+don't assume which list is right — that's what the audit determines. A catalog id with
+no capabilities entry is a *gap*; the daily job should already have reported it (see
+the scope split above), but list it here too so the proposal closes it.
 
 ### Step 3 — Fetch the authoritative data
 
@@ -99,8 +135,19 @@ For Anthropic, two fetches answer almost everything:
    header.
 
 For OpenAI, fetch per-model pages: `https://developers.openai.com/api/docs/models/<id>`.
-The page exposes "Context window", "Max output tokens", and the endpoint-support
-table. Batch these in parallel.
+The page exposes "Context window", "Max output tokens", the endpoint-support table,
+and a "Reasoning.effort supports: ..." sentence that names the tiers and the default
+(e.g. "none (default), low, medium, high and xhigh"). Batch these in parallel. Note
+that some per-model pages omit the effort sentence (o3, o4-mini, gpt-5-mini); fall back
+to `https://developers.openai.com/api/docs/guides/reasoning` for those families.
+
+For the Anthropic capability values, fetch
+`https://platform.claude.com/docs/en/build-with-claude/effort`: it lists the supported
+models, which of them take `xhigh` vs. only `max`, and the default (`high`). Sampling
+support is a thinking/model-family rule, not per-page: Opus 4.7+, Opus 4.8, Opus 5,
+Sonnet 5 and Fable 5 reject `temperature` / `top_p` / `top_k` with a 400; Opus 4.6,
+Sonnet 4.6 and older accept them. Confirm against the model migration notes before
+flipping a `supports_temperature` value.
 
 ### Step 4 — Build the proposal table
 
@@ -111,7 +158,11 @@ that differs from current state OR has a notable caveat. Columns:
 |---|---|---|---|---|
 
 Reason categories (pick one):
-- **Spec change** — provider docs now report a different value
+- **Spec change** — provider docs now report a different value (a context window, a
+  tier added or removed from `effort_levels`, a changed `default_effort`, or a
+  `supports_temperature` / `supports_top_p` flip)
+- **Capability gap** — model present in `provider_model_catalog.json` but absent from
+  `model_capabilities.json`; propose the full entry
 - **Effective ≠ spec** — provider says X, but this app can only reach Y because
   of missing beta header / wrong endpoint
 - **Fabricated ID** — model string doesn't exist in provider catalog; remove
@@ -139,11 +190,17 @@ proposal table is the checkpoint. When approved:
    there too.
 3. If `config/provider_model_catalog.json` has deprecated entries the user
    approved removing, edit that file as well.
-4. Run the catalog tests:
+4. Apply the capability rows to `config/model_capabilities.json` and bump its
+   `verified_at`. Every `effort_levels` value must be in `VALID_EFFORT_LEVELS`
+   (`src/config/workflow_config_schema.py`) and `default_effort` must be one of that
+   entry's levels or `null`; the resolver reads the file on mtime, so no restart is
+   needed for the web tier, but `docker restart` the workers if a value changes what
+   `llm_client.py` sends.
+5. Run the catalog tests:
    ```
-   .venv/bin/python run_tests.py unit --paths tests/services/test_provider_model_catalog.py tests/unit/test_cloud_model_picker_uniformity.py --output-format quiet
+   .venv/bin/python run_tests.py unit --paths tests/services/test_provider_model_catalog.py tests/unit/test_cloud_model_picker_uniformity.py tests/unit/test_model_capabilities_resolver.py --output-format quiet
    ```
-5. Show the user the diff summary and test result.
+6. Show the user the diff summary and test result.
 
 ## Common caveats worth surfacing
 
@@ -163,6 +220,13 @@ they apply:
   caveat if the user is using them in eval pipelines.
 - **Anthropic deprecations.** The overview page's `<Warning>` blocks list
   retirement dates — surface any retirement within 90 days as a high-priority item.
+- **OpenAI `*-chat-latest` sampling.** These are non-reasoning routing pointers. The
+  capabilities file keeps them `supports_temperature: false` (matching the app's
+  historical prefix behaviour) with a `note` saying so; only flip it after a per-model
+  page states temperature support explicitly.
+- **Codex tiers.** Never add codex entries to `model_capabilities.json`; the live
+  `model/list` payload is authoritative and has shipped tiers outside the documented
+  vocabulary (`ultra`).
 - **OpenAI Responses-only models.** A few models (typically `*-deep-research`,
   some `*-pro` variants) work only via `/v1/responses`. The app uses
   `/v1/chat/completions`, so flag these as "callable but degraded" or "not callable".
@@ -183,7 +247,9 @@ After approval and edits, end the turn with:
 
 ```
 ## Summary
-- N values corrected (list)
+- N context-window values corrected (list)
+- N capability values corrected (list: model, field, old -> new)
+- N capability gaps closed (list)
 - N new models added
 - N models flagged for removal/deprecation
 - Tests: <pass/fail>

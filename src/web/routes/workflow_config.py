@@ -17,6 +17,7 @@ from src.config.workflow_config_schema import (
     AGENT_NAMES_SUB,
     agent_models_is_nested,
     normalize_agent_models_to_flat,
+    normalize_effort_value,
 )
 from src.database.manager import DatabaseManager
 from src.database.models import (
@@ -26,7 +27,7 @@ from src.database.models import (
     WorkflowConfigPresetTable,
 )
 from src.services.llm_service import _TRACEABILITY_FIELDS, _TRACEABILITY_REQUIRED
-from src.services.provider_model_catalog import find_provider_model_mismatch
+from src.services.provider_model_catalog import find_provider_model_mismatch, get_model_capabilities
 from src.services.workflow_provider_options import get_provider_options
 from src.utils.default_agent_prompts import get_default_agent_prompts
 
@@ -81,6 +82,40 @@ def _validate_agent_model_pairs(merged: dict[str, Any], current: dict[str, Any] 
             problems.append(f"{agent}: {problem}")
     if problems:
         raise HTTPException(status_code=400, detail="Invalid agent model configuration -- " + "; ".join(problems))
+
+
+def _validate_agent_effort_values(merged: dict[str, Any]) -> None:
+    """Reject an `{Agent}_effort` the agent's resolved model cannot take.
+
+    The schema only checks the tier's token shape; which tiers a model accepts is
+    catalog knowledge. Codex tiers are discovered live from model/list (and include
+    names outside the documented vocabulary), so for that provider only the shape
+    check applies -- Codex itself rejects an unsupported tier at turn/start.
+    """
+    problems = []
+    for key, effort in sorted(merged.items()):
+        if not key.endswith("_effort") or effort in (None, ""):
+            continue
+        agent = key[: -len("_effort")]
+        try:
+            normalized = normalize_effort_value(effort)
+        except ValueError as exc:
+            problems.append(f"{agent}: {exc}")
+            continue
+        if normalized is None:
+            continue
+        provider = (merged.get(f"{agent}_provider") or "").strip().lower()
+        model = _agent_model_value(merged, agent)
+        if not provider or not model:
+            continue
+        caps = get_model_capabilities(provider, model)
+        if caps.source == "live":
+            continue
+        if normalized not in caps.effort_levels:
+            supported = ", ".join(caps.effort_levels) if caps.effort_levels else "no effort control"
+            problems.append(f"{agent}: model '{model}' does not accept effort '{effort}' (supported: {supported})")
+    if problems:
+        raise HTTPException(status_code=400, detail="Invalid agent effort configuration -- " + "; ".join(problems))
 
 
 def _enable_providers_from_agent_models(db_session, agent_models: dict[str, Any]) -> None:
@@ -565,11 +600,17 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                 # Snapshot before the merge mutates it: the pair validator compares
                 # against what is actually stored to find genuinely new mismatches.
                 stored_agent_models = dict(merged_agent_models)
-                # First, identify keys that should be removed (explicitly set to None in update)
-                keys_to_remove = {key for key, value in incoming.items() if value is None}
+                # First, identify keys that should be removed (explicitly set to None in update).
+                # An empty `{Agent}_effort` is the UI's "Provider default" option and means
+                # the same thing as null: clear the override rather than store "".
+                keys_to_remove = {
+                    key
+                    for key, value in incoming.items()
+                    if value is None or (key.endswith("_effort") and isinstance(value, str) and not value.strip())
+                }
                 # Update with new values from incoming (excluding None values)
                 for key, value in incoming.items():
-                    if value is not None:
+                    if value is not None and key not in keys_to_remove:
                         merged_agent_models[key] = value
                 # Remove keys that were explicitly set to None
                 for key in keys_to_remove:
@@ -580,6 +621,7 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                 )
                 # Reject pairs a later run could only discover as a call-time failure.
                 _validate_agent_model_pairs(merged_agent_models, stored_agent_models)
+                _validate_agent_effort_values(merged_agent_models)
                 # Auto-enable providers used in preset so any supported provider works
                 _enable_providers_from_agent_models(db_session, merged_agent_models)
             elif current_config:
@@ -1393,6 +1435,38 @@ def get_agent_prompts(request: Request):
     except Exception as e:
         logger.error(f"Error getting agent prompts: {e}")
         raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+# Code-owned user-message templates the runtime formats when the DB record carries no user
+# template of its own. Served so the Workflow Config "effective prompt" preview shows the file
+# that is actually sent instead of a hand-copied JS mirror.
+CODE_OWNED_USER_TEMPLATES: dict[str, str] = {
+    "SigmaAgent": "sigma_generate_multi",
+}
+
+
+@router.get("/config/prompts/defaults/{agent_name}")
+def get_agent_default_user_template(request: Request, agent_name: str):
+    """Return the on-disk user-message template the runtime falls back to for an agent."""
+    prompt_name = CODE_OWNED_USER_TEMPLATES.get(agent_name)
+    if not prompt_name:
+        raise HTTPException(status_code=404, detail=f"No code-owned user template for agent {agent_name}")
+    from src.services.sigma_generation_service import DEFAULT_SIGMA_SYSTEM_PROMPT
+    from src.utils.prompt_loader import load_prompt
+
+    try:
+        template = load_prompt(prompt_name)
+    except Exception as e:
+        logger.error(f"Error loading default user template for {agent_name}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+    return {
+        "agent_name": agent_name,
+        "prompt_name": prompt_name,
+        "source_file": f"src/prompts/{prompt_name}.txt",
+        "user_template": template,
+        # System message the runtime sends when the DB record carries no persona.
+        "system_default": DEFAULT_SIGMA_SYSTEM_PROMPT if agent_name == "SigmaAgent" else "",
+    }
 
 
 @router.get("/config/prompts/{agent_name}")

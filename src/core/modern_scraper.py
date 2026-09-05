@@ -412,22 +412,53 @@ class StructuredDataExtractor:
             logger.warning(f"Failed to extract structured data: {e}")
             return {}
 
+    # schema.org types treated as the page's article block. TechArticle is common on
+    # security-research sites; ScholarlyArticle and Report are cheap to accept alongside it.
+    ARTICLE_JSONLD_TYPES = frozenset(
+        {"Article", "BlogPosting", "NewsArticle", "TechArticle", "ScholarlyArticle", "Report"}
+    )
+
     @staticmethod
-    def find_article_jsonld(structured_data: dict[str, Any]) -> dict[str, Any] | None:
-        """Find Article or BlogPosting JSON-LD data."""
-        json_ld_items = structured_data.get("json-ld", [])
+    def _jsonld_has_author(item: dict[str, Any]) -> bool:
+        """True when the block carries at least one author name extract_from_jsonld would keep."""
+        author_data = item.get("author")
+        if not author_data:
+            return False
+        if not isinstance(author_data, list):
+            author_data = [author_data]
+        for author in author_data:
+            if isinstance(author, dict) and author.get("name"):
+                return True
+            if isinstance(author, str) and author.strip():
+                return True
+        return False
 
-        for item in json_ld_items:
-            if isinstance(item, dict):
-                item_type = item.get("@type", "")
-                if isinstance(item_type, str):
-                    if item_type in ["Article", "BlogPosting", "NewsArticle"]:
-                        return item
-                elif isinstance(item_type, list):
-                    if any(t in ["Article", "BlogPosting", "NewsArticle"] for t in item_type):
-                        return item
+    @classmethod
+    def find_article_jsonld(cls, structured_data: dict[str, Any]) -> dict[str, Any] | None:
+        """Pick the JSON-LD block that best describes the article.
 
-        return None
+        Pages often emit several article-typed blocks (e.g. a bare ``BlogPosting`` followed by
+        a ``TechArticle`` that carries the author). Among the candidates, prefer the one with
+        an author, then the one with ``articleBody``, then document order.
+        """
+        candidates: list[dict[str, Any]] = []
+        for item in structured_data.get("json-ld", []):
+            if not isinstance(item, dict):
+                continue
+            item_type = item.get("@type", "")
+            if isinstance(item_type, str):
+                types = {item_type}
+            elif isinstance(item_type, list):
+                types = {t for t in item_type if isinstance(t, str)}
+            else:
+                continue
+            if types & cls.ARTICLE_JSONLD_TYPES:
+                candidates.append(item)
+
+        if not candidates:
+            return None
+        # min() is stable: ties keep document order, so single-block pages are unchanged.
+        return min(candidates, key=lambda item: (not cls._jsonld_has_author(item), not item.get("articleBody")))
 
     @staticmethod
     def extract_from_jsonld(jsonld_data: dict[str, Any]) -> dict[str, Any]:
@@ -639,7 +670,11 @@ class ModernScraper:
             word_count = len(article_data["content"].split()) if article_data["content"] else 0
             collected_at = datetime.now()
 
-            # Build article
+            # Build article. Carry the JSON-LD / selector metadata through: before this,
+            # authors, tags and summary were extracted and then dropped, so every
+            # discovery-path article was stored with no author (2026-09-02).
+            authors = article_data.get("authors") or []
+            tags = article_data.get("tags") or []
             article = ArticleCreate(
                 source_id=source.id,
                 url=url,
@@ -647,6 +682,9 @@ class ModernScraper:
                 title=article_data["title"],
                 published_at=article_data.get("published_at") or datetime.now(),
                 content=article_data["content"],
+                summary=article_data.get("summary"),
+                authors=[str(a) for a in authors if a],
+                tags=[str(t) for t in tags if t],
                 content_hash=content_hash,
                 word_count=word_count,
                 collected_at=collected_at,

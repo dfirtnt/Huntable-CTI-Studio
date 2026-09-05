@@ -4,12 +4,16 @@ SIGMA Rule Validation Service using pySigma
 Validates LLM-generated SIGMA rules for syntax, structure, and best practices.
 """
 
+import functools
 import logging
 import re
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import yaml
+
+from src.services.attack_taxonomy import AttackTaxonomy, check_attack_tag, load_attack_taxonomy
 
 try:
     from sigma.collection import SigmaCollection
@@ -18,7 +22,66 @@ try:
 except ImportError:
     PYSIGMA_AVAILABLE = False
 
+try:
+    from sigma.plugins import InstalledSigmaPlugins
+    from sigma.validation import SigmaValidator as PySigmaRuleSetValidator
+
+    PYSIGMA_VALIDATION_AVAILABLE = True
+except ImportError:  # pragma: no cover - exercised only on images without the plugin API
+    PYSIGMA_VALIDATION_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
+
+# Validator names the rules repository's CI treats as blocking; mirrored from
+# Huntable-SIGMA-Rules/.sigma/validation-blocking.yml so queue approval and the PR check agree.
+SIGMAHQ_BLOCKING_CONFIG_PATH = Path(__file__).with_name("sigma_validation_blocking.yml")
+
+# Non-Sigma keys the generation pipeline attaches to a rule for grounding and routing. They are
+# stripped before publication, so the SigmaHQ custom-attribute / unknown-field validators must
+# not fail a rule for carrying them inside the app.
+SIGMA_GROUNDING_METADATA_FIELDS: frozenset[str] = frozenset(
+    {
+        "observables_used",
+        "observables_used_inferred",
+        "platform",
+        "telemetry_category",
+        "generation_basis",
+        "detection_readiness",
+        "logsource_hint",
+        "sigma_generation_group",
+        "observable_attribution",
+        "observable_attribution_warnings",
+        "generation_phase",
+    }
+)
+
+# Canonical SigmaHQ field order for rules the pipeline publishes; unknown keys keep their
+# relative order after these.
+SIGMA_CANONICAL_FIELD_ORDER: tuple[str, ...] = (
+    "title",
+    "id",
+    "status",
+    "description",
+    "references",
+    "author",
+    "date",
+    "modified",
+    "tags",
+    "logsource",
+    "detection",
+    "fields",
+    "falsepositives",
+    "level",
+)
+
+
+def canonical_sigma_rule_dict(rule: dict[str, Any]) -> dict[str, Any]:
+    """Drop pipeline grounding keys and order the rest the way SigmaHQ rules are written."""
+    ordered = {key: rule[key] for key in SIGMA_CANONICAL_FIELD_ORDER if key in rule}
+    for key, value in rule.items():
+        if key not in ordered and key not in SIGMA_GROUNDING_METADATA_FIELDS:
+            ordered[key] = value
+    return ordered
 
 
 class ValidationError(Exception):
@@ -307,10 +370,13 @@ class SigmaRule:
 class SigmaValidator:
     """Huntable policy checks applied after pySigma validates a rule."""
 
-    def __init__(self):
+    def __init__(self, attack_taxonomy: AttackTaxonomy | None = None):
         self.custom_validators = {}
         self.whitelists = {}
         self.blacklists = {}
+        # Cached MITRE ATT&CK taxonomy (config/attack_taxonomy.json). An empty taxonomy
+        # (file missing/unreadable) disables the attack.* tag check rather than failing rules.
+        self.attack_taxonomy = attack_taxonomy if attack_taxonomy is not None else load_attack_taxonomy()
 
     def add_validator(self, name: str, validator_func):
         """Add a custom validator function."""
@@ -441,9 +507,10 @@ class SigmaValidator:
                 continue
 
             if isinstance(condition_data, list):
-                # List of search identifiers
+                # Sigma allows a keyword list (strings) or a list of maps (OR of maps, e.g.
+                # `- Image|endswith: ...` / `- OriginalFileName: ...`). Anything else is malformed.
                 for item in condition_data:
-                    if not isinstance(item, str):
+                    if not isinstance(item, (str, dict)):
                         errors.append(f"Invalid search identifier in '{condition_name}': {item}")
             elif isinstance(condition_data, dict):
                 # Direct search definition
@@ -511,6 +578,12 @@ class SigmaValidator:
                 )
             elif not tag.replace(".", "").replace("_", "").replace("-", "").isalnum():
                 warnings.append(f"Tag contains invalid special characters: {tag}")
+            elif tag.lower().startswith("attack."):
+                # Real MITRE ATT&CK check: unknown/revoked/deprecated IDs are errors,
+                # unrecognized tactic names are warnings (see attack_taxonomy.py).
+                tag_errors, tag_warnings = check_attack_tag(tag, self.attack_taxonomy)
+                errors.extend(tag_errors)
+                warnings.extend(tag_warnings)
 
 
 _REGISTRY_FIELDS = re.compile(
@@ -583,6 +656,123 @@ def _close_unclosed_scalars(yaml_text: str) -> str:
     return yaml_text
 
 
+@functools.lru_cache(maxsize=1)
+def _load_sigmahq_blocking_config() -> tuple[tuple[dict[str, Any], dict[str, Any]] | None, str | None]:
+    """Load the blocking config and discover installed validator classes once.
+
+    Returns ``((config, validator_classes), None)`` when every validator named in the config
+    is installed, else ``(None, reason)``. A partial set would report a rule as clean that
+    the repository CI rejects, so a missing validator disables the whole layer rather than
+    silently narrowing it.
+    """
+    if not PYSIGMA_VALIDATION_AVAILABLE:
+        return None, "pySigma validation API unavailable"
+    try:
+        config = yaml.safe_load(SIGMAHQ_BLOCKING_CONFIG_PATH.read_text(encoding="utf-8")) or {}
+        plugins = InstalledSigmaPlugins.autodiscover(include_backends=False, include_pipelines=False)
+        requested = [name for name in config.get("validators", []) if not str(name).startswith("-")]
+        missing = sorted(name for name in requested if name not in plugins.validators)
+        if missing:
+            return None, f"validators not installed: {', '.join(missing)}"
+        return (config, dict(plugins.validators)), None
+    except Exception as exc:  # config parse or plugin discovery failure
+        return None, f"{type(exc).__name__}: {exc}"
+
+
+def _load_sigmahq_blocking_validator() -> tuple[Any | None, str | None]:
+    """A fresh validator set per call.
+
+    ``duplicate_title`` and ``identifier_uniqueness`` remember every rule they have seen, so a
+    shared instance would report a collision between two unrelated validate_sigma_rule calls.
+    """
+    loaded, reason = _load_sigmahq_blocking_config()
+    if loaded is None:
+        return None, reason
+    config, validator_classes = loaded
+    return PySigmaRuleSetValidator.from_dict(config, validator_classes), None
+
+
+def _issue_details(issue: Any) -> dict[str, Any]:
+    """Extra fields an issue class carries beyond the shared description/severity/rules."""
+    return {k: v for k, v in vars(issue).items() if k not in {"rules", "description", "severity"}}
+
+
+def _issue_concerns_only_pipeline_metadata(issue: Any) -> bool:
+    """True when the issue is entirely about the pipeline's own grounding keys.
+
+    ``sigmahq_unknown_field`` lists every unknown top-level key in ``fieldname``; if the list
+    holds only pipeline keys the issue is dropped, otherwise the pipeline keys are removed
+    from it so the remaining offenders still fail the rule.
+    """
+    details = _issue_details(issue)
+    for attr in ("fieldname", "field", "attribute"):
+        value = details.get(attr)
+        if isinstance(value, list):
+            foreign = [name for name in value if name not in SIGMA_GROUNDING_METADATA_FIELDS]
+            if not foreign:
+                return True
+            setattr(issue, attr, foreign)
+        elif isinstance(value, str) and value in SIGMA_GROUNDING_METADATA_FIELDS:
+            return True
+    return False
+
+
+def run_sigmahq_blocking_validators(rules: list[Any]) -> dict[str, Any]:
+    """Run the rules repository's blocking validator set over parsed pySigma rules.
+
+    Returns ``{"available": bool, "reason": str | None, "issues": [...]}`` where each issue is
+    ``{"issue": class name, "severity": name, "description": str, "details": {...}}``. Pipeline
+    grounding keys never produce an issue (see ``SIGMA_GROUNDING_METADATA_FIELDS``).
+    """
+    validator, reason = _load_sigmahq_blocking_validator()
+    if validator is None:
+        logger.warning("SigmaHQ blocking validators disabled: %s", reason)
+        return {"available": False, "reason": reason, "issues": []}
+    issues: list[dict[str, Any]] = []
+    raw_issues: list[Any] = []
+    for rule in rules:
+        excluded = validator.exclusions[getattr(rule, "id", None)]
+        for rule_validator in validator.validators:
+            if rule_validator.__class__ in excluded:
+                continue
+            try:
+                raw_issues.extend(rule_validator.validate(rule))
+            except Exception as exc:  # a validator bug must fail loudly, not pass the rule
+                name = type(rule_validator).__name__
+                logger.warning("SigmaHQ validator %s crashed on rule %r: %s", name, getattr(rule, "title", ""), exc)
+                issues.append(
+                    {
+                        "issue": f"{name}Crash",
+                        "severity": "HIGH",
+                        "description": f"validator raised {type(exc).__name__}: {exc}",
+                        "details": {},
+                    }
+                )
+    for rule_validator in validator.validators:
+        try:
+            raw_issues.extend(rule_validator.finalize())
+        except Exception as exc:
+            logger.warning("SigmaHQ validator %s failed to finalize: %s", type(rule_validator).__name__, exc)
+    for issue in raw_issues:
+        if _issue_concerns_only_pipeline_metadata(issue):
+            continue
+        issues.append(
+            {
+                "issue": type(issue).__name__,
+                "severity": getattr(getattr(issue, "severity", None), "name", "UNKNOWN"),
+                "description": str(getattr(issue, "description", "")).strip(),
+                "details": _issue_details(issue),
+            }
+        )
+    return {"available": True, "reason": None, "issues": issues}
+
+
+def _format_sigmahq_issue(issue: dict[str, Any]) -> str:
+    details = ", ".join(f"{k}={v}" for k, v in issue["details"].items())
+    suffix = f" ({details})" if details else ""
+    return f"SigmaHQ {issue['issue']}: {issue['description']}{suffix}"
+
+
 def validate_sigma_rule(rule_yaml: str) -> ValidationResult:
     """
     Convenience function to validate a SIGMA rule
@@ -641,6 +831,12 @@ def validate_sigma_rule(rule_yaml: str) -> ValidationResult:
             metadata={"pysigma": {"valid": False, "errors": [{"type": error_type, "message": error_message}]}},
         )
 
+    sigmahq = run_sigmahq_blocking_validators(list(collection.rules))
+
     policy_result = SigmaValidator().validate_rule(rule_data)
     policy_result.metadata["pysigma"] = {"valid": True, "errors": []}
+    policy_result.metadata["sigmahq"] = sigmahq
+    if sigmahq["issues"]:
+        policy_result.errors.extend(_format_sigmahq_issue(issue) for issue in sigmahq["issues"])
+        policy_result.is_valid = False
     return policy_result

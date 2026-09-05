@@ -71,7 +71,7 @@ def test_manifest_reports_required_metadata_for_representative_route():
 
 def test_module_specific_ai_article_routes_are_operator_gated():
     entries = _by_key(_registered_app())
-    entry = entries["POST /api/articles/{article_id}/generate-sigma"]
+    entry = entries["POST /api/articles/{article_id}/sigma-matches"]
 
     assert entry.route_module == "ai"
     assert entry.classification is RouteClassification.ROLES
@@ -85,7 +85,6 @@ def test_destructive_article_routes_require_a_role():
     for key in (
         "DELETE /api/articles/{article_id}",
         "POST /api/articles/bulk-action",
-        "POST /api/articles/{article_id}/mark-reviewed",
     ):
         entry = entries[key]
         assert entry.route_module == "articles"

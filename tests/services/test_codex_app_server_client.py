@@ -225,3 +225,83 @@ async def test_start_raises_the_stdout_buffer_above_the_asyncio_default():
 
     assert spawn.await_args.kwargs["limit"] == CODEX_STREAM_LIMIT
     assert CODEX_STREAM_LIMIT > 64 * 1024
+
+
+@pytest.mark.asyncio
+async def test_list_model_details_preserves_reasoning_effort_tiers_and_default():
+    """model/list carries supportedReasoningEfforts; they must survive into the UI payload."""
+    client = CodexAppServerClient(timeout=15.0)
+    client._start = AsyncMock()
+    client._close = AsyncMock()
+    client._rpc = AsyncMock(
+        side_effect=[
+            {},
+            {
+                "data": [
+                    {
+                        "model": "gpt-5.6-luna",
+                        "hidden": False,
+                        "isDefault": True,
+                        "supportedReasoningEfforts": [
+                            {"reasoningEffort": "low", "description": "Fast responses"},
+                            {"reasoningEffort": "ultra", "description": "Maximum reasoning"},
+                        ],
+                        "defaultReasoningEffort": "low",
+                    },
+                    {"model": "gpt-5.6-sol", "hidden": False, "isDefault": False},
+                    {"model": "gpt-5.5", "hidden": False, "isDefault": False},
+                ]
+            },
+        ]
+    )
+
+    details = await client.list_model_details()
+
+    assert [d["model"] for d in details] == ["gpt-5.6-luna", "gpt-5.6-sol"]
+    assert details[0]["is_default"] is True
+    assert details[0]["supported_reasoning_efforts"] == [
+        {"reasoning_effort": "low", "description": "Fast responses"},
+        {"reasoning_effort": "ultra", "description": "Maximum reasoning"},
+    ]
+    assert details[0]["default_reasoning_effort"] == "low"
+    # A model without tier data still lists, with an empty tier set.
+    assert details[1]["supported_reasoning_efforts"] == []
+    assert details[1]["default_reasoning_effort"] is None
+
+
+@pytest.mark.asyncio
+async def test_complete_sends_effort_as_a_turn_override_only_when_configured():
+    client = CodexAppServerClient(timeout=15.0)
+    client._start = AsyncMock(return_value=Path("/tmp/huntable-codex-workspace"))
+    client._close = AsyncMock()
+    client._rpc = AsyncMock(side_effect=[{}, {"thread": {"id": "thread-1"}}, {}])
+    client._read_completed_turn = AsyncMock(return_value={"choices": []})
+
+    await client.complete(
+        messages=[{"role": "user", "content": "Extract commands."}],
+        model_name="gpt-5.6-luna",
+        max_tokens=250,
+        effort="xhigh",
+    )
+    turn_start = client._rpc.await_args_list[2].args
+    assert turn_start[0] == "turn/start"
+    assert turn_start[1]["threadId"] == "thread-1"
+    assert turn_start[1]["effort"] == "xhigh"
+    client._read_completed_turn.assert_awaited_once_with("gpt-5.6-luna", effort="xhigh")
+
+    client._rpc = AsyncMock(side_effect=[{}, {"thread": {"id": "thread-2"}}, {}])
+    client._read_completed_turn = AsyncMock(return_value={"choices": []})
+    await client.complete(
+        messages=[{"role": "user", "content": "Extract commands."}],
+        model_name="gpt-5.6-luna",
+        max_tokens=250,
+    )
+    assert "effort" not in client._rpc.await_args_list[2].args[1]
+
+
+def test_normalize_completed_turn_records_effort_in_the_forensic_payload():
+    turn = {"status": "completed", "usage": {}}
+    with_effort = normalize_completed_turn(turn, "ok", "gpt-5.6-luna", effort="high")
+    assert with_effort["_provider_payload"]["effort"] == "high"
+    without = normalize_completed_turn(turn, "ok", "gpt-5.6-luna")
+    assert "effort" not in without["_provider_payload"]

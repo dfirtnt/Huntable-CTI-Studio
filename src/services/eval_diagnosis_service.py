@@ -237,8 +237,9 @@ def build_diagnosis_context(bundle: dict[str, Any], agent_name: str) -> dict[str
     return {
         "schema_version": DIAGNOSIS_CONTEXT_SCHEMA_VERSION,
         "agent_name": agent_name,
-        "execution_id": workflow_meta.get("execution_id"),
-        "article_id": workflow_meta.get("article_id") or bundle.get("article_id"),
+        # Bundle metadata carries ids as strings; the save/list tools use ints.
+        "execution_id": _coerce_int(workflow_meta.get("execution_id")),
+        "article_id": _coerce_int(workflow_meta.get("article_id") or bundle.get("article_id")),
         "bundle_id": bundle.get("bundle_id"),
         "evidence_sha256": compute_diagnosis_evidence_sha256(bundle, agent_name, contracts=contracts),
         "instructions": DIAGNOSIS_INSTRUCTIONS,
@@ -251,6 +252,51 @@ def build_diagnosis_context(bundle: dict[str, Any], agent_name: str) -> dict[str
             "this packet's evidence_sha256 and confirmed_by_user=true to persist it for the Agent Evals UI."
         ),
     }
+
+
+def _coerce_int(value: Any) -> Any:
+    """Return ``value`` as an int when it is a digit string; otherwise unchanged."""
+    if isinstance(value, str) and value.strip().isdigit():
+        return int(value.strip())
+    return value
+
+
+def _diagnosis_sort_key(path: Path, diagnosis: dict[str, Any]) -> datetime:
+    """Order by the persisted ``created_at`` stamp; fall back to file mtime."""
+    created_at = diagnosis.get("created_at")
+    if isinstance(created_at, str):
+        try:
+            parsed = datetime.fromisoformat(created_at)
+            return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+        except ValueError:
+            pass
+    return datetime.fromtimestamp(path.stat().st_mtime, tz=UTC)
+
+
+def load_saved_diagnoses(execution_id: int, agent_name: str | None = None) -> list[tuple[Path, dict[str, Any]]]:
+    """Return ``(path, diagnosis)`` pairs for an execution, newest first.
+
+    Ordering uses each file's ``created_at`` stamp and falls back to mtime only
+    for files without one, so restoring or copying ``data/diagnoses`` does not
+    reorder run history. Unreadable files are skipped with a warning.
+    """
+    if not DIAGNOSES_DIR.exists():
+        return []
+    entries: list[tuple[Path, dict[str, Any]]] = []
+    for path in DIAGNOSES_DIR.glob(f"{execution_id}_*.json"):
+        try:
+            diagnosis = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as e:
+            logger.warning("Skipping unreadable diagnosis file %s: %s", path, e)
+            continue
+        if not isinstance(diagnosis, dict):
+            logger.warning("Skipping non-object diagnosis file %s", path)
+            continue
+        if agent_name and diagnosis.get("agent_name") != agent_name:
+            continue
+        entries.append((path, diagnosis))
+    entries.sort(key=lambda entry: _diagnosis_sort_key(entry[0], entry[1]), reverse=True)
+    return entries
 
 
 def _require_mapping(value: Any, field: str) -> dict[str, Any]:

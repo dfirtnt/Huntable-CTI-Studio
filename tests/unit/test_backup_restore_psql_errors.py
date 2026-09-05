@@ -163,6 +163,37 @@ def test_restore_database_fails_on_psql_statement_error(tmp_path):
     assert "-v ON_ERROR_STOP=1" in restore_calls[0]
 
 
+def test_force_does_not_skip_the_legacy_snapshot(tmp_path):
+    """--force skips confirmation, never the rollback snapshot."""
+    backup_file = tmp_path / "cti_scraper_backup_test.sql"
+    backup_file.write_text("-- PostgreSQL database dump\nSELECT 1;\n", encoding="utf-8")
+
+    with (
+        patch("restore_database.check_docker_container", return_value=True),
+        patch("restore_database.create_database_snapshot", return_value=None) as snapshot,
+        patch("subprocess.run", return_value=_result()),
+    ):
+        result = restore_database.restore_database(backup_file, create_snapshot=True, force=True)
+
+    assert result is False
+    snapshot.assert_called_once()
+
+
+def test_no_snapshot_skips_the_legacy_snapshot(tmp_path):
+    backup_file = tmp_path / "cti_scraper_backup_test.sql"
+    backup_file.write_text("-- PostgreSQL database dump\nSELECT 1;\n", encoding="utf-8")
+
+    with (
+        patch("restore_database.check_docker_container", return_value=True),
+        patch("restore_database.create_database_snapshot") as snapshot,
+        patch("subprocess.run", return_value=_result()),
+    ):
+        result = restore_database.restore_database(backup_file, create_snapshot=False, force=True)
+
+    assert result is True
+    snapshot.assert_not_called()
+
+
 def test_restore_system_database_restore_fails_on_psql_statement_error(tmp_path):
     backup_file = tmp_path / "database.sql"
     backup_file.write_text("SELECT 1;\n", encoding="utf-8")

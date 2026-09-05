@@ -6,7 +6,7 @@ from unittest.mock import ANY, Mock, patch
 import pytest
 
 from src.database.models import AgenticWorkflowConfigTable, AgenticWorkflowExecutionTable, ArticleTable
-from src.services.workflow_trigger_service import WorkflowTriggerService
+from src.services.workflow_trigger_service import WorkflowTriggerService, recover_orphaned_running_execution
 
 # Mark all tests in this file as unit tests (use mocks, no real infrastructure)
 pytestmark = pytest.mark.unit
@@ -188,6 +188,60 @@ class TestWorkflowTriggerService:
         # Should mark stuck execution as failed and allow new trigger
         assert stuck_execution.status == "failed"
         assert should_trigger is True
+
+    def test_orphaned_running_execution_is_recovered_on_the_next_trigger(self):
+        """A worker-restart orphan must not permanently block a forced re-run."""
+        orphaned = Mock(spec=AgenticWorkflowExecutionTable)
+        orphaned.id = 17
+        orphaned.status = "running"
+        orphaned.current_step = "extract_agent"
+        orphaned.updated_at = datetime.now() - timedelta(minutes=31)
+        orphaned.error_message = None
+
+        assert recover_orphaned_running_execution(orphaned) is True
+        assert orphaned.status == "failed"
+        assert orphaned.completed_at is not None
+        assert "Recovered during workflow trigger" in orphaned.error_message
+
+    def test_recently_updated_running_execution_is_not_recovered(self):
+        """A slow but still-progressing workflow must retain its running state."""
+        active = Mock(spec=AgenticWorkflowExecutionTable)
+        active.id = 18
+        active.status = "running"
+        active.updated_at = datetime.now() - timedelta(minutes=5)
+
+        assert recover_orphaned_running_execution(active) is False
+        assert active.status == "running"
+
+    def test_force_trigger_is_allowed_after_recovering_orphaned_running_execution(
+        self, service, mock_db_session, sample_article, sample_config
+    ):
+        orphaned = Mock(spec=AgenticWorkflowExecutionTable)
+        orphaned.id = 19
+        orphaned.status = "running"
+        orphaned.current_step = "extract_agent"
+        orphaned.updated_at = datetime.now() - timedelta(minutes=31)
+
+        config_query = Mock()
+        config_query.filter.return_value.order_by.return_value.first.return_value = sample_config
+        execution_query = Mock()
+        execution_query.filter.return_value.first.return_value = orphaned
+
+        def query_side_effect(model):
+            if model == AgenticWorkflowConfigTable:
+                return config_query
+            if model == AgenticWorkflowExecutionTable:
+                return execution_query
+            return Mock()
+
+        mock_db_session.query.side_effect = query_side_effect
+
+        ok, reason = service._workflow_eligibility(sample_article, force=True)
+
+        assert ok is True
+        assert reason is None
+        assert orphaned.status == "failed"
+        mock_db_session.commit.assert_called_once()
 
     def test_trigger_workflow_success(self, service, mock_db_session, sample_article, sample_config):
         """Test successful workflow triggering."""

@@ -38,7 +38,7 @@ An end-to-end OSINT-to-SIGMA pipeline. Ingests threat intel from 38+ sources, us
 1. **7-step agentic workflow** (Platform Detection → Junk Filter → Rank Agent → Extract Agent → Generate SIGMA → Similarity Search → Queue);platform-aware routing supports Windows, Linux, and macOS articles
 2. **Multi-model AI**: OpenAI, Anthropic, and Codex (deployment-managed ChatGPT subscription), plus optional local inference through LM Studio;no hard LM Studio dependency
 3. **Deduplication at scale**: Jaccard + behavioral similarity vs. 3,000+ Sigma community rules
-4. **Source auto-healing**: LLM-powered diagnostics repair broken feeds automatically
+4. **Source healing**: operator-invoked diagnostics probe broken feeds (RSS, sitemap, JS rendering, WordPress JSON API) and propose a config fix for approval;never auto-applied
 5. **MCP integration**: Agents-native API for tool-using AI clients
 
 ---

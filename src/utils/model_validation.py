@@ -48,20 +48,31 @@ TEMPERATURE_RANGE_BY_PROVIDER: dict[str, tuple[float, float]] = {
 DEFAULT_TEMPERATURE_RANGE = (0.0, 2.0)
 
 # OpenAI reasoning models (o1, o3, o4, gpt-5.x) only support the default temperature (1.0);
-# sending any temperature value causes a 400 error. Use this as the single authoritative source
-# -- openai_chat_client.py and llm_service.py both delegate to model_supports_variable_temperature().
+# sending any temperature value causes a 400 error. These prefixes are now only the
+# fallback for models config/model_capabilities.json does not list -- the catalog entry
+# is authoritative when present (see provider_model_catalog.get_model_capabilities).
 _OPENAI_REASONING_PREFIXES: tuple[str, ...] = ("o1", "o3", "o4-mini", "o4-", "o4", "gpt-5")
 
 
-def model_supports_variable_temperature(model_name: str) -> bool:
-    """
-    Return False for OpenAI reasoning models (o1/o3/o4/gpt-5.x) that reject any temperature
-    except the default. All other models (GPT-4/4.1/4o, Anthropic, LM Studio) return True.
-    """
+def heuristic_supports_variable_temperature(model_name: str) -> bool:
+    """Name-prefix guess used only when the capabilities catalog has no entry."""
     m = (model_name or "").strip().lower()
     if not m:
         return True
     return not any(m.startswith(prefix) for prefix in _OPENAI_REASONING_PREFIXES)
+
+
+def model_supports_variable_temperature(model_name: str) -> bool:
+    """
+    Return False for models that reject any temperature except the default (OpenAI
+    reasoning models, Anthropic Opus 4.7+/Sonnet 5/Fable 5). Catalog-driven: consults
+    config/model_capabilities.json and falls back to the name-prefix heuristics for
+    unknown ids. openai_chat_client.py and llm_client.py both delegate here.
+    """
+    # Lazy import: provider_model_catalog imports the filter helpers from this module.
+    from src.services.provider_model_catalog import get_model_capabilities
+
+    return get_model_capabilities(None, model_name).supports_temperature
 
 
 def clamp_temperature_for_provider(provider: str, temperature: float) -> float:

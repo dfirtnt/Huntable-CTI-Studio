@@ -31,16 +31,12 @@ See [Development Setup](setup.md#1-provision-local-secrets-and-config) for what 
 docker-compose -f docker-compose.dev2.yml up -d
 ```
 
-!!! warning "Known gaps in `docker-compose.dev2.yml`"
-    **Missing init file.** The dev2 stack bind-mounts `./init.sql`, which does not exist at
-    the repo root -- the primary `docker-compose.yml` mounts the `./init-scripts/` directory
-    instead. Docker creates an empty *directory* named `init.sql` rather than failing, so
-    Postgres starts with no init script applied.
-
-    **Missing services.** dev2 defines only `postgres`, `redis`, `web`, `worker`, `scheduler`,
-    and `cli`. It has no `workflow_worker`, `maintenance`, `mcp_http`, or `codex_auth_init`,
-    so agentic workflow execution, backup/restore, and MCP HTTP access are unavailable on the
-    dev2 instance.
+!!! note "Dev2 service boundary"
+    Dev2 uses the same `./init-scripts/` directory as the primary stack, so a fresh Dev2
+    Postgres instance receives the standard initialization scripts. Dev2 is intentionally limited
+    to `postgres`, `redis`, `web`, `worker`, `scheduler`, and `cli`: `workflow_worker`,
+    `maintenance`, `mcp_http`, and `codex_auth_init` are out of scope. Agentic workflow
+    execution, backup/restore, and MCP HTTP access therefore require the primary stack.
 
 ### 4. Verify Services
 ```bash

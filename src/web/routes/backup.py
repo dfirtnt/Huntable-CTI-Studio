@@ -5,8 +5,10 @@ Backup management API routes.
 from __future__ import annotations
 
 import base64
+import re
 import subprocess
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +39,30 @@ from src.utils.input_validation import (
 from src.web.dependencies import logger
 
 router = APIRouter(prefix="/api/backup", tags=["Backup"])
+BACKUP_STALE_AFTER_DAYS = 3
+
+
+def _backup_freshness(backup_name: str | None, *, now: datetime | None = None) -> dict[str, Any]:
+    """Return display-ready freshness data for a system backup name."""
+    if not backup_name:
+        return {"last_backup_at": None, "backup_age_days": None, "backup_stale": False}
+
+    match = re.fullmatch(r"system_backup_(\d{8}_\d{6})", backup_name)
+    if not match:
+        return {"last_backup_at": None, "backup_age_days": None, "backup_stale": False}
+
+    try:
+        created_at = datetime.strptime(match.group(1), "%Y%m%d_%H%M%S")
+    except ValueError:
+        return {"last_backup_at": None, "backup_age_days": None, "backup_stale": False}
+
+    current_time = now or datetime.now()
+    age_days = max(0.0, (current_time - created_at).total_seconds() / timedelta(days=1).total_seconds())
+    return {
+        "last_backup_at": created_at.isoformat(sep=" "),
+        "backup_age_days": round(age_days, 2),
+        "backup_stale": age_days >= BACKUP_STALE_AFTER_DAYS,
+    }
 
 
 async def _audit_backup(
@@ -423,6 +449,7 @@ async def api_backup_status():
         parsed_backups = _parse_backup_list(lines)
         if parsed_backups:
             last_backup = parsed_backups[0]["name"]
+        freshness = _backup_freshness(last_backup)
 
         return {
             "automated": cron_state["automated"],
@@ -431,6 +458,8 @@ async def api_backup_status():
             "total_backups": total_backups,
             "total_size_gb": total_size_gb,
             "last_backup": last_backup,
+            "backup_stale_after_days": BACKUP_STALE_AFTER_DAYS,
+            **freshness,
         }
 
     except subprocess.TimeoutExpired as exc:

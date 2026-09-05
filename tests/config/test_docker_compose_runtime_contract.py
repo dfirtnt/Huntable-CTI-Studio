@@ -20,6 +20,9 @@ pytestmark = pytest.mark.unit
 _REPO = Path(__file__).resolve().parent.parent.parent
 _DOCKERFILE = _REPO / "Dockerfile"
 _COMPOSE = _REPO / "docker-compose.yml"
+_DOCKERFILE_PROD = _REPO / "Dockerfile.prod"
+_DEV2_COMPOSE = _REPO / "docker-compose.dev2.yml"
+_MULTI_INSTANCE_GUIDE = _REPO / "docs" / "development" / "multi-instance.md"
 
 # Every built Compose service and the Dockerfile stage it must target.
 EXPECTED_SERVICE_TARGETS = {
@@ -151,6 +154,71 @@ def test_scheduler_inherits_the_web_base_environment():
     assert re.search(r"^FROM\s+runtime-app\s+AS\s+scheduler-runtime$", text, flags=re.MULTILINE)
 
 
+def test_shared_runtime_base_installs_git():
+    """`git` must stay in the base every role target inherits.
+
+    sigma_sync_service shells out to `git clone`/`git pull` for the SigmaHQ corpus
+    and sigma_pr_service drives the customer rules repo, and those paths are reached
+    from the cli, web, worker and scheduler images. When the role split moved the
+    runtime stages off the monolithic image the binary was dropped, which made
+    `sigma sync` -- and therefore metadata indexing and embeddings -- fail on every
+    fresh setup.
+    """
+    stage = re.search(
+        r"FROM\s+python:[^\s]+\s+AS\s+runtime-os(.*?)(?=^FROM\s+|\Z)",
+        _DOCKERFILE.read_text(),
+        re.M | re.S,
+    )
+    assert stage, "Dockerfile stage 'runtime-os' not found"
+    assert re.search(r"^\s+git \\$", stage.group(1), flags=re.MULTILINE), (
+        "runtime-os must apt-install git; sigma sync and Sigma PR submission shell out to it"
+    )
+
+
+def test_every_relative_bind_mount_source_is_tracked_or_scaffolded():
+    """A gitignored bind-mount source must be created before Compose starts.
+
+    Docker refuses to start a container whose bind-mount source is missing, so a
+    host directory that is gitignored -- absent on a fresh clone -- has to be
+    scaffolded by startup_ensure_runtime_directories. `test-results` was mounted by
+    web, worker and workflow_worker without being scaffolded, so `docker compose up`
+    failed with an OCI mount error until something happened to create it.
+    """
+    compose = yaml.safe_load(_COMPOSE.read_text())
+    sources = set()
+    for cfg in compose.get("services", {}).values():
+        for volume in cfg.get("volumes", []) or []:
+            if isinstance(volume, str) and volume.startswith("./"):
+                sources.add(volume.split(":", 1)[0][2:])
+
+    scaffolded = re.search(
+        r"startup_ensure_runtime_directories\(\)\s*\{(.*?)^\}",
+        (_REPO / "scripts" / "startup_common.sh").read_text(),
+        re.M | re.S,
+    )
+    assert scaffolded, "startup_ensure_runtime_directories() not found"
+    made = set(re.findall(r"mkdir -p ([^\n]+)", scaffolded.group(1))[0].split())
+
+    for source in sorted(sources):
+        tracked = (_REPO / source).exists() and not _is_git_ignored(source)
+        assert tracked or source in made, (
+            f"Bind-mount source './{source}' is gitignored but not scaffolded by "
+            "startup_ensure_runtime_directories; containers will fail to start on a fresh clone"
+        )
+
+
+def _is_git_ignored(path: str) -> bool:
+    result = subprocess.run(["git", "check-ignore", "-q", path], cwd=_REPO, capture_output=True)
+    return result.returncode == 0
+
+
+def test_production_runtime_installs_git():
+    """Same contract for the production image's single runtime stage."""
+    text = _DOCKERFILE_PROD.read_text()
+    runtime = text.split("FROM python:3.11-slim", 2)[-1]
+    assert re.search(r"^\s+git \\$", runtime, flags=re.MULTILINE), "Dockerfile.prod runtime must apt-install git"
+
+
 def test_docker_socket_is_confined_to_maintenance_service():
     data = yaml.safe_load(_COMPOSE.read_text())
     web_volumes = data["services"]["web"].get("volumes", [])
@@ -171,6 +239,24 @@ def test_cli_module_starts_without_browser_imports():
         text=True,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_dev2_postgres_uses_the_shared_init_scripts_directory():
+    """Dev2 must not create a stray `init.sql` directory on first startup."""
+    compose = yaml.safe_load(_DEV2_COMPOSE.read_text())
+    volumes = compose["services"]["postgres"]["volumes"]
+
+    assert "./init-scripts:/docker-entrypoint-initdb.d" in volumes
+    assert not any("init.sql" in volume for volume in volumes)
+
+
+def test_multi_instance_guide_declares_dev2_service_boundaries():
+    """Dev2 intentionally excludes privileged and workflow-specific services."""
+    guide = _MULTI_INSTANCE_GUIDE.read_text()
+
+    assert "intentionally limited" in guide
+    for service in ("workflow_worker", "maintenance", "mcp_http", "codex_auth_init"):
+        assert service in guide
 
 
 class TestDockerSocketBoundary:

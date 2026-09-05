@@ -1,12 +1,13 @@
 """Tests for SigmaPRService — path resolution and defaults."""
 
+import os
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.services.sigma_pr_service import SigmaPRService
+from src.services.sigma_pr_service import SigmaPRService, parse_github_remote
 
 pytestmark = pytest.mark.unit
 
@@ -168,3 +169,114 @@ class TestRunGitCommand:
         with patch("subprocess.run", side_effect=TypeError("unexpected")):
             with pytest.raises(TypeError):
                 self.svc._run_git_command(["status"])
+
+
+class TestParseGithubRemote:
+    """owner/repo extraction covers every remote URL shape these clones carry."""
+
+    @pytest.mark.parametrize(
+        ("remote", "expected"),
+        [
+            ("https://github.com/dfirtnt/Huntable-SIGMA-Rules.git", "dfirtnt/Huntable-SIGMA-Rules"),
+            ("https://github.com/dfirtnt/Huntable-SIGMA-Rules", "dfirtnt/Huntable-SIGMA-Rules"),
+            ("https://github.com/dfirtnt/Huntable-SIGMA-Rules/", "dfirtnt/Huntable-SIGMA-Rules"),
+            ("git@github.com:dfirtnt/Huntable-SIGMA-Rules.git", "dfirtnt/Huntable-SIGMA-Rules"),
+            ("ssh://git@github.com/dfirtnt/Huntable-SIGMA-Rules.git", "dfirtnt/Huntable-SIGMA-Rules"),
+            # _configure_remote_auth writes this shape back into the clone.
+            (
+                "https://x-access-token:github_pat_abc123@github.com/dfirtnt/Huntable-SIGMA-Rules.git",
+                "dfirtnt/Huntable-SIGMA-Rules",
+            ),
+            ("  https://github.com/SigmaHQ/sigma.git\n", "SigmaHQ/sigma"),
+        ],
+    )
+    def test_recognized_shapes(self, remote, expected):
+        assert parse_github_remote(remote) == expected
+
+    @pytest.mark.parametrize("remote", ["", None, "   ", "https://gitlab.com/owner/repo.git", "/local/path/repo"])
+    def test_unrecognized_shapes_return_none(self, remote):
+        assert parse_github_remote(remote) is None
+
+
+class TestGithubRepoResolution:
+    """The clone's remote is the default source; an explicit setting overrides it."""
+
+    @pytest.fixture(autouse=True)
+    def _no_env_repo(self):
+        with patch.dict("os.environ", {}, clear=False):
+            os.environ.pop("GITHUB_REPO", None)
+            yield
+
+    def _service(self, tmp_path, stored=None):
+        with patch.object(
+            SigmaPRService, "_get_setting", side_effect=lambda key: stored if key == "GITHUB_REPO" else None
+        ):
+            return SigmaPRService(repo_path=str(tmp_path))
+
+    def test_derived_from_origin_remote_when_nothing_configured(self, tmp_path):
+        svc = self._service(tmp_path)
+        with patch.object(
+            svc, "_run_git_command", return_value=(0, "https://github.com/dfirtnt/Huntable-SIGMA-Rules.git\n", "")
+        ):
+            assert svc.github_repo == "dfirtnt/Huntable-SIGMA-Rules"
+        assert svc.describe_github_repo() == {"repo": "dfirtnt/Huntable-SIGMA-Rules", "source": "remote"}
+
+    def test_explicit_setting_wins_over_remote(self, tmp_path):
+        """The fork-PR case: push to one repo, open the PR against another."""
+        svc = self._service(tmp_path, stored="upstream/rules")
+        with patch.object(svc, "_run_git_command", return_value=(0, "https://github.com/fork/rules.git\n", "")) as git:
+            assert svc.github_repo == "upstream/rules"
+        assert git.call_count == 0
+        assert svc.describe_github_repo() == {"repo": "upstream/rules", "source": "setting"}
+
+    def test_env_var_is_an_override_and_is_labelled_as_such(self, tmp_path):
+        os.environ["GITHUB_REPO"] = "envowner/envrepo"
+        svc = self._service(tmp_path)
+        assert svc.github_repo == "envowner/envrepo"
+        assert svc.describe_github_repo() == {"repo": "envowner/envrepo", "source": "environment"}
+
+    def test_unresolvable_when_remote_missing(self, tmp_path):
+        svc = self._service(tmp_path)
+        with patch.object(svc, "_run_git_command", return_value=(1, "", "fatal: No such remote 'origin'")):
+            assert svc.github_repo is None
+        assert svc.describe_github_repo() == {"repo": None, "source": "unresolved"}
+
+    def test_unresolvable_when_remote_is_not_github(self, tmp_path):
+        svc = self._service(tmp_path)
+        with patch.object(svc, "_run_git_command", return_value=(0, "https://gitlab.com/owner/repo.git\n", "")):
+            assert svc.github_repo is None
+
+    def test_derivation_is_memoized(self, tmp_path):
+        svc = self._service(tmp_path)
+        with patch.object(svc, "_run_git_command", return_value=(0, "https://github.com/owner/repo.git\n", "")) as git:
+            assert svc.github_repo == "owner/repo"
+            assert svc.github_repo == "owner/repo"
+        assert git.call_count == 1
+
+    def test_missing_repo_path_does_not_shell_out(self, tmp_path):
+        svc = self._service(tmp_path / "absent")
+        with patch.object(svc, "_run_git_command") as git:
+            assert svc.github_repo is None
+        assert git.call_count == 0
+
+    def test_validate_reports_unresolvable_repository_with_guidance(self, tmp_path):
+        """The failure lands before branch/commit work, not as a 404 from GitHub."""
+        svc = self._service(tmp_path)
+        with patch.object(svc, "_run_git_command", return_value=(0, "https://gitlab.com/owner/repo.git\n", "")):
+            result = svc._validate_pr_repository()
+
+        assert result["valid"] is False
+        assert "Could not determine which GitHub repository" in result["error"]
+        assert "owner/repo" in result["error"]
+
+    def test_validate_passes_when_repository_derives_cleanly(self, tmp_path):
+        svc = self._service(tmp_path)
+        with patch.object(
+            svc, "_run_git_command", return_value=(0, "https://github.com/dfirtnt/Huntable-SIGMA-Rules.git\n", "")
+        ):
+            assert svc._validate_pr_repository() == {"valid": True}
+
+    def test_create_pr_returns_none_instead_of_splitting_nothing(self, tmp_path):
+        svc = self._service(tmp_path)
+        with patch.object(svc, "_run_git_command", return_value=(1, "", "no origin")):
+            assert svc._create_github_pr("branch", "title", "body") is None

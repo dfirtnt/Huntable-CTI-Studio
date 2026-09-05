@@ -202,6 +202,55 @@ class TestContentProcessor:
         assert result.article_metadata.get("enhanced") is True
 
     @pytest.mark.asyncio
+    async def test_process_single_article_keeps_indentation_of_already_clean_text(self, processor):
+        """Producers hand the processor cleaned text; it must not re-clean it and strip <pre> indentation."""
+        rule = "title: Staged Assembler\ndetection:\n    selection:\n        Image: cmd.exe\n    condition: selection\n"
+        content = ("Intro paragraph about the toolkit. " * 8) + "\n\n" + rule + "\nClosing remarks about deployment."
+        article = ArticleCreate(
+            source_id=1,
+            canonical_url="https://example.com/detections",
+            title="Detections For The Assembler Toolkit",
+            published_at=datetime.now(),
+            content=content,
+            summary="Summary",
+            authors=[],
+            tags=[],
+            article_metadata={},
+            content_hash="test_hash",
+        )
+
+        with patch("src.utils.content.validate_content", return_value=[]):
+            with patch.object(processor, "_detect_content_type", return_value="article"):
+                result = await processor._process_single_article(article)
+
+        assert result is not None
+        assert result.content == content
+
+    @pytest.mark.asyncio
+    async def test_process_single_article_still_cleans_html_content(self, processor):
+        """Content that really is HTML is still converted to text."""
+        article = ArticleCreate(
+            source_id=1,
+            canonical_url="https://example.com/html",
+            title="Detections For The Assembler Toolkit",
+            published_at=datetime.now(),
+            content="<article><p>" + ("Real markup body text. " * 12) + "</p><pre>a:\n    b</pre></article>",
+            summary="Summary",
+            authors=[],
+            tags=[],
+            article_metadata={},
+            content_hash="test_hash",
+        )
+
+        with patch("src.utils.content.validate_content", return_value=[]):
+            with patch.object(processor, "_detect_content_type", return_value="article"):
+                result = await processor._process_single_article(article)
+
+        assert result is not None
+        assert "<p>" not in result.content
+        assert result.content.endswith("a:\n    b")
+
+    @pytest.mark.asyncio
     async def test_process_single_article_validation_failure(self, processor, sample_article):
         """Test single article processing with validation failure."""
         # Use a short title to trigger validation failure

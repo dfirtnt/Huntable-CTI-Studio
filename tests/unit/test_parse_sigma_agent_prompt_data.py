@@ -373,3 +373,31 @@ class TestParseSigmaRepairPromptData:
     def test_empty_string_prompt_returns_none(self):
         """Empty string prompt returns None."""
         assert parse_sigma_repair_prompt_data({"prompt": ""}) is None
+
+
+class TestRawTemplateWithSiblingModelKey:
+    def test_placeholder_text_is_a_user_template_even_with_model_key(self):
+        """reset-to-defaults / bootstrap write {"prompt": <file text>, "instructions": "", "model": "Not configured"}.
+
+        The sibling ``model`` key must not turn a template with {title}/{content}/{author}
+        placeholders into a system persona: on execution 3899 the model received the
+        13.5k template unformatted as the system message and copied ``author: '{author}'``
+        into three rules.
+        """
+        from src.utils.prompt_loader import parse_sigma_agent_prompt_data
+
+        text = "Generate rules.\n- title: {title}\n- content: {content}\n{observables_section}\nauthor: {author}\ndate: {date}\n"
+        template, system = parse_sigma_agent_prompt_data(
+            {"prompt": text, "instructions": "", "model": "Not configured"}
+        )
+        assert template == text
+        assert system is None
+
+    def test_persona_text_with_model_key_is_still_a_system_prompt(self):
+        from src.utils.prompt_loader import parse_sigma_agent_prompt_data
+
+        template, system = parse_sigma_agent_prompt_data(
+            {"prompt": "You are a Sigma expert. Output only YAML.", "instructions": "", "model": "gpt-4o"}
+        )
+        assert template is None
+        assert system == "You are a Sigma expert. Output only YAML."

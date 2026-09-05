@@ -145,9 +145,6 @@ def reset_db_connections_on_fork(**kwargs):
 # Load task modules from all registered app configs.
 celery_app.autodiscover_tasks()
 
-# Ensure local task modules are registered
-import src.worker.tasks.observable_training  # noqa: E402,F401
-
 
 def _runtime_environment() -> str:
     """Resolve runtime environment across APP_ENV/ENVIRONMENT with a dev-safe default."""
@@ -1484,9 +1481,29 @@ def sync_sigma_rules(self, force_reindex=False):
         raise self.retry(exc=exc, countdown=300 * (2**self.request.retries)) from exc
 
 
+def _parse_unclassified_models(stdout: str) -> dict[str, list[str]]:
+    """Read the ``UNCLASSIFIED_MODELS=<json>`` line the catalog script prints."""
+    import json
+
+    marker = "UNCLASSIFIED_MODELS="
+    for line in reversed(stdout.splitlines()):
+        if line.startswith(marker):
+            try:
+                parsed = json.loads(line[len(marker) :])
+            except json.JSONDecodeError:
+                return {}
+            return parsed if isinstance(parsed, dict) else {}
+    return {}
+
+
 @celery_app.task(bind=True, max_retries=2)
 def update_provider_model_catalogs(self):
-    """Refresh OpenAI/Anthropic model lists and write config/provider_model_catalog.json."""
+    """Refresh OpenAI/Anthropic model lists and write config/provider_model_catalog.json.
+
+    Also reports ``unclassified_models`` -- fetched ids absent from
+    config/model_capabilities.json -- as a WARNING and in the result payload so the
+    gap is visible in the Scheduled Jobs UI.
+    """
     repo_root = Path(__file__).resolve().parents[2]
     script_path = repo_root / "scripts" / "maintenance" / "update_provider_model_catalogs.py"
     if not script_path.exists():
@@ -1508,8 +1525,25 @@ def update_provider_model_catalogs(self):
                 (result.stderr or result.stdout or "")[:500],
             )
             return {"status": "error", "returncode": result.returncode, "stderr": (result.stderr or "")[:500]}
+        unclassified = _parse_unclassified_models(result.stdout or "")
+        flat_unclassified = sorted(
+            f"{provider}:{model}" for provider, models in unclassified.items() for model in models
+        )
+        if flat_unclassified:
+            # Gap alarm: a fetched model id has no config/model_capabilities.json entry. The
+            # provider APIs carry no tier data, so this cannot be auto-filled; it runs with
+            # the "temperature supported / no effort" fallback until a human classifies it.
+            logger.warning(
+                "update_provider_model_catalogs: %d model(s) missing from config/model_capabilities.json: %s",
+                len(flat_unclassified),
+                ", ".join(flat_unclassified),
+            )
         logger.info("Provider model catalogs updated successfully")
-        return {"status": "success", "message": "Provider model catalogs updated"}
+        return {
+            "status": "success",
+            "message": "Provider model catalogs updated",
+            "unclassified_models": flat_unclassified,
+        }
     except subprocess.TimeoutExpired:
         logger.warning("update_provider_model_catalogs timed out")
         raise self.retry(countdown=60 * (2**self.request.retries))

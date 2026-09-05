@@ -63,6 +63,10 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 ./run_cli.sh collect --source threatpost --force
 ```
 
+The CLI runtime intentionally omits the browser stack. RSS and ordinary HTTP sources run normally;
+a source configured for JavaScript rendering reports a clear runtime message directing you to the
+Playwright-enabled ingestion worker.
+
 ---
 
 ### search

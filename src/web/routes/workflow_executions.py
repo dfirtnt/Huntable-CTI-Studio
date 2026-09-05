@@ -977,18 +977,33 @@ async def stream_execution_updates(execution_id: int):
 @router.post("/executions/trigger-stuck")
 async def trigger_stuck_executions(request: Request):
     """
-    Manually trigger all pending workflow executions.
+    Re-dispatch workflow executions whose Celery task is presumed lost.
 
-    This bypasses Celery and directly runs the workflow for any stuck pending executions.
+    Only rows that are *stuck* pending qualify -- pending for longer than
+    ``STUCK_PENDING_AFTER`` and never started. Workers claim a task within
+    seconds, so a fresher pending row almost certainly still has a live task
+    queued, and re-dispatching it runs the same execution row twice
+    concurrently (measured: two fork-pool workers on one row, both writing
+    results). ``WorkflowTriggerService`` fails these same rows on retrigger,
+    so both paths share ``is_stuck_pending_execution`` and cannot disagree
+    about which rows are stuck.
+
+    Dispatch goes to the worker, never in-process: the web image's venv is
+    built with ``uv sync --frozen --no-default-groups`` (Dockerfile stage
+    ``builder-web``), so ``langgraph`` is not installed in ``cti_web`` and an
+    in-process run raises ModuleNotFoundError on the first request.
     """
     try:
-        from src.workflows.agentic_workflow import run_workflow
+        from src.services.workflow_trigger_service import (
+            STUCK_PENDING_AFTER,
+            is_stuck_pending_execution,
+        )
+        from src.worker.celery_app import trigger_agentic_workflow
 
         db_manager = get_db_manager()
         db_session = db_manager.get_session()
 
         try:
-            # Find all pending executions
             pending_executions = (
                 db_session.query(AgenticWorkflowExecutionTable)
                 .filter(AgenticWorkflowExecutionTable.status == "pending")
@@ -996,44 +1011,90 @@ async def trigger_stuck_executions(request: Request):
                 .all()
             )
 
-            if not pending_executions:
-                return {"success": True, "message": "No pending executions found", "count": 0, "results": []}
+            # A row too fresh to be stuck is one whose task is probably still queued.
+            # Skipping it is the whole point: re-dispatching would double-run it.
+            stuck = [e for e in pending_executions if is_stuck_pending_execution(e)]
+            skipped = len(pending_executions) - len(stuck)
+
+            if not stuck:
+                if skipped:
+                    return {
+                        "success": True,
+                        "message": (
+                            f"No stuck executions found. {skipped} pending execution(s) are newer than "
+                            f"{STUCK_PENDING_AFTER} and still have a live task queued; re-dispatching them "
+                            "would run them twice."
+                        ),
+                        "count": 0,
+                        "skipped": skipped,
+                        "results": [],
+                    }
+                return {
+                    "success": True,
+                    "message": "No pending executions found",
+                    "count": 0,
+                    "skipped": 0,
+                    "results": [],
+                }
 
             results = []
-            for execution in pending_executions:
+            for execution in stuck:
+                execution_id = execution.id
+                article_id = execution.article_id
                 try:
-                    logger.info(f"Triggering stuck execution {execution.id} for article {execution.article_id}")
-                    result = await run_workflow(execution.article_id, db_session, execution_id=execution.id)
+                    logger.info(f"Re-dispatching stuck execution {execution_id} for article {article_id} via Celery")
+                    trigger_agentic_workflow.delay(article_id, execution_id)
+
+                    AuditService.record_mandatory(
+                        db_session,
+                        _workflow_audit_event(
+                            request,
+                            ACTION_WORKFLOW_TRIGGERED,
+                            execution_id,
+                            f"Re-dispatched stuck workflow execution {execution_id}",
+                            {"article_id": article_id, "source": "trigger_stuck"},
+                        ),
+                    )
 
                     results.append(
                         {
-                            "execution_id": execution.id,
-                            "article_id": execution.article_id,
-                            "success": result.get("success", False),
-                            "message": result.get("message", "Workflow completed"),
+                            "execution_id": execution_id,
+                            "article_id": article_id,
+                            "success": True,
+                            "message": "Queued for the workflow worker",
                         }
                     )
 
                 except Exception as e:
-                    logger.error(f"Error triggering execution {execution.id}: {e}", exc_info=True)
+                    logger.error(f"Error re-dispatching execution {execution_id}: {e}", exc_info=True)
                     results.append(
                         {
-                            "execution_id": execution.id,
-                            "article_id": execution.article_id,
+                            "execution_id": execution_id,
+                            "article_id": article_id,
                             "success": False,
                             "message": type(e).__name__,
                         }
                     )
 
+            db_session.commit()
+
             successful = sum(1 for r in results if r["success"])
             failed = len(results) - successful
 
+            message = (
+                f"Queued {len(results)} stuck execution(s) on the workflow worker: "
+                f"{successful} dispatched, {failed} failed to dispatch"
+            )
+            if skipped:
+                message += f". Skipped {skipped} pending execution(s) newer than {STUCK_PENDING_AFTER}"
+
             return {
                 "success": True,
-                "message": f"Triggered {len(results)} execution(s): {successful} successful, {failed} failed",
+                "message": message,
                 "count": len(results),
                 "successful": successful,
                 "failed": failed,
+                "skipped": skipped,
                 "results": results,
             }
 
@@ -1502,46 +1563,6 @@ async def trigger_workflow_for_article(
                 db_session.rollback()
 
             trigger_service = WorkflowTriggerService(db_session)
-
-            # Check for existing active executions BEFORE triggering
-            # Also check for stuck pending executions (older than 5 minutes)
-            from datetime import timedelta
-
-            cutoff_time = datetime.now() - timedelta(minutes=5)
-
-            existing_execution = (
-                db_session.query(AgenticWorkflowExecutionTable)
-                .filter(
-                    AgenticWorkflowExecutionTable.article_id == article_id,
-                    AgenticWorkflowExecutionTable.status.in_(["pending", "running"]),
-                )
-                .first()
-            )
-
-            if existing_execution:
-                # Check if it's a stuck pending execution (older than 5 minutes and never started)
-                if (
-                    existing_execution.status == "pending"
-                    and existing_execution.created_at < cutoff_time
-                    and existing_execution.started_at is None
-                ):
-                    logger.warning(
-                        f"Found stuck pending execution {existing_execution.id} for article {article_id} "
-                        f"(created {existing_execution.created_at}, never started). Marking as failed."
-                    )
-                    existing_execution.status = "failed"
-                    existing_execution.error_message = (
-                        existing_execution.error_message
-                        or f"Execution stuck in pending status for more than 5 minutes (created: {existing_execution.created_at})"
-                    )
-                    existing_execution.completed_at = datetime.now()
-                    db_session.commit()
-                    # Continue to create new execution
-                else:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Article {article_id} already has an active workflow execution (ID: {existing_execution.id})",
-                    )
 
             initiated_by = initiating_actor_metadata(getattr(request.state, "identity", None))
             triggered, fail_detail = trigger_service.trigger_workflow(

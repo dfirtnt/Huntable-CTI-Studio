@@ -886,6 +886,7 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "pypdf" },
     { name = "pysigma" },
+    { name = "pysigma-validators-sigmahq" },
     { name = "python-dateutil" },
     { name = "python-multipart" },
     { name = "pyyaml" },
@@ -1019,6 +1020,7 @@ requires-dist = [
     { name = "pydantic-settings", specifier = "==2.14.2" },
     { name = "pypdf", specifier = "==6.16.1" },
     { name = "pysigma", specifier = "==1.3.3" },
+    { name = "pysigma-validators-sigmahq", specifier = "==0.21.0" },
     { name = "python-dateutil", specifier = "==2.9.0.post0" },
     { name = "python-multipart", specifier = "==0.0.32" },
     { name = "pyyaml", specifier = "==6.0.3" },
@@ -3888,6 +3890,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/de/8b/ac4ce192992abffce6334d163c57ef6b0d88a087507caee08c1995274f10/pysigma-1.3.3.tar.gz", hash = "sha256:5c66b35a0a72ffcfc9e4e4d7519e10d43a0eec154baa2d35fe12d8a6ff48072f", size = 132876, upload-time = "2026-04-21T14:31:18.199Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/87/16/354c7d1f30d91eae36b0e71841fdb362e86fbb7732a07052dc67d4a9e975/pysigma-1.3.3-py3-none-any.whl", hash = "sha256:3771aeaf4bc65dc372a754d67607964d8beb0431d438cc76ae380b89d91f261b", size = 161560, upload-time = "2026-04-21T14:31:16.328Z" },
+]
+
+[[package]]
+name = "pysigma-validators-sigmahq"
+version = "0.21.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "diskcache" },
+    { name = "pysigma" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/51/64/ee4dd6e10ba4628fbd02f7aae14c965848f3194cfa6ababc77138bc982e7/pysigma_validators_sigmahq-0.21.0.tar.gz", hash = "sha256:0778bdca03fc70b288739a498b4e0c060326f60bbde6dc4d7030619ffbfaf60c", size = 22368, upload-time = "2026-08-13T10:03:06.889Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/88/f6/f94716079e37451ae152e83b950c5645169b7207f33206dce8eb0203f516/pysigma_validators_sigmahq-0.21.0-py3-none-any.whl", hash = "sha256:d785ec1e64750c6a807ee457a2f1cbf2c6e2b2ab9b7e493bcfa8f0ad666f58a5", size = 33026, upload-time = "2026-08-13T10:03:05.714Z" },
 ]
 
 [[package]]

@@ -1,7 +1,11 @@
 # Huntable CTI Studio
 <img width="952" height="64" alt="image" src="https://github.com/user-attachments/assets/4b29bc70-b518-4559-af0c-caf23b86000d" />
 
-**Reports to Rules... in Record time.** Huntable CTI Studio is an AI-assisted workbench for detection engineers and threat hunters. It ingests open-source threat intelligence from RSS feeds and web scraping, extracts platform-aware observables (command lines, process trees, registry keys, services, scheduled tasks, network indicators, hunt queries) across Windows, Linux, and macOS, and turns them into Sigma rules you can validate, review, and ship.
+**Reports to Rules... in Record time.**
+
+Huntable CTI Studio is an open-source, agentic threat-intelligence (CTI) workbench that turns published threat reports into validated **Sigma detection rules**. It is built for detection engineers, threat hunters, DFIR and blue-team analysts practicing detection-as-code: it ingests OSINT from 38 seeded CTI sources, runs each article through a 7-step LangGraph pipeline that extracts observables (command lines, process trees, registry keys, services, scheduled tasks, network indicators, hunt queries) across Windows, Linux, and macOS, generates Sigma rules, and de-duplicates them against 3,000+ SigmaHQ community rules before queuing them for human review. Everything runs locally in Docker, exposes a Model Context Protocol (MCP) server for AI agents, and works with the LLM provider you choose.
+
+[![GitHub stars](https://img.shields.io/github/stars/dfirtnt/Huntable-CTI-Studio?style=flat)](https://github.com/dfirtnt/Huntable-CTI-Studio/stargazers) [![GitHub forks](https://img.shields.io/github/forks/dfirtnt/Huntable-CTI-Studio?style=flat)](https://github.com/dfirtnt/Huntable-CTI-Studio/network/members) [![License: MIT](https://img.shields.io/github/license/dfirtnt/Huntable-CTI-Studio)](LICENSE) [![Last commit](https://img.shields.io/github/last-commit/dfirtnt/Huntable-CTI-Studio)](https://github.com/dfirtnt/Huntable-CTI-Studio/commits) [![MCP server](https://img.shields.io/badge/MCP-server-blue)](docs/reference/mcp-tools.md)
 
 ## Who Is This For?
 
@@ -11,6 +15,22 @@
 | **Threat Hunters** | Extracted command-lines, process trees, and hunt queries ready for triage |
 | **SOC Analysts** | Curated, scored intelligence feed with semantic search via MCP |
 | **Contributors and agents** | A Docker-first stack with explicit workflow, config, and persistence contracts |
+
+## Highlights
+
+- **Multi-source aggregation** — RSS feeds, direct scrape endpoints, and browser extension
+- **Agentic workflows** — Platform Detection → junk filter → ranking → extraction → Sigma generation → similarity → queue promotion; platform-aware routing skips Windows-only extractors for Linux/macOS articles
+- **Detection support** — validation, similarity matching, and coverage classification
+- **Storage & services** — FastAPI web app, PostgreSQL + pgvector, Redis, Celery worker/scheduler
+- **Search & MCP retrieval** — Semantic search across collected intelligence; conversational retrieval via the Huntable MCP server
+- **MCP (optional)** — Model Context Protocol server with read tools plus scoped, audited write tools; committed `.mcp.json` wires it up for project-aware clients with no setup (same env as the web app; [tool reference](docs/reference/mcp-tools.md))
+
+## Links
+
+- **Landing page**: https://huntable.io
+- **Documentation site**: https://dfirtnt.github.io/Huntable-CTI-Studio/
+- **Introductory blog post**: https://dfirtnt.wordpress.com/2026/02/04/introducing-huntable-cti-studio/
+- **Source and issues**: https://github.com/dfirtnt/Huntable-CTI-Studio
 
 ## ** SECURITY WARNING **
 !! The DEFAULT mode is UNAUTHENTICATED (`AUTH_MODE=disabled`) -- intended for research, learning, and automation on a trusted/local network. DO NOT expose the default mode to a hostile network.
@@ -24,7 +44,7 @@ Even when hardened, the phase-one audit log is database-backed and mutable by da
 
 ## Purpose
 
-Aggregates cybersecurity threat intelligence from RSS feeds and web scraping; uses regex and AI to score relevance and extract observables; generates SIGMA detection rules, and prevents duplicates through jaccard similarity matching against 3,000+ community rules. More details here: https://dfirtnt.wordpress.com/2026/02/04/introducing-huntable-cti-studio/
+Aggregates cybersecurity threat intelligence from RSS feeds and web scraping; uses regex and AI to score relevance and extract observables; generates SIGMA detection rules, and prevents duplicates through jaccard similarity matching against 3,000+ community rules. Novelty is scored as a weighted behavioral similarity: 70% atom Jaccard overlap plus 30% detection-logic shape, so a rule is flagged as a duplicate for what it detects, not how its YAML happens to be written. More details here: https://dfirtnt.wordpress.com/2026/02/04/introducing-huntable-cti-studio/
 
 ## Architecture
 
@@ -100,7 +120,7 @@ Runtime entry points worth opening early:
 
 ## Documentation
 
-The documentation is organized under `/docs` and is published with MkDocs Material.
+The documentation is organized under `/docs` and is published with MkDocs Material at https://dfirtnt.github.io/Huntable-CTI-Studio/.
 
 - **Start here**: `docs/index.md`
 - **Quickstart**: `docs/quickstart.md`
@@ -108,15 +128,6 @@ The documentation is organized under `/docs` and is published with MkDocs Materi
 - **Development**: `docs/development/setup.md`, `docs/development/testing.md`
 - **Reference**: `docs/reference/api.md`, `docs/reference/schemas.md`, `docs/reference/mcp-tools.md`
 - **Security & Auth**: [`docs/guides/authentication.md`](docs/guides/authentication.md), [`docs/guides/enterprise-sso.md`](docs/guides/enterprise-sso.md)
-
-
-## ** SECURITY WARNING **
-!! The DEFAULT mode is UNAUTHENTICATED (`AUTH_MODE=disabled`) -- intended for research, learning, and automation on a trusted/local network. DO NOT expose the default mode to a hostile network.
-
-For hardened deployments, an optional enterprise boundary is available: SSO through a trusted-header reverse proxy (Google / GitHub / Microsoft), role-based access control, CSRF protection, fail-closed production startup, and a redacted, actor-attributed audit trail. See [Authentication](docs/guides/authentication.md) and [Enterprise SSO Setup](docs/guides/enterprise-sso.md).
-
-Even when hardened, the phase-one audit log is database-backed and mutable by database administrators (forward exports to a SIEM for higher assurance), and the app is not intended to store classified or proprietary threat intelligence at this time.
-##
 
 ## License
 

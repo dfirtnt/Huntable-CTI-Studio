@@ -645,11 +645,12 @@
 
                             <div id="workflowCodexSection" class="provider-body hidden text-sm text-gray-400">
                                 <p>Use a shared Codex subscription instead of an API key.</p>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">Connection is managed by an administrator.</p>
-                                <details class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                                    <summary class="cursor-pointer">Administrator setup</summary>
-                                    <p class="mt-1">After rebuilding, run <code>docker compose exec workflow_worker codex login --device-auth</code>.</p>
-                                </details>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Connect it once from a shell on the Docker host. The login is stored in the shared <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">codex_auth</code> volume, so the web and worker containers pick it up without a restart:</p>
+                                <div class="relative mt-2">
+                                    <pre class="text-sm bg-gray-900 text-gray-100 p-3 pr-16 rounded-lg overflow-x-auto"><code id="codexLoginCommand">docker compose exec workflow_worker codex login --device-auth</code></pre>
+                                    <button id="copyCodexLoginCommandBtn" type="button" title="Copy command" aria-label="Copy command" class="absolute top-2 right-2 settings-btn-secondary px-2 py-1 text-xs settings-btn-immediate">Copy</button>
+                                </div>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2"><code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">--device-auth</code> prints a URL and a code to open in your own browser. Plain <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">codex login</code> waits on a callback inside the container that your browser cannot reach. The account needs a ChatGPT Plus, Pro, or Business plan.</p>
                                 {{ test_action('testWorkflowCodexSubscription', 'workflowCodexStatus', 'Test subscription') }}
                             </div>
                         </div>
@@ -917,8 +918,9 @@
                            placeholder=""
                            class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        Repository in format <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">owner/repo</code>
+                        Optional override, in format <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">owner/repo</code>. Leave blank to use the repository the SIGMA repo clone already points at. Set it only to open PRs against a different repo than the one you push to.
                     </p>
+                    <p id="githubRepoEffective" class="text-sm text-gray-500 dark:text-gray-400 mt-1"></p>
                 </div>
 
                 <!-- Git User Configuration -->
@@ -2266,6 +2268,9 @@
         // The page state now matches what was written, so anything still differing
         // is a genuine pending edit.
         captureSettingsBaseline();
+
+        // A saved or cleared override changes which repository PRs target.
+        refreshResolvedGithubRepo();
     }
 
     // Persistent per-section outcome, unlike the toast which times out in 5s.
@@ -2310,6 +2315,19 @@
         } else {
             button.textContent = label;
         }
+    }
+
+    function wireCopyCommandButton(buttonId, commandId) {
+        safeAddListener(buttonId, 'click', function() {
+            const btn = document.getElementById(buttonId);
+            const source = document.getElementById(commandId);
+            if (!btn || !source) return;
+            navigator.clipboard.writeText(source.textContent).then(function() {
+                const orig = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(function() { btn.textContent = orig; }, 1500);
+            });
+        });
     }
 
     function setTestStatus(element, message, state) {
@@ -2431,6 +2449,37 @@
     }
     
     // Load GitHub PR settings from database
+    // The clone names its own GitHub repo, so a blank field is not "unconfigured".
+    // Show what submission will actually target, and where that came from, so the
+    // field is not filled in with a guess.
+    async function refreshResolvedGithubRepo() {
+        const el = document.getElementById('githubRepoEffective');
+        if (!el) return;
+        const input = document.getElementById('githubRepo');
+        try {
+            const response = await fetch('/api/settings/github/resolved-repo');
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            if (!data.repo) {
+                el.textContent = 'No repository resolved: the SIGMA repo clone has no recognizable GitHub origin remote. Enter owner/repo above.';
+                el.className = 'text-sm mt-1 text-amber-500';
+                if (input) input.placeholder = 'owner/repo';
+                return;
+            }
+            const origin = {
+                setting: 'from this field',
+                environment: 'from the GITHUB_REPO environment variable',
+                remote: "from the SIGMA repo clone's origin remote"
+            }[data.source] || 'in effect';
+            el.textContent = `PRs will target ${data.repo} (${origin}).`;
+            el.className = 'text-sm text-gray-500 dark:text-gray-400 mt-1';
+            if (input && data.source === 'remote') input.placeholder = data.repo;
+        } catch (error) {
+            console.warn('Could not resolve effective GitHub repository:', error);
+            el.textContent = '';
+        }
+    }
+
     async function loadGitHubPRSettings() {
         const settings = scrubLegacyLocalSecretSettings(JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}'));
 
@@ -2441,6 +2490,10 @@
             loadManagedCredential('gitUserName', { fallback: settings.gitUserName || 'Huntable CTI Studio' }),
             loadManagedCredential('gitUserEmail', { fallback: settings.gitUserEmail || 'cti-studio@huntable.local' })
         ]);
+
+        // Advisory only: a failure here must not be reported as a credential
+        // load failure, which would block the next save.
+        refreshResolvedGithubRepo();
 
         const ids = ['githubToken', 'sigmaRepoPath', 'githubRepo', 'gitUserName', 'gitUserEmail'];
         return ids.filter((id, index) => !results[index]);
@@ -2789,15 +2842,8 @@
 
         // GitHub PR settings
         safeAddListener('toggleGithubToken', 'click', toggleGithubTokenVisibility);
-        safeAddListener('copyMkdocsCommandBtn', 'click', function() {
-            const btn = document.getElementById('copyMkdocsCommandBtn');
-            const command = document.getElementById('mkdocsServeCommand').textContent;
-            navigator.clipboard.writeText(command).then(function() {
-                const orig = btn.textContent;
-                btn.textContent = 'Copied!';
-                setTimeout(function() { btn.textContent = orig; }, 1500);
-            });
-        });
+        wireCopyCommandButton('copyMkdocsCommandBtn', 'mkdocsServeCommand');
+        wireCopyCommandButton('copyCodexLoginCommandBtn', 'codexLoginCommand');
         safeAddListener('testGitHubConnection', 'click', testGitHubConnection);
 
         // Test workflow API key buttons
@@ -3077,6 +3123,15 @@
                     <span>Last Backup:</span>
                     <span>${status.last_backup || 'Never'}</span>
                 </div>
+                <div class="flex justify-between">
+                    <span>Backup Age:</span>
+                    <span>${status.backup_age_days === null ? 'Unknown' : `${status.backup_age_days} days`}</span>
+                </div>
+                ${status.backup_stale ? `
+                    <div data-testid="backup-stale-warning" role="alert" class="rounded-lg border border-red-700 bg-red-900/30 px-3 py-2 text-sm text-red-200">
+                        Warning: the most recent backup is older than ${status.backup_stale_after_days} days.
+                    </div>
+                ` : ''}
             </div>
         `;
 

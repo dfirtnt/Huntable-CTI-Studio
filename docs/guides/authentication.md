@@ -69,8 +69,8 @@ Public routes are intentionally minimal:
 - `/static/*`
 
 Detailed health, capabilities, settings, source mutation, scheduled jobs,
-workflow actions, Sigma queue actions, article mutations (delete, bulk-action,
-mark-reviewed), backup/restore, model management, debugging, and audit APIs
+workflow actions, Sigma queue actions, article mutations (delete, bulk-action),
+backup/restore, model management, debugging, and audit APIs
 require an authenticated identity with the configured role. Unsafe routes that
 are not classified fail closed in auth-enabled modes, and any unsafe route that
 is only authenticated (no role) must be listed in an explicit allowlist
@@ -201,8 +201,9 @@ hanging a privileged request. Covered:
   event keeps human attribution)
 - bulk embedding rebuild and per-article embedding generation (dispatch only:
   the worker-side outcome is not observable from the route)
-- evaluation runs (workflow, subagent, Sigma), eval bundle export, and
-  LLM-powered bundle diagnosis
+- evaluation runs (workflow, subagent, Sigma), eval bundle export, and eval
+  diagnosis persistence (the MCP `save_eval_diagnosis` write, audited as
+  `evaluation.bundle_diagnosed`; the server-side diagnose route no longer exists)
 - observable training and observable evaluation runs
 
 One consequence worth knowing: a full-database restore replaces `audit_events`

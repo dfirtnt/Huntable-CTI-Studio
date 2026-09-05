@@ -66,7 +66,10 @@ startup_check_prerequisites() {
 
 startup_ensure_runtime_directories() {
     _startup_log_info "Creating necessary directories..."
-    mkdir -p logs backups models outputs data
+    # test-results is gitignored but bind-mounted by web, worker and workflow_worker,
+    # so a fresh clone has no host directory for it and those containers fail to
+    # start with an OCI mount error. Every other relative mount source is tracked.
+    mkdir -p logs backups models outputs data data/diagnoses test-results
 }
 
 startup_set_env_key() {
@@ -174,11 +177,29 @@ _startup_sigma_embed_chunk_size() {
     fi
 }
 
+# Run one `cli` command with stderr captured instead of discarded. Compose writes
+# its container chatter to stderr, so redirecting it keeps the happy path quiet
+# while a failure still leaves the real reason in logs/sigma_index.log and echoes
+# the tail — otherwise a broken image (e.g. a missing git binary) surfaces only as
+# "sync failed". stdout stays on the terminal so the long embedding job still
+# shows progress.
+_startup_sigma_cli() {
+    local log_file="logs/sigma_index.log"
+    mkdir -p logs
+    echo "--- $(date '+%Y-%m-%d %H:%M:%S') $*" >>"$log_file"
+    if "$@" 2>>"$log_file"; then
+        return 0
+    fi
+    _startup_log_warn "Last lines of $log_file:"
+    tail -n 15 "$log_file" >&2
+    return 1
+}
+
 startup_sigma_sync_and_index() {
     echo ""
     _startup_log_info "Sigma: syncing SigmaHQ repo..."
-    if $DOCKER_COMPOSE_CMD run --rm cli python -m src.cli.main sigma sync 2>/dev/null; then
-        if $DOCKER_COMPOSE_CMD run --rm cli python -m src.cli.main sigma index-metadata 2>/dev/null; then
+    if _startup_sigma_cli $DOCKER_COMPOSE_CMD run --rm cli python -m src.cli.main sigma sync; then
+        if _startup_sigma_cli $DOCKER_COMPOSE_CMD run --rm cli python -m src.cli.main sigma index-metadata; then
             _startup_log_info "✅ Sigma rule metadata indexed"
         else
             _startup_log_warn "Sigma metadata index failed (run manually: ./run_cli.sh sigma index-metadata)"
@@ -197,9 +218,9 @@ startup_sigma_sync_and_index() {
                 _startup_log_info "Sigma embeddings: low Docker memory detected — using chunk size $chunk_size."
             fi
 
-            if $DOCKER_COMPOSE_CMD run --rm "${chunk_env[@]}" cli python -m src.cli.main sigma index-embeddings 2>/dev/null; then
+            if _startup_sigma_cli $DOCKER_COMPOSE_CMD run --rm "${chunk_env[@]}" cli python -m src.cli.main sigma index-embeddings; then
                 _startup_log_info "✅ Sigma rule embeddings generated"
-            elif $DOCKER_COMPOSE_CMD run --rm "${chunk_env[@]}" cli python -m src.cli.main sigma index-embeddings 2>/dev/null; then
+            elif _startup_sigma_cli $DOCKER_COMPOSE_CMD run --rm "${chunk_env[@]}" cli python -m src.cli.main sigma index-embeddings; then
                 # First pass may have been OOM-killed after committing some chunks;
                 # the resumable retry completes the remaining rules.
                 _startup_log_info "✅ Sigma rule embeddings generated (completed on retry)"

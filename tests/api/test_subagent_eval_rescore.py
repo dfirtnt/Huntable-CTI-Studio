@@ -41,8 +41,8 @@ def _make_record(**overrides):
 
 
 def _registry_execution(exec_id=42):
-    # `value` is the stringified-dict field that must be ignored; identity is
-    # built from registry_hive + registry_key_path (the historical bug).
+    # Per docs/contracts/registry-extract.md: identity is built from `key`
+    # (the full hive-rooted path); `value` duplicates it.
     return SimpleNamespace(
         id=exec_id,
         extraction_result={
@@ -50,10 +50,9 @@ def _registry_execution(exec_id=42):
                 "registry_artifacts": {
                     "items": [
                         {
-                            "value": "{'registry_hive': 'HKEY_LOCAL_MACHINE', 'registry_key_path': '...'}",
-                            "registry_hive": "HKEY_LOCAL_MACHINE",
-                            "registry_key_path": "System\\CurrentControlSet\\Control\\Lsa",
-                            "registry_value_name": None,
+                            "key": "HKLM\\System\\CurrentControlSet\\Control\\Lsa",
+                            "value": "HKLM\\System\\CurrentControlSet\\Control\\Lsa",
+                            "value_name": None,
                         }
                     ]
                 }
@@ -120,7 +119,7 @@ async def test_apply_writes_item_metrics_from_retained_output():
     assert record.matched_count == 1
     assert record.missed_count == 0
     assert record.extra_count == 0
-    assert record.actual_items == ["HKEY_LOCAL_MACHINE\\System\\CurrentControlSet\\Control\\Lsa"]
+    assert record.actual_items == ["HKLM\\System\\CurrentControlSet\\Control\\Lsa"]
     session.commit.assert_called_once()
     assert audit.call_args.kwargs["mandatory"] is True
 

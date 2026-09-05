@@ -1,3 +1,0 @@
-# Deterministic Sigma similarity (local package)
-# Required for sigma recompute-atoms and novelty comparison
--e ./sigma_atom_similarity

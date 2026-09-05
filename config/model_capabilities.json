@@ -1,0 +1,422 @@
+{
+  "version": 1,
+  "verified_at": "2026-09-04",
+  "sources": [
+    "https://developers.openai.com/api/docs/models/<model-id>",
+    "https://developers.openai.com/api/docs/guides/reasoning",
+    "https://platform.claude.com/docs/en/build-with-claude/effort"
+  ],
+  "models": {
+    "claude-fable-5": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "default_effort": "high"
+    },
+    "claude-fable-5-1": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "default_effort": "high"
+    },
+    "claude-haiku-4-5": {
+      "supports_temperature": true,
+      "supports_top_p": true,
+      "effort_levels": [],
+      "default_effort": null
+    },
+    "claude-haiku-4-5-20251001": {
+      "supports_temperature": true,
+      "supports_top_p": true,
+      "effort_levels": [],
+      "default_effort": null
+    },
+    "claude-opus-4-5": {
+      "supports_temperature": true,
+      "supports_top_p": true,
+      "effort_levels": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "default_effort": "high"
+    },
+    "claude-opus-4-5-20251101": {
+      "supports_temperature": true,
+      "supports_top_p": true,
+      "effort_levels": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "default_effort": "high"
+    },
+    "claude-opus-4-6": {
+      "supports_temperature": true,
+      "supports_top_p": true,
+      "effort_levels": [
+        "low",
+        "medium",
+        "high",
+        "max"
+      ],
+      "default_effort": "high"
+    },
+    "claude-opus-4-7": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "default_effort": "high"
+    },
+    "claude-opus-4-8": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "default_effort": "high"
+    },
+    "claude-opus-5": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "default_effort": "high"
+    },
+    "claude-sonnet-4-5": {
+      "supports_temperature": true,
+      "supports_top_p": true,
+      "effort_levels": [],
+      "default_effort": null
+    },
+    "claude-sonnet-4-5-20250929": {
+      "supports_temperature": true,
+      "supports_top_p": true,
+      "effort_levels": [],
+      "default_effort": null
+    },
+    "claude-sonnet-4-6": {
+      "supports_temperature": true,
+      "supports_top_p": true,
+      "effort_levels": [
+        "low",
+        "medium",
+        "high",
+        "max"
+      ],
+      "default_effort": "high"
+    },
+    "claude-sonnet-5": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "default_effort": "high"
+    },
+    "gpt-4.1": {
+      "supports_temperature": true,
+      "supports_top_p": true,
+      "effort_levels": [],
+      "default_effort": null
+    },
+    "gpt-4.1-mini": {
+      "supports_temperature": true,
+      "supports_top_p": true,
+      "effort_levels": [],
+      "default_effort": null
+    },
+    "gpt-4.1-nano": {
+      "supports_temperature": true,
+      "supports_top_p": true,
+      "effort_levels": [],
+      "default_effort": null
+    },
+    "gpt-4o": {
+      "supports_temperature": true,
+      "supports_top_p": true,
+      "effort_levels": [],
+      "default_effort": null
+    },
+    "gpt-4o-mini": {
+      "supports_temperature": true,
+      "supports_top_p": true,
+      "effort_levels": [],
+      "default_effort": null
+    },
+    "gpt-5": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "minimal",
+        "low",
+        "medium",
+        "high"
+      ],
+      "default_effort": "medium"
+    },
+    "gpt-5-chat-latest": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [],
+      "default_effort": null,
+      "note": "Non-reasoning ChatGPT routing pointer; temperature support unverified, kept omitted."
+    },
+    "gpt-5-mini": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "minimal",
+        "low",
+        "medium",
+        "high"
+      ],
+      "default_effort": "medium"
+    },
+    "gpt-5-nano": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "minimal",
+        "low",
+        "medium",
+        "high"
+      ],
+      "default_effort": "medium"
+    },
+    "gpt-5-pro": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "high"
+      ],
+      "default_effort": "high",
+      "note": "Responses API only; not callable through /v1/chat/completions."
+    },
+    "gpt-5.1": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "none",
+        "low",
+        "medium",
+        "high"
+      ],
+      "default_effort": "none"
+    },
+    "gpt-5.1-chat-latest": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [],
+      "default_effort": null,
+      "note": "Non-reasoning ChatGPT routing pointer; temperature support unverified, kept omitted."
+    },
+    "gpt-5.2": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "default_effort": "none"
+    },
+    "gpt-5.2-chat-latest": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [],
+      "default_effort": null,
+      "note": "Non-reasoning ChatGPT routing pointer; temperature support unverified, kept omitted."
+    },
+    "gpt-5.2-pro": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "default_effort": null,
+      "note": "Responses API only; not callable through /v1/chat/completions."
+    },
+    "gpt-5.3-chat-latest": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [],
+      "default_effort": null,
+      "note": "Non-reasoning ChatGPT routing pointer; temperature support unverified, kept omitted."
+    },
+    "gpt-5.4": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "default_effort": "none"
+    },
+    "gpt-5.4-mini": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "default_effort": "none"
+    },
+    "gpt-5.4-nano": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "default_effort": "none"
+    },
+    "gpt-5.4-pro": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "default_effort": "medium",
+      "note": "Responses API only; not callable through /v1/chat/completions."
+    },
+    "gpt-5.5": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "default_effort": "medium"
+    },
+    "gpt-5.5-pro": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "default_effort": "high",
+      "note": "Responses API only; not callable through /v1/chat/completions."
+    },
+    "gpt-5.6-luna": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "default_effort": "medium"
+    },
+    "gpt-5.6-sol": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "default_effort": "medium"
+    },
+    "gpt-5.6-terra": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "default_effort": "medium"
+    },
+    "o3": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "default_effort": "medium"
+    },
+    "o3-mini": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "default_effort": "medium"
+    },
+    "o4-mini": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "default_effort": "medium"
+    }
+  }
+}
