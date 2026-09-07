@@ -1116,6 +1116,124 @@ def _parse_agent_result(agent_name: str, result_key: str, agent_result: dict) ->
     return items, subresult_entry
 
 
+# Post-parse validation caps for _validate_extraction_items. Deliberately generous:
+# this guards against a runaway/malformed LLM response, not against real extraction
+# output, which never approaches these numbers.
+_MAX_EXTRACTION_ITEMS_PER_AGENT = 200
+_MAX_EXTRACTION_STRING_LENGTH = 5000
+_MAX_EXTRACTION_ITEM_DEPTH = 4
+_MAX_EXTRACTION_ITEM_FIELDS = 50
+
+
+def _container_depth(value: Any) -> int:
+    """Max nesting depth of dict/list containers within `value` (0 for a scalar)."""
+    if isinstance(value, dict):
+        return 1 + max((_container_depth(v) for v in value.values()), default=0)
+    if isinstance(value, list):
+        return 1 + max((_container_depth(v) for v in value), default=0)
+    return 0
+
+
+def _truncate_long_strings(value: Any) -> tuple[Any, bool]:
+    """Recursively cap string length within an item. Returns (value, was_truncated)."""
+    if isinstance(value, str):
+        if len(value) > _MAX_EXTRACTION_STRING_LENGTH:
+            return value[:_MAX_EXTRACTION_STRING_LENGTH] + "...[truncated]", True
+        return value, False
+    if isinstance(value, dict):
+        truncated = False
+        out = {}
+        for k, v in value.items():
+            new_v, was = _truncate_long_strings(v)
+            truncated = truncated or was
+            out[k] = new_v
+        return out, truncated
+    if isinstance(value, list):
+        truncated = False
+        out = []
+        for v in value:
+            new_v, was = _truncate_long_strings(v)
+            truncated = truncated or was
+            out.append(new_v)
+        return out, truncated
+    return value, False
+
+
+def _validate_extraction_items(agent_name: str, items: list) -> tuple[list, list[dict[str, Any]]]:
+    """Provider-agnostic post-parse validation of an extraction agent's items.
+
+    Runs between _parse_agent_result and the extraction_result write, deliberately
+    kept schema-light rather than a rigid per-agent field contract: llm_service's
+    own key-normalization (_normalize_traceability_item) already guarantees every
+    item is a dict or a plain string for a well-formed response, across all seven
+    agents. Anything else here only arrives through _parse_agent_result's "first
+    list value" fallback, which is itself evidence the LLM's JSON didn't match any
+    expected key -- exactly the malformed case this exists to catch.
+
+    Rejects (drops, with a logged reason): items whose top-level type isn't a dict
+    or string, items nested deeper than a real extraction ever produces, and dicts
+    with an implausible number of fields. Truncates rather than rejects an
+    otherwise-valid item that just has one oversized string value. Caps the item
+    count per agent. Transparent for well-formed output: nothing here fires when
+    an agent's items are within all four caps, which is the case for every known-
+    good extraction (see Todoist 6hHP8XgWqh24qxR3).
+
+    Returns (accepted_items, rejected_records) -- rejected_records is empty unless
+    something was actually dropped.
+    """
+    if not isinstance(items, list) or not items:
+        return items, []
+
+    accepted: list = []
+    rejected: list[dict[str, Any]] = []
+
+    for index, item in enumerate(items):
+        if index >= _MAX_EXTRACTION_ITEMS_PER_AGENT:
+            rejected.append(
+                {"index": index, "reason": "item_count_exceeded", "cap": _MAX_EXTRACTION_ITEMS_PER_AGENT}
+            )
+            continue
+        if not isinstance(item, dict | str):
+            rejected.append({"index": index, "reason": "unexpected_type", "type": type(item).__name__})
+            continue
+        depth = _container_depth(item)
+        if depth > _MAX_EXTRACTION_ITEM_DEPTH:
+            rejected.append(
+                {"index": index, "reason": "nesting_too_deep", "depth": depth, "cap": _MAX_EXTRACTION_ITEM_DEPTH}
+            )
+            continue
+        if isinstance(item, dict) and len(item) > _MAX_EXTRACTION_ITEM_FIELDS:
+            rejected.append(
+                {
+                    "index": index,
+                    "reason": "too_many_fields",
+                    "field_count": len(item),
+                    "cap": _MAX_EXTRACTION_ITEM_FIELDS,
+                }
+            )
+            continue
+        cleaned, was_truncated = _truncate_long_strings(item)
+        if was_truncated:
+            logger.warning(
+                "%s: item %d had a value over %d chars, truncated before storage",
+                agent_name,
+                index,
+                _MAX_EXTRACTION_STRING_LENGTH,
+            )
+        accepted.append(cleaned)
+
+    if rejected:
+        logger.warning(
+            "%s: rejected %d/%d extraction item(s) during post-parse validation: %s",
+            agent_name,
+            len(rejected),
+            len(items),
+            rejected[:10],
+        )
+
+    return accepted, rejected
+
+
 async def _maybe_adjudicate_platform(
     content: str,
     agent_models: dict[str, Any],
@@ -2242,6 +2360,13 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
                     # Store Result
                     items, subresult_entry = _parse_agent_result(agent_name, result_key, agent_result)
+                    items, validation_rejected = _validate_extraction_items(agent_name, items)
+                    if validation_rejected:
+                        subresult_entry["items"] = items
+                        subresult_entry["count"] = len(items)
+                        subresult_entry["validation_rejected"] = validation_rejected
+                        if "queries" in subresult_entry:
+                            subresult_entry["queries"] = items
                     subresults[result_key] = subresult_entry
                     logger.info(f"[Workflow {state['execution_id']}] {agent_name}: {len(items)} items")
 

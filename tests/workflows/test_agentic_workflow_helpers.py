@@ -23,6 +23,7 @@ from src.workflows.agentic_workflow import (
     _platforms_from_os_detection,
     _rebase_group_observable_indices,
     _repair_empty_observable_attribution,
+    _validate_extraction_items,
 )
 
 pytestmark = pytest.mark.unit
@@ -952,3 +953,140 @@ class TestExecution25Article989DedupRegression:
         kept = _deduplicate_batch_rules([self.RULE_19, self.RULE_21])
 
         assert len(kept) == 2
+
+
+class TestValidateExtractionItemsIsTransparentForWellFormedOutput:
+    """Todoist 6hHP8XgWqh24qxR3, acceptance criterion 2: a full workflow run on a
+    known-good article must produce an extraction_result identical in content to
+    pre-change behavior. This sandbox has no live workflow/LLM to run end to end,
+    so the property is pinned here instead: for realistic well-formed items from
+    every extraction agent, validation must return the exact same list (same
+    objects, no copying/reordering) and report nothing rejected -- which is what
+    lets the call site skip touching subresult_entry at all in that case.
+    """
+
+    WELL_FORMED_ITEMS_BY_AGENT = {
+        "CmdlineExtract": [
+            {"value": "whoami /all", "confidence_score": 0.9, "source_evidence": "ran whoami /all"},
+            "net user DC-01$ P@ssw0rd",
+        ],
+        "ProcTreeExtract": [
+            {
+                "value": "cmd.exe -> powershell.exe",
+                "parent_image": "cmd.exe",
+                "child_image": "powershell.exe",
+                "confidence_score": 0.8,
+            }
+        ],
+        "HuntQueriesExtract": [
+            {"type": "sigma", "query": "title: Test\ncondition: selection", "context": "detection"},
+        ],
+        "RegistryExtract": [
+            {"value": "HKLM\\SOFTWARE\\Microsoft\\Windows Defender\\Exclusions\\Paths", "confidence_score": 0.95},
+        ],
+        "ServicesExtract": [
+            {"value": "malicious_svc", "service_name": "malicious_svc", "image_path": "C:\\evil.exe"},
+        ],
+        "ScheduledTasksExtract": [
+            {"value": "UpdaterTask", "task_name": "UpdaterTask", "trigger": "daily"},
+        ],
+        "NetworkIndicatorExtract": [
+            {"value": "203.0.113.5", "confidence_score": 0.7, "extraction_justification": "C2 IP in report"},
+        ],
+    }
+
+    @pytest.mark.parametrize("agent_name", list(WELL_FORMED_ITEMS_BY_AGENT.keys()))
+    def test_well_formed_items_pass_through_unchanged_with_nothing_rejected(self, agent_name):
+        items = self.WELL_FORMED_ITEMS_BY_AGENT[agent_name]
+
+        accepted, rejected = _validate_extraction_items(agent_name, items)
+
+        assert accepted == items
+        assert rejected == []
+
+    def test_empty_item_list_is_a_no_op(self):
+        accepted, rejected = _validate_extraction_items("CmdlineExtract", [])
+        assert accepted == []
+        assert rejected == []
+
+    def test_non_list_items_pass_through_unvalidated(self):
+        """_parse_agent_result's items is always a list in practice; guard the type anyway."""
+        accepted, rejected = _validate_extraction_items("CmdlineExtract", None)
+        assert accepted is None
+        assert rejected == []
+
+
+class TestValidateExtractionItemsRejectsMalformedInput:
+    """Malformed items (wrong types, absurd lengths, extra nesting) are rejected or
+    truncated before storage, per agent. Todoist 6hHP8XgWqh24qxR3.
+    """
+
+    @pytest.mark.parametrize("agent_name", ["CmdlineExtract", "RegistryExtract", "NetworkIndicatorExtract"])
+    def test_rejects_items_that_are_neither_dict_nor_string(self, agent_name):
+        """The malformed shape _parse_agent_result's 'first list value' fallback can produce."""
+        accepted, rejected = _validate_extraction_items(agent_name, [1, 2, 3])
+
+        assert accepted == []
+        assert len(rejected) == 3
+        assert all(r["reason"] == "unexpected_type" for r in rejected)
+        assert rejected[0]["type"] == "int"
+
+    def test_accepts_dicts_and_strings_while_rejecting_other_types_in_the_same_batch(self):
+        accepted, rejected = _validate_extraction_items(
+            "CmdlineExtract", [{"value": "whoami"}, "net user", 42, ["nested", "list", "as", "item"]]
+        )
+
+        assert accepted == [{"value": "whoami"}, "net user"]
+        assert [r["reason"] for r in rejected] == ["unexpected_type", "unexpected_type"]
+
+    def test_truncates_an_oversized_string_value_instead_of_rejecting_the_item(self):
+        huge_value = "A" * 10_000
+        accepted, rejected = _validate_extraction_items("CmdlineExtract", [{"value": huge_value}])
+
+        assert rejected == []
+        assert len(accepted) == 1
+        assert len(accepted[0]["value"]) == 5000 + len("...[truncated]")
+        assert accepted[0]["value"].endswith("...[truncated]")
+
+    def test_truncates_a_plain_string_item_too(self):
+        accepted, rejected = _validate_extraction_items("HuntQueriesExtract", ["B" * 10_000])
+
+        assert rejected == []
+        assert accepted[0].endswith("...[truncated]")
+
+    def test_rejects_a_dict_nested_far_deeper_than_any_real_extraction_item(self):
+        pathological = {"value": "x"}
+        node = pathological
+        for _ in range(10):
+            node["nested"] = {}
+            node = node["nested"]
+
+        accepted, rejected = _validate_extraction_items("ProcTreeExtract", [pathological])
+
+        assert accepted == []
+        assert rejected[0]["reason"] == "nesting_too_deep"
+
+    def test_rejects_a_dict_with_an_implausible_number_of_fields(self):
+        sprawling = {f"field_{i}": "x" for i in range(51)}
+
+        accepted, rejected = _validate_extraction_items("ServicesExtract", [sprawling])
+
+        assert accepted == []
+        assert rejected[0]["reason"] == "too_many_fields"
+        assert rejected[0]["field_count"] == 51
+
+    def test_caps_item_count_per_agent_keeping_the_first_n(self):
+        items = [{"value": f"item-{i}"} for i in range(250)]
+
+        accepted, rejected = _validate_extraction_items("CmdlineExtract", items)
+
+        assert len(accepted) == 200
+        assert accepted == items[:200]
+        assert len(rejected) == 50
+        assert all(r["reason"] == "item_count_exceeded" for r in rejected)
+
+    def test_rejected_records_carry_the_original_index(self):
+        accepted, rejected = _validate_extraction_items("CmdlineExtract", [{"value": "ok"}, 999, {"value": "ok2"}])
+
+        assert accepted == [{"value": "ok"}, {"value": "ok2"}]
+        assert rejected == [{"index": 1, "reason": "unexpected_type", "type": "int"}]
