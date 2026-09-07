@@ -1,0 +1,55 @@
+# SigmaHQ validator set that the in-app SigmaValidator treats as BLOCKING.
+#
+# Mirror of Huntable-SIGMA-Rules/.sigma/validation-blocking.yml (2026-09-03), the set the
+# rules repository's CI runs with `sigma check --validation-config`. Keep the two files in
+# step: a rule the queue approves must not fail the repository's PR check. Names come from
+# `sigma list validators` (pySigma core + pySigma-validators-sigmahq, both pinned in
+# pyproject.toml); tests/unit/test_sigma_validator_sigmahq.py fails if a name here is not
+# installed. Pipeline grounding keys (observables_used and friends) are exempted in code
+# because the pipeline strips them before publication.
+#
+validators:
+  # condition / detection structure
+  - dangling_condition
+  - dangling_detection
+  - them_condition_with_single_detection
+  - sigmahq_missing_asterisk_condition
+  - sigmahq_ofselection_condition
+  - sigmahq_ofthem_condition
+  # identity
+  - identifier_existence
+  - identifier_uniqueness
+  - duplicate_title
+  - duplicate_filename
+  # required metadata for a rule to be usable and reviewable
+  - sigmahq_description_existence
+  - sigmahq_level_existence
+  - sigmahq_status_existence
+  # field names / logsource: the "parses, then matches nothing" class
+  - sigmahq_invalid_fieldname
+  - sigmahq_fieldname_cast
+  - sigmahq_unknown_field
+  - sigmahq_space_field_name
+  - custom_attributes
+  - sigmahq_logsource_unknown
+  - sigmahq_sysmon_missing_eventid
+  - sigmahq_category_event_id
+  - sigmahq_category_windows_provider_name
+  - sigmahq_redundant_field
+  - sigmahq_fields_existence
+  # value / modifier correctness
+  - invalid_modifier_combinations
+  - sigmahq_invalid_all_modifier
+  - sigmahq_invalid_hash_kv
+  - sigmahq_field_duplicate_value
+  - sigmahq_unsupported_regex_group_construct
+  - control_character
+  - double_wildcard
+  # tag well-formedness (not ATT&CK membership -- see advisory)
+  - tag_format
+  - namespace_tag
+  - duplicate_tag
+  - sigmahq_tags_unique_detection
+  - sigmahq_tags_unique_tlp
+
+exclusions: {}
