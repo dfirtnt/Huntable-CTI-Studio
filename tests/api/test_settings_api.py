@@ -454,6 +454,86 @@ class TestSettingsSecretMasking:
             assert _is_sensitive_setting(key) is False, key
 
 
+@pytest.mark.api
+class TestSettingsEnvFallback:
+    """GET /api/settings/{key} must fall back to the environment like `_read_setting_value`
+    does internally, and say where the effective value came from.
+
+    Before this, a value supplied only via `.env` rendered as an empty field in
+    Settings even though the rest of the app was using it -- an operator who saw
+    blank and typed a value would create a DB row that silently overrode the
+    correct environment value (this is how GITHUB_REPO ended up pointing at a
+    nonexistent repo in production; see Todoist 6hQgG6C9xQ3GhPxV).
+    """
+
+    ENV_KEY = "GITHUB_REPO"
+
+    @pytest.mark.asyncio
+    async def test_env_only_value_is_reported_as_configured_with_source_environment(self, monkeypatch):
+        monkeypatch.setenv(self.ENV_KEY, "dfirtnt/Huntable-SIGMA-Rules")
+        with patch("src.web.routes.settings.async_db_manager") as mock_mgr:
+            mock_mgr.get_session.return_value = TestSettingsSecretMasking._single_setting_ctx(self.ENV_KEY, None)
+            from src.web.routes.settings import get_setting
+
+            result = await get_setting(self.ENV_KEY)
+
+        payload = json.loads(result.body)
+        assert payload["exists"] is False  # no database row
+        assert payload["configured"] is True
+        assert payload["value"] == "dfirtnt/Huntable-SIGMA-Rules"
+        assert payload["source"] == "environment"
+
+    @pytest.mark.asyncio
+    async def test_env_only_secret_is_configured_but_never_returns_its_value(self, monkeypatch):
+        monkeypatch.setenv("WORKFLOW_ANTHROPIC_API_KEY", TestSettingsSecretMasking.SECRET)
+        with patch("src.web.routes.settings.async_db_manager") as mock_mgr:
+            mock_mgr.get_session.return_value = TestSettingsSecretMasking._single_setting_ctx(
+                "WORKFLOW_ANTHROPIC_API_KEY", None
+            )
+            from src.web.routes.settings import get_setting
+
+            result = await get_setting("WORKFLOW_ANTHROPIC_API_KEY")
+
+        body = result.body.decode()
+        assert TestSettingsSecretMasking.SECRET not in body
+        payload = json.loads(body)
+        assert payload["value"] is None
+        assert payload["configured"] is True
+        assert payload["source"] == "environment"
+        assert payload["hint"] is not None
+
+    @pytest.mark.asyncio
+    async def test_database_value_takes_precedence_over_environment(self, monkeypatch):
+        monkeypatch.setenv(self.ENV_KEY, "wrong-owner/wrong-repo")
+        with patch("src.web.routes.settings.async_db_manager") as mock_mgr:
+            mock_mgr.get_session.return_value = TestSettingsSecretMasking._single_setting_ctx(
+                self.ENV_KEY, "dfirtnt/Huntable-SIGMA-Rules"
+            )
+            from src.web.routes.settings import get_setting
+
+            result = await get_setting(self.ENV_KEY)
+
+        payload = json.loads(result.body)
+        assert payload["exists"] is True
+        assert payload["value"] == "dfirtnt/Huntable-SIGMA-Rules"
+        assert payload["source"] == "database"
+
+    @pytest.mark.asyncio
+    async def test_neither_database_nor_environment_reports_unset(self, monkeypatch):
+        monkeypatch.delenv(self.ENV_KEY, raising=False)
+        with patch("src.web.routes.settings.async_db_manager") as mock_mgr:
+            mock_mgr.get_session.return_value = TestSettingsSecretMasking._single_setting_ctx(self.ENV_KEY, None)
+            from src.web.routes.settings import get_setting
+
+            result = await get_setting(self.ENV_KEY)
+
+        payload = json.loads(result.body)
+        assert payload["exists"] is False
+        assert payload["configured"] is False
+        assert payload["value"] is None
+        assert payload["source"] == "unset"
+
+
 def _github_test_body(**kwargs):
     """Build the route's optional override model without importing it at module scope."""
     from src.web.routes.settings import GitHubConnectionTest

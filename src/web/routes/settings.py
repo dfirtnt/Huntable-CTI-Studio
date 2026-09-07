@@ -273,7 +273,14 @@ async def get_all_settings():
 
 @router.get("/{key}")
 async def get_setting(key: str):
-    """Get a specific setting by key."""
+    """Get a specific setting by key, falling back to the environment like _read_setting_value does.
+
+    `exists` still means "there is a database row" -- callers that care about that
+    distinction (e.g. deciding whether to DELETE) keep working. `configured` and
+    `value`/`hint` reflect the value actually in effect, and `source` says where it
+    came from, so a client can tell an environment-backed field apart from a
+    genuinely unset one instead of rendering both as blank.
+    """
     try:
         async with async_db_manager.get_session() as session:
             from sqlalchemy import select
@@ -283,30 +290,26 @@ async def get_setting(key: str):
 
             sensitive = _is_sensitive_setting(key)
 
-            if not setting:
-                payload: dict[str, Any] = {
-                    "success": True,
-                    "key": key,
-                    "value": None,
-                    "exists": False,
-                    "sensitive": sensitive,
-                    "configured": False,
-                    "hint": None,
-                }
+            if setting and setting.value:
+                effective_value, source = setting.value, "database"
             else:
-                payload = {
-                    "success": True,
-                    "key": setting.key,
-                    # A sensitive value is never returned; `configured`/`hint` carry the
-                    # only information a client legitimately needs about it.
-                    "value": None if sensitive else setting.value,
-                    "description": setting.description,
-                    "category": setting.category,
-                    "exists": True,
-                    "sensitive": sensitive,
-                    "configured": bool(setting.value),
-                    "hint": _secret_hint(setting.value) if sensitive else None,
-                }
+                env_value = os.environ.get(key) or None
+                effective_value, source = (env_value, "environment") if env_value else (None, "unset")
+
+            payload: dict[str, Any] = {
+                "success": True,
+                "key": key,
+                # A sensitive value is never returned; `configured`/`hint` carry the
+                # only information a client legitimately needs about it.
+                "value": None if sensitive else effective_value,
+                "description": setting.description if setting else None,
+                "category": setting.category if setting else None,
+                "exists": setting is not None,
+                "sensitive": sensitive,
+                "configured": bool(effective_value),
+                "hint": _secret_hint(effective_value) if sensitive else None,
+                "source": source,
+            }
 
             # Matches the sibling list route: this is the route individual secrets are
             # read through, so its responses must not sit in any cache.

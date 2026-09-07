@@ -902,6 +902,7 @@
                            id="sigmaRepoPath"
                            placeholder="sigma-repo"
                            class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                    <p id="sigmaRepoPathCredentialState" class="text-xs text-gray-400 mt-1" role="status"></p>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
                         Customer rules repo for Huntable-created rules and PR submission (relative to app root). Default <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">sigma-repo</code>. Docker mounts <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">${HOME}/Huntable-SIGMA-Rules</code> there. The upstream SigmaHQ reference cache is separate at <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">data/sigma-repo</code> and must not be used here.
                     </p>
@@ -916,6 +917,7 @@
                            id="githubRepo"
                            placeholder=""
                            class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                    <p id="githubRepoCredentialState" class="text-xs text-gray-400 mt-1" role="status"></p>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
                         Repository in format <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">owner/repo</code>
                     </p>
@@ -937,6 +939,7 @@
                                    id="gitUserName"
                                    placeholder="Huntable CTI Studio"
                                    class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                            <p id="gitUserNameCredentialState" class="text-xs text-gray-400 mt-1" role="status"></p>
                         </div>
                         <div>
                             <label for="gitUserEmail" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -946,6 +949,7 @@
                                    id="gitUserEmail"
                                    placeholder="cti-studio@huntable.local"
                                    class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                            <p id="gitUserEmailCredentialState" class="text-xs text-gray-400 mt-1" role="status"></p>
                         </div>
                     </div>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
@@ -1193,6 +1197,7 @@
         const field = MANAGED_CREDENTIAL_FIELDS[inputId] || {};
         const loadState = input.dataset.loadState || 'loaded';
         const configured = input.dataset.configured === 'true';
+        const source = input.dataset.source || 'unset';
         const cleared = input.dataset.clearRequested === 'true';
 
         if (input.dataset.originalPlaceholder === undefined) {
@@ -1217,6 +1222,10 @@
             } else if (cleared) {
                 state.textContent = 'Will be removed when you save.';
                 state.classList.add('text-amber-400');
+            } else if (configured && source === 'environment') {
+                state.textContent = 'Set via environment' + (input.dataset.hint ? ' (' + input.dataset.hint + ')' : '') +
+                    ' -- saving without changing this field leaves the environment value in effect.';
+                state.classList.add('text-gray-400');
             } else if (configured) {
                 state.textContent = 'Configured' + (input.dataset.hint ? ' (' + input.dataset.hint + ')' : '');
                 state.classList.add('text-gray-400');
@@ -1231,11 +1240,12 @@
         }
     }
 
-    function markCredentialLoaded(inputId, { configured = false, hint = '' } = {}) {
+    function markCredentialLoaded(inputId, { configured = false, hint = '', source = 'unset' } = {}) {
         const input = document.getElementById(inputId);
         if (!input) return;
         input.dataset.loadState = 'loaded';
         input.dataset.configured = configured ? 'true' : 'false';
+        input.dataset.source = source;
         if (hint) { input.dataset.hint = hint; } else { delete input.dataset.hint; }
         delete input.dataset.clearRequested;
         renderCredentialState(inputId);
@@ -1295,10 +1305,14 @@
             if (field.secret) {
                 // Never returned by the API; the field stays empty by design.
                 input.value = '';
-                markCredentialLoaded(inputId, { configured: Boolean(data.configured), hint: data.hint || '' });
+                markCredentialLoaded(inputId, { configured: Boolean(data.configured), hint: data.hint || '', source: data.source });
             } else {
-                input.value = (data.exists && data.value) ? data.value : fallback;
-                markCredentialLoaded(inputId, { configured: Boolean(input.value) });
+                // `configured` (not `exists`) gates this: an environment-backed value
+                // has no database row, but it is still the value in effect and must
+                // not render as blank -- see settings.py's env-fallback resolution.
+                input.value = (data.configured && data.value) ? data.value : fallback;
+                input.dataset.baseline = input.value;
+                markCredentialLoaded(inputId, { configured: Boolean(input.value), source: data.source });
             }
             return true;
         } catch (error) {
@@ -1314,6 +1328,12 @@
         if (!input) return 'skip';
         const field = MANAGED_CREDENTIAL_FIELDS[inputId] || {};
         const typed = (input.value || '').trim();
+        // An untouched environment-derived value has no database row to begin with --
+        // writing it back would create one that silently overrides the environment
+        // from then on. Only an actual edit should turn it into a stored setting.
+        if (!field.secret && input.dataset.source === 'environment' && typed === (input.dataset.baseline || '')) {
+            return 'skip';
+        }
         if (typed) return 'write';
         if (input.dataset.clearRequested === 'true') return 'clear';
         if (input.dataset.loadState === 'failed') return 'blocked';
