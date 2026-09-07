@@ -595,15 +595,26 @@ def _repair_empty_observable_attribution(
 
 
 def _detection_leaf_values(detection: Any) -> frozenset[str]:
-    """Collect all scalar string values from a detection block for overlap comparison."""
+    """Collect all scalar string values from a detection block for overlap comparison.
+
+    Excludes the `condition` key's value at any nesting level. That value is Sigma
+    control-flow syntax ("selection_image and selection_command", "all of
+    selection_*"), not a detected value -- letting it into the leaf set means two
+    rules that detect the exact same thing get penalized for phrasing their
+    condition differently. A denylist of specific condition-expression strings used
+    to sit here instead of this key check; it matched almost no real-world condition
+    syntax and left the leak in place (see Todoist 6hQwjXRVq7fpH773).
+    """
     values: set[str] = set()
     if isinstance(detection, dict):
-        for v in detection.values():
+        for key, v in detection.items():
+            if key == "condition":
+                continue
             values |= _detection_leaf_values(v)
     elif isinstance(detection, list):
         for item in detection:
             values |= _detection_leaf_values(item)
-    elif isinstance(detection, str) and detection not in ("selection", "condition", "all of them", "any of them"):
+    elif isinstance(detection, str):
         values.add(detection.lower())
     return frozenset(values)
 

@@ -8,6 +8,8 @@ from src.workflows.agentic_workflow import (
     _bool_from_value,
     _build_sigma_full_content_fallback_group,
     _build_sigma_generation_groups,
+    _deduplicate_batch_rules,
+    _detection_leaf_values,
     _enrich_observable_metadata,
     _eval_snapshot,
     _extract_actual_count,
@@ -856,3 +858,97 @@ def test_grounding_stamp_is_not_fed_back_into_inference():
     )
 
     assert stripped == {"title": "Rule"}
+
+
+class TestDetectionLeafValuesExcludesConditionKey:
+    """`condition` is control-flow syntax, not a detected value (Todoist 6hQwjXRVq7fpH773).
+
+    The previous implementation denylisted a handful of exact condition-expression
+    strings ("selection", "all of them", ...), which matches almost no real Sigma
+    condition syntax. Excluding the `condition` key itself, regardless of its
+    content, is what actually closes the leak.
+    """
+
+    def test_condition_value_itself_is_never_collected(self):
+        detection = {
+            "selection": {"Image|endswith": "\\cmd.exe"},
+            "condition": "selection",
+        }
+
+        assert _detection_leaf_values(detection) == frozenset({"\\cmd.exe"})
+
+    def test_two_rules_differing_only_in_condition_syntax_produce_identical_leaf_sets(self):
+        """Acceptance criterion: overlap 1.0 for rules that detect the same thing."""
+        shared_selections = {
+            "selection_image": {"Image|endswith": "\\wscript.exe"},
+            "selection_command": {"CommandLine|contains": ".vbs"},
+        }
+        rule_a = {"detection": {**shared_selections, "condition": "selection_image and selection_command"}}
+        rule_b = {"detection": {**shared_selections, "condition": "all of selection_*"}}
+
+        values_a = _detection_leaf_values(rule_a["detection"])
+        values_b = _detection_leaf_values(rule_b["detection"])
+
+        assert values_a == values_b
+        overlap = len(values_a & values_b) / len(values_a | values_b)
+        assert overlap == 1.0
+
+    def test_a_field_literally_named_condition_inside_a_selection_is_also_excluded(self):
+        """The exclusion is key-based at any depth, matching the task's stated fix."""
+        detection = {
+            "selection": {"condition": "not-real-syntax-but-still-excluded"},
+            "condition": "selection",
+        }
+
+        assert _detection_leaf_values(detection) == frozenset()
+
+
+class TestExecution25Article989DedupRegression:
+    """Reproduces the measured queue #19/#21 pair from Todoist 6hQwjXRVq7fpH773.
+
+    Workflow execution 25, article 989 (The Hunter's Ledger, GOCLOUD): the same
+    detection (wscript.exe executing a .vbs from \\Windows\\Temp\\) emitted by two
+    generation groups, both surviving dedup. The task's own measurement: excluding
+    condition strings raises the overlap from 0.5 to 0.75 -- still under the 0.8
+    threshold, because #19 has OriginalFileName and #21 does not. Fixing the key
+    leak is necessary but not sufficient for this specific pair; the threshold
+    itself needs a separate, data-backed decision (not made here -- this sandbox
+    has no access to the live sigma_rule_queue table to re-measure the corpus-wide
+    overlap distribution the task asks for).
+    """
+
+    RULE_19 = {
+        "title": "Queue #19",
+        "logsource": {"category": "process_creation", "product": "windows"},
+        "detection": {
+            "selection_image": {
+                "Image|endswith": "\\wscript.exe",
+                "OriginalFileName": "wscript.exe",
+            },
+            "selection_command": {"CommandLine|contains": [".vbs", "\\windows\\temp\\"]},
+            "condition": "selection_image and selection_command",
+        },
+    }
+    RULE_21 = {
+        "title": "Queue #21",
+        "logsource": {"category": "process_creation", "product": "windows"},
+        "detection": {
+            "selection_image": {"Image|endswith": "\\wscript.exe"},
+            "selection_command": {"CommandLine|contains": [".vbs", "\\windows\\temp\\"]},
+            "condition": "all of selection_*",
+        },
+    }
+
+    def test_leak_fix_raises_measured_overlap_from_0_5_to_0_75(self):
+        values_19 = _detection_leaf_values(self.RULE_19["detection"])
+        values_21 = _detection_leaf_values(self.RULE_21["detection"])
+
+        overlap = len(values_19 & values_21) / len(values_19 | values_21)
+
+        assert overlap == 0.75
+
+    def test_pair_still_survives_dedup_at_the_unchanged_0_8_threshold(self):
+        """Documents the known-remaining gap: the fix alone does not dedup this pair."""
+        kept = _deduplicate_batch_rules([self.RULE_19, self.RULE_21])
+
+        assert len(kept) == 2
