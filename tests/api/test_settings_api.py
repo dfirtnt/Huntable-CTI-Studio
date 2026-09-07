@@ -534,6 +534,44 @@ class TestSettingsEnvFallback:
         assert payload["source"] == "unset"
 
 
+@pytest.mark.api
+class TestResolvedGitHubRepo:
+    """GET /api/settings/github-repo/resolved reports what PR submission will actually use.
+
+    The githubRepo Settings field only shows the GITHUB_REPO override; it cannot
+    tell an operator whether that override is actually in effect, since
+    SigmaPRService falls back to the clone's origin remote when it's unset (see
+    Todoist 6hQgG6C6W3gxj8rV). This route surfaces the same resolution.
+    """
+
+    @pytest.mark.asyncio
+    async def test_reports_the_resolved_value_and_its_source(self):
+        from src.services.sigma_pr_service import SigmaPRService
+
+        fake_service = SimpleNamespace(github_repo="dfirtnt/Huntable-SIGMA-Rules", github_repo_source="origin-remote")
+        with patch.object(SigmaPRService, "__new__", return_value=fake_service):
+            from src.web.routes.settings import get_resolved_github_repo
+
+            result = await get_resolved_github_repo()
+
+        payload = json.loads(result.body)
+        assert payload["success"] is True
+        assert payload["value"] == "dfirtnt/Huntable-SIGMA-Rules"
+        assert payload["source"] == "origin-remote"
+
+    @pytest.mark.asyncio
+    async def test_a_construction_failure_is_reported_not_raised(self):
+        from src.services.sigma_pr_service import SigmaPRService
+
+        with patch.object(SigmaPRService, "__new__", side_effect=RuntimeError("boom")):
+            from src.web.routes.settings import get_resolved_github_repo
+
+            result = await get_resolved_github_repo()
+
+        payload = json.loads(result.body)
+        assert payload["success"] is False
+
+
 def _github_test_body(**kwargs):
     """Build the route's optional override model without importing it at module scope."""
     from src.web.routes.settings import GitHubConnectionTest

@@ -106,6 +106,37 @@ async def test_github_connection(body: GitHubConnectionTest | None = None):
     return {"valid": False, "message": f"GitHub returned {response.status_code}"}
 
 
+@router.get("/github-repo/resolved")
+async def get_resolved_github_repo():
+    """What PR submission will actually use for owner/repo, and why.
+
+    GITHUB_REPO can be set explicitly, derived from the SIGMA repo clone's origin
+    remote, or fall back to a built-in default -- see SigmaPRService.__init__. The
+    GITHUB_REPO field in Settings only shows the override; an operator reading just
+    that field cannot tell whether it is actually the value in effect. This route
+    reports the same resolution PR submission itself will use.
+    """
+    from src.services.sigma_pr_service import SigmaPRService
+
+    try:
+        pr_service = SigmaPRService()
+    except Exception as exc:
+        logger.warning("Could not resolve effective GitHub repo: %s", exc)
+        return JSONResponse(
+            content={"success": False, "error": "Could not resolve the repository."},
+            headers={"Cache-Control": "no-store"},
+        )
+
+    return JSONResponse(
+        content={
+            "success": True,
+            "value": pr_service.github_repo,
+            "source": pr_service.github_repo_source,
+        },
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 class SettingUpdate(BaseModel):
     """Request model for updating a setting."""
 

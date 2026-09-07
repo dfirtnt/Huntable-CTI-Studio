@@ -61,7 +61,26 @@ class SigmaPRService:
                 f"SIGMA repo path does not exist: {self.repo_path}. Please check your SIGMA_REPO_PATH setting."
             )
 
-        self.github_repo = self._get_setting("GITHUB_REPO") or os.getenv("GITHUB_REPO", "dfirtnt/Huntable-SIGMA-Rules")
+        explicit_repo = self._get_setting("GITHUB_REPO") or os.getenv("GITHUB_REPO")
+        derived_repo, derive_error = self._derive_owner_repo_from_origin()
+        if explicit_repo:
+            self.github_repo = explicit_repo
+            self.github_repo_source = "override"
+        elif derived_repo:
+            self.github_repo = derived_repo
+            self.github_repo_source = "origin-remote"
+        else:
+            # Historical default, kept only so an unconfigured clone still resolves to
+            # *something* rather than crashing. The GITHUB_REPO override and the
+            # derived-from-origin path above both take precedence over it.
+            self.github_repo = "dfirtnt/Huntable-SIGMA-Rules"
+            self.github_repo_source = "default"
+            logger.warning(
+                "Could not derive owner/repo from the clone's origin remote (%s); "
+                "falling back to the built-in default %s. Set GITHUB_REPO to override.",
+                derive_error,
+                self.github_repo,
+            )
         self.rules_path = self.repo_path / "rules"
 
         if not self.github_token:
@@ -202,6 +221,52 @@ class SigmaPRService:
         except (RuntimeError, subprocess.SubprocessError, OSError) as e:
             logger.error(f"Git command error: {e}")
             raise
+
+    def _derive_owner_repo_from_origin(self) -> tuple[str | None, str | None]:
+        """Resolve owner/repo from the clone's origin remote.
+
+        This is the same remote _configure_remote_auth reads to add token auth, so a
+        derived owner/repo and the token-auth target can never disagree the way a
+        separately-configured GITHUB_REPO could (git push follows the remote and
+        succeeds while the PR API call follows GITHUB_REPO and 404s).
+
+        Returns (owner/repo, None) on success, or (None, reason) when it can't be
+        derived -- no origin remote, or an unrecognized URL shape.
+        """
+        if not self.repo_path.exists() or not (self.repo_path / ".git").exists():
+            return None, f"{self.repo_path} is not a git repository"
+        try:
+            returncode, stdout, stderr = self._run_git_command(["remote", "get-url", "origin"], check=False)
+        except (RuntimeError, subprocess.SubprocessError, OSError) as exc:
+            return None, f"could not read the origin remote: {exc}"
+        if returncode != 0:
+            return None, f"no 'origin' remote is configured ({stderr.strip() or 'git remote get-url failed'})"
+
+        url = stdout.strip()
+        owner_repo = self._owner_repo_from_remote_url(url)
+        if not owner_repo:
+            return None, f"could not parse owner/repo from remote URL: {url}"
+        return owner_repo, None
+
+    @staticmethod
+    def _owner_repo_from_remote_url(url: str) -> str | None:
+        """Extract 'owner/repo' from an HTTPS, credential-embedded HTTPS, or SSH GitHub remote URL.
+
+        Handles the same three shapes _configure_remote_auth handles:
+          https://github.com/owner/repo.git
+          https://x-access-token:TOKEN@github.com/owner/repo.git
+          git@github.com:owner/repo.git
+        """
+        if url.startswith("https://") and "@" in url:
+            # Strip embedded credentials before matching the host.
+            scheme, _, rest = url.partition("://")
+            _, _, host_and_path = rest.partition("@")
+            url = f"{scheme}://{host_and_path}"
+
+        match = re.search(r"github\.com[:/]([^/]+)/([^/]+?)(?:\.git)?/?$", url)
+        if not match:
+            return None
+        return f"{match.group(1)}/{match.group(2)}"
 
     def _configure_remote_auth(self) -> None:
         """

@@ -918,8 +918,10 @@
                            placeholder=""
                            class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                     <p id="githubRepoCredentialState" class="text-xs text-gray-400 mt-1" role="status"></p>
+                    <p id="githubRepoResolved" class="text-xs text-gray-400 mt-1" role="status"></p>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        Repository in format <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">owner/repo</code>
+                        Repository in format <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">owner/repo</code>.
+                        Leave blank to use the repository the SIGMA repo clone's <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">origin</code> remote points to.
                     </p>
                 </div>
 
@@ -2251,6 +2253,9 @@
         await runSection('GitHub PR config', () => persistManagedCredentials(
             ['githubToken', 'sigmaRepoPath', 'githubRepo', 'gitUserName', 'gitUserEmail']
         ));
+        // sigmaRepoPath/githubRepo changes above can change which repo PR submission
+        // resolves to -- refresh the read-only summary so it doesn't show stale state.
+        await loadResolvedGitHubRepo();
 
         await runSection('Langfuse keys', () => persistManagedCredentials(
             ['langfusePublicKey', 'langfuseSecretKey', 'langfuseHost', 'langfuseProjectId']
@@ -2450,6 +2455,28 @@
         }
     }
     
+    // Show what PR submission will actually use for owner/repo (override, derived
+    // from the clone's origin remote, or the built-in default) -- the githubRepo
+    // field only shows the override, which may not be what's in effect.
+    async function loadResolvedGitHubRepo() {
+        const el = document.getElementById('githubRepoResolved');
+        if (!el) return;
+        try {
+            const response = await fetch('/api/settings/github-repo/resolved', { cache: 'no-store' });
+            const data = await response.json();
+            if (!response.ok || !data || data.success !== true) throw new Error('not available');
+            const sourceLabel = {
+                override: 'explicit override above',
+                'origin-remote': "derived from the clone's origin remote",
+                default: 'built-in default -- set the field above or check the clone\'s origin remote'
+            }[data.source] || data.source;
+            el.textContent = `PR submission will use: ${data.value} (${sourceLabel})`;
+        } catch (error) {
+            console.warn('Could not load resolved GitHub repo:', error);
+            el.textContent = '';
+        }
+    }
+
     // Load GitHub PR settings from database
     async function loadGitHubPRSettings() {
         const settings = scrubLegacyLocalSecretSettings(JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}'));
@@ -2461,6 +2488,7 @@
             loadManagedCredential('gitUserName', { fallback: settings.gitUserName || 'Huntable CTI Studio' }),
             loadManagedCredential('gitUserEmail', { fallback: settings.gitUserEmail || 'cti-studio@huntable.local' })
         ]);
+        await loadResolvedGitHubRepo();
 
         const ids = ['githubToken', 'sigmaRepoPath', 'githubRepo', 'gitUserName', 'gitUserEmail'];
         return ids.filter((id, index) => !results[index]);

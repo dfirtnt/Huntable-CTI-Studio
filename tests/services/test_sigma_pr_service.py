@@ -80,6 +80,83 @@ class TestSigmaPRServicePathResolution:
         check_status.assert_not_called()
 
 
+class TestGitHubRepoResolution:
+    """owner/repo resolves from an explicit override, then the origin remote, then a default.
+
+    Regression coverage for Todoist 6hQgG6C6W3gxj8rV: a separately-configured
+    GITHUB_REPO could disagree with the clone's actual origin remote (git push
+    follows the remote and succeeds; the PR API call followed GITHUB_REPO and
+    404'd). Deriving from the same remote _configure_remote_auth reads removes
+    that disagreement by construction.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _mock_db_settings(self):
+        with patch.object(SigmaPRService, "_get_setting", return_value=None):
+            yield
+
+    @staticmethod
+    def _make_git_repo(tmp_path):
+        (tmp_path / ".git").mkdir()
+        return tmp_path
+
+    def test_explicit_override_wins_over_origin_remote(self, tmp_path):
+        self._make_git_repo(tmp_path)
+        with patch.object(
+            SigmaPRService,
+            "_run_git_command",
+            return_value=(0, "https://github.com/origin-owner/origin-repo.git\n", ""),
+        ):
+            with patch.dict("os.environ", {"GITHUB_REPO": "override-owner/override-repo"}, clear=False):
+                svc = SigmaPRService(repo_path=str(tmp_path))
+        assert svc.github_repo == "override-owner/override-repo"
+        assert svc.github_repo_source == "override"
+
+    @pytest.mark.parametrize(
+        "remote_url",
+        [
+            "https://github.com/dfirtnt/Huntable-SIGMA-Rules.git\n",
+            "https://github.com/dfirtnt/Huntable-SIGMA-Rules\n",
+            "https://x-access-token:ghp_abc123@github.com/dfirtnt/Huntable-SIGMA-Rules.git\n",
+            "git@github.com:dfirtnt/Huntable-SIGMA-Rules.git\n",
+        ],
+        ids=["https", "https-no-dot-git", "https-with-credentials", "ssh"],
+    )
+    def test_derives_owner_repo_from_origin_remote_url_shapes(self, tmp_path, remote_url):
+        self._make_git_repo(tmp_path)
+        with patch.object(SigmaPRService, "_run_git_command", return_value=(0, remote_url, "")):
+            with patch.dict("os.environ", {"GITHUB_REPO": ""}, clear=False):
+                svc = SigmaPRService(repo_path=str(tmp_path))
+        assert svc.github_repo == "dfirtnt/Huntable-SIGMA-Rules"
+        assert svc.github_repo_source == "origin-remote"
+
+    def test_no_origin_remote_falls_back_to_default_without_crashing(self, tmp_path):
+        self._make_git_repo(tmp_path)
+        with patch.object(
+            SigmaPRService, "_run_git_command", return_value=(1, "", "error: No such remote 'origin'")
+        ):
+            with patch.dict("os.environ", {"GITHUB_REPO": ""}, clear=False):
+                svc = SigmaPRService(repo_path=str(tmp_path))
+        assert svc.github_repo == "dfirtnt/Huntable-SIGMA-Rules"
+        assert svc.github_repo_source == "default"
+
+    def test_unparseable_remote_url_falls_back_to_default(self, tmp_path):
+        self._make_git_repo(tmp_path)
+        with patch.object(SigmaPRService, "_run_git_command", return_value=(0, "not-a-url\n", "")):
+            with patch.dict("os.environ", {"GITHUB_REPO": ""}, clear=False):
+                svc = SigmaPRService(repo_path=str(tmp_path))
+        assert svc.github_repo_source == "default"
+
+    def test_missing_git_directory_falls_back_to_default_without_running_git(self, tmp_path):
+        # tmp_path exists but has no .git -- must not attempt a git command against it.
+        with patch.object(SigmaPRService, "_run_git_command") as run_git:
+            with patch.dict("os.environ", {"GITHUB_REPO": ""}, clear=False):
+                svc = SigmaPRService(repo_path=str(tmp_path))
+        run_git.assert_not_called()
+        assert svc.github_repo == "dfirtnt/Huntable-SIGMA-Rules"
+        assert svc.github_repo_source == "default"
+
+
 class TestResolveDefaultBaseBranch:
     """Test _resolve_default_base_branch branch detection with local/remote fallback."""
 
