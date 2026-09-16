@@ -6,7 +6,11 @@ from unittest.mock import ANY, Mock, patch
 import pytest
 
 from src.database.models import AgenticWorkflowConfigTable, AgenticWorkflowExecutionTable, ArticleTable
-from src.services.workflow_trigger_service import WorkflowTriggerService, recover_orphaned_running_execution
+from src.services.workflow_trigger_service import (
+    WorkflowTriggerService,
+    eval_pending_stuck_after,
+    recover_orphaned_running_execution,
+)
 
 # Mark all tests in this file as unit tests (use mocks, no real infrastructure)
 pytestmark = pytest.mark.unit
@@ -188,6 +192,59 @@ class TestWorkflowTriggerService:
         # Should mark stuck execution as failed and allow new trigger
         assert stuck_execution.status == "failed"
         assert should_trigger is True
+
+    @staticmethod
+    def _eval_pending_row(age: timedelta) -> Mock:
+        row = Mock(spec=AgenticWorkflowExecutionTable)
+        row.id = 7
+        row.status = "pending"
+        row.created_at = datetime.now() - age
+        row.started_at = None
+        row.error_message = None
+        row.snapshot_record = None
+        row.config_snapshot = {"eval_run": True}
+        return row
+
+    def _route_active_execution(self, mock_db_session, sample_config, active_execution):
+        mock_config_query = Mock()
+        mock_config_query.filter.return_value.order_by.return_value.first.return_value = sample_config
+        mock_exec_query = Mock()
+        mock_exec_query.filter.return_value.first.return_value = active_execution
+
+        def query_side_effect(model):
+            if model == AgenticWorkflowConfigTable:
+                return mock_config_query
+            if model == AgenticWorkflowExecutionTable:
+                return mock_exec_query
+            return Mock()
+
+        mock_db_session.query.side_effect = query_side_effect
+
+    def test_eval_row_inside_its_stagger_window_is_not_failed_by_a_trigger(
+        self, service, mock_db_session, sample_article, sample_config
+    ):
+        """A staggered eval row past 5 minutes still has a live task; failing it would lose the run."""
+        eval_row = self._eval_pending_row(timedelta(minutes=10))
+        self._route_active_execution(mock_db_session, sample_config, eval_row)
+
+        ok, reason = service._workflow_eligibility(sample_article, force=True)
+
+        assert eval_row.status == "pending", "the eval row must be left for its scheduled task to claim"
+        assert ok is False
+        assert "already has an active workflow execution" in reason
+        mock_db_session.commit.assert_not_called()
+
+    def test_eval_row_past_its_stagger_window_is_failed_and_the_trigger_proceeds(
+        self, service, mock_db_session, sample_article, sample_config
+    ):
+        eval_row = self._eval_pending_row(eval_pending_stuck_after() + timedelta(minutes=1))
+        self._route_active_execution(mock_db_session, sample_config, eval_row)
+
+        ok, reason = service._workflow_eligibility(sample_article, force=True)
+
+        assert eval_row.status == "failed"
+        assert ok is True
+        assert reason is None
 
     def test_orphaned_running_execution_is_recovered_on_the_next_trigger(self):
         """A worker-restart orphan must not permanently block a forced re-run."""

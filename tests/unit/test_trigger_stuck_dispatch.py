@@ -15,14 +15,18 @@ from types import SimpleNamespace
 
 import pytest
 
-from src.services.workflow_trigger_service import STUCK_PENDING_AFTER, is_stuck_pending_execution
+from src.services.workflow_trigger_service import (
+    STUCK_PENDING_AFTER,
+    eval_pending_stuck_after,
+    is_stuck_pending_execution,
+)
 from src.web.routes import workflow_executions
 from src.web.routes.workflow_executions import trigger_stuck_executions
 
 pytestmark = pytest.mark.unit
 
 
-def _pending(execution_id: int, article_id: int, *, age: timedelta) -> SimpleNamespace:
+def _pending(execution_id: int, article_id: int, *, age: timedelta, eval_run: bool = False) -> SimpleNamespace:
     """A pending row created ``age`` ago whose worker never claimed it."""
     return SimpleNamespace(
         id=execution_id,
@@ -30,6 +34,8 @@ def _pending(execution_id: int, article_id: int, *, age: timedelta) -> SimpleNam
         status="pending",
         started_at=None,
         created_at=datetime.now() - age,
+        snapshot_record=None,
+        config_snapshot={"eval_run": True} if eval_run else None,
     )
 
 
@@ -247,3 +253,51 @@ def test_route_and_trigger_service_share_one_definition_of_stuck():
     running = _pending(1, 1, age=STUCK)
     running.status = "running"
     assert is_stuck_pending_execution(running) is False
+
+
+# --- staggered eval runs -----------------------------------------------------------
+#
+# The eval launcher commits every row up front and schedules their tasks with
+# increasing countdowns, so the tail of a large launch is legitimately pending long
+# after STUCK_PENDING_AFTER. Those rows use the longer eval window.
+
+
+@pytest.mark.asyncio
+async def test_eval_row_inside_its_stagger_window_is_skipped(wire, request_stub):
+    _session, task, _events = wire([_pending(101, 11, age=STUCK, eval_run=True)])
+
+    result = await trigger_stuck_executions(request_stub)
+
+    assert task.calls == [], "an eval row whose countdown has not elapsed still has a live task"
+    assert result["count"] == 0
+    assert result["skipped"] == 1
+
+
+@pytest.mark.asyncio
+async def test_eval_row_past_its_stagger_window_is_redispatched(wire, request_stub):
+    lost = _pending(101, 11, age=eval_pending_stuck_after() + timedelta(minutes=1), eval_run=True)
+    _session, task, _events = wire([lost])
+
+    result = await trigger_stuck_executions(request_stub)
+
+    assert task.calls == [(11, 101)]
+    assert result["successful"] == 1
+
+
+def test_eval_window_covers_the_latest_countdown_the_launcher_can_schedule(monkeypatch):
+    from src.services import subagent_eval_launch_service as launch
+
+    monkeypatch.setenv(launch.MAX_EVAL_EXECUTIONS_ENV, "100")
+    latest_countdown = timedelta(seconds=99 * (launch.EVAL_STAGGER_SECONDS + launch.MAX_THROTTLE_SECONDS))
+
+    assert eval_pending_stuck_after() == STUCK_PENDING_AFTER + latest_countdown
+
+
+def test_eval_window_follows_the_configured_launch_cap(monkeypatch):
+    from src.services import subagent_eval_launch_service as launch
+
+    monkeypatch.setenv(launch.MAX_EVAL_EXECUTIONS_ENV, "100")
+    default_window = eval_pending_stuck_after()
+    monkeypatch.setenv(launch.MAX_EVAL_EXECUTIONS_ENV, "200")
+
+    assert eval_pending_stuck_after() > default_window

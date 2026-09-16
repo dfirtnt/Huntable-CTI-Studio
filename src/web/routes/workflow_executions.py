@@ -1021,9 +1021,9 @@ async def trigger_stuck_executions(request: Request):
                     return {
                         "success": True,
                         "message": (
-                            f"No stuck executions found. {skipped} pending execution(s) are newer than "
-                            f"{STUCK_PENDING_AFTER} and still have a live task queued; re-dispatching them "
-                            "would run them twice."
+                            f"No stuck executions found. {skipped} pending execution(s) are still inside their "
+                            f"start window ({STUCK_PENDING_AFTER}, longer for staggered eval runs) and probably "
+                            "have a live task queued; re-dispatching them would only queue no-op duplicates."
                         ),
                         "count": 0,
                         "skipped": skipped,
@@ -1086,7 +1086,10 @@ async def trigger_stuck_executions(request: Request):
                 f"{successful} dispatched, {failed} failed to dispatch"
             )
             if skipped:
-                message += f". Skipped {skipped} pending execution(s) newer than {STUCK_PENDING_AFTER}"
+                message += (
+                    f". Skipped {skipped} pending execution(s) still inside their start window "
+                    f"({STUCK_PENDING_AFTER}, longer for staggered eval runs)"
+                )
 
             return {
                 "success": True,

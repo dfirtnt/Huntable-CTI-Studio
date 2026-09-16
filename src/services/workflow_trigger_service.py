@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from src.database.models import AgenticWorkflowConfigTable, AgenticWorkflowExecutionTable, ArticleTable
 from src.services.audit_service import AuditEvent, AuditService
-from src.services.execution_snapshot_store import attach_snapshot
+from src.services.execution_snapshot_store import attach_snapshot, hydrate_snapshot
 from src.services.workflow_config_snapshot import build_config_snapshot
 from src.utils.default_agent_prompts import get_default_agent_prompts
 
@@ -37,18 +37,44 @@ ORPHANED_RUNNING_STALE_AFTER = timedelta(minutes=30)
 # (``WHERE status = 'pending'``, rowcount checked), so a second task carrying the same
 # execution_id is a logged no-op whatever any caller decided. The threshold stays for
 # two reasons the claim does not cover:
-#   1. trigger-stuck should not re-queue rows whose task is merely delayed. A staggered
-#      eval run schedules its tail with countdowns of up to 60 s per execution, so its
-#      last rows can sit pending well past this threshold with a live task. Re-dispatching
-#      them is now harmless at the worker (the later arrival is rejected) but it is queue
-#      noise, and the endpoint's ``successful`` count would describe dispatches that did
-#      no work. Scoping the endpoint to exclude rows of an in-flight eval run instead of
-#      judging by wall-clock age was considered and deferred: with the claim in place the
-#      cost of the age heuristic being wrong is one skipped task, not a double run.
+#   1. trigger-stuck should not re-queue rows whose task is merely delayed; that is
+#      queue noise, and the endpoint's ``successful`` count would describe dispatches
+#      that did no work.
 #   2. The trigger eligibility path below fails a stuck pending row before starting a
 #      fresh execution. That is a destructive write the claim cannot arbitrate, so it
 #      still needs an explicit definition of "lost".
+#
+# Eval rows get a longer window (``eval_pending_stuck_after``). The eval launcher
+# commits every row up front and staggers their Celery tasks with countdowns, so the
+# tail of a large launch sits ``pending`` with a live task for many minutes. Judged
+# by the 5-minute rule, a manual trigger on the same article would fail that row;
+# its task would then arrive, find the row no longer ``pending``, and be discarded
+# by the claim -- silently losing an eval data point. A row that outlives even the
+# eval window is still recovered here, and the retention reaper fails any row idle
+# past ``RETENTION_STALE_EXECUTION_HOURS`` regardless.
 STUCK_PENDING_AFTER = timedelta(minutes=5)
+
+
+def eval_pending_stuck_after() -> timedelta:
+    """How long an eval row may sit at ``pending`` before its task is presumed lost.
+
+    The base window plus the latest countdown the eval launcher can schedule: the
+    last row of a launch at the execution cap with the maximum throttle. Read at call
+    time because the cap comes from the environment.
+    """
+    from src.services.subagent_eval_launch_service import (  # noqa: PLC0415 -- avoids importing the LLM stack at module load
+        EVAL_STAGGER_SECONDS,
+        MAX_THROTTLE_SECONDS,
+        max_eval_executions_per_launch,
+    )
+
+    last_index = max(max_eval_executions_per_launch() - 1, 0)
+    return STUCK_PENDING_AFTER + timedelta(seconds=last_index * (EVAL_STAGGER_SECONDS + MAX_THROTTLE_SECONDS))
+
+
+def is_eval_execution(execution: AgenticWorkflowExecutionTable) -> bool:
+    """True when the execution was launched as an eval run (``eval_run`` in its snapshot)."""
+    return bool(hydrate_snapshot(execution).get("eval_run"))
 
 
 def is_stuck_pending_execution(execution: AgenticWorkflowExecutionTable, *, now: datetime | None = None) -> bool:
@@ -58,7 +84,11 @@ def is_stuck_pending_execution(execution: AgenticWorkflowExecutionTable, *, now:
     if execution.created_at is None:
         return False
     reference = now or datetime.now()
-    return execution.created_at < reference - STUCK_PENDING_AFTER
+    if execution.created_at >= reference - STUCK_PENDING_AFTER:
+        return False
+    if not is_eval_execution(execution):
+        return True
+    return execution.created_at < reference - eval_pending_stuck_after()
 
 
 def recover_orphaned_running_execution(

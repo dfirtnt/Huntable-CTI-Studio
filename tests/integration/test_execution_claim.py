@@ -17,7 +17,7 @@ import asyncio
 import threading
 import uuid
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import patch
 
 import pytest
@@ -31,6 +31,7 @@ from src.database.models import (
 )
 from src.services.execution_snapshot_store import attach_snapshot
 from src.services.workflow_config_snapshot import build_config_snapshot
+from src.services.workflow_trigger_service import WorkflowTriggerService
 from src.workflows.agentic_workflow import run_workflow
 
 pytestmark = [pytest.mark.integration, pytest.mark.integration_full]
@@ -109,7 +110,7 @@ def _ensure_active_config(session) -> AgenticWorkflowConfigTable:
     return config
 
 
-def _create_pending_execution(session) -> tuple[int, int]:
+def _create_pending_execution(session, *, extra_snapshot: dict | None = None) -> tuple[int, int]:
     """One article with one pending execution carrying a complete snapshot."""
     config = _ensure_active_config(session)
     uid = uuid.uuid4().hex[:8]
@@ -148,7 +149,7 @@ def _create_pending_execution(session) -> tuple[int, int]:
         execution,
         build_config_snapshot(
             config,
-            extra={"skip_rank_agent": True, "rank_agent_enabled": False, "agent_models": {}},
+            extra={"skip_rank_agent": True, "rank_agent_enabled": False, "agent_models": {}, **(extra_snapshot or {})},
         ),
     )
     session.commit()
@@ -269,3 +270,38 @@ def test_two_dispatches_for_one_execution_run_it_exactly_once():
         assert row.started_at is not None
     finally:
         check_session.close()
+
+
+def test_manual_trigger_leaves_a_staggered_eval_row_for_its_scheduled_task():
+    """The loss sequence: an eval row waiting on its countdown, then a manual trigger.
+
+    Before eval rows had their own window, the trigger saw a pending row older than
+    five minutes, marked it failed and started a fresh execution; the eval row's task
+    then arrived, found it no longer pending, and the claim discarded it. The eval row
+    must survive the trigger and still run when its task claims it.
+    """
+    db = DatabaseManager(database_url=_sync_test_db_url())
+    session = db.get_session()
+    graph = _RecordingGraph()
+    try:
+        article_id, execution_id = _create_pending_execution(session, extra_snapshot={"eval_run": True})
+        row = _load(session, execution_id)
+        row.created_at = datetime.now() - timedelta(minutes=10)
+        session.commit()
+
+        with patch("src.worker.celery_app.trigger_agentic_workflow") as dispatched:
+            triggered, reason = WorkflowTriggerService(session).trigger_workflow(article_id, force=True)
+
+        assert triggered is False
+        assert "already has an active workflow execution" in (reason or "")
+        dispatched.delay.assert_not_called()
+        assert _load(session, execution_id).status == "pending"
+
+        with _graph_stub(graph):
+            result = asyncio.run(run_workflow(article_id, session, execution_id=execution_id))
+
+        assert result.get("skipped") is not True
+        assert graph.calls == [execution_id]
+        assert _load(session, execution_id).status == "completed"
+    finally:
+        session.close()
