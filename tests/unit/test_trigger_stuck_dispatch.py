@@ -188,13 +188,17 @@ async def test_broker_failure_is_reported_per_row_without_leaking_details(wire, 
     assert result["results"][0]["message"] == "OSError", "response must carry the type only, never the broker URL"
 
 
-# --- the double-dispatch guard -------------------------------------------------
+# --- the age filter ---------------------------------------------------------------
 #
 # Measured before this filter existed: two tasks queued for one execution row ran
 # concurrently on two fork-pool workers (one saw status "pending", the next saw
-# "running" and proceeded anyway), both writing results. A pending row younger than
-# STUCK_PENDING_AFTER almost certainly still has that live task, so it must not be
-# re-dispatched.
+# "running" and proceeded anyway), both writing results. The worker now claims its
+# row atomically (``run_workflow``: conditional UPDATE on status = 'pending'), so a
+# duplicate dispatch is rejected there and this filter is no longer what prevents a
+# double run. These cases are kept deliberately: a pending row younger than
+# STUCK_PENDING_AFTER almost certainly still has a live task, and re-dispatching it
+# would be queue noise reported as a successful re-dispatch that did no work. See the
+# decision recorded next to STUCK_PENDING_AFTER in workflow_trigger_service.py.
 
 
 @pytest.mark.asyncio

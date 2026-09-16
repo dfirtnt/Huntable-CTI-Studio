@@ -67,6 +67,9 @@ From [Sigma Detection Rules](../features/sigma-rules.md):
 
 - The workflow trigger blocks concurrent executions per article. Stuck pending
   runs older than 5 minutes are marked failed before a retry is allowed.
+- The workflow worker claims each execution row atomically (`pending` -> `running`
+  via a conditional UPDATE), so two Celery tasks carrying one execution id run it
+  once; the later arrival logs a skip and never invokes the graph.
 - Health endpoints (`/health`, `/api/health/*`) surface ingestion and service
   readiness so QA runs against a healthy stack.
 

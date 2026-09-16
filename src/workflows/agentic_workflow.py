@@ -3609,9 +3609,65 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
             db_session.commit()
             db_session.refresh(execution)
             logger.info(f"Created execution record {execution.id} for article {article_id}")
+            existing_row = False
         else:
+            existing_row = True
+
+        # Claim the row atomically before doing anything else with it. Every dispatch
+        # path hands the same execution_id to Celery, and nothing stops two tasks from
+        # carrying one id: a trigger-stuck re-dispatch racing the original, a retry of
+        # a row whose task was merely delayed, worker prefetch across a restart.
+        # Measured 2026-09-04: two fork-pool workers both loaded execution 19, one at
+        # "pending" and one at "running", and both ran the graph to completion and
+        # wrote results into the same row. A conditional UPDATE serialises that in the
+        # database: exactly one caller moves the row from pending to running; every
+        # other caller sees zero rows affected and leaves without touching the row or
+        # invoking the graph. Gating strictly on "pending" is safe because the two
+        # other ``status = "running"`` writes in this module (os_detection and
+        # rank_article nodes) re-affirm a row this function already owns; nothing
+        # resumes a "running" row, and restart-orphaned "running" rows are failed by
+        # ``recover_orphaned_running_execution`` before a retrigger creates a new row.
+        claim_started_at = datetime.now()
+        claimed_rows = (
+            db_session.query(AgenticWorkflowExecutionTable)
+            .filter(
+                AgenticWorkflowExecutionTable.id == execution.id,
+                AgenticWorkflowExecutionTable.status == "pending",
+            )
+            .update(
+                {"status": "running", "started_at": claim_started_at, "current_step": "os_detection"},
+                synchronize_session=False,
+            )
+        )
+        db_session.commit()
+        if claimed_rows == 0:
+            db_session.refresh(execution)
+            logger.warning(
+                "[Workflow %s] Skipping duplicate dispatch for article %s: execution row is already "
+                "claimed (status: %s, started_at: %s); another worker owns this run.",
+                execution.id,
+                article_id,
+                execution.status,
+                execution.started_at,
+            )
+            return {
+                "success": False,
+                "skipped": True,
+                "execution_id": int(execution.id),
+                "reason": f"execution {execution.id} already claimed (status: {execution.status})",
+            }
+
+        # The UPDATE bypassed the identity map, so reload the claimed row and mirror
+        # its state onto the loaded instance: graph nodes and the finalisation block
+        # below read ``execution.status`` from this object.
+        db_session.refresh(execution)
+        execution.status = "running"
+        execution.current_step = "os_detection"
+        if execution.started_at is None:
+            execution.started_at = claim_started_at
+        if existing_row:
             logger.info(
-                f"Found existing execution {execution.id} for article {article_id}, status: {execution.status}, has config_snapshot: {execution.config_snapshot is not None}"
+                f"Found existing execution {execution.id} for article {article_id}, claimed pending -> running, has config_snapshot: {execution.config_snapshot is not None}"
             )
 
         snapshot = hydrate_snapshot(execution)
@@ -3714,12 +3770,7 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
             if not load_result.get("lmstudio_available", load_result.get("lmstudio_cli_available")):
                 logger.warning(f"[Workflow {execution.id}] LMStudio API not reachable - models must be loaded manually")
 
-        # Initialize state
-        execution.status = "running"
-        execution.started_at = datetime.now()
-        execution.current_step = "os_detection"
-        db_session.commit()
-
+        # Initialize state. The row was already claimed (pending -> running) above.
         initial_state: WorkflowState = {
             "article_id": article_id,
             "execution_id": execution.id,

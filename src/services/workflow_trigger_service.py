@@ -30,9 +30,24 @@ ORPHANED_RUNNING_STALE_AFTER = timedelta(minutes=30)
 # a live task queued. Both consumers of "stuck pending" MUST share this one
 # definition: the trigger eligibility check below fails such a row and starts a new
 # execution, while ``POST /api/workflow/executions/trigger-stuck`` re-dispatches it.
-# If they disagree, the same row gets failed by one path and re-queued by the other,
-# and re-dispatching a row that still has a live task runs it twice concurrently --
-# two workers on one execution row, both writing results.
+# If they disagree, the same row gets failed by one path and re-queued by the other.
+#
+# Decision (2026-09-16): this threshold is a dispatch heuristic, not the guard against
+# double runs. ``run_workflow`` claims its row with a conditional UPDATE
+# (``WHERE status = 'pending'``, rowcount checked), so a second task carrying the same
+# execution_id is a logged no-op whatever any caller decided. The threshold stays for
+# two reasons the claim does not cover:
+#   1. trigger-stuck should not re-queue rows whose task is merely delayed. A staggered
+#      eval run schedules its tail with countdowns of up to 60 s per execution, so its
+#      last rows can sit pending well past this threshold with a live task. Re-dispatching
+#      them is now harmless at the worker (the later arrival is rejected) but it is queue
+#      noise, and the endpoint's ``successful`` count would describe dispatches that did
+#      no work. Scoping the endpoint to exclude rows of an in-flight eval run instead of
+#      judging by wall-clock age was considered and deferred: with the claim in place the
+#      cost of the age heuristic being wrong is one skipped task, not a double run.
+#   2. The trigger eligibility path below fails a stuck pending row before starting a
+#      fresh execution. That is a destructive write the claim cannot arbitrate, so it
+#      still needs an explicit definition of "lost".
 STUCK_PENDING_AFTER = timedelta(minutes=5)
 
 
