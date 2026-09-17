@@ -654,27 +654,74 @@ def _repair_empty_observable_attribution(
     rule["observable_attribution"] = "attribution_failed"
 
 
-def _detection_leaf_values(detection: Any) -> frozenset[str]:
-    """Collect all scalar string values from a detection block for overlap comparison."""
+# Sigma reserves these keys in a detection block for syntax, not matched values: the
+# boolean expression over selection names, and the correlation window.
+_DETECTION_RESERVED_KEYS = frozenset({"condition", "timeframe"})
+
+# Intra-batch duplicate thresholds; the rule and the measurement behind them are in
+# _batch_rules_are_duplicates.
+_DEDUP_JACCARD = 0.8
+_DEDUP_CONTAINMENT_MIN_VALUES = 3
+_DEDUP_CONTAINMENT_JACCARD = 0.6
+
+
+def _detection_leaf_values(detection: Any, *, _top_level: bool = True) -> frozenset[str]:
+    """Collect the matched string values of a detection block for overlap comparison.
+
+    Skips the reserved ``condition`` and ``timeframe`` keys at the top level. Condition
+    syntax used to leak in as a "value" -- ``selection_image and selection_command`` vs
+    ``all of selection_*`` -- and inflated the union for every rule pair.
+    """
     values: set[str] = set()
     if isinstance(detection, dict):
-        for v in detection.values():
-            values |= _detection_leaf_values(v)
+        for key, value in detection.items():
+            if _top_level and key in _DETECTION_RESERVED_KEYS:
+                continue
+            values |= _detection_leaf_values(value, _top_level=False)
     elif isinstance(detection, list):
         for item in detection:
-            values |= _detection_leaf_values(item)
-    elif isinstance(detection, str) and detection not in ("selection", "condition", "all of them", "any of them"):
+            values |= _detection_leaf_values(item, _top_level=False)
+    elif isinstance(detection, str):
         values.add(detection.lower())
     return frozenset(values)
+
+
+def _batch_rules_are_duplicates(a: frozenset[str], b: frozenset[str]) -> tuple[bool, float]:
+    """Whether two same-logsource leaf-value sets describe the same detection; returns (dup, Jaccard).
+
+    Measured 2026-09-17 with the corrected leaf values:
+      * Queue rows of the same execution with shared values: #2/#7 and #23/#26 (identical
+        values, Jaccard 1.0) and #19/#21 (execution 25, #19 adds ``OriginalFileName``:
+        Jaccard 0.75, containment 1.0) are true duplicates; #9/#10 (group enumeration vs
+        enabling an account, Jaccard 0.38) is not. Jaccard >= 0.8 alone misses #19/#21.
+      * SigmaHQ same-logsource pairs (1,187,088 pairs of distinct published rules, an upper
+        bound on false duplicates): Jaccard >= 0.8 flags 77; Jaccard >= 0.7 flags 135; this
+        test flags 94. The 17 added pairs are mostly a general rule and a narrower variant of
+        the same tool behaviour, which a batch should collapse to the more specific rule.
+      * Pure containment would flag 411, including a 4-value rule "contained" in a 101-value one.
+    Known limits shared by every variant measured: negated filters count as ordinary values,
+    and tokens are compared literally (``urlcache`` vs `` -urlcache `` stays distinct, as in
+    queue #24/#27 and #3/#6).
+    """
+    union = a | b
+    if not union:
+        return False, 0.0
+    shared = len(a & b)
+    jaccard = shared / len(union)
+    if jaccard >= _DEDUP_JACCARD:
+        return True, jaccard
+    smaller = min(len(a), len(b))
+    contained = shared == smaller
+    return (contained and smaller >= _DEDUP_CONTAINMENT_MIN_VALUES and jaccard >= _DEDUP_CONTAINMENT_JACCARD), jaccard
 
 
 def _deduplicate_batch_rules(rules: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Drop intra-batch duplicate rules before similarity search.
 
-    Two rules are considered duplicates when they share the same logsource
-    (category + product) AND their detection leaf-value sets overlap by ≥ 80%.
-    The rule retained is the one with MORE detection conditions (more specific);
-    ties keep the first occurrence. Dropped rules are logged at WARNING level.
+    Two rules are duplicates when they share the same logsource (category + product)
+    and ``_batch_rules_are_duplicates`` holds for their detection leaf values. The rule
+    retained is the one with MORE detection values (more specific); ties keep the first
+    occurrence. Dropped rules are logged at WARNING level.
     """
     if len(rules) <= 1:
         return rules
@@ -688,16 +735,9 @@ def _deduplicate_batch_rules(rules: list[dict[str, Any]]) -> list[dict[str, Any]
             if _logsource_key(existing) != ls_key:
                 continue
             existing_values = _detection_leaf_values(existing.get("detection"))
-            union = cand_values | existing_values
-            if not union:
-                continue
-            overlap = len(cand_values & existing_values) / len(union)
-            if overlap >= 0.8:
-                # Keep the rule with more detection conditions (higher specificity)
-                cand_cond_count = len(cand_values)
-                existing_cond_count = len(existing_values)
-                if cand_cond_count > existing_cond_count:
-                    # Swap: candidate is more specific, replace existing in kept
+            duplicate, overlap = _batch_rules_are_duplicates(cand_values, existing_values)
+            if duplicate:
+                if len(cand_values) > len(existing_values):
                     kept[kept.index(existing)] = candidate
                     logger.warning(
                         "intra-batch dedup: dropped '%s' (%.0f%% overlap with '%s', less specific)",
