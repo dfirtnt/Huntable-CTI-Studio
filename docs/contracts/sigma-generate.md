@@ -332,7 +332,7 @@ observables_used: [<0-based indices>]
 - **status**: Always `experimental`.
 - **description**: REQUIRED. Must start with "Detects". One sentence. Quote if special chars present.
 - **tags**: REQUIRED. At minimum one tactic tag AND one technique tag. Both must be evidence-grounded.
-- **author**: Always `"Huntable CTI Studio"` (the code constant `SIGMA_RULE_AUTHOR`), unless the article carries a verbatim Sigma rule with its own non-blank author, which is preserved.
+- **author**: Always `"Huntable CTI Studio"` (the code constant `SIGMA_RULE_AUTHOR`), including when the article publishes its own Sigma rules. `SigmaGenerationService` stamps it on every generated rule regardless of what the model emitted, so an older workflow config version cannot attribute a newly written rule to a publisher. Publisher-authored rules keep their attribution only through the separate source_provided import path, never through generation.
 - **date**: YYYY-MM-DD (ISO 8601, per the Sigma specification). Use today's date.
 - **logsource**: REQUIRED. Must use `category` (generic). Never hardcode `EventID` or `service: sysmon`.
 - **detection**: REQUIRED. At minimum one selection block + condition.

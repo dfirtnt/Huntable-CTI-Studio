@@ -10,6 +10,7 @@ import yaml
 from src.services.sigma_generation_service import (
     EXPANSION_MAX_CONTENT_CHARS,
     EXPANSION_MAX_PROMPT_CHARS,
+    SIGMA_RULE_AUTHOR,
     SigmaGenerationService,
     _build_observables_section,
     _category_sigma_guidance,
@@ -245,8 +246,11 @@ level: medium
     async def test_generate_sigma_rules_keeps_author_date_references_falsepositives(self, service, sample_article_data):
         """Optional standard Sigma fields the model emitted must survive into the returned rule dicts.
 
-        Regression: the rebuilt rule dict used a fixed key list, so the AUTHOR PRESERVATION
-        directive's output never reached the review queue (execution 3865, 2026-09-02).
+        Regression: the rebuilt rule dict used a fixed key list, so date, references and
+        falsepositives never reached the review queue (execution 3865, 2026-09-02).
+
+        ``author`` is the exception: a generated rule is always attributed to the app, even
+        when the model copied the publisher's name from a Sigma rule quoted in the article.
         """
         rule_with_author = """
 title: CloudSync RAT Guest Dollar Local Account Persistence Command
@@ -299,7 +303,7 @@ level: high
                         )
 
         rule = result["rules"][0]
-        assert rule["author"] == "The Hunters Ledger"
+        assert rule["author"] == SIGMA_RULE_AUTHOR, "a model-copied publisher author must not survive"
         # YAML parses an ISO date into datetime.date; the rule dict must hold a JSON-safe string
         # (execution 3889 failed persisting sigma_rules with "Object of type date is not JSON serializable").
         assert rule["date"] == "2026-08-03"
@@ -317,7 +321,10 @@ level: high
     async def test_generate_sigma_rules_omits_optional_fields_when_absent(
         self, service, sample_article_data, sample_sigma_rule
     ):
-        """A rule without author/date/references/falsepositives gains no empty placeholders."""
+        """A rule without date/references/falsepositives gains no empty placeholders.
+
+        ``author`` is always present: generated rules are stamped with the app's author.
+        """
         with patch("src.services.sigma_generation_service.optimize_article_content") as mock_optimize:
             mock_optimize.return_value = {
                 "success": True,
@@ -344,7 +351,8 @@ level: high
                         )
 
         rule = result["rules"][0]
-        for field in ("author", "date", "modified", "references", "falsepositives", "fields"):
+        assert rule["author"] == SIGMA_RULE_AUTHOR
+        for field in ("date", "modified", "references", "falsepositives", "fields"):
             assert field not in rule
 
     @pytest.mark.asyncio

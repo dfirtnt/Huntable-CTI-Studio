@@ -778,13 +778,16 @@ class SigmaGenerationService:
                                     "generation_phase": rule_result.generation_phase,
                                 }
                                 # Carry the optional standard Sigma fields the model emitted. Before
-                                # this, the fixed key list above silently dropped them, so the
-                                # AUTHOR PRESERVATION directive could never reach the review queue
-                                # (Hunter's Ledger detections pages, execution 3865, 2026-09-02).
+                                # this, the fixed key list above silently dropped them (Hunter's
+                                # Ledger detections pages, execution 3865, 2026-09-02).
                                 for optional_field in SIGMA_OPTIONAL_RULE_FIELDS:
                                     value = _json_safe_rule_field(parsed_yaml.get(optional_field))
                                     if value not in (None, "", []):
                                         rule_metadata[optional_field] = value
+                                # Generated rules are always authored by this app. Prompts once let the
+                                # model copy a quoted rule's author (queue #14-#16, #21), and older
+                                # workflow config versions still carry that instruction.
+                                rule_metadata["author"] = SIGMA_RULE_AUTHOR
                                 if rule_result.observables_used is not None:
                                     rule_metadata["observables_used"] = rule_result.observables_used
                                     if rule_result.observables_used_inferred:
