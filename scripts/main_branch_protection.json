@@ -1,0 +1,35 @@
+{
+  "_comment": "Branch protection for `main`, applied by scripts/release_lock.sh (lock_branch forced true) and scripts/release_unlock.sh (lock_branch forced false). Required contexts are GitHub Actions *job names* -- tests/unit/test_main_branch_protection_contexts.py fails if one drifts from .github/workflows.",
+  "required_status_checks": {
+    "strict": true,
+    "contexts": [
+      "Unit Tests",
+      "API Tests",
+      "Integration Tests",
+      "Smoke Tests",
+      "UI Tests (Python Playwright)",
+      "Security Audit",
+      "Dependency Review",
+      "Ruff Lint & Format",
+      "Enforce Pinned Versions",
+      "UX Contract (button styling)",
+      "Dead Code Detection",
+      "Lockfile Up To Date",
+      "Paired Surfaces",
+      "mypy",
+      "CodeQL Analysis",
+      "Semgrep SAST",
+      "Secret Scanning",
+      "MkDocs Build"
+    ]
+  },
+  "enforce_admins": true,
+  "required_pull_request_reviews": null,
+  "restrictions": null,
+  "allow_force_pushes": false,
+  "allow_deletions": false,
+  "block_creations": false,
+  "required_conversation_resolution": false,
+  "lock_branch": true,
+  "allow_fork_syncing": false
+}

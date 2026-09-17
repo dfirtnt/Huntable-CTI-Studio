@@ -1,5 +1,6 @@
 """Unit tests for MCP server environment/default DB behavior."""
 
+import os
 from importlib import import_module, reload
 from unittest.mock import patch
 
@@ -9,6 +10,50 @@ import pytest
 # monkeypatched env vars. The module uses override=True so .env wins over the
 # process environment — correct for production, but we stub it in tests.
 _no_dotenv = patch("dotenv.load_dotenv")
+
+
+@pytest.fixture(autouse=True)
+def _isolate_broker_env(monkeypatch):
+    """stdio_server defaults REDIS_URL at import; keep that from leaking across tests."""
+    for key in ("REDIS_URL", "CELERY_BROKER_URL"):
+        monkeypatch.setenv(key, os.environ.get(key, ""))
+
+
+@pytest.mark.unit
+def test_mcp_server_defaults_broker_to_localhost_for_host_runs(monkeypatch):
+    """A desktop client runs the server on the host with no REDIS_URL; the compose
+    hostname celeryconfig falls back to does not resolve there, so default to the
+    published localhost port the same way DATABASE_URL is assembled."""
+    monkeypatch.setenv("POSTGRES_PASSWORD", "pw123")
+
+    mod = import_module("src.huntable_mcp.stdio_server")
+    # A first import in this process already ran the default; clear it before the reload under test.
+    monkeypatch.delenv("REDIS_URL", raising=False)
+    monkeypatch.delenv("CELERY_BROKER_URL", raising=False)
+    with _no_dotenv:
+        reload(mod)
+
+    assert mod.os.environ.get("REDIS_URL") == "redis://localhost:6379/0"
+    assert mod._redis_url_defaulted is True
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("key", ["REDIS_URL", "CELERY_BROKER_URL"])
+def test_mcp_server_keeps_an_explicit_broker_url(monkeypatch, key):
+    """Inside compose (or with an explicit broker) nothing is rewritten."""
+    monkeypatch.setenv("POSTGRES_PASSWORD", "pw123")
+
+    mod = import_module("src.huntable_mcp.stdio_server")
+    monkeypatch.delenv("REDIS_URL", raising=False)
+    monkeypatch.delenv("CELERY_BROKER_URL", raising=False)
+    monkeypatch.setenv(key, "redis://redis:6379/0")
+    with _no_dotenv:
+        reload(mod)
+
+    assert mod.os.environ.get(key) == "redis://redis:6379/0"
+    assert mod._redis_url_defaulted is False
+    if key == "CELERY_BROKER_URL":
+        assert mod.os.environ.get("REDIS_URL") in (None, "")
 
 
 @pytest.mark.unit
@@ -122,3 +167,6 @@ def test_mcp_server_registers_eval_diagnosis_tools(monkeypatch):
     assert "get_article_eval_bundle" in tool_names
     assert "get_workflow_execution_trace" in tool_names
     assert "get_eval_run" in tool_names
+    # Launching evals over MCP is a caller-attested write that bills the provider.
+    assert "run_subagent_eval" in tool_names
+    assert "get_subagent_eval_status" in tool_names

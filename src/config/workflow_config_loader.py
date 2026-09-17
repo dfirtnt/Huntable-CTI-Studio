@@ -160,13 +160,32 @@ def _agent_cfg(agents: dict, name: str) -> dict[str, Any]:
     a = (agents or {}).get(name) or {}
     if not isinstance(a, dict):
         a = {}
-    return {
+    cfg: dict[str, Any] = {
         "Provider": a.get("Provider", ""),
         "Model": a.get("Model", ""),
         "Temperature": float(a.get("Temperature", 0.0)),
         "TopP": float(a.get("TopP", 0.9)),
         "Enabled": bool(a.get("Enabled", True)),
     }
+    # Effort is optional (None = provider default). Emit the key only when set so a
+    # preset that never chose a tier exports byte-identically to before the field
+    # existed -- the committed quickstart presets are pinned to that shape.
+    effort = a.get("Effort")
+    if isinstance(effort, str) and effort.strip():
+        cfg["Effort"] = effort.strip().lower()
+    return cfg
+
+
+def _with_effort(block: dict[str, Any], cfg: dict[str, Any]) -> dict[str, Any]:
+    """Append an explicitly chosen Effort to an export block.
+
+    Each UI-ordered block re-picks its fields by name, so the optional field has to be
+    carried in deliberately. Absent stays absent: a preset that never chose a tier keeps
+    exporting exactly the shape it had before the field existed.
+    """
+    if "Effort" in cfg:
+        block["Effort"] = cfg["Effort"]
+    return block
 
 
 def _prompt_cfg(prompts: dict, name: str) -> dict[str, Any]:
@@ -207,23 +226,29 @@ def v2_to_ui_ordered_export(v2: dict[str, Any]) -> dict[str, Any]:
     }
 
     rank = _agent_cfg(agents, "RankAgent")
-    out["RankAgent"] = {
-        "Enabled": rank["Enabled"],
-        "Provider": rank["Provider"],
-        "Model": rank["Model"],
-        "Temperature": rank["Temperature"],
-        "TopP": rank["TopP"],
-        "RankingThreshold": float(th.get("RankingThreshold", 6.0)),
-        "Prompt": _prompt_cfg(prompts, "RankAgent"),
-    }
+    out["RankAgent"] = _with_effort(
+        {
+            "Enabled": rank["Enabled"],
+            "Provider": rank["Provider"],
+            "Model": rank["Model"],
+            "Temperature": rank["Temperature"],
+            "TopP": rank["TopP"],
+            "RankingThreshold": float(th.get("RankingThreshold", 6.0)),
+            "Prompt": _prompt_cfg(prompts, "RankAgent"),
+        },
+        rank,
+    )
 
     extract = _agent_cfg(agents, "ExtractAgent")
-    out["ExtractAgent"] = {
-        "Provider": extract["Provider"],
-        "Model": extract["Model"],
-        "Temperature": extract["Temperature"],
-        "TopP": extract["TopP"],
-    }
+    out["ExtractAgent"] = _with_effort(
+        {
+            "Provider": extract["Provider"],
+            "Model": extract["Model"],
+            "Temperature": extract["Temperature"],
+            "TopP": extract["TopP"],
+        },
+        extract,
+    )
 
     for base in [
         "CmdlineExtract",
@@ -248,18 +273,21 @@ def v2_to_ui_ordered_export(v2: dict[str, Any]) -> dict[str, Any]:
             block_dict["AttentionPreprocessor"] = features.get("CmdlineAttentionPreprocessorEnabled", True)
         if base == "ProcTreeExtract":
             block_dict["AttentionPreprocessor"] = features.get("ProcTreeAttentionPreprocessorEnabled", True)
-        out[base] = block_dict
+        out[base] = _with_effort(block_dict, cfg)
 
     sigma = _agent_cfg(agents, "SigmaAgent")
-    out["SigmaAgent"] = {
-        "Provider": sigma["Provider"],
-        "Model": sigma["Model"],
-        "Temperature": sigma["Temperature"],
-        "TopP": sigma["TopP"],
-        "SimilarityThreshold": float(th.get("SimilarityThreshold", 0.5)),
-        "UseFullArticleContent": features.get("SigmaFallbackEnabled", False),
-        "Prompt": _prompt_cfg(prompts, "SigmaAgent"),
-    }
+    out["SigmaAgent"] = _with_effort(
+        {
+            "Provider": sigma["Provider"],
+            "Model": sigma["Model"],
+            "Temperature": sigma["Temperature"],
+            "TopP": sigma["TopP"],
+            "SimilarityThreshold": float(th.get("SimilarityThreshold", 0.5)),
+            "UseFullArticleContent": features.get("SigmaFallbackEnabled", False),
+            "Prompt": _prompt_cfg(prompts, "SigmaAgent"),
+        },
+        sigma,
+    )
 
     # Emit keys in UI order
     ordered: dict[str, Any] = {}
@@ -431,6 +459,11 @@ def ui_ordered_to_v2(ui: dict[str, Any]) -> dict[str, Any]:
             "TopP": float(cfg.get("TopP", 0.9)),
             "Enabled": bool(cfg.get("Enabled", True)),
         }
+        # Mirror of _agent_cfg: carry an explicitly chosen Effort through import, and
+        # leave the key absent when the preset does not name one (= provider default).
+        effort = cfg.get("Effort")
+        if isinstance(effort, str) and effort.strip():
+            agents[name]["Effort"] = effort.strip().lower()
         if prompt is not None:
             prompts[name] = prompt
 

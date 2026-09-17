@@ -6,7 +6,6 @@ from datetime import datetime
 from typing import Any
 
 from src.core.modern_scraper import LegacyScraper, ModernScraper
-from src.core.playwright_scraper import PlaywrightScraper
 from src.core.rss_parser import RSSParser
 from src.models.article import ArticleCreate
 from src.models.source import Source
@@ -179,6 +178,25 @@ class ContentFetcher:
                 try:
                     logger.debug(f"Attempting Playwright scraping for {source.name} (JS-rendered content)")
 
+                    playwright_scraper_class = self._playwright_scraper_class()
+                    if playwright_scraper_class is None:
+                        response_time = (datetime.now() - start_time).total_seconds()
+                        error_msg = (
+                            "Playwright is unavailable in this runtime. "
+                            f"Source {source.name} requires JavaScript rendering; "
+                            "run collection in a Playwright-enabled ingestion worker."
+                        )
+                        self._update_stats("playwright_unavailable", 0, response_time, False)
+                        logger.error(error_msg)
+                        return FetchResult(
+                            source=source,
+                            articles=[],
+                            method="playwright_unavailable",
+                            success=False,
+                            error=error_msg,
+                            response_time=response_time,
+                        )
+
                     # If config has playwright_profile: true, use a persistent browser
                     # profile stored at /app/logs/playwright-profiles/<identifier> so
                     # WAF session cookies survive between collection runs.
@@ -188,7 +206,9 @@ class ContentFetcher:
                     _profile_dir: str | None = None
                     if _pw_cfg.get("playwright_profile"):
                         _profile_dir = os.path.join("/app/logs/playwright-profiles", source.identifier)
-                    playwright_scraper = PlaywrightScraper(headless=True, timeout=30000.0, user_data_dir=_profile_dir)
+                    playwright_scraper = playwright_scraper_class(
+                        headless=True, timeout=30000.0, user_data_dir=_profile_dir
+                    )
 
                     async with playwright_scraper:
                         articles = await playwright_scraper.scrape_source(source)
@@ -306,6 +326,17 @@ class ContentFetcher:
             return True
 
         return False
+
+    @staticmethod
+    def _playwright_scraper_class():
+        """Return the optional Playwright scraper class when its dependency is installed."""
+        try:
+            from src.core.playwright_scraper import PlaywrightScraper
+        except ModuleNotFoundError as exc:
+            if exc.name and exc.name.startswith("playwright"):
+                return None
+            raise
+        return PlaywrightScraper
 
     def _should_supplement_with_archive(self, source: Source) -> bool:
         """Check if source should merge RSS results with archive/page scraping."""

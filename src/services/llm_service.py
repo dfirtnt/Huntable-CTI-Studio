@@ -200,7 +200,11 @@ class LLMService(LLMRoutingMixin, LLMClientMixin):
         sigma_top_p_raw = config_models.get("SigmaAgent_top_p") if config_models else None
         self.top_p_sigma = float(sigma_top_p_raw) if sigma_top_p_raw is not None else float(_top_p_str)
 
-        # Store config_models for per-subagent top_p lookup
+        # Reasoning effort: per-agent override from {Agent}_effort; None = provider default.
+        self.effort_rank = self._config_effort("RankAgent", config_models)
+        self.effort_sigma = self._config_effort("SigmaAgent", config_models)
+
+        # Store config_models for per-subagent top_p / effort lookup
         self.config_models = config_models if config_models else {}
 
         # Seed: AppSettings DB > env > default None
@@ -250,6 +254,22 @@ class LLMService(LLMRoutingMixin, LLMClientMixin):
             "hunt_score": hunt,
             "ml_score": ml,
         }
+
+    @staticmethod
+    def _config_effort(agent_name: str, config_models: dict[str, Any] | None) -> str | None:
+        """Read `{agent}_effort` from flat agent_models; blank/missing means provider default."""
+        if not config_models:
+            return None
+        value = config_models.get(f"{agent_name}_effort")
+        if not isinstance(value, str):
+            return None
+        return value.strip().lower() or None
+
+    def resolve_extract_effort(self, agent_name: str) -> str | None:
+        """Effort for an extractor: its own `{Agent}_effort`, else the ExtractAgent fallback."""
+        return self._config_effort(agent_name, self.config_models) or self._config_effort(
+            "ExtractAgent", self.config_models
+        )
 
     async def rank_article(
         self,
@@ -492,6 +512,7 @@ class LLMService(LLMRoutingMixin, LLMClientMixin):
                     failure_context="Failed to rank article",
                     top_p=self.top_p_rank,
                     seed=self.seed,
+                    effort=self.effort_rank,
                 )
 
                 # Deepseek-R1 returns reasoning in 'reasoning_content', fallback to 'content'
@@ -646,6 +667,7 @@ class LLMService(LLMRoutingMixin, LLMClientMixin):
         attention_preprocessor_enabled: bool = True,
         proc_tree_attention_preprocessor_enabled: bool = True,
         langfuse_session_id: str | None = None,
+        effort: str | None = None,
     ) -> dict[str, Any]:
         """
         Run a generic extraction agent.
@@ -659,6 +681,8 @@ class LLMService(LLMRoutingMixin, LLMClientMixin):
             max_extraction_retries: Max retries on extraction exceptions/timeouts
             provider: LLM provider to use (e.g. "lmstudio", "openai", "anthropic").
                      If None, uses self.provider_extract (from ExtractAgent_provider)
+            effort: Reasoning-effort override. If None, resolved from config_models
+                     ({agent_name}_effort, then ExtractAgent_effort); None = provider default.
 
         Returns:
             Dict with extraction results
@@ -697,6 +721,8 @@ class LLMService(LLMRoutingMixin, LLMClientMixin):
 
         source = "parameter" if model_name == prompt_config.get("model") else "fallback"
         logger.info(f"{agent_name} resolved model: {model_name} (from: {source})")
+        if effort is None:
+            effort = self.resolve_extract_effort(agent_name)
 
         while current_try < max_extraction_retries:
             current_try += 1
@@ -1073,7 +1099,7 @@ Every item in the output array MUST be an object (not a plain string)."""
                     logger.info(
                         f"{agent_name} extraction attempt {current_try}: "
                         f"using provider={effective_provider}, model={model_name}, "
-                        f"temperature={temperature}, top_p={effective_top_p}"
+                        f"temperature={temperature}, top_p={effective_top_p}, effort={effort}"
                     )
                     try:
                         response = await self.request_chat(
@@ -1086,6 +1112,7 @@ Every item in the output array MUST be an object (not a plain string)."""
                             timeout=extraction_timeout,
                             failure_context=f"{agent_name} extraction attempt {current_try}",
                             seed=self.seed,
+                            effort=effort,
                         )
                         # Forensic instrumentation: pop the wire-truth markers so they don't
                         # leak into Langfuse output or downstream response parsing.

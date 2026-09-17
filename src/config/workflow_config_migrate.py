@@ -194,6 +194,7 @@ def migrate_v1_to_v2(raw: dict[str, Any]) -> dict[str, Any]:
         model = agent_models.get(model_key) if model_key != flat_prefix else agent_models.get(flat_prefix)
         temp = agent_models.get(f"{flat_prefix}_temperature")
         top_p = agent_models.get(f"{flat_prefix}_top_p")
+        effort = agent_models.get(f"{flat_prefix}_effort")
         Agents[v2_name] = {
             "Provider": _str_val(provider, _default_provider),
             "Model": _str_val(model),
@@ -201,6 +202,8 @@ def migrate_v1_to_v2(raw: dict[str, Any]) -> dict[str, Any]:
             "TopP": _float_val(top_p, 0.9),
             "Enabled": True,
         }
+        if isinstance(effort, str) and effort.strip():
+            Agents[v2_name]["Effort"] = effort.strip().lower()
 
     # Embeddings (from agent_models). OsDetection embedding removed 2026-06-22 (entity-driven
     # platform detection never loaded it) — consume + log the legacy key, then drop it.

@@ -98,13 +98,6 @@ UNSAFE_ROUTE_RULES: tuple[RouteRule, ...] = (
         AuditRequirement.MANDATORY,
         CsrfRequirement.REQUIRED,
     ),
-    RouteRule(
-        "/api/observables/training/*",
-        RouteClassification.ROLES,
-        _ADMIN,
-        AuditRequirement.MANDATORY,
-        CsrfRequirement.REQUIRED,
-    ),
     # /api/cron exposes a raw crontab editor (arbitrary command scheduling), the
     # same trust level as /api/backup/* and /api/settings* above — admin-only.
     RouteRule("/api/cron", RouteClassification.ROLES, _ADMIN, AuditRequirement.MANDATORY, CsrfRequirement.REQUIRED),
@@ -153,13 +146,6 @@ UNSAFE_ROUTE_RULES: tuple[RouteRule, ...] = (
     ),
     RouteRule(
         "/api/eval/*",
-        RouteClassification.ROLES,
-        _OPERATOR_ADMIN,
-        AuditRequirement.BEST_EFFORT,
-        CsrfRequirement.REQUIRED,
-    ),
-    RouteRule(
-        "/api/observables/evaluation/*",
         RouteClassification.ROLES,
         _OPERATOR_ADMIN,
         AuditRequirement.BEST_EFFORT,
@@ -266,7 +252,7 @@ UNSAFE_ROUTE_RULES: tuple[RouteRule, ...] = (
         AuditRequirement.BEST_EFFORT,
         CsrfRequirement.REQUIRED,
     ),
-    # Destructive article-data mutations (delete, bulk delete/update, mark-reviewed)
+    # Destructive article-data mutations (delete, bulk delete/update)
     # live in the `articles` module and must require a role, not just authentication.
     # This rule precedes the authenticated catch-all so zero-role users cannot delete
     # articles. (The `ai`/`llm_optimized_endpoint` article actions are role-gated above.)
@@ -324,7 +310,6 @@ SAFE_ROUTE_RULES: tuple[RouteRule, ...] = (
     RouteRule("/api/settings*", RouteClassification.ROLES, _ADMIN),
     RouteRule("/api/backup/*", RouteClassification.ROLES, _ADMIN),
     RouteRule("/api/model/*", RouteClassification.ROLES, _ADMIN),
-    RouteRule("/api/observables/training/*", RouteClassification.ROLES, _ADMIN),
     RouteRule("/api/sigma-queue/*", RouteClassification.ROLES, _RULE_REVIEWER_ADMIN),
 )
 

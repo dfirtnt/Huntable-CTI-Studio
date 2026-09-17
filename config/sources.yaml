@@ -669,7 +669,11 @@ sources:
     active: true
     config:
       allow: ["the-hunters-ledger.com"]
-      post_url_regex: ["^https://the-hunters-ledger\\.com/reports/.*"]
+      # /reports/ come from the Atom feed; the validated Sigma rules live on
+      # /hunting-detections/<slug>-detections/ pages that the feed never lists.
+      post_url_regex:
+        - "^https://the-hunters-ledger\\.com/reports/.+"
+        - "^https://the-hunters-ledger\\.com/hunting-detections/.+"
       robots:
         enabled: true
         user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
@@ -679,6 +683,17 @@ sources:
       min_content_length: 1500
       title_filter_keywords: ["webinar", "training", "careers", "job posting"]
       rss_only: false
+      # Supplement the RSS tier with listing discovery so the detections pages
+      # are fetched too (fetcher only runs discovery when archive_pages is on).
+      # The index is a single page with no pagination and the site has no sitemap.
+      archive_pages: true
+      max_archive_pages: 1
+      discovery:
+        strategies:
+          - listing:
+              urls: ["https://the-hunters-ledger.com/hunting-detections/"]
+              max_pages: 1
+              post_link_selector: 'a[href^="/hunting-detections/"][href!="/hunting-detections/"]'
       extract:
         prefer_jsonld: true
         title_selectors: ["h1", ".hl-post-header h1", "meta[property='og:title']::attr(content)"]
@@ -686,7 +701,12 @@ sources:
           - "meta[property='article:published_time']::attr(content)"
           - "time[datetime]::attr(datetime)"
         body_selectors: [".hl-post-content", "article", "main", ".content"]
-        author_selectors: ["meta[name='author']::attr(content)"]
+        # Detections pages carry no author anywhere (JSON-LD BlogPosting without
+        # author, no meta author); fall back to the site name so discovery-path
+        # articles match the feed-path attribution instead of being blank.
+        author_selectors:
+          - "meta[name='author']::attr(content)"
+          - "meta[property='og:site_name']::attr(content)"
     description: "Original threat intelligence research — malware analysis, detection rules, and IOC feeds from a solo analyst"
 
   # =============================================================================

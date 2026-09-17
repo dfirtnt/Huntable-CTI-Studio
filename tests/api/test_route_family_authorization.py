@@ -120,10 +120,10 @@ async def test_detailed_health_is_not_public():
 
 # Regression coverage for the pre-release security-review finding: SAFE_ROUTE_RULES
 # (GET requests) had no entries for /api/settings*, /api/backup/*, /api/model/*,
-# /api/observables/training/*, or /api/sigma-queue/*, so those reads fell through to
-# the bare AUTHENTICATED default -- any authenticated user with zero app role could
-# read live secrets via GET /api/settings. UNSAFE_ROUTE_RULES already gated the write
-# side of each of these to admin/rule_reviewer; the read side must match.
+# or /api/sigma-queue/*, so those reads fell through to the bare AUTHENTICATED
+# default -- any authenticated user with zero app role could read live secrets
+# via GET /api/settings. UNSAFE_ROUTE_RULES already gated the write side of each
+# of these to admin/rule_reviewer; the read side must match.
 @pytest.mark.asyncio
 async def test_settings_read_requires_admin():
     async with await _client() as client:

@@ -61,10 +61,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Shared runtime libraries only. Role-specific stages install their own extras.
+# git is shared, not role-specific: sigma_sync_service clones/pulls SigmaHQ and
+# sigma_pr_service drives the customer rules repo, and both are reached from the
+# cli, web, worker and scheduler images.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
         curl \
+        git \
         libgomp1 \
         libpq5 \
         tzdata \

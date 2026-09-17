@@ -38,10 +38,13 @@ behaviorally novel relative to what is already indexed. Both query the same
 
 ### System Flow
 
-Two entry paths lead into Sigma rule processing:
+Sigma rule processing has a single entry path:
 
-- **Agentic Workflow** (primary): Triggered via `POST /api/workflow/articles/{id}/trigger` — Platform Detection → Junk Filter → Rank → Extract → Generate Sigma → Similarity Search → Promote to Queue
-- **Web/API path**: `POST /api/articles/{article_id}/generate-sigma` — Match Existing Rules → Classify Coverage → Generate New Rules (if needed) → Similarity Check → Store
+- **Agentic Workflow**: Triggered via `POST /api/workflow/articles/{id}/trigger` — Platform Detection → Junk Filter → Rank → Extract → Generate Sigma → Similarity Search → Promote to Queue
+
+A second, manual path (`POST /api/articles/{article_id}/generate-sigma`) existed until it was
+removed; it had no UI caller, and its rules were returned to the caller rather than queued for
+review. Generation now happens only inside the workflow.
 
 ### Signal Refinement Loop
 
@@ -70,6 +73,48 @@ Generation uses temperature 0.2 for deterministic output.
 - All attempt logs (prompts, responses, validation results) are stored for
   post-mortem review
 
+### SigmaHQ Blocking Validators
+
+After pySigma parses a rule, `validate_sigma_rule` runs the same validator set the
+Huntable-SIGMA-Rules CI treats as blocking (`src/services/sigma_validation_blocking.yml`, a
+mirror of that repository's `.sigma/validation-blocking.yml`, executed with
+`pySigma-validators-sigmahq`). Field names must exist in the SigmaHQ taxonomy for the
+logsource, the category/product pair must be a known logsource, `service: sysmon` needs an
+EventID, `id`/`status`/`level`/`description` must be present, and non-Sigma top-level keys
+fail -- except the pipeline's own grounding keys (`SIGMA_GROUNDING_METADATA_FIELDS`), which
+are stripped before publication. Each issue is an error prefixed `SigmaHQ <Issue>` and the
+full list is in `metadata["sigmahq"]["issues"]`; when the plugin is not installed the layer
+reports `metadata["sigmahq"]["available"] == False` and validation falls back to pySigma
+plus the policy pass. Keep the YAML in step with the rules repository so a queue-approved rule
+cannot fail the PR check.
+
+### ATT&CK Tag Validation
+
+After pySigma accepts a rule, the Huntable policy pass (`SigmaValidator` in
+`src/services/sigma_validator.py`) checks every `attack.*` tag against a cached copy of
+the MITRE ATT&CK taxonomy (`config/attack_taxonomy.json`, loaded once by
+`src/services/attack_taxonomy.py`; no network call at validation time).
+
+- **Errors** (rule fails, goes to the repair pass): a technique, sub-technique, group,
+  software, mitigation, or campaign ID that does not exist, was revoked, or is deprecated.
+  Revoked IDs name their replacement, for example
+  `Tag 'attack.t1086' references revoked ATT&CK technique T1086 (PowerShell); it was
+  replaced by T1059.001 (PowerShell) -- use 'attack.t1059.001'`. An unknown sub-technique
+  names its existing parent.
+- **Warnings only**: an unrecognized tactic name (`attack.persistance`). The Sigma tag
+  taxonomy lags MITRE -- ATT&CK v19 renamed Enterprise `defense-evasion`, which SigmaHQ
+  still uses -- so tactic names never fail a rule.
+- Tags outside the `attack.` namespace (`cve.*`, `detection.*`, `car.*`) are not checked.
+- A missing or unreadable taxonomy file disables the check with one logged warning rather
+  than failing every rule.
+
+The taxonomy covers the Enterprise, Mobile, and ICS domains. Regenerate it when MITRE
+ships a new ATT&CK release (roughly twice a year) and commit the result:
+
+```bash
+python scripts/build_attack_taxonomy.py
+```
+
 ### Repair Pass (SigmaRepair)
 
 After the initial generation attempt, any rules that failed pySigma validation
@@ -82,7 +127,7 @@ are sent through a dedicated per-rule repair loop before the result is finalized
    values:
    - `{validation_errors}` -- the list of pySigma error strings from the failed
      attempt
-   - `{original_rule}` -- the first 500 characters of the broken YAML
+   - `{original_rule}` -- the broken YAML (up to 8,000 characters, `REPAIR_RULE_MAX_CHARS`)
 3. The LLM returns a corrected rule; pySigma re-validates it.
 4. This repeats up to `max_repair_attempts_per_rule` times (default: 3) per rule.
 
@@ -233,6 +278,9 @@ Generated Rule
        (a) canonical_class path: filter sigma_rules.canonical_class = X (no LIMIT)
        (b) logsource_key fallback: filter sigma_rules.logsource_key = X (LIMIT 20)
      Each candidate is tagged with the phase1_path it came from.
+     Both paths, and the exact-hash shortcut before them, skip the rule's own
+     customer-repo copy (`cust-<yaml id>`), which is byte-identical once its PR
+     merges and the repo syncs.
   3. Phase 2 scoring — Jaccard × Containment − Filter over atom sets
   4. Phase 3 safety gate (scoped) — drop logsource_key mismatches ONLY on the
      logsource_key-fallback path. The canonical_class path's SQL filter is the
@@ -447,7 +495,9 @@ from your customer repo alongside SigmaHQ rules:
 ./run_cli.sh sigma index-customer-repo --no-embeddings
 ```
 
-Customer rules use `rule_id` prefix `cust-` and `file_path` prefix `customer/`.
+Customer rules use `rule_id` prefix `cust-` and `file_path` prefix `cust/`. Queued rules are
+never scored against their own customer copy (`cust-` + the rule's YAML `id`), so a merged,
+synced rule still surfaces real duplicates instead of a 1.0 self-match.
 
 ---
 
@@ -471,6 +521,12 @@ Rules that pass generation and similarity scoring are placed in the **Sigma Queu
 | `approved` | green | Human accepted the rule; eligible for GitHub PR submission |
 | `rejected` | red | Human discarded the rule |
 | `submitted` | blue | Rule has been submitted to the GitHub repository as a PR |
+
+Once a rule is submitted (`pr_submitted` or `submitted_at` set), its `rule_yaml` is the record of
+what went to the repository and is read-only: the approve, reject and `PUT /api/sigma-queue/{queue_id}/yaml`
+endpoints return `409` for any YAML change (re-sending identical YAML is allowed). To revise a
+submitted rule, add an edited copy to the queue. Every accepted YAML edit also refreshes
+`rule_metadata.title`, which drives the queue's header title.
 
 ### `needs_review` in Depth
 
@@ -697,56 +753,13 @@ Rules generated by the agentic workflow are placed in `sigma_rule_queue` with on
 
 ## API Reference
 
-### Generate Sigma Rules
-
-**Endpoint**: `POST /api/articles/{article_id}/generate-sigma`
-
-**Request:**
-```json
-{
-  "force_regenerate": false,
-  "include_content": true,
-  "ai_model": "chatgpt",
-  "api_key": "your_api_key_here",
-  "author_name": "Huntable CTI Studio User",
-  "temperature": 0.2,
-  "skip_matching": false,
-  "optimization_options": {
-    "useFiltering": true,
-    "minConfidence": 0.7
-  }
-}
-```
-
-**Response (article covered by existing rules):**
-```json
-{
-  "success": true,
-  "matched_rules": [...],
-  "coverage_summary": {"covered": 2, "extend": 1, "new": 0, "total": 3},
-  "generated_rules": [],
-  "skipped_generation": true,
-  "recommendation": "Article behaviors are covered by 2 existing Sigma rule(s). No new rules needed."
-}
-```
-
-**Response (new rules generated):**
-```json
-{
-  "success": true,
-  "rules": [...],
-  "similar_rules": [...],
-  "validation_results": [...],
-  "validation_passed": true,
-  "attempts_made": 1,
-  "matched_rules": [],
-  "coverage_summary": {...}
-}
-```
-
 ### Get Existing Matches
 
 **Endpoint**: `POST /api/articles/{article_id}/sigma-matches`
+
+Assesses the rules queued for this article (`sigma_rule_queue`, excluding rejected rows) against
+the indexed Sigma corpus. Returns an empty result with a message when the article has no queued
+rules. Requires an indexed corpus — see [Sigma Rule Embeddings](#sigma-rule-embeddings).
 
 **Response:**
 ```json
@@ -869,6 +882,10 @@ therefore encodes two texts per rule. (The deprecated
 - Common issues: missing required fields (title, logsource, detection), invalid YAML,
   incorrect metadata types, unknown field modifiers, malformed or undefined detection
   conditions, and Huntable grounding or quality-policy failures
+- `references unknown/revoked/deprecated ATT&CK ...`: the rule cites a MITRE ATT&CK ID
+  that is not current (see [ATT&CK Tag Validation](#attck-tag-validation)); the error names
+  the replacement when MITRE recorded one. If the taxonomy itself is stale, regenerate
+  `config/attack_taxonomy.json` with `scripts/build_attack_taxonomy.py`
 
 ### Slow Performance
 

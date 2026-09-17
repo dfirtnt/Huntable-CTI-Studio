@@ -210,9 +210,12 @@ Things to look at before approving:
 scripts/release_unlock.sh
 ```
 
-Removes branch protection on `main`. From this point on, `main` is
-write-enabled and you should move through the remaining phases without
-long pauses. Do not leave `main` unlocked overnight.
+Drops the read-only lock on `main` but keeps every required status check,
+plus the force-push and deletion blocks, in force -- the release PR merges
+only when its checks are green (`scripts/main_branch_protection.json` is
+the source of truth). From this point on, `main` accepts PR merges and you
+should move through the remaining phases without long pauses. Do not leave
+`main` unlocked overnight.
 
 ## Phase 6: Push the release branch and open PR
 

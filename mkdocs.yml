@@ -1,5 +1,5 @@
 site_name: Huntable CTI Studio
-site_description: Modern threat intelligence collection and analysis platform
+site_description: Open-source agentic workbench that turns CTI reports into validated Sigma detection rules. Extract command lines, process trees, and hunt queries; auto-generate and dedupe against SigmaHQ. Run locally with your own LLM.
 
 # Internal planning artifacts (build specs, implementation plans) are not part of the
 # published site. They intentionally link to source files, which fail mkdocs --strict

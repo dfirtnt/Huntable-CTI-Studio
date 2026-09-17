@@ -168,17 +168,16 @@ def item_candidates(subagent_name: str | None, item: Any) -> list[str]:
         return []
 
     if subagent_name == "registry_artifacts":
-        hive = _s(item.get("registry_hive"))
-        key = _s(item.get("registry_key_path"))
-        value_name = _s(item.get("registry_value_name"))
+        # Per docs/contracts/registry-extract.md: `key` is the full hive-rooted
+        # path (REQUIRED), `value` is a duplicate of `key`, `value_name` is an
+        # optional value under that key.
+        key = _s(item.get("key")) or _s(item.get("value"))
+        value_name = _s(item.get("value_name"))
         candidates: list[str] = []
         if key:
-            base = f"{hive}\\{key}" if hive else key
-            candidates.append(base)
+            candidates.append(key)
             if value_name:
-                candidates.append(f"{base}\\{value_name}")
-        elif hive:
-            candidates.append(hive)
+                candidates.append(f"{key}\\{value_name}")
         fallback = _first_str(item, ("name",))
         if not candidates and fallback:
             candidates.append(fallback)

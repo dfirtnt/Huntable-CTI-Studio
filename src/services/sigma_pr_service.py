@@ -17,6 +17,28 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
+# owner/repo out of a GitHub remote URL. Anchored at the end so an embedded
+# credential earlier in the URL cannot be mistaken for the owner.
+_GITHUB_REMOTE_RE = re.compile(r"github\.com[:/](?P<owner>[^/:]+)/(?P<repo>[^/]+?)$", re.IGNORECASE)
+
+
+def parse_github_remote(remote_url: str | None) -> str | None:
+    """Extract ``owner/repo`` from a GitHub remote URL, or None if it is not one.
+
+    Covers every shape ``git remote get-url origin`` returns for these clones:
+    HTTPS (``https://github.com/owner/repo.git``), SSH
+    (``git@github.com:owner/repo.git``), and HTTPS carrying an embedded
+    credential (``https://x-access-token:TOKEN@github.com/owner/repo.git``),
+    which _configure_remote_auth writes back into the clone itself.
+    """
+    if not remote_url:
+        return None
+    cleaned = remote_url.strip().rstrip("/").removesuffix(".git").rstrip("/")
+    match = _GITHUB_REMOTE_RE.search(cleaned)
+    if not match:
+        return None
+    return f"{match.group('owner')}/{match.group('repo')}"
+
 
 class SigmaPRService:
     """Service for submitting SIGMA rules to external repository via GitHub PRs."""
@@ -61,11 +83,68 @@ class SigmaPRService:
                 f"SIGMA repo path does not exist: {self.repo_path}. Please check your SIGMA_REPO_PATH setting."
             )
 
-        self.github_repo = self._get_setting("GITHUB_REPO") or os.getenv("GITHUB_REPO", "dfirtnt/Huntable-SIGMA-Rules")
+        # An explicit GITHUB_REPO is an override, not the primary source: the clone
+        # already names the repository it pushes to. There is deliberately no
+        # hardcoded fallback -- an unresolvable repository must surface as a
+        # configuration error rather than silently target someone else's repo.
+        stored = (self._get_setting("GITHUB_REPO") or "").strip()
+        from_env = (os.getenv("GITHUB_REPO") or "").strip()
+        self._github_repo_override = stored or from_env or None
+        self._github_repo_override_source = "setting" if stored else ("environment" if from_env else None)
+        self._github_repo_derived: str | None = None
+        self._github_repo_derived_done = False
         self.rules_path = self.repo_path / "rules"
 
         if not self.github_token:
             logger.warning("GITHUB_TOKEN not set - PR creation will fail")
+
+    @property
+    def github_repo(self) -> str | None:
+        """``owner/repo`` used for the create-PR API call.
+
+        An explicitly configured value wins, so pushing to a fork and opening the
+        PR against a different repository stays expressible. Otherwise it is
+        derived from the clone's origin remote -- the same repository the push
+        goes to. Stating it in two independent places is what let them silently
+        disagree: the push followed the remote and succeeded while the PR call
+        followed the setting and 404'd.
+        """
+        if self._github_repo_override:
+            return self._github_repo_override
+        if not self._github_repo_derived_done:
+            self._github_repo_derived = self._derive_github_repo_from_remote()
+            self._github_repo_derived_done = True
+        return self._github_repo_derived
+
+    def describe_github_repo(self) -> dict[str, str | None]:
+        """Report the effective repository and its origin, for display in Settings.
+
+        ``source`` is one of ``setting`` (configured in the database), ``environment``
+        (a GITHUB_REPO env var), ``remote`` (derived from the clone), or
+        ``unresolved`` (PR submission cannot proceed).
+        """
+        if self._github_repo_override:
+            return {"repo": self._github_repo_override, "source": self._github_repo_override_source}
+        derived = self.github_repo
+        return {"repo": derived, "source": "remote" if derived else "unresolved"}
+
+    def _derive_github_repo_from_remote(self) -> str | None:
+        """Read ``owner/repo`` off the clone's origin remote, or None if unavailable."""
+        if not self.repo_path.exists():
+            logger.debug("Cannot derive GitHub repository: %s does not exist", self.repo_path)
+            return None
+        try:
+            returncode, remote_url, stderr = self._run_git_command(["remote", "get-url", "origin"], check=False)
+        except (RuntimeError, subprocess.SubprocessError, OSError) as exc:
+            logger.warning("Could not read origin remote to derive the GitHub repository: %s", exc)
+            return None
+        if returncode != 0:
+            logger.warning("Origin remote is not readable: %s", stderr.strip() or "origin is not configured")
+            return None
+        derived = parse_github_remote(remote_url)
+        if derived:
+            logger.info("Derived GitHub repository %s from the origin remote", derived)
+        return derived
 
     def _get_setting(self, key: str) -> str | None:
         """
@@ -360,9 +439,8 @@ class SigmaPRService:
                 ),
             }
 
-        remote = remote_url.strip().removesuffix(".git").rstrip("/")
-        match = re.search(r"github\.com[:/]([^/]+/[^/]+)$", remote, re.IGNORECASE)
-        if match and match.group(1).lower() == "sigmahq/sigma":
+        owner_repo = parse_github_remote(remote_url)
+        if owner_repo and owner_repo.lower() == "sigmahq/sigma":
             return {
                 "valid": False,
                 "error": (
@@ -370,6 +448,20 @@ class SigmaPRService:
                     f"{self.repo_path}. Configure SIGMA_REPO_PATH "
                     "to the customer rules repository, such as sigma-repo or "
                     "../Huntable-SIGMA-Rules."
+                ),
+            }
+
+        # Fail here rather than at the create-PR call, where an unresolvable
+        # repository surfaces as an opaque GitHub 404 after the branch and commit
+        # have already been made.
+        if not self.github_repo:
+            return {
+                "valid": False,
+                "error": (
+                    "Could not determine which GitHub repository to open the PR against. "
+                    f"The origin remote of {self.repo_path} is not a recognizable GitHub URL "
+                    f"({remote_url.strip() or 'empty'}). Point the clone at its GitHub remote, "
+                    "or set GitHub Repository in Settings to owner/repo."
                 ),
             }
 
@@ -598,7 +690,15 @@ class SigmaPRService:
             PR URL or None on failure
         """
         try:
-            repo_owner, repo_name = self.github_repo.split("/")
+            repo = self.github_repo
+            if not repo or "/" not in repo:
+                logger.error(
+                    "Cannot create PR: no GitHub repository resolved from the origin remote "
+                    "of %s, and GitHub Repository is not set in Settings.",
+                    self.repo_path,
+                )
+                return None
+            repo_owner, repo_name = repo.split("/", 1)
 
             url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/pulls"
             headers = {

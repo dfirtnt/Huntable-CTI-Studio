@@ -8,6 +8,7 @@ Workflow agent configuration uses a **normalized hierarchical schema (v2)** with
 
 - **Single casing**: PascalCase for schema keys (Version, Metadata, Thresholds, Agents, Embeddings, Features, Prompts, Execution).
 - **Nested agents**: Instead of flat keys like `RankAgent_provider`, `RankAgent_temperature`, config is structured as `Agents.RankAgent.Provider`, `Agents.RankAgent.Temperature`, etc. Each agent has required fields: Provider, Model, Temperature, TopP, Enabled.
+- **Optional per-agent Effort**: `Agents.<name>.Effort` (flat key `{Agent}_effort`) sets the reasoning-effort tier. `None` — the value every shipped preset and every pre-existing config carries — means "provider default", so the field validates cleanly when absent. Which tiers a model accepts comes from `config/model_capabilities.json` (or, for Codex, its live `model/list`), enforced at the config write boundary; see [Cloud Model Reference](../llm/cloud-model-reference.md#model-parameter-capabilities-and-reasoning-effort).
 - **Dedicated sections**:
   - **Thresholds**: MinHuntScore, RankingThreshold, SimilarityThreshold, JunkFilterThreshold.
   - **Agents**: All LLM agents (RankAgent, ExtractAgent, SigmaAgent, and sub-agents: CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract, NetworkIndicatorExtract).

@@ -551,6 +551,7 @@ class TestGetProviderOptionsDefaultProviderPriority:
                 "models",
                 "default_model",
                 "reason_unavailable",
+                "model_capabilities",
             }
             assert required_keys == set(provider_data.keys())
 
@@ -565,7 +566,22 @@ class TestGetProviderOptionsCodex:
             patch("src.services.workflow_provider_options._probe_lmstudio", new=AsyncMock(return_value=(False, []))),
             patch(
                 "src.services.workflow_provider_options._probe_codex_models",
-                new=AsyncMock(return_value=(True, ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"])),
+                new=AsyncMock(
+                    return_value=(
+                        True,
+                        ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"],
+                        {
+                            "gpt-5.6-luna": {
+                                "supports_temperature": False,
+                                "supports_top_p": False,
+                                "effort_levels": ["low", "medium", "high"],
+                                "effort_descriptions": {"low": "Fast"},
+                                "default_effort": "medium",
+                                "source": "live",
+                            }
+                        },
+                    )
+                ),
             ),
         ):
             result = await get_provider_options(session)
@@ -576,3 +592,72 @@ class TestGetProviderOptionsCodex:
         assert codex["models"] == ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]
         assert codex["default_model"] == "gpt-5.6-luna"
         assert result["default_provider"] == "codex"
+        # Live tiers ride along so the UI can build the Codex Effort select.
+        assert codex["model_capabilities"]["gpt-5.6-luna"]["effort_levels"] == ["low", "medium", "high"]
+        assert codex["model_capabilities"]["gpt-5.6-luna"]["source"] == "live"
+
+    @pytest.mark.asyncio
+    async def test_codex_probe_maps_model_details_to_capabilities(self):
+        from src.services.workflow_provider_options import _probe_codex_models
+
+        details = [
+            {
+                "model": "gpt-5.6-luna",
+                "is_default": True,
+                "supported_reasoning_efforts": [
+                    {"reasoning_effort": "low", "description": "Fast"},
+                    {"reasoning_effort": "ultra", "description": ""},
+                ],
+                "default_reasoning_effort": "low",
+            }
+        ]
+        with patch("src.services.workflow_provider_options.CodexAppServerClient") as client_cls:
+            client_cls.return_value.list_model_details = AsyncMock(return_value=details)
+            reachable, models, caps = await _probe_codex_models()
+        assert reachable is True
+        assert models == ["gpt-5.6-luna"]
+        assert caps["gpt-5.6-luna"] == {
+            "supports_temperature": False,
+            "supports_top_p": False,
+            "effort_levels": ["low", "ultra"],
+            "effort_descriptions": {"low": "Fast"},
+            "default_effort": "low",
+            "source": "live",
+        }
+
+    @pytest.mark.asyncio
+    async def test_codex_probe_failure_returns_empty_capabilities(self):
+        from src.services.codex_app_server_client import CodexAppServerError
+        from src.services.workflow_provider_options import _probe_codex_models
+
+        with patch("src.services.workflow_provider_options.CodexAppServerClient") as client_cls:
+            client_cls.return_value.list_model_details = AsyncMock(side_effect=CodexAppServerError("no login"))
+            assert await _probe_codex_models() == (False, [], {})
+
+
+class TestCatalogCapabilitiesInProviderOptions:
+    @pytest.mark.asyncio
+    async def test_openai_and_anthropic_models_carry_catalog_capabilities(self):
+        session = _make_db_session(
+            [
+                ("WORKFLOW_OPENAI_ENABLED", "true"),
+                ("WORKFLOW_OPENAI_API_KEY", "sk-real-key"),
+                ("WORKFLOW_ANTHROPIC_ENABLED", "true"),
+                ("WORKFLOW_ANTHROPIC_API_KEY", "sk-ant-key"),
+            ]
+        )
+        catalog = {"openai": ["gpt-4o", "gpt-5.6-luna"], "anthropic": ["claude-opus-5", "claude-sonnet-4-6"]}
+        with (
+            patch("src.services.workflow_provider_options.load_catalog", return_value=catalog),
+            patch("src.services.workflow_provider_options._probe_lmstudio", new=AsyncMock(return_value=(False, []))),
+        ):
+            result = await get_provider_options(session)
+
+        oa = result["providers"]["openai"]["model_capabilities"]
+        assert oa["gpt-4o"]["supports_temperature"] is True and oa["gpt-4o"]["effort_levels"] == []
+        assert oa["gpt-5.6-luna"]["supports_temperature"] is False
+        assert "xhigh" in oa["gpt-5.6-luna"]["effort_levels"]
+        an = result["providers"]["anthropic"]["model_capabilities"]
+        assert an["claude-opus-5"]["supports_temperature"] is False
+        assert an["claude-sonnet-4-6"]["supports_temperature"] is True
+        assert an["claude-sonnet-4-6"]["effort_levels"] == ["low", "medium", "high", "max"]

@@ -25,6 +25,14 @@ These are the only sources the skill should cite. They are ordered by reliabilit
   - Use to confirm retirement dates and find earlier-generation models that are
     still callable but on the way out
 
+- **Effort parameter reference** (capability values)
+  `https://platform.claude.com/docs/en/build-with-claude/effort`
+  - Lists every model that supports `output_config.effort`, the tier table, which
+    models take `xhigh` (Opus 4.7+, Opus 5, Sonnet 5, Fable 5) vs. only `max`
+    (Opus/Sonnet 4.6), and the default (`high`)
+  - Pair with the model migration notes for the sampling rule: Opus 4.7+, Opus 4.8,
+    Opus 5, Sonnet 5 and Fable 5 reject `temperature` / `top_p` / `top_k`
+
 ### Programmatic (preferred when ANTHROPIC_API_KEY is set)
 
 - **Models API**
@@ -62,6 +70,14 @@ and never updated.
 - **OpenAI deprecations**
   `https://platform.openai.com/docs/deprecations`
   - Retirement dates for older models
+
+- **Reasoning guide** (capability values)
+  `https://developers.openai.com/api/docs/guides/reasoning`
+  - Defines the `reasoning_effort` vocabulary (`none`, `minimal`, `low`, `medium`,
+    `high`, `xhigh`, `max`) and family-level defaults; the per-model page's
+    "Reasoning.effort supports: ..." sentence is the precise source when present
+  - Reasoning models reject `temperature` / `top_p`; the app omits them per
+    `config/model_capabilities.json`
 
 ### Programmatic (preferred when OPENAI_API_KEY is set)
 

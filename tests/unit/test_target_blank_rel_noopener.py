@@ -3,13 +3,13 @@
 Prior to this fix, 5 of 7 target="_blank" links across src/web/templates/ set no
 `rel` at all, and the other 2 set `rel="noopener"` without `noreferrer` --
 article_detail.html:364/415 (scraped, attacker-influenceable canonical_url),
-observable_training.html:819, settings.html:143/816. Modern browsers imply
-`noopener` for target="_blank" by default, so exploitability was already
-limited, but relying on that default is a silent regression waiting to happen
-(a future browser/extension change, or a link added without the convention in
-mind). Scans raw template text (not just the parsed DOM) because
-observable_training.html builds one of its anchors inside a JS template
-literal, not as real markup.
+observable_training.html:819 (removed with the observables-training subsystem),
+settings.html:143/816. Modern browsers imply `noopener` for target="_blank" by
+default, so exploitability was already limited, but relying on that default is
+a silent regression waiting to happen (a future browser/extension change, or a
+link added without the convention in mind). Scans raw template text (not just
+the parsed DOM) since a template can build an anchor inside a JS template
+literal rather than as real markup.
 """
 
 from __future__ import annotations
@@ -46,4 +46,4 @@ def test_scan_actually_finds_known_target_blank_links() -> None:
     total = 0
     for template in TEMPLATES_DIR.glob("*.html"):
         total += len(TAG_WITH_BLANK_TARGET.findall(template.read_text(encoding="utf-8")))
-    assert total >= 7
+    assert total >= 6

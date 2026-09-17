@@ -15,7 +15,7 @@ import httpx
 
 from src.database.models import AppSettingsTable
 from src.services.codex_app_server_client import CodexAppServerClient, CodexAppServerError
-from src.services.provider_model_catalog import load_catalog
+from src.services.provider_model_catalog import get_model_capabilities, load_catalog
 from src.utils.lmstudio_url import get_lmstudio_base_url
 
 logger = logging.getLogger(__name__)
@@ -58,6 +58,8 @@ class ProviderStatus:
     models: list[str] = field(default_factory=list)
     default_model: str = ""
     reason_unavailable: str | None = None
+    # model id -> {supports_temperature, supports_top_p, effort_levels, default_effort, source}
+    model_capabilities: dict[str, dict] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
@@ -68,6 +70,7 @@ class ProviderStatus:
             "models": self.models,
             "default_model": self.default_model,
             "reason_unavailable": self.reason_unavailable,
+            "model_capabilities": self.model_capabilities,
         }
 
 
@@ -108,13 +111,38 @@ async def _probe_lmstudio() -> tuple[bool, list[str]]:
     return False, []
 
 
-async def _probe_codex_models() -> tuple[bool, list[str]]:
-    """Ask Codex for the models available to its managed ChatGPT login."""
+async def _probe_codex_models() -> tuple[bool, list[str], dict[str, dict]]:
+    """Ask Codex for the models available to its managed ChatGPT login.
+
+    Returns (reachable, model_ids, capabilities). Codex tiers are live-discovered
+    (model/list carries supportedReasoningEfforts), so this is where the UI's
+    Codex Effort select gets its options; temperature/top_p are never sent to Codex.
+    """
     try:
-        return True, await CodexAppServerClient(timeout=15.0).list_models()
+        details = await CodexAppServerClient(timeout=15.0).list_model_details()
     except CodexAppServerError as exc:
         logger.info("Codex model list unavailable: %s", exc)
-        return False, []
+        return False, [], {}
+    capabilities = {
+        item["model"]: {
+            "supports_temperature": False,
+            "supports_top_p": False,
+            "effort_levels": [tier["reasoning_effort"] for tier in item.get("supported_reasoning_efforts", [])],
+            "effort_descriptions": {
+                tier["reasoning_effort"]: tier["description"]
+                for tier in item.get("supported_reasoning_efforts", [])
+                if tier.get("description")
+            },
+            "default_effort": item.get("default_reasoning_effort"),
+            "source": "live",
+        }
+        for item in details
+    }
+    return True, [item["model"] for item in details], capabilities
+
+
+def _catalog_capabilities(provider: str, models: list[str]) -> dict[str, dict]:
+    return {model: get_model_capabilities(provider, model).to_dict() for model in models}
 
 
 def _read_settings(db_session) -> dict[str, str]:
@@ -248,15 +276,16 @@ async def get_provider_options(db_session) -> dict:
         models=oa_models,
         default_model=_PROVIDER_DEFAULT_MODELS["openai"],
         reason_unavailable=oa_reason,
+        model_capabilities=_catalog_capabilities("openai", oa_models),
     )
 
     # -- Codex subscription --
     # Auth remains inside Codex's managed credential store; do not inspect or
     # copy its token files. Ask app-server for the currently available model IDs.
     codex_enabled = _is_enabled(settings, "codex")
-    codex_reachable, codex_models = False, []
+    codex_reachable, codex_models, codex_capabilities = False, [], {}
     if codex_enabled:
-        codex_reachable, codex_models = await _probe_codex_models()
+        codex_reachable, codex_models, codex_capabilities = await _probe_codex_models()
     if not codex_enabled:
         codex_reason: str | None = "Provider is not enabled in settings"
     elif not codex_reachable:
@@ -273,6 +302,7 @@ async def get_provider_options(db_session) -> dict:
         models=codex_models,
         default_model=codex_models[0] if codex_models else _PROVIDER_DEFAULT_MODELS["codex"],
         reason_unavailable=codex_reason,
+        model_capabilities=codex_capabilities,
     )
 
     # -- Anthropic --
@@ -296,6 +326,7 @@ async def get_provider_options(db_session) -> dict:
         models=an_models,
         default_model=_PROVIDER_DEFAULT_MODELS["anthropic"],
         reason_unavailable=an_reason,
+        model_capabilities=_catalog_capabilities("anthropic", an_models),
     )
 
     providers: dict[str, ProviderStatus] = {

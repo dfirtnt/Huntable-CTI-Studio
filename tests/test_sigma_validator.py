@@ -500,3 +500,107 @@ class TestSigmaValidator:
 
         assert result.is_valid is False
         assert any("blacklist" in error.lower() for error in result.errors)
+
+
+class TestAttackTagTaxonomyValidation:
+    """Real MITRE ATT&CK tag validation in the Huntable policy pass.
+
+    Uses the committed config/attack_taxonomy.json (the default the validator loads) so
+    these double as a guard that the shipped taxonomy is wired in, plus one injected
+    taxonomy case for the degrade-to-disabled path.
+    """
+
+    @staticmethod
+    def _rule(tags):
+        return {
+            "title": "Suspicious PowerShell Execution",
+            "description": "Detects suspicious PowerShell execution patterns",
+            "logsource": {"category": "process_creation", "product": "windows"},
+            "detection": {"selection": {"Image": "powershell.exe"}, "condition": "selection"},
+            "level": "medium",
+            "tags": tags,
+        }
+
+    def test_valid_current_ids_pass(self):
+        result = SigmaValidator().validate_rule(self._rule(["attack.execution", "attack.t1059.001", "attack.g0016"]))
+        assert result.is_valid is True
+        assert result.errors == []
+        assert not [w for w in result.warnings if "ATT&CK" in w]
+
+    def test_nonexistent_technique_fails_with_actionable_error(self):
+        result = SigmaValidator().validate_rule(self._rule(["attack.execution", "attack.t9999.999"]))
+        assert result.is_valid is False
+        assert len(result.errors) == 1
+        assert "unknown ATT&CK sub-technique T9999.999" in result.errors[0]
+        assert "attack.t9999.999" in result.errors[0]
+
+    def test_revoked_technique_fails_and_names_replacement(self):
+        # T1086 (PowerShell) was revoked in favor of T1059.001.
+        result = SigmaValidator().validate_rule(self._rule(["attack.execution", "attack.t1086"]))
+        assert result.is_valid is False
+        assert len(result.errors) == 1
+        assert "revoked" in result.errors[0]
+        assert "T1086" in result.errors[0]
+        assert "use 'attack.t1059.001'" in result.errors[0]
+
+    def test_deprecated_technique_fails(self):
+        # T1064 (Scripting) is deprecated with no replacement.
+        result = SigmaValidator().validate_rule(self._rule(["attack.execution", "attack.t1064"]))
+        assert result.is_valid is False
+        assert len(result.errors) == 1
+        assert "deprecated" in result.errors[0]
+        assert "T1064" in result.errors[0]
+
+    def test_each_bad_tag_reported_separately(self):
+        result = SigmaValidator().validate_rule(self._rule(["attack.t1086", "attack.t9999", "attack.t1059.001"]))
+        assert result.is_valid is False
+        assert len(result.errors) == 2
+
+    def test_unknown_tactic_is_warning_only(self):
+        result = SigmaValidator().validate_rule(self._rule(["attack.persistance", "attack.t1059.001"]))
+        assert result.is_valid is True
+        assert any("not a recognized ATT&CK tactic" in w for w in result.warnings)
+
+    def test_non_attack_namespaces_untouched(self):
+        result = SigmaValidator().validate_rule(self._rule(["cve.2021-44228", "detection.threat-hunting"]))
+        assert result.is_valid is True
+        assert not [w for w in result.warnings if "ATT&CK" in w]
+
+    def test_empty_taxonomy_disables_check(self):
+        from src.services.attack_taxonomy import EMPTY_TAXONOMY
+
+        result = SigmaValidator(attack_taxonomy=EMPTY_TAXONOMY).validate_rule(self._rule(["attack.t9999"]))
+        assert result.is_valid is True
+        assert result.errors == []
+
+    def test_validate_sigma_rule_yaml_path_rejects_revoked_id(self):
+        """The convenience entry point (pySigma + policy) surfaces the taxonomy error."""
+        from src.services.sigma_validator import validate_sigma_rule
+
+        yaml_rule = """
+title: Suspicious PowerShell Encoded Command
+id: 4d2a7d1e-6f4b-4c1a-9b0e-1234567890ab
+status: experimental
+description: Detects PowerShell launched with an encoded command argument
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    Image|endswith: '\\powershell.exe'
+    CommandLine|contains: '-EncodedCommand'
+  condition: selection
+falsepositives:
+  - Administrative scripts
+level: medium
+tags:
+  - attack.execution
+  - attack.t1086
+"""
+        result = validate_sigma_rule(yaml_rule)
+        assert result.metadata["pysigma"]["valid"] is True
+        assert result.is_valid is False
+        assert any("revoked" in e and "T1086" in e for e in result.errors)
+
+        fixed = yaml_rule.replace("attack.t1086", "attack.t1059.001")
+        assert validate_sigma_rule(fixed).is_valid is True

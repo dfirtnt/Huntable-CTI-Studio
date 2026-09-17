@@ -63,12 +63,18 @@
 {% endmacro %}
 
 
-{# ── Temperature + Top_P sliders ─────────────────────────────────
+{# ── Temperature + Top_P sliders + Effort select ─────────────────
    prefix       : HTML id prefix
-   name_key     : form name root, e.g. 'CmdlineExtract' (appends _temperature / _top_p)
+   name_key     : form name root, e.g. 'CmdlineExtract' (appends _temperature / _top_p / _effort)
    temp_default : default temperature value as string ('0.0' or '0.1')
    top_p_default: default top_p value as string (default '0.9')
    temp_display : display text for the temperature value label ('0' or '0.1')
+
+   updateTemperatureCapabilityUI(prefix) in workflow/config.js resolves the selected
+   model's capabilities and (a) disables a slider the model rejects, showing the
+   "Not supported by this model" note, (b) fills the Effort select with that model's
+   tiers, hiding the whole block when the model has none. The markup here matches
+   buildTempTopPSliderRow() in config.js, which renders the same row for main agents.
 #}
 {% macro temperature_sliders(prefix, name_key, temp_default='0.0', top_p_default='0.9', temp_display=none) %}
 {% set td = temp_display if temp_display is not none else ('0' if temp_default == '0.0' else temp_default) %}
@@ -77,11 +83,18 @@
     <div class="flex justify-between items-center mb-1"><label for="{{ prefix }}-temperature" class="block text-xs font-semibold" style="color: var(--text-primary) !important;">Temperature</label><span id="{{ prefix }}-temperature-value" class="text-purple-400 font-medium text-xs">{{ td }}</span></div>
     <input type="range" id="{{ prefix }}-temperature" name="agent_models[{{ name_key }}_temperature]" min="0" max="2" step="0.1" value="{{ temp_default }}" class="threshold-slider-input w-full" oninput="updateThresholdDisplay('{{ prefix }}-temperature'); autoSaveModelChange()">
     <div class="flex justify-between text-[10px] text-gray-500 mt-1"><span>0</span><span>2</span></div>
+    <p id="{{ prefix }}-temperature-reasoning-hint" class="text-[10px] text-amber-500 dark:text-amber-400 mt-1 hidden" data-capability-note="temperature">Not supported by this model</p>
   </div>
   <div class="flex-1 threshold-slider">
     <div class="flex justify-between items-center mb-1"><label for="{{ prefix }}-top-p" class="block text-xs font-semibold" style="color: var(--text-primary) !important;">Top_P</label><span id="{{ prefix }}-top-p-value" class="text-purple-400 font-medium text-xs">{{ top_p_default }}</span></div>
     <input type="range" id="{{ prefix }}-top-p" name="agent_models[{{ name_key }}_top_p]" min="0" max="1" step="0.01" value="{{ top_p_default }}" class="threshold-slider-input w-full" oninput="updateThresholdDisplay('{{ prefix }}-top-p'); autoSaveModelChange()">
     <div class="flex justify-between text-[10px] text-gray-500 mt-1"><span>0.0</span><span>1.0</span></div>
+    <p id="{{ prefix }}-top-p-reasoning-hint" class="text-[10px] text-amber-500 dark:text-amber-400 mt-1 hidden" data-capability-note="top_p">Not supported by this model</p>
+  </div>
+  <div id="{{ prefix }}-effort-container" class="flex-1 hidden" data-capability-control="effort">
+    <div class="flex justify-between items-center mb-1"><label for="{{ prefix }}-effort" class="block text-xs font-semibold" style="color: var(--text-primary) !important;">Effort</label></div>
+    <select id="{{ prefix }}-effort" name="agent_models[{{ name_key }}_effort]" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs"><option value="">Provider default</option></select>
+    <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Reasoning effort. Higher tiers spend more tokens per call.</p>
   </div>
 </div>
 {% endmacro %}

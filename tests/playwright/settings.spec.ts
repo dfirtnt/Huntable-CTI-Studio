@@ -64,6 +64,55 @@ test.describe('Settings - Save and Persistence', () => {
 test.describe('Settings - Backup feedback', () => {
   test.skip(SKIP_TESTS, 'Settings tests disabled.');
 
+  test('[SETTINGS-063] stale backup status shows a warning', async ({ page }) => {
+    await page.route('**/api/backup/status', async (route) => {
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          automated: true,
+          cron_available: true,
+          managed_jobs: [],
+          total_backups: 1,
+          total_size_gb: 1,
+          last_backup: 'system_backup_20260830_020002',
+          last_backup_at: '2026-08-30 02:00:02',
+          backup_age_days: 4.5,
+          backup_stale_after_days: 3,
+          backup_stale: true,
+        }),
+      });
+    });
+
+    await page.locator('#backupConfig-header').click();
+    await page.locator('#backupStatusBtn').click();
+    await expect(page.getByTestId('backup-stale-warning')).toBeVisible();
+  });
+
+  test('[SETTINGS-064] fresh backup status has no warning', async ({ page }) => {
+    await page.route('**/api/backup/status', async (route) => {
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          automated: true,
+          cron_available: true,
+          managed_jobs: [],
+          total_backups: 1,
+          total_size_gb: 1,
+          last_backup: 'system_backup_20260902_020002',
+          last_backup_at: '2026-09-02 02:00:02',
+          backup_age_days: 1.5,
+          backup_stale_after_days: 3,
+          backup_stale: false,
+        }),
+      });
+    });
+
+    await page.locator('#backupConfig-header').click();
+    await page.locator('#backupStatusBtn').click();
+    await expect(page.getByTestId('backup-stale-warning')).toHaveCount(0);
+    await expect(page.locator('#backupStatusContent')).toContainText('1.5 days');
+  });
+
   test('[SETTINGS-024] Backup creation shows in-progress and completion feedback', async ({ page }) => {
     let completeBackup: (() => Promise<void>) | undefined;
     await page.route('**/api/backup/create', async (route) => {

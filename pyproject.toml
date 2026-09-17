@@ -73,6 +73,7 @@ dependencies = [
     "setuptools>=83.0.0", # PYSEC-2026-3447 fix; >= since spacy/thinc/torch all depend on it (multi-parent, no single floor to == pin)
     # Local packages
     "sigma-atom-similarity",
+    "pysigma-validators-sigmahq==0.21.0",
 ]
 
 [dependency-groups]

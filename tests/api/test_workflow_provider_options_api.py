@@ -16,9 +16,10 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def mock_codex_model_list():
+    # (reachable, model_ids, model_capabilities) -- Codex tiers are live-discovered.
     with patch(
         "src.services.workflow_provider_options._probe_codex_models",
-        new=AsyncMock(return_value=(False, [])),
+        new=AsyncMock(return_value=(False, [], {})),
     ):
         yield
 
@@ -62,7 +63,17 @@ class TestProviderOptionsContract:
     @pytest.mark.api
     @pytest.mark.asyncio
     async def test_each_provider_has_required_fields(self, async_client: httpx.AsyncClient):
-        required = {"enabled", "configured", "reachable", "has_models", "models", "default_model", "reason_unavailable"}
+        required = {
+            "enabled",
+            "configured",
+            "reachable",
+            "has_models",
+            "models",
+            "default_model",
+            "reason_unavailable",
+            # Per-model parameter capabilities the Agents page gates its controls on.
+            "model_capabilities",
+        }
         with patch(
             "src.services.workflow_provider_options._probe_lmstudio",
             new=AsyncMock(return_value=(False, [])),
@@ -160,7 +171,22 @@ class TestProviderOptionsCodexStates:
             ),
             patch(
                 "src.services.workflow_provider_options._probe_codex_models",
-                new=AsyncMock(return_value=(True, codex_models)),
+                new=AsyncMock(
+                    return_value=(
+                        True,
+                        codex_models,
+                        {
+                            "gpt-5.6-luna": {
+                                "supports_temperature": False,
+                                "supports_top_p": False,
+                                "effort_levels": ["low", "medium", "high"],
+                                "effort_descriptions": {},
+                                "default_effort": "medium",
+                                "source": "live",
+                            }
+                        },
+                    )
+                ),
             ),
             patch(
                 "src.services.workflow_provider_options._read_settings",
