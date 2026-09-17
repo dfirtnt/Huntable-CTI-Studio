@@ -188,6 +188,9 @@ class TestSigmaQueueAudit:
 
         rule = MagicMock()
         rule.rule_yaml = "title: old"
+        rule.rule_metadata = {}
+        rule.pr_submitted = False  # a bare MagicMock attribute is truthy and reads as submitted
+        rule.submitted_at = None
         session = _session_with_rule(rule)
 
         with patch("src.web.routes.sigma_queue.DatabaseManager") as MockDM:

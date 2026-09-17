@@ -1389,7 +1389,8 @@ async function applyValidatedRuleFromModal() {
             
             showNotification('Validated rule applied successfully', 'success');
         } else {
-            showNotification('Error applying validated rule', 'error');
+            const err = await response.json().catch(() => ({}));
+            showNotification(err.detail || 'Error applying validated rule', 'error');
         }
     } catch (error) {
         console.error('Error applying validated rule:', error);
@@ -1439,7 +1440,8 @@ async function applyValidatedRule() {
             
             showNotification('Validated rule applied successfully', 'success');
         } else {
-            showNotification('Error applying validated rule', 'error');
+            const err = await response.json().catch(() => ({}));
+            showNotification(err.detail || 'Error applying validated rule', 'error');
         }
     } catch (error) {
         console.error('Error applying validated rule:', error);
@@ -2796,7 +2798,8 @@ async function applyEnrichedRule() {
             // Reload queue in background to sync with server
             loadQueue().catch(err => console.error('Error reloading queue:', err));
         } else {
-            showNotification('Error applying enriched rule', 'error');
+            const err = await response.json().catch(() => ({}));
+            showNotification(err.detail || 'Error applying enriched rule', 'error');
         }
     } catch (error) {
         console.error('Error applying enriched rule:', error);

@@ -466,6 +466,38 @@ class RuleYamlUpdateRequest(BaseModel):
     rule_yaml: str
 
 
+def _apply_rule_yaml(rule: SigmaRuleQueueTable, new_yaml: str) -> None:
+    """Replace a queued rule's YAML, refusing rows already submitted in a PR.
+
+    ``rule_yaml`` on a submitted row is the record of what went to the customer
+    repository. Rewriting it destroyed that record: the queue's Validate and Similar
+    Rules buttons re-save the modal text whenever it differs from the stored YAML, so
+    re-checking a submitted rule silently overwrote it days after submission.
+    Re-sending identical YAML is a no-op and stays allowed.
+
+    The header title shown in the queue comes from ``rule_metadata.title``, so it is
+    refreshed from the new YAML whenever that YAML carries one.
+    """
+    if new_yaml == rule.rule_yaml:
+        return
+    if rule.pr_submitted or rule.submitted_at is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Rule {rule.id} was submitted in a PR; its YAML is the record of what was submitted "
+                "and cannot be changed. Add an edited copy to the queue instead."
+            ),
+        )
+    rule.rule_yaml = new_yaml
+    try:
+        parsed = yaml.safe_load(new_yaml)
+    except yaml.YAMLError:
+        return
+    title = parsed.get("title") if isinstance(parsed, dict) else None
+    if isinstance(title, str) and title.strip():
+        rule.rule_metadata = {**(rule.rule_metadata or {}), "title": title.strip()}
+
+
 class BulkActionRequest(BaseModel):
     """Request model for bulk queue operations."""
 
@@ -819,6 +851,7 @@ def list_queued_rules(
                         if rule_dict and rule_dict.get("title") and rule_dict.get("detection"):
                             # Normalize rule structure
                             normalized_rule = {
+                                "id": rule_dict.get("id"),
                                 "title": rule_dict.get("title", ""),
                                 "description": rule_dict.get("description", ""),
                                 "tags": rule_dict.get("tags", []),
@@ -915,9 +948,8 @@ def approve_queued_rule(request: Request, queue_id: int, update: QueueUpdateRequ
             rule.review_notes = update.review_notes
             rule.reviewed_by = _sigma_author_from_db(db_session)
 
-            # Update rule YAML if provided
             if update.rule_yaml:
-                rule.rule_yaml = update.rule_yaml
+                _apply_rule_yaml(rule, update.rule_yaml)
 
             if update.pr_url:
                 rule.pr_url = update.pr_url
@@ -960,22 +992,24 @@ async def reject_queued_rule(request: Request, queue_id: int):
             if not rule:
                 raise HTTPException(status_code=404, detail="Queued rule not found")
 
-            rule.status = "rejected"
-            rule.reviewed_at = datetime.now()
-            rule.reviewed_by = _sigma_author_from_db(db_session)
-
             # Try to parse JSON body first (new format with rule_yaml support)
+            new_yaml = None
             try:
                 body = await request.json()
                 if body:
                     rule.review_notes = body.get("review_notes")
-                    if body.get("rule_yaml"):
-                        rule.rule_yaml = body["rule_yaml"]
+                    new_yaml = body.get("rule_yaml")
             except Exception:
                 # Fall back to query params (backward compatibility)
                 review_notes = request.query_params.get("review_notes")
                 if review_notes:
                     rule.review_notes = review_notes
+            if new_yaml:
+                _apply_rule_yaml(rule, new_yaml)
+
+            rule.status = "rejected"
+            rule.reviewed_at = datetime.now()
+            rule.reviewed_by = _sigma_author_from_db(db_session)
 
             AuditService.record_mandatory(
                 db_session,
@@ -1111,7 +1145,7 @@ def update_rule_yaml(request: Request, queue_id: int, update: RuleYamlUpdateRequ
                 raise HTTPException(status_code=404, detail="Queued rule not found")
 
             old_length = len(rule.rule_yaml or "")
-            rule.rule_yaml = update.rule_yaml
+            _apply_rule_yaml(rule, update.rule_yaml)
             AuditService.record_mandatory(
                 db_session,
                 _sigma_audit_event(
@@ -2105,6 +2139,7 @@ def compare_rules_similarity(compare_request: CompareRulesRequest):
                 original_yaml = yaml.safe_load(compare_request.original_rule_yaml)
                 if original_yaml and original_yaml.get("detection"):
                     normalized_original = {
+                        "id": original_yaml.get("id"),
                         "title": original_yaml.get("title", ""),
                         "description": original_yaml.get("description", ""),
                         "tags": original_yaml.get("tags", []),
@@ -2134,6 +2169,7 @@ def compare_rules_similarity(compare_request: CompareRulesRequest):
                 enriched_yaml = yaml.safe_load(compare_request.enriched_rule_yaml)
                 if enriched_yaml and enriched_yaml.get("detection"):
                     normalized_enriched = {
+                        "id": enriched_yaml.get("id"),
                         "title": enriched_yaml.get("title", ""),
                         "description": enriched_yaml.get("description", ""),
                         "tags": enriched_yaml.get("tags", []),
@@ -2671,6 +2707,7 @@ def get_similar_rules_for_queued_rule(request: Request, queue_id: int, force: bo
             if not isinstance(detection, dict):
                 detection = {}
             normalized_rule = {
+                "id": rule_yaml.get("id"),
                 "title": (rule_yaml.get("title") or "") if rule_yaml.get("title") is not None else "",
                 "description": (rule_yaml.get("description") or "") if rule_yaml.get("description") is not None else "",
                 "tags": rule_yaml.get("tags") if isinstance(rule_yaml.get("tags"), list) else [],

@@ -278,6 +278,9 @@ Generated Rule
        (a) canonical_class path: filter sigma_rules.canonical_class = X (no LIMIT)
        (b) logsource_key fallback: filter sigma_rules.logsource_key = X (LIMIT 20)
      Each candidate is tagged with the phase1_path it came from.
+     Both paths, and the exact-hash shortcut before them, skip the rule's own
+     customer-repo copy (`cust-<yaml id>`), which is byte-identical once its PR
+     merges and the repo syncs.
   3. Phase 2 scoring — Jaccard × Containment − Filter over atom sets
   4. Phase 3 safety gate (scoped) — drop logsource_key mismatches ONLY on the
      logsource_key-fallback path. The canonical_class path's SQL filter is the
@@ -492,7 +495,9 @@ from your customer repo alongside SigmaHQ rules:
 ./run_cli.sh sigma index-customer-repo --no-embeddings
 ```
 
-Customer rules use `rule_id` prefix `cust-` and `file_path` prefix `customer/`.
+Customer rules use `rule_id` prefix `cust-` and `file_path` prefix `cust/`. Queued rules are
+never scored against their own customer copy (`cust-` + the rule's YAML `id`), so a merged,
+synced rule still surfaces real duplicates instead of a 1.0 self-match.
 
 ---
 
@@ -516,6 +521,12 @@ Rules that pass generation and similarity scoring are placed in the **Sigma Queu
 | `approved` | green | Human accepted the rule; eligible for GitHub PR submission |
 | `rejected` | red | Human discarded the rule |
 | `submitted` | blue | Rule has been submitted to the GitHub repository as a PR |
+
+Once a rule is submitted (`pr_submitted` or `submitted_at` set), its `rule_yaml` is the record of
+what went to the repository and is read-only: the approve, reject and `PUT /api/sigma-queue/{queue_id}/yaml`
+endpoints return `409` for any YAML change (re-sending identical YAML is allowed). To revise a
+submitted rule, add an edited copy to the queue. Every accepted YAML edit also refreshes
+`rule_metadata.title`, which drives the queue's header title.
 
 ### `needs_review` in Depth
 
