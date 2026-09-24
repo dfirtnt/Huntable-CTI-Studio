@@ -35,6 +35,15 @@ async def main():
         finally:
             sync_engine.dispose()
 
+        # ``create_all`` cannot add provenance columns to a test database that
+        # already has ``sigma_rule_queue``. Apply the same explicit migration
+        # used by deployments so combined API/integration runs exercise the
+        # current ORM contract instead of failing on an obsolete test schema.
+        from scripts.migrate_source_sigma_queue import run_migration as migrate_source_sigma_queue
+
+        if not migrate_source_sigma_queue(db_url, apply=True):
+            raise RuntimeError("Source Sigma queue migration failed during test bootstrap")
+
         # ``create_all`` builds the unique index models.py declares on
         # ``version``, but a sequence is not a model-level object, so a freshly
         # bootstrapped test database has no ``agentic_workflow_config_version_seq``.

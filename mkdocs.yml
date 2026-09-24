@@ -153,6 +153,7 @@ nav:
       - ServicesExtract: contracts/services-extract.md
       - ScheduledTasksExtract: contracts/scheduled-tasks-extract.md
       - HuntQueriesExtract: contracts/huntquery-extract.md
+      - Source-provided Sigma Import: contracts/source-provided-sigma.md
       - NetworkIndicatorExtract: contracts/network-indicator-extract.md
       - Rank Agent: contracts/rank-agent.md
       - Sigma Generate: contracts/sigma-generate.md

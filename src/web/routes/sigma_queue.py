@@ -8,6 +8,7 @@ import logging
 import os
 import re
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -55,6 +56,11 @@ from src.services.sigma_matching_service import SigmaMatchingService
 from src.services.sigma_pr_service import SigmaPRService
 from src.services.sigma_validator import validate_sigma_rule
 from src.services.similarity_serialization import serialize_similarity_match
+from src.services.source_sigma_import_service import (
+    LOCAL_REVIEW_ONLY,
+    SOURCE_ORIGIN,
+    evaluate_source_rule_delivery,
+)
 from src.services.workflow_provider_options import resolve_provider_api_key
 from src.utils.content_filter import ContentFilter
 from src.utils.langfuse_client import log_llm_completion, log_llm_error, trace_llm_call
@@ -427,6 +433,20 @@ class QueuedRuleResponse(BaseModel):
     workflow_execution_id: int | None
     rule_yaml: str
     rule_metadata: dict[str, Any] | None
+    rule_origin: str
+    source_url: str | None
+    source_rule_id: str | None
+    source_content_sha256: str | None
+    source_extraction_start: int | None
+    source_extraction_end: int | None
+    declared_license: str | None
+    license_evidence: str | None
+    attribution: str | None
+    source_permission_granted_by: str | None
+    source_permission_basis: str | None
+    source_permission_granted_at: str | None
+    delivery_eligible: bool
+    delivery_eligibility_reason: str
     similarity_scores: list[dict[str, Any]] | None
     max_similarity: float | None
     behavioral_matches_found: int | None = None
@@ -466,6 +486,12 @@ class RuleYamlUpdateRequest(BaseModel):
     rule_yaml: str
 
 
+class SourcePermissionRequest(BaseModel):
+    """Auditable source-specific permission supplied by an authorized reviewer."""
+
+    basis: str
+
+
 def _apply_rule_yaml(rule: SigmaRuleQueueTable, new_yaml: str) -> None:
     """Replace a queued rule's YAML, refusing rows already submitted in a PR.
 
@@ -480,6 +506,14 @@ def _apply_rule_yaml(rule: SigmaRuleQueueTable, new_yaml: str) -> None:
     """
     if new_yaml == rule.rule_yaml:
         return
+    if getattr(rule, "rule_origin", "generated") == SOURCE_ORIGIN:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Rule {rule.id} is an immutable publisher-authored source record. "
+                "Create an editable generated copy instead."
+            ),
+        )
     if rule.pr_submitted or rule.submitted_at is not None:
         raise HTTPException(
             status_code=409,
@@ -496,6 +530,20 @@ def _apply_rule_yaml(rule: SigmaRuleQueueTable, new_yaml: str) -> None:
     title = parsed.get("title") if isinstance(parsed, dict) else None
     if isinstance(title, str) and title.strip():
         rule.rule_metadata = {**(rule.rule_metadata or {}), "title": title.strip()}
+
+
+def _source_delivery_decision(rule: SigmaRuleQueueTable, repo_path=None):
+    """Resolve delivery policy against the same repository used for PR submission."""
+    if getattr(rule, "rule_origin", "generated") != SOURCE_ORIGIN:
+        return evaluate_source_rule_delivery(rule, Path("."))
+    destination = repo_path or SigmaPRService().repo_path
+    return evaluate_source_rule_delivery(rule, destination)
+
+
+def _enforce_source_delivery(rule: SigmaRuleQueueTable, repo_path=None) -> None:
+    decision = _source_delivery_decision(rule, repo_path)
+    if not decision.eligible:
+        raise HTTPException(status_code=409, detail=decision.reason)
 
 
 class BulkActionRequest(BaseModel):
@@ -831,10 +879,14 @@ def list_queued_rules(
 
             result = []
             matching_service = None  # Lazy initialization
+            source_repo_path = None  # Resolve once per response, and only if a source row is present.
 
             for rule in rules:
                 # Get article title
                 article = db_session.query(ArticleTable).filter(ArticleTable.id == rule.article_id).first()
+                if rule.rule_origin == SOURCE_ORIGIN and source_repo_path is None:
+                    source_repo_path = SigmaPRService().repo_path
+                delivery = _source_delivery_decision(rule, source_repo_path)
 
                 # Recompute on-the-fly only for legacy/never-scored rows. A row with
                 # evidence columns set but max_similarity=None is *inconclusive*
@@ -895,6 +947,22 @@ def list_queued_rules(
                         workflow_execution_id=rule.workflow_execution_id,
                         rule_yaml=rule.rule_yaml,
                         rule_metadata=rule.rule_metadata,
+                        rule_origin=rule.rule_origin,
+                        source_url=rule.source_url,
+                        source_rule_id=rule.source_rule_id,
+                        source_content_sha256=rule.source_content_sha256,
+                        source_extraction_start=rule.source_extraction_start,
+                        source_extraction_end=rule.source_extraction_end,
+                        declared_license=rule.declared_license,
+                        license_evidence=rule.license_evidence,
+                        attribution=rule.attribution,
+                        source_permission_granted_by=rule.source_permission_granted_by,
+                        source_permission_basis=rule.source_permission_basis,
+                        source_permission_granted_at=(
+                            rule.source_permission_granted_at.isoformat() if rule.source_permission_granted_at else None
+                        ),
+                        delivery_eligible=delivery.eligible,
+                        delivery_eligibility_reason=delivery.reason,
                         similarity_scores=rule.similarity_scores,
                         max_similarity=max_similarity,
                         behavioral_matches_found=rule.behavioral_matches_found,
@@ -943,13 +1011,16 @@ def approve_queued_rule(request: Request, queue_id: int, update: QueueUpdateRequ
             if not rule:
                 raise HTTPException(status_code=404, detail="Queued rule not found")
 
-            rule.status = update.status or "approved"
+            requested_status = update.status or "approved"
+            if requested_status == "approved":
+                _enforce_source_delivery(rule)
+            if update.rule_yaml:
+                _apply_rule_yaml(rule, update.rule_yaml)
+
+            rule.status = requested_status
             rule.reviewed_at = datetime.now()
             rule.review_notes = update.review_notes
             rule.reviewed_by = _sigma_author_from_db(db_session)
-
-            if update.rule_yaml:
-                _apply_rule_yaml(rule, update.rule_yaml)
 
             if update.pr_url:
                 rule.pr_url = update.pr_url
@@ -1093,6 +1164,17 @@ def bulk_action_queued_rules(request: Request, bulk: BulkActionRequest):
                 resolved_status = (
                     "approved" if bulk.action == "approve" else "rejected" if bulk.action == "reject" else bulk.status
                 )
+                if resolved_status == "approved":
+                    blocked = []
+                    for rule in rules:
+                        decision = _source_delivery_decision(rule)
+                        if not decision.eligible:
+                            blocked.append({"id": rule.id, "reason": decision.reason})
+                    if blocked:
+                        raise HTTPException(
+                            status_code=409,
+                            detail={"message": "Bulk approval blocked by source delivery policy.", "rules": blocked},
+                        )
                 now = datetime.now()
                 reviewer = _sigma_author_from_db(db_session)
                 for rule in rules:
@@ -1167,6 +1249,91 @@ def update_rule_yaml(request: Request, queue_id: int, update: RuleYamlUpdateRequ
     except Exception as e:
         logger.error(f"Error updating rule YAML: {e}")
         raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@router.post("/{queue_id}/copy")
+def copy_source_rule(request: Request, queue_id: int):
+    """Create an editable generated draft without altering the source record."""
+    db_session = DatabaseManager().get_session()
+    try:
+        source = db_session.query(SigmaRuleQueueTable).filter(SigmaRuleQueueTable.id == queue_id).first()
+        if not source:
+            raise HTTPException(status_code=404, detail="Queued rule not found")
+        copied_metadata = {
+            **(source.rule_metadata or {}),
+            "source_yaml_immutable": False,
+            "derived_from_source_queue_id": source.id,
+        }
+        copied = SigmaRuleQueueTable(
+            article_id=source.article_id,
+            workflow_execution_id=None,
+            rule_yaml=source.rule_yaml,
+            rule_metadata=copied_metadata,
+            rule_origin="generated",
+            status="pending",
+        )
+        db_session.add(copied)
+        db_session.flush()
+        AuditService.record_mandatory(
+            db_session,
+            _sigma_audit_event(
+                request,
+                ACTION_SIGMA_QUEUE_RULE_CREATED,
+                copied.id,
+                f"Created editable copy {copied.id} from source rule {source.id}",
+                {"source_queue_id": source.id},
+            ),
+        )
+        db_session.commit()
+        return {"success": True, "queue_id": copied.id, "source_queue_id": source.id}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        db_session.rollback()
+        logger.error("Error copying source rule: %s", exc)
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
+    finally:
+        db_session.close()
+
+
+@router.post("/{queue_id}/source-permission")
+def record_source_permission(request: Request, queue_id: int, permission: SourcePermissionRequest):
+    """Record an auditable source-specific delivery permission."""
+    basis = permission.basis.strip()
+    if not basis:
+        raise HTTPException(status_code=400, detail="Permission basis is required")
+    db_session = DatabaseManager().get_session()
+    try:
+        rule = db_session.query(SigmaRuleQueueTable).filter(SigmaRuleQueueTable.id == queue_id).first()
+        if not rule:
+            raise HTTPException(status_code=404, detail="Queued rule not found")
+        if rule.rule_origin != SOURCE_ORIGIN:
+            raise HTTPException(status_code=409, detail="Source permission applies only to source-provided rules")
+        rule.source_permission_granted_by = _sigma_author_from_db(db_session)
+        rule.source_permission_basis = basis
+        rule.source_permission_granted_at = datetime.now()
+        if rule.status == LOCAL_REVIEW_ONLY:
+            rule.status = "pending"
+        AuditService.record_mandatory(
+            db_session,
+            _sigma_audit_event(
+                request,
+                ACTION_SIGMA_QUEUE_RULE_EDITED,
+                queue_id,
+                f"Recorded source-specific delivery permission for rule {queue_id}",
+                {"permission_basis": basis},
+            ),
+        )
+        db_session.commit()
+        return {"success": True, "queue_id": queue_id, "status": rule.status}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        db_session.rollback()
+        logger.error("Error recording source permission: %s", exc)
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
+    finally:
+        db_session.close()
 
 
 def _sanitize_error_detail(detail: str) -> str:
@@ -2881,13 +3048,26 @@ def submit_pr_for_approved_rules(request: Request):
                     "message": "Please approve rules before submitting a PR",
                 }
 
+            # Re-evaluate the entire batch before the first repository/GitHub side
+            # effect. One ineligible source rule blocks the batch atomically.
+            pr_service = SigmaPRService()
+            blocked = []
+            for rule in approved_rules:
+                decision = _source_delivery_decision(rule, pr_service.repo_path)
+                if not decision.eligible:
+                    blocked.append({"id": rule.id, "reason": decision.reason})
+            if blocked:
+                raise HTTPException(
+                    status_code=409,
+                    detail={"message": "PR submission blocked by source delivery policy.", "rules": blocked},
+                )
+
             # Prepare rules for PR service
             rules_data = []
             for rule in approved_rules:
                 rules_data.append({"id": rule.id, "rule_yaml": rule.rule_yaml, "article_id": rule.article_id})
 
-            # Submit PR (create new instance to ensure fresh settings)
-            pr_service = SigmaPRService()
+            # Submit PR only after the atomic policy preflight.
             logger.info(
                 "PR Service initialized with repo_path: %s, exists: %s",
                 pr_service.repo_path,
@@ -2957,6 +3137,8 @@ def submit_pr_for_approved_rules(request: Request):
         finally:
             db_session.close()
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error submitting PR: {e}")
         raise HTTPException(status_code=500, detail="Internal server error") from e

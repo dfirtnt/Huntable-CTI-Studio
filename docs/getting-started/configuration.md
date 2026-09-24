@@ -232,6 +232,7 @@ The app submits approved SIGMA rules via GitHub PRs. **Setup is automated during
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
+| `HUNTABLE_SIGMA_REPO_HOST_PATH` | Host checkout mounted into Docker at `/app/sigma-repo`; override only when the customer rules repo is not the app's sibling directory | `../Huntable-SIGMA-Rules` |
 | `SIGMA_REPO_PATH` | Path to the customer rules repo containing Huntable-created and approved rules; used for PR submission and customer-repo indexing | `sigma-repo` |
 | `GITHUB_TOKEN` | GitHub PAT for PR submission | — |
 | `GITHUB_REPO` | Target repo for SIGMA rule PRs | `owner/repo` (from setup) |

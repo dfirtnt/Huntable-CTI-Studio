@@ -558,6 +558,21 @@ class SigmaRuleQueueTable(Base):
     """Database table for queuing SIGMA rules pending human review and PR submission."""
 
     __tablename__ = "sigma_rule_queue"
+    __table_args__ = (
+        Index(
+            "uq_sigma_queue_source_url_rule_id",
+            "source_url",
+            "source_rule_id",
+            unique=True,
+            postgresql_where=text("rule_origin = 'source_provided' AND source_rule_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_sigma_queue_source_content_sha256",
+            "source_content_sha256",
+            unique=True,
+            postgresql_where=text("rule_origin = 'source_provided' AND source_content_sha256 IS NOT NULL"),
+        ),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     # Nullable: hand-authored "from scratch" draft rules have no source article.
@@ -569,6 +584,24 @@ class SigmaRuleQueueTable(Base):
     # Rule data
     rule_yaml = Column(Text, nullable=False)
     rule_metadata = Column(JSONB, nullable=True)  # Extracted title, description, tags, etc.
+
+    # Provenance contract. Generated/manual rows retain the historical behavior and
+    # are backfilled to ``generated`` by the explicit migration. Publisher-authored
+    # rows preserve their exact source substring and never pass through generation.
+    rule_origin = Column(String(50), nullable=False, default="generated", server_default="generated", index=True)
+    source_url = Column(Text, nullable=True)
+    source_rule_id = Column(String(255), nullable=True)
+    source_content_sha256 = Column(String(64), nullable=True, index=True)
+    source_extraction_start = Column(Integer, nullable=True)
+    source_extraction_end = Column(Integer, nullable=True)
+    declared_license = Column(String(100), nullable=True)
+    license_evidence = Column(Text, nullable=True)
+    license_evidence_start = Column(Integer, nullable=True)
+    license_evidence_end = Column(Integer, nullable=True)
+    attribution = Column(Text, nullable=True)
+    source_permission_granted_by = Column(String(255), nullable=True)
+    source_permission_basis = Column(Text, nullable=True)
+    source_permission_granted_at = Column(DateTime, nullable=True)
 
     # Similarity results
     similarity_scores = Column(JSONB, nullable=True)  # Array of {rule_id, similarity, title} objects

@@ -28,8 +28,8 @@ This reflects the current `docker-compose.yml`.
 
 - **Named volumes:** `postgres_data`, `redis_data`, `langflow_data` (defined; LangFlow service is commented out), `hf_cache` (Hugging Face model cache; mounted on `web` and `cli`), and `codex_auth` (shared Codex-managed ChatGPT authentication for web and workers).
 - **Postgres init:** `./init-scripts` is mounted at `/docker-entrypoint-initdb.d` (all scripts there run on first init).
-- **App bind mounts (web / workers):** `./src`, `./config`, `./logs`, `./tests`, `./models`, `./outputs`, `./scripts`, `./test-results`, `${HOME}/Huntable-SIGMA-Rules` → `/app/sigma-repo`. Web only: `./docs/contracts`, `./data/diagnoses`, `./backups`, host timezone at `/etc/localtime`, and the `hf_cache` volume. The maintenance service alone mounts `/var/run/docker.sock`. The Sigma repo is set up during `./setup.sh` (clone or create with rules structure); see [Configuration](../getting-started/configuration.md) (SIGMA / GitHub Integration).
-- **CLI:** `./src`, `./config`, `./scripts`, `./logs`, `./tests`, `./data`, `${HOME}/Huntable-SIGMA-Rules` → `/app/sigma-repo`, `./backups`, and the `hf_cache` volume.
+- **App bind mounts (web / workers):** `./src`, `./config`, `./logs`, `./tests`, `./models`, `./outputs`, `./scripts`, `./test-results`, `${HUNTABLE_SIGMA_REPO_HOST_PATH:-../Huntable-SIGMA-Rules}` → `/app/sigma-repo`. Web only: `./docs/contracts`, `./data/diagnoses`, `./backups`, host timezone at `/etc/localtime`, and the `hf_cache` volume. The maintenance service alone mounts `/var/run/docker.sock`. The Sigma repo is set up during `./setup.sh` (clone or create with rules structure); see [Configuration](../getting-started/configuration.md) (SIGMA / GitHub Integration).
+- **CLI:** `./src`, `./config`, `./scripts`, `./logs`, `./tests`, `./data`, `${HUNTABLE_SIGMA_REPO_HOST_PATH:-../Huntable-SIGMA-Rules}` → `/app/sigma-repo`, `./backups`, and the `hf_cache` volume.
 - **mcp_http:** `./src`, `./config`, `./scripts`, `./logs`, `./data`, and the `hf_cache` volume. No Sigma-repo or backups mount.
 
 ## Resource limits (env-overridable)

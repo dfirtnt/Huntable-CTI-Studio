@@ -171,6 +171,7 @@ def _huntquery_extraction():
             (
                 "hunt_queries",
                 {
+                    "type": "elastic",
                     "platform": "linux",
                     "value": "process where process.name == 'id' and process.parent.name == 'sh'",
                     "telemetry_category": "process_creation",
@@ -613,6 +614,30 @@ async def test_huntquery_generates_sigma_only_with_clear_backend_and_target(arti
     vague = _huntquery_without_target_extraction()
     assert _observable_sigma_eligible(vague["observables"][0]) is False
     assert _build_sigma_generation_groups(vague) == []
+
+
+def test_llm_captured_sigma_huntquery_is_display_only_even_with_explicit_target():
+    extraction = _enriched_extraction(
+        [
+            (
+                "hunt_queries",
+                {
+                    "type": "sigma",
+                    "platform": "windows",
+                    "value": "title: Captured rule\nlogsource:\n  product: windows\ndetection:\n  selection: value",
+                    "telemetry_category": "process_creation",
+                    "logsource_hint": {"product": "windows", "category": "process_creation"},
+                },
+            )
+        ],
+        article_platforms=["windows"],
+    )
+    observable = extraction["observables"][0]
+
+    assert observable["artifact_type"] == "sigma"
+    assert observable["source_text_authoritative"] is False
+    assert _observable_sigma_eligible(observable) is False
+    assert _build_sigma_generation_groups(extraction) == []
 
 
 @pytest.mark.asyncio

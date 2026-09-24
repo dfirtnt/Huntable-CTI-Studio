@@ -914,9 +914,9 @@
   margin-bottom: 20px;
 }
 
-/* Sigma Queue has 5 stat cards (adds Needs Review); Executions has 4. */
+/* Sigma Queue has 6 stat cards; Executions has 4. */
 #queueStats.q-stats-grid {
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
 }
 
 .q-stat-card {
@@ -948,6 +948,7 @@
 .q-stat-card.rejected::before { background: var(--action-danger); }
 .q-stat-card.submitted::before { background: var(--purple-primary); }
 .q-stat-card.needs_review::before { background: #eab308; }
+.q-stat-card.local_review_only::before { background: #f59e0b; }
 .q-stat-card[data-filter-status] { cursor: pointer; }
 .q-stat-card--active { outline: 2px solid var(--purple-primary); outline-offset: 2px; box-shadow: 0 0 0 4px rgba(139,92,246,0.15); }
 
@@ -973,6 +974,7 @@
 .q-stat-card.rejected .q-stat-value { color: var(--badge-red-text); }
 .q-stat-card.submitted .q-stat-value { color: var(--purple-light); }
 .q-stat-card.needs_review .q-stat-value { color: #eab308; }
+.q-stat-card.local_review_only .q-stat-value { color: #f59e0b; }
 
 /* Subtle glow behind the number */
 .q-stat-card .q-stat-value {
@@ -1258,6 +1260,10 @@
 .q-badge.submitted::before { background: var(--purple-primary); box-shadow: 0 0 6px var(--purple-primary); }
 .q-badge.needs_review { color: var(--badge-yellow-text); }
 .q-badge.needs_review::before { background: #eab308; box-shadow: 0 0 6px #eab308; }
+.q-badge.local_review_only { color: #fbbf24; }
+.q-badge.local_review_only::before { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
+.q-badge.source-provided { color: #fbbf24; margin-top: 4px; text-transform: none; }
+.q-badge.source-provided::before { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
 .q-badge.platform { color: var(--text-muted-slate); margin-top: 4px; text-transform: none; }
 .q-badge.platform::before { background: var(--action-info); box-shadow: 0 0 6px var(--action-info); }
 
@@ -2862,6 +2868,7 @@ tr.q-row-selected td {
                 <option value="rejected">Rejected</option>
                 <option value="submitted">Submitted</option>
                 <option value="needs_review">Needs Review</option>
+                <option value="local_review_only">Local Review Only</option>
             </select>
         </div>
 
@@ -2909,6 +2916,10 @@ tr.q-row-selected td {
             <div class="q-stat-card needs_review" data-filter-status="needs_review" role="button" tabindex="0" onclick="setQueueStatusFilter('needs_review')" onkeydown="if(event.key==='Enter'||event.key===' ')setQueueStatusFilter('needs_review')" title="Filter by Needs Review">
                 <div class="q-stat-label">Needs Review</div>
                 <div class="q-stat-value" id="needsReviewCount">-</div>
+            </div>
+            <div class="q-stat-card local_review_only" data-filter-status="local_review_only" role="button" tabindex="0" onclick="setQueueStatusFilter('local_review_only')" onkeydown="if(event.key==='Enter'||event.key===' ')setQueueStatusFilter('local_review_only')" title="Filter by Local Review Only">
+                <div class="q-stat-label">Local Only</div>
+                <div class="q-stat-value" id="localReviewOnlyCount">-</div>
             </div>
         </div>
 

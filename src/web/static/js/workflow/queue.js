@@ -129,7 +129,7 @@ async function deleteQueueRule(ruleId) {
 // ── End bulk selection ───────────────────────────────────────────────────────
 
 function getQueueStatusBadge(status) {
-    const known = ['pending', 'approved', 'rejected', 'submitted', 'needs_review'];
+    const known = ['pending', 'approved', 'rejected', 'submitted', 'needs_review', 'local_review_only'];
     const cls = known.includes(status) ? status : '';
     const label = status ? status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Unknown';
     return `<span class="q-badge ${cls}">${label}</span>`;
@@ -295,9 +295,12 @@ function renderQueue() {
         const observablesUsedCount = getObservablesUsedCount(rule);
         const isSelected = queueSelectedIds.has(rule.id);
         const platformBadge = getQueuePlatformBadge(metadata);
+        const sourceBadge = rule.rule_origin === 'source_provided'
+            ? `<span class="q-badge source-provided" title="Publisher-authored source rule; original YAML is immutable">Source Provided${rule.declared_license ? ` · ${escapeHtml(rule.declared_license)}` : ''}</span>`
+            : '';
         const rowClass = isSelected ? ' class="q-row-selected"' : '';
         const checked = isSelected ? ' checked' : '';
-        const canActOn = (rule.status === 'pending' || rule.status === 'needs_review');
+        const canActOn = (rule.status === 'pending' || rule.status === 'needs_review') && rule.delivery_eligible !== false;
         const inlineActions = canActOn
             ? `<button onclick="approveRule(${rule.id})" class="q-action approve">Approve</button><button onclick="rejectRule(${rule.id})" class="q-action reject">Reject</button>`
             : '';
@@ -310,12 +313,13 @@ function renderQueue() {
                 <td class="q-cell-id" style="padding-left:24px">${rule.id}</td>
                 <td class="q-cell-article">
                     ${rule.article_id
-                        ? `<a href="/articles/${rule.article_id}" title="${((rule.article_title || 'Article ' + rule.article_id) + '').replace(/"/g, '&quot;')}">${rule.article_title || 'Article ' + rule.article_id}</a>`
+                        ? `<a href="/articles/${rule.article_id}" title="${escapeHtml(rule.article_title || 'Article ' + rule.article_id)}">${escapeHtml(rule.article_title || 'Article ' + rule.article_id)}</a>`
                         : `<span class="italic" style="color: var(--text-muted-slate)">Manual draft</span>`}
                 </td>
                 <td class="q-cell-title" title="${escapeHtml(title)}">
                     <span class="q-title-primary">${escapeHtml(title)}</span>
                     ${platformBadge}
+                    ${sourceBadge}
                 </td>
                 <td class="q-cell-obs">${observablesUsedCount}</td>
                 <td class="q-cell-job">
@@ -348,12 +352,14 @@ function updateQueueStats(statusCounts) {
     const rejectedEl = document.getElementById('rejectedCount');
     const submittedEl = document.getElementById('submittedCount');
     const needsReviewEl = document.getElementById('needsReviewCount');
+    const localReviewEl = document.getElementById('localReviewOnlyCount');
 
     if (pendingEl) pendingEl.textContent = get('pending');
     if (approvedEl) approvedEl.textContent = get('approved');
     if (rejectedEl) rejectedEl.textContent = get('rejected');
     if (submittedEl) submittedEl.textContent = get('submitted');
     if (needsReviewEl) needsReviewEl.textContent = get('needs_review');
+    if (localReviewEl) localReviewEl.textContent = get('local_review_only');
 
     // Reflect active filter on stat cards
     const activeFilter = (document.getElementById('queueStatusFilter') || {}).value || '';
@@ -610,7 +616,7 @@ function renderRulePreview(rule, observablesData) {
                     <summary class="cursor-pointer px-3 py-2 font-semibold text-gray-300">Similar Existing Rules (${similarityScores.length})</summary>
                     <ul class="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-300 px-3 pb-3 mt-2">
                         ${similarityScores.slice(0, 5).map(s => `
-                            <li>${s.title || s.rule_id} (${(s.similarity * 100).toFixed(1)}% similar)</li>
+                            <li>${escapeHtml(s.title || s.rule_id || 'Untitled')} (${(s.similarity * 100).toFixed(1)}% similar)</li>
                         `).join('')}
                     </ul>
                 </details>
@@ -618,6 +624,23 @@ function renderRulePreview(rule, observablesData) {
         `;
     }
     
+    const isSourceRule = rule.rule_origin === 'source_provided';
+    const editControl = isSourceRule
+        ? `<button onclick="copySourceRule(${rule.id})" class="text-sm text-amber-400 hover:text-amber-300">Create Editable Copy</button>`
+        : `<button onclick="enableEditMode()" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400">✏️ Edit</button>`;
+    const provenanceHtml = isSourceRule ? `
+        <section class="rounded-lg border border-amber-500/40 bg-amber-950/20 p-3" data-testid="source-rule-provenance">
+            <div class="font-semibold text-amber-300">Publisher-authored source rule</div>
+            <div><strong>Attribution:</strong> ${escapeHtml(rule.attribution || 'Not recorded')}</div>
+            <div><strong>License:</strong> ${escapeHtml(rule.declared_license || 'No explicit license')}</div>
+            <div><strong>Source rule ID:</strong> ${escapeHtml(rule.source_rule_id || 'Not recorded')}</div>
+            <div><strong>Source URL:</strong> ${escapeHtml(rule.source_url || 'Not recorded')}</div>
+            <div><strong>Content SHA-256:</strong> <code>${escapeHtml(rule.source_content_sha256 || 'Not recorded')}</code></div>
+            <div><strong>Delivery:</strong> ${rule.delivery_eligible ? 'Eligible' : 'Local review only'} — ${escapeHtml(rule.delivery_eligibility_reason || '')}</div>
+            <div class="text-xs text-amber-200/80 mt-1">Original YAML is immutable. Create an editable copy for changes or enrichment.</div>
+        </section>
+    ` : '';
+
     const yamlSection = isEditMode ? `
         <div class="mt-4">
             <div class="flex justify-between items-center mb-2">
@@ -632,9 +655,7 @@ function renderRulePreview(rule, observablesData) {
         <div class="mt-4">
             <div class="flex justify-between items-center mb-2">
                 <h4 class="font-semibold">Rule YAML:</h4>
-                <button onclick="enableEditMode()" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400">
-                    ✏️ Edit
-                </button>
+                ${editControl}
             </div>
             <pre class="bg-gray-100 dark:bg-gray-900 p-4 rounded overflow-x-auto text-xs text-gray-600 dark:text-gray-300"><code id="ruleYamlCode">${escapeHtml(editedYaml)}</code></pre>
         </div>
@@ -643,6 +664,7 @@ function renderRulePreview(rule, observablesData) {
     const content = `
         <div class="space-y-4 text-gray-600 dark:text-gray-300">
             <div><strong>Rule ID:</strong> ${rule.id}</div>
+            ${provenanceHtml}
             ${platformBadge ? `<div><strong>Platform:</strong> ${platformBadge}</div>` : ''}
             <div><strong>Article:</strong> ${rule.article_id ? `<a href="/articles/${rule.article_id}" class="text-purple-600">${escapeHtml(rule.article_title || 'Article ' + rule.article_id)}</a>` : '<span class="italic" style="color: var(--text-muted-slate)">None (hand-authored draft)</span>'}</div>
             ${Number.isInteger(rule.workflow_execution_id) ? `<div><strong>Job:</strong> <a href="#executions" class="text-purple-600" onclick="closeModal(); switchTab('executions'); setTimeout(() => viewExecution(${rule.workflow_execution_id}), 100); return false;" title="Open workflow execution ${rule.workflow_execution_id}">Execution #${rule.workflow_execution_id}</a></div>` : ''}
@@ -658,6 +680,11 @@ function renderRulePreview(rule, observablesData) {
 }
 
 function enableEditMode() {
+    const current = queue.find(r => r.id === currentRuleId);
+    if (current && current.rule_origin === 'source_provided') {
+        showNotification('Publisher-authored YAML is immutable. Create an editable copy first.', 'warning');
+        return;
+    }
     isEditMode = true;
     const rule = queue.find(r => r.id === currentRuleId);
     if (rule) {
@@ -668,6 +695,20 @@ function enableEditMode() {
                 editor.focus();
             }
         }, 100);
+    }
+}
+
+async function copySourceRule(ruleId) {
+    try {
+        const response = await fetch(`/api/sigma-queue/${ruleId}/copy`, { method: 'POST' });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.success) throw new Error(data.detail || 'Copy failed');
+        await loadQueue();
+        closeRuleModal();
+        previewRule(data.queue_id);
+        showNotification('Editable generated copy created; the source record is unchanged.', 'success');
+    } catch (error) {
+        showNotification('Copy failed: ' + error.message, 'error');
     }
 }
 
@@ -744,19 +785,20 @@ function updateActionButtons() {
             </button>
         `;
     } else {
+        const current = queue.find(r => r.id === currentRuleId);
+        const sourceRule = current && current.rule_origin === 'source_provided';
+        const canApprove = current && current.delivery_eligible !== false && current.status !== 'local_review_only';
         buttonContainer.innerHTML = `
-            <button onclick="approveRule(currentRuleId)" class="px-4 py-2 btn-workflow text-white rounded-md">
-                ✅ Approve
-            </button>
+            ${canApprove ? `<button onclick="approveRule(currentRuleId)" class="px-4 py-2 btn-workflow text-white rounded-md">✅ Approve</button>` : ''}
             <button onclick="rejectRule(currentRuleId)" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md">
                 ❌ Reject
             </button>
-            <button onclick="validateRule()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md" title="Validate using the Sigma agent from the active workflow config (same LLM and API keys as in Workflow).">
+            ${sourceRule ? `<button onclick="copySourceRule(currentRuleId)" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-md">Create Editable Copy</button>` : `<button onclick="validateRule()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md" title="Validate using the Sigma agent from the active workflow config (same LLM and API keys as in Workflow).">
                 ✓ Validate Rule
-            </button>
-            <button onclick="openEnrichModal()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md">
+            </button>`}
+            ${sourceRule ? '' : `<button onclick="openEnrichModal()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md">
                 ✨ Enrich
-            </button>
+            </button>`}
             <button onclick="checkSimilarRulesForQueue()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
                 🔍 Similarity Search
             </button>

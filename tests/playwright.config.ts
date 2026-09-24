@@ -68,6 +68,7 @@ const featureProjects = [
     use: browser,
     testMatch: [
       /playwright\/sigma_queue_lifecycle\.spec\.ts$/,
+      /playwright\/sigma_source_provenance\.spec\.ts$/,
       /playwright\/sigma_enrich\.spec\.ts$/,
       /playwright\/sigma_similarity_unification\.spec\.ts$/,
     ],

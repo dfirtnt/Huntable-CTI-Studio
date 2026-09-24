@@ -17,6 +17,7 @@ from src.workflows.agentic_workflow import (
     _make_skip_record,
     _metadata_without_grounding_fields,
     _normalize_platform_value,
+    _observable_sigma_eligible,
     _parse_agent_result,
     _platforms_from_os_detection,
     _rebase_group_observable_indices,
@@ -117,6 +118,65 @@ def test_enrich_observable_metadata_keeps_mixed_generic_command_unknown():
     assert obs["platform_confidence"] == "low"
     assert obs["telemetry_category"] == "process_creation"
     assert "logsource_hint" not in obs
+
+
+def test_hunt_query_sigma_is_marked_non_authoritative_and_never_generation_eligible():
+    article_content = """title: Shadow Client Startup
+logsource:
+  product: windows
+  category: registry_event
+detection:
+  selection:
+    TargetObject|endswith: '\\Software\\Microsoft\\Windows\\CurrentVersion\\Run'
+  condition: selection
+"""
+    inflated_llm_text = article_content.replace(
+        "  condition: selection",
+        "  description: duplicated by the extractor\n  condition: selection",
+    )
+    item = {
+        "type": "sigma",
+        "value": inflated_llm_text,
+        "platform": "windows",
+        "telemetry_category": "registry",
+        "logsource_hint": {"product": "windows", "category": "registry_event"},
+    }
+    obs = {"type": "hunt_queries", "value": inflated_llm_text, "source": "test"}
+
+    _enrich_observable_metadata(
+        obs,
+        item=item,
+        observable_type="hunt_queries",
+        article_platforms=["windows"],
+    )
+
+    assert inflated_llm_text not in article_content
+    assert obs["artifact_type"] == "sigma"
+    assert obs["content_fidelity"] == "llm_best_effort"
+    assert obs["source_text_authoritative"] is False
+    assert _observable_sigma_eligible(obs) is False
+
+
+def test_non_sigma_hunt_query_with_explicit_target_remains_generation_eligible():
+    item = {
+        "type": "elastic",
+        "value": "process where process.name == 'id'",
+        "platform": "linux",
+        "telemetry_category": "process_creation",
+        "logsource_hint": {"product": "linux", "category": "process_creation"},
+    }
+    obs = {"type": "hunt_queries", "value": item["value"], "source": "test"}
+
+    _enrich_observable_metadata(
+        obs,
+        item=item,
+        observable_type="hunt_queries",
+        article_platforms=["linux"],
+    )
+
+    assert obs["artifact_type"] == "elastic"
+    assert obs["source_text_authoritative"] is False
+    assert _observable_sigma_eligible(obs) is True
 
 
 def test_has_sigma_generation_eligible_observables_requires_logsource_hint():

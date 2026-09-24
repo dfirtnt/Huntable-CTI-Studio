@@ -806,6 +806,10 @@ The app uses two separate repositories:
 - **SigmaHQ reference repository:** `data/sigma-repo`. This is a local upstream cache used by `sigma sync` and reference-rule indexing. Do not use it for PR submission.
 
 PR submission refuses to operate when the configured repository's `origin` is `SigmaHQ/sigma`.
+For HTTPS remotes, the GitHub PAT is supplied only to the active Git command through
+an ephemeral `GIT_ASKPASS` helper. The token is never added to the remote URL; if a
+legacy origin already contains credentials, PR submission removes them before any
+fetch, pull, or push. SSH remotes continue to use SSH authentication unchanged.
 
 1. **During `./setup.sh`**: Create a repo at github.com/new, enter `owner/repo`
    when prompted. The script clones to `../Huntable-SIGMA-Rules` and creates

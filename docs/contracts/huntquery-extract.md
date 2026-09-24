@@ -12,9 +12,33 @@ EDR observability overrides completeness. Only extract what is explicitly presen
 
 ## PURPOSE
 
-Extract verbatim, copy-pasteable detection artifacts -- EDR/SIEM query snippets and Sigma YAML rules --
-from threat intelligence for immediate detection engineering use. Output feeds the detection-rule
-ingestion pipeline and is NOT further normalized downstream.
+Locate and transcribe detection artifacts -- EDR/SIEM query snippets and Sigma YAML rules -- from
+threat intelligence for analyst review and evaluation. Verbatim transcription remains the extraction
+goal, but LLM output is not a byte-faithful source authority and must not be ingested as a
+source-provided rule without deterministic recovery from the article text.
+
+## FIDELITY AND AUTHORITY GUARANTEE
+
+HuntQueriesExtract provides best-effort discovery, not source-byte provenance:
+
+- Every `hunt_queries` observable is stamped `content_fidelity: llm_best_effort` and
+  `source_text_authoritative: false`.
+- A captured item with `type: sigma` is display/evaluation-only and is never eligible to drive Sigma
+  generation, even if platform, telemetry, and logsource metadata are present.
+- Non-Sigma hunt queries may still drive Sigma generation when their backend, target telemetry, and
+  logsource are explicit. Their text is behavioral evidence, not a source-provided Sigma rule.
+- The `source_provided` import path MUST scan `articles.content` directly and preserve the exact
+  matched substring. It MUST NOT source rule bytes from `hunt_queries` output.
+
+Current text consumers and compatibility:
+
+| Consumer | Continued use | Compatibility decision |
+| --- | --- | --- |
+| Workflow/API/UI | Display extracted query text and traceability | Compatible; text remains available and gains explicit provenance markers. |
+| Subagent evaluation/scoring | Count and compare extracted query items | Compatible; item text and count semantics are unchanged. |
+| Extraction bookkeeping | Store summaries, snapshots, and traceability | Compatible; existing fields remain and metadata is additive. |
+| Sigma generation routing | Use a non-Sigma query only with explicit backend and telemetry | Compatible; only `type: sigma` is forced display-only. |
+| Source-provided import/publication | Recover exact rule bytes | Must scan `articles.content`; HuntQueries output is forbidden as a source. |
 
 Supported query platforms (platform enum):
 
@@ -199,6 +223,7 @@ If structurally present but incomplete / fragmentary / not executable as shown, 
 
 ## FIDELITY REQUIREMENTS
 
+- These are instructions to the extractor and a quality target, not a byte-faithfulness guarantee.
 - Preserve EXACTLY as written. Do NOT normalize.
 - Do NOT reflow lines. Do NOT fix spacing. Do NOT normalize field names or operators.
 - Do NOT escape or unescape characters.
@@ -354,7 +379,9 @@ If the query is presented as "you could detect..." or "defenders should...", SKI
 If the content is pseudocode or narrative description without runnable text, SKIP.
 When in doubt, OMIT.
 
-_Last updated: 2026-07-17 — added the Google SecOps / Chronicle platform (YARA-L 2.0 rules and UDM
+_Last updated: 2026-09-24 — narrowed the fidelity guarantee: LLM-captured text is best-effort,
+source-provided Sigma must be recovered directly from `articles.content`, and captured Sigma is
+display/evaluation-only. 2026-07-17 added the Google SecOps / Chronicle platform (YARA-L 2.0 rules and UDM
 search queries), corrected the envelope field name to `count`, and synced EDGE CASES / VERIFICATION
 CHECKLIST / FINAL REMINDER against the live `src/prompts/HuntQueriesExtract` seed prompt (doc had
 drifted since the 2026-07-03 sync). Prior note: extended KQL indicator list to Microsoft Defender for

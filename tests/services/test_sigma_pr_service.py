@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.services.sigma_pr_service import SigmaPRService, parse_github_remote
+from src.services.sigma_pr_service import SigmaPRService, parse_github_remote, sanitize_https_remote
 
 pytestmark = pytest.mark.unit
 
@@ -169,6 +169,137 @@ class TestRunGitCommand:
         with patch("subprocess.run", side_effect=TypeError("unexpected")):
             with pytest.raises(TypeError):
                 self.svc._run_git_command(["status"])
+
+
+class TestRemoteAuthentication:
+    """Git authentication never persists a credential in the repository config."""
+
+    @pytest.fixture(autouse=True)
+    def _mock_db_settings(self):
+        with patch.object(SigmaPRService, "_get_setting", return_value=None):
+            yield
+
+    @pytest.mark.parametrize(
+        ("remote", "expected"),
+        [
+            (
+                "https://github.com/example/Huntable-SIGMA-Rules.git",
+                "https://github.com/example/Huntable-SIGMA-Rules.git",
+            ),
+            (
+                "https://x-access-token:old-secret@github.com/example/Huntable-SIGMA-Rules.git",
+                "https://github.com/example/Huntable-SIGMA-Rules.git",
+            ),
+            (
+                "git@github.com:example/Huntable-SIGMA-Rules.git",
+                "git@github.com:example/Huntable-SIGMA-Rules.git",
+            ),
+        ],
+    )
+    def test_configure_remote_auth_leaves_no_credential_in_git_config(self, tmp_path, remote, expected):
+        subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True, text=True)
+        subprocess.run(
+            ["git", "-C", str(tmp_path), "remote", "add", "origin", remote],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        svc = SigmaPRService(repo_path=str(tmp_path))
+        svc.github_token = "current-secret"
+
+        assert svc._configure_remote_auth() is True
+
+        configured = subprocess.run(
+            ["git", "-C", str(tmp_path), "remote", "get-url", "origin"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        assert configured == expected
+        assert "old-secret" not in configured
+        assert "current-secret" not in configured
+
+    def test_remote_cleanup_failure_stops_repository_preparation(self, tmp_path):
+        svc = SigmaPRService(repo_path=str(tmp_path))
+        svc.github_token = "current-secret"
+        with patch.object(
+            svc,
+            "_run_git_command",
+            side_effect=[
+                (0, "https://x-access-token:old-secret@github.com/example/rules.git\n", ""),
+                (1, "", "config is read-only"),
+            ],
+        ):
+            assert svc._configure_remote_auth() is False
+
+    def test_https_command_uses_ephemeral_askpass_without_token_in_script_or_arguments(self, tmp_path):
+        svc = SigmaPRService(repo_path=str(tmp_path))
+        svc.github_token = "current-secret"
+        observed = {}
+
+        def fake_git(cmd, check=True, env=None):
+            if cmd == ["remote", "get-url", "origin"]:
+                return (0, "https://github.com/example/rules.git\n", "")
+            observed["cmd"] = cmd
+            observed["env"] = env
+            observed["script"] = Path(env["GIT_ASKPASS"]).read_text(encoding="utf-8")
+            return (0, "", "")
+
+        with patch.object(svc, "_run_git_command", side_effect=fake_git):
+            svc._run_authenticated_git_command(["push", "-u", "origin", "branch"])
+
+        assert observed["cmd"] == ["push", "-u", "origin", "branch"]
+        assert "current-secret" not in " ".join(observed["cmd"])
+        assert "current-secret" not in observed["script"]
+        assert observed["env"]["HUNTABLE_GIT_TOKEN"] == "current-secret"
+        assert observed["env"]["GIT_TERMINAL_PROMPT"] == "0"
+
+    def test_ssh_command_does_not_use_token_environment(self, tmp_path):
+        svc = SigmaPRService(repo_path=str(tmp_path))
+        svc.github_token = "current-secret"
+
+        with patch.object(
+            svc,
+            "_run_git_command",
+            side_effect=[
+                (0, "git@github.com:example/rules.git\n", ""),
+                (0, "", ""),
+            ],
+        ) as git:
+            svc._run_authenticated_git_command(["push", "-u", "origin", "branch"])
+
+        assert git.call_args_list[-1].kwargs == {"check": True}
+
+    def test_non_github_https_command_does_not_receive_github_token_environment(self, tmp_path):
+        svc = SigmaPRService(repo_path=str(tmp_path))
+        svc.github_token = "current-secret"
+
+        with patch.object(
+            svc,
+            "_run_git_command",
+            side_effect=[
+                (0, "https://git.example.test/example/rules.git\n", ""),
+                (0, "", ""),
+            ],
+        ) as git:
+            svc._run_authenticated_git_command(["push", "-u", "origin", "branch"])
+
+        assert git.call_args_list[-1].kwargs == {"check": True}
+
+
+@pytest.mark.parametrize(
+    ("remote", "expected"),
+    [
+        (
+            "https://x-access-token:token@github.com/owner/repo.git",
+            "https://github.com/owner/repo.git",
+        ),
+        ("https://github.com/owner/repo.git", "https://github.com/owner/repo.git"),
+        ("git@github.com:owner/repo.git", "git@github.com:owner/repo.git"),
+    ],
+)
+def test_sanitize_https_remote(remote, expected):
+    assert sanitize_https_remote(remote) == expected
 
 
 class TestParseGithubRemote:

@@ -40,6 +40,8 @@ from src.services.sigma_matching_service import SigmaMatchingService
 # Re-exported: the novelty summariser lives in the service layer so langgraph-free
 # callers (the web container's sigma-queue routes) can import it too.
 from src.services.sigma_novelty_service import summarize_rule_novelty
+from src.services.sigma_pr_service import SigmaPRService
+from src.services.source_sigma_import_service import import_source_sigma_rules
 from src.services.workflow_config_snapshot import build_config_snapshot, snapshot_is_complete
 from src.services.workflow_provider_options import _probe_lmstudio
 from src.services.workflow_trigger_service import WorkflowTriggerService
@@ -300,10 +302,39 @@ def _enrich_observable_metadata(
     if logsource_hint is not None:
         obs_entry["logsource_hint"] = logsource_hint
 
+    if observable_type == "hunt_queries":
+        artifact_type = None
+        if isinstance(item, dict):
+            artifact_type = item.get("type") or item.get("platform")
+        obs_entry["artifact_type"] = str(artifact_type or "unknown").strip().lower()
+        # HuntQueriesExtract is LLM output. It remains useful for analyst display,
+        # evaluation, and (for non-Sigma queries) telemetry routing, but it cannot
+        # establish byte-faithful source content.
+        obs_entry["content_fidelity"] = "llm_best_effort"
+        obs_entry["source_text_authoritative"] = False
+
+
+def _hunt_query_artifact_type(obs: dict[str, Any]) -> str:
+    """Return the HuntQueries artifact subtype from current or legacy shapes."""
+    artifact_type = obs.get("artifact_type")
+    if not artifact_type:
+        for candidate in (obs.get("original_data"), obs.get("value")):
+            if isinstance(candidate, dict):
+                artifact_type = candidate.get("type") or candidate.get("platform")
+                if artifact_type:
+                    break
+    return str(artifact_type or "unknown").strip().lower()
+
 
 def _observable_sigma_eligible(obs: dict[str, Any]) -> bool:
     """Return True when an observable has enough routing metadata for Sigma generation."""
     if not isinstance(obs, dict):
+        return False
+    # An LLM-captured Sigma block is a discovery result, not authoritative source
+    # bytes. Source-provided rules are imported only by scanning articles.content.
+    # Keep ordinary backend hunt queries eligible when their target telemetry is
+    # explicit, but never use captured Sigma YAML to generate another rule.
+    if obs.get("type") == "hunt_queries" and _hunt_query_artifact_type(obs) == "sigma":
         return False
     platform = _normalize_platform_value(obs.get("platform"))
     telemetry_category = obs.get("telemetry_category")
@@ -1253,7 +1284,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
     Create LangGraph workflow for agentic processing.
 
     Workflow steps:
-    0. Platform Detection - Detect operating system/platform context
+    0. Source Sigma Import - Deterministically preserve publisher-authored rules
+    1. Platform Detection - Detect operating system/platform context
     1. Junk Filter - Filter content using conservative junk filter
     2. LLM Ranking - Rank article using LLM
     3. Extract Agent - Extract behaviors using ExtractAgent
@@ -1273,6 +1305,29 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
     trigger_service = WorkflowTriggerService(db_session)
 
     # Define workflow nodes
+
+    def import_source_sigma_node(state: WorkflowState) -> WorkflowState:
+        """Import source-authored rules before any extraction/generation decision."""
+        if state.get("eval_run"):
+            return state
+        article = db_session.query(ArticleTable).filter(ArticleTable.id == state["article_id"]).first()
+        if not article:
+            raise ValueError(f"Article {state['article_id']} not found in database")
+        result = import_source_sigma_rules(
+            db_session,
+            article,
+            SigmaPRService().repo_path,
+            commit=True,
+        )
+        logger.info(
+            "[Workflow %s] Source Sigma import: discovered=%d imported=%d duplicates=%d rejected=%d",
+            state["execution_id"],
+            result.discovered,
+            result.imported,
+            result.duplicates,
+            result.rejected,
+        )
+        return state
 
     async def os_detection_node(state: WorkflowState) -> WorkflowState:
         """Step 0: Detect operating system from article content."""
@@ -3541,6 +3596,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
     workflow = StateGraph(WorkflowState)
 
     # Add nodes
+    workflow.add_node("import_source_sigma", import_source_sigma_node)
     workflow.add_node("os_detection", os_detection_node)
     workflow.add_node("junk_filter", junk_filter_node)
     workflow.add_node("rank_article", rank_article_node)
@@ -3551,7 +3607,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
     workflow.add_node("promote_to_queue", promote_to_queue_node)
 
     # Define edges
-    workflow.set_entry_point("os_detection")
+    workflow.set_entry_point("import_source_sigma")
+    workflow.add_edge("import_source_sigma", "os_detection")
     workflow.add_conditional_edges(
         "os_detection", check_should_continue_after_os_detection, {"junk_filter": "junk_filter", "end": END}
     )
