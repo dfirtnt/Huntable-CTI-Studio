@@ -179,7 +179,13 @@ class ContentProcessor:
                 f"ContentProcessor: Before cleaning - {len(article.content)} chars, {non_printable_before} non-printable"
             )
 
-            normalized_content = ContentCleaner.clean_html(article.content)
+            # Producers already ran clean_html; re-cleaning plain text would re-parse it as
+            # HTML and strip the <pre> indentation the first pass preserved. Only clean when
+            # markup is actually present.
+            if ContentCleaner.looks_like_html(article.content):
+                normalized_content = ContentCleaner.clean_html(article.content)
+            else:
+                normalized_content = article.content
 
             # Debug: Check content after cleaning
             non_printable_after = sum(1 for c in normalized_content if ord(c) < 32 and c not in "\n\r\t")

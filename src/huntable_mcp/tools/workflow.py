@@ -222,8 +222,8 @@ def register(mcp: FastMCP, db: AsyncDatabaseManager) -> None:
     ) -> str:
         """List SIGMA rules in the review queue.
 
-        Shows AI-generated SIGMA detection rules pending human review,
-        their similarity to existing rules, and review status.
+        Shows generated and publisher-authored SIGMA rules pending human review,
+        their provenance, similarity to existing rules, and review status.
 
         Args:
             status: Filter by status (pending, approved, rejected, submitted). Omit for all.
@@ -235,6 +235,9 @@ def register(mcp: FastMCP, db: AsyncDatabaseManager) -> None:
                     select(
                         SigmaRuleQueueTable.id,
                         SigmaRuleQueueTable.status,
+                        SigmaRuleQueueTable.rule_origin,
+                        SigmaRuleQueueTable.declared_license,
+                        SigmaRuleQueueTable.attribution,
                         SigmaRuleQueueTable.rule_metadata,
                         SigmaRuleQueueTable.max_similarity,
                         SigmaRuleQueueTable.review_notes,
@@ -268,6 +271,9 @@ def register(mcp: FastMCP, db: AsyncDatabaseManager) -> None:
                 lines.append(
                     f"- **Queue #{r.id}** — {(r.status or 'unknown').upper()}\n"
                     f"  Rule: {rule_title}\n"
+                    f"  Origin: {r.rule_origin or 'generated'}"
+                    f"{f' | License: {r.declared_license}' if r.declared_license else ''}"
+                    f"{f' | Attribution: {r.attribution}' if r.attribution else ''}\n"
                     f"  Source article: [{r.article_id}] {r.article_title}\n"
                     f"  Max similarity to existing: {similarity}\n"
                     f"  Created: {created}{notes}{pr}\n"
@@ -293,6 +299,13 @@ def register(mcp: FastMCP, db: AsyncDatabaseManager) -> None:
                     select(
                         SigmaRuleQueueTable.id,
                         SigmaRuleQueueTable.status,
+                        SigmaRuleQueueTable.rule_origin,
+                        SigmaRuleQueueTable.source_url,
+                        SigmaRuleQueueTable.source_rule_id,
+                        SigmaRuleQueueTable.source_content_sha256,
+                        SigmaRuleQueueTable.declared_license,
+                        SigmaRuleQueueTable.license_evidence,
+                        SigmaRuleQueueTable.attribution,
                         SigmaRuleQueueTable.rule_yaml,
                         SigmaRuleQueueTable.rule_metadata,
                         SigmaRuleQueueTable.similarity_scores,
@@ -342,6 +355,12 @@ def register(mcp: FastMCP, db: AsyncDatabaseManager) -> None:
             return (
                 f"# Queue #{row.id} — {(row.status or 'unknown').upper()}\n\n"
                 f"**Rule:** {rule_title}\n"
+                f"**Origin:** {row.rule_origin or 'generated'}\n"
+                f"**License:** {row.declared_license or 'N/A'}\n"
+                f"**Attribution:** {row.attribution or 'N/A'}\n"
+                f"**Source URL:** {row.source_url or 'N/A'}\n"
+                f"**Source rule ID:** {row.source_rule_id or 'N/A'}\n"
+                f"**Source SHA-256:** {row.source_content_sha256 or 'N/A'}\n"
                 f"**Source article:** [{row.article_id}] {row.article_title}\n"
                 f"**Created:** {created}{pr_section}\n\n"
                 f"## Similarity to Existing Rules\n"

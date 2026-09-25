@@ -13,11 +13,107 @@ from sqlalchemy.orm import Session
 
 from src.database.models import AgenticWorkflowConfigTable, AgenticWorkflowExecutionTable, ArticleTable
 from src.services.audit_service import AuditEvent, AuditService
-from src.services.execution_snapshot_store import attach_snapshot
+from src.services.execution_snapshot_store import attach_snapshot, hydrate_snapshot
 from src.services.workflow_config_snapshot import build_config_snapshot
 from src.utils.default_agent_prompts import get_default_agent_prompts
 
 logger = logging.getLogger(__name__)
+
+
+# A complete workflow normally takes 7--10 minutes, but local-model extraction can
+# take longer. Thirty minutes without an updated row is therefore strong evidence
+# that a worker restart orphaned the execution, while preserving healthy slow runs.
+ORPHANED_RUNNING_STALE_AFTER = timedelta(minutes=30)
+
+# How long a row may sit at ``pending`` before its Celery task is presumed lost.
+# Workers claim a task within seconds, so a fresher row almost certainly still has
+# a live task queued. Both consumers of "stuck pending" MUST share this one
+# definition: the trigger eligibility check below fails such a row and starts a new
+# execution, while ``POST /api/workflow/executions/trigger-stuck`` re-dispatches it.
+# If they disagree, the same row gets failed by one path and re-queued by the other.
+#
+# Decision (2026-09-16): this threshold is a dispatch heuristic, not the guard against
+# double runs. ``run_workflow`` claims its row with a conditional UPDATE
+# (``WHERE status = 'pending'``, rowcount checked), so a second task carrying the same
+# execution_id is a logged no-op whatever any caller decided. The threshold stays for
+# two reasons the claim does not cover:
+#   1. trigger-stuck should not re-queue rows whose task is merely delayed; that is
+#      queue noise, and the endpoint's ``successful`` count would describe dispatches
+#      that did no work.
+#   2. The trigger eligibility path below fails a stuck pending row before starting a
+#      fresh execution. That is a destructive write the claim cannot arbitrate, so it
+#      still needs an explicit definition of "lost".
+#
+# Eval rows get a longer window (``eval_pending_stuck_after``). The eval launcher
+# commits every row up front and staggers their Celery tasks with countdowns, so the
+# tail of a large launch sits ``pending`` with a live task for many minutes. Judged
+# by the 5-minute rule, a manual trigger on the same article would fail that row;
+# its task would then arrive, find the row no longer ``pending``, and be discarded
+# by the claim -- silently losing an eval data point. A row that outlives even the
+# eval window is still recovered here, and the retention reaper fails any row idle
+# past ``RETENTION_STALE_EXECUTION_HOURS`` regardless.
+STUCK_PENDING_AFTER = timedelta(minutes=5)
+
+
+def eval_pending_stuck_after() -> timedelta:
+    """How long an eval row may sit at ``pending`` before its task is presumed lost.
+
+    The base window plus the latest countdown the eval launcher can schedule: the
+    last row of a launch at the execution cap with the maximum throttle. Read at call
+    time because the cap comes from the environment.
+    """
+    from src.services.subagent_eval_launch_service import (  # noqa: PLC0415 -- avoids importing the LLM stack at module load
+        EVAL_STAGGER_SECONDS,
+        MAX_THROTTLE_SECONDS,
+        max_eval_executions_per_launch,
+    )
+
+    last_index = max(max_eval_executions_per_launch() - 1, 0)
+    return STUCK_PENDING_AFTER + timedelta(seconds=last_index * (EVAL_STAGGER_SECONDS + MAX_THROTTLE_SECONDS))
+
+
+def is_eval_execution(execution: AgenticWorkflowExecutionTable) -> bool:
+    """True when the execution was launched as an eval run (``eval_run`` in its snapshot)."""
+    return bool(hydrate_snapshot(execution).get("eval_run"))
+
+
+def is_stuck_pending_execution(execution: AgenticWorkflowExecutionTable, *, now: datetime | None = None) -> bool:
+    """True when a pending row has waited long enough that its task is presumed lost."""
+    if execution.status != "pending" or execution.started_at is not None:
+        return False
+    if execution.created_at is None:
+        return False
+    reference = now or datetime.now()
+    if execution.created_at >= reference - STUCK_PENDING_AFTER:
+        return False
+    if not is_eval_execution(execution):
+        return True
+    return execution.created_at < reference - eval_pending_stuck_after()
+
+
+def recover_orphaned_running_execution(
+    execution: AgenticWorkflowExecutionTable, *, now: datetime | None = None
+) -> bool:
+    """Fail an inert running execution so a later trigger can proceed.
+
+    Workers update ``updated_at`` as they advance through workflow steps.  This
+    intentionally does not use ``started_at`` because legitimate workflows can
+    run for longer than the recovery threshold.
+    """
+    if execution.status != "running" or execution.updated_at is None:
+        return False
+
+    reference = now or datetime.now()
+    if execution.updated_at >= reference - ORPHANED_RUNNING_STALE_AFTER:
+        return False
+
+    execution.status = "failed"
+    execution.completed_at = reference
+    execution.error_message = (
+        "Recovered during workflow trigger: no activity for over 30 minutes "
+        f"while running at {execution.current_step or 'unknown step'}; the worker may have restarted."
+    )
+    return True
 
 
 class WorkflowAuditError(RuntimeError):
@@ -105,8 +201,6 @@ class WorkflowTriggerService:
                         "Lower the threshold in Settings → Workflow, or use an article with a higher RegexHunt score."
                     )
 
-            cutoff_time = datetime.now() - timedelta(minutes=5)
-
             existing_execution = (
                 self.db.query(AgenticWorkflowExecutionTable)
                 .filter(
@@ -117,11 +211,16 @@ class WorkflowTriggerService:
             )
 
             if existing_execution:
-                if (
-                    existing_execution.status == "pending"
-                    and existing_execution.created_at < cutoff_time
-                    and existing_execution.started_at is None
-                ):
+                if recover_orphaned_running_execution(existing_execution):
+                    logger.warning(
+                        "Recovered orphaned running execution %s for article %s during trigger eligibility check",
+                        existing_execution.id,
+                        article.id,
+                    )
+                    self.db.commit()
+                    return True, None
+
+                if is_stuck_pending_execution(existing_execution):
                     logger.warning(
                         f"Found stuck pending execution {existing_execution.id} for article {article.id} "
                         f"(created {existing_execution.created_at}, never started). Marking as failed."
@@ -129,7 +228,8 @@ class WorkflowTriggerService:
                     existing_execution.status = "failed"
                     existing_execution.error_message = (
                         existing_execution.error_message
-                        or f"Execution stuck in pending status for more than 5 minutes (created: {existing_execution.created_at})"
+                        or f"Execution stuck in pending status for more than {STUCK_PENDING_AFTER} "
+                        f"(created: {existing_execution.created_at})"
                     )
                     existing_execution.completed_at = datetime.now()
                     self.db.commit()

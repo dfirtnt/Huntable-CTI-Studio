@@ -15,10 +15,11 @@ from mcp.types import ToolAnnotations
 from src.database.async_manager import AsyncDatabaseManager
 from src.database.manager import DatabaseManager
 from src.database.models import SubagentEvaluationTable
-from src.huntable_mcp.tools.write_support import record_mcp_audit
+from src.huntable_mcp.tools.write_support import MCP_SERVICE_ACTOR, record_mcp_audit
 from src.services import eval_diagnosis_service
 from src.services.audit_service import (
     ACTION_EVAL_BUNDLE_DIAGNOSED,
+    ACTION_EVAL_RUN_REQUESTED,
     STATUS_ATTEMPTED,
     STATUS_FAILURE,
     STATUS_SUCCESS,
@@ -29,20 +30,29 @@ from src.services.eval_diagnosis_service import (
     EvalDiagnosisService,
     compute_diagnosis_evidence_sha256,
 )
-from src.utils.subagent_utils import build_subagent_lookup_values
+from src.services.subagent_eval_launch_service import (
+    MAX_EVAL_EXECUTIONS_ENV,
+    MAX_REPLICATES,
+    MAX_THROTTLE_SECONDS,
+    EvalDispatchError,
+    EvalLaunchError,
+    EvalLaunchPlan,
+    NoActiveConfigError,
+    ensure_broker_reachable,
+    launch_subagent_eval,
+    plan_subagent_eval,
+)
+from src.utils.subagent_utils import (
+    SUBAGENT_TO_EXTRACT_AGENT,
+    build_subagent_lookup_values,
+    normalize_subagent_name,
+)
 
 logger = logging.getLogger(__name__)
 
-_SUBAGENT_TO_BUNDLE_AGENT = {
-    "cmdline": "CmdlineExtract",
-    "process_lineage": "ProcTreeExtract",
-    "hunt_queries": "HuntQueriesExtract",
-    "hunt_queries_edr": "HuntQueriesExtract",
-    "registry_artifacts": "RegistryExtract",
-    "windows_services": "ServicesExtract",
-    "scheduled_tasks": "ScheduledTasksExtract",
-    "network_indicators": "NetworkIndicatorExtract",
-}
+# Bundle/eval agent names keyed by subagent alias; hunt_queries_edr is a legacy
+# alias of the HuntQueries extractor that still appears in stored eval rows.
+_SUBAGENT_TO_BUNDLE_AGENT = {**SUBAGENT_TO_EXTRACT_AGENT, "hunt_queries_edr": "HuntQueriesExtract"}
 
 _MAX_BULK_BUNDLES = 100
 _CONFIG_VERSION_PATTERN = re.compile(r"^v?(?P<version>\d+)(?P<label>[a-z])?$", re.IGNORECASE)
@@ -53,22 +63,10 @@ def _json_response(payload: Any) -> str:
 
 
 def _load_saved_diagnoses(execution_id: int, agent_name: str | None = None) -> list[dict[str, Any]]:
-    diagnoses_dir = eval_diagnosis_service.DIAGNOSES_DIR
-    matches = sorted(
-        diagnoses_dir.glob(f"{execution_id}_*.json") if diagnoses_dir.exists() else [],
-        key=lambda p: p.stat().st_mtime,
-        reverse=True,
-    )
+    """Saved diagnoses newest-first, tagged with their bare filename (never a host path)."""
     diagnoses: list[dict[str, Any]] = []
-    for path in matches:
-        try:
-            diagnosis = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as e:
-            logger.warning("Skipping unreadable diagnosis file %s: %s", path, e)
-            continue
-        if agent_name and diagnosis.get("agent_name") != agent_name:
-            continue
-        diagnosis.setdefault("_source_file", str(path))
+    for path, diagnosis in eval_diagnosis_service.load_saved_diagnoses(execution_id, agent_name=agent_name):
+        diagnosis.setdefault("_source_file", path.name)
         diagnoses.append(diagnosis)
     return diagnoses
 
@@ -124,6 +122,79 @@ def _bundle_selection(subagent: str | None) -> tuple[str | None, set[str], str |
 def _new_sync_session():
     db_manager = DatabaseManager()
     return db_manager.get_session()
+
+
+def _validate_launch_args(
+    subagent: str,
+    article_urls: list[str] | None,
+    replicates: int,
+    concurrency_throttle_seconds: float,
+) -> tuple[str | None, dict[str, Any] | None]:
+    """Return (canonical_subagent, None) or (None, error payload) without touching the DB."""
+    canonical = normalize_subagent_name(subagent)
+    if canonical not in SUBAGENT_TO_EXTRACT_AGENT:
+        return None, {
+            "error": f"Unsupported subagent for eval launch: {subagent}",
+            "supported_subagents": list(SUBAGENT_TO_EXTRACT_AGENT),
+        }
+    if isinstance(replicates, bool) or not isinstance(replicates, int) or not 1 <= replicates <= MAX_REPLICATES:
+        return None, {"error": f"replicates must be an integer between 1 and {MAX_REPLICATES}"}
+    if (
+        isinstance(concurrency_throttle_seconds, bool)
+        or not isinstance(concurrency_throttle_seconds, (int, float))
+        or not 0 <= concurrency_throttle_seconds <= MAX_THROTTLE_SECONDS
+    ):
+        return None, {"error": f"concurrency_throttle_seconds must be between 0 and {MAX_THROTTLE_SECONDS:g}"}
+    if article_urls is not None and (
+        not isinstance(article_urls, list)
+        or not article_urls
+        or not all(isinstance(url, str) and url.strip() for url in article_urls)
+    ):
+        return None, {"error": "article_urls must be omitted (full committed set) or a non-empty list of URL strings"}
+    return canonical, None
+
+
+def _eval_status_summary(records: list[Any]) -> dict[str, Any]:
+    """Progress and metrics for a cohort, using the same formula as the HTTP status route."""
+    total = len(records)
+    completed = sum(1 for r in records if r.status == "completed")
+    failed = sum(1 for r in records if r.status == "failed")
+    pending = sum(1 for r in records if r.status == "pending")
+    completed_records = [r for r in records if r.status == "completed" and r.score is not None]
+    if completed_records:
+        perfect_matches = sum(1 for r in completed_records if r.score == 0)
+        accuracy: float | None = perfect_matches / len(completed_records)
+        mean_score: float | None = sum(r.score for r in completed_records) / len(completed_records)
+    else:
+        perfect_matches = 0
+        accuracy = None
+        mean_score = None
+    return {
+        "progress": {"completed": completed, "failed": failed, "pending": pending, "total": total},
+        "metrics": {"accuracy": accuracy, "mean_score": mean_score, "perfect_matches": perfect_matches},
+        "is_complete": total > 0 and pending == 0,
+    }
+
+
+def _select_replicate(records: list[Any], run_index: int) -> list[Any]:
+    """Keep the nth row per (article, subagent), the same grouping get_eval_run uses."""
+    grouped: dict[tuple[int | None, str], list[Any]] = {}
+    for record in records:
+        grouped.setdefault((record.article_id, record.subagent_name), []).append(record)
+    return [group[run_index] for group in grouped.values() if len(group) > run_index]
+
+
+def _billing_line(plan: EvalLaunchPlan) -> str:
+    if plan.is_local_provider:
+        return f"Provider {plan.provider} is local; this run bills no tokens."
+    return (
+        f"Tokens WILL be billed to provider {plan.provider or 'unknown'} "
+        f"(model {plan.model or 'unknown'}) for {plan.total_executions} extractor run(s)."
+    )
+
+
+def _launch_plan_payload(plan: EvalLaunchPlan) -> dict[str, Any]:
+    return {**plan.to_dict(), "billing": _billing_line(plan)}
 
 
 def register(mcp: FastMCP, db: AsyncDatabaseManager) -> None:
@@ -818,3 +889,239 @@ def register(mcp: FastMCP, db: AsyncDatabaseManager) -> None:
             include_langfuse=False,
             include_trace=False,
         )
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            readOnlyHint=False,
+            destructiveHint=True,
+            idempotentHint=False,
+            openWorldHint=True,
+        )
+    )
+    async def run_subagent_eval(
+        subagent: str,
+        article_urls: list[str] | None = None,
+        replicates: int = 1,
+        concurrency_throttle_seconds: float = 5.0,
+        confirmed_by_user: bool = False,
+    ) -> str:
+        """Plan, then launch, a subagent eval run against the active workflow config.
+
+        Caller-attested write that spends provider tokens. Call it first with
+        confirmed_by_user=false: it returns the plan (config version, provider,
+        model, execution count, per-URL status, billing line) and writes
+        nothing. Show that plan to the user, obtain explicit approval for this
+        launch, then call again with confirmed_by_user=true. Approval never
+        carries over: every launch call needs its own confirmed_by_user=true.
+        Tokens are billed to the extractor's configured provider unless it is
+        lmstudio.
+
+        URLs with a committed fixture but no DB article row are reported as
+        skipped, never run inside the MCP server. After a launch, poll
+        get_subagent_eval_status with the returned run_label, then retrieve
+        bundles with get_eval_run.
+
+        Args:
+            subagent: Canonical alias (cmdline, process_lineage, hunt_queries,
+                registry_artifacts, windows_services, scheduled_tasks,
+                network_indicators) or the extractor name. The hunt_queries_edr
+                and hunt_queries_sigma variants are rejected.
+            article_urls: URLs to run, duplicates allowed. Omit for the full
+                committed set from config/eval_articles.yaml.
+            replicates: Runs per URL, 1..50, expanded server-side.
+            concurrency_throttle_seconds: Extra spacing between dispatches, 0..60.
+            confirmed_by_user: True only after explicit approval for this launch call.
+        """
+        canonical, invalid = _validate_launch_args(subagent, article_urls, replicates, concurrency_throttle_seconds)
+        if invalid is not None:
+            return _json_response({**invalid, "launched": False})
+        assert canonical is not None
+
+        db_session = _new_sync_session()
+        try:
+            try:
+                plan = plan_subagent_eval(
+                    db_session,
+                    canonical,
+                    article_urls=article_urls,
+                    replicates=replicates,
+                    allow_inline_execution=False,
+                )
+            except NoActiveConfigError as e:
+                return _json_response({"error": str(e), "launched": False})
+            except EvalLaunchError as e:
+                return _json_response({"error": str(e), "launched": False})
+
+            plan_payload = _launch_plan_payload(plan)
+            if plan.total_executions == 0:
+                return _json_response(
+                    {
+                        **plan_payload,
+                        "launched": False,
+                        "error": (
+                            "Nothing to run: no planned URL has both a committed fixture and a DB article row. "
+                            "See rows[].status."
+                        ),
+                    }
+                )
+            if plan.exceeds_cap:
+                return _json_response(
+                    {
+                        **plan_payload,
+                        "launched": False,
+                        "error": (
+                            f"Requested {plan.total_executions} eval executions; "
+                            f"{MAX_EVAL_EXECUTIONS_ENV}={plan.max_executions} caps a single launch"
+                        ),
+                    }
+                )
+            if not confirmed_by_user:
+                return _json_response(
+                    {
+                        **plan_payload,
+                        "launched": False,
+                        "confirmation_required": True,
+                        "message": (
+                            "Explicit user confirmation is required before launching this eval run. "
+                            f"{_billing_line(plan)} "
+                            "Show the plan to the user; after approval, retry once with confirmed_by_user=true."
+                        ),
+                    }
+                )
+
+            try:
+                ensure_broker_reachable()
+            except EvalDispatchError as e:
+                return _json_response({**plan_payload, "launched": False, "error": str(e)})
+
+            try:
+                result = await launch_subagent_eval(
+                    db_session,
+                    plan,
+                    concurrency_throttle_seconds=float(concurrency_throttle_seconds),
+                    initiated_by=MCP_SERVICE_ACTOR,
+                )
+            except EvalDispatchError as e:
+                logger.error("MCP run_subagent_eval dispatch failed for %s: %s", canonical, e, exc_info=True)
+                return _json_response({**plan_payload, "launched": False, "rows_committed": True, "error": str(e)})
+            except EvalLaunchError as e:
+                return _json_response({**plan_payload, "launched": False, "error": str(e)})
+        finally:
+            db_session.close()
+
+        audit_metadata = {**result.audit_metadata(), "confirmation_attested_by_caller": True}
+        audit_error: str | None = None
+        try:
+            async with db.get_session() as session:
+                await record_mcp_audit(
+                    session,
+                    ACTION_EVAL_RUN_REQUESTED,
+                    "evaluation",
+                    plan.subagent,
+                    f"Launched {result.total_executions} subagent eval executions for {plan.subagent} "
+                    f"({plan.run_label}) via MCP",
+                    audit_metadata,
+                )
+                await session.commit()
+        except Exception as e:
+            audit_error = str(e)
+            logger.critical("Could not audit MCP eval launch for %s (%s): %s", canonical, plan.run_label, e)
+
+        payload: dict[str, Any] = {
+            **plan_payload,
+            **result.to_dict(),
+            "launched": True,
+            "confirmation_attested_by_caller": True,
+            "next_steps": (
+                f"Poll get_subagent_eval_status(run='{plan.run_label}', subagent='{plan.subagent}') until every "
+                f"execution completes, then call get_eval_run(run='{plan.run_label}', subagent='{plan.subagent}')."
+            ),
+        }
+        if audit_error:
+            payload["audit_error"] = audit_error
+        return _json_response(payload)
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
+            openWorldHint=False,
+        )
+    )
+    async def get_subagent_eval_status(run: str, subagent: str | None = None) -> str:
+        """Cheap progress poll for an eval run, keyed by run label.
+
+        Accepts the same labels as get_eval_run (``5139``, ``v5139``, ``v5139a``)
+        and returns pending, completed and failed counts plus accuracy and mean
+        score for the (config version, subagent) cohort, the same numbers as
+        GET /api/evaluations/subagent-eval-status without needing an eval
+        record id. A lettered label narrows the cohort to that replicate
+        (``a`` is the first run per article). Without subagent, every
+        extractor's rows for the version are aggregated and a per-subagent
+        breakdown is included. Poll this after run_subagent_eval until
+        is_complete, then call get_eval_run for bundles. Read-only.
+
+        Args:
+            run: Run label or config version, e.g. v5139 or v5139a.
+            subagent: Optional subagent alias, e.g. cmdline. Omit to aggregate all extractors.
+        """
+        try:
+            resolved_version, selector, run_index = _parse_config_version(run)
+        except ValueError as e:
+            return _json_response({"error": str(e), "run": run})
+
+        canonical_subagent, lookup_values, selected_agent = _bundle_selection(subagent)
+        if subagent is not None and not selected_agent:
+            return _json_response({"error": f"Unsupported subagent for eval status: {subagent}", "run": run})
+
+        db_session = _new_sync_session()
+        try:
+            query = db_session.query(SubagentEvaluationTable).filter(
+                SubagentEvaluationTable.workflow_config_version == resolved_version
+            )
+            if lookup_values:
+                query = query.filter(SubagentEvaluationTable.subagent_name.in_(lookup_values))
+            records = query.order_by(
+                SubagentEvaluationTable.article_id.asc(),
+                SubagentEvaluationTable.subagent_name.asc(),
+                SubagentEvaluationTable.created_at.asc(),
+                SubagentEvaluationTable.id.asc(),
+            ).all()
+            if run_index is not None:
+                records = _select_replicate(records, run_index)
+
+            payload: dict[str, Any] = {
+                "schema_version": "mcp_subagent_eval_status_v1",
+                "run": selector,
+                "config_version": resolved_version,
+                "run_index": run_index,
+                "subagent": canonical_subagent,
+                "agent_name": selected_agent,
+                **_eval_status_summary(records),
+            }
+            if canonical_subagent is None:
+                by_subagent: dict[str, list[Any]] = {}
+                for record in records:
+                    by_subagent.setdefault(_resolve_subagent_query(record.subagent_name)[0], []).append(record)
+                payload["per_subagent"] = {
+                    name: _eval_status_summary(rows) for name, rows in sorted(by_subagent.items())
+                }
+            if not records:
+                payload["message"] = (
+                    f"No eval records for {selector}"
+                    + (f" ({canonical_subagent})" if canonical_subagent else "")
+                    + ". Check the run label, or launch with run_subagent_eval."
+                )
+            elif payload["is_complete"]:
+                payload["next_steps"] = (
+                    f"Run complete. Retrieve bundles with get_eval_run(run='{selector}'"
+                    + (f", subagent='{canonical_subagent}'" if canonical_subagent else "")
+                    + ")."
+                )
+            return _json_response(payload)
+        except Exception as e:
+            logger.error("MCP get_subagent_eval_status failed for %s: %s", run, e, exc_info=True)
+            return _json_response({"error": str(e), "run": run})
+        finally:
+            db_session.close()

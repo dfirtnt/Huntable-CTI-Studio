@@ -239,15 +239,17 @@ def parse_sigma_agent_prompt_data(sigma_prompt_data: dict[str, Any] | None) -> t
             # No user template recoverable from this shape; treat role as system only.
             # Detect by key presence, not by role value, to handle empty role strings.
             system = parsed.get("role") or None
-        elif parsed is None and (sigma_prompt_data.get("model") or not _TEMPLATE_PLACEHOLDER_RE.search(raw_prompt)):
-            # Auto-persist shape OR persona-only text: either saved alongside a
-            # sibling "model" key, or the text has zero Python format placeholders
-            # ({identifier}) and therefore cannot function as a user message
-            # template.  In both cases treat as system persona; no user template present.
+        elif parsed is None and not _TEMPLATE_PLACEHOLDER_RE.search(raw_prompt):
+            # Persona-only text (the auto-persist shape saves it next to a sibling
+            # "model" key): zero Python format placeholders ({identifier}), so it
+            # cannot function as a user message template. Treat as system persona.
             system = raw_prompt or None
         else:
-            # Legacy raw-text template (bootstrap default) — has at least one
-            # {identifier} placeholder; treat as user message template verbatim.
+            # Raw-text template with at least one {identifier} placeholder: what
+            # reset-to-defaults / bootstrap write from sigma_generation.txt, also with a
+            # sibling "model" key. It is the user message template, never the persona:
+            # treating it as system sent the 13.5k template unformatted as the system
+            # message (literal {author}/{date}) on top of the formatted user message.
             template = raw_prompt
 
     # Legacy sibling key still honored when the parsed JSON didn't carry a system.

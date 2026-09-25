@@ -64,3 +64,16 @@ def test_restore_file_decodes_only_allowed_uploads_and_removes_temp_file(monkeyp
     assert result == {"returncode": 0}
     assert seen[0][1].endswith("scripts/restore_database_v2.py")
     assert not __import__("pathlib").Path(seen[0][2]).exists()
+
+
+def test_restore_file_forwards_no_snapshot(monkeypatch):
+    monkeypatch.setenv("MAINTENANCE_API_TOKEN", "secret")
+    seen = []
+    monkeypatch.setattr(main, "_run", lambda args, timeout: seen.append(args) or {"returncode": 0})
+
+    main.restore_file(
+        main.RestoreFileRequest(content_base64=base64.b64encode(b"SELECT 1").decode(), suffix=".sql", no_snapshot=True),
+        x_maintenance_token="secret",
+    )
+
+    assert seen[0][-2:] == ["--force", "--no-snapshot"]

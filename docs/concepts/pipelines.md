@@ -18,6 +18,15 @@ Sigma generation and similarity matching.
              |
              v
     +---------------------------------+
+    |  Pre-pass: Source Sigma Import |
+    |  -----------------------------  |
+    |  Scan articles.content directly|
+    |  Preserve exact source YAML     |
+    |  Record provenance and policy   |
+    +--------+------------------------+
+             |
+             v
+    +---------------------------------+
     |  Step 0: Platform Detection     |
     |  -----------------------------  |
     |  Detect platform(s): Windows/   |
@@ -95,6 +104,7 @@ Sigma generation and similarity matching.
 ## Execution Order Summary
 
 ```text
+Pre-pass: Source Sigma Import -> Preserve complete publisher-authored rules directly from articles.content
 0. Platform Detection       -> Detect Windows/Linux/macOS/multiple/Unknown; routes extractors, does not terminate
 1. Junk Filter              -> Content quality filtering
 2. LLM Ranking              -> Article scoring (continue if >= threshold)
@@ -120,4 +130,4 @@ Sigma generation and similarity matching.
 See [Workflow Data Flow](../architecture/workflow-data-flow.md) for state and
 persistence details, and [Agents](agents.md) for per-agent responsibilities.
 
-_Last updated: 2026-07-05_
+_Last updated: 2026-09-24_

@@ -16,18 +16,20 @@ artifacts, Windows services, scheduled tasks), but `observable_type` validation 
 endpoint only ever recognized `CMD` and `PROC_LINEAGE`. It was flagged unsupported for over a
 month before removal.
 
-## Training side is unaffected
+## Training side has also been removed
 
 The companion training subsystem, `src/services/observable_training.py` (exposed under
-`src/web/routes/observable_training.py`), is a separate, still-live capability and was **not**
-touched by this removal:
-
-- `GET /api/observables/training/summary` — Training data summary per observable type
-- `POST /api/observables/training/run` — Trigger a training job
+`src/web/routes/observable_training.py`), survived this removal at first but was itself removed
+on 2026-09-05 along with the rest of the deprecated observables annotation mode
+(`OBSERVABLE_MODE` in `article_detail.html`) that fed it. It depended on the same annotation data
+this page already flagged as zero-`eval`/all-`train`, and had no UI entry point once the
+annotation-mode toggle was hidden in 2026-01. `src/services/model_training.py`,
+`src/web/routes/observable_training.py`, `src/worker/tasks/observable_training.py`, and
+`src/web/templates/observable_training.html` no longer exist; `GET /api/observables/training/summary`,
+`POST /api/observables/training/run`, and the `/observables-training` dashboard page all 404.
 
 ## Related
 
-- [Observable Training Dashboard](http://localhost:8001/observables-training) — in-app page (when the app is running)
 - [Extract Observables How-To](../guides/extract-observables.md) — Usage guide
 
-_Last updated: 2026-08-10_
+_Last updated: 2026-09-05_

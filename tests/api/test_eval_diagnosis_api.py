@@ -753,3 +753,38 @@ def test_agent_evals_diagnosis_count_badge_url_is_a_registered_route():
         f"'/api/evaluations/evals/diagnosis-counts' (router prefix "
         f"'/api/evaluations'). The badge fetch URL must match the served path."
     )
+
+
+# ---------------------------------------------------------------------------
+# Ordering contract: persisted created_at wins over file mtime
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_list_diagnoses_orders_by_created_at_not_mtime(tmp_path):
+    """A restore/copy of data/diagnoses rewrites mtimes; run order must follow created_at."""
+    newer = {"diagnosis_id": "newer", "created_at": "2026-08-10T12:00:00+00:00"}
+    older = {"diagnosis_id": "older", "created_at": "2026-08-01T12:00:00+00:00"}
+
+    # Write the NEWER diagnosis first so it carries the OLDER mtime.
+    (tmp_path / "42_CmdlineExtract_aaa.json").write_text(json.dumps(newer))
+    time.sleep(0.01)
+    (tmp_path / "42_CmdlineExtract_bbb.json").write_text(json.dumps(older))
+
+    with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=tmp_path):
+        listed = await list_saved_diagnoses(execution_id=42)
+        latest = await get_saved_diagnosis(execution_id=42)
+
+    assert [d["diagnosis_id"] for d in listed] == ["newer", "older"]
+    assert latest["diagnosis_id"] == "newer"
+
+
+@pytest.mark.asyncio
+async def test_list_diagnoses_skips_unreadable_files(tmp_path):
+    (tmp_path / "42_CmdlineExtract_bad.json").write_text("{not json")
+    (tmp_path / "42_CmdlineExtract_ok.json").write_text(json.dumps({"diagnosis_id": "ok"}))
+
+    with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=tmp_path):
+        result = await list_saved_diagnoses(execution_id=42)
+
+    assert [d["diagnosis_id"] for d in result] == ["ok"]

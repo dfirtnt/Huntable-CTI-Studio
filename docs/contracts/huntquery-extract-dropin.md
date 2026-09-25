@@ -26,6 +26,12 @@ service artifacts, scheduled-task identity, or classic YARA rules (file/memory s
 If an article shows both a narrative IOC and a Sigma/KQL rule that references it, only the
 rule is in scope here.
 
+## FIDELITY BOUNDARY
+Verbatim transcription is the extraction goal, but LLM output is best-effort and is not
+proof of byte-faithfulness. Before importing or publishing a returned rule, locate it in
+the supplied source and recover the exact source substring. Do not treat the returned
+Sigma YAML as authoritative source bytes when that deterministic match cannot be made.
+
 Supported query platforms (type enum):
 - kql                Microsoft Defender Advanced Hunting / Sentinel (Kusto)
 - falcon             CrowdStrike Falcon Event Search / FQL
@@ -197,6 +203,7 @@ target platform:
 If structurally present but incomplete / fragmentary / not executable as shown, SKIP.
 
 ## FIDELITY REQUIREMENTS
+- These are extraction instructions and a quality target, not a byte-faithfulness guarantee.
 - Preserve EXACTLY as written. Do NOT normalize.
 - Do NOT reflow lines. Do NOT fix spacing. Do NOT normalize field names or operators.
 - Do NOT escape or unescape characters.

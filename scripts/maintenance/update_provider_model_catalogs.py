@@ -8,6 +8,12 @@ Usage:
 Requires:
     OPENAI_API_KEY and/or ANTHROPIC_API_KEY environment variables.
     When keys are missing the script falls back to existing values in workflow.html.
+
+After the catalog is written the script diffs the fetched ids against
+config/model_capabilities.json. The provider list endpoints return ids only, so
+tier values cannot be fetched; a model with no capabilities entry is reported so a
+human can look its tiers up once. The final ``UNCLASSIFIED_MODELS=<json>`` line is
+parsed by the Celery task so the gap shows in the Scheduled Jobs UI.
 """
 
 from __future__ import annotations
@@ -27,7 +33,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from src.services.provider_model_catalog import load_catalog, save_catalog
+from src.services.provider_model_catalog import find_unclassified_models, load_catalog, save_catalog
 from src.utils.model_validation import (
     filter_anthropic_models_latest_only,
     filter_openai_models_latest_only,
@@ -166,7 +172,28 @@ def fetch_models(provider: ProviderConfig) -> list[str]:
     return filtered
 
 
-def main(write: bool) -> None:
+UNCLASSIFIED_MARKER = "UNCLASSIFIED_MODELS="
+
+
+def report_unclassified_models(catalog: dict[str, list[str]]) -> dict[str, list[str]]:
+    """Print every catalog model missing from config/model_capabilities.json and return the gaps.
+
+    Unclassified models still run: the resolver falls back to "temperature supported,
+    no effort tiers". The human step is to verify the tiers once and add the entry.
+    """
+    gaps = find_unclassified_models(catalog)
+    for provider_name, models in sorted(gaps.items()):
+        for model in models:
+            print(
+                f"⚠️  {provider_name}: '{model}' has no entry in config/model_capabilities.json "
+                "(falls back to temperature supported / no effort control until classified)",
+                file=sys.stderr,
+            )
+    print(f"{UNCLASSIFIED_MARKER}{json.dumps(gaps, sort_keys=True)}")
+    return gaps
+
+
+def main(write: bool) -> dict[str, list[str]]:
     existing = load_catalog()
 
     new_catalog: dict[str, list[str]] = {}
@@ -180,10 +207,11 @@ def main(write: bool) -> None:
     if not write:
         print("Preview of updated catalog:\n")
         print(json.dumps(new_catalog, indent=2))
-        return
+        return report_unclassified_models(new_catalog)
 
     save_catalog(new_catalog)
     print("✅ Updated provider model catalog JSON")
+    return report_unclassified_models(new_catalog)
 
 
 if __name__ == "__main__":

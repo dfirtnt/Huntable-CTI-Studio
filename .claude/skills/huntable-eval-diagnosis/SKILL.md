@@ -15,7 +15,11 @@ structured diagnosis. Persistence is a separate confirmation-gated step.
 
 1. **Resolve the execution.** If the user gave a run label or article instead of
    an execution ID, use `get_eval_run` first (see the eval-retrieval flow) and
-   take `execution_id` plus `agent_name` from the result.
+   take `execution_id` plus `agent_name` from the result. If no run exists yet,
+   start one with `run_subagent_eval` (it returns a plan first; launching needs
+   the user's explicit approval and a fresh `confirmed_by_user=true` on that
+   call, and bills the extractor's provider unless it is `lmstudio`), then poll
+   `get_subagent_eval_status` by run label until `is_complete`.
 2. **Pull the context packet:** `get_eval_diagnosis_context(execution_id,
    agent_name)`. It returns the eval bundle, `contracts.extractor_standard`,
    `contracts.agent_contract`, `score_context`, and `instructions` (the

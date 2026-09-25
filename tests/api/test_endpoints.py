@@ -382,37 +382,20 @@ class TestQuickActionsEndpoints:
         assert data["processed"] >= 0
 
 
-class TestArticleLifecycleEndpoints:
-    """Article lifecycle helper endpoints."""
-
-    @pytest.mark.api
-    @pytest.mark.asyncio
-    async def test_mark_article_reviewed(self, async_client: httpx.AsyncClient):
-        """Mark an article as reviewed without observables."""
-        articles_response = await async_client.get("/api/articles?limit=1")
-        if articles_response.status_code != 200:
-            pytest.skip("No articles available")
-        articles_data = articles_response.json()
-        if not articles_data.get("articles"):
-            pytest.skip("No articles available")
-
-        article_id = articles_data["articles"][0]["id"]
-        response = await async_client.post(f"/api/articles/{article_id}/mark-reviewed")
-        assert response.status_code == 200
-        payload = response.json()
-        assert payload["success"] is True
-        assert payload["article_id"] == article_id
-        assert payload["processing_status"] == "completed"
-
-
 class TestHealthEndpoints:
     """Test health endpoints respond and report healthy status."""
 
     @pytest.mark.api
     @pytest.mark.smoke
     @pytest.mark.asyncio
-    async def test_health_endpoints(self, async_client: httpx.AsyncClient):
+    async def test_health_endpoints(self, async_client: httpx.AsyncClient, monkeypatch):
         """Ensure critical health endpoints are healthy."""
+        # /api/health/services rolls LMStudio reachability into its overall
+        # status by design (so a degraded LMStudio is visible in production
+        # monitoring). This suite is testing our own infra, not whether an
+        # operator's local LMStudio happens to be running right now, so
+        # disable that check here for a deterministic result.
+        monkeypatch.setenv("WORKFLOW_LMSTUDIO_ENABLED", "false")
         health_paths = [
             "/health",
             "/api/health",
@@ -511,8 +494,12 @@ class TestCriticalAPIs:
     @pytest.mark.api
     @pytest.mark.smoke
     @pytest.mark.asyncio
-    async def test_redis_connectivity(self, async_client: httpx.AsyncClient):
+    async def test_redis_connectivity(self, async_client: httpx.AsyncClient, monkeypatch):
         """Test Redis connectivity through health endpoint."""
+        # See test_health_endpoints: this endpoint's overall status also
+        # reflects LMStudio reachability by design, which isn't what this
+        # test is checking. Disable it for a deterministic result.
+        monkeypatch.setenv("WORKFLOW_LMSTUDIO_ENABLED", "false")
         response = await async_client.get("/api/health/services")
         assert response.status_code == 200
         data = response.json()

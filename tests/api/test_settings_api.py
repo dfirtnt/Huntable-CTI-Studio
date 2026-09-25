@@ -109,10 +109,26 @@ class TestSettingsCodexSubscription:
 
             result = await test_codex_subscription()
 
-        assert result == {
-            "valid": False,
-            "message": "Codex subscription is not connected. Ask an administrator to connect it.",
-        }
+        assert result["valid"] is False
+        assert result["message"] == (
+            "Codex app-server could not be reached. If it is not logged in, "
+            "run: docker compose exec workflow_worker codex login --device-auth"
+        )
+
+    @pytest.mark.asyncio
+    async def test_codex_subscription_test_reports_logged_out_account(self):
+        """A logged-out app-server answers {"account": null} -- that is "not logged in",
+        not "wrong auth mode", and the message has to say which command fixes it."""
+        with patch("src.web.routes.settings.CodexAppServerClient") as client_cls:
+            client_cls.return_value.read_account = AsyncMock(return_value={"account": None, "requiresOpenaiAuth": True})
+            from src.web.routes.settings import test_codex_subscription
+
+            result = await test_codex_subscription()
+
+        assert result["valid"] is False
+        assert result["message"] == (
+            "Codex is not logged in. Run: docker compose exec workflow_worker codex login --device-auth"
+        )
 
     @pytest.mark.asyncio
     async def test_codex_subscription_test_rejects_non_chatgpt_auth(self):
@@ -123,7 +139,10 @@ class TestSettingsCodexSubscription:
             result = await test_codex_subscription()
 
         assert result["valid"] is False
-        assert result["message"] == "Codex subscription is not connected. Ask an administrator to connect it."
+        assert result["message"] == (
+            "Codex is logged in, but not with a ChatGPT subscription. "
+            "Run: docker compose exec workflow_worker codex login --device-auth"
+        )
 
 
 def _make_settings_db_ctx(existing_value=None):

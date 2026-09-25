@@ -169,10 +169,10 @@ def restore_database(backup_path: Path, create_snapshot: bool = True, force: boo
 
     # Create snapshot if requested
     snapshot_path = None
-    if create_snapshot and not force:
+    if create_snapshot:
         snapshot_path = create_database_snapshot()
         if not snapshot_path:
-            print("❌ Failed to create snapshot. Use --force to skip snapshot creation.")
+            print("❌ Failed to create snapshot. Use --no-snapshot to skip snapshot creation.")
             return False
 
     print(f"🔄 Restoring database from: {backup_path.name}")

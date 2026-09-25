@@ -194,10 +194,17 @@ guidance via `LINUX_SIGMA_GUIDANCE` (injected in `sigma_generation_service.py`).
 #### Intra-batch deduplication
 
 After all groups have generated their rules and before the rules are stored on the execution,
-`_deduplicate_batch_rules()` runs a Jaccard-overlap pass across the full batch. Two rules are
-considered duplicates when they share the same `(logsource.category, logsource.product)` and
-their `detection.selection` leaf-value sets overlap by ≥ 80%. The more specific rule (higher
-condition count) is retained; the less specific is dropped and logged at WARNING level.
+`_deduplicate_batch_rules()` runs an overlap pass across the full batch. For each rule it collects
+the matched string values of the whole detection block, skipping the Sigma-reserved `condition`
+and `timeframe` keys (condition syntax is not a matched value). Two rules sharing the same
+`(logsource.category, logsource.product)` are duplicates when `_batch_rules_are_duplicates()`
+holds: their value sets overlap (Jaccard) by ≥ 80%, **or** the smaller set is fully contained in
+the larger, has at least 3 values, and Jaccard is still ≥ 60% — a less specific restatement of the
+same detection. The rule with more values is retained; the other is dropped and logged at WARNING
+level. The thresholds, and the measurement behind them (live queue pairs plus 1.19M SigmaHQ
+same-logsource pairs as a false-duplicate bound), are recorded in that function's docstring.
+Values are compared literally and negated filters count as ordinary values, so rules that differ
+only in token spelling (`urlcache` vs ` -urlcache `) are not merged.
 
 **Why this is necessary:** `similarity_search_node` (Step 5) compares each new rule against
 the *existing* rule library — it never sees sibling rules generated in the same batch. Without

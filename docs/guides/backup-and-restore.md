@@ -163,6 +163,9 @@ python3 scripts/restore_database.py backup.sql.gz --force
 python3 scripts/restore_database.py backup.sql.gz --no-snapshot
 ```
 
+`--force` skips only the interactive confirmation. It still creates the pre-restore
+snapshot; `--no-snapshot` is the explicit opt-out for both command-line and uploaded restores.
+
 ### Metadata Format
 
 ```json

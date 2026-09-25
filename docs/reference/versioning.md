@@ -13,9 +13,9 @@ Huntable CTI Studio uses a combination of semantic versioning and planetary moon
 
 ## Current Version
 
-**v7.8.1 "Europa"** - Current stable release
-**v7.8.0 "Europa"** - Previous stable release
-**v7.7.0 "Europa"** - Earlier stable release
+**v7.9.0 "Europa"** - Current stable release
+**v7.8.1 "Europa"** - Previous stable release
+**v7.8.0 "Europa"** - Earlier stable release
 
 ## Planetary Moon Naming System
 
@@ -49,6 +49,20 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 - Europa (v7.0 - v7.8)
 
 ## Version History
+
+### v7.9.0 "Europa" (2026-09-25)
+- **Named After**: Europa, one of Jupiter's four Galilean moons; minor release continues the Europa codename
+- **Significance**: Publisher-authored Sigma rules can now be imported directly from article text with enforceable provenance instead of only being generated, Sigma `attack.*` tags are validated against a real MITRE ATT&CK taxonomy instead of a character-set check, and per-model reasoning-effort/parameter compatibility becomes catalog-driven rather than a hardcoded name-prefix list. CI checks that were previously advisory became hard merge gates.
+- **Features**:
+    - Publisher-authored Sigma passthrough: a deterministic, LLM-free scanner finds complete Sigma mappings directly in `articles.content`, preserves exact source YAML, attribution, and license evidence, and enforces fail-closed delivery policy; source rules bypass generation and batch dedup and remain immutable
+    - Real MITRE ATT&CK validation for Sigma `attack.*` tags: unknown, revoked, or deprecated technique/group/software/mitigation/campaign IDs are now validation errors with actionable replacement guidance, backed by a committed `config/attack_taxonomy.json` (2,535 objects, ATT&CK v19.2)
+    - Catalog-driven model parameter compatibility and per-agent reasoning effort: `config/model_capabilities.json` replaces the hardcoded name-prefix heuristic for `supports_temperature`/`supports_top_p`/`effort_levels`, closing the gap where Anthropic Opus 4.7+/Sonnet 5/Fable 5 silently rejected `temperature`
+    - Eval runs can be launched and polled over MCP; CI checks that were advisory became hard merge gates
+    - GitHub PR submission no longer persists PATs in Git remote configuration; backup freshness is now visible in Settings
+    - Legacy manual `/generate-sigma` endpoint and the remaining observables-mode machinery (including its training subsystem and the unreferenced mobile annotation manager) removed
+    - Intra-batch Sigma dedup compares matched values instead of condition syntax; out-of-class Sigma rules are re-homed to the group whose logsource they match instead of being dropped; queued Sigma YAML no longer leaks `generation_phase`
+    - WF-CFG-PHANTOM-003 un-quarantined: autosave no longer drops a stored `agent_models` key whenever its own last-known value was blank
+    - Full itemized list in `docs/CHANGELOG.md` under `[7.9.0 "Europa"]`
 
 ### v7.8.1 "Europa" (2026-09-02)
 - **Named After**: Europa, one of Jupiter's four Galilean moons; patch release continues the Europa codename

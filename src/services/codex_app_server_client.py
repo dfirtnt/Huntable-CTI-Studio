@@ -50,14 +50,40 @@ def messages_to_codex_input(messages: list[dict[str, Any]], max_tokens: int) -> 
     return [{"type": "text", "text": "\n\n".join(parts)}]
 
 
-def normalize_completed_turn(turn: dict[str, Any], agent_text: str, model_name: str) -> dict[str, Any]:
+def _normalize_reasoning_efforts(raw: Any) -> list[dict[str, str]]:
+    """Coerce Codex's ``supportedReasoningEfforts`` items into ``{reasoning_effort, description}``."""
+    if not isinstance(raw, list):
+        return []
+    tiers: list[dict[str, str]] = []
+    for item in raw:
+        if isinstance(item, dict) and isinstance(item.get("reasoningEffort"), str):
+            tiers.append(
+                {
+                    "reasoning_effort": item["reasoningEffort"],
+                    "description": str(item.get("description") or ""),
+                }
+            )
+        elif isinstance(item, str):
+            tiers.append({"reasoning_effort": item, "description": ""})
+    return tiers
+
+
+def normalize_completed_turn(
+    turn: dict[str, Any], agent_text: str, model_name: str, effort: str | None = None
+) -> dict[str, Any]:
     """Map Codex turn events into the OpenAI-compatible shape LLMService consumes."""
     if turn.get("status") != "completed":
         error = turn.get("error") or {}
         message = error.get("message") if isinstance(error, dict) else None
         raise CodexAppServerError(message or f"Codex turn ended with status '{turn.get('status')}'.")
     if not agent_text.strip():
-        raise CodexAppServerError("Codex completed without an agent message.")
+        # A completed turn carrying no agentMessage is the one Codex outcome whose cause is
+        # absent from the error itself -- a refusal, a reasoning-only turn and a throttled
+        # turn are indistinguishable here. The turn is not persisted anywhere else, so
+        # naming the item types it did carry is the only forensic trace that survives.
+        item_types = sorted({str(item.get("type")) for item in (turn.get("items") or []) if isinstance(item, dict)})
+        detail = f" Turn items: {', '.join(item_types)}." if item_types else " Turn carried no items."
+        raise CodexAppServerError(f"Codex completed without an agent message.{detail}")
 
     usage = turn.get("usage") if isinstance(turn.get("usage"), dict) else {}
     return {
@@ -68,7 +94,13 @@ def normalize_completed_turn(turn: dict[str, Any], agent_text: str, model_name: 
             "total_tokens": usage.get("totalTokens", usage.get("total_tokens", 0)),
         },
         "model": model_name,
-        "_provider_payload": {"input": "Codex app-server turn", "model": model_name},
+        # Forensic capture mirrors the other providers: the effort key is present only
+        # when a per-turn override was actually sent.
+        "_provider_payload": (
+            {"input": "Codex app-server turn", "model": model_name, "effort": effort}
+            if effort
+            else {"input": "Codex app-server turn", "model": model_name}
+        ),
         "_provider_url": "codex-app-server://local",
     }
 
@@ -102,6 +134,17 @@ class CodexAppServerClient:
 
     async def list_models(self) -> list[str]:
         """Return this ChatGPT subscription's visible Codex models, default first."""
+        return [str(item["model"]) for item in await self.list_model_details()]
+
+    async def list_model_details(self) -> list[dict[str, Any]]:
+        """Return the current-family Codex models with their reasoning-effort tiers.
+
+        Each entry is ``{"model", "is_default", "supported_reasoning_efforts":
+        [{"reasoning_effort", "description"}], "default_reasoning_effort"}``. Codex is
+        the one provider whose tiers are discovered live rather than cataloged in
+        config/model_capabilities.json, so this is the only source the workflow UI
+        has for the Codex Effort select.
+        """
         await self._start()
         try:
             async with asyncio.timeout(self.timeout):
@@ -141,9 +184,29 @@ class CodexAppServerClient:
             or str(item.get("model") or item["id"]) in {family, default_model}
             or str(item.get("model") or item["id"]).startswith(f"{family}-")
         ]
-        return list(dict.fromkeys(str(item.get("model") or item["id"]) for item in current_models))
+        details: dict[str, dict[str, Any]] = {}
+        for item in current_models:
+            model_id = str(item.get("model") or item["id"])
+            if model_id in details:
+                continue
+            details[model_id] = {
+                "model": model_id,
+                "is_default": bool(item.get("isDefault")),
+                "supported_reasoning_efforts": _normalize_reasoning_efforts(item.get("supportedReasoningEfforts")),
+                "default_reasoning_effort": (
+                    str(item["defaultReasoningEffort"]) if isinstance(item.get("defaultReasoningEffort"), str) else None
+                ),
+            }
+        return list(details.values())
 
-    async def complete(self, *, messages: list[dict[str, Any]], model_name: str, max_tokens: int) -> dict[str, Any]:
+    async def complete(
+        self,
+        *,
+        messages: list[dict[str, Any]],
+        model_name: str,
+        max_tokens: int,
+        effort: str | None = None,
+    ) -> dict[str, Any]:
         workspace = await self._start()
         try:
             async with asyncio.timeout(self.timeout):
@@ -170,11 +233,15 @@ class CodexAppServerClient:
                 thread_id = thread.get("id") if isinstance(thread, dict) else None
                 if not thread_id:
                     raise CodexAppServerError("Codex app-server did not return a thread id.")
-                await self._rpc(
-                    "turn/start",
-                    {"threadId": thread_id, "input": messages_to_codex_input(messages, max_tokens)},
-                )
-                return await self._read_completed_turn(model_name)
+                turn_params: dict[str, Any] = {
+                    "threadId": thread_id,
+                    "input": messages_to_codex_input(messages, max_tokens),
+                }
+                if effort:
+                    # Per-turn override (TurnStartParams.effort); omitted = subscription default.
+                    turn_params["effort"] = effort
+                await self._rpc("turn/start", turn_params)
+                return await self._read_completed_turn(model_name, effort=effort)
         except TimeoutError as exc:
             raise CodexAppServerError(f"Codex app-server timed out after {self.timeout:.0f}s.") from exc
         finally:
@@ -208,7 +275,7 @@ class CodexAppServerClient:
             result = message.get("result")
             return result if isinstance(result, dict) else {}
 
-    async def _read_completed_turn(self, model_name: str) -> dict[str, Any]:
+    async def _read_completed_turn(self, model_name: str, effort: str | None = None) -> dict[str, Any]:
         agent_text = ""
         while True:
             message = self._pending_notifications.pop(0) if self._pending_notifications else await self._read_message()
@@ -222,7 +289,7 @@ class CodexAppServerClient:
                     for item in turn.get("items") or []:
                         if item.get("type") == "agentMessage" and isinstance(item.get("text"), str):
                             agent_text = item["text"]
-                return normalize_completed_turn(turn, agent_text, model_name)
+                return normalize_completed_turn(turn, agent_text, model_name, effort=effort)
 
     async def _send(self, payload: dict[str, Any]) -> None:
         if not self.process or not self.process.stdin:

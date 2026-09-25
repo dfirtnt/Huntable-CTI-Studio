@@ -9,7 +9,6 @@ import logging
 import os
 import re
 import zipfile
-from datetime import datetime
 from pathlib import Path
 
 import yaml
@@ -36,20 +35,29 @@ from src.services.audit_service import (
     build_actor_context,
 )
 from src.services.eval_bundle_service import EvalBundleService, compute_sha256_json
-from src.services.eval_item_scorer import calculate_f_beta, score_items
-from src.services.execution_snapshot_store import attach_snapshot
-from src.services.llm_service import LLMService
+from src.services.eval_item_scorer import calculate_f_beta
+from src.services.execution_snapshot_store import attach_snapshot, hydrate_snapshot
+from src.services.subagent_eval_launch_service import (
+    EVAL_ARTICLES_DATA_DIR,
+    EVAL_STAGGER_SECONDS,
+    MAX_EVAL_EXECUTIONS_ENV,
+    EvalLaunchCapExceededError,
+    EvalLaunchError,
+    NoActiveConfigError,
+    launch_subagent_eval,
+    load_static_eval_articles,
+    plan_subagent_eval,
+    resolve_article_ids_by_urls,
+)
 from src.services.subagent_eval_service import rescore_completed_record, update_subagent_eval_on_completion
 from src.services.workflow_config_snapshot import build_config_snapshot
 from src.utils.langfuse_client import LANGFUSE_DEFAULT_HOST
-from src.utils.subagent_utils import build_subagent_lookup_values, normalize_subagent_name
+from src.utils.subagent_utils import SUBAGENT_TO_EXTRACT_AGENT, build_subagent_lookup_values, normalize_subagent_name
 from src.worker.celery_app import trigger_agentic_workflow
 
-# Per-submission delay when dispatching a batch of eval workflows.
-# Without staggering, concurrent child workers race on inherited DB connections
-# during os_detection (Celery prefork + SQLAlchemy pool corruption). A short
-# broker-side countdown spreads os_detection DB hits across distinct ticks.
-_EVAL_STAGGER_SECONDS = float(os.getenv("EVAL_STAGGER_SECONDS", "0.2"))
+# Broker-side stagger floor for eval dispatch; owned by the launch service and
+# re-exported here because other routes and tests read it from this module.
+_EVAL_STAGGER_SECONDS = EVAL_STAGGER_SECONDS
 
 # Patterns that indicate a provider rate-limit / TPM throttling failure.
 # Covers OpenAI ("429", "rate limit", "try again in N..."), Anthropic
@@ -262,73 +270,6 @@ def _execution_infra_not_ready(
     return False
 
 
-# Subagent name -> ExtractAgent-style agent name for run_extraction_agent
-_SUBAGENT_TO_AGENT = {
-    "cmdline": "CmdlineExtract",
-    "process_lineage": "ProcTreeExtract",
-    "hunt_queries": "HuntQueriesExtract",
-    "registry_artifacts": "RegistryExtract",
-    "windows_services": "ServicesExtract",
-    "scheduled_tasks": "ScheduledTasksExtract",
-    "network_indicators": "NetworkIndicatorExtract",
-}
-
-
-def _actual_count_from_agent_result(subagent_name: str, agent_result: dict) -> int | None:
-    """Derive observable count from run_extraction_agent result for a single subagent."""
-    if subagent_name == "hunt_queries":
-        n = agent_result.get("count")
-        if n is not None:
-            return int(n)
-        q = agent_result.get("queries") or agent_result.get("items", [])
-        return len(q) if isinstance(q, list) else 0
-    if subagent_name == "cmdline":
-        items = agent_result.get("cmdline_items") or agent_result.get("items", [])
-        return len(items) if isinstance(items, list) else agent_result.get("count")
-    if subagent_name == "process_lineage":
-        items = agent_result.get("items", [])
-        return len(items) if isinstance(items, list) else agent_result.get("count")
-    if subagent_name == "registry_artifacts":
-        items = agent_result.get("registry_artifacts") or agent_result.get("items", [])
-        return len(items) if isinstance(items, list) else agent_result.get("count")
-    if subagent_name == "windows_services":
-        items = agent_result.get("windows_services") or agent_result.get("items", [])
-        return len(items) if isinstance(items, list) else agent_result.get("count")
-    if subagent_name == "scheduled_tasks":
-        items = agent_result.get("scheduled_tasks") or agent_result.get("items", [])
-        return len(items) if isinstance(items, list) else agent_result.get("count")
-    if subagent_name == "network_indicators":
-        items = agent_result.get("network_indicators") or agent_result.get("items", [])
-        return len(items) if isinstance(items, list) else agent_result.get("count")
-    n = agent_result.get("count")
-    if n is not None:
-        return int(n)
-    items = agent_result.get("items", [])
-    return len(items) if isinstance(items, list) else 0
-
-
-def _raw_actual_items_from_agent_result(subagent_name: str, agent_result: dict) -> list:
-    """Return the raw extractor item list from a direct static-eval agent result.
-
-    Canonical identity extraction and normalization happen in
-    ``eval_item_scorer.score_items`` (keyed by ``subagent_name``); this helper
-    only locates the list under the agent-specific or generic key, keeping the
-    structured dicts intact so registry/service/scheduled-task identities are
-    built from their real fields rather than the generic ``value`` field.
-    """
-    item_keys = {
-        "cmdline": ("cmdline_items", "items"),
-        "hunt_queries": ("queries", "items"),
-        "process_lineage": ("items",),
-        "registry_artifacts": ("registry_artifacts", "items"),
-        "windows_services": ("windows_services", "items"),
-        "scheduled_tasks": ("scheduled_tasks", "items"),
-        "network_indicators": ("network_indicators", "items"),
-    }.get(subagent_name, ("items",))
-    raw_items = next((agent_result.get(key) for key in item_keys if isinstance(agent_result.get(key), list)), [])
-    return raw_items or []
-
-
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/evaluations", tags=["evaluations"])
@@ -349,72 +290,12 @@ def _resolve_subagent_query(subagent: str) -> tuple[str, list[str]]:
 
 
 _ROOT = Path(__file__).parent.parent.parent.parent
-_EVAL_ARTICLES_DATA_DIR = _ROOT / "config" / "eval_articles_data"
+_EVAL_ARTICLES_DATA_DIR = EVAL_ARTICLES_DATA_DIR
 
-
-_SUBAGENT_KEY_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
-
-
-def _load_static_eval_articles(subagent_key: str) -> dict[str, dict]:
-    """Load static eval article snapshots for a subagent.
-
-    Returns dict url -> {url, title, content, expected_count,
-    expected_items?}.  expected_items comes from the separate ground_truth.json
-    file (if present) and is never stored in articles.json.
-    """
-    out: dict[str, dict] = {}
-    # Strict allowlist on subagent_key (defense-in-depth above the resolve/startswith
-    # containment guard below). Real keys are lowercase identifiers like "cmdline",
-    # "hunt_queries", "process_lineage" - never contain "/" or ".".
-    if not isinstance(subagent_key, str) or not _SUBAGENT_KEY_RE.fullmatch(subagent_key):
-        return out
-    data_dir = (_EVAL_ARTICLES_DATA_DIR / subagent_key).resolve()
-    # Prevent path traversal: resolved path must stay within the allowed data directory.
-    if not str(data_dir).startswith(str(_EVAL_ARTICLES_DATA_DIR.resolve()) + "/"):
-        return out
-    articles_path = data_dir / "articles.json"
-    if not articles_path.exists():
-        return out
-    try:
-        with open(articles_path) as f:
-            articles = json.load(f)
-        if not isinstance(articles, list):
-            return out
-        for entry in articles:
-            url = entry.get("url")
-            if url:
-                out[url] = {
-                    "url": url,
-                    "title": entry.get("title", ""),
-                    "content": entry.get("content", ""),
-                    "expected_count": entry.get("expected_count", 0),
-                    "expected_items": None,
-                    "acceptable_items": None,
-                }
-    except Exception as e:
-        logger.warning("Failed to load static eval articles for %s: %s", subagent_key, e)
-        return out
-
-    # Merge expected_items from ground_truth.json (item-level eval ground truth).
-    # This file is separate so article snapshot refreshes never clobber annotations.
-    gt_path = data_dir / "ground_truth.json"
-    if gt_path.exists():
-        try:
-            with open(gt_path) as f:
-                gt_entries = json.load(f)
-            if isinstance(gt_entries, list):
-                for gt in gt_entries:
-                    url = gt.get("url")
-                    items = gt.get("expected_items")
-                    if url and url in out and isinstance(items, list):
-                        out[url]["expected_items"] = items
-                        acceptable_items = gt.get("acceptable_items")
-                        if isinstance(acceptable_items, list):
-                            out[url]["acceptable_items"] = acceptable_items
-        except Exception as e:
-            logger.warning("Failed to load ground_truth.json for %s: %s", subagent_key, e)
-
-    return out
+# Fixture loading (strict key allowlist + path-containment guard) lives in the
+# launch service so the MCP launch tool inherits it; the private alias keeps
+# this module's call sites and test patch targets stable.
+_load_static_eval_articles = load_static_eval_articles
 
 
 def _load_static_eval_fixture_by_url(article_url: str | None) -> str | None:
@@ -843,9 +724,7 @@ async def get_execution_results(request: Request, execution_id: int):
                 "article_id": execution.article_id,
                 "status": execution.status,
                 "cmdline_count": cmdline_count,
-                "config_version": execution.config_snapshot.get("config_version")
-                if execution.config_snapshot
-                else None,
+                "config_version": hydrate_snapshot(execution).get("config_version"),
                 "warnings": warnings if warnings else None,
             }
         finally:
@@ -877,8 +756,9 @@ async def get_execution_commandlines(
             if not execution:
                 raise HTTPException(status_code=404, detail="Execution not found")
 
-            # Check if this is a subagent eval and which subagent
-            config_snapshot = execution.config_snapshot or {}
+            # Check if this is a subagent eval and which subagent. Externalized
+            # rows carry only {"snapshot_id": N}; hydrate to reach subagent_eval.
+            config_snapshot = hydrate_snapshot(execution)
             raw_subagent_eval = config_snapshot.get("subagent_eval")
             normalized_subagent_eval = normalize_subagent_name(raw_subagent_eval)
 
@@ -1032,71 +912,18 @@ async def get_execution_commandlines(
 
 
 def resolve_articles_by_urls(urls: list[str]) -> dict[str, int]:
-    """
-    Resolve multiple article URLs to article IDs in one session with batch queries.
+    """Resolve article URLs to IDs on a route-owned session; errors log and yield {}.
 
-    Returns:
-        Dict mapping url -> article_id (only entries that were found).
+    The batch lookup itself lives in the launch service so the MCP launch tool
+    can resolve on its own session.
     """
     if not urls:
         return {}
     try:
-        from urllib.parse import urlparse, urlunparse
-
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
-        result: dict[str, int] = {}
-
         try:
-            # Split into localhost (by id) and external (by canonical_url)
-            localhost_ids: list[int] = []
-            localhost_url_to_id: dict[str, int] = {}
-            external_urls: list[str] = []
-            for url in urls:
-                if not url:
-                    continue
-                parsed = urlparse(url)
-                if parsed.netloc in ("127.0.0.1:8001", "localhost:8001", "127.0.0.1", "localhost"):
-                    match = re.match(r"/articles/(\d+)", parsed.path)
-                    if match:
-                        aid = int(match.group(1))
-                        localhost_ids.append(aid)
-                        localhost_url_to_id[url] = aid
-                else:
-                    external_urls.append(url)
-
-            # Batch: resolve localhost IDs (verify existence)
-            if localhost_ids:
-                found = db_session.query(ArticleTable.id).filter(ArticleTable.id.in_(localhost_ids)).all()
-                found_ids = {r[0] for r in found}
-                for url, aid in localhost_url_to_id.items():
-                    if aid in found_ids:
-                        result[url] = aid
-
-            # Batch: exact match on canonical_url
-            if external_urls:
-                rows = (
-                    db_session.query(ArticleTable.canonical_url, ArticleTable.id)
-                    .filter(ArticleTable.canonical_url.in_(external_urls))
-                    .all()
-                )
-                for canonical_url, aid in rows:
-                    result[canonical_url] = aid
-
-            # For any external URL not found, try normalized (path-only) LIKE
-            missing = [u for u in external_urls if u not in result]
-            for url in missing:
-                parsed = urlparse(url)
-                normalized = urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", "", ""))
-                if normalized == url:
-                    continue
-                row = (
-                    db_session.query(ArticleTable.id).filter(ArticleTable.canonical_url.like(f"{normalized}%")).first()
-                )
-                if row:
-                    result[url] = row[0]
-
-            return result
+            return resolve_article_ids_by_urls(db_session, urls)
         finally:
             db_session.close()
     except Exception as e:
@@ -1193,314 +1020,103 @@ async def get_subagent_eval_articles(
 
 
 class SubagentEvalRunRequest(BaseModel):
-    """Request to run subagent evaluation."""
+    """Request to run subagent evaluation against the active workflow config.
+
+    The run always targets the active config; the legacy ``use_active_config``
+    flag some clients still send is ignored.
+    """
 
     subagent_name: str
     article_urls: list[str]
-    use_active_config: bool = True
     concurrency_throttle_seconds: float = Field(default=5.0, ge=0.0, le=60.0)
+
+
+def _request_initiated_by(request: Request) -> str:
+    """Provenance label stored in eval snapshot extras and the audit payload."""
+    identity = getattr(getattr(request, "state", None), "identity", None)
+    if identity is None or not getattr(identity, "is_authenticated", False):
+        return "web"
+    actor = getattr(identity, "user_id", None) or getattr(identity, "email", None)
+    return f"user:{actor}" if actor else "web"
 
 
 @router.post("/run-subagent-eval")
 async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunRequest):
-    """Run subagent evaluation against selected articles."""
+    """Run subagent evaluation against selected articles.
+
+    Thin wrapper over ``subagent_eval_launch_service``: the service plans and
+    writes, this route maps plan outcomes to HTTP status codes and records the
+    audit event with the request's actor. The response shape is a contract for
+    the Agent Evals page and ``scripts/run_eval_loop.py``.
+    """
     try:
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
 
         try:
-            # Get current active config
-            active_config = (
-                db_session.query(AgenticWorkflowConfigTable)
-                .filter(AgenticWorkflowConfigTable.is_active.is_(True))
-                .order_by(AgenticWorkflowConfigTable.version.desc())
-                .first()
-            )
-
-            if not active_config:
-                raise HTTPException(status_code=404, detail="No active workflow config found")
-
             urls_list = list(eval_request.article_urls)
             logger.info(
                 "run_subagent_eval subagent=%s received %s article URL(s)",
                 eval_request.subagent_name,
                 len(urls_list),
             )
-            # Resolve article URLs to IDs (batch in one DB round-trip)
-            url_to_id = resolve_articles_by_urls(urls_list)
-            article_mappings = []
-            for url in eval_request.article_urls:
-                article_id = url_to_id.get(url)
-                if not article_id:
-                    logger.warning(f"Article not found for URL: {url}")
-                    article_mappings.append({"url": url, "article_id": None, "found": False})
-                else:
-                    article_mappings.append({"url": url, "article_id": article_id, "found": True})
-
-            raw_subagent_name = str(eval_request.subagent_name or "").strip()
-            canonical_subagent_name = normalize_subagent_name(raw_subagent_name)
-            if not canonical_subagent_name:
-                canonical_subagent_name = raw_subagent_name
-            if not canonical_subagent_name:
-                canonical_subagent_name = eval_request.subagent_name
-
-            config_path = _ROOT / "config" / "eval_articles.yaml"
-            expected_counts = {}
-            if config_path.exists():
-                with open(config_path) as f:
-                    config = yaml.safe_load(f)
-                    subagent_articles = config.get("subagents", {}).get(canonical_subagent_name, [])
-                    for article_def in subagent_articles:
-                        url = article_def.get("url")
-                        expected_count = article_def.get("expected_count")
-                        if url:
-                            expected_counts[url] = expected_count if expected_count is not None else 0
-
-            url_to_static = _load_static_eval_articles(canonical_subagent_name)
-
-            # Build expected_items map from static snapshots (optional, item-level scoring)
-            url_to_expected_items: dict[str, list[str] | None] = {}
-            url_to_acceptable_items: dict[str, list[dict[str, str]] | None] = {}
-            for _url, _entry in url_to_static.items():
-                items = _entry.get("expected_items")
-                if isinstance(items, list):
-                    url_to_expected_items[_url] = items
-                acceptable_items = _entry.get("acceptable_items")
-                if isinstance(acceptable_items, list):
-                    url_to_acceptable_items[_url] = acceptable_items
-
-            eval_records = []
-            executions = []
-
-            for mapping in article_mappings:
-                url = mapping["url"]
-                article_id = mapping["article_id"]
-                expected_count = expected_counts.get(url, 0)
-                static_entry = url_to_static.get(url)
-
-                # Eval article snapshots are versioned test inputs.  A live DB row
-                # supplies the workflow/article identity, but must never replace the
-                # committed content being scored.
-                if not static_entry or not static_entry.get("content"):
-                    raise HTTPException(
-                        status_code=422,
-                        detail=f"No committed eval fixture content for URL: {url}",
-                    )
-
-                if not article_id:
-                    if static_entry:
-                        agent_name = _SUBAGENT_TO_AGENT.get(canonical_subagent_name)
-                        if (
-                            not agent_name
-                            or not active_config.agent_prompts
-                            or agent_name not in active_config.agent_prompts
-                        ):
-                            eval_record = SubagentEvaluationTable(
-                                subagent_name=canonical_subagent_name,
-                                article_url=url,
-                                article_id=None,
-                                expected_count=expected_count,
-                                workflow_config_id=active_config.id,
-                                workflow_config_version=active_config.version,
-                                status="failed",
-                            )
-                            db_session.add(eval_record)
-                            eval_records.append(eval_record)
-                            continue
-                        try:
-                            agent_prompt_data = active_config.agent_prompts[agent_name]
-                            prompt_config = (
-                                json.loads(agent_prompt_data["prompt"])
-                                if isinstance(agent_prompt_data.get("prompt"), str)
-                                else None
-                            )
-                            if not prompt_config:
-                                raise ValueError(f"No prompt for {agent_name}")
-                            agent_models = active_config.agent_models or {}
-                            llm_service = LLMService(config_models=agent_models)
-                            content = static_entry.get("content", "")
-                            agent_result = await llm_service.run_extraction_agent(
-                                agent_name=agent_name,
-                                content=content,
-                                title=static_entry.get("title", ""),
-                                url=url,
-                                prompt_config=prompt_config,
-                                max_extraction_retries=1,
-                                execution_id=None,
-                                model_name=agent_models.get(f"{agent_name}_model") or agent_models.get("ExtractAgent"),
-                                temperature=float(agent_models.get(f"{agent_name}_temperature", 0) or 0),
-                                top_p=float(agent_models.get(f"{agent_name}_top_p"))
-                                if agent_models.get(f"{agent_name}_top_p") is not None
-                                else None,
-                                provider=agent_models.get(f"{agent_name}_provider")
-                                or agent_models.get("ExtractAgent_provider"),
-                                attention_preprocessor_enabled=True,
-                                langfuse_session_id=f"eval_subagent_{canonical_subagent_name}",
-                            )
-                            actual_count = _actual_count_from_agent_result(canonical_subagent_name, agent_result or {})
-                            if actual_count is None:
-                                actual_count = 0
-                            score = actual_count - expected_count
-                            expected_items = url_to_expected_items.get(url)
-                            acceptable_items = url_to_acceptable_items.get(url)
-                            raw_actual_items = _raw_actual_items_from_agent_result(
-                                canonical_subagent_name, agent_result or {}
-                            )
-                            item_score = (
-                                score_items(
-                                    expected_items,
-                                    raw_actual_items,
-                                    acceptable_items,
-                                    subagent_name=canonical_subagent_name,
-                                )
-                                if isinstance(expected_items, list)
-                                else None
-                            )
-                            eval_record = SubagentEvaluationTable(
-                                subagent_name=canonical_subagent_name,
-                                article_url=url,
-                                article_id=None,
-                                expected_count=expected_count,
-                                expected_items=expected_items,
-                                acceptable_items=acceptable_items,
-                                actual_count=actual_count,
-                                actual_items=item_score.actual if item_score else None,
-                                matched_count=item_score.matched_count if item_score else None,
-                                missed_count=item_score.missed_count if item_score else None,
-                                extra_count=item_score.extra_count if item_score else None,
-                                neutral_count=item_score.neutral_count if item_score else None,
-                                score=score,
-                                workflow_config_id=active_config.id,
-                                workflow_config_version=active_config.version,
-                                workflow_execution_id=None,
-                                status="completed",
-                                completed_at=datetime.utcnow(),
-                            )
-                            db_session.add(eval_record)
-                            eval_records.append(eval_record)
-                            logger.info(
-                                "Static eval %s url=%s actual=%s expected=%s",
-                                canonical_subagent_name,
-                                url[:50],
-                                actual_count,
-                                expected_count,
-                            )
-                        except Exception as e:
-                            logger.warning("Static eval failed for %s: %s", url[:50], e)
-                            eval_record = SubagentEvaluationTable(
-                                subagent_name=canonical_subagent_name,
-                                article_url=url,
-                                article_id=None,
-                                expected_count=expected_count,
-                                workflow_config_id=active_config.id,
-                                workflow_config_version=active_config.version,
-                                status="failed",
-                            )
-                            db_session.add(eval_record)
-                            eval_records.append(eval_record)
-                    else:
-                        eval_record = SubagentEvaluationTable(
-                            subagent_name=canonical_subagent_name,
-                            article_url=url,
-                            article_id=None,
-                            expected_count=expected_count,
-                            workflow_config_id=active_config.id,
-                            workflow_config_version=active_config.version,
-                            status="failed",
-                        )
-                        db_session.add(eval_record)
-                        eval_records.append(eval_record)
-                    continue
-
-                # Create workflow execution
-                execution = AgenticWorkflowExecutionTable(
-                    article_id=article_id,
-                    status="pending",
-                )
-                db_session.add(execution)
-                attach_snapshot(
+            try:
+                plan = plan_subagent_eval(
                     db_session,
-                    execution,
-                    build_config_snapshot(
-                        active_config,
-                        extra={
-                            "eval_run": True,
-                            "skip_os_detection": True,  # Bypass OS detection for evals
-                            "skip_rank_agent": True,  # Bypass rank agent for evals
-                            "skip_sigma_generation": True,  # Skip SIGMA generation for evals
-                            "subagent_eval": canonical_subagent_name,
-                            "eval_fixture_content": static_entry["content"],
-                            "eval_fixture_content_sha256": hashlib.sha256(
-                                static_entry["content"].encode("utf-8")
-                            ).hexdigest(),
-                        },
+                    eval_request.subagent_name,
+                    article_urls=urls_list,
+                    replicates=1,
+                    allow_inline_execution=True,
+                )
+            except NoActiveConfigError as e:
+                raise HTTPException(status_code=404, detail="No active workflow config found") from e
+            except EvalLaunchError as e:
+                raise HTTPException(status_code=422, detail=str(e)) from e
+
+            # Eval article snapshots are versioned test inputs.  A live DB row
+            # supplies the workflow/article identity, but must never replace the
+            # committed content being scored.
+            missing_fixture_urls = plan.missing_fixture_urls
+            if missing_fixture_urls:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"No committed eval fixture content for URL: {missing_fixture_urls[0]}",
+                )
+            if plan.exceeds_cap:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"Requested {plan.total_executions} eval executions; "
+                        f"{MAX_EVAL_EXECUTIONS_ENV}={plan.max_executions} caps a single launch"
                     ),
                 )
-                db_session.flush()  # Get execution.id
 
-                # Create SubagentEvaluationTable record
-                eval_record = SubagentEvaluationTable(
-                    subagent_name=canonical_subagent_name,
-                    article_url=url,
-                    article_id=article_id,
-                    expected_count=expected_count,
-                    expected_items=url_to_expected_items.get(url),
-                    acceptable_items=url_to_acceptable_items.get(url),
-                    workflow_execution_id=execution.id,
-                    workflow_config_id=active_config.id,
-                    workflow_config_version=active_config.version,
-                    status="pending",
+            try:
+                result = await launch_subagent_eval(
+                    db_session,
+                    plan,
+                    concurrency_throttle_seconds=eval_request.concurrency_throttle_seconds,
+                    initiated_by=_request_initiated_by(request),
                 )
-                db_session.add(eval_record)
-                eval_records.append(eval_record)
-                executions.append(
-                    {
-                        "execution_id": execution.id,
-                        "article_id": article_id,
-                        "url": url,
-                        "eval_record_id": eval_record.id,
-                    }
-                )
-
-            db_session.commit()
-
-            # Trigger workflows with a broker-side stagger so concurrent child
-            # workers don't race on DB connections during os_detection. The
-            # internal _EVAL_STAGGER_SECONDS floor is always applied; the
-            # user-supplied concurrency throttle adds on top to spread
-            # provider token budget across the run window.
-            per_step_countdown = _EVAL_STAGGER_SECONDS + eval_request.concurrency_throttle_seconds
-            for idx, exec_info in enumerate(executions):
-                trigger_agentic_workflow.apply_async(
-                    args=[exec_info["article_id"], exec_info["execution_id"]],
-                    countdown=idx * per_step_countdown,
-                )
-                logger.info(
-                    f"Triggered workflow execution {exec_info['execution_id']} for article {exec_info['article_id']}"
-                )
+            except EvalLaunchCapExceededError as e:
+                raise HTTPException(status_code=422, detail=str(e)) from e
 
             _audit_eval(
                 db_session,
                 request,
                 ACTION_EVAL_RUN_REQUESTED,
-                canonical_subagent_name,
-                f"Triggered {len(executions)} subagent eval executions for {canonical_subagent_name}",
-                {
-                    "eval_kind": "subagent",
-                    "subagent": canonical_subagent_name,
-                    "executions_count": len(executions),
-                    "total_articles": len(eval_request.article_urls),
-                    "found_articles": sum(1 for m in article_mappings if m["found"]),
-                },
+                plan.subagent,
+                f"Triggered {len(result.executions)} subagent eval executions for {plan.subagent}",
+                result.audit_metadata(),
             )
 
             return {
                 "success": True,
-                "subagent": canonical_subagent_name,
-                "total_articles": len(eval_request.article_urls),
-                "found_articles": sum(1 for m in article_mappings if m["found"]),
-                "executions": executions,
-                "message": f"Triggered {len(executions)} workflow executions for {canonical_subagent_name} evaluation",
+                "subagent": plan.subagent,
+                "total_articles": len(urls_list),
+                "found_articles": result.found_articles,
+                "executions": result.executions,
+                "message": result.message,
             }
         finally:
             db_session.close()
@@ -2907,19 +2523,13 @@ async def get_saved_diagnosis(execution_id: int):
     """
     Return the most recent saved diagnosis for an execution, or 404 if none exists.
     """
-    import json as _json
+    from src.services.eval_diagnosis_service import load_saved_diagnoses
 
-    from src.services.eval_diagnosis_service import DIAGNOSES_DIR
-
-    matches = sorted(
-        DIAGNOSES_DIR.glob(f"{execution_id}_*.json"),
-        key=lambda p: p.stat().st_mtime,
-        reverse=True,
-    )
-    if not matches:
+    entries = load_saved_diagnoses(execution_id)
+    if not entries:
         raise HTTPException(status_code=404, detail="No diagnosis found")
 
-    return _json.loads(matches[0].read_text(encoding="utf-8"))
+    return entries[0][1]
 
 
 @router.get("/evals/diagnosis-counts")
@@ -2949,29 +2559,15 @@ async def list_saved_diagnoses(execution_id: int):
     Return all saved diagnoses for an execution, newest first.
     Returns an empty list (not 404) when none exist.
     """
-    import json as _json
+    from src.services.eval_diagnosis_service import load_saved_diagnoses
 
-    from src.services.eval_diagnosis_service import DIAGNOSES_DIR
-
-    matches = sorted(
-        DIAGNOSES_DIR.glob(f"{execution_id}_*.json"),
-        key=lambda p: p.stat().st_mtime,
-        reverse=True,
-    )
-    return [_json.loads(p.read_text(encoding="utf-8")) for p in matches]
+    return [diagnosis for _path, diagnosis in load_saved_diagnoses(execution_id)]
 
 
 # Map subagent canonical names to agent names used in eval bundles
-_SUBAGENT_TO_BUNDLE_AGENT = {
-    "cmdline": "CmdlineExtract",
-    "process_lineage": "ProcTreeExtract",
-    "hunt_queries": "HuntQueriesExtract",
-    "hunt_queries_edr": "HuntQueriesExtract",
-    "registry_artifacts": "RegistryExtract",
-    "windows_services": "ServicesExtract",
-    "scheduled_tasks": "ScheduledTasksExtract",
-    "network_indicators": "NetworkIndicatorExtract",
-}
+# Bundle/eval agent names keyed by subagent alias; hunt_queries_edr is a legacy
+# alias of the HuntQueries extractor that still appears in stored eval rows.
+_SUBAGENT_TO_BUNDLE_AGENT = {**SUBAGENT_TO_EXTRACT_AGENT, "hunt_queries_edr": "HuntQueriesExtract"}
 
 
 @router.get("/evals/export-bundles-by-config-version")

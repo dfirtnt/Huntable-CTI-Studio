@@ -2,18 +2,22 @@
 
 from typing import Any
 
-# Maps lower-cased agent names to their canonical subagent alias
-AGENT_TO_SUBAGENT = {
-    "cmdlineextract": "cmdline",
-    "proctreeextract": "process_lineage",
-    "huntqueriesextract": "hunt_queries",
-    "registryextract": "registry_artifacts",
-    "servicesextract": "windows_services",
-    "scheduledtasksextract": "scheduled_tasks",
-    "networkindicatorextract": "network_indicators",
+# Canonical subagent alias -> CamelCase extractor agent name, the spelling used
+# for agent_prompts keys, agent_models flat keys and run_extraction_agent.
+SUBAGENT_TO_EXTRACT_AGENT = {
+    "cmdline": "CmdlineExtract",
+    "process_lineage": "ProcTreeExtract",
+    "hunt_queries": "HuntQueriesExtract",
+    "registry_artifacts": "RegistryExtract",
+    "windows_services": "ServicesExtract",
+    "scheduled_tasks": "ScheduledTasksExtract",
+    "network_indicators": "NetworkIndicatorExtract",
 }
 
-# Reverse map from canonical alias to agent name (CamelCase)
+# Maps lower-cased agent names to their canonical subagent alias
+AGENT_TO_SUBAGENT = {agent.lower(): alias for alias, agent in SUBAGENT_TO_EXTRACT_AGENT.items()}
+
+# Reverse map from canonical alias to lower-cased agent name (matching, not display)
 SUBAGENT_TO_AGENT = {alias: agent for agent, alias in AGENT_TO_SUBAGENT.items()}
 
 # Acceptable alias values mapped to canonical names
@@ -63,6 +67,7 @@ __all__ = [
     "build_subagent_lookup_values",
     "AGENT_TO_SUBAGENT",
     "SUBAGENT_TO_AGENT",
+    "SUBAGENT_TO_EXTRACT_AGENT",
 ]
 
 

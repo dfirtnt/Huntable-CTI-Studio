@@ -135,7 +135,7 @@ services:
       - codex_auth:/var/lib/huntable-codex
       - ./scripts:/app/scripts
       - ./test-results:/app/test-results
-      - ${HOME}/Huntable-SIGMA-Rules:/app/sigma-repo
+      - ${HUNTABLE_SIGMA_REPO_HOST_PATH:-../Huntable-SIGMA-Rules}:/app/sigma-repo
       - /var/db/timezone/zoneinfo/America/New_York:/etc/localtime:ro
       - hf_cache:/root/.cache/huggingface
     depends_on:
@@ -228,7 +228,7 @@ services:
       - ./scripts:/app/scripts
       - ./test-results:/app/test-results
       - codex_auth:/var/lib/huntable-codex
-      - ${HOME}/Huntable-SIGMA-Rules:/app/sigma-repo
+      - ${HUNTABLE_SIGMA_REPO_HOST_PATH:-../Huntable-SIGMA-Rules}:/app/sigma-repo
     depends_on:
       postgres:
         condition: service_healthy
@@ -297,7 +297,7 @@ services:
       - ./scripts:/app/scripts
       - ./test-results:/app/test-results
       - codex_auth:/var/lib/huntable-codex
-      - ${HOME}/Huntable-SIGMA-Rules:/app/sigma-repo
+      - ${HUNTABLE_SIGMA_REPO_HOST_PATH:-../Huntable-SIGMA-Rules}:/app/sigma-repo
     depends_on:
       postgres:
         condition: service_healthy
@@ -401,7 +401,7 @@ services:
       # Customer Sigma repo — same mount as web/worker so `run_cli.sh sigma
       # index-customer-repo` resolves SIGMA_REPO_PATH (/app/sigma-repo) instead of
       # silently no-op'ing on a missing path.
-      - ${HOME}/Huntable-SIGMA-Rules:/app/sigma-repo
+      - ${HUNTABLE_SIGMA_REPO_HOST_PATH:-../Huntable-SIGMA-Rules}:/app/sigma-repo
       - ./backups:/app/backups
       - hf_cache:/root/.cache/huggingface
     depends_on:

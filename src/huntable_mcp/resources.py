@@ -26,6 +26,9 @@ def _queue_row(row: Any) -> dict[str, Any]:
     return {
         "queue_number": row.id,
         "status": row.status,
+        "rule_origin": row.rule_origin,
+        "declared_license": row.declared_license,
+        "attribution": row.attribution,
         "title": metadata.get("title", "Untitled rule"),
         "article_id": row.article_id,
         "article_title": row.article_title,
@@ -105,7 +108,7 @@ def register(mcp: FastMCP, db: AsyncDatabaseManager) -> None:
         "huntable://sigma-queue/recent-rules",
         name="sigma_queue_recent_rules",
         title="Recent Sigma Queue Rules",
-        description="Most recent AI-generated Sigma review queue entries with status and source article.",
+        description="Most recent generated and publisher-authored Sigma queue entries with provenance.",
         mime_type="application/json",
     )
     async def sigma_queue_recent_rules() -> dict[str, Any]:
@@ -115,6 +118,9 @@ def register(mcp: FastMCP, db: AsyncDatabaseManager) -> None:
                     select(
                         SigmaRuleQueueTable.id,
                         SigmaRuleQueueTable.status,
+                        SigmaRuleQueueTable.rule_origin,
+                        SigmaRuleQueueTable.declared_license,
+                        SigmaRuleQueueTable.attribution,
                         SigmaRuleQueueTable.rule_metadata,
                         SigmaRuleQueueTable.max_similarity,
                         SigmaRuleQueueTable.behavioral_matches_found,

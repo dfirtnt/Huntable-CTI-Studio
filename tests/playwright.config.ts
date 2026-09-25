@@ -68,6 +68,7 @@ const featureProjects = [
     use: browser,
     testMatch: [
       /playwright\/sigma_queue_lifecycle\.spec\.ts$/,
+      /playwright\/sigma_source_provenance\.spec\.ts$/,
       /playwright\/sigma_enrich\.spec\.ts$/,
       /playwright\/sigma_similarity_unification\.spec\.ts$/,
     ],
@@ -87,12 +88,15 @@ const featureProjects = [
   },
 ];
 
+/* No specs currently match the quarantine patterns -- the UI test diet
+ * (commit 1a490501) removed the flaky suites this project targeted. Kept as
+ * an empty project (rather than deleted) so --project=quarantine still
+ * resolves and doesn't error; add patterns here if a new suite needs
+ * quarantining. */
 const quarantineProject = {
   name: 'quarantine',
   use: browser,
-  testMatch: [
-    /playwright\/quarantined_workflow_config_phantom_003\.spec\.ts$/,
-  ],
+  testMatch: [] as RegExp[],
 };
 
 export default defineConfig({

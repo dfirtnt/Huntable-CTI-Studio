@@ -8,12 +8,13 @@ on disk. Both endpoints now share _parse_backup_list().
 """
 
 import asyncio
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from src.web.routes import backup as backup_module
-from src.web.routes.backup import _parse_backup_list
+from src.web.routes.backup import _backup_freshness, _parse_backup_list
 
 pytestmark = pytest.mark.unit
 
@@ -66,6 +67,27 @@ def test_legacy_titlecase_heading_still_parses():
 def test_empty_output_returns_empty_list():
     assert _parse_backup_list([]) == []
     assert _parse_backup_list(["Total backups: 0"]) == []
+
+
+def test_backup_freshness_marks_backup_stale_after_three_days():
+    now = datetime(2026, 9, 3, 12, 0, 0)
+
+    freshness = _backup_freshness("system_backup_20260830_115959", now=now)
+
+    assert freshness == {
+        "last_backup_at": "2026-08-30 11:59:59",
+        "backup_age_days": pytest.approx(4.0),
+        "backup_stale": True,
+    }
+
+
+def test_backup_freshness_does_not_warn_for_recent_backup():
+    now = datetime(2026, 9, 3, 12, 0, 0)
+
+    freshness = _backup_freshness("system_backup_20260902_115959", now=now)
+
+    assert freshness["backup_age_days"] == pytest.approx(1.0)
+    assert freshness["backup_stale"] is False
 
 
 def test_status_endpoint_reports_last_backup_from_stats():

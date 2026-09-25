@@ -96,6 +96,7 @@ def restore_backup(payload: RestoreRequest, x_maintenance_token: str | None = He
 class RestoreFileRequest(BaseModel):
     content_base64: str
     suffix: str
+    no_snapshot: bool = False
 
 
 @app.post("/internal/backup/restore-file")
@@ -111,6 +112,9 @@ def restore_file(payload: RestoreFileRequest, x_maintenance_token: str | None = 
         handle.write(content)
         path = Path(handle.name)
     try:
-        return _run([sys.executable, str(ROOT / "scripts/restore_database_v2.py"), str(path), "--force"], 600)
+        args = [sys.executable, str(ROOT / "scripts/restore_database_v2.py"), str(path), "--force"]
+        if payload.no_snapshot:
+            args.append("--no-snapshot")
+        return _run(args, 600)
     finally:
         path.unlink(missing_ok=True)

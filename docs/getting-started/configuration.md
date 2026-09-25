@@ -115,8 +115,14 @@ Auth, RBAC, and CSRF are configured entirely via environment variables (`AUTH_MO
 Codex uses its own managed ChatGPT authentication; do not configure a subscription credential as an API key. Set `WORKFLOW_CODEX_ENABLED=true`, then authenticate the shared workflow-worker state volume once:
 
 ```bash
-docker compose exec workflow_worker codex login
+docker compose exec workflow_worker codex login --device-auth
 ```
+
+`--device-auth` is required here. Plain `codex login` starts a browser-callback
+listener on port 1455 inside the container, which a host browser cannot reach;
+the device-code flow prints a URL and code to open in your own browser instead.
+The credential is written to the shared `codex_auth` volume, so `web` and both
+workers pick it up without a restart.
 
 The workflow configuration and SIGMA enrichment modals list the models available to that login. Use the **Test subscription** control in Settings (or `POST /api/settings/codex/test`) to verify connectivity without running a workflow.
 
@@ -226,6 +232,7 @@ The app submits approved SIGMA rules via GitHub PRs. **Setup is automated during
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
+| `HUNTABLE_SIGMA_REPO_HOST_PATH` | Host checkout mounted into Docker at `/app/sigma-repo`; override only when the customer rules repo is not the app's sibling directory | `../Huntable-SIGMA-Rules` |
 | `SIGMA_REPO_PATH` | Path to the customer rules repo containing Huntable-created and approved rules; used for PR submission and customer-repo indexing | `sigma-repo` |
 | `GITHUB_TOKEN` | GitHub PAT for PR submission | — |
 | `GITHUB_REPO` | Target repo for SIGMA rule PRs | `owner/repo` (from setup) |

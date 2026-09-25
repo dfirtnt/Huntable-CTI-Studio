@@ -1,7 +1,8 @@
 """
 Pydantic schema for workflow config v2.
 
-PascalCase convention. All agent definitions require Provider, Model, Temperature, TopP, Enabled.
+PascalCase convention. All agent definitions require Provider, Model, Temperature, TopP, Enabled;
+Effort is optional (None = the provider's default reasoning effort).
 ExtractAgent is the model/provider fallback key for sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract),
 which each carry their own prompt. ExtractAgent does not have a prompt of its own.
 
@@ -14,13 +15,48 @@ QA Agents are fully deprecated (removed 2026-05-22). RankAgentQA and all extract
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+# The documented reasoning-effort vocabulary across OpenAI and Anthropic. Which subset
+# a given model takes is catalog knowledge (config/model_capabilities.json) and is
+# enforced at the config write boundary, not here. Codex discovers its tiers live and
+# has shipped names outside this list (e.g. "ultra"), so the contract only pins the
+# token *shape*; membership is checked against the resolved model.
+VALID_EFFORT_LEVELS: tuple[str, ...] = ("none", "minimal", "low", "medium", "high", "xhigh", "max")
+_EFFORT_TOKEN_RE = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")
+
+
+def normalize_effort_value(value: Any) -> str | None:
+    """Normalize a reasoning-effort tier, or raise ValueError with a one-line message.
+
+    Shared by the config contract and the API write boundary so an operator sees the
+    same sentence either way. Returns None for None/blank ("provider default").
+    """
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError(f"Effort must be a string, got {type(value).__name__}")
+    normalized = value.strip().lower()
+    if not normalized:
+        return None
+    if not _EFFORT_TOKEN_RE.match(normalized):
+        raise ValueError(
+            f"Effort '{value}' is not a reasoning-effort tier name "
+            f"(expected a token such as {', '.join(VALID_EFFORT_LEVELS)})"
+        )
+    return normalized
 
 
 class AgentConfig(BaseModel):
-    """Per-agent LLM configuration. All fields required for execution."""
+    """Per-agent LLM configuration. All fields required for execution.
+
+    Effort is the one optional knob: None means "provider default", which is what
+    every preset and every pre-existing DB config carries, so the field validates
+    cleanly when absent.
+    """
 
     model_config = {"extra": "forbid"}
 
@@ -29,6 +65,12 @@ class AgentConfig(BaseModel):
     Temperature: float = 0.0
     TopP: float = 0.9
     Enabled: bool = True
+    Effort: str | None = None
+
+    @field_validator("Effort", mode="before")
+    @classmethod
+    def _normalize_effort(cls, value: Any) -> str | None:
+        return normalize_effort_value(value)
 
 
 class ThresholdConfig(BaseModel):
@@ -150,7 +192,7 @@ def normalize_agent_models_to_flat(agent_models: dict[str, Any] | None) -> dict[
 
     Accepts either flat (e.g. ``CmdlineExtract_model``, ``CmdlineExtract_provider``)
     or the WorkflowConfigV2 nested form (``{"CmdlineExtract": {"provider": ...,
-    "model": ..., "temperature": ..., "top_p": ...}}``) and emits flat keys
+    "model": ..., "temperature": ..., "top_p": ..., "effort": ...}}``) and emits flat keys
     matching :meth:`WorkflowConfigV2.flatten_for_llm_service`. Idempotent on
     already-flat input. Returns a new dict; never mutates the input.
     """
@@ -163,6 +205,7 @@ def normalize_agent_models_to_flat(agent_models: dict[str, Any] | None) -> dict[
             model = value.get("model") if "model" in value else value.get("Model")
             temperature = value.get("temperature") if "temperature" in value else value.get("Temperature")
             top_p = value.get("top_p") if "top_p" in value else value.get("TopP")
+            effort = value.get("effort") if "effort" in value else value.get("Effort")
             if provider is not None:
                 out[f"{key}_provider"] = provider
             if model is not None:
@@ -172,6 +215,8 @@ def normalize_agent_models_to_flat(agent_models: dict[str, Any] | None) -> dict[
                 out[f"{key}_temperature"] = temperature
             if top_p is not None:
                 out[f"{key}_top_p"] = top_p
+            if effort is not None:
+                out[f"{key}_effort"] = effort
         else:
             out[key] = value
     return out
@@ -206,7 +251,7 @@ class WorkflowConfigV2(BaseModel):
 
     @model_validator(mode="after")
     def ensure_agent_fields(self) -> WorkflowConfigV2:
-        """Ensure each agent has Provider, Model, Temperature, TopP, Enabled."""
+        """Ensure each agent has Provider, Model, Temperature, TopP, Enabled (Effort optional)."""
         for _name, agent in self.Agents.items():
             if not isinstance(agent, AgentConfig):
                 continue
@@ -249,7 +294,9 @@ class WorkflowConfigV2(BaseModel):
         """
         Produce flat key format expected by LLMService and other legacy consumers.
         Keys: RankAgent_provider, RankAgent, RankAgent_temperature, RankAgent_top_p, etc.
-        Main agents use name as model key; sub-agents use name_model.
+        Main agents use name as model key; sub-agents use name_model. ``{Agent}_effort``
+        is emitted only when set, so configs that never touched effort flatten exactly
+        as before.
         """
         out: dict[str, Any] = {}
         main_model_keys = {"RankAgent", "ExtractAgent", "SigmaAgent"}
@@ -267,6 +314,8 @@ class WorkflowConfigV2(BaseModel):
             out[model_key] = agent.Model
             out[f"{agent_name}_temperature"] = agent.Temperature
             out[f"{agent_name}_top_p"] = agent.TopP
+            if agent.Effort is not None:
+                out[f"{agent_name}_effort"] = agent.Effort
         out["SigmaEmbeddingModel"] = self.Embeddings.Sigma
         if self.Execution.OsDetectionSelectedOs:
             out["OSDetectionAgent_selected_os"] = self.Execution.OsDetectionSelectedOs

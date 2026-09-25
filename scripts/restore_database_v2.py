@@ -185,7 +185,7 @@ class DatabaseRestore:
             else:
                 print(f"  Warning: could not start {name}: {result.stderr.strip()}")
 
-    def restore_database(self, backup_path: Path, force: bool = False) -> bool:
+    def restore_database(self, backup_path: Path, create_snapshot: bool = True, force: bool = False) -> bool:
         """Restore database from backup file."""
         if not self.check_prerequisites():
             return False
@@ -195,8 +195,11 @@ class DatabaseRestore:
 
         # Create snapshot for rollback
         snapshot_path = None
-        if not force:
+        if create_snapshot:
             snapshot_path = self.create_database_snapshot()
+            if not snapshot_path:
+                print("❌ Failed to create snapshot. Use --no-snapshot to skip snapshot creation.")
+                return False
 
         # Stop app containers so their startup create_tables() cannot race-create
         # the schema on the fresh empty database while the restore SQL is running.
@@ -580,7 +583,8 @@ def main():
 
     parser = argparse.ArgumentParser(description="CTI Scraper Database Restore v2.0")
     parser.add_argument("backup_file", help="Path to backup file")
-    parser.add_argument("--force", action="store_true", help="Skip snapshot creation")
+    parser.add_argument("--force", action="store_true", help="Skip confirmation prompts")
+    parser.add_argument("--no-snapshot", action="store_true", help="Skip creating a pre-restore snapshot")
 
     args = parser.parse_args()
 
@@ -593,7 +597,7 @@ def main():
             backup_path = Path("backups") / backup_path
 
     restore = DatabaseRestore()
-    success = restore.restore_database(backup_path, force=args.force)
+    success = restore.restore_database(backup_path, create_snapshot=not args.no_snapshot, force=args.force)
 
     if success:
         print("\n🎉 Database restore completed successfully!")

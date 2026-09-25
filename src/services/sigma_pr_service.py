@@ -8,14 +8,56 @@ import logging
 import os
 import re
 import subprocess
+import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 import yaml
 
 logger = logging.getLogger(__name__)
+
+# owner/repo out of a GitHub remote URL. Anchored at the end so an embedded
+# credential earlier in the URL cannot be mistaken for the owner.
+_GITHUB_REMOTE_RE = re.compile(r"github\.com[:/](?P<owner>[^/:]+)/(?P<repo>[^/]+?)$", re.IGNORECASE)
+
+_GIT_ASKPASS_SCRIPT = """#!/bin/sh
+case "$1" in
+  *Username*) printf '%s\\n' "$HUNTABLE_GIT_USERNAME" ;;
+  *Password*) printf '%s\\n' "$HUNTABLE_GIT_TOKEN" ;;
+  *) exit 1 ;;
+esac
+"""
+
+
+def sanitize_https_remote(remote_url: str) -> str:
+    """Remove userinfo from an HTTPS Git remote without changing its target."""
+    parsed = urlsplit(remote_url.strip())
+    if parsed.scheme.lower() != "https" or "@" not in parsed.netloc:
+        return remote_url.strip()
+    clean_netloc = parsed.netloc.rsplit("@", 1)[-1]
+    return urlunsplit((parsed.scheme, clean_netloc, parsed.path, parsed.query, parsed.fragment))
+
+
+def parse_github_remote(remote_url: str | None) -> str | None:
+    """Extract ``owner/repo`` from a GitHub remote URL, or None if it is not one.
+
+    Covers every shape ``git remote get-url origin`` returns for these clones:
+    HTTPS (``https://github.com/owner/repo.git``), SSH
+    (``git@github.com:owner/repo.git``), and legacy HTTPS remotes carrying an
+    embedded credential (``https://x-access-token:TOKEN@github.com/owner/repo.git``).
+    """
+    if not remote_url:
+        return None
+    cleaned = remote_url.strip().rstrip("/").removesuffix(".git").rstrip("/")
+    match = _GITHUB_REMOTE_RE.search(cleaned)
+    if not match:
+        return None
+    return f"{match.group('owner')}/{match.group('repo')}"
 
 
 class SigmaPRService:
@@ -61,11 +103,68 @@ class SigmaPRService:
                 f"SIGMA repo path does not exist: {self.repo_path}. Please check your SIGMA_REPO_PATH setting."
             )
 
-        self.github_repo = self._get_setting("GITHUB_REPO") or os.getenv("GITHUB_REPO", "dfirtnt/Huntable-SIGMA-Rules")
+        # An explicit GITHUB_REPO is an override, not the primary source: the clone
+        # already names the repository it pushes to. There is deliberately no
+        # hardcoded fallback -- an unresolvable repository must surface as a
+        # configuration error rather than silently target someone else's repo.
+        stored = (self._get_setting("GITHUB_REPO") or "").strip()
+        from_env = (os.getenv("GITHUB_REPO") or "").strip()
+        self._github_repo_override = stored or from_env or None
+        self._github_repo_override_source = "setting" if stored else ("environment" if from_env else None)
+        self._github_repo_derived: str | None = None
+        self._github_repo_derived_done = False
         self.rules_path = self.repo_path / "rules"
 
         if not self.github_token:
             logger.warning("GITHUB_TOKEN not set - PR creation will fail")
+
+    @property
+    def github_repo(self) -> str | None:
+        """``owner/repo`` used for the create-PR API call.
+
+        An explicitly configured value wins, so pushing to a fork and opening the
+        PR against a different repository stays expressible. Otherwise it is
+        derived from the clone's origin remote -- the same repository the push
+        goes to. Stating it in two independent places is what let them silently
+        disagree: the push followed the remote and succeeded while the PR call
+        followed the setting and 404'd.
+        """
+        if self._github_repo_override:
+            return self._github_repo_override
+        if not self._github_repo_derived_done:
+            self._github_repo_derived = self._derive_github_repo_from_remote()
+            self._github_repo_derived_done = True
+        return self._github_repo_derived
+
+    def describe_github_repo(self) -> dict[str, str | None]:
+        """Report the effective repository and its origin, for display in Settings.
+
+        ``source`` is one of ``setting`` (configured in the database), ``environment``
+        (a GITHUB_REPO env var), ``remote`` (derived from the clone), or
+        ``unresolved`` (PR submission cannot proceed).
+        """
+        if self._github_repo_override:
+            return {"repo": self._github_repo_override, "source": self._github_repo_override_source}
+        derived = self.github_repo
+        return {"repo": derived, "source": "remote" if derived else "unresolved"}
+
+    def _derive_github_repo_from_remote(self) -> str | None:
+        """Read ``owner/repo`` off the clone's origin remote, or None if unavailable."""
+        if not self.repo_path.exists():
+            logger.debug("Cannot derive GitHub repository: %s does not exist", self.repo_path)
+            return None
+        try:
+            returncode, remote_url, stderr = self._run_git_command(["remote", "get-url", "origin"], check=False)
+        except (RuntimeError, subprocess.SubprocessError, OSError) as exc:
+            logger.warning("Could not read origin remote to derive the GitHub repository: %s", exc)
+            return None
+        if returncode != 0:
+            logger.warning("Origin remote is not readable: %s", stderr.strip() or "origin is not configured")
+            return None
+        derived = parse_github_remote(remote_url)
+        if derived:
+            logger.info("Derived GitHub repository %s from the origin remote", derived)
+        return derived
 
     def _get_setting(self, key: str) -> str | None:
         """
@@ -179,7 +278,9 @@ class SigmaPRService:
             filename = f"rule_{datetime.now().strftime('%Y%m%d_%H%M%S')}.yml"
             return directory / filename, filename
 
-    def _run_git_command(self, cmd: list[str], check: bool = True) -> tuple[int, str, str]:
+    def _run_git_command(
+        self, cmd: list[str], check: bool = True, env: dict[str, str] | None = None
+    ) -> tuple[int, str, str]:
         """
         Run git command in repository.
 
@@ -191,7 +292,14 @@ class SigmaPRService:
             Tuple of (returncode, stdout, stderr)
         """
         try:
-            result = subprocess.run(["git"] + cmd, cwd=self.repo_path, capture_output=True, text=True, timeout=60)
+            result = subprocess.run(
+                ["git"] + cmd,
+                cwd=self.repo_path,
+                capture_output=True,
+                text=True,
+                timeout=60,
+                env=env,
+            )
 
             if check and result.returncode != 0:
                 raise RuntimeError(f"Git command failed: {' '.join(cmd)}\n{result.stderr}")
@@ -203,55 +311,70 @@ class SigmaPRService:
             logger.error(f"Git command error: {e}")
             raise
 
-    def _configure_remote_auth(self) -> None:
-        """
-        Configure Git remote URL to include GitHub token for authentication.
-        Updates the origin remote to use token-based authentication.
-        """
-        if not self.github_token:
-            logger.warning("No GitHub token available - remote auth not configured")
-            return
-
+    def _configure_remote_auth(self) -> bool:
+        """Remove credentials previously persisted in the origin remote URL."""
         try:
-            # Get current remote URL
             returncode, stdout, stderr = self._run_git_command(["remote", "get-url", "origin"], check=False)
             if returncode != 0:
                 logger.warning(f"Could not get remote URL: {stderr}")
-                return
+                return False
 
             current_url = stdout.strip()
-
-            # Check if URL already contains token in the correct x-access-token format
-            if f"x-access-token:{self.github_token}@" in current_url:
-                logger.debug("Remote URL already contains token in correct format")
-                return
-
-            # Parse current URL and rebuild with token
-            # Use x-access-token: prefix — required for fine-grained PATs (github_pat_...) and
-            # recommended for classic PATs (ghp_...) as well.
-            # Handle both https://github.com/owner/repo.git and git@github.com:owner/repo.git
-            if current_url.startswith("https://"):
-                # HTTPS URL - insert token
-                if "@github.com" in current_url:
-                    # Already has credentials, replace them
-                    url_parts = current_url.split("@")
-                    new_url = f"https://x-access-token:{self.github_token}@{url_parts[-1]}"
-                else:
-                    # No credentials, add token
-                    new_url = current_url.replace(
-                        "https://github.com", f"https://x-access-token:{self.github_token}@github.com"
+            clean_url = sanitize_https_remote(current_url)
+            if clean_url != current_url:
+                logger.info("Removing persisted credentials from the origin remote URL")
+                set_rc, _, set_err = self._run_git_command(["remote", "set-url", "origin", clean_url], check=False)
+                if set_rc != 0:
+                    logger.warning("Could not sanitize the origin remote URL: %s", set_err.strip())
+                    return False
+                verify_rc, verify_url, verify_err = self._run_git_command(["remote", "get-url", "origin"], check=False)
+                if verify_rc != 0 or sanitize_https_remote(verify_url) != verify_url.strip():
+                    logger.warning(
+                        "Could not verify the sanitized origin remote URL: %s",
+                        verify_err.strip() or "credentials are still present",
                     )
-
-                logger.info("Configuring remote URL with GitHub token for authentication")
-                self._run_git_command(["remote", "set-url", "origin", new_url], check=False)
-                logger.debug("Remote URL configured successfully")
-            elif current_url.startswith("git@"):
-                # SSH URL - no token needed, but log for info
+                    return False
+            elif current_url.startswith(("git@", "ssh://")):
                 logger.debug("Remote uses SSH authentication (no token needed)")
-            else:
-                logger.warning(f"Unknown remote URL format: {current_url}")
+            elif not current_url.lower().startswith("https://"):
+                logger.warning("Unknown remote URL format; authentication was not configured")
+            return True
         except Exception as e:
-            logger.warning(f"Failed to configure remote auth: {e}")
+            logger.warning(f"Failed to sanitize remote auth: {e}")
+            return False
+
+    @contextmanager
+    def _git_auth_environment(self) -> Iterator[dict[str, str] | None]:
+        """Provide an ephemeral askpass environment without writing the token to disk."""
+        if not self.github_token:
+            yield None
+            return
+
+        with tempfile.TemporaryDirectory(prefix="huntable-git-auth-") as temp_dir:
+            askpass_path = Path(temp_dir) / "askpass.sh"
+            askpass_path.write_text(_GIT_ASKPASS_SCRIPT, encoding="utf-8")
+            askpass_path.chmod(0o700)
+
+            env = os.environ.copy()
+            env.update(
+                {
+                    "GIT_ASKPASS": str(askpass_path),
+                    "GIT_TERMINAL_PROMPT": "0",
+                    "HUNTABLE_GIT_USERNAME": "x-access-token",
+                    "HUNTABLE_GIT_TOKEN": self.github_token,
+                }
+            )
+            yield env
+
+    def _run_authenticated_git_command(self, cmd: list[str], check: bool = True) -> tuple[int, str, str]:
+        """Run an HTTPS Git command with invocation-scoped credentials."""
+        returncode, stdout, _ = self._run_git_command(["remote", "get-url", "origin"], check=False)
+        remote = urlsplit(stdout.strip()) if returncode == 0 else None
+        uses_github_https = remote is not None and remote.scheme.lower() == "https" and remote.hostname == "github.com"
+        if uses_github_https and self.github_token:
+            with self._git_auth_environment() as env:
+                return self._run_git_command(cmd, check=check, env=env)
+        return self._run_git_command(cmd, check=check)
 
     def _resolve_default_base_branch(self) -> str:
         """Prefer main when origin/main exists, otherwise master (legacy)."""
@@ -322,11 +445,15 @@ class SigmaPRService:
                     ),
                 }
 
-        # Configure remote URL with token if using HTTPS
-        self._configure_remote_auth()
+        # Remove any credential left by older versions before network operations.
+        if not self._configure_remote_auth():
+            return {
+                "valid": False,
+                "error": "Could not remove and verify credentials in the origin remote URL.",
+            }
 
         base_branch = self._resolve_default_base_branch()
-        fetch_rc, _, fetch_err = self._run_git_command(["fetch", "origin"], check=False)
+        fetch_rc, _, fetch_err = self._run_authenticated_git_command(["fetch", "origin"], check=False)
         if fetch_rc != 0:
             logger.warning(f"git fetch origin failed ({fetch_rc}): {(fetch_err or '').strip()}")
 
@@ -342,7 +469,7 @@ class SigmaPRService:
             }
 
         try:
-            self._run_git_command(["pull", "origin", base_branch], check=False)
+            self._run_authenticated_git_command(["pull", "origin", base_branch], check=False)
         except Exception as e:
             logger.warning(f"Failed to pull latest changes: {e}")
 
@@ -360,9 +487,8 @@ class SigmaPRService:
                 ),
             }
 
-        remote = remote_url.strip().removesuffix(".git").rstrip("/")
-        match = re.search(r"github\.com[:/]([^/]+/[^/]+)$", remote, re.IGNORECASE)
-        if match and match.group(1).lower() == "sigmahq/sigma":
+        owner_repo = parse_github_remote(remote_url)
+        if owner_repo and owner_repo.lower() == "sigmahq/sigma":
             return {
                 "valid": False,
                 "error": (
@@ -370,6 +496,20 @@ class SigmaPRService:
                     f"{self.repo_path}. Configure SIGMA_REPO_PATH "
                     "to the customer rules repository, such as sigma-repo or "
                     "../Huntable-SIGMA-Rules."
+                ),
+            }
+
+        # Fail here rather than at the create-PR call, where an unresolvable
+        # repository surfaces as an opaque GitHub 404 after the branch and commit
+        # have already been made.
+        if not self.github_repo:
+            return {
+                "valid": False,
+                "error": (
+                    "Could not determine which GitHub repository to open the PR against. "
+                    f"The origin remote of {self.repo_path} is not a recognizable GitHub URL "
+                    f"({remote_url.strip() or 'empty'}). Point the clone at its GitHub remote, "
+                    "or set GitHub Repository in Settings to owner/repo."
                 ),
             }
 
@@ -513,7 +653,7 @@ class SigmaPRService:
             self._run_git_command(["commit", "-m", commit_message])
 
             # Push branch
-            self._run_git_command(["push", "-u", "origin", branch_name])
+            self._run_authenticated_git_command(["push", "-u", "origin", branch_name])
 
             # Create PR via GitHub API
             pr_url = self._create_github_pr(
@@ -598,7 +738,15 @@ class SigmaPRService:
             PR URL or None on failure
         """
         try:
-            repo_owner, repo_name = self.github_repo.split("/")
+            repo = self.github_repo
+            if not repo or "/" not in repo:
+                logger.error(
+                    "Cannot create PR: no GitHub repository resolved from the origin remote "
+                    "of %s, and GitHub Repository is not set in Settings.",
+                    self.repo_path,
+                )
+                return None
+            repo_owner, repo_name = repo.split("/", 1)
 
             url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/pulls"
             headers = {

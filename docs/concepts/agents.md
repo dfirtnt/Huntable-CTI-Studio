@@ -9,6 +9,10 @@ that schedules and distributes the work. Each agent writes results to
 
 ## Core Agents (Execution Order)
 
+Before agent execution, a deterministic, LLM-free pre-pass scans `articles.content`
+for complete publisher-authored Sigma. Accepted rules retain their exact source YAML,
+provenance, license evidence, and delivery eligibility; they do not enter generation.
+
 0. **Platform Detection**: Classifies platform context deterministically via the entity/keyword
    registry (with ATT&CK reinforcement and an LLM-adjudication tail for the low-confidence
    cases) — no embedding model. The workflow uses the detected platforms to route capable

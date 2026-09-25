@@ -39,6 +39,11 @@ From [Sigma Detection Rules](../features/sigma-rules.md):
   pySigma, including detection modifiers and condition references. Huntable
   then applies its separate grounding and quality policy checks. No model is
   called here -- this is a pure-Python gate, so its verdict is reproducible.
+  The policy pass includes a real MITRE ATT&CK check on every `attack.*` tag
+  (`src/services/attack_taxonomy.py`, backed by the cached
+  `config/attack_taxonomy.json`): unknown, revoked, or deprecated ATT&CK IDs are
+  errors that name the replacement where MITRE recorded one, so the repair loop
+  below gets a concrete fix; unrecognized tactic names are warnings only.
 - **Iterative repair (LLM)**: Up to 3 attempts per rule
   (`max_repair_attempts_per_rule`, default 3). On failure, `_repair_rules`
   (`src/services/sigma_generation_service.py`) injects the deterministic
@@ -62,6 +67,9 @@ From [Sigma Detection Rules](../features/sigma-rules.md):
 
 - The workflow trigger blocks concurrent executions per article. Stuck pending
   runs older than 5 minutes are marked failed before a retry is allowed.
+- The workflow worker claims each execution row atomically (`pending` -> `running`
+  via a conditional UPDATE), so two Celery tasks carrying one execution id run it
+  once; the later arrival logs a skip and never invokes the graph.
 - Health endpoints (`/health`, `/api/health/*`) surface ingestion and service
   readiness so QA runs against a healthy stack.
 

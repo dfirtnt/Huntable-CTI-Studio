@@ -185,6 +185,68 @@ def classify_match_novelty(match: dict[str, Any]) -> NoveltyLabel:
     return NoveltyLabel.NOVEL
 
 
+# Rules synced from the customer repository are stored with this prefix on their
+# YAML id (``SigmaSyncService.index_metadata(rule_id_prefix=...)``).
+CUSTOMER_RULE_ID_PREFIX = "cust-"
+
+
+def customer_copy_rule_id(proposed_rule: dict[str, Any]) -> str | None:
+    """The corpus ``rule_id`` a proposed rule gets once its PR merges and the customer repo syncs.
+
+    Scoring a queued rule against that row compares the rule with itself: after merge
+    the synced copy is byte-identical and scores 1.0, hiding real duplicates.
+    """
+    raw_id = proposed_rule.get("id")
+    if raw_id is None or not str(raw_id).strip():
+        return None
+    return f"{CUSTOMER_RULE_ID_PREFIX}{str(raw_id).strip()}"
+
+
+def summarize_rule_novelty(match_result: dict, threshold: float = 0.5) -> dict:
+    """Classify one rule's novelty comparison for the review queue (todo 001, C1+C2).
+
+    Lives here rather than in ``src.workflows.agentic_workflow`` so the web
+    container -- whose venv excludes the ``workflow`` dependency group, and thus
+    ``langgraph`` -- can reach it from the sigma-queue routes.
+
+    Distinguishes a *scored* low/zero result from an *inconclusive* one: the
+    comparator evaluated candidates but found zero behavioral matches. The old
+    code collapsed the inconclusive case into ``max_similarity=0.0``, which
+    silently disabled novelty suppression for ~86% of the queue.
+
+    Inconclusive => ``max_similarity=None`` (unscored), never a confident ``0.0``.
+
+    Two distinct ``total==0`` cases must NOT be conflated:
+    - **Empty corpus / nothing to compare against** (no ``no_atoms_extracted`` flag):
+      genuinely novel, NOT inconclusive — keep the ``0.0`` semantics.
+    - **Proposed rule produced no atoms** (``no_atoms_extracted`` set by the
+      assess_novelty guard): a FAILURE TO ASSESS. This IS inconclusive, so it routes
+      to needs_review and a human sees it — fail open, but never silently as a
+      confident pending novel.
+    """
+    matches = match_result.get("matches", []) or []
+    total = int(match_result.get("total_candidates_evaluated", 0) or 0)
+    behavioral = int(match_result.get("behavioral_matches_found", 0) or 0)
+    no_atoms = bool(match_result.get("no_atoms_extracted"))
+    sims = [m.get("similarity", 0.0) for m in matches]
+    inconclusive = no_atoms or (total > 0 and behavioral == 0)
+    # SigmaSim Finding B: surface whether the proposed rule's logsource resolved to a
+    # canonical telemetry class. None => the rule fell to the weak logsource_key fallback
+    # (e.g. SigmaAgent emitting bare `service: sysmon` with no category/EventID for a
+    # process_creation-shaped rule). We keep the rule (fail open) but flag the degraded-dedup
+    # condition so it is visible — logged + queryable via rule_metadata — instead of silent.
+    canonical_class = match_result.get("canonical_class")
+    return {
+        "max_similarity": None if inconclusive else (max(sims) if sims else 0.0),
+        "total_candidates_evaluated": total,
+        "behavioral_matches_found": behavioral,
+        "comparator_inconclusive": inconclusive,
+        "canonical_class": canonical_class,
+        "logsource_unresolved": canonical_class is None,
+        "logsource_lint_failures": ["unresolved_logsource"] if canonical_class is None else [],
+    }
+
+
 @dataclass
 class Atom:
     """Atomic predicate representing one irreducible behavioral constraint."""
@@ -361,6 +423,7 @@ class SigmaNoveltyService:
                 top_k=top_k,
                 canonical_class=canonical_class,
                 use_deterministic=use_deterministic,
+                exclude_rule_id=customer_copy_rule_id(proposed_rule),
             )
             logger.debug(f"Retrieved {len(candidates)} candidates")
 
@@ -1084,6 +1147,7 @@ class SigmaNoveltyService:
         top_k: int = 20,
         canonical_class: str | None = None,
         use_deterministic: bool = False,
+        exclude_rule_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """
         Retrieve candidate rules for comparison.
@@ -1097,6 +1161,8 @@ class SigmaNoveltyService:
             top_k: Maximum number of candidates (ignored when use_deterministic)
             canonical_class: Resolved telemetry class (for deterministic mode)
             use_deterministic: If True, filter by canonical_class and return all (no limit)
+            exclude_rule_id: Corpus ``rule_id`` to leave out -- the proposed rule's own
+                customer-repo copy (see ``customer_copy_rule_id``).
 
         Returns:
             List of candidate rule dictionaries (includes positive_atoms, negative_atoms, surface_score when available)
@@ -1108,6 +1174,12 @@ class SigmaNoveltyService:
         try:
             from src.database.models import SigmaRuleTable
 
+            def _corpus():
+                query = self.db_session.query(SigmaRuleTable)
+                if exclude_rule_id:
+                    query = query.filter(SigmaRuleTable.rule_id != exclude_rule_id)
+                return query
+
             # First, check for exact hash match (duplicate). Skip when the proposed
             # hash is None: SQLAlchemy translates `column == None` to SQL `IS NULL`,
             # which would match every atom-less row (NULL per Item 11) and return
@@ -1115,9 +1187,7 @@ class SigmaNoveltyService:
             # contract in Python by short-circuiting the branch.
             if exact_hash is not None:
                 try:
-                    exact_match = (
-                        self.db_session.query(SigmaRuleTable).filter(SigmaRuleTable.exact_hash == exact_hash).first()
-                    )
+                    exact_match = _corpus().filter(SigmaRuleTable.exact_hash == exact_hash).first()
                     if exact_match:
                         out = {
                             "rule_id": exact_match.rule_id,
@@ -1147,11 +1217,7 @@ class SigmaNoveltyService:
                 # Deterministic mode: filter by canonical_class, no limit
                 try:
                     if hasattr(SigmaRuleTable, "canonical_class"):
-                        candidates = (
-                            self.db_session.query(SigmaRuleTable)
-                            .filter(SigmaRuleTable.canonical_class == canonical_class)
-                            .all()
-                        )
+                        candidates = _corpus().filter(SigmaRuleTable.canonical_class == canonical_class).all()
                         if candidates:
                             phase1_path = "canonical_class"
                 except Exception:
@@ -1163,7 +1229,7 @@ class SigmaNoveltyService:
                     # order_by(rule_id) gives a stable sort so the same logsource_key returns the
                     # same top-k across runs / replicas / after VACUUM. Spec Item 7 (P1).
                     candidates = (
-                        self.db_session.query(SigmaRuleTable)
+                        _corpus()
                         .filter(SigmaRuleTable.logsource_key == logsource_key)
                         .order_by(SigmaRuleTable.rule_id)
                         .limit(top_k)
@@ -1177,7 +1243,7 @@ class SigmaNoveltyService:
                 try:
                     # Same stability requirement as the canonical_class-empty fallback above.
                     candidates = (
-                        self.db_session.query(SigmaRuleTable)
+                        _corpus()
                         .filter(SigmaRuleTable.logsource_key == logsource_key)
                         .order_by(SigmaRuleTable.rule_id)
                         .limit(top_k)

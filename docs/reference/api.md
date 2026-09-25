@@ -39,7 +39,6 @@ These endpoints control source state and manual collection.
 - `GET /api/articles`
 - `GET /api/articles/{article_id}`
 - `GET /api/articles/{article_id}/similar`
-- `POST /api/articles/{article_id}/mark-reviewed`
 - `DELETE /api/articles/{article_id}`
 - `GET /api/articles/{article_id}/chunk-debug` — Chunk-level breakdown of the junk filter's keep/remove decisions, powering the Junk Filter Tuning modal. Local sklearn inference only; no LLM provider calls.
 - `GET /api/articles/{article_id}/chunk-debug/progress` — Progress snapshot for an in-flight `chunk-debug` run. Returns `in_progress: false` when nothing is running; otherwise `phase`, `processed_chunks`, `total_chunks`, `article_total_chunks` and `chunk_limit_applied`. `phase` is `filtering` (full-article pass, no per-chunk counter yet) → `analyzing` (`processed_chunks` advancing toward `total_chunks`) → `finalizing` (assembling the response); only `analyzing` counts chunks, so a client must not render a counter during the other two. `total_chunks` is what this pass will analyse, `article_total_chunks` is what the article holds — they differ whenever `chunk_limit_applied` is true. Progress lives in Redis, not process memory, because a poll can land on a different uvicorn worker than the analysis.
@@ -72,7 +71,7 @@ These power the semantic search workflow. For conversational retrieval, use the 
 - `POST /api/workflow/executions/{execution_id}/retry`
 - `POST /api/workflow/executions/{execution_id}/cancel`
 - `POST /api/workflow/executions/cleanup-stale`
-- `POST /api/workflow/executions/trigger-stuck`
+- `POST /api/workflow/executions/trigger-stuck` — Re-dispatches **stuck** `pending` executions onto the Celery workflow queue (one `trigger_agentic_workflow` task per row). Use it when a Celery task was lost — worker down at dispatch time, broker restart. Only rows pending longer than `STUCK_PENDING_AFTER` (5 min) and never started qualify; fresher rows are reported under `skipped` because their task is probably still queued. Eval rows (`eval_run` in the execution snapshot) get a longer window, `eval_pending_stuck_after()`: the 5-minute base plus the latest countdown the eval launcher can schedule (`MAX_EVAL_EXECUTIONS_PER_LAUNCH` − 1 steps of `EVAL_STAGGER_SECONDS` + the 60 s throttle ceiling, about 1 h 44 min at the default cap of 100), because a staggered launch commits every row up front and leaves its tail pending with live tasks. Double runs are prevented in the worker, not here: `run_workflow` claims its row with a conditional `UPDATE … WHERE status = 'pending'` and a duplicate dispatch for an already-claimed row logs a skip and returns without invoking the graph. The age filter keeps the endpoint from queueing noise and from counting such no-op dispatches as `successful`; `count` / `successful` / `failed` describe tasks queued, not runs performed. `is_stuck_pending_execution` in `workflow_trigger_service.py` is the single shared definition — the article-trigger path fails these same rows before starting a fresh execution, and blocks the trigger ("already has an active workflow execution") for a row still inside its window. It queues work; it does not run the LangGraph pipeline in the web process, which cannot import `langgraph`.
 
 The workflow engine writes its state into `agentic_workflow_executions` and exposes it through these endpoints.
 
@@ -84,6 +83,7 @@ The workflow engine writes its state into `agentic_workflow_executions` and expo
     Also rejects (HTTP 400, **no override**) an agent whose provider is paired with a model the catalog attributes to a different provider — for example `lmstudio` with `gpt-5.6-sol`. Such a pair fails later at call time with a confusing "model not found" from the wrong provider. `openai` and `codex` share one model namespace, so `codex` + `gpt-5.6-*` is valid. Only pairs this request *changes* are checked, so a config carrying a pre-existing mismatch stays saveable and can be repaired. Models absent from `config/provider_model_catalog.json` (LMStudio local models, newly released models) are never rejected.
 - `GET /api/workflow/config/prompts`
 - `GET /api/workflow/config/prompts/{agent_name}`
+- `GET /api/workflow/config/prompts/defaults/{agent_name}` -- on-disk user template the runtime falls back to (SigmaAgent: `sigma_generate_multi.txt`) plus the code-default system prompt; used by the effective-prompt preview
 - `PUT /api/workflow/config/prompts`
 - `GET /api/workflow/config/prompts/{agent_name}/versions`
 - `GET /api/workflow/config/prompts/{agent_name}/by-config-version/{config_version}`
@@ -93,7 +93,7 @@ The workflow engine writes its state into `agentic_workflow_executions` and expo
 - `GET /api/workflow/config/versions` — List config versions with pagination. Query params: `page` (default 1), `limit` (default 20, max 100), `version` (optional, exact integer match). Response: `versions`, `total`, `page`, `total_pages`.
 - `GET /api/workflow/config/preset/list`
 - `POST /api/workflow/config/preset/save`
-- `GET /api/workflow/provider-options` — Server-owned availability and model list for OpenAI, Anthropic, LM Studio, and the optional Codex subscription provider.
+- `GET /api/workflow/provider-options` — Server-owned availability and model list for OpenAI, Anthropic, LM Studio, and the optional Codex subscription provider. Each provider block also carries `model_capabilities` (model id → `supports_temperature`, `supports_top_p`, `effort_levels`, `default_effort`, `source`), read from `config/model_capabilities.json` for OpenAI/Anthropic and discovered live from `model/list` for Codex (which adds `effort_descriptions`). The Agents page uses it to disable unsupported Temperature/Top_P sliders and populate the per-agent Effort select; `PUT /api/workflow/config` rejects an `{Agent}_effort` outside the resolved model's tiers with HTTP 400.
 - `PATCH /api/workflow/config/auto-trigger-threshold` — Update the auto-trigger hunt score threshold (0–100). Body: `{ "auto_trigger_hunt_score_threshold": <float> }`. **This is the only endpoint that changes this value.** It mutates the active config row in-place and is intentionally excluded from the main `PUT /api/workflow/config` endpoint and from all preset import/export paths. Manage this setting only through the Settings UI.
 
 The v2 configuration contract's prompt-bearing agent names are `RankAgent`, `SigmaAgent`, `CmdlineExtract`, `ProcTreeExtract`, `HuntQueriesExtract`, `RegistryExtract`, `ServicesExtract`, `ScheduledTasksExtract`, and `NetworkIndicatorExtract`. `ExtractAgent` supplies model/provider fallback configuration but is not prompt-bearing. The legacy prompt endpoints do not enforce that schema allowlist and may expose established auxiliary database keys such as `OSDetectionAgent` or `SigmaRepair`; clients should not invent new names. QA agents (`RankAgentQA` and all extractor QA agents) were fully removed in v7.2.0 (commit `b9645305`, 2026-05-22; released 2026-05-29) and are no longer valid agent names.
@@ -169,7 +169,7 @@ Route module: `src/web/routes/models.py`. Version data is stored in the `ml_mode
 These support per-subagent extraction evals (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract, NetworkIndicatorExtract):
 
 - `GET /api/evaluations/subagent-eval-articles` — List seeded eval articles for a given subagent.
-- `POST /api/evaluations/run-subagent-eval` — Trigger a subagent eval run.
+- `POST /api/evaluations/run-subagent-eval` — Trigger a subagent eval run against the active config (the legacy `use_active_config` field is ignored). Rejected with 422 before any write when a URL has no committed fixture or the run exceeds `MAX_EVAL_EXECUTIONS_PER_LAUNCH` (default 100). Shares its planner with the `run_subagent_eval` MCP tool.
 - `GET /api/evaluations/subagent-eval-results` — Get results for completed subagent eval runs (includes `expected_items`, `actual_items`, `matched_count`, `missed_count`, `extra_count` when item-level ground truth is set).
 - `GET /api/evaluations/subagent-eval-status/{eval_record_id}` — Poll status of a single eval record.
 - `DELETE /api/evaluations/subagent-eval-clear-pending` — Clear pending/stuck eval records.

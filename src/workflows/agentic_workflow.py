@@ -36,6 +36,12 @@ from src.services.llm_service import LLMService
 from src.services.lmstudio_model_loader import auto_load_workflow_models
 from src.services.sigma_generation_service import _infer_observables_used
 from src.services.sigma_matching_service import SigmaMatchingService
+
+# Re-exported: the novelty summariser lives in the service layer so langgraph-free
+# callers (the web container's sigma-queue routes) can import it too.
+from src.services.sigma_novelty_service import summarize_rule_novelty
+from src.services.sigma_pr_service import SigmaPRService
+from src.services.source_sigma_import_service import import_source_sigma_rules
 from src.services.workflow_config_snapshot import build_config_snapshot, snapshot_is_complete
 from src.services.workflow_provider_options import _probe_lmstudio
 from src.services.workflow_trigger_service import WorkflowTriggerService
@@ -257,7 +263,11 @@ def _logsource_hint_for_observable(platform: str, telemetry_category: str) -> di
     if telemetry_category == "service_creation":
         return {"product": "windows", "category": "service_creation"}
     if telemetry_category == "scheduled_task":
-        return {"product": "windows", "category": "scheduled_task"}
+        # Scheduled-task telemetry resolves as windows.scheduled_task only via the SigmaHQ
+        # service form (service: taskscheduler); there is no `category: scheduled_task` in the
+        # taxonomy. The category form `category: taskscheduler` also resolves but is non-standard
+        # ("forward-compat"), and the 6 corpus rules all use the service form.
+        return {"product": "windows", "service": "taskscheduler"}
     return None
 
 
@@ -292,10 +302,39 @@ def _enrich_observable_metadata(
     if logsource_hint is not None:
         obs_entry["logsource_hint"] = logsource_hint
 
+    if observable_type == "hunt_queries":
+        artifact_type = None
+        if isinstance(item, dict):
+            artifact_type = item.get("type") or item.get("platform")
+        obs_entry["artifact_type"] = str(artifact_type or "unknown").strip().lower()
+        # HuntQueriesExtract is LLM output. It remains useful for analyst display,
+        # evaluation, and (for non-Sigma queries) telemetry routing, but it cannot
+        # establish byte-faithful source content.
+        obs_entry["content_fidelity"] = "llm_best_effort"
+        obs_entry["source_text_authoritative"] = False
+
+
+def _hunt_query_artifact_type(obs: dict[str, Any]) -> str:
+    """Return the HuntQueries artifact subtype from current or legacy shapes."""
+    artifact_type = obs.get("artifact_type")
+    if not artifact_type:
+        for candidate in (obs.get("original_data"), obs.get("value")):
+            if isinstance(candidate, dict):
+                artifact_type = candidate.get("type") or candidate.get("platform")
+                if artifact_type:
+                    break
+    return str(artifact_type or "unknown").strip().lower()
+
 
 def _observable_sigma_eligible(obs: dict[str, Any]) -> bool:
     """Return True when an observable has enough routing metadata for Sigma generation."""
     if not isinstance(obs, dict):
+        return False
+    # An LLM-captured Sigma block is a discovery result, not authoritative source
+    # bytes. Source-provided rules are imported only by scanning articles.content.
+    # Keep ordinary backend hunt queries eligible when their target telemetry is
+    # explicit, but never use captured Sigma YAML to generate another rule.
+    if obs.get("type") == "hunt_queries" and _hunt_query_artifact_type(obs) == "sigma":
         return False
     platform = _normalize_platform_value(obs.get("platform"))
     telemetry_category = obs.get("telemetry_category")
@@ -487,12 +526,53 @@ def _rebase_group_observable_indices(rule: dict[str, Any], original_indices: lis
     rule["observables_used"] = rebased
 
 
+def _find_rehome_group(
+    rule: dict[str, Any], emitting_group: dict[str, Any], groups: list[dict[str, Any]]
+) -> dict[str, Any] | None:
+    """Return the group that should own ``rule``: the emitting group when its logsource fits,
+    else the first other group in the execution whose logsource hint it matches, else None.
+
+    Every group's call sees the whole article, so a model regularly emits a rule that belongs
+    to a sibling group (execution 3898: the network_connection call produced the article's
+    wscript -> node.exe process_creation rule). Dropping it lost a valid detection; re-homing
+    keeps it and lets the sibling group's attribution and dedup handle it.
+    """
+    if _rule_logsource_matches_group(rule, emitting_group):
+        return emitting_group
+    for candidate in groups:
+        if candidate is emitting_group:
+            continue
+        if candidate.get("telemetry_category") == "full_content":
+            continue
+        if _rule_logsource_matches_group(rule, candidate):
+            return candidate
+    return None
+
+
 def _logsource_key(rule: dict[str, Any]) -> tuple[str, str]:
     """Return (category, product) logsource key for a rule dict."""
     ls = rule.get("logsource") or {}
     if not isinstance(ls, dict):
         return ("", "")
     return (str(ls.get("category") or ""), str(ls.get("product") or ""))
+
+
+def _canonical_class_or_none(rule_like: dict[str, Any]) -> str | None:
+    """Return the canonical telemetry class for a rule/logsource, or None when it does not resolve.
+
+    ``sigma_similarity`` is optional (it is COPY'd into the runtime images rather than installed
+    everywhere), so an absent package degrades to raw-slot comparison instead of raising.
+    """
+    try:
+        from sigma_similarity.canonical_logsource import resolve_canonical_class
+        from sigma_similarity.errors import UnknownTelemetryClassError
+    except ImportError:
+        return None
+    try:
+        return resolve_canonical_class(rule_like)
+    except (UnknownTelemetryClassError, AttributeError, TypeError, ValueError):
+        # Class resolution is a routing aid, never a reason to lose a rule.
+        return None
 
 
 def _rule_logsource_matches_group(rule: dict[str, Any], group: dict[str, Any]) -> bool:
@@ -504,9 +584,27 @@ def _rule_logsource_matches_group(rule: dict[str, Any], group: dict[str, Any]) -
     if not isinstance(hint, dict):
         return True
 
+    # Canonical-class equivalence first. One telemetry class has several legitimate SigmaHQ
+    # spellings, and the repair loop actively rewrites between them: execution 22 repaired
+    # `category: scheduled_task` into `service: security` + EventID 4698 -- the same
+    # windows.scheduled_task class as this group's `service: taskscheduler` hint. Comparing raw
+    # slots alone dropped both of those rules *after* repair had already made them valid.
+    hint_class = _canonical_class_or_none({"logsource": hint})
+    if hint_class is not None:
+        rule_class = _canonical_class_or_none(rule)
+        if rule_class is not None:
+            return rule_class == hint_class
+
+    # Slot comparison stays the fallback for hints or rules that resolve to no canonical class
+    # (linux / product-less network_connection), where the class is not a usable key.
     expected_category = str(hint.get("category") or "").strip().lower()
     expected_product = str(hint.get("product") or "").strip().lower()
-    if not expected_category and not expected_product:
+    # Service-keyed hints (e.g. scheduled_task -> service: taskscheduler) carry no category.
+    # Without comparing service, a service-keyed hint would leave expected_category empty and
+    # match ANY rule sharing the product, silently disabling the cross-category drop this
+    # function exists to perform (a process_creation rule would be kept in the taskscheduler group).
+    expected_service = str(hint.get("service") or "").strip().lower()
+    if not expected_category and not expected_product and not expected_service:
         return True
 
     logsource = rule.get("logsource") or {}
@@ -515,27 +613,20 @@ def _rule_logsource_matches_group(rule: dict[str, Any], group: dict[str, Any]) -
 
     actual_category = str(logsource.get("category") or "").strip().lower()
     actual_product = str(logsource.get("product") or "").strip().lower()
+    actual_service = str(logsource.get("service") or "").strip().lower()
     if expected_category and actual_category != expected_category:
         return False
     if expected_product and actual_product != expected_product:
+        return False
+    if expected_service and actual_service != expected_service:
         return False
     return True
 
 
 def _metadata_without_grounding_fields(rule: dict[str, Any]) -> dict[str, Any]:
-    grounding_fields = {
-        "observables_used",
-        "observables_used_inferred",
-        "observable_attribution",
-        "platform",
-        "telemetry_category",
-        "generation_basis",
-        "detection_readiness",
-        "logsource_hint",
-        "sigma_generation_group",
-        "observable_attribution_warnings",
-    }
-    return {k: v for k, v in rule.items() if k not in grounding_fields}
+    from src.services.sigma_validator import SIGMA_GROUNDING_METADATA_FIELDS
+
+    return {k: v for k, v in rule.items() if k not in SIGMA_GROUNDING_METADATA_FIELDS}
 
 
 def _append_observable_attribution_warning(rule: dict[str, Any], warning: str) -> None:
@@ -594,27 +685,74 @@ def _repair_empty_observable_attribution(
     rule["observable_attribution"] = "attribution_failed"
 
 
-def _detection_leaf_values(detection: Any) -> frozenset[str]:
-    """Collect all scalar string values from a detection block for overlap comparison."""
+# Sigma reserves these keys in a detection block for syntax, not matched values: the
+# boolean expression over selection names, and the correlation window.
+_DETECTION_RESERVED_KEYS = frozenset({"condition", "timeframe"})
+
+# Intra-batch duplicate thresholds; the rule and the measurement behind them are in
+# _batch_rules_are_duplicates.
+_DEDUP_JACCARD = 0.8
+_DEDUP_CONTAINMENT_MIN_VALUES = 3
+_DEDUP_CONTAINMENT_JACCARD = 0.6
+
+
+def _detection_leaf_values(detection: Any, *, _top_level: bool = True) -> frozenset[str]:
+    """Collect the matched string values of a detection block for overlap comparison.
+
+    Skips the reserved ``condition`` and ``timeframe`` keys at the top level. Condition
+    syntax used to leak in as a "value" -- ``selection_image and selection_command`` vs
+    ``all of selection_*`` -- and inflated the union for every rule pair.
+    """
     values: set[str] = set()
     if isinstance(detection, dict):
-        for v in detection.values():
-            values |= _detection_leaf_values(v)
+        for key, value in detection.items():
+            if _top_level and key in _DETECTION_RESERVED_KEYS:
+                continue
+            values |= _detection_leaf_values(value, _top_level=False)
     elif isinstance(detection, list):
         for item in detection:
-            values |= _detection_leaf_values(item)
-    elif isinstance(detection, str) and detection not in ("selection", "condition", "all of them", "any of them"):
+            values |= _detection_leaf_values(item, _top_level=False)
+    elif isinstance(detection, str):
         values.add(detection.lower())
     return frozenset(values)
+
+
+def _batch_rules_are_duplicates(a: frozenset[str], b: frozenset[str]) -> tuple[bool, float]:
+    """Whether two same-logsource leaf-value sets describe the same detection; returns (dup, Jaccard).
+
+    Measured 2026-09-17 with the corrected leaf values:
+      * Queue rows of the same execution with shared values: #2/#7 and #23/#26 (identical
+        values, Jaccard 1.0) and #19/#21 (execution 25, #19 adds ``OriginalFileName``:
+        Jaccard 0.75, containment 1.0) are true duplicates; #9/#10 (group enumeration vs
+        enabling an account, Jaccard 0.38) is not. Jaccard >= 0.8 alone misses #19/#21.
+      * SigmaHQ same-logsource pairs (1,187,088 pairs of distinct published rules, an upper
+        bound on false duplicates): Jaccard >= 0.8 flags 77; Jaccard >= 0.7 flags 135; this
+        test flags 94. The 17 added pairs are mostly a general rule and a narrower variant of
+        the same tool behaviour, which a batch should collapse to the more specific rule.
+      * Pure containment would flag 411, including a 4-value rule "contained" in a 101-value one.
+    Known limits shared by every variant measured: negated filters count as ordinary values,
+    and tokens are compared literally (``urlcache`` vs `` -urlcache `` stays distinct, as in
+    queue #24/#27 and #3/#6).
+    """
+    union = a | b
+    if not union:
+        return False, 0.0
+    shared = len(a & b)
+    jaccard = shared / len(union)
+    if jaccard >= _DEDUP_JACCARD:
+        return True, jaccard
+    smaller = min(len(a), len(b))
+    contained = shared == smaller
+    return (contained and smaller >= _DEDUP_CONTAINMENT_MIN_VALUES and jaccard >= _DEDUP_CONTAINMENT_JACCARD), jaccard
 
 
 def _deduplicate_batch_rules(rules: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Drop intra-batch duplicate rules before similarity search.
 
-    Two rules are considered duplicates when they share the same logsource
-    (category + product) AND their detection leaf-value sets overlap by ≥ 80%.
-    The rule retained is the one with MORE detection conditions (more specific);
-    ties keep the first occurrence. Dropped rules are logged at WARNING level.
+    Two rules are duplicates when they share the same logsource (category + product)
+    and ``_batch_rules_are_duplicates`` holds for their detection leaf values. The rule
+    retained is the one with MORE detection values (more specific); ties keep the first
+    occurrence. Dropped rules are logged at WARNING level.
     """
     if len(rules) <= 1:
         return rules
@@ -628,16 +766,9 @@ def _deduplicate_batch_rules(rules: list[dict[str, Any]]) -> list[dict[str, Any]
             if _logsource_key(existing) != ls_key:
                 continue
             existing_values = _detection_leaf_values(existing.get("detection"))
-            union = cand_values | existing_values
-            if not union:
-                continue
-            overlap = len(cand_values & existing_values) / len(union)
-            if overlap >= 0.8:
-                # Keep the rule with more detection conditions (higher specificity)
-                cand_cond_count = len(cand_values)
-                existing_cond_count = len(existing_values)
-                if cand_cond_count > existing_cond_count:
-                    # Swap: candidate is more specific, replace existing in kept
+            duplicate, overlap = _batch_rules_are_duplicates(cand_values, existing_values)
+            if duplicate:
+                if len(cand_values) > len(existing_values):
                     kept[kept.index(existing)] = candidate
                     logger.warning(
                         "intra-batch dedup: dropped '%s' (%.0f%% overlap with '%s', less specific)",
@@ -747,47 +878,6 @@ def _all_extractors_errored(extraction_result: dict | None) -> tuple[bool, str |
     if len(unique_errors) > 2:
         reason += f" (and {len(unique_errors) - 2} more)"
     return True, reason
-
-
-def summarize_rule_novelty(match_result: dict, threshold: float = 0.5) -> dict:
-    """Classify one rule's novelty comparison for the review queue (todo 001, C1+C2).
-
-    Distinguishes a *scored* low/zero result from an *inconclusive* one: the
-    comparator evaluated candidates but found zero behavioral matches. The old
-    code collapsed the inconclusive case into ``max_similarity=0.0``, which
-    silently disabled novelty suppression for ~86% of the queue.
-
-    Inconclusive => ``max_similarity=None`` (unscored), never a confident ``0.0``.
-
-    Two distinct ``total==0`` cases must NOT be conflated:
-    - **Empty corpus / nothing to compare against** (no ``no_atoms_extracted`` flag):
-      genuinely novel, NOT inconclusive — keep the ``0.0`` semantics.
-    - **Proposed rule produced no atoms** (``no_atoms_extracted`` set by the
-      assess_novelty guard): a FAILURE TO ASSESS. This IS inconclusive, so it routes
-      to needs_review and a human sees it — fail open, but never silently as a
-      confident pending novel.
-    """
-    matches = match_result.get("matches", []) or []
-    total = int(match_result.get("total_candidates_evaluated", 0) or 0)
-    behavioral = int(match_result.get("behavioral_matches_found", 0) or 0)
-    no_atoms = bool(match_result.get("no_atoms_extracted"))
-    sims = [m.get("similarity", 0.0) for m in matches]
-    inconclusive = no_atoms or (total > 0 and behavioral == 0)
-    # SigmaSim Finding B: surface whether the proposed rule's logsource resolved to a
-    # canonical telemetry class. None => the rule fell to the weak logsource_key fallback
-    # (e.g. SigmaAgent emitting bare `service: sysmon` with no category/EventID for a
-    # process_creation-shaped rule). We keep the rule (fail open) but flag the degraded-dedup
-    # condition so it is visible — logged + queryable via rule_metadata — instead of silent.
-    canonical_class = match_result.get("canonical_class")
-    return {
-        "max_similarity": None if inconclusive else (max(sims) if sims else 0.0),
-        "total_candidates_evaluated": total,
-        "behavioral_matches_found": behavioral,
-        "comparator_inconclusive": inconclusive,
-        "canonical_class": canonical_class,
-        "logsource_unresolved": canonical_class is None,
-        "logsource_lint_failures": ["unresolved_logsource"] if canonical_class is None else [],
-    }
 
 
 def select_queueable_rule_indices(similarity_results: list[dict[str, Any]], similarity_threshold: float) -> list[int]:
@@ -1194,7 +1284,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
     Create LangGraph workflow for agentic processing.
 
     Workflow steps:
-    0. Platform Detection - Detect operating system/platform context
+    0. Source Sigma Import - Deterministically preserve publisher-authored rules
+    1. Platform Detection - Detect operating system/platform context
     1. Junk Filter - Filter content using conservative junk filter
     2. LLM Ranking - Rank article using LLM
     3. Extract Agent - Extract behaviors using ExtractAgent
@@ -1214,6 +1305,29 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
     trigger_service = WorkflowTriggerService(db_session)
 
     # Define workflow nodes
+
+    def import_source_sigma_node(state: WorkflowState) -> WorkflowState:
+        """Import source-authored rules before any extraction/generation decision."""
+        if state.get("eval_run"):
+            return state
+        article = db_session.query(ArticleTable).filter(ArticleTable.id == state["article_id"]).first()
+        if not article:
+            raise ValueError(f"Article {state['article_id']} not found in database")
+        result = import_source_sigma_rules(
+            db_session,
+            article,
+            SigmaPRService().repo_path,
+            commit=True,
+        )
+        logger.info(
+            "[Workflow %s] Source Sigma import: discovered=%d imported=%d duplicates=%d rejected=%d",
+            state["execution_id"],
+            result.discovered,
+            result.imported,
+            result.duplicates,
+            result.rejected,
+        )
+        return state
 
     async def os_detection_node(state: WorkflowState) -> WorkflowState:
         """Step 0: Detect operating system from article content."""
@@ -2729,36 +2843,52 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 group_rules = generation_result.get("rules", []) if generation_result else []
                 group_error = generation_result.get("errors") if generation_result else "No generation result"
                 kept_group_rules = []
+                rehomed_group_rules = []
 
                 for rule in group_rules:
                     if not isinstance(rule, dict):
                         continue
-                    if not _rule_logsource_matches_group(rule, group):
+                    home = _find_rehome_group(rule, group, sigma_generation_groups)
+                    if home is None:
                         logger.warning(
                             f"[Workflow {state['execution_id']}] Dropping SIGMA rule {rule.get('title')!r}: "
-                            f"logsource {rule.get('logsource')} does not match generation group "
-                            f"{group.get('logsource_hint')}"
+                            f"logsource {rule.get('logsource')} matches no generation group "
+                            f"(emitted for {group.get('logsource_hint')})"
                         )
                         continue
-                    kept_group_rules.append(rule)
+                    if home is group:
+                        kept_group_rules.append(rule)
+                    else:
+                        rehomed_group_rules.append(rule)
+                        logger.info(
+                            f"[Workflow {state['execution_id']}] Re-homing SIGMA rule {rule.get('title')!r} from "
+                            f"group {group.get('logsource_hint')} to {home.get('logsource_hint')}"
+                        )
+                    # observables_used indices are positions in the EMITTING group's observable
+                    # list, so rebasing always uses the emitting group; ownership uses the home.
                     _rebase_group_observable_indices(rule, group["original_indices"])
                     _repair_empty_observable_attribution(
                         rule,
                         extraction_result=extraction_result,
-                        group_original_indices=group["original_indices"],
-                        group_logsource_hint=group["logsource_hint"],
+                        group_original_indices=home["original_indices"],
+                        group_logsource_hint=home["logsource_hint"],
                     )
-                    rule.setdefault("platform", group["platform"])
-                    rule.setdefault("telemetry_category", group["telemetry_category"])
-                    rule.setdefault("logsource_hint", group["logsource_hint"])
-                    rule.setdefault("generation_basis", f"{group['telemetry_category']}_generic")
+                    rule.setdefault("platform", home["platform"])
+                    rule.setdefault("telemetry_category", home["telemetry_category"])
+                    rule.setdefault("logsource_hint", home["logsource_hint"])
+                    rule.setdefault("generation_basis", f"{home['telemetry_category']}_generic")
                     rule.setdefault("detection_readiness", "generic")
                     rule["sigma_generation_group"] = {
-                        "platform": group["platform"],
-                        "telemetry_category": group["telemetry_category"],
-                        "logsource_hint": group["logsource_hint"],
-                        "observable_indices": group["original_indices"],
+                        "platform": home["platform"],
+                        "telemetry_category": home["telemetry_category"],
+                        "logsource_hint": home["logsource_hint"],
+                        "observable_indices": home["original_indices"],
                     }
+                    if home is not group:
+                        rule["sigma_generation_group"]["rehomed_from"] = {
+                            "platform": group["platform"],
+                            "telemetry_category": group["telemetry_category"],
+                        }
                     sigma_rules.append(rule)
 
                 if group_error and not group_rules:
@@ -2788,7 +2918,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         "logsource_hint": group["logsource_hint"],
                         "observable_indices": group["original_indices"],
                         "generated_rules": len(kept_group_rules),
-                        "dropped_rules": len(group_rules) - len(kept_group_rules),
+                        "rehomed_rules": len(rehomed_group_rules),
+                        "dropped_rules": len(group_rules) - len(kept_group_rules) - len(rehomed_group_rules),
                         "error": group_error if group_error and not group_rules else None,
                         # A Phase 4 expansion failure is non-fatal for the group, so it never
                         # reaches `error`. Carry it separately, otherwise a group that lost every
@@ -2797,7 +2928,12 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     }
                 )
 
-            sigma_errors = "; ".join(group_errors) if group_errors and not sigma_rules else None
+            # `sigma_errors` stays fatal-only: None whenever any group produced a rule, so a
+            # partial success still completes rather than failing the whole execution.
+            # `group_error_summary` is retained regardless so a group that died completely is
+            # visible in error_log even when a sibling succeeded (previously erased to null).
+            group_error_summary = "; ".join(group_errors) if group_errors else None
+            sigma_errors = group_error_summary if group_errors and not sigma_rules else None
 
             # Drop intra-batch duplicates before similarity search. The similarity
             # search only compares against the existing rule library — it never sees
@@ -2857,9 +2993,13 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 validation_results = sigma_metadata.get("validation_results", [])
 
                 # Store if we have conversation_log (even if empty), validation_results, or errors
-                if "conversation_log" in sigma_metadata or validation_results or sigma_errors:
+                if "conversation_log" in sigma_metadata or validation_results or sigma_errors or group_error_summary:
                     error_log_entry = {
                         "errors": sigma_errors,
+                        # Always present when any group errored, even on partial success where
+                        # `errors` (fatal-only) is null -- the operator can otherwise not tell a
+                        # group died from a clean run.
+                        "group_errors": group_error_summary,
                         "total_attempts": sigma_metadata.get(
                             "total_attempts", len(conversation_log) if conversation_log else 0
                         ),
@@ -3205,20 +3345,13 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         rule_max_sim = rule_similarity.get("max_similarity")
 
                         if idx in queueable_indices:
-                            # Strip non-Sigma grounding metadata from rule YAML; keep it in rule_metadata.
-                            non_sigma_metadata_fields = {
-                                "observables_used",
-                                "observables_used_inferred",
-                                "observable_attribution",
-                                "platform",
-                                "telemetry_category",
-                                "generation_basis",
-                                "detection_readiness",
-                                "logsource_hint",
-                                "sigma_generation_group",
-                                "observable_attribution_warnings",
-                            }
-                            rule_for_yaml = {k: v for k, v in rule.items() if k not in non_sigma_metadata_fields}
+                            # Strip non-Sigma grounding metadata from rule YAML (kept in rule_metadata)
+                            # and write the remaining keys in SigmaHQ order. The queue YAML is what
+                            # the PR service commits verbatim, so a leaked pipeline key such as
+                            # generation_phase fails the rules repo's custom-attribute check.
+                            from src.services.sigma_validator import canonical_sigma_rule_dict
+
+                            rule_for_yaml = canonical_sigma_rule_dict(rule)
                             rule_yaml = yaml.dump(rule_for_yaml, default_flow_style=False, sort_keys=False)
 
                             # Guard: confirm the generated YAML round-trips to a dict with required keys.
@@ -3273,8 +3406,9 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                                     f"[Workflow {state['execution_id']}] Generated rule idx={idx} "
                                     f"({rule.get('title')!r}) has an unclassifiable logsource "
                                     f"{rule.get('logsource')} — no canonical_class, dedup degraded to "
-                                    f"logsource_key fallback (SigmaSim Finding B). Prefer a SigmaHQ "
-                                    f"`category:` (e.g. process_creation) over bare `service:`."
+                                    f"logsource_key fallback (SigmaSim Finding B). Use a logsource "
+                                    f"that maps to a registered canonical class (e.g. `category: "
+                                    f"process_creation`, or `service: taskscheduler` for scheduled tasks)."
                                 )
 
                             # Create queue entry
@@ -3462,6 +3596,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
     workflow = StateGraph(WorkflowState)
 
     # Add nodes
+    workflow.add_node("import_source_sigma", import_source_sigma_node)
     workflow.add_node("os_detection", os_detection_node)
     workflow.add_node("junk_filter", junk_filter_node)
     workflow.add_node("rank_article", rank_article_node)
@@ -3472,7 +3607,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
     workflow.add_node("promote_to_queue", promote_to_queue_node)
 
     # Define edges
-    workflow.set_entry_point("os_detection")
+    workflow.set_entry_point("import_source_sigma")
+    workflow.add_edge("import_source_sigma", "os_detection")
     workflow.add_conditional_edges(
         "os_detection", check_should_continue_after_os_detection, {"junk_filter": "junk_filter", "end": END}
     )
@@ -3570,9 +3706,65 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
             db_session.commit()
             db_session.refresh(execution)
             logger.info(f"Created execution record {execution.id} for article {article_id}")
+            existing_row = False
         else:
+            existing_row = True
+
+        # Claim the row atomically before doing anything else with it. Every dispatch
+        # path hands the same execution_id to Celery, and nothing stops two tasks from
+        # carrying one id: a trigger-stuck re-dispatch racing the original, a retry of
+        # a row whose task was merely delayed, worker prefetch across a restart.
+        # Measured 2026-09-04: two fork-pool workers both loaded execution 19, one at
+        # "pending" and one at "running", and both ran the graph to completion and
+        # wrote results into the same row. A conditional UPDATE serialises that in the
+        # database: exactly one caller moves the row from pending to running; every
+        # other caller sees zero rows affected and leaves without touching the row or
+        # invoking the graph. Gating strictly on "pending" is safe because the two
+        # other ``status = "running"`` writes in this module (os_detection and
+        # rank_article nodes) re-affirm a row this function already owns; nothing
+        # resumes a "running" row, and restart-orphaned "running" rows are failed by
+        # ``recover_orphaned_running_execution`` before a retrigger creates a new row.
+        claim_started_at = datetime.now()
+        claimed_rows = (
+            db_session.query(AgenticWorkflowExecutionTable)
+            .filter(
+                AgenticWorkflowExecutionTable.id == execution.id,
+                AgenticWorkflowExecutionTable.status == "pending",
+            )
+            .update(
+                {"status": "running", "started_at": claim_started_at, "current_step": "os_detection"},
+                synchronize_session=False,
+            )
+        )
+        db_session.commit()
+        if claimed_rows == 0:
+            db_session.refresh(execution)
+            logger.warning(
+                "[Workflow %s] Skipping duplicate dispatch for article %s: execution row is already "
+                "claimed (status: %s, started_at: %s); another worker owns this run.",
+                execution.id,
+                article_id,
+                execution.status,
+                execution.started_at,
+            )
+            return {
+                "success": False,
+                "skipped": True,
+                "execution_id": int(execution.id),
+                "reason": f"execution {execution.id} already claimed (status: {execution.status})",
+            }
+
+        # The UPDATE bypassed the identity map, so reload the claimed row and mirror
+        # its state onto the loaded instance: graph nodes and the finalisation block
+        # below read ``execution.status`` from this object.
+        db_session.refresh(execution)
+        execution.status = "running"
+        execution.current_step = "os_detection"
+        if execution.started_at is None:
+            execution.started_at = claim_started_at
+        if existing_row:
             logger.info(
-                f"Found existing execution {execution.id} for article {article_id}, status: {execution.status}, has config_snapshot: {execution.config_snapshot is not None}"
+                f"Found existing execution {execution.id} for article {article_id}, claimed pending -> running, has config_snapshot: {execution.config_snapshot is not None}"
             )
 
         snapshot = hydrate_snapshot(execution)
@@ -3675,12 +3867,7 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
             if not load_result.get("lmstudio_available", load_result.get("lmstudio_cli_available")):
                 logger.warning(f"[Workflow {execution.id}] LMStudio API not reachable - models must be loaded manually")
 
-        # Initialize state
-        execution.status = "running"
-        execution.started_at = datetime.now()
-        execution.current_step = "os_detection"
-        db_session.commit()
-
+        # Initialize state. The row was already claimed (pending -> running) above.
         initial_state: WorkflowState = {
             "article_id": article_id,
             "execution_id": execution.id,

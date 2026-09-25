@@ -1,6 +1,6 @@
 # First Workflow
 
-Run the full agentic pipeline against a real CTI article: Platform Detection → junk filter → ranking → extraction → Sigma generation → similarity search.
+Run the full agentic pipeline against a real CTI article: source-Sigma import -> Platform Detection -> junk filter -> ranking -> extraction -> Sigma generation -> similarity search.
 
 **Prerequisites**: Stack running via `./start.sh` (see [Installation](installation.md)).
 
@@ -74,6 +74,8 @@ In the UI, open `http://localhost:8001/workflow#executions` and click **View** o
 
 The agentic workflow runs these stages in order:
 
+**Pre-pass: Source Sigma Import** scans `articles.content` directly for complete publisher-authored Sigma, preserves the exact YAML and provenance, and records whether destination-repository policy permits delivery. This step does not call an LLM and does not route source rules through generation.
+
 1. **Platform Detection**: classifies the article as Windows/Linux/macOS/cross-platform using the deterministic entity/keyword registry (with an LLM adjudicator for low-confidence cases). Since v7.5.0 this is a router, not a gate: non-Windows articles are not terminated; instead, Windows-only extractors (RegistryExtract, ServicesExtract, ScheduledTasksExtract) are skipped with structured reason records, and Linux evidence still generates Sigma.
 2. **Junk Filter**: ML classifier + hunt score keywords determine if the article has actionable threat content. Low-scoring articles terminate early with reason `no_huntable_content`.
 3. **LLM Ranking**: LLM scores the article for relevance and huntability. Articles below the ranking threshold terminate early with reason `rank_below_threshold`.
@@ -92,5 +94,5 @@ The agentic workflow runs these stages in order:
 | Empty extraction results | Article filtered as non-huntable | Check `termination_reason` in execution record |
 | No Sigma rules generated | Article had no extractable observables | Review extraction_result for empty observables |
 
-_Last updated: 2026-07-04_
+_Last updated: 2026-09-24_
 _Last reviewed: 2026-09-01_
