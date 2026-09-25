@@ -51,13 +51,17 @@ not_in_nav: |
   solutions/database-issues/auto-threshold-reset-race-condition-2026-05-06.md
   solutions/database-issues/sources-duplicate-rows-missing-unique-constraint-2026-05-16.md
   solutions/documentation-gaps/sigma-dedup-phase1-misconception-2026-05-20.md
+  solutions/logic-errors/evals2-item-scoring-structured-agents-2026-08-16.md
   solutions/logic-errors/sigma-cross-field-soft-matching-zero-similarity-2026-04-12.md
+  solutions/logic-errors/sigma-group-rule-count-hides-filtered-rules-2026-08-16.md
+  solutions/logic-errors/sigma-phase4-expansion-error-swallowed-2026-08-15.md
   solutions/logic-errors/sigma-similarity-case-sensitive-atom-matching-2026-04-08.md
   solutions/test-failures/async-fixture-teardown-different-loop-IntegrationTests-20260310.md
   solutions/test-failures/cmdline-extract-preset-prompt-drift-iex-2026-05-01.md
   solutions/test-failures/model-rollback-422-guard-bypassed-by-mock-2026-05-21.md
   solutions/test-failures/smoke-test-workflow-trigger-database-pollution-2026-05-24.md
   solutions/ui-bugs/agent-prompt-save-display-revert-AgentPrompts-20260202.md
+  solutions/ui-bugs/preset-import-autosave-discards-prompts-2026-08-15.md
   solutions/workflow-issues/agent-prompt-state-refactor-stop-recurring-save-display-20260311.md
 
 nav:

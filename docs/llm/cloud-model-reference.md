@@ -2,13 +2,15 @@
 
 ## Anthropic Claude Models
 
-Source: docs.anthropic.com (2026-09-03). All models take `max_tokens`. `temperature` / `top_p`
-(0.0–1.0) are accepted by Sonnet 4.6, Opus 4.6 and older; Opus 4.7, Opus 4.8, Opus 5, Sonnet 5 and
-Fable 5 reject them with a 400, and the app omits them for those models. See
+Source: docs.anthropic.com (2026-09-03), Claude 5 rows verified against platform.claude.com/docs
+(2026-09-25). All models take `max_tokens`. `temperature` / `top_p` (0.0–1.0) are accepted by
+Sonnet 4.6, Opus 4.6 and older; Opus 4.7, Opus 4.8, Opus 5, Sonnet 5 and Fable 5 reject them with a
+400, and the app omits them for those models. See
 [Model Parameter Capabilities](#model-parameter-capabilities-and-reasoning-effort).
 
 | Model | Context Window | Max Output Tokens | Notes |
 |-------|----------------|-------------------|-------|
+| claude-fable-5-1 | 1,000,000 | 128,000 | 1M default |
 | claude-opus-5 | 1,000,000 | 128,000 | 1M default |
 | claude-sonnet-5 | 1,000,000 | 128,000 | 1M default |
 | claude-fable-5 | 1,000,000 | 128,000 | 1M default |
