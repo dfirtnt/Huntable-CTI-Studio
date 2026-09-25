@@ -83,6 +83,7 @@ test.describe('Settings - Backup feedback', () => {
       });
     });
 
+    await page.goto(`${BASE}/settings`);
     await page.locator('#backupConfig-header').click();
     await page.locator('#backupStatusBtn').click();
     await expect(page.getByTestId('backup-stale-warning')).toBeVisible();
@@ -107,6 +108,7 @@ test.describe('Settings - Backup feedback', () => {
       });
     });
 
+    await page.goto(`${BASE}/settings`);
     await page.locator('#backupConfig-header').click();
     await page.locator('#backupStatusBtn').click();
     await expect(page.getByTestId('backup-stale-warning')).toHaveCount(0);
@@ -172,8 +174,8 @@ test.describe('Settings - API Keys', () => {
     await expect(page.locator('#workflowCodexEnabled')).toBeVisible();
     await page.locator('#workflowCodexEnabled').check();
     await expect(page.locator('#workflowCodexSection')).toBeVisible();
-    await expect(page.getByText('Connection is managed by an administrator.')).toBeVisible();
-    await expect(page.getByText('Administrator setup')).toBeVisible();
+    await expect(page.getByText('Use a shared Codex subscription instead of an API key.')).toBeVisible();
+    await expect(page.locator('#codexLoginCommand')).toContainText('codex login --device-auth');
     await expect(page.locator('#testWorkflowCodexSubscription')).toBeVisible();
   });
 
