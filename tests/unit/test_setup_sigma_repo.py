@@ -5,7 +5,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -17,8 +16,7 @@ class TestSigmaRepoSetup(unittest.TestCase):
     def run_setup(self, initial, answer="example/rules", writer_override=""):
         source = (ROOT / "setup.sh").read_text()
         functions = "\n".join(
-            extract_function(source, name)
-            for name in ("prompt_yes_no", "prompt_input", "handle_sigma_repo_setup")
+            extract_function(source, name) for name in ("prompt_yes_no", "prompt_input", "handle_sigma_repo_setup")
         )
         # Stay inside the checkout; never read or write the operator's .env.
         with tempfile.TemporaryDirectory(prefix=".sigma-setup-test-", dir=ROOT) as directory:
@@ -27,7 +25,7 @@ class TestSigmaRepoSetup(unittest.TestCase):
             fixture = work / ".env"
             if initial is not None:
                 fixture.write_text(initial)
-            script = f'''
+            script = f"""
 set -eu
 source "$1/scripts/startup_common.sh"
 NON_INTERACTIVE=false
@@ -39,7 +37,7 @@ git() {{ [[ "$1" == clone ]]; }}
 {functions}
 {writer_override}
 handle_sigma_repo_setup
-'''
+"""
             result = subprocess.run(
                 ["bash", "-c", script, "test-setup", str(ROOT)],
                 cwd=work,
@@ -98,9 +96,7 @@ handle_sigma_repo_setup
         self.assertNotIn("Updated .env", output)
 
     def test_sed_failure_warns_without_aborting_setup(self):
-        output, content = self.run_setup(
-            "GITHUB_REPO=\n", writer_override="sed() { return 1; }"
-        )
+        output, content = self.run_setup("GITHUB_REPO=\n", writer_override="sed() { return 1; }")
         self.assertEqual(content, "GITHUB_REPO=\n")
         self.assertIn("WARNING: Could not update .env GITHUB_REPO", output)
         self.assertNotIn("Updated .env", output)
