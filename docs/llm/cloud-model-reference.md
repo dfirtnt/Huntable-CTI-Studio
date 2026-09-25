@@ -2,13 +2,14 @@
 
 ## Anthropic Claude Models
 
-Source: docs.anthropic.com (2026-06-02). All models support `max_tokens` + `temperature` (0.0–1.0).
+Source: platform.claude.com/docs (Claude 5 rows verified 2026-09-25; older rows 2026-06-02). All models support `max_tokens` + `temperature` (0.0–1.0).
 
 | Model | Context Window | Max Output Tokens | Notes |
 |-------|----------------|-------------------|-------|
-| claude-opus-5 | 1,000,000 | — | 1M default; max output not yet verified |
-| claude-sonnet-5 | 1,000,000 | — | 1M default; max output not yet verified |
-| claude-fable-5 | 1,000,000 | — | 1M default; max output not yet verified |
+| claude-fable-5-1 | 1,000,000 | 128,000 | 1M default |
+| claude-opus-5 | 1,000,000 | 128,000 | 1M default |
+| claude-sonnet-5 | 1,000,000 | 128,000 | 1M default |
+| claude-fable-5 | 1,000,000 | 128,000 | 1M default |
 | claude-opus-4-8 | 1,000,000 | 128,000 | 1M default, no beta header required |
 | claude-opus-4-7 | 1,000,000 | 64,000 | 1M default |
 | claude-opus-4-6 | 1,000,000 | 64,000 | 1M default |
@@ -21,11 +22,6 @@ Source: docs.anthropic.com (2026-06-02). All models support `max_tokens` + `temp
 | claude-haiku-4-5-20251001 | 200,000 | 64,000 | Dated snapshot |
 
 Older Claude 3.x / 4.0-4.5 models cap at 200K by default; they can be extended to 1M via the `context-1m-2025-08-07` beta header. Opus 4.6+ and Sonnet 4.6+ no longer require it.
-
-<!-- TODO: verify: max output tokens for claude-opus-5 / claude-sonnet-5 / claude-fable-5.
-     Context windows above are taken from MODEL_CONTEXT_TOKENS in
-     src/services/provider_model_catalog.py; max output is not recorded anywhere in the repo
-     and must be confirmed against docs.anthropic.com. -->
 
 ---
 

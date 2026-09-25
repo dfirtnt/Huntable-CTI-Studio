@@ -265,7 +265,7 @@ detailed above. Run `python3 run_tests.py --help` for the full list.
 
 Quarantined tests (`@pytest.mark.quarantine`) are tracked in
 `tests/SKIPPED_TESTS.md` with test name, reason, owner, created date, and
-intended fix. CI reports quarantine counts to prevent skip creep.
+intended fix. No CI job reports quarantine counts, so keep that table current by hand.
 
 ## Data Safety
 

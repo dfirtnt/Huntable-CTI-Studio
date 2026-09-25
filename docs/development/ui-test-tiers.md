@@ -37,7 +37,7 @@ disjoint set of spec files:
 | `articles`     | 8     | article detail, clipboard copy, article-content/annotation/chunk-dialog XSS, chunk debug modal, dashboard, jobs |
 | `intelligence` | 3     | sigma enrich, sigma queue lifecycle, sigma similarity unification |
 | `ui-misc`      | 8     | collapsible sections, health-check diagnostics, modals, hunt-comparison error handling, settings |
-| `quarantine`   | 0     | empty on purpose -- the UI test diet (commit 1a490501) removed the flaky suites this project used to hold; kept so `--project=quarantine` still resolves instead of erroring |
+| `quarantine`   | 1     | `quarantined_workflow_config_phantom_003.spec.ts` -- WF-CFG-PHANTOM-003, quarantined 2026-09-02 for CI-only flakiness (passes in isolation) |
 
 Run a single area: `npx playwright test --config tests/playwright.config.ts --project=sources`
 or via the runner: `python3 run_tests.py ui-fast --area=sources`.
