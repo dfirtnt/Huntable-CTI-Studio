@@ -36,10 +36,14 @@ def _make_wp_post(
     post_id: int = 1,
     title: str = "Sample Threat Report",
     link: str = "https://example.com/blog/sample-threat",
-    date_gmt: str = "2026-03-20T12:00:00",
+    date_gmt: str | None = None,
     content: str = "A" * 300,
 ) -> dict:
     """Build a realistic WP JSON API post dict."""
+    if date_gmt is None:
+        # Relative to "now" so the post always falls inside the default
+        # 180-day lookback window regardless of when the suite runs.
+        date_gmt = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%S")
     return {
         "id": post_id,
         "title": {"rendered": title},

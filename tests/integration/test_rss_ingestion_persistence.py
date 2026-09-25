@@ -19,8 +19,9 @@ class TestRSSIngestionPersistence:
         """Test that articles can be persisted to database."""
         from src.database.models import ArticleTable, SourceTable
 
+        uid = uuid.uuid4().hex[:8]
         article_data = ArticleFactory.create(
-            title="Test Persisted Article", canonical_url="https://example.com/persisted"
+            title="Test Persisted Article", canonical_url=f"https://example.com/persisted-{uid}"
         )
 
         async with test_database_manager.get_session() as session:

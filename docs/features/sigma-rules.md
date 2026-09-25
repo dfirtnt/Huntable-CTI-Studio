@@ -2,18 +2,26 @@
 
 ## Overview
 
-Sigma rules are generated from threat intelligence articles by the workflow's
-Sigma agent, validated with pySigma, and scored for behavioral novelty against
-the indexed SigmaHQ repository before being queued for human review.
+Sigma rules reach the review queue through two provenance-distinct paths. Complete
+publisher-authored rules are imported directly from article text without an LLM and
+retain exact YAML and source evidence. Generated rules are created by the workflow's
+Sigma agent, validated with pySigma, and scored for behavioral novelty against the
+indexed SigmaHQ repository before human review.
 
-Three capabilities work together:
+See the [source-provided Sigma import contract](../contracts/source-provided-sigma.md)
+for the fidelity, provenance, immutability, and delivery-policy guarantees.
 
-1. **Rule generation**: LLM produces Sigma YAML from extracted observables;
+Four capabilities work together:
+
+1. **Source rule import**: A deterministic scanner preserves complete Sigma mappings
+   directly from `articles.content`, records provenance and license evidence, and applies
+   the destination repository's delivery policy.
+2. **Rule generation**: LLM produces Sigma YAML from extracted observables;
    pySigma validates the output.
-2. **Rule matching**: Articles are matched to the indexed rule corpus (SigmaHQ
+3. **Rule matching**: Articles are matched to the indexed rule corpus (SigmaHQ
    plus your customer repo, if indexed) using behavioral overlap scoring to
    determine coverage status.
-3. **Similarity search**: Generated rules are compared against the same indexed
+4. **Similarity search**: Generated rules are compared against the same indexed
    corpus to detect duplication and classify novelty.
 
 These last two are distinct pipelines with different inputs and scoring
@@ -38,9 +46,9 @@ behaviorally novel relative to what is already indexed. Both query the same
 
 ### System Flow
 
-Sigma rule processing has a single entry path:
+Sigma rule processing has a single workflow entry path with two internal provenance paths:
 
-- **Agentic Workflow**: Triggered via `POST /api/workflow/articles/{id}/trigger` — Platform Detection → Junk Filter → Rank → Extract → Generate Sigma → Similarity Search → Promote to Queue
+- **Agentic Workflow**: Triggered via `POST /api/workflow/articles/{id}/trigger` - deterministic source-Sigma import -> Platform Detection -> Junk Filter -> Rank -> Extract -> Generate Sigma -> Similarity Search -> Promote to Queue. Source-provided rules bypass generation and intra-batch deduplication; generated rules continue through the existing path.
 
 A second, manual path (`POST /api/articles/{article_id}/generate-sigma`) existed until it was
 removed; it had no UI caller, and its rules were returned to the caller rather than queued for

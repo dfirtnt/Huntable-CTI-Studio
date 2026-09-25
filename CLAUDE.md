@@ -18,6 +18,7 @@ Read in this order before making changes:
 
 - Never revert or modify unrelated user changes without explicit permission. If you notice an unrelated change, ask before touching it.
 - When the user asks a clarifying question (e.g., about base branch, scope), answer it directly before continuing your own line of questioning.
+- Parallel sessions on this repo are normal and expected. Do NOT announce that a file is dirty, newly modified, or newly committed by another session — leave it alone silently. Raise it only when there is a real collision: it is a file you are editing or committing, another session's work would be swept into your commit/push, your own edit was reverted or absorbed elsewhere, an in-progress merge blocks your task, or their in-flight changes invalidate your test signal. Then state the risk, not the dirtiness.
 
 ## Important Reminders
 

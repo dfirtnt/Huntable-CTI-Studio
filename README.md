@@ -3,7 +3,7 @@
 
 **Reports to Rules... in Record time.**
 
-Huntable CTI Studio is an open-source, agentic threat-intelligence (CTI) workbench that turns published threat reports into validated **Sigma detection rules**. It is built for detection engineers, threat hunters, DFIR and blue-team analysts practicing detection-as-code: it ingests OSINT from 38 seeded CTI sources, runs each article through a 7-step LangGraph pipeline that extracts observables (command lines, process trees, registry keys, services, scheduled tasks, network indicators, hunt queries) across Windows, Linux, and macOS, generates Sigma rules, and de-duplicates them against 3,000+ SigmaHQ community rules before queuing them for human review. Everything runs locally in Docker, exposes a Model Context Protocol (MCP) server for AI agents, and works with the LLM provider you choose.
+Huntable CTI Studio is an open-source, agentic threat-intelligence (CTI) workbench that turns published threat reports into validated **Sigma detection rules**. It is built for detection engineers, threat hunters, DFIR and blue-team analysts practicing detection-as-code: it ingests OSINT from 38 seeded CTI sources, preserves complete publisher-authored Sigma directly from article text through a deterministic provenance pre-pass, and runs a 7-step LangGraph pipeline that extracts observables (command lines, process trees, registry keys, services, scheduled tasks, network indicators, hunt queries) across Windows, Linux, and macOS. Generated rules are de-duplicated against 3,000+ SigmaHQ community rules before human review; source-provided rules retain exact YAML, attribution, license evidence, and delivery controls. Everything runs locally in Docker, exposes a Model Context Protocol (MCP) server for AI agents, and works with the LLM provider you choose.
 
 [![GitHub stars](https://img.shields.io/github/stars/dfirtnt/Huntable-CTI-Studio?style=flat)](https://github.com/dfirtnt/Huntable-CTI-Studio/stargazers) [![GitHub forks](https://img.shields.io/github/forks/dfirtnt/Huntable-CTI-Studio?style=flat)](https://github.com/dfirtnt/Huntable-CTI-Studio/network/members) [![License: MIT](https://img.shields.io/github/license/dfirtnt/Huntable-CTI-Studio)](LICENSE) [![Last commit](https://img.shields.io/github/last-commit/dfirtnt/Huntable-CTI-Studio)](https://github.com/dfirtnt/Huntable-CTI-Studio/commits) [![MCP server](https://img.shields.io/badge/MCP-server-blue)](docs/reference/mcp-tools.md)
 
@@ -19,7 +19,8 @@ Huntable CTI Studio is an open-source, agentic threat-intelligence (CTI) workben
 ## Highlights
 
 - **Multi-source aggregation** — RSS feeds, direct scrape endpoints, and browser extension
-- **Agentic workflows** — Platform Detection → junk filter → ranking → extraction → Sigma generation → similarity → queue promotion; platform-aware routing skips Windows-only extractors for Linux/macOS articles
+- **Agentic workflows** - deterministic source-Sigma import, then Platform Detection -> junk filter -> ranking -> extraction -> Sigma generation -> similarity -> queue promotion; platform-aware routing skips Windows-only extractors for Linux/macOS articles
+- **Publisher-authored Sigma provenance** - exact source YAML, attribution, license evidence, immutable review records, and fail-closed delivery policy ([contract](docs/contracts/source-provided-sigma.md))
 - **Detection support** — validation, similarity matching, and coverage classification
 - **Storage & services** — FastAPI web app, PostgreSQL + pgvector, Redis, Celery worker/scheduler
 - **Search & MCP retrieval** — Semantic search across collected intelligence; conversational retrieval via the Huntable MCP server
@@ -49,7 +50,7 @@ Aggregates cybersecurity threat intelligence from RSS feeds and web scraping; us
 ## Architecture
 
 - **8 default services**: PostgreSQL (pgvector), Redis, FastAPI web app, maintenance runtime, Celery workers (default + workflow), scheduler, and a one-shot Codex auth initializer
-- **LangGraph**: Orchestrates the 7-step agentic workflow as a linear pipeline with conditional early-exit gates; execution state is persisted to dedicated Postgres tables
+- **LangGraph**: Orchestrates a deterministic source-Sigma pre-pass followed by the 7-step agentic workflow with conditional early-exit gates; execution state is persisted to dedicated Postgres tables
 - **Database-backed workflows**: Articles, workflow executions, Sigma rules, presets, settings, evals, and supporting metadata
 - **Source healing**: operator-invoked Claude Code skill diagnoses failing sources (RSS inspection, sitemap discovery, JS-rendering detection, WP JSON API probing) and proposes a config fix for approval — never auto-applies, never runs on a schedule
 - **Multi-model AI**: OpenAI and Anthropic, an optional local LM Studio provider, and an optional subscription-backed Codex provider for workflows
@@ -57,6 +58,8 @@ Aggregates cybersecurity threat intelligence from RSS feeds and web scraping; us
 ## Agentic Workflow
 
 The main engine is a LangGraph-based workflow executed by Celery workers:
+
+**Pre-pass: Source Sigma Import** - Scan `articles.content` without an LLM, preserve complete publisher-authored Sigma exactly, and record provenance and delivery eligibility.
 
 1. **Platform Detection** — Platform classification for capability-based extractor routing
 2. **Junk Filter** — Conservative content filtering
