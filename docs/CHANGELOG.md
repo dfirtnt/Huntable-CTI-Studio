@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- **Docs drift fixes from the 2026-09-25 doc true-up** (2026-09-25): `docs/llm/cloud-model-reference.md` gains the `claude-fable-5-1` row (added to the catalog 2026-09-02) and records the 128K max output for the Claude 5 models, verified against platform.claude.com, which clears that TODO marker. `docs/development/ui-test-tiers.md` now lists WF-CFG-PHANTOM-003 in the `quarantine` Playwright project instead of calling it empty. `docs/development/testing.md` drops the claim that CI reports quarantine counts, since no workflow does. `mkdocs.yml` adds four 2026-08 `solutions/` records to `not_in_nav`, matching their siblings.
 
 ## [7.8.1 "Europa"] - 2026-09-02
 ### Removed
