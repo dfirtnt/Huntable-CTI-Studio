@@ -68,12 +68,12 @@ pypdf==6.16.1  # CVE-2026-54530/54531 (infinite-loop DoS) + GHSA-jm82-fx9c-mx94 
 
 # SIGMA rule validation and repository management
 pysigma==1.3.3
-GitPython==3.1.58  # 5 GHSA advisories fixed in 3.1.58; zero import sites (flagged for removal)
+GitPython==3.1.60  # PYSEC-2026-3785/3786/3787/3788/3837/3982/3984 fixed by 3.1.60; zero import sites (flagged for removal)
 
 # Additional AI/ML dependencies for enhanced features
 torch==2.13.0  # For advanced ML models; bumped to relax transitive setuptools<82 floor for PYSEC-2026-3447
 transformers==5.11.0  # For LLM integration
-accelerate==1.13.0  # For model optimization
+accelerate==1.15.0  # For model optimization; PYSEC-2026-3804 affects <=1.14.0
 openai==2.38.0  # Official OpenAI client
 tiktoken==0.13.0  # Token counting utilities
 sentence-transformers==5.5.1  # For semantic embeddings
@@ -103,4 +103,4 @@ setuptools>=83.0.0  # PYSEC-2026-3447 fix; >= since spacy/thinc/torch all depend
 
 # Documentation
 mkdocs==1.6.1  # Static docs site generator
-mkdocs-material==9.7.6  # MkDocs theme used for published docs
+mkdocs-material==9.7.7  # MkDocs theme used for published docs
