@@ -8,6 +8,12 @@
 # installed. Pipeline grounding keys (observables_used and friends) are exempted in code
 # because the pipeline strips them before publication.
 #
+# INTENTIONAL DIVERGENCE: `sigmahq_logsource_unknown` is advisory in the rules repository
+# (valid Sigma for products SigmaHQ has no pipeline for, e.g. Okta, IIS) but stays BLOCKING
+# here. The in-app validator also gates LLM-generated rules, where an unknown or invalid
+# category/product pair (e.g. proxy + windows) means a hallucinated logsource. The app is
+# therefore stricter than CI; every other validator must still match.
+#
 validators:
   # condition / detection structure
   - dangling_condition
