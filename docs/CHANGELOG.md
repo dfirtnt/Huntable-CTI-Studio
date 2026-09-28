@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Chatbots can change Sigma queue status and delete queued rules over MCP** (2026-09-28): `approve_sigma_queue_rule` and `reject_sigma_queue_rule` previously only filed a confirmation row for a human to redo in the web UI. They now apply the status change directly with a mandatory audit row (reviewer recorded as `service:mcp`), and a new `set_sigma_queue_rule_status` can also reopen a rule to `pending`. Approval keeps the web app's source-delivery gate for publisher-authored rules, and rows already submitted in a PR are refused. `delete_sigma_queue_rule` hard-deletes but is caller-attested: it describes the rule and deletes nothing until called again with `confirmed_by_user=true`. YAML edits, adding rules to the queue, and article deletion stay confirmation-required, and approve/reject no longer accept `rule_yaml` or PR fields.
+
 ### Fixed
 - **VMRay Blog source disabled due to CloudFront-level access blocking** (2026-09-27): VMRay has implemented infrastructure-level bot-protection that blocks all content paths (`/blog/`, `/blog/feed/`, `/wp-json/`, `/robots.txt`, `/sitemap.xml`) with HTTP 403 Forbidden while allowing only the homepage. The source accumulated 166 consecutive failures with zero articles collected. Diagnostic probes confirmed this is intentional access restriction at the CloudFront/nginx level, not bypassable via config changes. The source is now deactivated in both the database and `config/sources.yaml` to prevent continued failure spam. Can be re-enabled if VMRay removes access restrictions in the future. Diagnosis log and rollback snapshot retained in `logs/source_healing/`.
 

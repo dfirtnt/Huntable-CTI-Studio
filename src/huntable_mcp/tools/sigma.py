@@ -1,7 +1,10 @@
 """MCP tools for searching SIGMA detection rules."""
 
+import asyncio
 import logging
 import re
+from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 import yaml
@@ -12,8 +15,10 @@ from src.database.async_manager import AsyncDatabaseManager
 from src.database.models import ArticleTable, SigmaRuleQueueTable
 from src.huntable_mcp.tools.articles import _article_db_id
 from src.huntable_mcp.tools.write_support import (
+    MCP_SERVICE_ACTOR,
     confirmation_required_response,
     create_confirmation_request,
+    record_mcp_audit,
 )
 from src.services.audit_service import (
     ACTION_SIGMA_QUEUE_RULE_APPROVED,
@@ -21,8 +26,10 @@ from src.services.audit_service import (
     ACTION_SIGMA_QUEUE_RULE_DELETED,
     ACTION_SIGMA_QUEUE_RULE_EDITED,
     ACTION_SIGMA_QUEUE_RULE_REJECTED,
+    ACTION_SIGMA_QUEUE_RULE_REOPENED,
 )
 from src.services.rag_service import RAGService
+from src.services.source_sigma_import_service import SOURCE_ORIGIN, evaluate_source_rule_delivery
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +53,32 @@ def _validate_sigma_queue_yaml(rule_yaml: str) -> tuple[dict[str, Any] | None, s
     if missing:
         return None, f"rule_yaml is missing required Sigma keys: {missing}"
     return parsed, None
+
+
+_QUEUE_STATUS_ACTIONS = {
+    "approved": ACTION_SIGMA_QUEUE_RULE_APPROVED,
+    "rejected": ACTION_SIGMA_QUEUE_RULE_REJECTED,
+    "pending": ACTION_SIGMA_QUEUE_RULE_REOPENED,
+}
+
+
+async def _source_delivery_block_reason(rule: SigmaRuleQueueTable) -> str | None:
+    """Return why a publisher-authored rule may not be approved, or None when it may.
+
+    Mirrors the web approve route: generated rules always pass; source-provided rules
+    need a recorded permission or an allowlisted license in the destination repo.
+    """
+    if getattr(rule, "rule_origin", "generated") != SOURCE_ORIGIN:
+        return None
+    from src.services.sigma_pr_service import SigmaPRService
+
+    repo_path = await asyncio.to_thread(lambda: SigmaPRService().repo_path)
+    decision = evaluate_source_rule_delivery(rule, Path(repo_path))
+    return None if decision.eligible else decision.reason
+
+
+def _is_submitted(rule: SigmaRuleQueueTable) -> bool:
+    return bool(rule.status == "submitted" or rule.pr_submitted or rule.submitted_at is not None)
 
 
 async def _queue_item_exists(session: Any, queue_number: int) -> bool:
@@ -172,139 +205,151 @@ def register(mcp: FastMCP, rag: RAGService, db: AsyncDatabaseManager | None = No
             logger.error(f"get_sigma_rule failed: {e}")
             return f"Error retrieving sigma rule {rule_id}: {e}"
 
-    @mcp.tool()
-    async def approve_sigma_queue_rule(
-        queue_number: int,
-        review_notes: str | None = None,
-        rule_yaml: str | None = None,
-        pr_url: str | None = None,
-        pr_repository: str | None = None,
-    ) -> str:
-        """Request human confirmation to approve a queued Sigma rule.
-
-        Risk tier: confirmation-required. MCP does not approve the rule directly.
-
-        Args:
-            queue_number: Queue ID from list_sigma_queue output.
-            review_notes: Optional reviewer notes to apply if the human confirms.
-            rule_yaml: Optional updated YAML to apply if the human confirms.
-            pr_url: Optional PR URL to mark as submitted if the human confirms.
-            pr_repository: Optional PR repository name when pr_url is provided.
-        """
+    async def _set_queue_status(tool_name: str, queue_number: int, status: str, review_notes: str | None) -> str:
+        """Apply a queue status change and its mandatory audit row in one transaction."""
         if db is None:
-            return "Error: database not available for approve_sigma_queue_rule."
-        if rule_yaml:
-            _, error = _validate_sigma_queue_yaml(rule_yaml)
-            if error:
-                return f"Confirmation request rejected: {error}"
+            return f"Error: database not available for {tool_name}."
+        if status not in _QUEUE_STATUS_ACTIONS:
+            return f"Invalid status {status!r}. Allowed: {', '.join(sorted(_QUEUE_STATUS_ACTIONS))}."
         try:
             async with db.get_session() as session:
-                if not await _queue_item_exists(session, queue_number):
-                    return f"No queue item found with queue_number={queue_number}."
-                confirmation = await create_confirmation_request(
-                    session,
-                    operation="approve_sigma_queue_rule",
-                    target_type="sigma_rule_queue",
-                    target_id=queue_number,
-                    requested_action=ACTION_SIGMA_QUEUE_RULE_APPROVED,
-                    payload={
-                        "queue_number": queue_number,
-                        "review_notes": review_notes,
-                        "rule_yaml": rule_yaml,
-                        "pr_url": pr_url,
-                        "pr_repository": pr_repository,
-                    },
-                    summary=f"Requested confirmation to approve queued Sigma rule {queue_number}",
-                    confirmation_instructions=(
-                        f"Open Sigma queue item {queue_number} in the web UI, verify the rule, then approve it there."
-                    ),
+                result = await session.execute(
+                    select(SigmaRuleQueueTable).where(SigmaRuleQueueTable.id == queue_number).limit(1)
                 )
-                response = confirmation_required_response(confirmation)
+                rule = result.scalar_one_or_none()
+                if rule is None:
+                    return f"No queue item found with queue_number={queue_number}."
+                if _is_submitted(rule):
+                    return (
+                        f"Queue item {queue_number} was already submitted in a PR; its status is the record of "
+                        "that submission and cannot be changed from MCP."
+                    )
+                if status == "approved":
+                    reason = await _source_delivery_block_reason(rule)
+                    if reason:
+                        return f"Approval of queue item {queue_number} blocked by source delivery policy: {reason}"
+
+                previous_status = rule.status
+                rule.status = status
+                rule.reviewed_at = datetime.now()
+                rule.reviewed_by = MCP_SERVICE_ACTOR
+                if review_notes is not None:
+                    rule.review_notes = review_notes
+                await record_mcp_audit(
+                    session,
+                    _QUEUE_STATUS_ACTIONS[status],
+                    "sigma_rule_queue",
+                    queue_number,
+                    f"Set queued Sigma rule {queue_number} status {previous_status} -> {status} via MCP",
+                    {"previous_status": previous_status, "status": status, "tool": tool_name},
+                )
                 await session.commit()
-                return response
+            return f"Queue item {queue_number} status changed: {previous_status} -> {status}."
         except Exception as e:
-            logger.error(f"approve_sigma_queue_rule failed: {e}")
-            return f"Error requesting approval confirmation for queue item {queue_number}: {e}"
+            logger.error(f"{tool_name} failed: {e}")
+            return f"Error changing status of queue item {queue_number}: {e}"
 
     @mcp.tool()
-    async def reject_sigma_queue_rule(
-        queue_number: int,
-        review_notes: str | None = None,
-        rule_yaml: str | None = None,
-    ) -> str:
-        """Request human confirmation to reject a queued Sigma rule.
+    async def approve_sigma_queue_rule(queue_number: int, review_notes: str | None = None) -> str:
+        """Approve a queued Sigma rule (status -> approved).
 
-        Risk tier: confirmation-required. MCP does not reject the rule directly.
+        Risk tier: auto-executable. The status change is reversible via
+        set_sigma_queue_rule_status and writes a mandatory audit row. Publisher-authored
+        rules still need a recorded permission or an allowlisted license. Rules already
+        submitted in a PR cannot be changed. YAML edits and PR fields are not accepted
+        here; use update_sigma_queue_rule_yaml (confirmation-required) for YAML.
 
         Args:
             queue_number: Queue ID from list_sigma_queue output.
-            review_notes: Optional rejection notes to apply if the human confirms.
-            rule_yaml: Optional updated YAML to apply if the human confirms.
+            review_notes: Optional reviewer notes to store on the queue item.
         """
-        if db is None:
-            return "Error: database not available for reject_sigma_queue_rule."
-        if rule_yaml:
-            _, error = _validate_sigma_queue_yaml(rule_yaml)
-            if error:
-                return f"Confirmation request rejected: {error}"
-        try:
-            async with db.get_session() as session:
-                if not await _queue_item_exists(session, queue_number):
-                    return f"No queue item found with queue_number={queue_number}."
-                confirmation = await create_confirmation_request(
-                    session,
-                    operation="reject_sigma_queue_rule",
-                    target_type="sigma_rule_queue",
-                    target_id=queue_number,
-                    requested_action=ACTION_SIGMA_QUEUE_RULE_REJECTED,
-                    payload={"queue_number": queue_number, "review_notes": review_notes, "rule_yaml": rule_yaml},
-                    summary=f"Requested confirmation to reject queued Sigma rule {queue_number}",
-                    confirmation_instructions=(
-                        f"Open Sigma queue item {queue_number} in the web UI, verify the rejection reason, "
-                        "then reject it there."
-                    ),
-                )
-                response = confirmation_required_response(confirmation)
-                await session.commit()
-                return response
-        except Exception as e:
-            logger.error(f"reject_sigma_queue_rule failed: {e}")
-            return f"Error requesting rejection confirmation for queue item {queue_number}: {e}"
+        return await _set_queue_status("approve_sigma_queue_rule", queue_number, "approved", review_notes)
 
     @mcp.tool()
-    async def delete_sigma_queue_rule(queue_number: int) -> str:
-        """Request human confirmation to delete a queued Sigma rule.
+    async def reject_sigma_queue_rule(queue_number: int, review_notes: str | None = None) -> str:
+        """Reject a queued Sigma rule (status -> rejected).
 
-        Risk tier: confirmation-required. MCP does not delete the rule directly.
+        Risk tier: auto-executable. Reversible via set_sigma_queue_rule_status and audited.
+        Rules already submitted in a PR cannot be changed.
 
         Args:
             queue_number: Queue ID from list_sigma_queue output.
+            review_notes: Optional rejection notes to store on the queue item.
+        """
+        return await _set_queue_status("reject_sigma_queue_rule", queue_number, "rejected", review_notes)
+
+    @mcp.tool()
+    async def set_sigma_queue_rule_status(
+        queue_number: int,
+        status: str,
+        review_notes: str | None = None,
+    ) -> str:
+        """Set a queued Sigma rule's review status to pending, approved, or rejected.
+
+        Risk tier: auto-executable. Use status="pending" to reopen a reviewed rule.
+        "submitted" is not settable here: it is only reached by submitting a PR from
+        the web UI, and submitted rows are frozen.
+
+        Args:
+            queue_number: Queue ID from list_sigma_queue output.
+            status: One of "pending", "approved", "rejected".
+            review_notes: Optional reviewer notes to store on the queue item.
+        """
+        return await _set_queue_status("set_sigma_queue_rule_status", queue_number, status, review_notes)
+
+    @mcp.tool()
+    async def delete_sigma_queue_rule(queue_number: int, confirmed_by_user: bool = False) -> str:
+        """Permanently delete a queued Sigma rule.
+
+        Risk tier: caller-attested, irreversible. With confirmed_by_user=false (the
+        default) nothing is deleted: the rule is described so the user can approve the
+        deletion. Show that to the user, and only after their explicit approval call
+        again with confirmed_by_user=true. Approval never carries over between calls.
+        The server records but cannot verify that attestation; the MCP host should
+        enforce approval for this tool. The deletion is audited.
+
+        Args:
+            queue_number: Queue ID from list_sigma_queue output.
+            confirmed_by_user: True only after the user explicitly approved deleting this rule.
         """
         if db is None:
             return "Error: database not available for delete_sigma_queue_rule."
         try:
             async with db.get_session() as session:
-                if not await _queue_item_exists(session, queue_number):
-                    return f"No queue item found with queue_number={queue_number}."
-                confirmation = await create_confirmation_request(
-                    session,
-                    operation="delete_sigma_queue_rule",
-                    target_type="sigma_rule_queue",
-                    target_id=queue_number,
-                    requested_action=ACTION_SIGMA_QUEUE_RULE_DELETED,
-                    payload={"queue_number": queue_number},
-                    summary=f"Requested confirmation to delete queued Sigma rule {queue_number}",
-                    confirmation_instructions=(
-                        f"Open Sigma queue item {queue_number} in the web UI and delete it only after verifying "
-                        "that deletion is intentional."
-                    ),
+                result = await session.execute(
+                    select(SigmaRuleQueueTable).where(SigmaRuleQueueTable.id == queue_number).limit(1)
                 )
-                response = confirmation_required_response(confirmation)
+                rule = result.scalar_one_or_none()
+                if rule is None:
+                    return f"No queue item found with queue_number={queue_number}."
+                title = (rule.rule_metadata or {}).get("title") if isinstance(rule.rule_metadata, dict) else None
+                described = f"Queue #{queue_number} ({title or 'untitled'}), status={rule.status}"
+                if not confirmed_by_user:
+                    warning = (
+                        " This rule was submitted in a PR; deleting it removes the local record of what was submitted."
+                        if _is_submitted(rule)
+                        else ""
+                    )
+                    return (
+                        f"confirmation_required: nothing deleted. {described}.{warning} Deletion is permanent. "
+                        "Ask the user to approve, then call delete_sigma_queue_rule again with confirmed_by_user=true."
+                    )
+
+                previous_status = rule.status
+                await session.delete(rule)
+                await record_mcp_audit(
+                    session,
+                    ACTION_SIGMA_QUEUE_RULE_DELETED,
+                    "sigma_rule_queue",
+                    queue_number,
+                    f"Deleted queued Sigma rule {queue_number} via MCP",
+                    {"previous_status": previous_status, "title": title, "confirmed_by_user": True},
+                )
                 await session.commit()
-                return response
+            return f"Deleted {described}."
         except Exception as e:
             logger.error(f"delete_sigma_queue_rule failed: {e}")
-            return f"Error requesting delete confirmation for queue item {queue_number}: {e}"
+            return f"Error deleting queue item {queue_number}: {e}"
 
     @mcp.tool()
     async def update_sigma_queue_rule_yaml(queue_number: int, rule_yaml: str) -> str:

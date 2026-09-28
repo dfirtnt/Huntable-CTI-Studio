@@ -5,7 +5,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 from mcp.server.fastmcp import FastMCP
@@ -17,6 +17,7 @@ from src.database.models import (
     ArticleTable,
     AuditEventTable,
     MCPWriteConfirmationTable,
+    SigmaRuleQueueTable,
     SourceTable,
 )
 from src.huntable_mcp.tools import articles, sigma, sources, workflow
@@ -24,6 +25,10 @@ from src.services.audit_service import (
     ACTION_ANNOTATION_CREATED,
     ACTION_ANNOTATION_DELETED,
     ACTION_MCP_CONFIRMATION_REQUESTED,
+    ACTION_SIGMA_QUEUE_RULE_APPROVED,
+    ACTION_SIGMA_QUEUE_RULE_DELETED,
+    ACTION_SIGMA_QUEUE_RULE_REJECTED,
+    ACTION_SIGMA_QUEUE_RULE_REOPENED,
     ACTION_SOURCE_TOGGLED,
     ACTION_WORKFLOW_CANCELLED,
     ACTION_WORKFLOW_RETRIED,
@@ -33,6 +38,7 @@ from src.services.audit_service import (
     AuditService,
     service_actor_context,
 )
+from src.services.source_sigma_import_service import SOURCE_ORIGIN
 
 pytestmark = pytest.mark.unit
 
@@ -211,26 +217,153 @@ async def test_retry_workflow_execution_creates_pending_execution_and_enqueues(m
     assert audits[0].event_metadata["new_execution_id"] == 1000
 
 
+def _queue_rule(**overrides):
+    fields = {
+        "id": 264,
+        "status": "pending",
+        "rule_origin": "generated",
+        "rule_metadata": {"title": "Suspicious Thing"},
+        "pr_submitted": False,
+        "submitted_at": None,
+        "reviewed_at": None,
+        "reviewed_by": None,
+        "review_notes": None,
+    }
+    fields.update(overrides)
+    return SigmaRuleQueueTable(**fields)
+
+
 @pytest.mark.asyncio
-async def test_sigma_queue_approval_creates_confirmation_without_target_mutation():
-    session = FakeAsyncSession([FakeResult(264)])
+async def test_sigma_queue_approval_applies_status_and_audits():
+    rule = _queue_rule()
+    session = FakeAsyncSession([FakeResult(rule)])
     tools = _tools_from_register(sigma.register, AsyncMock(), _db_with_session(session))
 
     result = await tools["approve_sigma_queue_rule"].fn(queue_number=264, review_notes="Looks good")
+
+    assert "pending -> approved" in result
+    assert rule.status == "approved"
+    assert rule.review_notes == "Looks good"
+    assert rule.reviewed_by == "service:mcp"
+    assert rule.reviewed_at is not None
+    assert session.committed is True
+    assert _confirmation_rows(session) == []
+    audits = _audit_rows(session)
+    assert len(audits) == 1
+    assert audits[0].action == ACTION_SIGMA_QUEUE_RULE_APPROVED
+    assert audits[0].event_metadata["previous_status"] == "pending"
+    assert audits[0].event_metadata["status"] == "approved"
+
+
+@pytest.mark.asyncio
+async def test_sigma_queue_reject_and_reopen_apply_status_and_audit_distinct_actions():
+    rule = _queue_rule()
+    session = FakeAsyncSession([FakeResult(rule), FakeResult(rule)])
+    tools = _tools_from_register(sigma.register, AsyncMock(), _db_with_session(session))
+
+    await tools["reject_sigma_queue_rule"].fn(queue_number=264, review_notes="dup")
+    assert rule.status == "rejected"
+    await tools["set_sigma_queue_rule_status"].fn(queue_number=264, status="pending")
+    assert rule.status == "pending"
+    assert rule.review_notes == "dup"  # omitted notes do not clobber existing ones
+
+    assert [a.action for a in _audit_rows(session)] == [
+        ACTION_SIGMA_QUEUE_RULE_REJECTED,
+        ACTION_SIGMA_QUEUE_RULE_REOPENED,
+    ]
+
+
+@pytest.mark.asyncio
+async def test_sigma_queue_status_rejects_submitted_target_and_unknown_status():
+    submitted = _queue_rule(status="submitted", pr_submitted=True)
+    session = FakeAsyncSession([FakeResult(submitted)])
+    tools = _tools_from_register(sigma.register, AsyncMock(), _db_with_session(session))
+
+    refused = await tools["reject_sigma_queue_rule"].fn(queue_number=264)
+    assert "already submitted" in refused
+    assert submitted.status == "submitted"
+
+    bad = await tools["set_sigma_queue_rule_status"].fn(queue_number=264, status="submitted")
+    assert "Invalid status" in bad
+    assert session.committed is False
+    assert _audit_rows(session) == []
+
+
+@pytest.mark.asyncio
+async def test_sigma_queue_approval_blocked_for_source_rule_without_delivery_permission(monkeypatch):
+    rule = _queue_rule(rule_origin=SOURCE_ORIGIN)
+    session = FakeAsyncSession([FakeResult(rule)])
+    tools = _tools_from_register(sigma.register, AsyncMock(), _db_with_session(session))
+    monkeypatch.setattr(sigma, "_source_delivery_block_reason", AsyncMock(return_value="No explicit license."))
+
+    result = await tools["approve_sigma_queue_rule"].fn(queue_number=264)
+
+    assert "blocked by source delivery policy" in result
+    assert rule.status == "pending"
+    assert session.committed is False
+
+
+@pytest.mark.asyncio
+async def test_sigma_queue_status_missing_item_reports_not_found():
+    session = FakeAsyncSession([FakeResult(None)])
+    tools = _tools_from_register(sigma.register, AsyncMock(), _db_with_session(session))
+
+    result = await tools["approve_sigma_queue_rule"].fn(queue_number=999)
+
+    assert "No queue item found" in result
+    assert session.committed is False
+
+
+@pytest.mark.asyncio
+async def test_delete_sigma_queue_rule_requires_confirmation_before_deleting():
+    rule = _queue_rule()
+    session = FakeAsyncSession([FakeResult(rule)])
+    tools = _tools_from_register(sigma.register, AsyncMock(), _db_with_session(session))
+
+    result = await tools["delete_sigma_queue_rule"].fn(queue_number=264)
+
+    assert "confirmation_required" in result
+    assert "Suspicious Thing" in result
+    assert session.deleted == []
+    assert session.committed is False
+    assert _audit_rows(session) == []
+
+
+@pytest.mark.asyncio
+async def test_delete_sigma_queue_rule_deletes_and_audits_when_confirmed():
+    rule = _queue_rule(status="rejected")
+    session = FakeAsyncSession([FakeResult(rule)])
+    tools = _tools_from_register(sigma.register, AsyncMock(), _db_with_session(session))
+
+    result = await tools["delete_sigma_queue_rule"].fn(queue_number=264, confirmed_by_user=True)
+
+    assert result.startswith("Deleted Queue #264")
+    assert session.deleted == [rule]
+    assert session.committed is True
+    audits = _audit_rows(session)
+    assert len(audits) == 1
+    assert audits[0].action == ACTION_SIGMA_QUEUE_RULE_DELETED
+    assert audits[0].event_metadata["previous_status"] == "rejected"
+
+
+@pytest.mark.asyncio
+async def test_update_sigma_queue_yaml_still_creates_confirmation_without_mutation():
+    session = FakeAsyncSession([FakeResult(264)])
+    tools = _tools_from_register(sigma.register, AsyncMock(), _db_with_session(session))
+
+    result = await tools["update_sigma_queue_rule_yaml"].fn(
+        queue_number=264,
+        rule_yaml="title: T\nlogsource: {product: windows}\ndetection: {selection: {a: b}, condition: selection}",
+    )
 
     assert "Confirmation required" in result
     assert session.committed is True
     confirmations = _confirmation_rows(session)
     assert len(confirmations) == 1
-    assert isinstance(confirmations[0].id, UUID)
-    assert confirmations[0].operation == "approve_sigma_queue_rule"
-    assert confirmations[0].target_type == "sigma_rule_queue"
+    assert confirmations[0].operation == "update_sigma_queue_rule_yaml"
     assert confirmations[0].target_id == "264"
-    assert confirmations[0].request_metadata["payload"]["review_notes"] == "Looks good"
     audits = _audit_rows(session)
-    assert len(audits) == 1
     assert audits[0].action == ACTION_MCP_CONFIRMATION_REQUESTED
-    assert audits[0].event_metadata["operation"] == "approve_sigma_queue_rule"
 
 
 @pytest.mark.asyncio
