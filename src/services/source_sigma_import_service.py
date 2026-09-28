@@ -27,6 +27,35 @@ SOURCE_ORIGIN = "source_provided"
 LOCAL_REVIEW_ONLY = "local_review_only"
 
 _TITLE_LINE = re.compile(r"(?m)^title:[ \t]*\S.*$")
+# Top-level keys defined by the Sigma rule specification. A rule may still carry other
+# (custom) keys, but article annotations printed after a rule ("Tier:", "Robustness:",
+# "Confidence:", ...) parse as extra top-level keys, so a candidate must END on one of these.
+_SIGMA_SPEC_KEYS = frozenset(
+    {
+        "title",
+        "id",
+        "related",
+        "name",
+        "taxonomy",
+        "status",
+        "description",
+        "license",
+        "references",
+        "author",
+        "date",
+        "modified",
+        "tags",
+        "scope",
+        "logsource",
+        "detection",
+        "fields",
+        "falsepositives",
+        "level",
+        "simulation",
+        "action",
+        "generate",
+    }
+)
 _LICENSE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
         "CC-BY-NC-4.0",
@@ -127,9 +156,12 @@ def scan_sigma_rules_with_diagnostics(content: str) -> SourceSigmaScanResult:
 
     Articles commonly place unfenced YAML between prose paragraphs. For each
     top-level ``title:`` line, test newline boundaries up to the next title and
-    retain the longest prefix that parses as exactly one valid Sigma mapping.
-    This deliberately rejects fragments, sequences/scalars, and multi-document
-    blocks while retaining optional fields after ``detection`` such as ``level``.
+    retain the longest prefix that parses as exactly one valid Sigma mapping whose
+    last top-level key is a Sigma spec key. This deliberately rejects fragments,
+    sequences/scalars, and multi-document blocks while retaining optional fields
+    after ``detection`` such as ``level``. Article annotation lines that follow a
+    rule (``Tier:``, ``Robustness:``, ``Confidence:``) are valid YAML keys but not
+    Sigma, so the candidate ends before them; the text stays an exact substring.
     """
     if not content:
         return SourceSigmaScanResult((), ())
@@ -152,7 +184,7 @@ def scan_sigma_rules_with_diagnostics(content: str) -> SourceSigmaScanResult:
             except yaml.YAMLError:
                 continue
             parsed_values.append(parsed)
-            if _is_sigma_mapping(parsed):
+            if _is_sigma_mapping(parsed) and list(parsed)[-1] in _SIGMA_SPEC_KEYS:
                 best = SourceSigmaCandidate(raw, parsed, start, end)
         if best is not None:
             candidates.append(best)
