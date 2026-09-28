@@ -27,6 +27,13 @@ HuntQueriesExtract provides best-effort discovery, not source-byte provenance:
   generation, even if platform, telemetry, and logsource metadata are present.
 - Non-Sigma hunt queries may still drive Sigma generation when their backend, target telemetry, and
   logsource are explicit. Their text is behavioral evidence, not a source-provided Sigma rule.
+- The extractor does not emit `telemetry_category` or `logsource_hint`, so the workflow derives them
+  from the query's own schema indicator (for example `DeviceProcessEvents`, `Endpoint.Processes`,
+  `ProcessRollup2` -> `process_creation`; `DeviceNetworkEvents` -> `network_connection`;
+  `DeviceRegistryEvents` -> `registry`) and the article platform. The observable is stamped
+  `logsource_hint_source: inferred_from_query`. When several indicators appear, the earliest (the
+  primary table) wins. A query with no indicator, an unpinned platform, or a macOS platform stays
+  display-only. Extractor-supplied metadata is never overridden.
 - The `source_provided` import path MUST scan `articles.content` directly and preserve the exact
   matched substring. It MUST NOT source rule bytes from `hunt_queries` output.
 
@@ -37,7 +44,7 @@ Current text consumers and compatibility:
 | Workflow/API/UI | Display extracted query text and traceability | Compatible; text remains available and gains explicit provenance markers. |
 | Subagent evaluation/scoring | Count and compare extracted query items | Compatible; item text and count semantics are unchanged. |
 | Extraction bookkeeping | Store summaries, snapshots, and traceability | Compatible; existing fields remain and metadata is additive. |
-| Sigma generation routing | Use a non-Sigma query only with explicit backend and telemetry | Compatible; only `type: sigma` is forced display-only. |
+| Sigma generation routing | Use a non-Sigma query only with explicit or query-inferred backend and telemetry | Compatible; only `type: sigma` is forced display-only. |
 | Source-provided import/publication | Recover exact rule bytes | Must scan `articles.content`; HuntQueries output is forbidden as a source. |
 
 Supported query platforms (platform enum):

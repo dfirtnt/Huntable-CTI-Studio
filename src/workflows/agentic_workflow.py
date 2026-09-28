@@ -271,6 +271,55 @@ def _logsource_hint_for_observable(platform: str, telemetry_category: str) -> di
     return None
 
 
+# Backend schema indicators that name the telemetry a hunt query runs against. These are the
+# high-confidence indicators the HuntQueriesExtract contract already requires for a query to be
+# extracted at all, so a query that survived extraction almost always carries one. Only telemetry
+# classes _logsource_hint_for_observable can map to a Sigma logsource are listed.
+_HUNT_QUERY_TELEMETRY_INDICATORS: dict[str, re.Pattern[str]] = {
+    "process_creation": re.compile(
+        r"\bDeviceProcessEvents\b|\bimProcessCreate\b|\bProcessRollup2\b|\bEndpoint\.Processes\b"
+        r"|\blogs-endpoint\.events\.process\b|\bEventType\s*=\s*\"?Process\b|\baction_process_image_name\b",
+        re.IGNORECASE,
+    ),
+    "network_connection": re.compile(
+        r"\bDeviceNetworkEvents\b|\b_?Im_NetworkSession\b|\bNetworkConnect(?:IP[46])?\b"
+        r"|\blogs-endpoint\.events\.network\b|\bnetconn_\w+:",
+        re.IGNORECASE,
+    ),
+    "registry": re.compile(
+        r"\bDeviceRegistryEvents\b|\bimRegistryEvent\b|\bEndpoint\.Registry\b"
+        r"|\blogs-endpoint\.events\.registry\b|\bEventType\s*=\s*\"?Registry\b",
+        re.IGNORECASE,
+    ),
+}
+
+
+def _infer_hunt_query_telemetry_category(item: Any) -> str | None:
+    """Return the telemetry category a non-Sigma hunt query targets, from its own schema indicators.
+
+    HuntQueriesExtract emits ``type``/``query``/``context`` and never a ``telemetry_category`` or
+    ``logsource_hint``, so without this every real hunt query stayed display-only (execution 30: a
+    Defender ``DeviceProcessEvents`` query produced no Sigma rule). The query text is the evidence:
+    the first schema indicator in it is the primary table it reads from. A query naming none
+    returns None and stays display-only; a captured ``sigma`` item is never routed here.
+    """
+    if isinstance(item, dict):
+        if str(item.get("type") or "").strip().lower() == "sigma":
+            return None
+        query = item.get("query") or item.get("value")
+    else:
+        query = item
+    if not isinstance(query, str) or not query:
+        return None
+
+    earliest: tuple[int, str] | None = None
+    for category, pattern in _HUNT_QUERY_TELEMETRY_INDICATORS.items():
+        match = pattern.search(query)
+        if match and (earliest is None or match.start() < earliest[0]):
+            earliest = (match.start(), category)
+    return earliest[1] if earliest else None
+
+
 def _enrich_observable_metadata(
     obs_entry: dict[str, Any],
     *,
@@ -290,6 +339,15 @@ def _enrich_observable_metadata(
         telemetry_confidence = str(item.get("telemetry_confidence") or telemetry_confidence)
         logsource_hint = item.get("logsource_hint") or item.get("logsource")
 
+    logsource_hint_source = None
+    if observable_type == "hunt_queries" and telemetry_category is None and logsource_hint is None:
+        inferred_category = _infer_hunt_query_telemetry_category(item)
+        inferred_hint = _logsource_hint_for_observable(platform, inferred_category) if inferred_category else None
+        if inferred_hint is not None:
+            telemetry_category = inferred_category
+            logsource_hint = inferred_hint
+            logsource_hint_source = "inferred_from_query"
+
     telemetry_category = str(telemetry_category or OBSERVABLE_TELEMETRY_CATEGORY.get(observable_type, observable_type))
     if logsource_hint is None:
         logsource_hint = _logsource_hint_for_observable(platform, telemetry_category)
@@ -301,6 +359,8 @@ def _enrich_observable_metadata(
     obs_entry["telemetry_confidence"] = telemetry_confidence
     if logsource_hint is not None:
         obs_entry["logsource_hint"] = logsource_hint
+    if logsource_hint_source is not None:
+        obs_entry["logsource_hint_source"] = logsource_hint_source
 
     if observable_type == "hunt_queries":
         artifact_type = None
@@ -333,7 +393,9 @@ def _observable_sigma_eligible(obs: dict[str, Any]) -> bool:
     # An LLM-captured Sigma block is a discovery result, not authoritative source
     # bytes. Source-provided rules are imported only by scanning articles.content.
     # Keep ordinary backend hunt queries eligible when their target telemetry is
-    # explicit, but never use captured Sigma YAML to generate another rule.
+    # explicit (extractor-supplied, or inferred from the query's own schema table by
+    # _infer_hunt_query_telemetry_category), but never use captured Sigma YAML to
+    # generate another rule.
     if obs.get("type") == "hunt_queries" and _hunt_query_artifact_type(obs) == "sigma":
         return False
     platform = _normalize_platform_value(obs.get("platform"))
