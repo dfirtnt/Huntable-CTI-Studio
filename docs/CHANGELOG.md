@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **VMRay Blog source disabled due to CloudFront-level access blocking** (2026-09-27): VMRay has implemented infrastructure-level bot-protection that blocks all content paths (`/blog/`, `/blog/feed/`, `/wp-json/`, `/robots.txt`, `/sitemap.xml`) with HTTP 403 Forbidden while allowing only the homepage. The source accumulated 166 consecutive failures with zero articles collected. Diagnostic probes confirmed this is intentional access restriction at the CloudFront/nginx level, not bypassable via config changes. The source is now deactivated in both the database and `config/sources.yaml` to prevent continued failure spam. Can be re-enabled if VMRay removes access restrictions in the future. Diagnosis log and rollback snapshot retained in `logs/source_healing/`.
+
 ## [7.9.0 "Europa"] - 2026-09-25
 ### Added
 - **Publisher-authored Sigma passthrough with enforceable provenance** (2026-09-24): a deterministic, LLM-free scanner now finds complete Sigma mappings directly in `articles.content`, preserves the exact source substring and records article/source IDs, SHA-256, extraction offsets, license evidence and attribution. Source rules bypass generation and batch deduplication, receive reviewer-only similarity context, and remain immutable; edits happen on a generated copy. The queue adds a first-class `local_review_only` state and prominent provenance UI. Server-side single/bulk approval and the final PR preflight fail closed unless the destination repository explicitly allowlists the source license or a reviewer records source-specific permission; mixed PR batches are rejected before any Git/GitHub side effect. The schema migration and existing-article backfill are explicit, dry-run-by-default operator steps rather than startup mutations.
