@@ -298,6 +298,10 @@ function renderQueue() {
         const sourceBadge = rule.rule_origin === 'source_provided'
             ? `<span class="q-badge source-provided" title="Publisher-authored source rule; original YAML is immutable">Source Provided${rule.declared_license ? ` · ${escapeHtml(rule.declared_license)}` : ''}</span>`
             : '';
+        const ciFindings = Array.isArray(rule.ci_parity_findings) ? rule.ci_parity_findings : [];
+        const ciBadge = ciFindings.length
+            ? `<span class="q-badge rejected" data-testid="ci-parity-badge" title="${escapeHtml('Destination CI would reject this rule:\n' + ciFindings.map(f => '- ' + f.message).join('\n'))}">CI FAIL · ${ciFindings.length}</span>`
+            : '';
         const rowClass = isSelected ? ' class="q-row-selected"' : '';
         const checked = isSelected ? ' checked' : '';
         const canActOn = (rule.status === 'pending' || rule.status === 'needs_review') && rule.delivery_eligible !== false;
@@ -328,7 +332,7 @@ function renderQueue() {
                 <td class="q-cell-sim">
                     ${typeof rule.max_similarity === 'number' ? (rule.max_similarity * 100).toFixed(1) + '%' : '-'}
                 </td>
-                <td>${getQueueStatusBadge(rule.status)}</td>
+                <td>${getQueueStatusBadge(rule.status)}${ciBadge ? `<div style="margin-top:4px">${ciBadge}</div>` : ''}</td>
                 <td class="q-cell-date">${formatLocalDateTime(rule.created_at)}</td>
                 <td><div class="q-actions-cell">
                     <button onclick="previewRule(${rule.id})" class="q-action preview">Preview</button>${inlineActions}<button onclick="deleteQueueRule(${rule.id})" class="q-action delete" title="Delete">${deleteIcon}</button>
@@ -641,6 +645,17 @@ function renderRulePreview(rule, observablesData) {
         </section>
     ` : '';
 
+    const ciFindingsDetail = Array.isArray(rule.ci_parity_findings) ? rule.ci_parity_findings : [];
+    const ciParityHtml = ciFindingsDetail.length ? `
+        <section class="rounded-lg border border-red-500/40 bg-red-950/20 p-3" data-testid="ci-parity-findings">
+            <div class="font-semibold text-red-300">Destination CI would reject this rule</div>
+            <ul class="list-disc pl-5 text-sm">
+                ${ciFindingsDetail.map(f => `<li><code>${escapeHtml(f.check)}</code> — ${escapeHtml(f.message)}</li>`).join('')}
+            </ul>
+            <div class="text-xs text-red-200/80 mt-1">Submit PR is blocked while this rule is approved. Reject it or set it back to pending.</div>
+        </section>
+    ` : '';
+
     const yamlSection = isEditMode ? `
         <div class="mt-4">
             <div class="flex justify-between items-center mb-2">
@@ -665,6 +680,7 @@ function renderRulePreview(rule, observablesData) {
         <div class="space-y-4 text-gray-600 dark:text-gray-300">
             <div><strong>Rule ID:</strong> ${rule.id}</div>
             ${provenanceHtml}
+            ${ciParityHtml}
             ${platformBadge ? `<div><strong>Platform:</strong> ${platformBadge}</div>` : ''}
             <div><strong>Article:</strong> ${rule.article_id ? `<a href="/articles/${rule.article_id}" class="text-purple-600">${escapeHtml(rule.article_title || 'Article ' + rule.article_id)}</a>` : '<span class="italic" style="color: var(--text-muted-slate)">None (hand-authored draft)</span>'}</div>
             ${Number.isInteger(rule.workflow_execution_id) ? `<div><strong>Job:</strong> <a href="#executions" class="text-purple-600" onclick="closeModal(); switchTab('executions'); setTimeout(() => viewExecution(${rule.workflow_execution_id}), 100); return false;" title="Open workflow execution ${rule.workflow_execution_id}">Execution #${rule.workflow_execution_id}</a></div>` : ''}
@@ -878,6 +894,18 @@ async function rejectRule(ruleId) {
     }
 }
 
+function formatSubmitBlocked(detail) {
+    const lines = [`❌ ${detail.message || 'PR submission blocked.'}`];
+    (detail.rules || []).forEach(r => lines.push(`Rule #${r.id}: ${r.reason}`));
+    const failures = detail.ci_failures || [];
+    failures.slice(0, 8).forEach(f => {
+        lines.push(`Rule #${f.id}${f.title ? ' (' + f.title + ')' : ''}: ${f.findings.map(x => x.message).join('; ')}`);
+    });
+    if (failures.length > 8) lines.push(`…and ${failures.length - 8} more rule(s) failing CI checks.`);
+    lines.push('Reject or un-approve the listed rules, then submit again.');
+    return lines.join('\n');
+}
+
 async function submitPR() {
     const btn = document.getElementById('submitPRBtn');
     if (!btn) return;
@@ -904,7 +932,10 @@ async function submitPR() {
         
         const result = await response.json();
         
-        if (result.success) {
+        if (response.status === 409 && result.detail && typeof result.detail === 'object') {
+            showNotification(formatSubmitBlocked(result.detail), 'error');
+            await loadQueue();
+        } else if (result.success) {
             showNotification('PR created successfully. Rules: ' + result.rules_count, 'success');
             // Reload queue to show updated status
             await loadQueue();

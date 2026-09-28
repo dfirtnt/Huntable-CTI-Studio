@@ -52,6 +52,7 @@ from src.services.llm_provider_clients import (
     load_workflow_provider_settings,
     post_anthropic_with_retry,
 )
+from src.services.sigma_ci_parity import check_rule_ci_parity, destination_blocking_config, toolchain_drift
 from src.services.sigma_matching_service import SigmaMatchingService
 from src.services.sigma_pr_service import SigmaPRService
 from src.services.sigma_validator import validate_sigma_rule
@@ -447,6 +448,9 @@ class QueuedRuleResponse(BaseModel):
     source_permission_granted_at: str | None
     delivery_eligible: bool
     delivery_eligibility_reason: str
+    # Reasons the destination repo's CI would reject this rule; only computed for approved,
+    # unsubmitted rows (what submit-pr would publish). Empty means "passes" or "not checked".
+    ci_parity_findings: list[dict[str, str]] = []
     similarity_scores: list[dict[str, Any]] | None
     max_similarity: float | None
     behavioral_matches_found: int | None = None
@@ -538,6 +542,24 @@ def _source_delivery_decision(rule: SigmaRuleQueueTable, repo_path=None):
         return evaluate_source_rule_delivery(rule, Path("."))
     destination = repo_path or SigmaPRService().repo_path
     return evaluate_source_rule_delivery(rule, destination)
+
+
+def _ci_parity_findings(rule: SigmaRuleQueueTable, config_path: Path) -> list[dict[str, str]]:
+    """CI-parity findings for one queued rule, as JSON-ready dicts."""
+    return [f.as_dict() for f in check_rule_ci_parity(rule.rule_yaml or "", config_path=config_path)]
+
+
+def _ci_parity_failures(rules: list[SigmaRuleQueueTable], repo_path: Path) -> list[dict[str, Any]]:
+    """Per-rule CI-parity failures for a batch; rules that pass are omitted."""
+    config_path = destination_blocking_config(repo_path)
+    failures = []
+    for rule in rules:
+        findings = _ci_parity_findings(rule, config_path)
+        if findings:
+            metadata = getattr(rule, "rule_metadata", None)
+            title = metadata.get("title") if isinstance(metadata, dict) else None
+            failures.append({"id": rule.id, "title": title, "findings": findings})
+    return failures
 
 
 def _enforce_source_delivery(rule: SigmaRuleQueueTable, repo_path=None) -> None:
@@ -880,6 +902,7 @@ def list_queued_rules(
             result = []
             matching_service = None  # Lazy initialization
             source_repo_path = None  # Resolve once per response, and only if a source row is present.
+            ci_config_path = None  # Resolved lazily, only if an approved unsubmitted row is present.
 
             for rule in rules:
                 # Get article title
@@ -887,6 +910,12 @@ def list_queued_rules(
                 if rule.rule_origin == SOURCE_ORIGIN and source_repo_path is None:
                     source_repo_path = SigmaPRService().repo_path
                 delivery = _source_delivery_decision(rule, source_repo_path)
+
+                ci_findings: list[dict[str, str]] = []
+                if rule.status == "approved" and not rule.pr_submitted:
+                    if ci_config_path is None:
+                        ci_config_path = destination_blocking_config(SigmaPRService().repo_path)
+                    ci_findings = _ci_parity_findings(rule, ci_config_path)
 
                 # Recompute on-the-fly only for legacy/never-scored rows. A row with
                 # evidence columns set but max_similarity=None is *inconclusive*
@@ -963,6 +992,7 @@ def list_queued_rules(
                         ),
                         delivery_eligible=delivery.eligible,
                         delivery_eligibility_reason=delivery.reason,
+                        ci_parity_findings=ci_findings,
                         similarity_scores=rule.similarity_scores,
                         max_similarity=max_similarity,
                         behavioral_matches_found=rule.behavioral_matches_found,
@@ -3023,6 +3053,34 @@ def get_similar_rules_for_queued_rule(request: Request, queue_id: int, force: bo
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+@router.get("/submit-pr/preflight")
+def preflight_submit_pr():
+    """Dry run of the submit-pr checks: what would block, without any git or GitHub side effect."""
+    db_session = DatabaseManager().get_session()
+    try:
+        approved_rules = (
+            db_session.query(SigmaRuleQueueTable)
+            .filter(SigmaRuleQueueTable.status == "approved", SigmaRuleQueueTable.pr_submitted.is_(False))
+            .all()
+        )
+        pr_service = SigmaPRService()
+        blocked = []
+        for rule in approved_rules:
+            decision = _source_delivery_decision(rule, pr_service.repo_path)
+            if not decision.eligible:
+                blocked.append({"id": rule.id, "reason": decision.reason})
+        ci_failures = _ci_parity_failures(approved_rules, pr_service.repo_path)
+        return {
+            "ready": bool(approved_rules) and not blocked and not ci_failures,
+            "rules_checked": len(approved_rules),
+            "rules": blocked,
+            "ci_failures": ci_failures,
+            "toolchain_drift": toolchain_drift(pr_service.repo_path),
+        }
+    finally:
+        db_session.close()
+
+
 @router.post("/submit-pr")
 def submit_pr_for_approved_rules(request: Request):
     """Submit all approved rules as a GitHub PR."""
@@ -3056,10 +3114,20 @@ def submit_pr_for_approved_rules(request: Request):
                 decision = _source_delivery_decision(rule, pr_service.repo_path)
                 if not decision.eligible:
                     blocked.append({"id": rule.id, "reason": decision.reason})
-            if blocked:
+            ci_failures = _ci_parity_failures(approved_rules, pr_service.repo_path)
+            if blocked or ci_failures:
+                reasons = []
+                if blocked:
+                    reasons.append("source delivery policy")
+                if ci_failures:
+                    reasons.append("the destination repository's CI checks")
                 raise HTTPException(
                     status_code=409,
-                    detail={"message": "PR submission blocked by source delivery policy.", "rules": blocked},
+                    detail={
+                        "message": f"PR submission blocked by {' and '.join(reasons)}.",
+                        "rules": blocked,
+                        "ci_failures": ci_failures,
+                    },
                 )
 
             # Prepare rules for PR service
