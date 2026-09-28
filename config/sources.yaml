@@ -75,13 +75,15 @@ sources:
         author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
     description: "MITRE ATT&CK technique analysis and threat simulation intelligence (Web scraping only)"
 
-  # VMRay Blog — primary feed is blog/feed/; if empty try https://www.vmray.com/feed/
+  # VMRay Blog — DISABLED 2026-09-27: CloudFront-level blocking prevents all collection
+  # Primary feed (blog/feed/) returns 403 Forbidden; all content paths blocked.
+  # Re-enable only if VMRay removes infrastructure-level access restrictions.
   - id: "vmray_blog"
     name: "VMRay Blog"
     url: "https://www.vmray.com/blog/"
     rss_url: "https://www.vmray.com/blog/feed/"
     check_frequency: 1800  # 30 minutes (overrides 4h default)
-    active: true
+    active: false
     config:
       allow: ["vmray.com"]
       post_url_regex: ["^https://www\\.vmray\\.com/blog/.*"]
