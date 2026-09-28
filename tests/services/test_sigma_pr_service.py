@@ -152,6 +152,15 @@ class TestRunGitCommand:
         assert returncode == 1
         assert stderr == "fatal: error"
 
+    def test_git_trusts_only_the_configured_repo_path(self):
+        """Bind-mounted repos can trip 'dubious ownership'; the service trusts exactly its own path."""
+        ok = MagicMock(returncode=0, stdout="", stderr="")
+        with patch("subprocess.run", return_value=ok) as run:
+            self.svc._run_git_command(["status"])
+        argv = run.call_args.args[0]
+        assert argv[:3] == ["git", "-c", "safe.directory=/tmp/fake-repo"]
+        assert argv[3:] == ["status"]
+
     def test_timeout_propagates_as_runtime_error(self):
         """subprocess.TimeoutExpired propagates as RuntimeError, not swallowed."""
         with patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="git status", timeout=60)):

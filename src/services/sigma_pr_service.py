@@ -293,7 +293,9 @@ class SigmaPRService:
         """
         try:
             result = subprocess.run(
-                ["git"] + cmd,
+                # The customer repo is a bind mount whose reported owner can differ from the
+                # container user, which trips git's "dubious ownership" check. Trust only this path.
+                ["git", "-c", f"safe.directory={self.repo_path}"] + cmd,
                 cwd=self.repo_path,
                 capture_output=True,
                 text=True,
@@ -449,7 +451,10 @@ class SigmaPRService:
         if not self._configure_remote_auth():
             return {
                 "valid": False,
-                "error": "Could not remove and verify credentials in the origin remote URL.",
+                "error": (
+                    "Could not read the origin remote URL or verify it holds no credentials "
+                    "(see server log for the git error)."
+                ),
             }
 
         base_branch = self._resolve_default_base_branch()
