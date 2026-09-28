@@ -94,7 +94,13 @@ are stripped before publication. Each issue is an error prefixed `SigmaHQ <Issue
 full list is in `metadata["sigmahq"]["issues"]`; when the plugin is not installed the layer
 reports `metadata["sigmahq"]["available"] == False` and validation falls back to pySigma
 plus the policy pass. Keep the YAML in step with the rules repository so a queue-approved rule
-cannot fail the PR check.
+cannot fail the PR check -- with one deliberate exception: `sigmahq_logsource_unknown` is
+advisory in the rules repository (a logsource SigmaHQ has no pipeline for, e.g. Okta or IIS,
+is still valid Sigma) but stays blocking here, because this validator also guards
+LLM-generated rules against a hallucinated category/product pair. Source-provided rules,
+which bypass this generation-time layer entirely, are checked against the destination
+repository's own config instead -- see the
+[source-provided Sigma import contract](../contracts/source-provided-sigma.md#ci-parity-gate).
 
 ### ATT&CK Tag Validation
 
@@ -526,7 +532,7 @@ Rules that pass generation and similarity scoring are placed in the **Sigma Queu
 |---|---|---|
 | `pending` | grey | Scored rule awaiting review; similarity comparator produced a confident result (including a confident zero when the corpus is empty) |
 | `needs_review` | yellow | Comparator was **inconclusive** — candidates were evaluated but none produced behavioral matches; similarity is unscored (`max_similarity = null`) |
-| `approved` | green | Human accepted the rule; eligible for GitHub PR submission |
+| `approved` | green | Human accepted the rule; eligible for GitHub PR submission unless it also fails the destination repository's CI checks (see [Submit PR](#submit-pr) below) |
 | `rejected` | red | Human discarded the rule |
 | `submitted` | blue | Rule has been submitted to the GitHub repository as a PR |
 
@@ -633,6 +639,33 @@ No body required.
 ```
 
 Valid actions: `approve`, `reject`, `delete`, `set_status`.
+
+#### Submit PR
+
+**`POST /api/sigma-queue/submit-pr`**
+
+Submits every `approved`, not-yet-`pr_submitted` rule as one GitHub PR. Before any git or
+GitHub side effect, the whole batch is checked atomically: the source-delivery policy (license
+and permission, source-provided rules only) and the destination repository's CI-parity gate
+(all rules — duplicate YAML keys, pySigma parse errors, and its blocking validator set). One
+ineligible rule blocks the entire batch and returns `409`:
+
+```json
+{
+  "detail": {
+    "message": "PR submission blocked by ...",
+    "rules": [{ "id": 12, "reason": "..." }],
+    "ci_failures": [{ "id": 34, "title": "...", "findings": [{ "check": "blocking_validator", "message": "..." }] }]
+  }
+}
+```
+
+**`GET /api/sigma-queue/submit-pr/preflight`** runs the same checks as a dry run, with no
+git or GitHub side effect, and additionally reports `toolchain_drift`: packages pinned in the
+destination's `requirements-ci.txt` that differ from what this app has installed.
+
+The queue list flags each approved, unsubmitted row with `ci_parity_findings`; the UI shows a
+"CI FAIL" badge on the row and the findings in the rule preview.
 
 ---
 
