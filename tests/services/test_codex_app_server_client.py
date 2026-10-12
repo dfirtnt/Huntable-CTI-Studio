@@ -116,6 +116,31 @@ async def test_list_models_keeps_every_visible_numbered_generation_and_drops_cod
     assert await client.list_models() == ["gpt-6.1-sol", "gpt-6-luna", "gpt-5.6-sol"]
 
 
+@pytest.mark.asyncio
+async def test_list_models_without_a_default_flag_and_with_id_only_entries():
+    """Entries may carry only ``id``; with no isDefault the numbered models are still listed
+    and a codename-only catalog yields an empty picker rather than leaking codenames."""
+
+    def client_for(data):
+        client = CodexAppServerClient(timeout=15.0)
+        client._start = AsyncMock()
+        client._close = AsyncMock()
+        client._rpc = AsyncMock(side_effect=[{}, {"data": data}])
+        return client
+
+    mixed = client_for(
+        [
+            {"id": "gpt-6-luna", "hidden": False},
+            {"id": "gpt-daybreak-blue-latest", "hidden": False},
+            {"id": "gpt-5.6-terra", "hidden": False},
+        ]
+    )
+    assert await mixed.list_models() == ["gpt-6-luna", "gpt-5.6-terra"]
+
+    only_codenames = client_for([{"id": "gpt-daybreak-blue-latest", "hidden": False}])
+    assert await only_codenames.list_models() == []
+
+
 @pytest.mark.parametrize(
     ("model_id", "expected"),
     [

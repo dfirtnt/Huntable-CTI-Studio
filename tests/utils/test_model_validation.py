@@ -1,8 +1,11 @@
 """Tests for src.utils.model_validation."""
 
+import ast
 import re
+from pathlib import Path
 
 from src.utils.model_validation import (
+    _OPENAI_REASONING_PREFIXES,
     OPENAI_DATED,
     PROJECT_OPENAI_ALLOWLIST,
     _anthropic_family,
@@ -433,3 +436,17 @@ class TestModelSupportsVariableTemperature:
         for model in PROJECT_OPENAI_ALLOWLIST:
             assert model in expected, f"{model} added to allowlist but not in temperature expectation map"
             assert model_supports_variable_temperature(model) is expected[model], model
+
+
+class TestReasoningPrefixMirror:
+    """config.js documents OPENAI_REASONING_PREFIXES as a mirror of the Python tuple.
+
+    A prefix added on one side only makes the UI enable the Temperature slider for a
+    model the server then rejects with a 400 (or the reverse), so keep them identical.
+    """
+
+    def test_js_reasoning_prefixes_match_python(self):
+        js = (Path(__file__).resolve().parents[2] / "src/web/static/js/workflow/config.js").read_text()
+        match = re.search(r"const OPENAI_REASONING_PREFIXES = (\[[^\]]*\]);", js)
+        assert match, "OPENAI_REASONING_PREFIXES not found in config.js"
+        assert tuple(ast.literal_eval(match.group(1))) == _OPENAI_REASONING_PREFIXES
