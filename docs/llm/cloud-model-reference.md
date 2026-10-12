@@ -37,6 +37,11 @@ Source: platform.openai.com/docs/models (2026-09-03).
 
 | Model | Context Window | Max Output Tokens | API Params |
 |-------|----------------|-------------------|------------|
+| **GPT-6 series** | | | |
+| gpt-6.1-sol | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
+| gpt-6-sol | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
+| gpt-6-luna | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
+| gpt-6-astra | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
 | **GPT-5 series** | | | |
 | gpt-5.6-luna | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
 | gpt-5.6-sol | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |

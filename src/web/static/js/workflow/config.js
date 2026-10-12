@@ -4364,7 +4364,7 @@ function validateAllTemperatureInputs() {
 }
 
 // OpenAI reasoning models that reject variable temperature -- mirrors _OPENAI_REASONING_PREFIXES in model_validation.py.
-const OPENAI_REASONING_PREFIXES = ['o1', 'o3', 'o4-mini', 'o4-', 'o4', 'gpt-5'];
+const OPENAI_REASONING_PREFIXES = ['o1', 'o3', 'o4-mini', 'o4-', 'o4', 'gpt-5', 'gpt-6'];
 
 function isOpenAIReasoningModel(modelName) {
     if (!modelName) return false;

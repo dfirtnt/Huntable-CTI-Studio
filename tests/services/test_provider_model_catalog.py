@@ -238,7 +238,7 @@ class TestUpdateProviderModels:
         with patch.object(catalog_module, "CATALOG_PATH", path):
             # Save a broad list (raw, unfiltered)
             update_provider_models("openai", ["gpt-4o", "o1", "gpt-5", "o4-mini"])
-            # Reload -- filter chain should narrow; gpt-5 passes via _GPT5_PATTERN
+            # Reload -- filter chain should narrow; gpt-5 passes via _GPT_FRONTIER_PATTERN
             reloaded = load_catalog()
         assert set(reloaded["openai"]) == {"gpt-4o", "o4-mini", "gpt-5"}
 

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "verified_at": "2026-09-04",
+  "verified_at": "2026-10-12",
   "sources": [
     "https://developers.openai.com/api/docs/models/<model-id>",
     "https://developers.openai.com/api/docs/guides/reasoning",
@@ -387,6 +387,60 @@
         "max"
       ],
       "default_effort": "medium"
+    },
+    "gpt-6-astra": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "default_effort": null,
+      "note": "Docs list low-max with no stated default; temperature/top_p not documented, kept omitted."
+    },
+    "gpt-6-luna": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "default_effort": "medium",
+      "note": "Temperature/top_p not documented on the model page; kept omitted like the gpt-5.6 siblings. Chat Completions function calling only with reasoning_effort none."
+    },
+    "gpt-6-sol": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "default_effort": "medium",
+      "note": "Temperature/top_p not documented on the model page; kept omitted like the gpt-5.6 siblings. Chat Completions function calling only with reasoning_effort none."
+    },
+    "gpt-6.1-sol": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "default_effort": "medium",
+      "note": "none/minimal efforts unsupported; temperature/top_p not documented, kept omitted. Chat Completions has no tool calling (use Responses)."
     },
     "o3": {
       "supports_temperature": false,

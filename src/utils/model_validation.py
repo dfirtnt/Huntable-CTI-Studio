@@ -47,11 +47,11 @@ TEMPERATURE_RANGE_BY_PROVIDER: dict[str, tuple[float, float]] = {
 }
 DEFAULT_TEMPERATURE_RANGE = (0.0, 2.0)
 
-# OpenAI reasoning models (o1, o3, o4, gpt-5.x) only support the default temperature (1.0);
+# OpenAI reasoning models (o1, o3, o4, gpt-5.x, gpt-6.x) only support the default temperature (1.0);
 # sending any temperature value causes a 400 error. These prefixes are now only the
 # fallback for models config/model_capabilities.json does not list -- the catalog entry
 # is authoritative when present (see provider_model_catalog.get_model_capabilities).
-_OPENAI_REASONING_PREFIXES: tuple[str, ...] = ("o1", "o3", "o4-mini", "o4-", "o4", "gpt-5")
+_OPENAI_REASONING_PREFIXES: tuple[str, ...] = ("o1", "o3", "o4-mini", "o4-", "o4", "gpt-5", "gpt-6")
 
 
 def heuristic_supports_variable_temperature(model_name: str) -> bool:
@@ -179,7 +179,7 @@ def filter_openai_models_latest_only(model_ids: list[str]) -> list[str]:
 # actually use. This is narrower than `is_valid_openai_chat_model` (capability check) on
 # purpose — it's the display allowlist for Workflow/Settings dropdowns so users don't
 # pick a model the pipeline was never built against.
-# gpt-5* variants are matched by pattern so new releases only need a catalog update.
+# gpt-5* and gpt-6* variants are matched by pattern so new releases only need a catalog update.
 PROJECT_OPENAI_ALLOWLIST: frozenset[str] = frozenset(
     {
         "gpt-4o-mini",
@@ -193,20 +193,20 @@ PROJECT_OPENAI_ALLOWLIST: frozenset[str] = frozenset(
     }
 )
 
-_GPT5_PATTERN = re.compile(r"^gpt-5", re.IGNORECASE)
+_GPT_FRONTIER_PATTERN = re.compile(r"^gpt-[56]", re.IGNORECASE)
 
 
 def filter_openai_models_project_allowlist(model_ids: list[str]) -> list[str]:
     """
     Narrow an OpenAI model list to only the chat/reasoning models CTIScraper workflows
-    actually use. All gpt-5* variants pass automatically; other models must be
+    actually use. All gpt-5* and gpt-6* variants pass automatically; other models must be
     in the explicit allowlist. Applied in the catalog load path, the /api test-key route,
     and the daily Celery refresh writer so the Workflow dropdown never shows audio/realtime/
     TTS/image/search/moderation/legacy models or unrelated chat models (o1, o3-pro...).
     """
 
     def _allowed(m: str) -> bool:
-        return _GPT5_PATTERN.match(m) is not None or m in PROJECT_OPENAI_ALLOWLIST
+        return _GPT_FRONTIER_PATTERN.match(m) is not None or m in PROJECT_OPENAI_ALLOWLIST
 
     return sorted({m.strip() for m in model_ids if m and _allowed(m.strip())})
 
