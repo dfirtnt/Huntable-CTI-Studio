@@ -38,6 +38,8 @@ QUICKSTART_PRESETS = [
     "Quickstart-openai-gpt-4o-mini.json",
     "Quickstart-openai-gpt-4o.json",
     "Quickstart-openai-gpt-5.json",
+    "Quickstart-openai-gpt-6-luna.json",
+    "Quickstart-codex-gpt-6-luna.json",
 ]
 
 STANDARD_ENVELOPE_KEYS = ("role", "task", "json_example", "instructions")

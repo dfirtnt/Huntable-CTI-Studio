@@ -110,7 +110,7 @@ Relevant API endpoints:
 
 A **preset** is a full workflow config snapshot (thresholds, agent models, and all agent prompts) exported as JSON. You can use one to restore a known-good state or bootstrap a fresh install.
 
-Quickstart presets are in `config/presets/AgentConfigs/quickstart/`. There are 12, covering four providers:
+Quickstart presets are in `config/presets/AgentConfigs/quickstart/`. There are 14, covering four providers:
 
 | File | Provider |
 |------|----------|
@@ -121,7 +121,9 @@ Quickstart presets are in `config/presets/AgentConfigs/quickstart/`. There are 1
 | `Quickstart-openai-gpt-4o-mini.json` | OpenAI / gpt-4o-mini |
 | `Quickstart-openai-gpt-4o.json` | OpenAI / gpt-4o |
 | `Quickstart-openai-gpt-5.json` | OpenAI / gpt-5 |
+| `Quickstart-openai-gpt-6-luna.json` | OpenAI / gpt-6-luna |
 | `Quickstart-codex-gpt-5.6-luna.json` | Codex / gpt-5.6-luna |
+| `Quickstart-codex-gpt-6-luna.json` | Codex / gpt-6-luna |
 | `Quickstart-codex-gpt-5.6-sol.json` | Codex / gpt-5.6-sol |
 | `Quickstart-codex-gpt-5.6-terra.json` | Codex / gpt-5.6-terra |
 | `Quickstart-LMStudio-Qwen3.json` | LM Studio / Qwen 3 (local) |
