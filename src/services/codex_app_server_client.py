@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -105,6 +106,17 @@ def normalize_completed_turn(
     }
 
 
+_MODEL_GENERATION = re.compile(r"^gpt-(\d+)(?:\.(\d+))?(?:-|$)")
+
+
+def _model_generation(model_id: str) -> tuple[int, int] | None:
+    """(major, minor) from ids like gpt-5.6-luna / gpt-6-sol / gpt-6.1-sol; None for codenames."""
+    match = _MODEL_GENERATION.match(model_id)
+    if not match:
+        return None
+    return int(match.group(1)), int(match.group(2) or 0)
+
+
 class CodexAppServerClient:
     """One ephemeral, read-only Codex app-server session per workflow request."""
 
@@ -172,17 +184,13 @@ class CodexAppServerClient:
             and isinstance(item.get("model") or item.get("id"), str)
         ]
         visible.sort(key=lambda item: not bool(item.get("isDefault")))
-        default_model = next((str(item.get("model") or item["id"]) for item in visible if item.get("isDefault")), "")
-        # Codex keeps older models visible during a migration. Present the current
-        # default family instead, so a ChatGPT subscription picker does not offer
-        # deprecated models merely because they remain temporarily runnable.
-        family = default_model.rsplit("-", 1)[0] if "-" in default_model else default_model
+        # Deprecated models are already flagged ``hidden`` by Codex, so the picker trusts
+        # that flag instead of guessing at a "current family" from the default's name
+        # (a default of gpt-6.1-sol would otherwise hide gpt-6-* and the gpt-5.6-* models
+        # that existing configs still use). Ids with no numbered generation are codenames
+        # (e.g. gpt-daybreak-blue-latest) and stay out of the picker.
         current_models = [
-            item
-            for item in visible
-            if not family
-            or str(item.get("model") or item["id"]) in {family, default_model}
-            or str(item.get("model") or item["id"]).startswith(f"{family}-")
+            item for item in visible if _model_generation(str(item.get("model") or item["id"])) is not None
         ]
         details: dict[str, dict[str, Any]] = {}
         for item in current_models:

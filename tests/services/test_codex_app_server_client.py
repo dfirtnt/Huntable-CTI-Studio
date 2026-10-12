@@ -83,13 +83,54 @@ async def test_list_models_uses_visible_models_with_subscription_default_first()
                     {"model": "gpt-5.6-luna", "hidden": False, "isDefault": True},
                     {"model": "hidden", "hidden": True, "isDefault": False},
                     {"id": "gpt-5.6-sol", "hidden": False, "isDefault": False},
-                    {"model": "gpt-5.5", "hidden": False, "isDefault": False},
+                    {"model": "gpt-5.5", "hidden": True, "isDefault": False},
                 ]
             },
         ]
     )
 
     assert await client.list_models() == ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]
+
+
+@pytest.mark.asyncio
+async def test_list_models_keeps_every_visible_numbered_generation_and_drops_codenames():
+    """A gpt-6.1 default must not hide gpt-6-* or the gpt-5.6-* models existing configs use."""
+    client = CodexAppServerClient(timeout=15.0)
+    client._start = AsyncMock()
+    client._close = AsyncMock()
+    client._rpc = AsyncMock(
+        side_effect=[
+            {},
+            {
+                "data": [
+                    {"model": "gpt-6-luna", "hidden": False, "isDefault": False},
+                    {"model": "gpt-6.1-sol", "hidden": False, "isDefault": True},
+                    {"model": "gpt-5.6-sol", "hidden": False, "isDefault": False},
+                    {"model": "gpt-5.5", "hidden": True, "isDefault": False},
+                    {"model": "gpt-daybreak-blue-latest", "hidden": False, "isDefault": False},
+                ]
+            },
+        ]
+    )
+
+    assert await client.list_models() == ["gpt-6.1-sol", "gpt-6-luna", "gpt-5.6-sol"]
+
+
+@pytest.mark.parametrize(
+    ("model_id", "expected"),
+    [
+        ("gpt-5.6-luna", (5, 6)),
+        ("gpt-6-sol", (6, 0)),
+        ("gpt-6.1-sol", (6, 1)),
+        ("gpt-5", (5, 0)),
+        ("gpt-daybreak-blue-latest", None),
+        ("codex-auto-review", None),
+    ],
+)
+def test_model_generation_parses_numbered_ids_only(model_id, expected):
+    from src.services.codex_app_server_client import _model_generation
+
+    assert _model_generation(model_id) == expected
 
 
 @pytest.mark.asyncio
@@ -249,7 +290,7 @@ async def test_list_model_details_preserves_reasoning_effort_tiers_and_default()
                         "defaultReasoningEffort": "low",
                     },
                     {"model": "gpt-5.6-sol", "hidden": False, "isDefault": False},
-                    {"model": "gpt-5.5", "hidden": False, "isDefault": False},
+                    {"model": "gpt-5.5", "hidden": True, "isDefault": False},
                 ]
             },
         ]
