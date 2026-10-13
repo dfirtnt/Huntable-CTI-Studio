@@ -83,6 +83,9 @@ A pair is VALID only if ALL of the following are true:
   ParentProcessName/NewProcessName, EDR process-tree records) constitute explicit creation
   evidence WITHOUT requiring a natural-language verb. See STRUCTURED TELEMETRY EXTRACTION
   below.
+- An arrow-notation chain written as literal article text ("a.exe -> b.exe"; the arrow
+  may be ASCII -> or a Unicode arrow character) is explicit creation evidence WITHOUT a
+  natural-language verb. See EDGE CASES.
 
 ### 2. Both parent and child are named executables
 
@@ -169,8 +172,12 @@ Do NOT extract:
 - Process names reconstructed from command-line examples where lineage is not stated.
 - Pairs derived from code listings, shell commands, or script bodies — a bare command
   shows only the child-side invocation and does not state a parent/child pair.
-- Pairs derived from diagrams, flowcharts, attack-chain graphics, or image captions
-  (including descriptions of those diagrams). Lineage must be in literal text.
+- Pairs derived from images: diagrams, flowcharts, or attack-chain graphics that are NOT
+  present as article text, their captions, and prose descriptions of them ("Figure 3
+  shows the chain from Word to PowerShell"). Lineage must be in literal text.
+  NOT covered by this exclusion: an arrow-notation chain that is itself literal article
+  text, including one written inside an ASCII / box-drawing tree block. That is text,
+  not a graphic -- evaluate it under the arrow-notation EDGE CASES.
 - YARA rules (file-content patterns; they encode no process lineage).
 - Hypothetical / speculative references ("attackers could spawn...", "it is possible...")
   with no tie to the observed intrusion. NOTE: detection/hunting/mitigation prose and
@@ -250,6 +257,16 @@ observability, not interestingness.
   (cmd.exe, powershell.exe) -- SKIP (parent is cmd.exe, blanket omission)
   Apply all standard exclusion rules to each hop independently.
 
+- Arrow chain inside a text tree block: a line of an ASCII / box-drawing tree such as
+  "+-- winword.exe -> PowerShell -> stage.ps1" is literal text, not a diagram. Ignore the
+  leading tree glyphs and indentation, then process each adjacent arrow hop as above:
+  (winword.exe, powershell.exe) -- EXTRACT (built-in normalization)
+  (powershell.exe, stage.ps1) -- SKIP (child is not .exe)
+  A hop to a non-process node ("in-process shellcode", "ZIP", a script, a product name)
+  fails the .exe rule -- SKIP that hop only.
+  A branch glyph or indentation WITHOUT an arrow is layout, not creation evidence: do NOT
+  pair a node with its tree parent on another line.
+
 - Hunt-query lineage: "This query will search for an event where TeamCity process
   (java.exe) creates a process of Windows task management utility (schtasks.exe)"
   followed by the body `Source.Process.Name: ("java.exe") AND
@@ -279,14 +296,15 @@ Apply to EVERY candidate before including it:
 - [ ] Does the PARENT end in .exe? (If no: SKIP immediately)
 - [ ] Are both endpoints Windows image filenames (not product/family/tool names)?
 - [ ] Are both processes explicitly named and resolvable to .exe?
-- [ ] Is there an explicit process-creation verb, OR is the source a structured telemetry block (Sysmon EID 1 ParentImage/Image, 4688 Creator/New Process Name, EDR process-tree fields)?
-- [ ] Are parent, child, and creation evidence in the same narrative statement OR single telemetry block?
+- [ ] Is there an explicit process-creation verb, OR is the source a structured telemetry block (Sysmon EID 1 ParentImage/Image, 4688 Creator/New Process Name, EDR process-tree fields), OR an arrow-notation chain in literal article text?
+- [ ] Are parent, child, and creation evidence in the same narrative statement, single telemetry block, OR single arrow hop?
 - [ ] Does the text clearly indicate a NEW process was created (not injection/hollowing/DLL load)?
 - [ ] Is the source narrative, telemetry, or detection logic that explicitly pairs parent and child (not a bare command listing)?
 - [ ] Is parent NOT cmd.exe after normalization?
 - [ ] Is there zero ambiguity?
 - [ ] Are all four traceability fields populated (value, source_evidence, extraction_justification, confidence_score)?
-- [ ] If source is an arrow-notation chain, is each adjacent pair evaluated as a separate candidate?
+- [ ] If source is an arrow-notation chain (including one inside a text tree block), is each adjacent pair evaluated as a separate candidate?
+- [ ] If the only link between two names is tree indentation / a branch glyph with no arrow: SKIP.
 - [ ] Is this a self-referential hop (parent == child)? (If yes: SKIP)
 
 ---
