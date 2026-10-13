@@ -2872,6 +2872,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
             sigma_rules = []
             group_errors = []
+            groups_with_no_rules = []
             combined_conversation_log = []
             combined_validation_results = []
             total_attempts = 0
@@ -2956,6 +2957,26 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 if group_error and not group_rules:
                     group_errors.append(f"{group_label}: {group_error}")
 
+                # The model answered this group with nothing (it found no rule-worthy behavior
+                # in the group's observables). That is zero rules, not a failure: it must not
+                # reach group_errors, which fails the execution when no sibling produced a rule.
+                group_no_rules = group_metadata.get("no_rules") if not group_rules and not group_error else None
+                if isinstance(group_no_rules, dict):
+                    logger.warning(
+                        f"[Workflow {state['execution_id']}] SIGMA group {group_label} produced no rules: "
+                        f"model {group_no_rules.get('model')!r} returned an empty reply "
+                        f"({group_no_rules.get('detail')})"
+                    )
+                    groups_with_no_rules.append(
+                        {
+                            "group": group_label,
+                            "platform": group["platform"],
+                            "telemetry_category": group["telemetry_category"],
+                            "observable_indices": group["original_indices"],
+                            **group_no_rules,
+                        }
+                    )
+
                 for entry in group_metadata.get("conversation_log", []) or []:
                     if isinstance(entry, dict):
                         entry = {
@@ -2983,6 +3004,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         "rehomed_rules": len(rehomed_group_rules),
                         "dropped_rules": len(group_rules) - len(kept_group_rules) - len(rehomed_group_rules),
                         "error": group_error if group_error and not group_rules else None,
+                        "no_rules": group_no_rules if isinstance(group_no_rules, dict) else None,
                         # A Phase 4 expansion failure is non-fatal for the group, so it never
                         # reaches `error`. Carry it separately, otherwise a group that lost every
                         # expansion rule is indistinguishable from a fully successful one.
@@ -3062,6 +3084,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         # `errors` (fatal-only) is null -- the operator can otherwise not tell a
                         # group died from a clean run.
                         "group_errors": group_error_summary,
+                        # Groups the model answered with an empty reply: zero rules, not errors.
+                        "groups_with_no_rules": groups_with_no_rules,
                         "total_attempts": sigma_metadata.get(
                             "total_attempts", len(conversation_log) if conversation_log else 0
                         ),
@@ -3100,13 +3124,25 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
             logger.info(f"[Workflow {state['execution_id']}] Generated {len(sigma_rules)} SIGMA rules")
 
+            termination_reason = state.get("termination_reason")
+            termination_details = state.get("termination_details")
+            if not sigma_rules and groups_with_no_rules and termination_reason is None:
+                # Every group came back empty-handed: the run completes with zero rules and
+                # says why, instead of the generic {"generated_rules": 0}.
+                termination_reason = TERMINATION_REASON_NO_SIGMA_RULES
+                termination_details = {
+                    "reason": "Model returned no rules for any Sigma generation group",
+                    "generated_rules": 0,
+                    "groups_with_no_rules": groups_with_no_rules,
+                }
+
             return {
                 **state,
                 "sigma_rules": sigma_rules,
                 "current_step": "generate_sigma",
                 "status": state.get("status", "running"),
-                "termination_reason": state.get("termination_reason"),
-                "termination_details": state.get("termination_details"),
+                "termination_reason": termination_reason,
+                "termination_details": termination_details,
             }
 
         except Exception as e:

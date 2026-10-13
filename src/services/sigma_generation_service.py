@@ -13,6 +13,7 @@ from typing import Any
 
 import yaml
 
+from src.services.codex_app_server_client import CodexEmptyAgentMessageError
 from src.services.llm_service import LLMService
 from src.services.sigma_validator import (
     SIGMA_GROUNDING_METADATA_FIELDS,
@@ -26,6 +27,20 @@ from src.utils.llm_optimizer import optimize_article_content
 logger = logging.getLogger(__name__)
 
 SIGMA_RULE_AUTHOR = "Huntable CTI Studio"
+
+
+class SigmaEmptyResponseError(ValueError):
+    """The provider answered a SIGMA generation call with no text.
+
+    A ValueError subclass so existing handlers keep working; the Phase 1 caller catches it
+    (with Codex's CodexEmptyAgentMessageError) and reports "zero rules" instead of a failure.
+    """
+
+
+# Recorded on the generation result (metadata["no_rules"]["reason"]) when the model replied
+# with nothing: the prompt tells it to write rules only for durable behavior, so an observable
+# group holding nothing but atomic indicators (domains, URLs) has no permitted answer.
+SIGMA_NO_RULES_EMPTY_REPLY = "model_returned_empty_reply"
 
 # Optional top-level Sigma fields preserved from the generated YAML into the stored rule
 # dict (and therefore the queue YAML).
@@ -636,13 +651,25 @@ class SigmaGenerationService:
 
             # Phase 1: Multi-rule generation (structurally constrained)
             logger.info("Phase 1: Multi-rule generation")
-            generated_yaml = await self._generate_multi_rules(
-                sigma_prompt=sigma_prompt,
-                sigma_system_prompt=sigma_system_prompt,
-                ai_model=ai_model,
-                execution_id=execution_id,
-                article_id=article_id,
-            )
+            try:
+                generated_yaml = await self._generate_multi_rules(
+                    sigma_prompt=sigma_prompt,
+                    sigma_system_prompt=sigma_system_prompt,
+                    ai_model=ai_model,
+                    execution_id=execution_id,
+                    article_id=article_id,
+                )
+            except (SigmaEmptyResponseError, CodexEmptyAgentMessageError) as empty_reply:
+                # An empty reply is the model declining to write a rule, not a provider fault
+                # (executions 26, 37-40: network_connection groups holding only C2 domains/URLs
+                # under a "behavior over IOC" prompt). It means zero rules for this call.
+                return self._empty_reply_result(
+                    empty_reply,
+                    ai_model=ai_model,
+                    sigma_prompt=sigma_prompt,
+                    sigma_system_prompt=sigma_system_prompt,
+                    extraction_result=extraction_result,
+                )
 
             # Phase 2: Validation & Categorization
             logger.info("Phase 2: Validation & categorization")
@@ -896,6 +923,63 @@ class SigmaGenerationService:
                 "metadata": {"conversation_log": failure_log, "total_attempts": 1},
                 "errors": str(e),
             }
+
+    def _empty_reply_result(
+        self,
+        empty_reply: Exception,
+        *,
+        ai_model: str,
+        sigma_prompt: str,
+        sigma_system_prompt: str | None,
+        extraction_result: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        """Result for a Phase 1 call the model answered with no text: zero rules, no error."""
+        provider = self._resolve_sigma_provider(ai_model)
+        model_name = self.llm_service.model_sigma or self.llm_service.provider_defaults.get(provider)
+        group = extraction_result.get("sigma_generation_group") if isinstance(extraction_result, dict) else None
+        group_key = (
+            f"{group.get('platform')}:{group.get('telemetry_category')}" if isinstance(group, dict) else "ungrouped"
+        )
+        logger.warning(
+            f"SIGMA generation: model {model_name!r} ({provider}) returned an empty reply for group "
+            f"{group_key}; treating as zero rules. Detail: {empty_reply}"
+        )
+        no_rules = {
+            "reason": SIGMA_NO_RULES_EMPTY_REPLY,
+            "detail": str(empty_reply),
+            "provider": provider,
+            "model": model_name,
+        }
+        return {
+            "rules": [],
+            "metadata": {
+                "total_attempts": 1,
+                "valid_rules": 0,
+                "validation_results": [],
+                "conversation_log": [
+                    {
+                        "event_type": "generation_call",
+                        "generation_phase": "generation",
+                        "attempt": 1,
+                        "messages": [
+                            {
+                                "role": "system",
+                                "content": _truncate_trace_text(
+                                    sigma_system_prompt or DEFAULT_SIGMA_SYSTEM_PROMPT, _TRACE_MESSAGE_MAX_CHARS
+                                ),
+                            },
+                            {"role": "user", "content": _truncate_trace_text(sigma_prompt, _TRACE_MESSAGE_MAX_CHARS)},
+                        ],
+                        "llm_response": "",
+                        "generated_rule_count": 0,
+                        "no_rules": no_rules,
+                    }
+                ],
+                "expansion_error": None,
+                "no_rules": no_rules,
+            },
+            "errors": None,
+        }
 
     def _resolve_sigma_provider(self, ai_model: str) -> str:
         """The provider a generation call will really use.
@@ -1407,7 +1491,7 @@ Focus on generating rules for the uncovered categories listed above."""
 
                 if not output or len(output.strip()) == 0:
                     logger.error("LLM returned empty response for SIGMA generation")
-                    raise ValueError(
+                    raise SigmaEmptyResponseError(
                         "LLM returned empty response for SIGMA generation. Check the configured provider is responding correctly."
                     )
 

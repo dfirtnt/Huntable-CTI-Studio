@@ -11,6 +11,7 @@ from src.services.codex_app_server_client import (
     CODEX_STREAM_LIMIT,
     CodexAppServerClient,
     CodexAppServerError,
+    CodexEmptyAgentMessageError,
     messages_to_codex_input,
     normalize_completed_turn,
 )
@@ -240,6 +241,79 @@ async def test_read_completed_turn_rejects_missing_agent_text():
 
     with pytest.raises(CodexAppServerError, match="without an agent message"):
         await client._read_completed_turn("gpt-5.6-luna")
+
+
+def _scripted_client(*messages):
+    client = CodexAppServerClient(timeout=15.0)
+    client._pending_notifications = []
+    client._read_message = AsyncMock(side_effect=list(messages))
+    return client
+
+
+_EMPTY_TURN_COMPLETED = {"method": "turn/completed", "params": {"turn": {"status": "completed", "items": []}}}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("text", ["", "  \n"])
+async def test_read_completed_turn_flags_empty_agent_message_distinctly(text):
+    """Executions 26/37-40: the model DID answer (item/completed delivered an agentMessage) but
+    with no text. That is not the same outcome as a turn with no agentMessage at all, and the
+    old message ("Turn carried no items") said the opposite of what happened."""
+    client = _scripted_client(
+        {"method": "item/completed", "params": {"item": {"type": "reasoning", "id": "r1"}}},
+        {"method": "item/completed", "params": {"item": {"type": "agentMessage", "text": text}}},
+        _EMPTY_TURN_COMPLETED,
+    )
+
+    with pytest.raises(CodexEmptyAgentMessageError) as excinfo:
+        await client._read_completed_turn("gpt-5.6-luna")
+
+    message = str(excinfo.value)
+    assert "empty agent message" in message
+    assert "gpt-5.6-luna" in message
+    assert "agentMessage" in message
+    assert "no items" not in message.lower()
+    # Still a CodexAppServerError, so callers that do not special-case it keep failing closed.
+    assert isinstance(excinfo.value, CodexAppServerError)
+
+
+@pytest.mark.asyncio
+async def test_read_completed_turn_without_any_agent_message_is_not_an_empty_reply():
+    """A reasoning-only / refused / throttled turn must keep raising the generic error."""
+    client = _scripted_client(
+        {"method": "item/completed", "params": {"item": {"type": "reasoning", "id": "r1"}}},
+        _EMPTY_TURN_COMPLETED,
+    )
+
+    with pytest.raises(CodexAppServerError, match="without an agent message") as excinfo:
+        await client._read_completed_turn("gpt-5.6-luna")
+
+    assert not isinstance(excinfo.value, CodexEmptyAgentMessageError)
+    # Item types seen only in notifications are now part of the forensic trace.
+    assert "Turn items: reasoning." in str(excinfo.value)
+
+
+@pytest.mark.asyncio
+async def test_read_completed_turn_failed_turn_with_empty_agent_message_still_raises_the_failure():
+    client = _scripted_client(
+        {"method": "item/completed", "params": {"item": {"type": "agentMessage", "text": ""}}},
+        {
+            "method": "turn/completed",
+            "params": {"turn": {"status": "failed", "error": {"message": "usage limit reached"}}},
+        },
+    )
+
+    with pytest.raises(CodexAppServerError, match="usage limit reached") as excinfo:
+        await client._read_completed_turn("gpt-5.6-luna")
+
+    assert not isinstance(excinfo.value, CodexEmptyAgentMessageError)
+
+
+def test_normalize_completed_turn_empty_agent_message_listed_in_turn_items():
+    with pytest.raises(CodexEmptyAgentMessageError):
+        normalize_completed_turn(
+            {"status": "completed", "items": [{"type": "agentMessage", "text": ""}]}, "", "gpt-5.6-luna"
+        )
 
 
 @pytest.mark.asyncio

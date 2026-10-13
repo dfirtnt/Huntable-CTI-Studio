@@ -18,6 +18,16 @@ class CodexAppServerError(RuntimeError):
     """A Codex app-server request could not be completed."""
 
 
+class CodexEmptyAgentMessageError(CodexAppServerError):
+    """The turn completed and the model's agentMessage carried no text.
+
+    Distinct from a turn with no agentMessage at all (refusal, reasoning-only or throttled
+    turn): here the model answered, and the answer was empty. Callers that can treat "nothing
+    to say" as a valid outcome (SIGMA generation for an observable group with no rule-worthy
+    behavior) catch this subclass; everything else still sees a CodexAppServerError.
+    """
+
+
 # asyncio's default StreamReader limit is 64 KiB. Codex echoes turn input back in
 # `item/completed` / `turn/completed` notifications, so a large SIGMA prompt produces a
 # single JSON-RPC line well past that and readline() fails the whole turn.
@@ -70,20 +80,37 @@ def _normalize_reasoning_efforts(raw: Any) -> list[dict[str, str]]:
 
 
 def normalize_completed_turn(
-    turn: dict[str, Any], agent_text: str, model_name: str, effort: str | None = None
+    turn: dict[str, Any],
+    agent_text: str,
+    model_name: str,
+    effort: str | None = None,
+    *,
+    seen_item_types: set[str] | None = None,
 ) -> dict[str, Any]:
-    """Map Codex turn events into the OpenAI-compatible shape LLMService consumes."""
+    """Map Codex turn events into the OpenAI-compatible shape LLMService consumes.
+
+    ``seen_item_types`` are the item types delivered by ``item/completed`` notifications.
+    ``turn.items`` on ``turn/completed`` is empty by design, so the notifications are the only
+    place an agentMessage (even an empty one) shows up.
+    """
     if turn.get("status") != "completed":
         error = turn.get("error") or {}
         message = error.get("message") if isinstance(error, dict) else None
         raise CodexAppServerError(message or f"Codex turn ended with status '{turn.get('status')}'.")
     if not agent_text.strip():
+        item_types = {str(item.get("type")) for item in (turn.get("items") or []) if isinstance(item, dict)}
+        item_types |= set(seen_item_types or ())
+        listed = ", ".join(sorted(item_types))
+        if "agentMessage" in item_types:
+            raise CodexEmptyAgentMessageError(
+                f"Codex completed with an empty agent message: model '{model_name}' returned no text. "
+                f"Turn items: {listed}."
+            )
         # A completed turn carrying no agentMessage is the one Codex outcome whose cause is
         # absent from the error itself -- a refusal, a reasoning-only turn and a throttled
         # turn are indistinguishable here. The turn is not persisted anywhere else, so
         # naming the item types it did carry is the only forensic trace that survives.
-        item_types = sorted({str(item.get("type")) for item in (turn.get("items") or []) if isinstance(item, dict)})
-        detail = f" Turn items: {', '.join(item_types)}." if item_types else " Turn carried no items."
+        detail = f" Turn items: {listed}." if item_types else " No turn items were delivered."
         raise CodexAppServerError(f"Codex completed without an agent message.{detail}")
 
     usage = turn.get("usage") if isinstance(turn.get("usage"), dict) else {}
@@ -285,10 +312,13 @@ class CodexAppServerClient:
 
     async def _read_completed_turn(self, model_name: str, effort: str | None = None) -> dict[str, Any]:
         agent_text = ""
+        seen_item_types: set[str] = set()
         while True:
             message = self._pending_notifications.pop(0) if self._pending_notifications else await self._read_message()
             if message.get("method") == "item/completed":
                 item = (message.get("params") or {}).get("item") or {}
+                if isinstance(item.get("type"), str):
+                    seen_item_types.add(item["type"])
                 if item.get("type") == "agentMessage" and isinstance(item.get("text"), str):
                     agent_text = item["text"]
             if message.get("method") == "turn/completed":
@@ -297,7 +327,9 @@ class CodexAppServerClient:
                     for item in turn.get("items") or []:
                         if item.get("type") == "agentMessage" and isinstance(item.get("text"), str):
                             agent_text = item["text"]
-                return normalize_completed_turn(turn, agent_text, model_name, effort=effort)
+                return normalize_completed_turn(
+                    turn, agent_text, model_name, effort=effort, seen_item_types=seen_item_types
+                )
 
     async def _send(self, payload: dict[str, Any]) -> None:
         if not self.process or not self.process.stdin:
