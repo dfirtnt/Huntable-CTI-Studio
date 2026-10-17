@@ -10,6 +10,7 @@ import os
 import re
 import zipfile
 from pathlib import Path
+from typing import Annotated
 
 import yaml
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -1170,8 +1171,15 @@ async def get_subagent_eval_results(
     eval_run_id: int | None = Query(None, description="Optional: filter by eval record ID"),
     counts_only: bool = Query(
         False,
-        description="Return only aggregate status counts (cheap GROUP BY) instead of the full per-record payload. Used by the run progress poller.",
+        description="Return only aggregate status counts (cheap GROUP BY) instead of the full per-record payload.",
     ),
+    execution_ids: Annotated[
+        list[int] | None,
+        Query(
+            description="Optional: restrict to these workflow execution IDs (repeatable). The run progress "
+            "poller passes the IDs its own launch returned so overlapping launches never read each other's rows.",
+        ),
+    ] = None,
 ):
     """Get evaluation results for a subagent."""
     try:
@@ -1200,6 +1208,8 @@ async def get_subagent_eval_results(
                     count_query = count_query.filter(SubagentEvaluationTable.subagent_name.in_(lookup_values))
                 if eval_run_id:
                     count_query = count_query.filter(SubagentEvaluationTable.id == eval_run_id)
+                if execution_ids:
+                    count_query = count_query.filter(SubagentEvaluationTable.workflow_execution_id.in_(execution_ids))
                 if EXCLUDED_EVAL_ARTICLE_IDS:
                     # Mirror the full path: drop excluded article_ids but keep NULL article_id rows.
                     count_query = count_query.filter(
@@ -1220,6 +1230,8 @@ async def get_subagent_eval_results(
 
             if eval_run_id:
                 query = query.filter(SubagentEvaluationTable.id == eval_run_id)
+            if execution_ids:
+                query = query.filter(SubagentEvaluationTable.workflow_execution_id.in_(execution_ids))
 
             eval_records = query.order_by(SubagentEvaluationTable.created_at.desc()).all()
 

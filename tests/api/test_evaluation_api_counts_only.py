@@ -164,3 +164,73 @@ class TestSubagentEvalCountsOnly:
         # group_by should NOT have been called
         count_q = session.query.return_value
         count_q.group_by.assert_not_called()
+
+
+def _filter_clauses(query_mock: MagicMock) -> list[str]:
+    return [str(arg) for call in query_mock.filter.call_args_list for arg in call.args]
+
+
+@pytest.mark.asyncio
+class TestSubagentEvalExecutionIdsFilter:
+    """execution_ids scopes both result paths to one launch's executions.
+
+    The run progress poller passes the IDs its own launch returned, so a second
+    launch (same or another extractor) never feeds its rows into an earlier
+    launch's progress count.
+    """
+
+    async def test_counts_path_filters_on_execution_ids(self):
+        from src.web.routes.evaluation_api import get_subagent_eval_results
+
+        session = _make_count_session([("completed", 2)])
+        with patch("src.web.routes.evaluation_api.DatabaseManager") as mock_db:
+            mock_db.return_value.get_session.return_value = session
+            await get_subagent_eval_results(
+                request=MagicMock(spec=Request),
+                subagent="cmdline",
+                eval_run_id=None,
+                counts_only=True,
+                execution_ids=[101, 102],
+            )
+
+        clauses = _filter_clauses(session.query.return_value)
+        assert any("subagent_evaluations.workflow_execution_id IN" in c for c in clauses), clauses
+
+    async def test_full_path_filters_on_execution_ids(self):
+        from src.web.routes.evaluation_api import get_subagent_eval_results
+
+        query_mock = MagicMock()
+        query_mock.filter.return_value = query_mock
+        query_mock.order_by.return_value.all.return_value = []
+        session = MagicMock()
+        session.query.return_value = query_mock
+
+        with patch("src.web.routes.evaluation_api.DatabaseManager") as mock_db:
+            mock_db.return_value.get_session.return_value = session
+            await get_subagent_eval_results(
+                request=MagicMock(spec=Request),
+                subagent="cmdline",
+                eval_run_id=None,
+                counts_only=False,
+                execution_ids=[101, 102],
+            )
+
+        clauses = _filter_clauses(query_mock)
+        assert any("subagent_evaluations.workflow_execution_id IN" in c for c in clauses), clauses
+
+    async def test_omitted_execution_ids_adds_no_filter(self):
+        """Direct callers that omit the param get None, not the Query() default object."""
+        from src.web.routes.evaluation_api import get_subagent_eval_results
+
+        session = _make_count_session([("completed", 1)])
+        with patch("src.web.routes.evaluation_api.DatabaseManager") as mock_db:
+            mock_db.return_value.get_session.return_value = session
+            await get_subagent_eval_results(
+                request=MagicMock(spec=Request),
+                subagent="cmdline",
+                eval_run_id=None,
+                counts_only=True,
+            )
+
+        clauses = _filter_clauses(session.query.return_value)
+        assert not any("workflow_execution_id" in c for c in clauses), clauses

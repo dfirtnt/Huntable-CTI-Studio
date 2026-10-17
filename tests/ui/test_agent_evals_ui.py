@@ -310,16 +310,14 @@ def test_poller_survives_transient_fetch_failures(page: Page):
     page.evaluate(
         """
         currentSubagent = 'cmdline';
-        pollSubagentResults([
-            { execution_id: 999999, article_id: 1, url: 'http://example.test', eval_record_id: 1 }
-        ]);
+        pollSubagentResults(evalRuns.start('cmdline', [999999]));
         """
     )
 
-    # It must reach the transient "Reconnecting" state (proof it did not give up),
-    expect(status).to_contain_text("Reconnecting", timeout=10000)
-    # then recover to the completed/refresh state once the endpoint returns.
-    expect(status).to_contain_text("completed", timeout=15000)
+    # It must reach the transient "reconnecting" state (proof it did not give up),
+    expect(status).to_contain_text("reconnecting", timeout=10000)
+    # then recover to the finished state once the endpoint returns.
+    expect(status).to_contain_text("cmdline: 1/1 done - finished", timeout=15000)
     # and it must never have shown the fatal "Error polling results" message.
     assert "Error polling results" not in status.inner_text()
 
@@ -557,3 +555,62 @@ def test_results_modal_empty_state_names_the_extractor(page: Page):
         expect(page.locator("#commandlinesModalTitle")).to_have_text(_MODAL_TITLES[subagent])
         expect(page.locator("#commandlinesContent")).to_contain_text(_EMPTY_STATE_LABELS[subagent])
         expect(page.locator("#commandlinesContent")).to_contain_text(f"#{exec_ids[subagent]}")
+
+
+@pytest.mark.ui
+@pytest.mark.parametrize(
+    ("path", "poll_fn"),
+    [("/mlops/agent-evals", "pollSubagentResults"), ("/mlops/agent-evals2", "pollResults")],
+)
+def test_overlapping_launches_each_track_their_own_executions(page: Page, path: str, poll_fn: str):
+    """Regression: launching extractor B while A is still polling must not hijack A's loop.
+
+    Both pages polled by the page-global ``currentSubagent``, so A's loop switched to B's
+    rows and the shared status line showed whichever loop wrote last. Each launch now
+    polls only its own subagent + execution IDs (eval-run-tracker.js).
+    """
+    from urllib.parse import parse_qs, urlparse
+
+    seen: list[tuple[str, tuple[int, ...]]] = []
+    polls = {"n": 0}
+
+    def handle(route):
+        qs = parse_qs(urlparse(route.request.url).query)
+        ids = tuple(int(i) for i in qs.get("execution_ids", []))
+        subagent = qs.get("subagent", [""])[0]
+        if ids:
+            seen.append((subagent, ids))
+            polls["n"] += 1
+        # Executions complete only after a few polls, so both loops overlap.
+        status = "completed" if polls["n"] > 6 else "pending"
+        rows = [
+            {"execution_id": i, "article_id": 1, "status": status, "subagent_name": subagent, "warnings": None}
+            for i in ids
+        ]
+        route.fulfill(
+            status=200,
+            body=json.dumps({"subagent": subagent, "results": rows, "total": len(rows)}),
+            headers={"Content-Type": "application/json"},
+        )
+
+    page.route("**/api/evaluations/subagent-eval-results**", handle)
+    page.goto(f"http://127.0.0.1:8001{path}")
+    page.wait_for_load_state("load")
+
+    page.evaluate(
+        f"""
+        currentSubagent = 'cmdline';
+        {poll_fn}(evalRuns.start('cmdline', [9101, 9102]));
+        currentSubagent = 'hunt_queries';
+        {poll_fn}(evalRuns.start('hunt_queries', [9201]));
+        """
+    )
+
+    status = page.locator("#evalStatusText")
+    expect(status).to_contain_text("cmdline: 2/2 done - finished", timeout=20000)
+    expect(status).to_contain_text("hunt_queries: 1/1 done - finished", timeout=20000)
+
+    assert ("cmdline", (9101, 9102)) in seen
+    assert ("hunt_queries", (9201,)) in seen
+    # No loop ever mixed one launch's subagent with another launch's executions.
+    assert set(seen) == {("cmdline", (9101, 9102)), ("hunt_queries", (9201,))}
