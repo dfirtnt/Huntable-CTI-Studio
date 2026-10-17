@@ -704,6 +704,16 @@ class SigmaPRService:
                     f"{self.github_repo}\n"
                     "4. Update the GITHUB_TOKEN in CTI Studio Settings and retry"
                 )
+            # GitHub answers an expired, revoked, or mistyped token this way on HTTPS push
+            elif "Invalid username or token" in error_msg or "Authentication failed" in error_msg:
+                error_msg += (
+                    "\n\n⚠️ GitHub rejected the token: it is expired, revoked, or not a valid token. To fix:\n"
+                    "1. Go to github.com → Settings → Developer settings → Personal access tokens\n"
+                    "2. Check the token's expiration date; regenerate it or create a new one\n"
+                    "3. Classic PAT: 'repo' scope. Fine-grained PAT: 'Contents: Read and Write' and "
+                    f"'Pull requests: Read and Write' for {self.github_repo}\n"
+                    "4. Update the GITHUB_TOKEN in CTI Studio Settings and retry"
+                )
             return {"success": False, "error": error_msg}
 
     def _generate_pr_body(self, files_added: list[dict], rules: list[dict]) -> str:

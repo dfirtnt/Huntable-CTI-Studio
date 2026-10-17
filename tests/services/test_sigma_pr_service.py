@@ -296,6 +296,58 @@ class TestRemoteAuthentication:
         assert git.call_args_list[-1].kwargs == {"check": True}
 
 
+class TestSubmitPrPushErrorGuidance:
+    """A failed push surfaces guidance matched to how GitHub rejected the token."""
+
+    @pytest.fixture(autouse=True)
+    def _mock_db_settings(self):
+        with patch.object(SigmaPRService, "_get_setting", return_value=None):
+            yield
+
+    def _submit_with_push_error(self, tmp_path, push_error):
+        svc = SigmaPRService(repo_path=str(tmp_path))
+        svc.github_token = "current-secret"
+        svc._github_repo_override = "example/rules"
+        with (
+            patch.object(svc, "_check_repo_status", return_value={"valid": True}),
+            patch.object(svc, "_run_git_command", return_value=(0, "", "")),
+            patch.object(svc, "_determine_file_path", return_value=(tmp_path / "rule.yml", "rule.yml")),
+            patch.object(svc, "_run_authenticated_git_command", side_effect=RuntimeError(push_error)),
+        ):
+            return svc.submit_pr([{"id": "rule-1", "rule_yaml": "title: Test\n"}])
+
+    def test_rejected_token_gets_expired_or_revoked_guidance(self, tmp_path):
+        push_error = (
+            "Git command failed: push -u origin sigma-rules-20261017_142647\n"
+            "remote: Invalid username or token. Password authentication is not supported for Git operations.\n"
+            "fatal: Authentication failed for 'https://github.com/example/rules.git/'"
+        )
+
+        result = self._submit_with_push_error(tmp_path, push_error)
+
+        assert result["success"] is False
+        assert result["error"].startswith(push_error)
+        assert "expired, revoked, or not a valid token" in result["error"]
+        assert "example/rules" in result["error"]
+        assert "Token permission error" not in result["error"]
+        assert "current-secret" not in result["error"]
+
+    def test_permission_denied_keeps_scope_guidance(self, tmp_path):
+        push_error = "Git command failed: push\nremote: Permission to example/rules.git denied to bot.\n403"
+
+        result = self._submit_with_push_error(tmp_path, push_error)
+
+        assert "Token permission error" in result["error"]
+        assert "expired, revoked" not in result["error"]
+
+    def test_unrelated_push_failure_gets_no_token_guidance(self, tmp_path):
+        push_error = "Git command failed: push\n! [rejected] non-fast-forward"
+
+        result = self._submit_with_push_error(tmp_path, push_error)
+
+        assert result["error"] == push_error
+
+
 @pytest.mark.parametrize(
     ("remote", "expected"),
     [
