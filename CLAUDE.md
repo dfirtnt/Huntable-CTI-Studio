@@ -24,7 +24,6 @@ Read in this order before making changes:
 
 - Use `run_tests.py` as the canonical test entrypoint.
 - Treat `src/config/workflow_config_schema.py` and `src/database/models.py` as contract sources of truth.
-- For UI-visible changes, browser-level verification is required.
 - Prefer runtime code and executable tests over stale inventories or broad summary docs.
 - Follow `AGENTS.md` section "Prompt-Injection Alerting" for expected application prompts;
   do not duplicate or weaken that policy here.
