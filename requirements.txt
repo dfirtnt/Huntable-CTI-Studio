@@ -27,6 +27,10 @@ sqlalchemy[asyncio]==2.0.49
 asyncpg==0.31.0
 PyYAML==6.0.3
 psycopg2-binary==2.9.11
+# psycopg v3 is required by langgraph-checkpoint-postgres (the v2 driver is not
+# compatible with its async saver). Both drivers coexist: SQLAlchemy keeps using
+# psycopg2, LangGraph checkpointing uses psycopg.
+psycopg[binary,pool]==3.3.6
 alembic==1.18.4
 
 # Web framework and server
