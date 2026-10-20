@@ -74,9 +74,7 @@ async def open_checkpointer() -> AsyncIterator[Any | None]:
 
     dsn = psycopg_dsn()
     if not dsn:
-        logger.warning(
-            "LangGraph checkpointing is enabled but DATABASE_URL is not set; running without checkpoints."
-        )
+        logger.warning("LangGraph checkpointing is enabled but DATABASE_URL is not set; running without checkpoints.")
         yield None
         return
 
