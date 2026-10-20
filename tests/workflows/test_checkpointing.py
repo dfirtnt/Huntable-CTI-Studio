@@ -7,7 +7,6 @@ must all yield ``None`` so the workflow still runs.
 
 import pytest
 
-from src.workflows import checkpointing
 from src.workflows.checkpointing import (
     checkpoint_thread_id,
     checkpointing_enabled,

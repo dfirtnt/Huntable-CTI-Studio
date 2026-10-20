@@ -56,7 +56,7 @@ class _RecordingGraph:
         self._lock = threading.Lock()
         self._hold_seconds = hold_seconds
 
-    async def ainvoke(self, state):
+    async def ainvoke(self, state, config=None):
         with self._lock:
             self.calls.append(int(state["execution_id"]))
         if self._hold_seconds:
@@ -80,7 +80,7 @@ def _noop_trace(*_args, **_kwargs):
 def _graph_stub(graph: _RecordingGraph):
     """Route run_workflow's graph construction and tracing to inert stand-ins."""
     with (
-        patch("src.workflows.agentic_workflow.create_agentic_workflow", lambda _db: graph),
+        patch("src.workflows.agentic_workflow.create_agentic_workflow", lambda _db, **_kwargs: graph),
         patch("src.workflows.agentic_workflow.trace_workflow_execution", _noop_trace),
     ):
         yield
