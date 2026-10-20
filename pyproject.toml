@@ -19,6 +19,9 @@ dependencies = [
     "asyncpg==0.31.0",
     "PyYAML==6.0.3",
     "psycopg2-binary==2.9.11",
+    # langgraph-checkpoint-postgres needs psycopg v3 (async) — the v2 driver is
+    # not compatible. SQLAlchemy keeps using psycopg2; both coexist.
+    "psycopg[binary,pool]==3.3.6",
     "alembic==1.18.4",
     # Web framework and server
     "fastapi==0.136.3",

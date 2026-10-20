@@ -56,6 +56,7 @@ from src.utils.langfuse_client import (
     trace_workflow_execution,
 )
 from src.utils.subagent_utils import build_subagent_lookup_values, normalize_subagent_name
+from src.workflows.checkpointing import checkpoint_thread_id, open_checkpointer
 from src.workflows.status_utils import (
     TERMINATION_REASON_JUNK_FILTER,
     TERMINATION_REASON_NO_SIGMA_RULES,
@@ -1279,7 +1280,7 @@ async def _maybe_adjudicate_platform(
     return os_result, detected_os
 
 
-def create_agentic_workflow(db_session: Session) -> StateGraph:
+def create_agentic_workflow(db_session: Session, checkpointer: Any | None = None) -> Any:
     """
     Create LangGraph workflow for agentic processing.
 
@@ -1295,6 +1296,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
     Args:
         db_session: Database session
+        checkpointer: Optional LangGraph checkpointer (e.g. AsyncPostgresSaver).
+            When supplied, every step's state is persisted under the caller's
+            ``thread_id``, which is what makes resume and time-travel inspection
+            possible. When ``None`` the graph compiles without persistence.
 
     Returns:
         Compiled LangGraph workflow
@@ -3630,6 +3635,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
     workflow.add_edge("similarity_search", "promote_to_queue")
     workflow.add_edge("promote_to_queue", END)
 
+    if checkpointer is not None:
+        return workflow.compile(checkpointer=checkpointer)
     return workflow.compile()
 
 
@@ -3971,8 +3978,18 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                     with contextlib.suppress(Exception):
                         db_session.rollback()
 
-                workflow_graph = create_agentic_workflow(db_session)
-                final_state = await workflow_graph.ainvoke(initial_state)
+                # Checkpointing is opt-in (LANGGRAPH_CHECKPOINT_ENABLED). When the saver
+                # is unavailable we still run the pipeline — losing step history must
+                # never stop an article from being processed. The thread id is derived
+                # from the execution row so a re-dispatch resumes the same history.
+                async with open_checkpointer() as checkpointer:
+                    workflow_graph = create_agentic_workflow(db_session, checkpointer=checkpointer)
+                    invoke_config = (
+                        {"configurable": {"thread_id": checkpoint_thread_id(execution.id)}}
+                        if checkpointer is not None
+                        else None
+                    )
+                    final_state = await workflow_graph.ainvoke(initial_state, invoke_config)
 
                 # Update trace with final output (non-critical - wrap in try/except)
                 if trace:
