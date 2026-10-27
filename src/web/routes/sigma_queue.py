@@ -20,7 +20,6 @@ from sqlalchemy import func
 from src.database.manager import DatabaseManager
 from src.database.models import (
     AgenticWorkflowConfigTable,
-    AppSettingsTable,
     ArticleTable,
     EnrichmentPresetTable,
     EnrichmentPromptVersionTable,
@@ -36,6 +35,7 @@ from src.services.audit_service import (
     ACTION_SIGMA_QUEUE_RULE_DELETED,
     ACTION_SIGMA_QUEUE_RULE_EDITED,
     ACTION_SIGMA_QUEUE_RULE_REJECTED,
+    ACTION_SIGMA_QUEUE_RULE_REOPENED,
     STATUS_FAILURE,
     STATUS_SUCCESS,
     AuditEvent,
@@ -55,6 +55,14 @@ from src.services.llm_provider_clients import (
 from src.services.sigma_ci_parity import check_rule_ci_parity, destination_blocking_config, toolchain_drift
 from src.services.sigma_matching_service import SigmaMatchingService
 from src.services.sigma_pr_service import SigmaPRService
+from src.services.sigma_publish_normalizer import (
+    normalize_for_queue_entry,
+    normalize_rule_yaml,
+    problems_as_review_note,
+    readiness_metadata,
+    resolve_canonical_author,
+)
+from src.services.sigma_publish_plan import PublishAssessment, PublishCandidate, assess_for_publish
 from src.services.sigma_validator import validate_sigma_rule
 from src.services.similarity_serialization import serialize_similarity_match
 from src.services.source_sigma_import_service import (
@@ -549,12 +557,19 @@ def _ci_parity_findings(rule: SigmaRuleQueueTable, config_path: Path) -> list[di
     return [f.as_dict() for f in check_rule_ci_parity(rule.rule_yaml or "", config_path=config_path)]
 
 
-def _ci_parity_failures(rules: list[SigmaRuleQueueTable], repo_path: Path) -> list[dict[str, Any]]:
-    """Per-rule CI-parity failures for a batch; rules that pass are omitted."""
+def _ci_parity_failures(
+    rules: list[SigmaRuleQueueTable], repo_path: Path, yaml_by_id: dict[int, str] | None = None
+) -> list[dict[str, Any]]:
+    """Per-rule CI-parity failures for a batch; rules that pass are omitted.
+
+    ``yaml_by_id`` checks a rule's would-be-published YAML instead of its stored YAML (the
+    preflight dry run, which must not persist normalization).
+    """
     config_path = destination_blocking_config(repo_path)
     failures = []
     for rule in rules:
-        findings = _ci_parity_findings(rule, config_path)
+        rule_yaml = (yaml_by_id or {}).get(rule.id, rule.rule_yaml or "")
+        findings = [f.as_dict() for f in check_rule_ci_parity(rule_yaml, config_path=config_path)]
         if findings:
             metadata = getattr(rule, "rule_metadata", None)
             title = metadata.get("title") if isinstance(metadata, dict) else None
@@ -578,7 +593,6 @@ class BulkActionRequest(BaseModel):
 
 
 DEFAULT_SIGMA_ENRICHMENT_TOGGLES: dict[str, bool] = {f"d{i}": True for i in range(1, 8)}
-DEFAULT_SIGMA_ENRICHMENT_AUTHOR = "Huntable CTI Studio User"
 DEFAULT_SIGMA_ENRICHMENT_INSTRUCTION = (
     "Validate and polish this Sigma rule under the enabled directives. Preserve the detection logic; "
     "improve metadata, evidence grounding, and false-positive guidance."
@@ -661,11 +675,8 @@ def _create_enrichment_conversation(
 
 
 def _sigma_author_from_db(db_session) -> str:
-    """Resolve sigma rule author string for enrichment (Settings → sigmaAuthor)."""
-    row = db_session.query(AppSettingsTable).filter(AppSettingsTable.key == "sigmaAuthor").first()
-    if row and row.value and str(row.value).strip():
-        return str(row.value).strip()
-    return DEFAULT_SIGMA_ENRICHMENT_AUTHOR
+    """The one author for generated rules: Settings ``sigmaAuthor``, else ``SIGMA_RULE_AUTHOR``."""
+    return resolve_canonical_author(db_session)
 
 
 class EnrichRuleRequest(BaseModel):
@@ -760,6 +771,11 @@ def add_rule_to_queue(request: Request, add_request: AddRuleToQueueRequest):
                     detail=f"rule_yaml is missing required Sigma keys: {_missing}. Preview: {rule_yaml[:120]!r}",
                 )
 
+            # Publish metadata (author, date, tags, non-Sigma keys) is fixed as the rule enters
+            # the queue; what cannot be fixed is recorded and enforced at submit-pr.
+            entry_normalization = normalize_for_queue_entry(rule_yaml, db_session=db_session)
+            rule_yaml = entry_normalization.rule_yaml
+
             # Verify article exists (only when one is supplied; "from scratch" drafts have none)
             if add_request.article_id is not None:
                 article = db_session.query(ArticleTable).filter(ArticleTable.id == add_request.article_id).first()
@@ -818,6 +834,7 @@ def add_rule_to_queue(request: Request, add_request: AddRuleToQueueRequest):
             # (no canonical_class → weak logsource_key fallback / degraded dedup) is queryable
             # and logged, not silent. Fail open — the rule is still enqueued.
             if isinstance(rule_metadata, dict):
+                rule_metadata["publish_readiness"] = readiness_metadata(entry_normalization)
                 rule_metadata["canonical_class"] = canonical_class
                 rule_metadata["logsource_unresolved"] = canonical_class is None
                 rule_metadata["logsource_lint_failures"] = ["unresolved_logsource"] if canonical_class is None else []
@@ -1553,7 +1570,8 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                         if k in toggles_merged and isinstance(v, bool):
                             toggles_merged[k] = v
                 toggles_json = json.dumps(toggles_merged, sort_keys=True)
-                author_for_enrich = (enrich_request.author_value or "").strip() or _sigma_author_from_db(db_session)
+                canonical_author = _sigma_author_from_db(db_session)
+                author_for_enrich = (enrich_request.author_value or "").strip() or canonical_author
 
                 prompt_params = {
                     "rule_yaml": rule_yaml_to_enrich,
@@ -1582,6 +1600,9 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                     "system_message": system_message,
                     "article_id": rule.article_id,
                     "workflow_settings": _load_workflow_provider_settings(db_session),
+                    "canonical_author": canonical_author,
+                    "rule_origin": rule.rule_origin or "generated",
+                    "attribution": rule.attribution,
                 }
             finally:
                 db_session.close()
@@ -1785,9 +1806,18 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
 
                 logger.info(f"Successfully enriched rule {queue_id} {provider}/{model}, len={len(enriched_yaml)}")
 
+                enriched_normalization = normalize_rule_yaml(
+                    enriched_yaml,
+                    origin=prep["rule_origin"],
+                    canonical_author=prep["canonical_author"],
+                    attribution=prep["attribution"],
+                )
+                enriched_yaml = enriched_normalization.rule_yaml
+
                 response_data = {
                     "success": True,
                     "enriched_yaml": enriched_yaml,
+                    "publish_readiness": readiness_metadata(enriched_normalization),
                     "raw_response": raw_response,
                     "message": f"Rule {queue_id} enriched successfully",
                 }
@@ -3055,9 +3085,46 @@ def get_similar_rules_for_queued_rule(request: Request, queue_id: int, force: bo
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+def _publish_assessments(rules: list[SigmaRuleQueueTable], repo_path: Path, db_session) -> dict[int, PublishAssessment]:
+    """Normalized YAML, destination path and readiness for each approved rule (no writes)."""
+    canonical_author = _sigma_author_from_db(db_session)
+    candidates = [
+        PublishCandidate(
+            rule.id,
+            rule.rule_yaml or "",
+            getattr(rule, "rule_origin", None) or "generated",
+            getattr(rule, "attribution", None),
+        )
+        for rule in rules
+    ]
+    return {a.key: a for a in assess_for_publish(candidates, repo_path, canonical_author=canonical_author)}
+
+
+def _publish_report(assessments: dict[int, PublishAssessment]) -> dict[str, list[dict[str, Any]]]:
+    """Preflight / submit-pr report sections: demoted rules, warnings, and metadata changes."""
+    values = list(assessments.values())
+    return {
+        "demoted": [{"id": a.key, "title": a.title, "reasons": a.problems} for a in values if not a.ready],
+        "warnings": [
+            {"id": a.key, "title": a.title, "path": str(a.relative_path), "warnings": a.warnings}
+            for a in values
+            if a.ready and a.warnings
+        ],
+        "normalized": [
+            {"id": a.key, "title": a.title, "path": str(a.relative_path), "changes": a.changes}
+            for a in values
+            if a.ready and a.changes
+        ],
+    }
+
+
 @router.get("/submit-pr/preflight")
 def preflight_submit_pr():
-    """Dry run of the submit-pr checks: what would block, without any git or GitHub side effect."""
+    """Dry run of the submit-pr checks: what would block, without any git or GitHub side effect.
+
+    The CI-parity check runs on the normalized YAML submit-pr would persist and publish.
+    ``demoted`` lists approved rules submit-pr would send back to review, with reasons.
+    """
     db_session = DatabaseManager().get_session()
     try:
         approved_rules = (
@@ -3066,26 +3133,91 @@ def preflight_submit_pr():
             .all()
         )
         pr_service = SigmaPRService()
+        assessments = _publish_assessments(approved_rules, pr_service.repo_path, db_session)
+        ready_rules = [rule for rule in approved_rules if assessments[rule.id].ready]
         blocked = []
         for rule in approved_rules:
             decision = _source_delivery_decision(rule, pr_service.repo_path)
             if not decision.eligible:
                 blocked.append({"id": rule.id, "reason": decision.reason})
-        ci_failures = _ci_parity_failures(approved_rules, pr_service.repo_path)
+        ci_failures = _ci_parity_failures(
+            ready_rules, pr_service.repo_path, {rule.id: assessments[rule.id].rule_yaml for rule in ready_rules}
+        )
         return {
-            "ready": bool(approved_rules) and not blocked and not ci_failures,
+            "ready": bool(ready_rules) and not blocked and not ci_failures,
             "rules_checked": len(approved_rules),
             "rules": blocked,
             "ci_failures": ci_failures,
             "toolchain_drift": toolchain_drift(pr_service.repo_path),
+            **_publish_report(assessments),
         }
     finally:
         db_session.close()
 
 
+def _persist_publish_assessments(
+    request: Request, db_session, rules: list[SigmaRuleQueueTable], assessments: dict[int, PublishAssessment]
+) -> list[SigmaRuleQueueTable]:
+    """Write normalized YAML to ready rows and send not-ready rows back to ``pending``.
+
+    Runs before the CI-parity check so the YAML that is checked is byte-identical to the
+    YAML that is published. Returns the rules that remain publishable.
+    """
+    now = datetime.now()
+    ready: list[SigmaRuleQueueTable] = []
+    for rule in rules:
+        assessment = assessments[rule.id]
+        metadata = dict(getattr(rule, "rule_metadata", None) or {})
+        if not assessment.ready:
+            note = problems_as_review_note(assessment.problems)
+            rule.status = "pending"
+            rule.review_notes = f"{rule.review_notes}\n{note}" if rule.review_notes else note
+            metadata["publish_readiness"] = {
+                "ready": False,
+                "problems": assessment.problems,
+                "checked_at": now.isoformat(),
+            }
+            rule.rule_metadata = metadata
+            AuditService.record_mandatory(
+                db_session,
+                _sigma_audit_event(
+                    request,
+                    ACTION_SIGMA_QUEUE_RULE_REOPENED,
+                    rule.id,
+                    f"Returned Sigma rule {rule.id} to review: not ready to publish",
+                    {"reason": "publish_readiness", "problems": assessment.problems},
+                ),
+            )
+            continue
+        if assessment.rule_yaml != rule.rule_yaml:
+            rule.rule_yaml = assessment.rule_yaml
+            metadata["publish_normalization"] = {"changes": assessment.changes, "normalized_at": now.isoformat()}
+            if assessment.title:
+                metadata["title"] = assessment.title
+            rule.rule_metadata = metadata
+            AuditService.record_mandatory(
+                db_session,
+                _sigma_audit_event(
+                    request,
+                    ACTION_SIGMA_QUEUE_RULE_EDITED,
+                    rule.id,
+                    f"Normalized publish metadata for Sigma rule {rule.id}",
+                    {"reason": "publish_normalization", "changes": assessment.changes},
+                ),
+            )
+        ready.append(rule)
+    db_session.commit()
+    return ready
+
+
 @router.post("/submit-pr")
 def submit_pr_for_approved_rules(request: Request):
-    """Submit all approved rules as a GitHub PR."""
+    """Submit all approved rules as a GitHub PR.
+
+    Order: normalize and persist every approved rule's YAML, return not-ready rules to
+    ``pending`` (listed in ``demoted``), then run the source-delivery and CI-parity gates
+    on what remains, then publish exactly the persisted YAML.
+    """
     try:
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
@@ -3108,27 +3240,45 @@ def submit_pr_for_approved_rules(request: Request):
                     "message": "Please approve rules before submitting a PR",
                 }
 
-            # Re-evaluate the entire batch before the first repository/GitHub side
-            # effect. One ineligible source rule blocks the batch atomically.
+            # Re-evaluate source delivery for the entire batch before any write: one
+            # ineligible source rule blocks the batch atomically, with nothing persisted.
             pr_service = SigmaPRService()
             blocked = []
             for rule in approved_rules:
                 decision = _source_delivery_decision(rule, pr_service.repo_path)
                 if not decision.eligible:
                     blocked.append({"id": rule.id, "reason": decision.reason})
-            ci_failures = _ci_parity_failures(approved_rules, pr_service.repo_path)
-            if blocked or ci_failures:
-                reasons = []
-                if blocked:
-                    reasons.append("source delivery policy")
-                if ci_failures:
-                    reasons.append("the destination repository's CI checks")
+            if blocked:
                 raise HTTPException(
                     status_code=409,
                     detail={
-                        "message": f"PR submission blocked by {' and '.join(reasons)}.",
+                        "message": "PR submission blocked by source delivery policy.",
                         "rules": blocked,
+                        "ci_failures": [],
+                    },
+                )
+
+            # Normalize and persist, sending not-ready rules back to review, so the
+            # CI-parity check below reads exactly the YAML that will be published.
+            assessments = _publish_assessments(approved_rules, pr_service.repo_path, db_session)
+            report = _publish_report(assessments)
+            approved_rules = _persist_publish_assessments(request, db_session, approved_rules, assessments)
+            if not approved_rules:
+                return {
+                    "success": False,
+                    "error": "No approved rules are ready to publish; every rule was returned to review",
+                    **report,
+                }
+
+            ci_failures = _ci_parity_failures(approved_rules, pr_service.repo_path)
+            if ci_failures:
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "message": "PR submission blocked by the destination repository's CI checks.",
+                        "rules": [],
                         "ci_failures": ci_failures,
+                        **report,
                     },
                 )
 
@@ -3179,6 +3329,7 @@ def submit_pr_for_approved_rules(request: Request):
                     "rules_count": result.get("rules_count", len(approved_rules)),
                     "files_added": result.get("files_added", []),
                     "message": f"Successfully created PR with {len(approved_rules)} rules",
+                    **report,
                 }
             # PR creation failed
             error_msg = result.get("error", "Unknown error")
@@ -3202,6 +3353,7 @@ def submit_pr_for_approved_rules(request: Request):
                 "error": error_msg,
                 "branch": result.get("branch"),  # May have branch even if PR failed
                 "files_added": result.get("files_added", []),
+                **report,
             }
 
         finally:

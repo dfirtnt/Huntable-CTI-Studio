@@ -55,7 +55,7 @@ PROMPT_KWARGS: dict[str, dict[str, str]] = {
         "article_content_section": "Article content:\nExample article content.",
         "user_instruction": "Validate and polish this Sigma rule under the enabled directives.",
         "toggles_json": '{"d1": true, "d2": true}',
-        "author_value": "Huntable CTI Studio User",
+        "author_value": "Huntable CTI Studio",
         "today": "2026-10-26",
     },
 }

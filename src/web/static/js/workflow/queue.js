@@ -452,7 +452,7 @@ async function createNewRule() {
     resetQualityReviewCard();
 
     // Default the author from Settings (sigmaAuthor) when available.
-    let author = 'Huntable CTI Studio User';
+    let author = 'Huntable CTI Studio';
     try {
         const r = await fetch('/api/settings');
         if (r.ok) {
@@ -894,6 +894,24 @@ async function rejectRule(ruleId) {
     }
 }
 
+// Lines for the rules submit-pr returned to review and the placement warnings
+// (e.g. an emerging-threat rule filed under _unsorted/), so neither is silent.
+function formatPublishReport(report) {
+    const lines = [];
+    const demoted = (report && report.demoted) || [];
+    if (demoted.length) {
+        lines.push(`Returned to review (${demoted.length}):`);
+        demoted.slice(0, 8).forEach(d => {
+            lines.push(`Rule #${d.id}${d.title ? ' (' + d.title + ')' : ''}: ${(d.reasons || []).join('; ')}`);
+        });
+        if (demoted.length > 8) lines.push(`...and ${demoted.length - 8} more.`);
+    }
+    ((report && report.warnings) || []).forEach(w => {
+        lines.push(`Warning, rule #${w.id} -> ${w.path}: ${(w.warnings || []).join('; ')}`);
+    });
+    return lines;
+}
+
 function formatSubmitBlocked(detail) {
     const lines = [`❌ ${detail.message || 'PR submission blocked.'}`];
     (detail.rules || []).forEach(r => lines.push(`Rule #${r.id}: ${r.reason}`));
@@ -903,6 +921,7 @@ function formatSubmitBlocked(detail) {
     });
     if (failures.length > 8) lines.push(`…and ${failures.length - 8} more rule(s) failing CI checks.`);
     lines.push('Reject or un-approve the listed rules, then submit again.');
+    lines.push(...formatPublishReport(detail));
     return lines.join('\n');
 }
 
@@ -936,7 +955,11 @@ async function submitPR() {
             showNotification(formatSubmitBlocked(result.detail), 'error');
             await loadQueue();
         } else if (result.success) {
-            showNotification('PR created successfully. Rules: ' + result.rules_count, 'success');
+            const report = formatPublishReport(result);
+            showNotification(
+                ['PR created successfully. Rules: ' + result.rules_count, ...report].join('\n'),
+                report.length && (result.demoted || []).length ? 'warning' : 'success'
+            );
             // Reload queue to show updated status
             await loadQueue();
         } else {
@@ -944,7 +967,10 @@ async function submitPR() {
             if (result.branch) {
                 errorMsg += `\n\nBranch created: ${result.branch}\nYou may need to create the PR manually.`;
             }
+            const report = formatPublishReport(result);
+            if (report.length) errorMsg += '\n\n' + report.join('\n');
             showNotification(errorMsg, 'error');
+            await loadQueue();
         }
     } catch (error) {
         console.error('Error submitting PR:', error);

@@ -332,8 +332,9 @@ observables_used: [<0-based indices>]
 - **status**: Always `experimental`.
 - **description**: REQUIRED. Must start with "Detects". One sentence. Quote if special chars present.
 - **tags**: REQUIRED. At minimum one tactic tag AND one technique tag. Both must be evidence-grounded.
-- **author**: Always `"Huntable CTI Studio"` (the code constant `SIGMA_RULE_AUTHOR`), including when the article publishes its own Sigma rules. `SigmaGenerationService` stamps it on every generated rule regardless of what the model emitted, so an older workflow config version cannot attribute a newly written rule to a publisher. Publisher-authored rules keep their attribution only through the separate source_provided import path, never through generation.
-- **date**: YYYY-MM-DD (ISO 8601, per the Sigma specification). Use today's date.
+- **author**: The configured author, always, including when the article publishes its own Sigma rules. The prompt is filled with `"Huntable CTI Studio"` (the code constant `SIGMA_RULE_AUTHOR`); when the rule enters the queue, the publish normalizer (`src/services/sigma_publish_normalizer.py`) replaces whatever the model emitted with Settings `sigmaAuthor`, falling back to `SIGMA_RULE_AUTHOR`. An older workflow config version therefore cannot attribute a newly written rule to a publisher. Publisher-authored rules keep their attribution only through the separate source_provided import path, never through generation.
+- **date**: YYYY-MM-DD (ISO 8601, per the Sigma specification). Use today's date. The normalizer rewrites `YYYY/MM/DD` and fills a missing date at queue entry.
+- **Publish normalization** (code-owned, not prompt-owned): at queue entry and again at submit-pr, `attack.*` tags are hyphenated, `cve.YYYY.NNNNN` becomes `cve.YYYY-NNNNN`, unknown tag namespaces and non-Sigma top-level keys are removed, and a rule with empty `references`, `falsepositives` or `tags` is sent back to review instead of published. The destination path comes from the logsource and the `detection.emerging-threats` tag; see [Publish layout and metadata](../features/sigma-rules.md#publish-layout-and-metadata).
 - **logsource**: REQUIRED. Must use `category` (generic). Never hardcode `EventID` or `service: sysmon`.
 - **detection**: REQUIRED. At minimum one selection block + condition.
 - **falsepositives**: REQUIRED. List with at least one realistic scenario. Never "None", "Unknown", or empty.
@@ -450,4 +451,4 @@ Use when reviewing any generator prompt (new or revised):
 
 ---
 
-_Last updated: 2026-09-03_
+_Last updated: 2026-10-17_

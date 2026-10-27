@@ -19,6 +19,9 @@ from urllib.parse import urlsplit, urlunsplit
 import httpx
 import yaml
 
+from src.services.sigma_publish_layout import RuleLayoutError, slugify_title
+from src.services.sigma_publish_plan import PublishCandidate, assess_for_publish
+
 logger = logging.getLogger(__name__)
 
 # owner/repo out of a GitHub remote URL. Anchored at the end so an embedded
@@ -196,87 +199,26 @@ class SigmaPRService:
         return None
 
     def _slugify_title(self, title: str) -> str:
-        """
-        Convert rule title to filename-safe slug.
+        """Filename stem for a rule title (see ``sigma_publish_layout.slugify_title``)."""
+        return slugify_title(title)
 
-        Args:
-            title: Rule title
+    def _plan_rule_paths(self, rules: list[dict[str, Any]]) -> dict[Any, Path]:
+        """Destination path per queue id for a batch, from the repository's rule layout.
 
-        Returns:
-            Slugified string
+        Raises :class:`RuleLayoutError` when any rule cannot be placed: an unmapped
+        logsource never falls back to a catch-all directory.
         """
-        # Convert to lowercase
-        slug = title.lower()
-        # Replace spaces and special chars with underscores
-        slug = re.sub(r"[^\w\s-]", "", slug)
-        slug = re.sub(r"[-\s]+", "_", slug)
-        # Remove leading/trailing underscores
-        slug = slug.strip("_")
-        # Limit length
-        if len(slug) > 100:
-            slug = slug[:100]
-        return slug
+        candidates = [PublishCandidate(rule.get("id"), rule.get("rule_yaml") or "") for rule in rules]
+        assessments = assess_for_publish(candidates, self.repo_path, canonical_author="", normalize=False)
+        problems = [f"rule {a.key}: {'; '.join(a.problems)}" for a in assessments if a.problems]
+        if problems:
+            raise RuleLayoutError("Cannot place rules in the repository: " + " | ".join(problems))
+        return {a.key: self.repo_path / a.relative_path for a in assessments}
 
     def _determine_file_path(self, rule_yaml: str) -> tuple[Path, str]:
-        """
-        Determine file path and name from rule logsource.
-
-        Args:
-            rule_yaml: Rule YAML content
-
-        Returns:
-            Tuple of (full_path, filename)
-        """
-        try:
-            rule_data = yaml.safe_load(rule_yaml)
-            logsource = rule_data.get("logsource", {})
-
-            # Determine directory from product/category
-            product = logsource.get("product", "").lower() if logsource.get("product") else ""
-            category = logsource.get("category", "").lower() if logsource.get("category") else ""
-
-            # Map to directory
-            if product == "windows":
-                directory = self.rules_path / "windows"
-            elif product == "linux":
-                directory = self.rules_path / "linux"
-            elif product == "macos":
-                directory = self.rules_path / "macos"
-            elif category == "network":
-                directory = self.rules_path / "network"
-            elif category == "web":
-                directory = self.rules_path / "web"
-            elif category == "cloud" or product == "cloud":
-                directory = self.rules_path / "cloud"
-            else:
-                # Default to windows
-                directory = self.rules_path / "windows"
-
-            # Ensure directory exists
-            directory.mkdir(parents=True, exist_ok=True)
-
-            # Generate filename from title
-            title = rule_data.get("title", "untitled_rule")
-            base_filename = self._slugify_title(title)
-            filename = f"{base_filename}.yml"
-
-            # Handle duplicates
-            full_path = directory / filename
-            counter = 1
-            while full_path.exists():
-                filename = f"{base_filename}_{counter}.yml"
-                full_path = directory / filename
-                counter += 1
-
-            return full_path, filename
-
-        except Exception as e:
-            logger.error(f"Error determining file path: {e}")
-            # Fallback
-            directory = self.rules_path / "windows"
-            directory.mkdir(parents=True, exist_ok=True)
-            filename = f"rule_{datetime.now().strftime('%Y%m%d_%H%M%S')}.yml"
-            return directory / filename, filename
+        """Destination ``(full_path, filename)`` for one rule; raises ``RuleLayoutError``."""
+        full_path = self._plan_rule_paths([{"id": "single", "rule_yaml": rule_yaml}])["single"]
+        return full_path, full_path.name
 
     def _run_git_command(
         self, cmd: list[str], check: bool = True, env: dict[str, str] | None = None
@@ -584,6 +526,17 @@ class SigmaPRService:
         if not self.github_token:
             return {"success": False, "error": "GITHUB_TOKEN not configured"}
 
+        # Place every rule before the first local git change: one unplaceable rule
+        # (unmapped logsource, id collision) fails the submission with nothing written.
+        writable = [rule for rule in rules if rule.get("rule_yaml")]
+        for rule in rules:
+            if not rule.get("rule_yaml"):
+                logger.warning(f"Rule {rule.get('id')} has no YAML content, skipping")
+        try:
+            planned_paths = self._plan_rule_paths(writable)
+        except RuleLayoutError as e:
+            return {"success": False, "error": str(e)}
+
         # Create branch
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         branch_name = f"sigma-rules-{timestamp}"
@@ -622,22 +575,16 @@ class SigmaPRService:
 
             # Write rules to files
             files_added = []
-            for rule in rules:
-                rule_yaml = rule.get("rule_yaml")
-                if not rule_yaml:
-                    logger.warning(f"Rule {rule.get('id')} has no YAML content, skipping")
-                    continue
-
-                full_path, filename = self._determine_file_path(rule_yaml)
-
-                # Write file
+            for rule in writable:
+                full_path = planned_paths[rule.get("id")]
+                full_path.parent.mkdir(parents=True, exist_ok=True)
                 with open(full_path, "w", encoding="utf-8") as f:
-                    f.write(rule_yaml)
+                    f.write(rule["rule_yaml"])
 
                 files_added.append(
                     {
-                        "path": str(full_path.relative_to(self.repo_path)),
-                        "filename": filename,
+                        "path": full_path.relative_to(self.repo_path).as_posix(),
+                        "filename": full_path.name,
                         "rule_id": rule.get("id"),
                     }
                 )
@@ -725,13 +672,13 @@ class SigmaPRService:
         for file_info in files_added:
             rule_id = file_info.get("rule_id")
             rule = next((r for r in rules if r.get("id") == rule_id), None)
-        if rule:
-            try:
-                rule_data = yaml.safe_load(rule.get("rule_yaml", ""))
-                title = rule_data.get("title", "Unknown")
-                body += f"- **{title}** (`{file_info['filename']}`)\n"
-            except (yaml.YAMLError, KeyError, AttributeError):
-                body += f"- `{file_info['filename']}`\n"
+            if rule:
+                try:
+                    rule_data = yaml.safe_load(rule.get("rule_yaml", ""))
+                    title = rule_data.get("title", "Unknown")
+                    body += f"- **{title}** (`{file_info['filename']}`)\n"
+                except (yaml.YAMLError, KeyError, AttributeError):
+                    body += f"- `{file_info['filename']}`\n"
 
         body += "\n## Files Changed\n\n"
         for file_info in files_added:

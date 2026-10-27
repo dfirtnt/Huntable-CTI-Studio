@@ -311,7 +311,7 @@ class TestSubmitPrPushErrorGuidance:
         with (
             patch.object(svc, "_check_repo_status", return_value={"valid": True}),
             patch.object(svc, "_run_git_command", return_value=(0, "", "")),
-            patch.object(svc, "_determine_file_path", return_value=(tmp_path / "rule.yml", "rule.yml")),
+            patch.object(svc, "_plan_rule_paths", return_value={"rule-1": tmp_path / "rule.yml"}),
             patch.object(svc, "_run_authenticated_git_command", side_effect=RuntimeError(push_error)),
         ):
             return svc.submit_pr([{"id": "rule-1", "rule_yaml": "title: Test\n"}])
@@ -472,3 +472,95 @@ class TestGithubRepoResolution:
         svc = self._service(tmp_path)
         with patch.object(svc, "_run_git_command", return_value=(1, "", "no origin")):
             assert svc._create_github_pr("branch", "title", "body") is None
+
+
+GENERIC_RULE = """title: Suspicious Child Of Word
+id: 4b5e9c2a-0000-4000-8000-000000000001
+status: experimental
+description: Detects a test.
+references:
+    - https://example.test/report
+author: Huntable CTI Studio
+date: 2026-10-17
+tags:
+    - attack.execution
+logsource:
+    product: windows
+    category: process_creation
+detection:
+    selection:
+        ParentImage|endswith: '\\\\winword.exe'
+    condition: selection
+falsepositives:
+    - Unknown
+level: high
+"""
+EMERGING_RULE = (
+    GENERIC_RULE.replace("Suspicious Child Of Word", "XWorm Registry Run Key Persistence")
+    .replace("4b5e9c2a-0000-4000-8000-000000000001", "5c6f0d3b-0000-4000-8000-000000000002")
+    .replace("    - attack.execution\n", "    - attack.persistence\n    - detection.emerging-threats\n")
+    .replace("category: process_creation", "category: registry_set")
+)
+
+
+class TestRuleFilePlacement:
+    """submit_pr writes each rule where the repository's layout table says, byte-for-byte."""
+
+    @pytest.fixture(autouse=True)
+    def _mock_db_settings(self):
+        with patch.object(SigmaPRService, "_get_setting", return_value=None):
+            yield
+
+    def _submit(self, tmp_path, rules):
+        svc = SigmaPRService(repo_path=str(tmp_path))
+        svc.github_token = "token"
+        svc._github_repo_override = "example/rules"
+        with (
+            patch.object(svc, "_check_repo_status", return_value={"valid": True}),
+            patch.object(svc, "_run_git_command", return_value=(0, "", "")) as git,
+            patch.object(svc, "_run_authenticated_git_command", return_value=(0, "", "")),
+            patch.object(svc, "_create_github_pr", return_value="https://example/pr/1"),
+        ):
+            return svc.submit_pr(rules), git
+
+    def test_generic_and_emerging_threat_rules_land_in_their_directories(self, tmp_path):
+        result, _ = self._submit(
+            tmp_path, [{"id": 1, "rule_yaml": GENERIC_RULE}, {"id": 2, "rule_yaml": EMERGING_RULE}]
+        )
+        assert result["success"] is True
+        paths = {f["rule_id"]: f["path"] for f in result["files_added"]}
+        assert paths == {
+            1: "rules/windows/process_creation/suspicious_child_of_word.yml",
+            2: "rules-emerging-threats/xworm/xworm_registry_run_key_persistence.yml",
+        }
+        assert (tmp_path / paths[1]).read_text(encoding="utf-8") == GENERIC_RULE
+        assert (tmp_path / paths[2]).read_text(encoding="utf-8") == EMERGING_RULE
+        assert not (tmp_path / "rules" / "linux").exists(), "no empty platform folders are created"
+
+    def test_unmapped_logsource_fails_before_any_git_side_effect(self, tmp_path):
+        bad = GENERIC_RULE.replace("product: windows\n    category: process_creation", "product: ibm_instana")
+        result, git = self._submit(tmp_path, [{"id": 1, "rule_yaml": GENERIC_RULE}, {"id": 2, "rule_yaml": bad}])
+        assert result["success"] is False
+        assert "rule 2" in result["error"] and "ibm_instana" in result["error"]
+        # Only the remote-identity read ran; no git config, branch, or file write.
+        assert [c.args[0] for c in git.call_args_list] == [["remote", "get-url", "origin"]]
+        assert not (tmp_path / "rules").exists()
+
+    def test_slug_collision_with_existing_repo_rule_gets_id_suffix(self, tmp_path):
+        existing = tmp_path / "rules" / "windows" / "process_creation" / "suspicious_child_of_word.yml"
+        existing.parent.mkdir(parents=True)
+        existing.write_text("title: Suspicious Child Of Word\nid: 99999999-0000-4000-8000-000000000009\n")
+        result, _ = self._submit(tmp_path, [{"id": 1, "rule_yaml": GENERIC_RULE}])
+        assert (
+            result["files_added"][0]["path"] == "rules/windows/process_creation/suspicious_child_of_word_4b5e9c2a.yml"
+        )
+
+    def test_pr_body_lists_every_rule_title(self, tmp_path):
+        svc = SigmaPRService(repo_path=str(tmp_path))
+        rules = [{"id": 1, "rule_yaml": GENERIC_RULE}, {"id": 2, "rule_yaml": EMERGING_RULE}]
+        files = [{"rule_id": 1, "filename": "a.yml", "path": "a"}, {"rule_id": 2, "filename": "b.yml", "path": "b"}]
+        body = svc._generate_pr_body(files, rules)
+        assert "**Suspicious Child Of Word**" in body and "**XWorm Registry Run Key Persistence**" in body
+
+    def test_slugify_title_delegates_to_layout(self, tmp_path):
+        assert SigmaPRService(repo_path=str(tmp_path))._slugify_title("amsi.dll Load") == "amsi_dll_load"

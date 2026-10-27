@@ -3451,6 +3451,15 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
                             rule_for_yaml = canonical_sigma_rule_dict(rule)
                             rule_yaml = yaml.dump(rule_for_yaml, default_flow_style=False, sort_keys=False)
+                            # Publish metadata (configured author, YYYY-MM-DD date, tag syntax) is
+                            # fixed at queue entry; unfixable gaps are recorded and enforced at submit-pr.
+                            from src.services.sigma_publish_normalizer import (
+                                normalize_for_queue_entry,
+                                readiness_metadata,
+                            )
+
+                            entry_normalization = normalize_for_queue_entry(rule_yaml, db_session=db_session)
+                            rule_yaml = entry_normalization.rule_yaml
 
                             # Guard: confirm the generated YAML round-trips to a dict with required keys.
                             # yaml.dump(dict) should always satisfy this, but catch regressions early.
@@ -3470,9 +3479,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             rule_meta = {
                                 "title": rule.get("title"),
                                 "description": rule.get("description"),
-                                "tags": rule.get("tags", []),
+                                "tags": (entry_normalization.rule or {}).get("tags", rule.get("tags", [])),
                                 "level": rule.get("level"),
                                 "status": rule.get("status", "experimental"),
+                                "publish_readiness": readiness_metadata(entry_normalization),
                             }
                             if rule.get("observables_used") is not None:
                                 rule_meta["observables_used"] = rule["observables_used"]

@@ -644,25 +644,92 @@ Valid actions: `approve`, `reject`, `delete`, `set_status`.
 
 **`POST /api/sigma-queue/submit-pr`**
 
-Submits every `approved`, not-yet-`pr_submitted` rule as one GitHub PR. Before any git or
-GitHub side effect, the whole batch is checked atomically: the source-delivery policy (license
-and permission, source-provided rules only) and the destination repository's CI-parity gate
-(all rules — duplicate YAML keys, pySigma parse errors, and its blocking validator set). One
-ineligible rule blocks the entire batch and returns `409`:
+Submits every `approved`, not-yet-`pr_submitted` rule as one GitHub PR, in this order:
+
+1. **Source delivery** (license and permission, source-provided rules only). One ineligible
+   rule blocks the whole batch with `409` and nothing is written.
+2. **Normalize and persist.** Each rule's publish metadata is normalized (see
+   [Publish layout and metadata](#publish-layout-and-metadata)) and the result is written to
+   the queue row, so the YAML checked in step 3 is byte-identical to the YAML published.
+   A rule that cannot be published -- empty `references`, `falsepositives` or `tags`, a
+   logsource with no directory in the layout table, a missing or duplicated `id` -- is sent
+   back to `pending` with a `Publish readiness: ...` review note, a
+   `sigma_queue.rule_reopened` audit event, and an entry in the response's `demoted` list.
+   The rest of the batch continues.
+3. **CI parity** on the remaining rules: duplicate YAML keys, pySigma parse errors, and the
+   destination's blocking validator set. One failing rule blocks the batch with `409`.
+4. **PR.** Each rule is written to its layout path and the PR is opened.
 
 ```json
 {
   "detail": {
     "message": "PR submission blocked by ...",
     "rules": [{ "id": 12, "reason": "..." }],
-    "ci_failures": [{ "id": 34, "title": "...", "findings": [{ "check": "blocking_validator", "message": "..." }] }]
+    "ci_failures": [{ "id": 34, "title": "...", "findings": [{ "check": "blocking_validator", "message": "..." }] }],
+    "demoted": [{ "id": 56, "title": "...", "reasons": ["Missing required references"] }],
+    "warnings": [{ "id": 78, "path": "rules-emerging-threats/_unsorted/...", "warnings": ["No threat family resolved ..."] }],
+    "normalized": [{ "id": 90, "path": "rules/windows/process_creation/...", "changes": ["tags: ..."] }]
   }
 }
 ```
 
+Successful and failed (non-409) responses carry the same `demoted`, `warnings` and
+`normalized` lists, and the queue UI shows the demotions and warnings in the submit
+notification.
+
 **`GET /api/sigma-queue/submit-pr/preflight`** runs the same checks as a dry run, with no
-git or GitHub side effect, and additionally reports `toolchain_drift`: packages pinned in the
-destination's `requirements-ci.txt` that differ from what this app has installed.
+git, GitHub or database side effect: CI parity runs on the normalized YAML submit-pr would
+persist, `demoted` lists the rules submit-pr would send back to review (with reasons), and
+`warnings` lists emerging-threat rules that would land in `_unsorted/`. It also reports
+`toolchain_drift`: packages pinned in the destination's `requirements-ci.txt` that differ
+from what this app has installed.
+
+#### Publish layout and metadata
+
+Where a rule lands is decided by one table: `.huntable/rule-layout.yml` in the destination
+repository, falling back to the bundled `config/sigma_rule_layout.yml`
+(`src/services/sigma_publish_layout.py`). The rules repository's CI
+(`scripts/check_rule_layout.py`) and `scripts/migrate_sigma_repo_layout.py` read the same
+table.
+
+| Rule | Path |
+|---|---|
+| Generic (no `detection.emerging-threats` tag) | `rules/<logsource dir>/<slug>.yml`, e.g. `rules/windows/process_creation/`, `rules/windows/registry/registry_set/`, `rules/windows/powershell/powershell_script/`, `rules/windows/builtin/security/` |
+| Emerging threat, family resolved | `rules-emerging-threats/<family>/<slug>.yml`, e.g. `xworm/`, `hijackloader/`, `cve-2026-20817/` |
+| Emerging threat, no family | `rules-emerging-threats/_unsorted/<slug>.yml` (a preflight warning) |
+
+- The logsource lookup tries `(product, category, service)`, then `(product, category)`, then
+  `(product, service)` for a `service:`-only logsource such as `service: security`. A
+  combination with no row is an error, never a catch-all directory.
+- The family comes from the table's alias list, matched on word boundaries against the title
+  and then the description; a CVE in the title maps to `cve-<year>-<number>`.
+- The filename is the title slug: `[a-z0-9_]`, punctuation becomes `_` (`amsi.dll` ->
+  `amsi_dll`), ATT&CK technique IDs are dropped, and it is cut on a word boundary at 90
+  characters (SigmaHQ's filename limit). If the slug is already used by another rule id,
+  the file is `<slug>_<first 8 id chars>.yml`. The suffix depends only on rule ids, not order.
+- Directories are created only when a rule needs one.
+
+Metadata normalization (`src/services/sigma_publish_normalizer.py`) runs when a rule enters
+the queue (workflow generation, `/add`, the enrichment response) and again at submit-pr:
+
+- **author**: generated rules get the configured author, Settings `sigmaAuthor`, falling back
+  to `SIGMA_RULE_AUTHOR` (`Huntable CTI Studio`). Publisher-imported (`source_provided`) rules
+  keep their author; a missing one is filled from the recorded attribution.
+- **date**: `YYYY-MM-DD`; a missing date becomes today. **modified** is dropped from a
+  generated rule's first publish. When a publisher rule is changed in any way, `modified` is
+  set to the edit date to mark the change, as the destination's CC-BY policy requires.
+- **tags**: `attack.*` tags are lowercased with hyphens (`attack.defense_evasion` ->
+  `attack.defense-evasion`), `cve.YYYY.NNNNN` becomes `cve.YYYY-NNNNN`, and tags outside
+  pySigma's namespaces (`attack`, `car`, `cve`, `d3fend`, `detection`, `stp`, `tlp`) are
+  dropped. `stp.*` tags are kept.
+- Top-level keys outside the Sigma specification (`name`, pipeline and annotation keys) are
+  removed, and a missing final newline is added.
+- Normalization edits individual top-level keys. `title`, `id`, `logsource` and `detection`
+  keep their exact bytes, and an edit that would change them is refused.
+
+The result of queue-entry normalization is stored in `rule_metadata.publish_readiness`
+(`ready`, `problems`, `changes`). Submit-time changes go in
+`rule_metadata.publish_normalization`.
 
 The queue list flags each approved, unsubmitted row with `ci_parity_findings`; the UI shows a
 "CI FAIL" badge on the row and the findings in the rule preview.
@@ -853,8 +920,11 @@ legacy origin already contains credentials, PR submission removes them before an
 fetch, pull, or push. SSH remotes continue to use SSH authentication unchanged.
 
 1. **During `./setup.sh`**: Create a repo at github.com/new, enter `owner/repo`
-   when prompted. The script clones to `../Huntable-SIGMA-Rules` and creates
-   the `rules/` structure.
+   when prompted. The script clones to `../Huntable-SIGMA-Rules`; a repo with no rules yet
+   gets `.huntable/rule-layout.yml`. Rule directories appear with the first PR that needs
+   them. An existing repo in the old flat `rules/windows/` layout is migrated with
+   `scripts/migrate_sigma_repo_layout.py` (dry run by default; `--apply` makes a rename-only
+   commit and a metadata commit, and never pushes).
 2. **After setup**: Add your GitHub Personal Access Token in **Settings →
    GitHub** (repo scope).
 3. **Settings → GitHub**: Configure Sigma Repository Path, GitHub Repository,
@@ -963,4 +1033,4 @@ docker compose exec web python3 -c "from src.services.embedding_service import E
 - [Sigma Similarity Case-Sensitive Atom Matching](../solutions/logic-errors/sigma-similarity-case-sensitive-atom-matching-2026-04-08.md)
 - [Sigma Cross-Field Soft Matching](../solutions/logic-errors/sigma-cross-field-soft-matching-zero-similarity-2026-04-12.md)
 
-_Last updated: 2026-08-13_
+_Last updated: 2026-10-17_

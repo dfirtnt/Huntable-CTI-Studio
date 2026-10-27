@@ -6,6 +6,7 @@ import re
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import yaml
 
 
 @pytest.mark.api
@@ -189,7 +190,11 @@ class TestSigmaEnrichAPI:
 
             mock_rule = MagicMock(id=1, rule_yaml="title: Test Rule", article_id=1)
             mock_article = MagicMock(content="Test article content", title="Test Article", canonical_url="")
-            mock_session.query.return_value.filter.return_value.first.side_effect = [mock_rule, mock_article]
+            mock_session.query.return_value.filter.return_value.first.side_effect = [
+                mock_rule,
+                mock_article,
+                None,
+            ]  # None: no sigmaAuthor setting
             mock_codex_client.return_value.complete = AsyncMock(
                 return_value={
                     "choices": [
@@ -235,7 +240,11 @@ class TestSigmaEnrichAPI:
             mock_db_manager.return_value.get_session.return_value = mock_session
             mock_rule = MagicMock(id=1, rule_yaml="title: Test Rule", article_id=1)
             mock_article = MagicMock(content="Test article content", title="Test Article", canonical_url="")
-            mock_session.query.return_value.filter.return_value.first.side_effect = [mock_rule, mock_article]
+            mock_session.query.return_value.filter.return_value.first.side_effect = [
+                mock_rule,
+                mock_article,
+                None,
+            ]  # None: no sigmaAuthor setting
 
             with pytest.raises(HTTPException, match="Codex subscription provider is disabled") as exc_info:
                 await enrich_rule(mock_request, queue_id=1, enrich_request=enrich_request)
@@ -348,11 +357,12 @@ class TestSigmaEnrichAPI:
     def test_sigma_author_from_db(self):
         from unittest.mock import MagicMock
 
-        from src.web.routes.sigma_queue import DEFAULT_SIGMA_ENRICHMENT_AUTHOR, _sigma_author_from_db
+        from src.services.sigma_generation_service import SIGMA_RULE_AUTHOR
+        from src.web.routes.sigma_queue import _sigma_author_from_db
 
         sess = MagicMock()
         sess.query.return_value.filter.return_value.first.return_value = None
-        assert _sigma_author_from_db(sess) == DEFAULT_SIGMA_ENRICHMENT_AUTHOR
+        assert _sigma_author_from_db(sess) == SIGMA_RULE_AUTHOR == "Huntable CTI Studio"
 
         row = MagicMock()
         row.value = "  Custom Author  "
@@ -400,7 +410,11 @@ class TestSigmaEnrichAPI:
             mock_db_instance = MagicMock()
             mock_db_instance.get_session.return_value = mock_session
             mock_db_manager.return_value = mock_db_instance
-            mock_session.query.return_value.filter.return_value.first.side_effect = [mock_rule, mock_article]
+            mock_session.query.return_value.filter.return_value.first.side_effect = [
+                mock_rule,
+                mock_article,
+                None,
+            ]  # None: no sigmaAuthor setting
 
             mock_httpx_client.return_value.__aenter__.return_value = MagicMock()
             mock_httpx_client.return_value.__aexit__.return_value = None
@@ -412,7 +426,13 @@ class TestSigmaEnrichAPI:
         toggles = json.loads(captured["toggles_json"])
         assert toggles == DEFAULT_SIGMA_ENRICHMENT_TOGGLES
         assert result["success"] is True
-        assert result["enriched_yaml"] == mock_rule.rule_yaml
+        # The enriched YAML is normalized on the way out: the configured author (not the
+        # prompt's author_value override) and a YYYY-MM-DD date; detection is untouched.
+        enriched = yaml.safe_load(result["enriched_yaml"])
+        assert enriched["author"] == "Huntable CTI Studio"
+        assert enriched["detection"] == yaml.safe_load(mock_rule.rule_yaml)["detection"]
+        assert result["publish_readiness"]["ready"] is False
+        assert "Missing required references" in result["publish_readiness"]["problems"]
         mock_llm.assert_awaited_once()
 
     @pytest.mark.asyncio
