@@ -1,65 +1,77 @@
----
-name: sync-prompt-presets
-description: Propagate any change under src/prompts/ (agent prompt files, .txt or extensionless) into all 9 quickstart preset JSONs in config/presets/AgentConfigs/quickstart/. Use this EVERY time a prompt file is edited, created, or renamed — editing src/prompts/ alone silently ships stale prompts to anyone who applies a quickstart preset. Trigger even if the user only says "tweak the SigmaAgent prompt" or "update the extraction instructions" without mentioning presets.
----
-
 # Sync Prompt Presets
 
-Runtime defaults load from `src/prompts/` via `AGENT_PROMPT_FILES` in
-`src/utils/default_agent_prompts.py`, but the quickstart presets embed a full
-**copy** of each prompt at `<AgentKey>.Prompt.prompt` inside every JSON in
-`config/presets/AgentConfigs/quickstart/` (9 files). Editing the prompt file
-without patching the presets means a user who applies a quickstart preset gets
-the old prompt — and nothing errors, it just quietly regresses.
+Every quickstart preset in `config/presets/AgentConfigs/quickstart/` embeds a full
+copy of each agent prompt at `<AgentKey>.Prompt.prompt`. Those copies are now
+**generated**: never edit a prompt inside a preset JSON by hand.
 
-## Mapping: which file feeds which preset key
+`scripts/build_quickstart_prompts.py` renders every preset prompt from `src/prompts/`,
+and `tests/config/test_quickstart_prompts_generated.py` fails if any preset differs
+from what the script renders.
 
-`src/utils/default_agent_prompts.py` is authoritative. As of now:
+## Where each prompt is edited
 
-| Agent key (in preset JSON) | File under src/prompts/ |
+| Agent | Source |
 |---|---|
-| RankAgent | lmstudio_sigma_ranking.txt |
-| SigmaAgent | sigma_generation.txt |
-| CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract, NetworkIndicatorExtract, OSDetectionAgent | extensionless file named after the agent |
+| Extractors (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract, NetworkIndicatorExtract) | `src/prompts/<AgentName>` (one prompt for all presets) |
+| RankAgent | `src/prompts/lmstudio_sigma_ranking.txt` (default); `src/prompts/quickstart/RankAgent.lmstudio.txt` (LM Studio presets) |
+| SigmaAgent | `src/prompts/quickstart/SigmaAgent.<variant>.system.txt` + `.user.txt`, variants `default`, `codex`, `lmstudio` |
+| Rules shared by every SigmaAgent variant | `src/prompts/quickstart/shared/<name>.txt`, pulled in by a line `@@include <name>@@` |
 
-Re-read `AGENT_PROMPT_FILES` rather than trusting this table if anything looks off.
+`src/prompts/quickstart/manifest.yml` says which variant each preset uses. The number
+of quickstart presets is not fixed: the manifest, not a hard-coded count, defines the
+set, and the build fails until the manifest and the preset folder list the same files.
+`src/utils/default_agent_prompts.py` (`AGENT_PROMPT_FILES`) maps agents to their
+default source files.
 
-## The 3-variant trap
+Note: `src/prompts/sigma_generate_multi.txt` / `sigma_generation.txt` is a
+**different** SigmaAgent prompt. It is the runtime fallback and the reset-to-defaults
+seed, not a preset source. A rule that must apply everywhere has to be added there
+too (keep the two files byte-identical).
 
-The 9 preset files do **not** all carry identical prompt text — they hold 3
-distinct variants (main / LMStudio / gpt-5). Blindly overwriting all 9 with the
-new src/prompts content destroys the variant-specific tuning.
-`scripts/merge_prompts_into_preset.py` is the reference for the agent-name →
-prompt-file mapping and the patching approach.
+## Workflow
 
-Workflow:
+1. Edit the source under `src/prompts/`. For a rule every SigmaAgent variant needs,
+   put it in a shared block and `@@include` it rather than copying it three times.
+2. Run `uv run --frozen python scripts/build_quickstart_prompts.py`. It rewrites only
+   `Prompt.prompt` fields; models, effort and `instructions` are untouched.
+3. Verify: `uv run --frozen python scripts/build_quickstart_prompts.py --check` and
+   `tests/config/test_quickstart_prompts_generated.py`. `git diff --stat` should show
+   the source files plus one changed line per affected preset.
 
-1. Extract the current `<AgentKey>.Prompt.prompt` from all 9 files and diff them
-   to discover the variant groups for the agent you changed.
-2. If all 9 are identical to the old src/prompts content → apply the new content
-   to all 9.
-3. If variants differ, apply the *edit* (the delta) to each variant, preserving
-   each variant's provider-specific differences.
-4. If the edit conflicts with a variant-specific difference and the right merge
-   isn't obvious, stop and show the operator the conflict instead of guessing.
+## Adding, removing or renaming a quickstart preset
 
-## Mechanics
+Discover the current set with `ls config/presets/AgentConfigs/quickstart/*.json`;
+never assume a count from this skill, older docs or a test.
 
-Edit the JSONs with Python's `json` module, never sed/regex — the prompts contain
-escaped quotes and newlines that regex editing will corrupt. Preserve each file's
-existing indentation style when dumping, and end with a newline.
+- **Add:** create the preset JSON (copy the closest existing preset for its provider),
+  add `<FileName>.json:` to `manifest.yml` with the variants it needs (`{}` for all
+  defaults; `SigmaAgent: codex` for Codex/gpt-5+ style; `SigmaAgent: lmstudio` and
+  `RankAgent: lmstudio` for small local models), then run the build. The build fills
+  every prompt from source, so the copied prompts don't matter.
+- **Remove:** delete the preset JSON and its `manifest.yml` entry in the same change.
+- **Rename:** rename the file and its manifest key together.
+- **New variant:** add `src/prompts/quickstart/<Agent>.<variant>.txt` (or
+  `SigmaAgent.<variant>.system.txt` + `.user.txt`), reuse shared blocks with
+  `@@include`, and point the preset at it in the manifest.
 
-Verify before finishing:
-- `json.load` every touched file (parse check).
-- Confirm the new text is present in all 9 and the old text in none
-  (or none of the intended variant group).
-- `git diff --stat` should show exactly the preset files plus the prompt file.
+Then run the build, its `--check`, and the generated-prompts test. Other tests may pin
+a preset count (for example `tests/unit/test_sigma_author_attribution_contract.py`
+asserted 12 while 14 shipped): when the set changes, update or remove such a count in
+the same change, and prefer deriving the expected set from `manifest.yml` over a
+literal number.
 
 ## Third sink: the live database
 
-The running app's active workflow config stores its own prompt copies in the DB.
-After the files and presets are synced, re-seed the live config via
-`POST /api/workflow/config/prompts/bootstrap` (route in
-`src/web/routes/workflow_config.py`) — it wholesale replaces every prompt from
-src/prompts/. This mutates the live dev app's active config, so confirm with the
-operator before calling it if they haven't already asked for a live update.
+The running app's active workflow config holds its own prompt copies in the DB, and
+the build does not touch them.
+
+- To update one agent while keeping the preset variant the operator applied, send
+  `PUT /api/workflow/config/prompts` with `agent_name` and the rendered `prompt`
+  string from the matching preset (creates a new, rollback-able config version).
+- `POST /api/workflow/config/prompts/bootstrap` replaces **every** agent prompt with
+  the plain `src/prompts/` defaults (for SigmaAgent that means the
+  `sigma_generation.txt` prompt, not a preset variant). Use it only when that is the
+  intent.
+
+Both mutate the live dev app's active config: confirm with the operator first unless
+they asked for a live update.

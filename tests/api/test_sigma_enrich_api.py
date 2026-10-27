@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -338,6 +339,7 @@ class TestSigmaEnrichAPI:
             user_instruction="polish",
             toggles_json=toggles_json,
             author_value="Unit Test Author",
+            today="2026-10-26",
         )
         assert "Unit Test Author" in body
         assert toggles_json in body
@@ -406,6 +408,7 @@ class TestSigmaEnrichAPI:
             result = await enrich_rule(mock_request, queue_id=1, enrich_request=enrich_request)
 
         assert captured.get("author_value") == "Wire Test Author"
+        assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", captured.get("today", ""))
         toggles = json.loads(captured["toggles_json"])
         assert toggles == DEFAULT_SIGMA_ENRICHMENT_TOGGLES
         assert result["success"] is True

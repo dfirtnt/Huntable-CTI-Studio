@@ -56,6 +56,7 @@ PROMPT_KWARGS: dict[str, dict[str, str]] = {
         "user_instruction": "Validate and polish this Sigma rule under the enabled directives.",
         "toggles_json": '{"d1": true, "d2": true}',
         "author_value": "Huntable CTI Studio User",
+        "today": "2026-10-26",
     },
 }
 
@@ -91,6 +92,23 @@ def test_prompt_formats_in_one_pass(loader: PromptLoader, prompt_name: str):
     assert "{{" not in rendered and "}}" not in rendered
     for value in PROMPT_KWARGS[prompt_name].values():
         assert value in rendered
+
+
+def test_enrichment_prompt_guards_against_widening_and_known_rejections(loader: PromptLoader):
+    rendered = loader.format_prompt("sigma_enrichment", **PROMPT_KWARGS["sigma_enrichment"])
+    # Removing an ANDed element widens the rule; only OR branches may be removed.
+    assert "Never remove an ANDed element" in rendered
+    # A service logsource missing EventID is flagged, not patched with a new field.
+    assert "do NOT add one" in rendered
+    # The field list must not read as exhaustive (TaskName rules were being flagged).
+    assert "not a complete list" in rendered and "TaskName" in rendered
+    # pySigma rejections seen in executions 115/116.
+    assert "`|windash` combined with `|all`" in rendered
+    assert "attack.t1685" in rendered
+    # The date rule has a real date to use.
+    assert "today: 2026-10-26" in rendered
+    # The JSON envelope status is never confused with the Sigma rule status.
+    assert "envelope status" in rendered
 
 
 def test_generation_prompt_teaches_the_shared_standard(loader: PromptLoader):

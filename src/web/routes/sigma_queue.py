@@ -1562,6 +1562,8 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                     "user_instruction": instruction_text,
                     "toggles_json": toggles_json,
                     "author_value": author_for_enrich,
+                    # The template's date rule ("use today's date if missing") needs a real date.
+                    "today": datetime.now().strftime("%Y-%m-%d"),
                 }
 
                 if article_content:
