@@ -200,8 +200,10 @@ Nothing errors when these go wrong; the damage shows up later.
   the DB state, not the diff.
 - **Prompt changes have several sinks.** `src/prompts/` only seeds; the runtime reads the
   DB. A prompt change must also land in every preset under
-  `config/presets/AgentConfigs/quickstart/` and in the live DB (narrowest write:
-  `POST /api/workflow/config/prompts/reset-to-defaults` for the agent). Enrichment also
+  `config/presets/AgentConfigs/quickstart/` (render them with
+  `scripts/build_quickstart_prompts.py`; never hand-edit a preset prompt) and in the
+  live DB (narrowest write: `POST /api/workflow/config/prompts/reset-to-defaults` for the
+  agent). Enrichment also
   has a saved prompt version. The `sync-prompt-presets` skill covers the preset step.
 - **Never send a partial workflow-config PUT.** Omitted fields can be written as JSON
   `null` when the active-config lookup races empty, wiping the config.
