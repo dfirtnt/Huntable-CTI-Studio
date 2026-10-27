@@ -170,3 +170,6 @@ def test_mcp_server_registers_eval_diagnosis_tools(monkeypatch):
     # Launching evals over MCP is a caller-attested write that bills the provider.
     assert "run_subagent_eval" in tool_names
     assert "get_subagent_eval_status" in tool_names
+    # Single-article agent test: same caller-attested launch, plus a result poll.
+    assert "test_subagent_on_article" in tool_names
+    assert "get_subagent_test_result" in tool_names
