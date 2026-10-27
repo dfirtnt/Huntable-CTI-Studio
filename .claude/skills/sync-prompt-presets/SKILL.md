@@ -1,3 +1,8 @@
+---
+name: sync-prompt-presets
+description: Regenerate the quickstart preset prompts from src/prompts/ with scripts/build_quickstart_prompts.py after any agent prompt change; never hand-edit prompts inside preset JSON.
+---
+
 # Sync Prompt Presets
 
 Every quickstart preset in `config/presets/AgentConfigs/quickstart/` embeds a full
