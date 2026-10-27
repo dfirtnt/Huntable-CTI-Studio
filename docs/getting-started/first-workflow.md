@@ -6,13 +6,18 @@ Run the full agentic pipeline against a real CTI article: source-Sigma import ->
 
 ## 0) Load a quickstart preset (recommended for first run)
 
-If you haven't configured the workflow yet, load a preset so all LLM agents have prompts and models set. On the **Workflow** page, use **Import Preset from file** and pick one of:
+Enable and test a provider in **Settings -> Agentic Workflow Configuration** first. API providers need a usable key; Codex needs its managed login; LM Studio needs its server running with the exact model loaded. A preset supplies workflow settings and prompts, not credentials or global provider switches.
+
+On **Workflow -> Config**, open the config actions menu and choose **Import Preset** (or **Import Preset from file** in the preset modal). Pick a matching preset:
 
 - **Anthropic**: `config/presets/AgentConfigs/quickstart/Quickstart-anthropic-sonnet-4-6.json`
-- **OpenAI / ChatGPT**: `config/presets/AgentConfigs/quickstart/Quickstart-openai-gpt-4.1-mini.json`
-- **LM Studio (local)**: `config/presets/AgentConfigs/quickstart/Quickstart-LMStudio-Qwen3.json`
+- **OpenAI API**: `config/presets/AgentConfigs/quickstart/Quickstart-openai-gpt-4.1-mini.json`
+- **Codex subscription**: `config/presets/AgentConfigs/quickstart/Quickstart-codex-gpt-6-luna.json`, if your login lists `gpt-6-luna`
+- **LM Studio (local)**: `config/presets/AgentConfigs/quickstart/Quickstart-LMStudio-Qwen3.json`, which assigns `qwen/qwen3-8b`
 
-These files are committed to the repo and always present. See [Configuration -> Workflow Presets](configuration.md#workflow-presets) for the full list.
+Import replaces the active workflow configuration. All 14 quickstart presets disable ranking, enable all seven extractors, and store Windows as the platform selection. Review those settings and thresholds after import; enable ranking if you want the ranking stage described below to run. Use **Export Preset** before import to keep a file copy of your current configuration.
+
+See [Configuration -> Workflow Presets](configuration.md#workflow-presets) for the full list, exact model IDs, and shared thresholds.
 
 ## 1) Ingest a CTI Article
 

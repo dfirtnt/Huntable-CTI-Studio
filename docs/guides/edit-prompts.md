@@ -126,14 +126,18 @@ Quickstart presets are in `config/presets/AgentConfigs/quickstart/`. There are 1
 | `Quickstart-codex-gpt-6-luna.json` | Codex / gpt-6-luna |
 | `Quickstart-codex-gpt-5.6-sol.json` | Codex / gpt-5.6-sol |
 | `Quickstart-codex-gpt-5.6-terra.json` | Codex / gpt-5.6-terra |
-| `Quickstart-LMStudio-Qwen3.json` | LM Studio / Qwen 3 (local) |
-| `Quickstart-LMStudio-Gemma4B.json` | LM Studio / Gemma 4B (local) |
+| `Quickstart-LMStudio-Qwen3.json` | LM Studio / `qwen/qwen3-8b` |
+| `Quickstart-LMStudio-Gemma4B.json` | LM Studio / `google/gemma-3-4b` |
 
-**To import**: Workflow page → **Import from file** → select the JSON. This replaces the active config (thresholds + all agent prompts). The previous config is preserved in version history and can be rolled back.
+Enable and test the provider in **Settings -> Agentic Workflow Configuration** first. Presets do not carry credentials, enable providers globally, or authenticate Codex. The exact model must be available to your account or local server.
 
-**To export your own**: Workflow page → **Export config** → saves the current active config as JSON. Put it in `config/presets/private/` (gitignored) to keep it out of version control.
+**To import**: **Workflow -> Config** -> config actions menu -> **Import Preset** (or **Import Preset from file** in the preset modal) -> select the JSON. This replaces the active workflow settings and prompts. The previous config remains in version history.
 
-See [Workflow Presets](../getting-started/configuration.md#workflow-presets) for the full preset reference including how to regenerate baseline files.
+All 14 quickstart presets disable ranking, enable all seven extractors, and store Windows as the platform selection. Check these settings and thresholds after import; enable ranking if needed.
+
+**To export your own**: **Workflow -> Config** -> config actions menu -> **Export Preset**. Put the downloaded JSON in `config/presets/private/` (gitignored) to keep it out of version control.
+
+See [Workflow Presets](../getting-started/configuration.md#workflow-presets) for exact model IDs, shared thresholds, and the structure-normalization command. Normalizing files does not refresh their prompt contents or change the running app.
 
 ## Common mistakes
 
