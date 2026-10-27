@@ -310,6 +310,25 @@ def _build_observables_section(
     )
 
 
+def _expansion_subresults(extraction_result: dict[str, Any]) -> dict[str, Any]:
+    """Subresults that Phase 4 expansion may consider for this call.
+
+    A per-group input is built as ``{**article_extraction, "observables": group_observables}``, so
+    ``subresults`` still describes the whole article. Reading it as-is made every group see its
+    siblings' observables as "uncovered" and regenerate their rules (execution 36: the
+    service_creation group re-wrote the curl rule the process_creation group had already
+    produced). A group-scoped input keeps only the subresults whose type it actually owns.
+    """
+    subresults = extraction_result.get("subresults", {})
+    if not isinstance(subresults, dict) or "sigma_generation_group" not in extraction_result:
+        return subresults if isinstance(subresults, dict) else {}
+    observables = extraction_result.get("observables")
+    if not isinstance(observables, list):
+        return subresults
+    owned_types = {obs.get("type") for obs in observables if isinstance(obs, dict)}
+    return {obs_type: result for obs_type, result in subresults.items() if obs_type in owned_types}
+
+
 def _observable_by_index(extraction_result: dict[str, Any] | None, index: int) -> dict[str, Any] | None:
     if not isinstance(extraction_result, dict):
         return None
@@ -1282,7 +1301,7 @@ class SigmaGenerationService:
 
         # Get available observables from extraction_result
         available_observables = {}
-        subresults = extraction_result.get("subresults", {})
+        subresults = _expansion_subresults(extraction_result)
         if isinstance(subresults, dict):
             for obs_type, obs_result in subresults.items():
                 if isinstance(obs_result, dict):
@@ -1341,7 +1360,7 @@ class SigmaGenerationService:
             "wmi": "wmi",
         }
 
-        subresults = extraction_result.get("subresults", {})
+        subresults = _expansion_subresults(extraction_result)
         for obs_type, category in observable_to_category.items():
             if category in uncovered_categories and obs_type in subresults:
                 obs_result = subresults[obs_type]

