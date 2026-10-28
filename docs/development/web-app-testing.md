@@ -566,9 +566,11 @@ The project includes TypeScript Playwright tests that are integrated into the py
 - **`tests/playwright/workflow_executions_pagination.spec.ts`** - Workflow execution list and pagination
 - **`tests/playwright/workflow_config_versions.spec.ts`** - Workflow config restore-by-version modal
 
-Run them directly with the `tests/playwright.config.ts` config (the repo-root
-`playwright.config.js` points at a different, unrelated `e2e/` directory, so
-plain `npm run test:playwright <file>` finds zero tests):
+Run them with the `tests/playwright.config.ts` config. `npm test` and
+`npm run test:playwright` now pass that config, so `npm run test:playwright <file>`
+also works. The repo-root
+`playwright.config.js` and `e2e/` directory are leftover `playwright init` / codegen
+scaffolding and are not part of the suite:
 ```bash
 # Run all TypeScript Playwright tests
 npx playwright test --config tests/playwright.config.ts
