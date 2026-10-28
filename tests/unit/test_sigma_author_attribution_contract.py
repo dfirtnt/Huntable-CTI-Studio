@@ -32,7 +32,9 @@ def _sigma_agent_prompt(preset: Path) -> str:
 
 
 def test_the_quickstart_presets_are_all_present():
-    assert len(PRESETS) == 12
+    # Guards the parametrized preset test below against passing vacuously on an empty glob.
+    # No fixed count: presets are added over time.
+    assert PRESETS, "no quickstart presets found; the per-preset checks would pass vacuously"
 
 
 @pytest.mark.parametrize("path", SEED_PROMPTS, ids=lambda p: p.name)
