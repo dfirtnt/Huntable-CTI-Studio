@@ -118,8 +118,19 @@ worker_redirect_stdouts = True
 worker_redirect_stdouts_level = "INFO"
 
 # Broker transport options — prevent tight polling loop on idle workers
+#
+# visibility_timeout: with task_acks_late, Redis re-delivers any message still
+# unacknowledged this many seconds after a worker reserved it -- even when the task is
+# still running. It must therefore exceed the longest hard time_limit of any task
+# (src/worker/celery_app.py TASK_TIME_LIMITS: trigger_agentic_workflow, 3 h 10 min)
+# plus the longest countdown a task waits reserved before it starts (eval launches
+# stagger up to 99 x (0.2 s + 60 s max throttle) ~= 1 h 40 min). 11400 + 5960 s ~= 4 h 50
+# min, so 6 h. The cost of a long timeout: a task reserved by a worker that dies
+# without returning its messages (e.g. SIGKILL of the whole container) waits this long
+# for redelivery; workflow rows in that state are recovered sooner by trigger-stuck.
+# tests/worker/test_celery_reliability.py enforces the relation.
 broker_transport_options = {
-    "visibility_timeout": 3600,  # 1 hour (default)
+    "visibility_timeout": 6 * 3600,
     "queue_order_strategy": "round_robin",
 }
 
