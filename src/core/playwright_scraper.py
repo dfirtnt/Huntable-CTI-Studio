@@ -26,10 +26,27 @@ class PlaywrightScraper:
         "--disable-dev-shm-usage",
         "--no-sandbox",
     ]
-    _USER_AGENT = (
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-    )
+    # Resolved once per process from the bundled Chromium (see _native_user_agent).
+    _native_ua_cache: str | None = None
+
+    async def _native_user_agent(self) -> str:
+        """Return Chromium's own UA with the headless marker removed.
+
+        The UA must match the real engine version and platform (a hard-coded
+        Chrome string drifts from the bundled Chromium and gets fingerprinted).
+        Headless Chromium reports ``HeadlessChrome/<ver>``, a direct bot signal,
+        so that token is rewritten to ``Chrome/<ver>``.
+        """
+        if PlaywrightScraper._native_ua_cache is None:
+            browser = await self._playwright.chromium.launch(headless=True, args=self._LAUNCH_ARGS)
+            try:
+                context = await browser.new_context()
+                page = await context.new_page()
+                native = await page.evaluate("navigator.userAgent")
+            finally:
+                await browser.close()
+            PlaywrightScraper._native_ua_cache = native.replace("HeadlessChrome/", "Chrome/")
+        return PlaywrightScraper._native_ua_cache
 
     def __init__(
         self,
@@ -62,6 +79,7 @@ class PlaywrightScraper:
     async def __aenter__(self):
         """Async context manager entry."""
         self._playwright = await async_playwright().start()
+        user_agent = await self._native_user_agent()
 
         if self.user_data_dir:
             # Persistent profile: launch_persistent_context returns a BrowserContext
@@ -73,7 +91,7 @@ class PlaywrightScraper:
                 self.user_data_dir,
                 headless=self.headless,
                 args=self._LAUNCH_ARGS,
-                user_agent=self._USER_AGENT,
+                user_agent=user_agent,
                 viewport={"width": 1280, "height": 720},
             )
         else:
@@ -83,7 +101,7 @@ class PlaywrightScraper:
             )
             self._context = await self._browser.new_context(
                 viewport={"width": 1280, "height": 720},
-                user_agent=self._USER_AGENT,
+                user_agent=user_agent,
             )
 
         return self
