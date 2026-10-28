@@ -112,7 +112,7 @@ Add `'{Agent}'` to every occurrence.
 Search: `isExtractionAgent` or inline checks like `=== 'CmdlineExtract' || === 'ProcTreeExtract'`
 Add `|| agentName === '{Agent}'` and `|| agentName === '{QA}'` as appropriate.
 
-### 4.2 isQAAgent Checks  
+### 4.2 isQAAgent Checks
 Search: `isQAAgent` or `'CmdLineQA'` checks
 Add `|| agentName === '{QA}'`
 
