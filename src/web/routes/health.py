@@ -353,7 +353,7 @@ async def api_ingestion_health() -> dict[str, Any]:
 
 
 @router.get("/api/capabilities")
-async def api_capabilities() -> dict[str, Any]:
+def api_capabilities() -> dict[str, Any]:
     """Return runtime capability flags for all features."""
     try:
         from src.services.capability_service import CapabilityService

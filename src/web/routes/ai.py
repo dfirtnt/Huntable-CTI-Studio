@@ -700,7 +700,7 @@ async def api_get_lmstudio_models():
 
 
 @test_router.get("/provider-model-catalog")
-async def api_get_provider_model_catalog():
+def api_get_provider_model_catalog():
     """Return cached provider model catalog."""
     return {"catalog": load_catalog()}
 
@@ -1915,7 +1915,7 @@ async def api_get_sigma_matches(article_id: int, force: bool = False):
 
 
 @router.get("/sigma-rules-yaml/{rule_id}")
-async def api_get_sigma_rule_yaml(rule_id: str):
+def api_get_sigma_rule_yaml(rule_id: str):
     """Get the YAML file contents for a specific Sigma rule (reconstructed from database)."""
     try:
         import yaml
@@ -1998,7 +1998,7 @@ async def api_get_sigma_rule_yaml(rule_id: str):
 
 
 @router.get("/sigma-rules/{rule_id}")
-async def api_get_sigma_rule_details(rule_id: str):
+def api_get_sigma_rule_details(rule_id: str):
     """Get full details of a specific Sigma rule by its rule_id."""
     try:
         from src.database.manager import DatabaseManager

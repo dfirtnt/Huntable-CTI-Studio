@@ -397,7 +397,7 @@ def get_langfuse_client():
 
 
 @router.get("/dataset/{dataset_name}/items")
-async def get_dataset_items(request: Request, dataset_name: str):
+def get_dataset_items(request: Request, dataset_name: str):
     """Get items from Langfuse dataset."""
     try:
         client = get_langfuse_client()
@@ -583,7 +583,7 @@ class EvaluationRunRequest(BaseModel):
 
 
 @router.post("/run")
-async def run_evaluation(request: Request, eval_request: EvaluationRunRequest):
+def run_evaluation(request: Request, eval_request: EvaluationRunRequest):
     """Run articles through workflows with different configs."""
     try:
         db_manager = DatabaseManager()
@@ -687,7 +687,7 @@ async def run_evaluation(request: Request, eval_request: EvaluationRunRequest):
 
 
 @router.get("/executions/{execution_id}/results")
-async def get_execution_results(request: Request, execution_id: int):
+def get_execution_results(request: Request, execution_id: int):
     """Get results for a specific execution."""
     try:
         db_manager = DatabaseManager()
@@ -738,7 +738,7 @@ async def get_execution_results(request: Request, execution_id: int):
 
 
 @router.get("/execution/{execution_id}/commandlines")
-async def get_execution_commandlines(
+def get_execution_commandlines(
     request: Request,
     execution_id: int,
 ):
@@ -933,7 +933,7 @@ def resolve_articles_by_urls(urls: list[str]) -> dict[str, int]:
 
 
 @router.get("/subagent-eval-articles")
-async def get_subagent_eval_articles(
+def get_subagent_eval_articles(
     request: Request,
     subagent: str = Query(..., description="Subagent name (cmdline, hunt_queries, etc.)"),
 ):
@@ -1129,7 +1129,7 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
 
 
 @router.get("/subagent-eval-version-articles")
-async def get_subagent_eval_version_articles(
+def get_subagent_eval_version_articles(
     request: Request,
     subagent: str = Query(..., description="Subagent name"),
     config_version: int = Query(..., description="Config version to look up"),
@@ -1165,7 +1165,7 @@ async def get_subagent_eval_version_articles(
 
 
 @router.get("/subagent-eval-results")
-async def get_subagent_eval_results(
+def get_subagent_eval_results(
     request: Request,
     subagent: str = Query(..., description="Subagent name"),
     eval_run_id: int | None = Query(None, description="Optional: filter by eval record ID"),
@@ -1363,7 +1363,7 @@ async def get_subagent_eval_results(
 
 
 @router.get("/subagent-eval-status/{eval_record_id}")
-async def get_subagent_eval_status(request: Request, eval_record_id: int):
+def get_subagent_eval_status(request: Request, eval_record_id: int):
     """Get status and progress for a subagent evaluation run."""
     try:
         db_manager = DatabaseManager()
@@ -1435,7 +1435,7 @@ async def get_subagent_eval_status(request: Request, eval_record_id: int):
 
 
 @router.delete("/subagent-eval-clear-pending")
-async def clear_pending_eval_records(request: Request, subagent: str = Query(..., description="Subagent name")):
+def clear_pending_eval_records(request: Request, subagent: str = Query(..., description="Subagent name")):
     """Delete all pending evaluation records for a subagent."""
     try:
         db_manager = DatabaseManager()
@@ -1494,7 +1494,7 @@ async def clear_pending_eval_records(request: Request, subagent: str = Query(...
 
 
 @router.post("/subagent-eval-backfill")
-async def backfill_eval_records(request: Request, subagent: str = Query(..., description="Subagent name")):
+def backfill_eval_records(request: Request, subagent: str = Query(..., description="Subagent name")):
     """Backfill pending eval records for completed workflow executions."""
     try:
         db_manager = DatabaseManager()
@@ -1589,7 +1589,7 @@ _RESCORABLE_SUBAGENTS = (
 
 
 @router.post("/subagent-eval-rescore")
-async def rescore_eval_records(
+def rescore_eval_records(
     request: Request,
     subagent: str = Query(..., description="Subagent name, or 'all' for every supported agent"),
     apply: bool = Query(False, description="When false (default) run a dry-run that writes nothing"),
@@ -1719,7 +1719,7 @@ async def rescore_eval_records(
 
 
 @router.get("/subagent-eval-aggregate")
-async def get_subagent_eval_aggregate(
+def get_subagent_eval_aggregate(
     request: Request,
     subagent: str = Query(..., description="Subagent name"),
     config_version: int | None = Query(None, description="Optional: filter by config version"),
@@ -1945,7 +1945,7 @@ async def get_subagent_eval_aggregate(
 
 
 @router.get("/subagent-eval-models")
-async def get_subagent_eval_models(
+def get_subagent_eval_models(
     request: Request,
     subagent: str = Query(..., description="Subagent name"),
 ):
@@ -2014,7 +2014,7 @@ async def get_subagent_eval_models(
 
 
 @router.get("/subagent-eval-compare")
-async def get_subagent_eval_compare(
+def get_subagent_eval_compare(
     request: Request,
     subagent: str = Query(...),
     version_a: int = Query(..., description="Baseline config version"),
@@ -2277,7 +2277,7 @@ async def get_subagent_eval_compare(
 
 
 @router.get("/config-versions-models")
-async def get_config_versions_models(
+def get_config_versions_models(
     request: Request,
     config_versions: str = Query("1", description="Comma-separated list of config version numbers"),
 ):
@@ -2383,7 +2383,7 @@ class ExportBundleRequest(BaseModel):
 
 
 @router.post("/evals/{execution_id}/export-bundle")
-async def export_eval_bundle(request: Request, execution_id: int, export_request: ExportBundleRequest):
+def export_eval_bundle(request: Request, execution_id: int, export_request: ExportBundleRequest):
     """
     Export evaluation bundle for a specific LLM call within a workflow execution.
 
@@ -2452,7 +2452,7 @@ async def export_eval_bundle(request: Request, execution_id: int, export_request
 
 
 @router.get("/evals/{execution_id}/export-bundle")
-async def get_eval_bundle_metadata(
+def get_eval_bundle_metadata(
     request: Request,
     execution_id: int,
     agent_name: str | None = Query(None, description="Agent name (optional, defaults to first available)"),
@@ -2531,7 +2531,7 @@ async def get_eval_bundle_metadata(
 
 
 @router.get("/evals/{execution_id}/diagnosis")
-async def get_saved_diagnosis(execution_id: int):
+def get_saved_diagnosis(execution_id: int):
     """
     Return the most recent saved diagnosis for an execution, or 404 if none exists.
     """
@@ -2545,7 +2545,7 @@ async def get_saved_diagnosis(execution_id: int):
 
 
 @router.get("/evals/diagnosis-counts")
-async def get_diagnosis_counts():
+def get_diagnosis_counts():
     """
     Return a dict of {execution_id: count} for every execution that has at least
     one saved diagnosis.  Uses a single directory scan (no file reads) so it is
@@ -2566,7 +2566,7 @@ async def get_diagnosis_counts():
 
 
 @router.get("/evals/{execution_id}/diagnoses")
-async def list_saved_diagnoses(execution_id: int):
+def list_saved_diagnoses(execution_id: int):
     """
     Return all saved diagnoses for an execution, newest first.
     Returns an empty list (not 404) when none exist.
@@ -2583,7 +2583,7 @@ _SUBAGENT_TO_BUNDLE_AGENT = {**SUBAGENT_TO_EXTRACT_AGENT, "hunt_queries_edr": "H
 
 
 @router.get("/evals/export-bundles-by-config-version")
-async def export_bundles_by_config_version(
+def export_bundles_by_config_version(
     request: Request,
     config_version: int = Query(..., description="Workflow config version"),
     subagent: str = Query(..., description="Subagent name (cmdline, process_lineage, hunt_queries)"),

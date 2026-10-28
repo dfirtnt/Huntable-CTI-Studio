@@ -7,7 +7,6 @@ which the old case-sensitive parsers never matched — the settings UI showed
 on disk. Both endpoints now share _parse_backup_list().
 """
 
-import asyncio
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
@@ -104,7 +103,7 @@ def test_status_endpoint_reports_last_backup_from_stats():
         patch.object(backup_module.subprocess, "run", return_value=stats_result),
         patch.object(backup_module, "_get_cron_state", return_value=cron_state),
     ):
-        result = asyncio.run(backup_module.api_backup_status())
+        result = backup_module.api_backup_status()
 
     assert result["last_backup"] == "system_backup_20260706_130821"
     assert result["total_backups"] == 6

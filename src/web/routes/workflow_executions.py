@@ -975,7 +975,7 @@ async def stream_execution_updates(execution_id: int):
 
 
 @router.post("/executions/trigger-stuck")
-async def trigger_stuck_executions(request: Request):
+def trigger_stuck_executions(request: Request):
     """
     Re-dispatch workflow executions whose Celery task is presumed lost.
 
@@ -1110,7 +1110,7 @@ async def trigger_stuck_executions(request: Request):
 
 
 @router.post("/executions/{execution_id}/retry")
-async def retry_workflow_execution(request: Request, execution_id: int):
+def retry_workflow_execution(request: Request, execution_id: int):
     """
     Retry a failed workflow execution.
     """
@@ -1239,7 +1239,7 @@ async def retry_workflow_execution(request: Request, execution_id: int):
 
 
 @router.post("/executions/{execution_id}/cancel")
-async def cancel_workflow_execution(request: Request, execution_id: int):
+def cancel_workflow_execution(request: Request, execution_id: int):
     """
     Cancel a running or pending workflow execution.
 
@@ -1302,7 +1302,7 @@ async def cancel_workflow_execution(request: Request, execution_id: int):
 
 
 @router.post("/executions/cancel-all-running")
-async def cancel_all_running_executions(request: Request):
+def cancel_all_running_executions(request: Request):
     """
     Cancel all running or pending workflow executions.
 
@@ -1412,7 +1412,7 @@ def _build_langfuse_debug_urls(
 
 
 @router.get("/executions/{execution_id}/debug-info")
-async def get_workflow_debug_info(request: Request, execution_id: int):
+def get_workflow_debug_info(request: Request, execution_id: int):
     """Get debug information for opening execution in Agent Chat UI."""
     try:
         db_manager = get_db_manager()
@@ -1540,7 +1540,7 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
 
 
 @router.post("/articles/{article_id}/trigger")
-async def trigger_workflow_for_article(
+def trigger_workflow_for_article(
     request: Request,
     article_id: int,
     force: bool = Query(
@@ -1626,7 +1626,7 @@ class ExportBundleRequest(BaseModel):
 
 
 @router.post("/executions/{execution_id}/export-bundle")
-async def export_eval_bundle(request: Request, execution_id: int, export_request: ExportBundleRequest):
+def export_eval_bundle(request: Request, execution_id: int, export_request: ExportBundleRequest):
     """
     Export evaluation bundle for a specific LLM call within a workflow execution.
 
@@ -1671,9 +1671,7 @@ async def export_eval_bundle(request: Request, execution_id: int, export_request
 
 
 @router.get("/executions/{execution_id}/export-bundle")
-async def get_eval_bundle_metadata(
-    request: Request, execution_id: int, agent_name: str | None = None, attempt: int = 1
-):
+def get_eval_bundle_metadata(request: Request, execution_id: int, agent_name: str | None = None, attempt: int = 1):
     """
     Get metadata for the most recent eval bundle or regenerate on demand.
 

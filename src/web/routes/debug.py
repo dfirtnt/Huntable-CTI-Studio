@@ -535,7 +535,7 @@ async def api_chunk_debug(
 
 
 @router.get("/api/articles/{article_id}/chunk-debug/progress")
-async def api_chunk_debug_progress(article_id: int):
+def api_chunk_debug_progress(article_id: int):
     """Poll-friendly progress snapshot for an in-flight chunk-debug analysis.
 
     A long analysis (article 7216's 1,250 chunks took 62s) previously gave no

@@ -64,7 +64,7 @@ async def test_backfill_does_not_import_worker_only_workflow_module():
         patch.object(evaluation_api, "_audit_eval"),
     ):
         database_manager.return_value.get_session.return_value = session
-        result = await evaluation_api.backfill_eval_records(
+        result = evaluation_api.backfill_eval_records(
             request=MagicMock(spec=Request),
             subagent="cmdline",
         )
@@ -97,7 +97,7 @@ async def test_backfill_with_no_pending_records_returns_success():
         patch.object(evaluation_api, "_audit_eval"),
     ):
         database_manager.return_value.get_session.return_value = session
-        result = await evaluation_api.backfill_eval_records(
+        result = evaluation_api.backfill_eval_records(
             request=MagicMock(spec=Request),
             subagent="cmdline",
         )

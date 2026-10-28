@@ -258,7 +258,7 @@ def _parse_backup_list(lines: list[str]) -> list[dict[str, Any]]:
 
 
 @router.get("/list")
-async def api_list_backups():
+def api_list_backups():
     """API endpoint for listing backups."""
     try:
         project_root = Path(__file__).parent.parent.parent.parent
@@ -287,7 +287,7 @@ async def api_list_backups():
 
 
 @router.get("/cron")
-async def api_get_backup_cron():
+def api_get_backup_cron():
     """Return current CTI-managed backup cron state and all visible cron jobs."""
     try:
         state = _get_cron_state()
@@ -391,7 +391,7 @@ async def api_delete_backup_cron(request: Request):
 
 
 @router.get("/status")
-async def api_backup_status():
+def api_backup_status():
     """API endpoint for retrieving backup status and summary."""
     try:
         project_root = Path(__file__).parent.parent.parent.parent

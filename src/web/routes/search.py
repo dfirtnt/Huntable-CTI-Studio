@@ -14,7 +14,7 @@ router = APIRouter(tags=["Search"])
 
 
 @router.get("/api/search/help")
-async def api_search_help():
+def api_search_help():
     """Get search syntax help."""
     return {"help_text": get_search_help_text()}
 
