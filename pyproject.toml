@@ -65,7 +65,7 @@ dependencies = [
     # Required by the web settings connection test and shared tracing client.
     "langfuse==4.14.4",
     # Agentic workflow
-    # Security pins (transitive dependency floors — >= intentional, mirrored in requirements.txt)
+    # Security pins (transitive dependency floors, >= intentional; requirements.txt is exported from uv.lock, not hand-edited)
     "Authlib==1.7.2",
     "Pillow==12.3.0", # PYSEC-2026-2253/2254/2255/2256/3451/3452/3453: decompression bombs, EPS DoS, ImageCms heap corruption, WindowsViewer shell injection
     "Mako==1.3.12", # path traversal + CVE-2026-44307 fixes
