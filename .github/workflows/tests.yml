@@ -222,7 +222,7 @@ jobs:
             -m "not integration" \
             --cov=src.utils \
             --cov-report=term \
-            --cov-fail-under=20
+            --cov-fail-under=35  # measured 37% on 2026-10-30; ratchet only upward
 
       # Ratchet floors for packages that previously had no gate at all.
       # Baselines measured 2026-09-02 on this exact selection: web 23%,
