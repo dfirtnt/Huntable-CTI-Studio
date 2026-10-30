@@ -157,6 +157,65 @@ def preserve_workflow_config_state(ensure_workflow_config_schema):
             session.commit()
 
 
+@pytest.fixture
+def seeded_article_id():
+    """Insert one source and one article, yield the article id, then remove exactly those rows.
+
+    Annotation endpoint tests need a real article; an empty CI schema must fail loudly
+    rather than skip. Annotations are deleted first,
+    then the article, then the source.
+    """
+    import uuid
+    from datetime import UTC, datetime
+
+    from src.database.models import ArticleAnnotationTable, ArticleTable, SourceTable
+
+    uid = uuid.uuid4().hex[:12]
+    content = " ".join(f"Seeded annotation test sentence number {i}." for i in range(80))
+    session = DatabaseManager().get_session()
+    source_id = None
+    article_id = None
+    try:
+        source = SourceTable(
+            identifier=f"test-annotations-api-{uid}",
+            name="Annotations API Test Source",
+            url=f"https://test.invalid/annotations-api-{uid}",
+            rss_url=None,
+            check_frequency=86400,
+            lookback_days=365,
+            active=False,
+            config={},
+        )
+        session.add(source)
+        session.flush()
+        source_id = source.id
+
+        article = ArticleTable(
+            source_id=source_id,
+            canonical_url=f"https://test.invalid/annotations-api-article-{uid}",
+            title=f"Annotations API Test Article {uid}",
+            published_at=datetime.now(UTC).replace(tzinfo=None),
+            content=content,
+            content_hash=f"annotations-api-hash-{uid}",
+            article_metadata={},
+            word_count=len(content.split()),
+        )
+        session.add(article)
+        session.flush()
+        article_id = article.id
+        session.commit()
+        yield article_id
+    finally:
+        session.rollback()
+        if article_id is not None:
+            session.query(ArticleAnnotationTable).filter_by(article_id=article_id).delete()
+            session.query(ArticleTable).filter_by(id=article_id).delete()
+        if source_id is not None:
+            session.query(SourceTable).filter_by(id=source_id).delete()
+        session.commit()
+        session.close()
+
+
 # Only override with session-scoped fixtures when using in-process ASGI client.
 # Otherwise smoke and other runs use root conftest (function-scoped) and avoid
 # "Event loop is closed" from mixing session loop with default function-scoped test loop.

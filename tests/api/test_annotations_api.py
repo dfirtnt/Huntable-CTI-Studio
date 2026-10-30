@@ -11,19 +11,8 @@ class TestCreateAnnotation:
 
     @pytest.mark.api
     @pytest.mark.asyncio
-    async def test_create_annotation_success(self, async_client: httpx.AsyncClient):
+    async def test_create_annotation_success(self, async_client: httpx.AsyncClient, seeded_article_id: int):
         """Test successfully creating an annotation."""
-        # First get an article
-        articles_response = await async_client.get("/api/articles?limit=1")
-        if articles_response.status_code != 200:
-            pytest.skip("No articles available for testing")
-
-        articles_data = articles_response.json()
-        if not articles_data.get("articles"):
-            pytest.skip("No articles available for testing")
-
-        article_id = articles_data["articles"][0]["id"]
-
         # Create annotation with valid text length
         annotation_data = {
             "annotation_type": "huntable",
@@ -36,7 +25,7 @@ class TestCreateAnnotation:
         }
 
         response = await async_client.post(
-            f"/api/articles/{article_id}/annotations",
+            f"/api/articles/{seeded_article_id}/annotations",
             json=annotation_data,
             headers={"Content-Type": "application/json"},
         )
@@ -47,24 +36,13 @@ class TestCreateAnnotation:
         assert data["success"] is True
         assert "annotation" in data
         assert data["message"] == "Annotation created successfully"
-        assert data["annotation"]["article_id"] == article_id
+        assert data["annotation"]["article_id"] == seeded_article_id
         assert data["annotation"]["annotation_type"] == "huntable"
 
     @pytest.mark.api
     @pytest.mark.asyncio
-    async def test_create_annotation_text_too_short(self, async_client: httpx.AsyncClient):
+    async def test_create_annotation_text_too_short(self, async_client: httpx.AsyncClient, seeded_article_id: int):
         """Test creating annotation with text too short."""
-        # Get an article
-        articles_response = await async_client.get("/api/articles?limit=1")
-        if articles_response.status_code != 200:
-            pytest.skip("No articles available for testing")
-
-        articles_data = articles_response.json()
-        if not articles_data.get("articles"):
-            pytest.skip("No articles available for testing")
-
-        article_id = articles_data["articles"][0]["id"]
-
         # Try to create annotation with text too short
         annotation_data = {
             "annotation_type": "huntable",
@@ -74,7 +52,7 @@ class TestCreateAnnotation:
         }
 
         response = await async_client.post(
-            f"/api/articles/{article_id}/annotations",
+            f"/api/articles/{seeded_article_id}/annotations",
             json=annotation_data,
             headers={"Content-Type": "application/json"},
         )
@@ -85,19 +63,8 @@ class TestCreateAnnotation:
 
     @pytest.mark.api
     @pytest.mark.asyncio
-    async def test_create_annotation_text_too_long(self, async_client: httpx.AsyncClient):
+    async def test_create_annotation_text_too_long(self, async_client: httpx.AsyncClient, seeded_article_id: int):
         """Test creating annotation with text too long."""
-        # Get an article
-        articles_response = await async_client.get("/api/articles?limit=1")
-        if articles_response.status_code != 200:
-            pytest.skip("No articles available for testing")
-
-        articles_data = articles_response.json()
-        if not articles_data.get("articles"):
-            pytest.skip("No articles available for testing")
-
-        article_id = articles_data["articles"][0]["id"]
-
         # Try to create annotation with text too long
         annotation_data = {
             "annotation_type": "huntable",
@@ -107,7 +74,7 @@ class TestCreateAnnotation:
         }
 
         response = await async_client.post(
-            f"/api/articles/{article_id}/annotations",
+            f"/api/articles/{seeded_article_id}/annotations",
             json=annotation_data,
             headers={"Content-Type": "application/json"},
         )
@@ -137,19 +104,8 @@ class TestCreateAnnotation:
 
     @pytest.mark.api
     @pytest.mark.asyncio
-    async def test_create_annotation_not_huntable(self, async_client: httpx.AsyncClient):
+    async def test_create_annotation_not_huntable(self, async_client: httpx.AsyncClient, seeded_article_id: int):
         """Test creating 'not_huntable' annotation."""
-        # Get an article
-        articles_response = await async_client.get("/api/articles?limit=1")
-        if articles_response.status_code != 200:
-            pytest.skip("No articles available for testing")
-
-        articles_data = articles_response.json()
-        if not articles_data.get("articles"):
-            pytest.skip("No articles available for testing")
-
-        article_id = articles_data["articles"][0]["id"]
-
         # Create 'not_huntable' annotation
         annotation_data = {
             "annotation_type": "not_huntable",
@@ -159,7 +115,7 @@ class TestCreateAnnotation:
         }
 
         response = await async_client.post(
-            f"/api/articles/{article_id}/annotations",
+            f"/api/articles/{seeded_article_id}/annotations",
             json=annotation_data,
             headers={"Content-Type": "application/json"},
         )
@@ -171,17 +127,8 @@ class TestCreateAnnotation:
 
     @pytest.mark.api
     @pytest.mark.asyncio
-    async def test_create_annotation_invalid_type(self, async_client: httpx.AsyncClient):
+    async def test_create_annotation_invalid_type(self, async_client: httpx.AsyncClient, seeded_article_id: int):
         """Test rejecting unsupported annotation types."""
-        articles_response = await async_client.get("/api/articles?limit=1")
-        if articles_response.status_code != 200:
-            pytest.skip("No articles available for testing")
-
-        articles_data = articles_response.json()
-        if not articles_data.get("articles"):
-            pytest.skip("No articles available for testing")
-
-        article_id = articles_data["articles"][0]["id"]
         annotation_data = {
             "annotation_type": "invalid_type",
             "selected_text": "x" * 1000,
@@ -190,7 +137,7 @@ class TestCreateAnnotation:
         }
 
         response = await async_client.post(
-            f"/api/articles/{article_id}/annotations",
+            f"/api/articles/{seeded_article_id}/annotations",
             json=annotation_data,
             headers={"Content-Type": "application/json"},
         )
@@ -204,27 +151,16 @@ class TestGetArticleAnnotations:
 
     @pytest.mark.api
     @pytest.mark.asyncio
-    async def test_get_annotations_success(self, async_client: httpx.AsyncClient):
+    async def test_get_annotations_success(self, async_client: httpx.AsyncClient, seeded_article_id: int):
         """Test getting annotations for an article."""
-        # Get an article
-        articles_response = await async_client.get("/api/articles?limit=1")
-        if articles_response.status_code != 200:
-            pytest.skip("No articles available for testing")
-
-        articles_data = articles_response.json()
-        if not articles_data.get("articles"):
-            pytest.skip("No articles available for testing")
-
-        article_id = articles_data["articles"][0]["id"]
-
         # Get annotations
-        response = await async_client.get(f"/api/articles/{article_id}/annotations")
+        response = await async_client.get(f"/api/articles/{seeded_article_id}/annotations")
 
         assert response.status_code == 200
         data = response.json()
 
         assert data["success"] is True
-        assert data["article_id"] == article_id
+        assert data["article_id"] == seeded_article_id
         assert "annotations" in data
         assert "count" in data
         assert isinstance(data["annotations"], list)
@@ -242,30 +178,10 @@ class TestGetArticleAnnotations:
 
     @pytest.mark.api
     @pytest.mark.asyncio
-    async def test_get_annotations_empty_list(self, async_client: httpx.AsyncClient):
+    async def test_get_annotations_empty_list(self, async_client: httpx.AsyncClient, seeded_article_id: int):
         """Test getting annotations when article has none."""
-        # Get an article without annotations
-        articles_response = await async_client.get("/api/articles?limit=100")
-        if articles_response.status_code != 200:
-            pytest.skip("No articles available for testing")
-
-        articles_data = articles_response.json()
-        if not articles_data.get("articles"):
-            pytest.skip("No articles available for testing")
-
-        # Find an article without annotations
-        article_id = None
-        for article in articles_data["articles"]:
-            annotation_count = article.get("article_metadata", {}).get("annotation_count", 0)
-            if annotation_count == 0:
-                article_id = article["id"]
-                break
-
-        if article_id is None:
-            pytest.skip("No articles without annotations found")
-
         # Get annotations
-        response = await async_client.get(f"/api/articles/{article_id}/annotations")
+        response = await async_client.get(f"/api/articles/{seeded_article_id}/annotations")
 
         assert response.status_code == 200
         data = response.json()
@@ -278,19 +194,8 @@ class TestGetAnnotation:
 
     @pytest.mark.api
     @pytest.mark.asyncio
-    async def test_get_annotation_success(self, async_client: httpx.AsyncClient):
+    async def test_get_annotation_success(self, async_client: httpx.AsyncClient, seeded_article_id: int):
         """Test getting an existing annotation."""
-        # First create an annotation
-        articles_response = await async_client.get("/api/articles?limit=1")
-        if articles_response.status_code != 200:
-            pytest.skip("No articles available for testing")
-
-        articles_data = articles_response.json()
-        if not articles_data.get("articles"):
-            pytest.skip("No articles available for testing")
-
-        article_id = articles_data["articles"][0]["id"]
-
         # Create annotation
         annotation_data = {
             "annotation_type": "huntable",
@@ -300,7 +205,7 @@ class TestGetAnnotation:
         }
 
         create_response = await async_client.post(
-            f"/api/articles/{article_id}/annotations",
+            f"/api/articles/{seeded_article_id}/annotations",
             json=annotation_data,
             headers={"Content-Type": "application/json"},
         )
@@ -319,7 +224,7 @@ class TestGetAnnotation:
         assert data["success"] is True
         assert "annotation" in data
         assert data["annotation"]["id"] == annotation_id
-        assert data["annotation"]["article_id"] == article_id
+        assert data["annotation"]["article_id"] == seeded_article_id
 
     @pytest.mark.api
     @pytest.mark.asyncio
@@ -337,19 +242,8 @@ class TestUpdateAnnotation:
 
     @pytest.mark.api
     @pytest.mark.asyncio
-    async def test_update_annotation_success(self, async_client: httpx.AsyncClient):
+    async def test_update_annotation_success(self, async_client: httpx.AsyncClient, seeded_article_id: int):
         """Test successfully updating an annotation."""
-        # First create an annotation
-        articles_response = await async_client.get("/api/articles?limit=1")
-        if articles_response.status_code != 200:
-            pytest.skip("No articles available for testing")
-
-        articles_data = articles_response.json()
-        if not articles_data.get("articles"):
-            pytest.skip("No articles available for testing")
-
-        article_id = articles_data["articles"][0]["id"]
-
         # Create annotation
         annotation_data = {
             "annotation_type": "huntable",
@@ -359,7 +253,7 @@ class TestUpdateAnnotation:
         }
 
         create_response = await async_client.post(
-            f"/api/articles/{article_id}/annotations",
+            f"/api/articles/{seeded_article_id}/annotations",
             json=annotation_data,
             headers={"Content-Type": "application/json"},
         )
@@ -407,19 +301,8 @@ class TestDeleteAnnotation:
 
     @pytest.mark.api
     @pytest.mark.asyncio
-    async def test_delete_annotation_by_id_success(self, async_client: httpx.AsyncClient):
+    async def test_delete_annotation_by_id_success(self, async_client: httpx.AsyncClient, seeded_article_id: int):
         """Test deleting an annotation by ID."""
-        # First create an annotation
-        articles_response = await async_client.get("/api/articles?limit=1")
-        if articles_response.status_code != 200:
-            pytest.skip("No articles available for testing")
-
-        articles_data = articles_response.json()
-        if not articles_data.get("articles"):
-            pytest.skip("No articles available for testing")
-
-        article_id = articles_data["articles"][0]["id"]
-
         # Create annotation
         annotation_data = {
             "annotation_type": "huntable",
@@ -429,7 +312,7 @@ class TestDeleteAnnotation:
         }
 
         create_response = await async_client.post(
-            f"/api/articles/{article_id}/annotations",
+            f"/api/articles/{seeded_article_id}/annotations",
             json=annotation_data,
             headers={"Content-Type": "application/json"},
         )
@@ -454,19 +337,10 @@ class TestDeleteAnnotation:
 
     @pytest.mark.api
     @pytest.mark.asyncio
-    async def test_delete_annotation_by_article_id_success(self, async_client: httpx.AsyncClient):
+    async def test_delete_annotation_by_article_id_success(
+        self, async_client: httpx.AsyncClient, seeded_article_id: int
+    ):
         """Test deleting an annotation via article endpoint."""
-        # First create an annotation
-        articles_response = await async_client.get("/api/articles?limit=1")
-        if articles_response.status_code != 200:
-            pytest.skip("No articles available for testing")
-
-        articles_data = articles_response.json()
-        if not articles_data.get("articles"):
-            pytest.skip("No articles available for testing")
-
-        article_id = articles_data["articles"][0]["id"]
-
         # Create annotation
         annotation_data = {
             "annotation_type": "huntable",
@@ -476,7 +350,7 @@ class TestDeleteAnnotation:
         }
 
         create_response = await async_client.post(
-            f"/api/articles/{article_id}/annotations",
+            f"/api/articles/{seeded_article_id}/annotations",
             json=annotation_data,
             headers={"Content-Type": "application/json"},
         )
@@ -487,7 +361,7 @@ class TestDeleteAnnotation:
         annotation_id = create_response.json()["annotation"]["id"]
 
         # Delete via article endpoint
-        response = await async_client.delete(f"/api/articles/{article_id}/annotations/{annotation_id}")
+        response = await async_client.delete(f"/api/articles/{seeded_article_id}/annotations/{annotation_id}")
 
         assert response.status_code == 200
         data = response.json()
@@ -522,19 +396,8 @@ class TestAnnotationCRUDWorkflow:
     @pytest.mark.api
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_complete_annotation_lifecycle(self, async_client: httpx.AsyncClient):
+    async def test_complete_annotation_lifecycle(self, async_client: httpx.AsyncClient, seeded_article_id: int):
         """Test complete annotation lifecycle: create, read, update, delete."""
-        # Get an article
-        articles_response = await async_client.get("/api/articles?limit=1")
-        if articles_response.status_code != 200:
-            pytest.skip("No articles available for testing")
-
-        articles_data = articles_response.json()
-        if not articles_data.get("articles"):
-            pytest.skip("No articles available for testing")
-
-        article_id = articles_data["articles"][0]["id"]
-
         # 1. CREATE
         annotation_data = {
             "annotation_type": "huntable",
@@ -544,7 +407,7 @@ class TestAnnotationCRUDWorkflow:
         }
 
         create_response = await async_client.post(
-            f"/api/articles/{article_id}/annotations",
+            f"/api/articles/{seeded_article_id}/annotations",
             json=annotation_data,
             headers={"Content-Type": "application/json"},
         )
@@ -558,7 +421,7 @@ class TestAnnotationCRUDWorkflow:
         assert get_response.json()["annotation"]["id"] == annotation_id
 
         # 3. READ - Get by article
-        get_article_response = await async_client.get(f"/api/articles/{article_id}/annotations")
+        get_article_response = await async_client.get(f"/api/articles/{seeded_article_id}/annotations")
         assert get_article_response.status_code == 200
         assert annotation_id in [a["id"] for a in get_article_response.json()["annotations"]]
 
