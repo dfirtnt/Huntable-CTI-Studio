@@ -2,6 +2,7 @@
 API routes for SIGMA rule queue management.
 """
 
+import asyncio
 import contextlib
 import json
 import logging
@@ -1098,51 +1099,72 @@ def approve_queued_rule(request: Request, queue_id: int, update: QueueUpdateRequ
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+def _reject_queued_rule_sync(
+    request: Request,
+    queue_id: int,
+    review_notes_provided: bool,
+    review_notes: Any,
+    new_yaml: Any,
+) -> dict[str, Any]:
+    """Blocking part of rule rejection; owns its DB session for the whole call."""
+    db_manager = DatabaseManager()
+    db_session = db_manager.get_session()
+
+    try:
+        rule = db_session.query(SigmaRuleQueueTable).filter(SigmaRuleQueueTable.id == queue_id).first()
+        if not rule:
+            raise HTTPException(status_code=404, detail="Queued rule not found")
+
+        if review_notes_provided:
+            rule.review_notes = review_notes
+        if new_yaml:
+            _apply_rule_yaml(rule, new_yaml)
+
+        rule.status = "rejected"
+        rule.reviewed_at = datetime.now()
+        rule.reviewed_by = _sigma_author_from_db(db_session)
+
+        AuditService.record_mandatory(
+            db_session,
+            _sigma_audit_event(
+                request,
+                ACTION_SIGMA_QUEUE_RULE_REJECTED,
+                queue_id,
+                f"Rejected queued Sigma rule {queue_id}",
+            ),
+        )
+        db_session.commit()
+
+        return {"success": True, "message": f"Rule {queue_id} rejected"}
+    finally:
+        db_session.close()
+
+
 @router.post("/{queue_id}/reject")
 async def reject_queued_rule(request: Request, queue_id: int):
     """Reject a queued rule."""
     try:
-        db_manager = DatabaseManager()
-        db_session = db_manager.get_session()
-
+        # Read the request body on the event loop, then do the blocking DB work in a worker thread.
+        # Try to parse JSON body first (new format with rule_yaml support)
+        review_notes_provided = False
+        review_notes = None
+        new_yaml = None
         try:
-            rule = db_session.query(SigmaRuleQueueTable).filter(SigmaRuleQueueTable.id == queue_id).first()
-            if not rule:
-                raise HTTPException(status_code=404, detail="Queued rule not found")
+            body = await request.json()
+            if body:
+                review_notes_provided = True
+                review_notes = body.get("review_notes")
+                new_yaml = body.get("rule_yaml")
+        except Exception:
+            # Fall back to query params (backward compatibility)
+            query_notes = request.query_params.get("review_notes")
+            if query_notes:
+                review_notes_provided = True
+                review_notes = query_notes
 
-            # Try to parse JSON body first (new format with rule_yaml support)
-            new_yaml = None
-            try:
-                body = await request.json()
-                if body:
-                    rule.review_notes = body.get("review_notes")
-                    new_yaml = body.get("rule_yaml")
-            except Exception:
-                # Fall back to query params (backward compatibility)
-                review_notes = request.query_params.get("review_notes")
-                if review_notes:
-                    rule.review_notes = review_notes
-            if new_yaml:
-                _apply_rule_yaml(rule, new_yaml)
-
-            rule.status = "rejected"
-            rule.reviewed_at = datetime.now()
-            rule.reviewed_by = _sigma_author_from_db(db_session)
-
-            AuditService.record_mandatory(
-                db_session,
-                _sigma_audit_event(
-                    request,
-                    ACTION_SIGMA_QUEUE_RULE_REJECTED,
-                    queue_id,
-                    f"Rejected queued Sigma rule {queue_id}",
-                ),
-            )
-            db_session.commit()
-
-            return {"success": True, "message": f"Rule {queue_id} rejected"}
-        finally:
-            db_session.close()
+        return await asyncio.to_thread(
+            _reject_queued_rule_sync, request, queue_id, review_notes_provided, review_notes, new_yaml
+        )
 
     except HTTPException:
         raise
@@ -2441,17 +2463,22 @@ async def validate_rule(request: Request, queue_id: int):
         model: str = "Sigma agent"
         conversation_log: list = []
         validation_results: list = []
-        db_manager = DatabaseManager()
-        db_session = db_manager.get_session()
+        # The sync session is only ever touched from worker threads (never the event loop),
+        # one call at a time, so the long LLM awaits below do not block other requests.
+        db_session = await asyncio.to_thread(lambda: DatabaseManager().get_session())
 
         try:
-            rule = db_session.query(SigmaRuleQueueTable).filter(SigmaRuleQueueTable.id == queue_id).first()
+            rule = await asyncio.to_thread(
+                lambda: db_session.query(SigmaRuleQueueTable).filter(SigmaRuleQueueTable.id == queue_id).first()
+            )
             if not rule:
                 raise HTTPException(status_code=404, detail="Queued rule not found")
 
             # Get article for context (hand-authored drafts have no source article)
             if rule.article_id is not None:
-                article = db_session.query(ArticleTable).filter(ArticleTable.id == rule.article_id).first()
+                article = await asyncio.to_thread(
+                    lambda: db_session.query(ArticleTable).filter(ArticleTable.id == rule.article_id).first()
+                )
                 if not article:
                     raise HTTPException(status_code=404, detail="Article not found")
 
@@ -2463,7 +2490,7 @@ async def validate_rule(request: Request, queue_id: int):
             # Use workflow Sigma agent LLM when requested (same as agent workflow)
             use_workflow_sigma_agent = body.get("use_workflow_sigma_agent") is True
             if use_workflow_sigma_agent:
-                provider, model, api_key = _get_sigma_agent_llm_from_workflow(db_session)
+                provider, model, api_key = await asyncio.to_thread(_get_sigma_agent_llm_from_workflow, db_session)
             else:
                 # Get provider and model from request, default to OpenAI
                 provider = (body.get("provider") or "openai").lower()
@@ -2490,7 +2517,7 @@ async def validate_rule(request: Request, queue_id: int):
                 elif provider == "lmstudio":
                     api_key = "not_required"
                 elif provider == "codex":
-                    codex_settings = _load_workflow_provider_settings(db_session)
+                    codex_settings = await asyncio.to_thread(_load_workflow_provider_settings, db_session)
                     if not _provider_flag_enabled(codex_settings, "codex_enabled", "WORKFLOW_CODEX_ENABLED"):
                         raise HTTPException(
                             status_code=400,
@@ -2859,7 +2886,7 @@ async def validate_rule(request: Request, queue_id: int):
             }
 
         finally:
-            db_session.close()
+            await asyncio.to_thread(db_session.close)
 
     except HTTPException as e:
         # If we have a conversation log, include it in the error response
