@@ -28,13 +28,6 @@
       "128": "icons/icon128.png"
     }
   },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "run_at": "document_end"
-    }
-  ],
   "background": {
     "service_worker": "background.js"
   },
@@ -43,18 +36,5 @@
     "32": "icons/icon32.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
-  },
-  "web_accessible_resources": [
-    {
-      "resources": [
-        "popup.html",
-        "worker.min.js",
-        "tesseract-core.wasm.js",
-        "tesseract-core.wasm",
-        "tesseract-core-simd.wasm.js",
-        "tesseract-core-simd.wasm"
-      ],
-      "matches": ["<all_urls>"]
-    }
-  ]
+  }
 }

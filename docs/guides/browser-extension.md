@@ -54,11 +54,15 @@ The extension calls `POST /api/scrape-url` on your instance with the page title,
 
 The extension blocks ingestion from private/local IP addresses (`127.0.0.1`, `192.168.x.x`, `10.x.x.x`, link-local, and IPv6 equivalents). This prevents accidental ingestion of internal documentation or localhost content. The API URL field also rejects non-routable addresses.
 
+## Permissions and privacy
+
+The extension has no content script and runs nothing on pages you visit. Article extraction happens only when you click the toolbar icon, via the `activeTab` and `scripting` permissions on the current tab. It does not read, store, or write data into pages in the background. The `https://*/*` host permission is kept only so the service worker can fetch article images cross-origin for OCR. No extension files are exposed to web pages (`web_accessible_resources` is not declared); the OCR engine runs from the popup.
+
 ## Troubleshooting
 
 | Symptom | Likely cause |
 |---|---|
-| "Unable to extract article data" | Content script injection blocked by page CSP |
+| "Unable to extract article data" | Script injection into the active tab was blocked (restricted page such as `chrome://` or the Web Store) |
 | "Non-routable IP" error | Current page is served from a private IP |
 | "Content too short" | Page has fewer than 50 words of extractable text |
 | API errors | Huntable CTI Studio not running on the configured URL |
@@ -73,7 +77,6 @@ browser-extension/
   popup.html          # Extension popup UI
   popup.js            # Popup logic, OCR, image extraction
   background.js       # Service worker for API calls
-  content.js          # Content script for page extraction, injected on all pages via manifest.json
   icons/              # Extension icons
   tesseract*.wasm     # Bundled Tesseract.js OCR engine
 ```

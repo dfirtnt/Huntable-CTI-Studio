@@ -25,7 +25,6 @@ browser-extension/
   popup.html          # Extension popup UI
   popup.js            # Popup logic, OCR, image extraction
   background.js       # Service worker for API calls
-  content.js           # Content script for page extraction (optional)
   icons/               # Extension icons
   tesseract*.wasm      # Bundled Tesseract.js OCR engine
 ```

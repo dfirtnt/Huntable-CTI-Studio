@@ -80,14 +80,14 @@ document.addEventListener('DOMContentLoaded', function() {
     function loadArticleData() {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
             if (tabs[0]) {
-                // First try to get from storage (set by content script)
+                // First try the short-lived cache written by a previous popup open
                 chrome.storage.local.get(['currentArticleData'], (result) => {
-                    if (result.currentArticleData && result.timestamp && (Date.now() - result.timestamp < 30000)) {
+                    if (result.currentArticleData && result.currentArticleData.url === tabs[0].url && result.timestamp && (Date.now() - result.timestamp < 30000)) {
                         // Use cached data if it's recent (within 30 seconds)
                         currentArticleData = result.currentArticleData;
                         updateUI(result.currentArticleData);
                     } else {
-                        // Try to inject content script and extract data
+                        // Extract on demand from the active tab (activeTab grant from the click)
                         chrome.scripting.executeScript({
                             target: { tabId: tabs[0].id },
                             function: extractArticleDataFromPage
@@ -102,24 +102,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                     timestamp: Date.now()
                                 });
                             } else {
-                                // Fallback: try to send message to content script
-                                chrome.tabs.sendMessage(tabs[0].id, { action: 'extractArticleData' }, (response) => {
-                                    if (chrome.runtime.lastError) {
-                                        console.warn('Content script message failed:', chrome.runtime.lastError.message);
-                                        showError('Unable to extract article data from this page');
-                                        return;
-                                    }
-                                    if (response) {
-                                        currentArticleData = response;
-                                        updateUI(response);
-                                        chrome.storage.local.set({ 
-                                            currentArticleData: response,
-                                            timestamp: Date.now()
-                                        });
-                                    } else {
-                                        showError('Unable to extract article data from this page');
-                                    }
-                                });
+                                showError('Unable to extract article data from this page');
                             }
                         });
                     }

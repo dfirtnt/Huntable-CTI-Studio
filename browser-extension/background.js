@@ -44,14 +44,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             .catch(error => safeSend({ success: false, error: error.message }));
         return true;
     }
-
-    if (request.action === 'articleDataExtracted') {
-        // Store article data for popup to access
-        chrome.storage.local.set({
-            currentArticleData: request.data,
-            timestamp: Date.now()
-        });
-    }
 });
 
 async function fetchImageAsDataURL(src) {
