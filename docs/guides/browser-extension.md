@@ -56,7 +56,7 @@ The extension blocks ingestion from private/local IP addresses (`127.0.0.1`, `19
 
 ## Permissions and privacy
 
-The extension has no content script and runs nothing on pages you visit. Article extraction happens only when you click the toolbar icon, via the `activeTab` and `scripting` permissions on the current tab. It does not read, store, or write data into pages in the background. The `https://*/*` host permission is kept only so the service worker can fetch article images cross-origin for OCR. No extension files are exposed to web pages (`web_accessible_resources` is not declared); the OCR engine runs from the popup.
+The extension has no content script and runs nothing on pages you visit. Article extraction happens only when you click the toolbar icon, via the `activeTab` and `scripting` permissions on the current tab. It does not read or write page data in the background. The last extracted article (text and URL) is cached in `chrome.storage.local` until the next extraction. The `https://*/*` host permission is kept so the service worker can fetch article images cross-origin for OCR; it still technically allows script injection into any https page, so Chrome's install warning ("read and change all your data") is unchanged even though the extension only uses it after you click. No extension files are exposed to web pages (`web_accessible_resources` is not declared); the OCR engine runs from the popup.
 
 ## Troubleshooting
 
