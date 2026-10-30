@@ -226,8 +226,6 @@ disallow_untyped_defs = false
 disable_error_code = [
     "arg-type",       # 357 violations — function argument type mismatches
     "assignment",     # 337 violations — incompatible assignment types
-    "union-attr",     # 157 violations — attribute access on Optional types
-    "attr-defined",   # 117 violations — undefined attributes
     "var-annotated",  # 87 violations — variables needing type annotations
     "operator",       # 41 violations — unsupported operand types
     "call-arg",       # 37 violations — unexpected/missing keyword arguments

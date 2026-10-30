@@ -1187,7 +1187,7 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
 
         # Initialize LLMService with config models
         llm_service = LLMService(config_models=agent_models)
-        llm_service._current_article_id = article_id  # type: ignore[attr-defined]  # dynamic attr, not declared on LLMService
+        llm_service._current_article_id = article_id
 
         # Override API keys and provider from request if provided (client-side settings take precedence)
         if api_key:
