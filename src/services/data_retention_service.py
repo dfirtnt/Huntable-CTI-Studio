@@ -53,7 +53,7 @@ TERMINAL_STATUSES = ("completed", "failed")
 # Tables holding a `workflow_execution_id` FK. An execution referenced by any of
 # them is retained regardless of age: `sigma_rule_queue` cascades on delete, and the
 # evaluation table would be orphaned.
-_EXECUTION_REFERENCE_TABLES = (
+_EXECUTION_REFERENCE_TABLES: tuple[type[SigmaRuleQueueTable] | type[SubagentEvaluationTable], ...] = (
     SigmaRuleQueueTable,
     SubagentEvaluationTable,
 )

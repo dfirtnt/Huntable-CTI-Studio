@@ -62,6 +62,10 @@ __all__ = [
 class LLMService(LLMRoutingMixin, LLMClientMixin):
     """Service for LLM API calls using Deepseek-R1 via LMStudio."""
 
+    # Set by callers (workflow, AI routes) for request context; not read here.
+    _current_execution_id: int | None
+    _current_article_id: int | None
+
     def __init__(self, config_models: dict[str, str] | None = None):
         """
         Initialize LLM service with LMStudio configuration.
@@ -162,14 +166,14 @@ class LLMService(LLMRoutingMixin, LLMClientMixin):
         self.provider_sigma = self._canonicalize_provider(_sp) if _sp else ""
 
         rank_override = (config_models.get("RankAgent") or "").strip()
-        rank_env = (lmstudio_db.get("LMSTUDIO_MODEL_RANK") or os.getenv("LMSTUDIO_MODEL_RANK", "")).strip()
+        rank_env = (lmstudio_db.get("LMSTUDIO_MODEL_RANK") or os.getenv("LMSTUDIO_MODEL_RANK") or "").strip()
         self.model_rank = self._resolve_agent_model(
             "RankAgent", rank_override, rank_env, self.provider_rank, default_model
         )
         self.model_extract = self._resolve_agent_model(
             "ExtractAgent",
             (config_models.get("ExtractAgent") or "").strip(),
-            (lmstudio_db.get("LMSTUDIO_MODEL_EXTRACT") or os.getenv("LMSTUDIO_MODEL_EXTRACT", "")).strip(),
+            (lmstudio_db.get("LMSTUDIO_MODEL_EXTRACT") or os.getenv("LMSTUDIO_MODEL_EXTRACT") or "").strip(),
             self.provider_extract,
             default_model,
             require_specific_model=False,
@@ -177,7 +181,7 @@ class LLMService(LLMRoutingMixin, LLMClientMixin):
         self.model_sigma = self._resolve_agent_model(
             "SigmaAgent",
             (config_models.get("SigmaAgent") or "").strip(),
-            (lmstudio_db.get("LMSTUDIO_MODEL_SIGMA") or os.getenv("LMSTUDIO_MODEL_SIGMA", "")).strip(),
+            (lmstudio_db.get("LMSTUDIO_MODEL_SIGMA") or os.getenv("LMSTUDIO_MODEL_SIGMA") or "").strip(),
             self.provider_sigma,
             default_model=default_model,
             require_specific_model=False,
@@ -1421,9 +1425,10 @@ Every item in the output array MUST be an object (not a plain string)."""
                         "queries",
                         "process_lineage",
                     ):
-                        if key not in last_result or not isinstance(last_result[key], list):
+                        key_items = last_result.get(key)
+                        if not isinstance(key_items, list):
                             continue
-                        last_result[key] = [_normalize_traceability_item(it, agent_name) for it in last_result[key]]
+                        last_result[key] = [_normalize_traceability_item(it, agent_name) for it in key_items]
 
                     # Log completion to Langfuse with parsed result (inside with block so generation is still active)
                     if generation:

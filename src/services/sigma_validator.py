@@ -17,6 +17,7 @@ from src.services.attack_taxonomy import AttackTaxonomy, check_attack_tag, load_
 
 try:
     from sigma.collection import SigmaCollection
+    from sigma.correlations import SigmaCorrelationRule
 
     PYSIGMA_AVAILABLE = True
 except ImportError:
@@ -836,6 +837,8 @@ def validate_sigma_rule(rule_yaml: str) -> ValidationResult:
     try:
         collection = SigmaCollection.from_yaml(cleaned_content)
         for sigma_rule in collection.rules:
+            if isinstance(sigma_rule, SigmaCorrelationRule):
+                continue  # correlation rules have no detection block to parse
             for condition in sigma_rule.detection.parsed_condition:
                 _ = condition.parsed
     except Exception as exc:

@@ -20,6 +20,7 @@ from typing import Any
 
 import yaml
 from langgraph.graph import END, StateGraph
+from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
@@ -713,7 +714,8 @@ def _repair_empty_observable_attribution(
     surfaced as nothing more than an absent ``observables_used``, so the failure was
     indistinguishable from the configured behaviour.
     """
-    rule_logsource = rule.get("logsource") if isinstance(rule.get("logsource"), dict) else {}
+    raw_logsource = rule.get("logsource")
+    rule_logsource = raw_logsource if isinstance(raw_logsource, dict) else {}
     rule_category = rule_logsource.get("category")
     group_category = group_logsource_hint.get("category") if isinstance(group_logsource_hint, dict) else None
     if rule_category and group_category and rule_category != group_category:
@@ -1356,7 +1358,7 @@ async def _maybe_adjudicate_platform(
     return os_result, detected_os
 
 
-def create_agentic_workflow(db_session: Session) -> StateGraph:
+def create_agentic_workflow(db_session: Session) -> CompiledStateGraph:
     """
     Create LangGraph workflow for agentic processing.
 
@@ -1569,7 +1571,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             content = eval_fixture_content if isinstance(eval_fixture_content, str) else article.content
 
             # Validate the selected source content.
-            if not content or len(content.strip()) == 0:
+            if not content or len(content.strip()) == 0:  # type: ignore[attr-defined]  # legacy Column[str] typing on ArticleTable.content
                 raise ValueError(f"Article {article.id} has no content to filter")
 
             # Evals exercise the extraction agent against the complete article. They
@@ -3045,7 +3047,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     f"[Workflow {state['execution_id']}] intra-batch dedup: {pre_dedup_count} → {len(sigma_rules)} rules"
                 )
 
-            sigma_metadata = {
+            sigma_metadata: dict[str, Any] = {
                 "total_attempts": total_attempts,
                 "valid_rules": valid_rules,
                 "validation_results": combined_validation_results,
@@ -4358,6 +4360,11 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                         .filter(AgenticWorkflowExecutionTable.id == execution.id)
                         .first()
                     )
+                    if execution is None:
+                        # Row is gone; surface it through the record_error path below.
+                        raise RuntimeError(
+                            f"Workflow execution {claimed_execution_id} no longer exists"
+                        ) from refresh_error
 
                 # Check if workflow actually completed successfully despite the error
                 if execution and execution.sigma_rules and len(execution.sigma_rules) > 0:

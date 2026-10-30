@@ -204,12 +204,16 @@ class EvalBundleService:
                 if subagent_eval.missed_count is not None:
                     workflow_meta["missed_count"] = subagent_eval.missed_count
                     workflow_meta["missed_items"] = [
-                        i for i in (subagent_eval.expected_items or []) if i not in (subagent_eval.actual_items or [])
+                        i
+                        for i in (subagent_eval.expected_items or [])  # type: ignore[union-attr]  # legacy Column typing; JSONB list at runtime
+                        if i not in (subagent_eval.actual_items or [])
                     ]
                 if subagent_eval.extra_count is not None:
                     workflow_meta["extra_count"] = subagent_eval.extra_count
                     workflow_meta["extra_items"] = [
-                        i for i in (subagent_eval.actual_items or []) if i not in (subagent_eval.expected_items or [])
+                        i
+                        for i in (subagent_eval.actual_items or [])  # type: ignore[union-attr]  # legacy Column typing; JSONB list at runtime
+                        if i not in (subagent_eval.expected_items or [])
                     ]
 
         if expected_count is not None:

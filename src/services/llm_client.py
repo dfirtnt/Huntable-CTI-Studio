@@ -4,7 +4,7 @@ import asyncio
 import logging
 import os
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
@@ -18,6 +18,21 @@ logger = logging.getLogger(__name__)
 
 
 class LLMClientMixin:
+    # Instance attributes assigned by LLMService.__init__.
+    lmstudio_model: str
+    openai_api_key: str | None
+    anthropic_api_key: str | None
+    workflow_openai_enabled: bool
+    workflow_anthropic_enabled: bool
+    workflow_codex_enabled: bool
+    provider_defaults: dict[str, str]
+
+    if TYPE_CHECKING:
+        # Provided by LLMRoutingMixin in LLMService's MRO.
+        def _canonicalize_provider(self, provider: str | None) -> str: ...
+
+        def _lmstudio_url_candidates(self) -> list: ...
+
     def _validate_provider(self, provider: str) -> None:
         if not provider:
             raise RuntimeError(

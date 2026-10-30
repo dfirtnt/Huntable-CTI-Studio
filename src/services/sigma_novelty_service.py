@@ -962,7 +962,7 @@ class SigmaNoveltyService:
             if len(selections) == 1:
                 return {"type": "selection", "name": selections[0]}
             if len(selections) > 1:
-                result = {"type": "or", "operands": []}
+                result: dict[str, Any] = {"type": "or", "operands": []}
                 for sel in selections:
                     result["operands"].append({"type": "selection", "name": sel})
                 return result
@@ -973,7 +973,7 @@ class SigmaNoveltyService:
             if len(selections) == 1:
                 return {"type": "selection", "name": selections[0]}
             if len(selections) > 1:
-                result = {"type": "and", "operands": []}
+                result: dict[str, Any] = {"type": "and", "operands": []}
                 for sel in selections:
                     result["operands"].append({"type": "selection", "name": sel})
                 return result
