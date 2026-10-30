@@ -38,7 +38,7 @@ class ModelEvaluator:
             eval_data_path: Path to CSV file containing evaluation chunks
         """
         self.eval_data_path = eval_data_path
-        self.eval_data = None
+        self.eval_data: pd.DataFrame | None = None
         self._load_eval_data()
 
     def _load_eval_data(self) -> None:

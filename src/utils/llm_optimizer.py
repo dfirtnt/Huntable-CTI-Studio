@@ -76,6 +76,10 @@ class LLMOptimizer:
                 content, min_confidence, chunk_size, article_id=article_id, store_analysis=store_analysis
             )
 
+            if filter_result.filtered_content is None:
+                # Unreachable: filter_content always sets filtered_content
+                raise ValueError("Content filter returned no filtered content")
+
             # Calculate cost estimates (using GPT-4o pricing as reference)
             original_tokens = len(content) // 4  # Rough estimate
             filtered_tokens = len(filter_result.filtered_content) // 4

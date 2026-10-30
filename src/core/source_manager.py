@@ -314,6 +314,8 @@ class SourceManager:
                 try:
                     logger.debug(f"Validating RSS feed for {config.identifier}")
 
+                    if self.feed_validator is None or self.http_client is None:
+                        raise RuntimeError("Feed validation requires an HTTP client")
                     validation_result = await self.feed_validator.validate_feed(config.rss_url, self.http_client)
 
                     if validation_result["valid"]:
@@ -343,7 +345,10 @@ class SourceManager:
     async def _configure_robots_settings(self, source_configs: list[SourceCreate]):
         """Configure robots.txt settings for each source."""
         for config in source_configs:
-            if hasattr(config.config, "robots") and config.config.robots:
+            if config.config is not None and hasattr(config.config, "robots") and config.config.robots:
+                if self.http_client is None:
+                    logger.debug(f"No HTTP client; skipping robots.txt settings for {config.identifier}")
+                    continue
                 robots_config = config.config.robots
                 robots_payload = robots_config.model_dump(exclude_none=True)
                 self.http_client.configure_source_robots(config.identifier, robots_payload)
@@ -359,6 +364,8 @@ class SourceManager:
             # Get sources that haven't been checked recently
             filter_params = SourceFilter(active=True)
 
+        if self.db is None:
+            raise RuntimeError("SourceManager requires a database manager to list sources")
         sources = self.db.list_sources(filter_params)
 
         if force_all:
@@ -375,7 +382,7 @@ class SourceManager:
         Returns:
             Dictionary with validation results
         """
-        result = {"valid": False, "sources_count": 0, "errors": [], "warnings": []}
+        result: dict[str, Any] = {"valid": False, "sources_count": 0, "errors": [], "warnings": []}
 
         try:
             # Load and parse configuration
@@ -396,9 +403,11 @@ class SourceManager:
                     identifiers.add(config.identifier)
 
                 # Validate check frequency
-                if config.check_frequency < 60:
+                # check_frequency lives on the nested SourceConfig, not on SourceCreate
+                check_frequency = config.config.check_frequency if config.config else None
+                if check_frequency is not None and check_frequency < 60:
                     result["warnings"].append(
-                        f"Source '{config.identifier}': Check frequency {config.check_frequency}s is very aggressive"
+                        f"Source '{config.identifier}': Check frequency {check_frequency}s is very aggressive"
                     )
 
                 # Validate RSS URL if present

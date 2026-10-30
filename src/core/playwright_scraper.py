@@ -164,6 +164,8 @@ class PlaywrightScraper:
             discovered_urls.add(source.url)
         else:
             full_config = source.config if isinstance(source.config, dict) else {}
+            if not self._context:
+                raise RuntimeError("PlaywrightScraper must be used as async context manager")
             page = await self._context.new_page()
             try:
                 for strategy in strategies:

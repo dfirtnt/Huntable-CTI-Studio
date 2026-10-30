@@ -912,13 +912,12 @@ class ContentFilter:
                 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
             # Train model
-            self.model = RandomForestClassifier(
-                n_estimators=100, max_depth=10, random_state=42, class_weight="balanced"
-            )
-            self.model.fit(X_train, y_train)
+            model = RandomForestClassifier(n_estimators=100, max_depth=10, random_state=42, class_weight="balanced")
+            self.model = model
+            model.fit(X_train, y_train)
 
             # Evaluate
-            y_pred = self.model.predict(X_test)
+            y_pred = model.predict(X_test)
             accuracy = accuracy_score(y_test, y_pred)
 
             # Calculate detailed metrics. Pass labels=[0, 1] so the returned

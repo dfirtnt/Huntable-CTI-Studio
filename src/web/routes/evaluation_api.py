@@ -1191,9 +1191,9 @@ def get_subagent_eval_results(
 
             # For hunt_queries, include historical hunt_queries_edr records to show previous EDR results
             if canonical_subagent == "hunt_queries":
-                lookup_values = set(lookup_values) if lookup_values else set()
-                lookup_values.add("hunt_queries_edr")
-                lookup_values = list(lookup_values)
+                lookup_set = set(lookup_values) if lookup_values else set()
+                lookup_set.add("hunt_queries_edr")
+                lookup_values = list(lookup_set)
 
             # Fast path for the run progress poller: it only needs status counts, not the
             # full per-record payload. Building that payload meant loading every row (1900+)
@@ -1743,9 +1743,9 @@ def get_subagent_eval_aggregate(
 
             # For hunt_queries, include historical hunt_queries_edr records for aggregate calculations
             if canonical_subagent == "hunt_queries":
-                lookup_values = set(lookup_values) if lookup_values else set()
-                lookup_values.add("hunt_queries_edr")
-                lookup_values = list(lookup_values)
+                lookup_set = set(lookup_values) if lookup_values else set()
+                lookup_set.add("hunt_queries_edr")
+                lookup_values = list(lookup_set)
 
             # Hoisted above the model-filter early-return so eval_set_total is
             # always populated in the response, regardless of which return path fires.
@@ -1962,9 +1962,9 @@ def get_subagent_eval_models(
         try:
             canonical_subagent, lookup_values = _resolve_subagent_query(subagent)
             if canonical_subagent == "hunt_queries":
-                lookup_values = set(lookup_values) if lookup_values else set()
-                lookup_values.add("hunt_queries_edr")
-                lookup_values = list(lookup_values)
+                lookup_set = set(lookup_values) if lookup_values else set()
+                lookup_set.add("hunt_queries_edr")
+                lookup_values = list(lookup_set)
 
             agent_name = _SUBAGENT_TO_BUNDLE_AGENT.get(canonical_subagent)
             if not agent_name:
@@ -2036,9 +2036,9 @@ def get_subagent_eval_compare(
 
             # For hunt_queries include historical edr records
             if canonical_subagent == "hunt_queries":
-                lookup_values = set(lookup_values) if lookup_values else set()
-                lookup_values.add("hunt_queries_edr")
-                lookup_values = list(lookup_values)
+                lookup_set = set(lookup_values) if lookup_values else set()
+                lookup_set.add("hunt_queries_edr")
+                lookup_values = list(lookup_set)
 
             query = db_session.query(SubagentEvaluationTable)
             if lookup_values:
@@ -2481,7 +2481,7 @@ def get_eval_bundle_metadata(
 
             # If agent_name not provided, try to detect from error_log
             if not agent_name:
-                error_log = execution.error_log or {}
+                error_log = execution.error_log if isinstance(execution.error_log, dict) else {}
                 # Filter out non-agent keys
                 agent_keys = ["rank_article", "extract_agent", "generate_sigma", "os_detection"]
                 available_agents = [k for k in error_log if k in agent_keys]
@@ -2604,9 +2604,9 @@ def export_bundles_by_config_version(
             slim_mode = slim is True
             canonical_subagent, lookup_values = _resolve_subagent_query(subagent)
             if canonical_subagent == "hunt_queries":
-                lookup_values = set(lookup_values) if lookup_values else set()
-                lookup_values.add("hunt_queries_edr")
-                lookup_values = list(lookup_values)
+                lookup_set = set(lookup_values) if lookup_values else set()
+                lookup_set.add("hunt_queries_edr")
+                lookup_values = list(lookup_set)
             agent_name = _SUBAGENT_TO_BUNDLE_AGENT.get(canonical_subagent or "")
             if not agent_name:
                 agent_name = "CmdlineExtract"  # fallback for unknown subagents

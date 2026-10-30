@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 import httpx
 from fastapi import APIRouter, HTTPException
@@ -161,7 +161,8 @@ async def api_services_health() -> dict[str, Any]:
                 "redis://localhost:6379/0" if os.getenv("APP_ENV") == "test" else "redis://redis:6379/0"
             )
             redis_client = redis.from_url(redis_url, decode_responses=True)
-            redis_info = redis_client.info()
+            # Sync client: info() returns a dict (stubs type it as sync/async union)
+            redis_info = cast(dict[str, Any], redis_client.info())
             services_status["redis"] = {
                 "status": "healthy",
                 "info": {
@@ -232,11 +233,11 @@ async def api_services_health() -> dict[str, Any]:
             )
 
             if is_langfuse_enabled():
-                client = get_langfuse_client()
-                if client:
+                langfuse_client = get_langfuse_client()
+                if langfuse_client:
                     # Try to flush to test connection (non-blocking)
                     try:
-                        client.flush()
+                        langfuse_client.flush()
                         services_status["langfuse"] = {
                             "status": "healthy",
                             "configured": True,

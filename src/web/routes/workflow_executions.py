@@ -12,7 +12,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import and_, case, func, or_
+from sqlalchemy import Column, and_, case, func, or_
 from sqlalchemy.orm import Session, defer, joinedload
 
 from src.database.manager import DatabaseManager
@@ -457,7 +457,7 @@ class ExecutionListResponse(BaseModel):
     limit: int = 50
 
 
-_SORT_COLUMNS = {
+_SORT_COLUMNS: dict[str, Column[Any]] = {
     "id": AgenticWorkflowExecutionTable.id,
     "article_id": AgenticWorkflowExecutionTable.article_id,
     "status": AgenticWorkflowExecutionTable.status,
@@ -524,7 +524,8 @@ def list_workflow_executions(
             )
             if base_filters:
                 count_q = count_q.filter(*base_filters)
-            row = count_q.first()
+            # An aggregate query without GROUP BY always yields exactly one row.
+            row = count_q.one()
             total = int(row.total or 0)
             running = int(row.running or 0)
             completed = int(row.completed or 0)

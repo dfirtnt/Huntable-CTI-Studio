@@ -971,7 +971,7 @@ async def api_test_langfuse_connection(request: Request):
                         ),
                     }
 
-                base_url = host.rstrip("/")
+                base_url = (host or LANGFUSE_DEFAULT_HOST).rstrip("/")
 
                 # Validate the provided credentials against Langfuse's official API.
                 # Using the Fern client guarantees we hit the correct endpoint and
@@ -1187,7 +1187,7 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
 
         # Initialize LLMService with config models
         llm_service = LLMService(config_models=agent_models)
-        llm_service._current_article_id = article_id
+        llm_service._current_article_id = article_id  # type: ignore[attr-defined]  # dynamic attr, not declared on LLMService
 
         # Override API keys and provider from request if provided (client-side settings take precedence)
         if api_key:
@@ -1842,7 +1842,7 @@ async def api_get_sigma_matches(article_id: int, force: bool = False):
         # OPTIONAL CACHE: If not forcing, return cached matches from article metadata when available
         # Only use cache if it's from the new novelty assessment system with proper classification (version 2.1+)
         if not force and article.article_metadata and article.article_metadata.get("sigma_similar_cache"):
-            cached = article.article_metadata.get("sigma_similar_cache")
+            cached: dict[str, Any] = article.article_metadata["sigma_similar_cache"]
             cache_version = cached.get("cache_version", "1.0")  # Old caches don't have version
 
             # Invalidate old caches (version < 2.1) - need to regenerate with proper novelty_label classification

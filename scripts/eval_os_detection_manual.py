@@ -265,7 +265,8 @@ async def run_secbert_detection(article_id: int, content: str, junk_filter_thres
         # Get workflow config
         trigger_service = WorkflowTriggerService(db_session)
         config_obj = trigger_service.get_active_config()
-        agent_models = config_obj.agent_models if config_obj and config_obj.agent_models else {}
+        raw_agent_models = config_obj.agent_models if config_obj else None
+        agent_models: dict[str, Any] = raw_agent_models if isinstance(raw_agent_models, dict) else {}
         embedding_model = agent_models.get("OSDetectionAgent_embedding", "ibm-research/CTI-BERT")
 
         # Apply junk filter

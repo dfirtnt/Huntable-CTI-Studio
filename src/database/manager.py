@@ -3,9 +3,10 @@
 import logging
 import os
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import create_engine, func
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -283,8 +284,9 @@ class DatabaseManager:
                     name=source_data.name,
                     url=source_data.url,
                     rss_url=source_data.rss_url,
-                    check_frequency=source_data.check_frequency,
-                    lookback_days=source_data.lookback_days,
+                    # Mirrors AsyncDatabaseManager.create_source: these live on SourceConfig
+                    check_frequency=source_data.config.check_frequency if source_data.config else 14400,
+                    lookback_days=source_data.config.lookback_days if source_data.config else 180,
                     active=source_data.active,
                     config=source_data.config.dict() if source_data.config else {},
                 )
@@ -649,7 +651,7 @@ class DatabaseManager:
             with self.get_session() as session:
                 result = session.execute(build_update_article_embedding_stmt(article_id, embedding, model_name))
                 session.commit()
-                return result.rowcount > 0
+                return cast(CursorResult[Any], result).rowcount > 0
 
         except Exception as e:
             logger.error(f"Failed to update article embedding: {e}")

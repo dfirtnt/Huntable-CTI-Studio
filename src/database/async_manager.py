@@ -10,7 +10,7 @@ import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from sqlalchemy import (
     delete,
@@ -22,6 +22,7 @@ from sqlalchemy import (
     update,
 )
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -1000,6 +1001,10 @@ class AsyncDatabaseManager:
                     similar_articles,
                 ) = await dedup_service.create_article_with_deduplication(article)
 
+                if new_article is None:
+                    # Unreachable: dedup returns the existing row for duplicates, the new row otherwise
+                    return None
+
                 if not created:
                     logger.info(f"Duplicate article detected: {article.title}")
                     # Update existing article metadata with threat hunting scoring
@@ -1523,7 +1528,7 @@ class AsyncDatabaseManager:
 
                 # Recent articles query
                 start_time = time.time()
-                result = await session.execute(
+                recent_result = await session.execute(
                     select(ArticleTable.id).order_by(desc(ArticleTable.discovered_at)).limit(10)
                 )
                 query_time = (time.time() - start_time) * 1000
@@ -1531,7 +1536,7 @@ class AsyncDatabaseManager:
                     {
                         "test": "Recent Articles",
                         "query_time_ms": round(query_time, 2),
-                        "rows_returned": len(result.fetchall()),
+                        "rows_returned": len(recent_result.fetchall()),
                     }
                 )
 
@@ -2515,7 +2520,7 @@ class AsyncDatabaseManager:
                     .values(used_for_training=True)
                 )
                 await session.commit()
-                return result.rowcount
+                return cast(CursorResult[Any], result).rowcount
         except Exception as e:
             logger.error(f"Failed to mark chunk feedback as used: {e}")
             raise
