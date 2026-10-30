@@ -17,17 +17,15 @@ plus its length/offsets to the console -- a content leak, not just noise.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
+
+from tests.utils.article_detail_source import read_article_detail_src
 
 pytestmark = pytest.mark.unit
 
-ARTICLE_DETAIL_TEMPLATE = Path("src/web/templates/article_detail.html")
-
 
 def _read() -> str:
-    return ARTICLE_DETAIL_TEMPLATE.read_text(encoding="utf-8")
+    return read_article_detail_src()
 
 
 def test_url_fragment_load_handler_is_registered_exactly_once() -> None:

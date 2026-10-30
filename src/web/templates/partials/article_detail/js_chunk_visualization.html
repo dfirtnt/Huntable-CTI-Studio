@@ -1,0 +1,713 @@
+    function generateChunkVisualization(data) {
+        if (!data) return '';
+        const totalLength = data.content_length !== undefined ? data.content_length : 0;
+        const chunks = data.chunk_analysis || [];
+        
+        let html = '<div class="relative bg-gray-700 rounded-lg p-2 mb-4" style="height: 60px;">';
+        
+        chunks.forEach((chunk, index) => {
+            const width = (chunk.length / totalLength) * 100;
+            const left = (chunk.start / totalLength) * 100;
+            const color = chunk.is_kept ? 'bg-emerald-500' : 'bg-red-500';
+            const opacity = chunk.is_kept ? 'opacity-80' : 'opacity-60';
+            
+            // Add mismatch indicator
+            const mismatchClass = chunk.ml_mismatch ? 'ring-2 ring-amber-400' : '';
+            const mismatchTitle = chunk.ml_mismatch ? ' (ML MISMATCH)' : '';
+            
+            html += `
+                <div class="absolute ${color} ${opacity} ${mismatchClass} rounded cursor-pointer hover:opacity-100 transition-opacity"
+                     style="left: ${left}%; width: ${width}%; height: 100%;"
+                     title="Chunk ${chunk.chunk_id}: ${chunk.length} chars (${chunk.is_kept ? 'KEPT' : 'REMOVED'})${mismatchTitle}"
+                     onclick="highlightChunk(${index})">
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        
+        // Add legend
+        html += `
+            <div class="flex items-center space-x-4 text-sm text-gray-300">
+                <div class="flex items-center">
+                    <div class="w-4 h-4 bg-emerald-500 rounded mr-2"></div>
+                    <span>Kept for LLM</span>
+                </div>
+                <div class="flex items-center">
+                    <div class="w-4 h-4 bg-red-500 rounded mr-2"></div>
+                    <span>Filtered Out</span>
+                </div>
+                <div class="flex items-center">
+                    <div class="w-4 h-4 bg-gray-700 rounded mr-2 ring-2 ring-amber-400"></div>
+                    <span>ML Mismatch</span>
+                </div>
+            </div>
+        `;
+        
+        return html;
+    }
+    function generateChunkDetails(chunks) {
+        return chunks.map((chunk, index) => `
+            <div class="chunk-detail border rounded-lg p-4 ${chunk.is_kept ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-red-500/10 border-red-500/30'}" data-chunk-id="${index}">
+                <div class="flex justify-between items-start mb-2">
+                    <div class="flex items-center space-x-2">
+                        <span class="font-semibold text-gray-50">Chunk ${chunk.chunk_id}</span>
+                        <span class="px-2 py-0.5 text-xs rounded ${chunk.is_kept ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/10 text-red-400 border border-red-500/30'}">
+                            ${chunk.is_kept ? 'KEPT' : 'REMOVED'}
+                        </span>
+                        ${chunk.has_threat_keywords ? '<span class="px-2 py-0.5 text-xs rounded bg-amber-500/10 text-amber-400 border border-amber-500/30">THREAT</span>' : ''}
+                        ${chunk.has_command_patterns ? '<span class="px-2 py-0.5 text-xs rounded bg-blue-500/10 text-blue-400 border border-blue-500/30">COMMAND</span>' : ''}
+                        ${chunk.has_perfect_discriminators ? '<span class="px-2 py-0.5 text-xs rounded bg-purple-500/10 text-purple-400 border border-purple-500/30">PERFECT</span>' : ''}
+                        ${chunk.ml_mismatch ? '<span class="px-2 py-0.5 text-xs rounded bg-amber-500/10 text-amber-400 border border-amber-500/30">ML MISMATCH</span>' : ''}
+                    </div>
+                    <div class="text-sm text-gray-300">
+                        ${chunk.length} chars (${chunk.start}-${chunk.end})
+                    </div>
+                </div>
+                
+                <!-- ML Prediction Details -->
+                ${chunk.ml_details && !chunk.ml_details.error ? `
+                    <div class="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 mb-3">
+                        <div class="flex items-center justify-between mb-2">
+                            <h5 class="font-semibold text-blue-400"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 7.5h10.5v9H6.75v-9z"/></svg> Random Forest Prediction (Chunk ${chunk.chunk_id})</h5>
+                            <span class="px-2 py-0.5 text-xs rounded ${chunk.ml_details.prediction_label === 'Huntable' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/10 text-red-400 border border-red-500/30'}">
+                                ${chunk.ml_details.prediction_label}
+                            </span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <div class="text-gray-300">Model confidence:</div>
+                                <div class="font-semibold text-gray-50">${(() => {
+                                    let conf = chunk.ml_details.confidence;
+                                    if (conf === undefined || conf === null) {
+                                        conf = Math.max(chunk.ml_details.probabilities.huntable, chunk.ml_details.probabilities.not_huntable);
+                                    }
+                                    return (conf * 100).toFixed(1);
+                                })()}%</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-300">Probabilities:</div>
+                                <div class="font-semibold text-gray-50">
+                                    Huntable: ${(chunk.ml_details.probabilities.huntable * 100).toFixed(1)}% | 
+                                    Not Huntable: ${(chunk.ml_details.probabilities.not_huntable * 100).toFixed(1)}%
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Top Features -->
+                        ${chunk.ml_details.top_features ? `
+                            <div class="mt-3">
+                                <div class="text-gray-300 text-sm mb-1">Top Contributing Features:</div>
+                                <div class="flex flex-wrap gap-1">
+                                    ${Object.entries(chunk.ml_details.top_features).slice(0, 5).map(([feature, importance]) => `
+                                        <span class="px-2 py-1 text-xs bg-blue-500/10 text-blue-400 border border-blue-500/30 rounded" title="Contribution: ${importance.toFixed(3)}">
+                                            ${feature}: ${importance.toFixed(3)}
+                                        </span>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                ` : chunk.ml_details && chunk.ml_details.error ? `
+                    <div class="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 mb-3">
+                        <div class="text-amber-400 text-sm">
+                            <strong>ML Error:</strong> ${escapeHtml(chunk.ml_details.error)}
+                        </div>
+                    </div>
+                ` : `
+                    <div class="card p-3 mb-3">
+                        <div class="text-gray-300 text-sm">
+                            <strong>Pattern-based Classification</strong> (ML model not available)
+                        </div>
+                    </div>
+                `}
+                
+                <div class="text-sm text-gray-300 mb-2">
+                    <strong>Reason:</strong> ${escapeHtml(chunk.reason)}
+                    ${chunk.confidence && !isNaN(chunk.confidence) && chunk.confidence > 0 ? ` | <strong>Filter confidence:</strong> ${(chunk.confidence * 100).toFixed(1)}%` : ''}
+                </div>
+                
+                <!-- Feedback Section -->
+                <div class="mb-3 p-3 card">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-medium text-gray-300">Was this classification correct?</span>
+                        <div class="flex gap-2">
+                            <button onclick="submitChunkFeedback(${index}, true)"
+                                    aria-label="Chunk ${chunk.chunk_id}: classification was correct (${chunk.ml_details && chunk.ml_details.prediction_label ? chunk.ml_details.prediction_label : (chunk.is_kept ? 'Huntable' : 'Not Huntable')})"
+                                    class="px-3 py-1 text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/20 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                                ✅ Correct - ${chunk.ml_details && chunk.ml_details.prediction_label ? chunk.ml_details.prediction_label : (chunk.is_kept ? 'Huntable' : 'Not Huntable')}
+                            </button>
+                            <button onclick="submitChunkFeedback(${index}, false)"
+                                    aria-label="Chunk ${chunk.chunk_id}: classification was incorrect (${chunk.ml_details && chunk.ml_details.prediction_label ? (chunk.ml_details.prediction_label === 'Huntable' ? 'Not Huntable' : 'Huntable') : (chunk.is_kept ? 'Not Huntable' : 'Huntable')})"
+                                    class="px-3 py-1 text-xs bg-red-500/10 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/20 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                                ❌ Incorrect - ${chunk.ml_details && chunk.ml_details.prediction_label ? (chunk.ml_details.prediction_label === 'Huntable' ? 'Not Huntable' : 'Huntable') : (chunk.is_kept ? 'Not Huntable' : 'Huntable')}
+                            </button>
+                        </div>
+                    </div>
+                    <div id="feedbackSubmitted${index}" class="hidden text-xs text-emerald-400">
+                        ✅ Feedback submitted - Thank you!
+                    </div>
+                    <div id="existingFeedback${index}" class="hidden mt-2">
+                        <!-- Previous feedback will be loaded here -->
+                    </div>
+                </div>
+                
+                <!-- Feature Details -->
+                <div class="mb-3">
+                    <button onclick="toggleFeatureDetails(${index})" class="w-full flex items-center justify-between p-2 text-sm text-gray-300 hover:text-gray-50 hover:bg-gray-700/50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                        <span class="font-medium"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg> Feature Details</span>
+                        <svg id="featureDetailsIcon${index}" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div id="featureDetails${index}" class="hidden mt-2 bg-panel-0 border border-gray-700 rounded-lg p-3 text-xs">
+                        <div class="grid grid-cols-2 gap-2">
+                            ${Object.entries(chunk.features).map(([key, value]) => `
+                                <div class="flex justify-between">
+                                    <span class="text-gray-300">${escapeHtml(key)}:</span>
+                                    <span class="font-mono text-gray-50">${typeof value === 'number' ? value.toFixed(3) : escapeHtml(value)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-sm bg-panel-0 border border-gray-700 rounded-lg p-3">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-xs text-gray-400">Chunk Content (${chunk.length} chars)</span>
+                        <!-- COMMENTED OUT: Truncation control button -->
+                        <!-- <button onclick="toggleChunkContent(${index})" class="text-xs text-blue-400 hover:text-blue-300 font-medium">
+                            📄 ${chunk.text.length > 200 ? 'Show Full Text' : 'View Text'}
+                        </button> -->
+                    </div>
+                    <!-- COMMENTED OUT: Truncation control - showing full content directly -->
+                    <div id="chunkContent${index}" class="max-h-96 overflow-y-auto text-xs font-mono whitespace-pre-wrap text-gray-300">
+                        ${escapeHtml(chunk.text)}
+                    </div>
+                    <!-- <div id="chunkContent${index}" class="max-h-32 overflow-y-auto">
+                        ${escapeHtml(chunk.text.substring(0, 200))}${chunk.text.length > 200 ? '...' : ''}
+                    </div>
+                    <div id="chunkContentFull${index}" class="hidden max-h-96 overflow-y-auto text-xs font-mono whitespace-pre-wrap">
+                        ${escapeHtml(chunk.text)}
+                    </div> -->
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    function getNormalizedConfidence(chunkData) {
+        if (!chunkData) {
+            return null;
+        }
+        
+        let confidence = null;
+        
+        // First try to get confidence from ml_details.confidence
+        if (chunkData.ml_details && typeof chunkData.ml_details.confidence !== 'undefined' && chunkData.ml_details.confidence !== null) {
+            confidence = parseFloat(chunkData.ml_details.confidence);
+        }
+        
+        // If not found, calculate from probabilities
+        if ((confidence === null || Number.isNaN(confidence)) && chunkData.ml_details && chunkData.ml_details.probabilities) {
+            const probs = chunkData.ml_details.probabilities;
+            if (probs.huntable !== undefined && probs.not_huntable !== undefined) {
+                confidence = Math.max(parseFloat(probs.huntable), parseFloat(probs.not_huntable));
+            }
+        }
+        
+        // Fallback to chunk confidence
+        if ((confidence === null || Number.isNaN(confidence)) && typeof chunkData.confidence !== 'undefined' && chunkData.confidence !== null) {
+            confidence = parseFloat(chunkData.confidence);
+        }
+        
+        if (confidence === null || Number.isNaN(confidence)) {
+            return null;
+        }
+        
+        // Normalize percentage values into 0-1 range
+        if (confidence > 1) {
+            confidence = confidence / 100;
+        }
+        
+        // Clamp to [0,1]
+        confidence = Math.min(Math.max(confidence, 0), 1);
+        return confidence;
+    }
+    
+    function chunkMatchesFilter(chunkData, filter) {
+        switch(filter) {
+            case 'all':
+                return true;
+            case 'kept':
+                return chunkData.is_kept;
+            case 'removed':
+                return !chunkData.is_kept;
+            case 'threat':
+                return chunkData.has_threat_keywords || chunkData.has_command_patterns;
+            case 'perfect':
+                return chunkData.has_perfect_discriminators;
+            case 'ml':
+                return chunkData.ml_details && !chunkData.ml_details.error;
+            case 'confidenceBand': {
+                const confidence = getNormalizedConfidence(chunkData);
+                return confidence !== null && confidence >= 0.4 && confidence <= 0.6;
+            }
+            case 'mismatch':
+                return chunkData.ml_mismatch === true;
+            default:
+                return false;
+        }
+    }
+
+    function updateChunkFilterButtonStates(activeFilter) {
+        const chunkAnalysis = (window.chunkDebugData && window.chunkDebugData.chunk_analysis) || [];
+        document.querySelectorAll('.chunk-filter-btn').forEach(btn => {
+            const filter = btn.dataset.filter;
+            const isActive = filter === activeFilter;
+            btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            const count = chunkAnalysis.filter(chunkData => chunkMatchesFilter(chunkData, filter)).length;
+            const countEl = btn.querySelector('.chunk-filter-count');
+            if (countEl) {
+                countEl.textContent = `(${count})`;
+            }
+        });
+    }
+
+    function filterChunks(filter) {
+        const chunkDetails = document.getElementById('chunkDetails');
+        const chunks = chunkDetails.querySelectorAll('.chunk-detail');
+        let visibleCount = 0;
+
+        chunks.forEach(chunk => {
+            const chunkId = parseInt(chunk.dataset.chunkId);
+            const chunkData = window.chunkDebugData.chunk_analysis[chunkId];
+            const show = chunkMatchesFilter(chunkData, filter);
+
+            chunk.style.display = show ? 'block' : 'none';
+            if (show) visibleCount += 1;
+        });
+
+        updateChunkFilterButtonStates(filter);
+
+        let emptyState = document.getElementById('chunkFilterEmptyState');
+        if (visibleCount === 0) {
+            if (!emptyState) {
+                emptyState = document.createElement('div');
+                emptyState.id = 'chunkFilterEmptyState';
+                emptyState.className = 'text-center text-sm text-gray-400 py-8 border border-dashed border-gray-700 rounded-lg';
+                chunkDetails.appendChild(emptyState);
+            }
+            emptyState.textContent = 'No chunks match the selected filter.';
+            emptyState.style.display = 'block';
+        } else if (emptyState) {
+            emptyState.style.display = 'none';
+        }
+    }
+    
+    function highlightChunk(chunkIndex) {
+        // Scroll to chunk detail
+        const chunkDetail = document.querySelector(`[data-chunk-id="${chunkIndex}"]`);
+        if (chunkDetail) {
+            chunkDetail.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            chunkDetail.classList.add('ring-2', 'ring-blue-500');
+            setTimeout(() => {
+                chunkDetail.classList.remove('ring-2', 'ring-blue-500');
+            }, 2000);
+        }
+    }
+    
+    function closeChunkDebugModal() {
+        const modal = document.getElementById('chunkDebugModal');
+        if (modal) {
+            if (modal._escKeyHandler) {
+                document.removeEventListener('keydown', modal._escKeyHandler, true);
+                delete modal._escKeyHandler;
+            }
+            // Use ModalManager if available
+            if (window.ModalManager) {
+                window.ModalManager.close('chunkDebugModal');
+            } else {
+                modal.remove();
+            }
+        }
+
+        // Unlock the background and hand focus back to whatever opened the modal;
+        // without this Escape drops focus to BODY and a keyboard user restarts
+        // their traversal from the top of the page.
+        document.body.style.overflow = document.body.dataset.chunkDebugPrevOverflow || '';
+        delete document.body.dataset.chunkDebugPrevOverflow;
+        const opener = window.__chunkDebugOpener;
+        if (opener && typeof opener.focus === 'function' && document.contains(opener)) {
+            opener.focus();
+        }
+        window.__chunkDebugOpener = null;
+
+        // Clear global data
+        window.chunkDebugData = null;
+    }
+    
+    // Threshold mapping function
+    function getThresholdFromSlider(sliderValue) {
+        const thresholds = [0.5, 0.7, 0.8];
+        return thresholds[parseInt(sliderValue)];
+    }
+    
+    function getSliderFromThreshold(threshold) {
+        const thresholds = [0.5, 0.7, 0.8];
+        return thresholds.indexOf(threshold);
+    }
+
+    const THRESHOLD_PRESET_HINTS = {
+        '0.5': 'Keeps more chunks',
+        '0.7': 'Balanced default',
+        '0.8': 'Removes more chunks'
+    };
+
+    // Keeps the threshold readout and the three preset cards in agreement with
+    // the active threshold -- called on initial modal render and on every
+    // threshold change so they can never disagree (see task 6hJ8x4q5chvjFMX3).
+    function syncThresholdPresetCards(threshold) {
+        const key = Number(threshold).toFixed(1);
+        document.querySelectorAll('.threshold-preset-card').forEach(card => {
+            const isActive = card.dataset.presetThreshold === key;
+            card.classList.toggle('border-purple-500/50', isActive);
+            card.classList.toggle('border-gray-700', !isActive);
+            const caption = card.querySelector('.preset-caption');
+            if (caption) {
+                caption.textContent = isActive ? 'Selected threshold' : (THRESHOLD_PRESET_HINTS[card.dataset.presetThreshold] || '');
+            }
+        });
+    }
+
+    // Update threshold from slider position
+    async function updateThresholdFromSlider(sliderValue) {
+        const threshold = getThresholdFromSlider(sliderValue);
+        await updateThreshold(threshold);
+    }
+    // Threshold update function
+    async function updateThreshold(newThreshold) {
+        try {
+            // Update the display value
+            const thresholdValueEl = document.getElementById('thresholdValue');
+            if (thresholdValueEl) {
+                thresholdValueEl.textContent = newThreshold;
+            }
+            syncThresholdPresetCards(newThreshold);
+
+            // Update slider position
+            const thresholdSlider = document.getElementById('thresholdSlider');
+            if (thresholdSlider) {
+                thresholdSlider.value = getSliderFromThreshold(parseFloat(newThreshold));
+                thresholdSlider.disabled = true; // Show loading state
+            }
+
+            // Store the threshold globally
+            window.chunkDebugThreshold = parseFloat(newThreshold);
+            
+            // Reload chunk debug data with new threshold
+            const chunkSize = window.chunkDebugData?.chunk_size || 1000;
+            const overlap = window.chunkDebugData?.overlap || 200;
+            const fullAnalysis = window.chunkDebugData?.processing_summary?.full_analysis ? 'true' : 'false';
+            
+            const params = new URLSearchParams({
+                chunk_size: String(chunkSize),
+                overlap: String(overlap),
+                min_confidence: String(newThreshold),
+                full_analysis: fullAnalysis
+            });
+            
+            const response = await fetch(`/api/articles/{{ article.id|default(0)|int }}/chunk-debug?${params.toString()}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const debugData = await response.json();
+            
+            // Show truncation warnings if any
+            if (debugData.warnings && Array.isArray(debugData.warnings) && debugData.warnings.length > 0) {
+                debugData.warnings.forEach(warning => {
+                    showNotification(`⚠️ LMStudio Truncation: ${warning}`, 'warning');
+                });
+            }
+            
+            // Update the modal with new data
+            updateChunkDebugResults(debugData);
+            
+        } catch (error) {
+            console.error('Threshold update error:', error);
+            showNotification('Failed to update threshold: ' + error.message, 'error');
+        } finally {
+            // Re-enable slider
+            const thresholdSlider = document.getElementById('thresholdSlider');
+            if (thresholdSlider) {
+                thresholdSlider.disabled = false;
+            }
+        }
+    }
+    
+    function hideCostAnalysisHelp() {
+        const tooltip = document.getElementById('costAnalysisTooltip');
+        const button = document.getElementById('costAnalysisHelpButton');
+        if (tooltip) {
+            tooltip.classList.remove('is-visible');
+        }
+        if (button) {
+            button.setAttribute('aria-expanded', 'false');
+        }
+    }
+
+    function showCostAnalysisHelp(event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const tooltip = document.getElementById('costAnalysisTooltip');
+        const button = document.getElementById('costAnalysisHelpButton');
+        if (tooltip) {
+            const isVisible = tooltip.classList.toggle('is-visible');
+            if (button) {
+                button.setAttribute('aria-expanded', isVisible ? 'true' : 'false');
+            }
+        }
+    }
+
+    document.addEventListener('click', (event) => {
+        const helpGroup = document.getElementById('costAnalysisHelpGroup');
+        if (helpGroup && !helpGroup.contains(event.target)) {
+            hideCostAnalysisHelp();
+        }
+    });
+
+    // The ML panel is written ONLY here, by both the initial render and every
+    // threshold re-render. It used to be emitted inline in the modal template
+    // literal with no ids, so updateChunkDebugResults could not reach it: moving
+    // the slider refreshed the tiles beside it and left this panel showing the
+    // previous threshold's numbers -- including a mismatch count that disagreed
+    // with the chunks the "Show ML Mismatches" filter actually revealed.
+    // Keeping one writer is the point; a second copy of this formatting is how
+    // the two drifted apart in the first place.
+    function updateMlPerformancePanel(data) {
+        const stats = (data && data.ml_stats) || {};
+
+        const totalEl = document.getElementById('mlTotalPredictions');
+        if (totalEl) totalEl.textContent = stats.total_predictions !== undefined ? stats.total_predictions : 0;
+
+        const correctEl = document.getElementById('mlCorrectPredictions');
+        if (correctEl) correctEl.textContent = stats.correct_predictions !== undefined ? stats.correct_predictions : 0;
+
+        const accuracyEl = document.getElementById('mlAccuracyPercent');
+        if (accuracyEl) {
+            const hasAccuracy = stats.accuracy_percent !== undefined;
+            const band = !hasAccuracy ? 'text-gray-400'
+                : stats.accuracy_percent >= 80 ? 'text-emerald-400'
+                : stats.accuracy_percent >= 60 ? 'text-amber-400'
+                : 'text-red-400';
+            // Full className rewrite: the band must be replaced, not accumulated,
+            // or a panel that goes 100% -> 50% keeps both colours.
+            accuracyEl.className = 'text-lg font-semibold ' + band;
+            accuracyEl.textContent = (hasAccuracy ? stats.accuracy_percent.toFixed(1) : '0.0') + '%';
+        }
+
+        const mismatchEl = document.getElementById('mlMismatches');
+        if (mismatchEl) mismatchEl.textContent = stats.mismatches !== undefined ? stats.mismatches : 0;
+
+        // The header caveat names the sample these numbers describe, so it is as
+        // stale-able as the numbers themselves and refreshes with them.
+        const noteEl = document.getElementById('mlPartialAnalysisNote');
+        if (noteEl) {
+            const summary = (data && data.processing_summary) || {};
+            noteEl.textContent = summary.chunk_limit_applied
+                ? `(based on ${summary.processed_chunks} of ${summary.total_chunks} chunks)`
+                : '';
+        }
+    }
+
+    function updateChunkDebugResults(data) {
+        // Update statistics cards using IDs
+        const totalChunksEl = document.getElementById('totalChunksCount');
+        const keptChunksEl = document.getElementById('keptChunksCount');
+        const removedChunksEl = document.getElementById('removedChunksCount');
+        const reductionEl = document.getElementById('contentReductionPercent');
+        
+        if (totalChunksEl) totalChunksEl.textContent = data.total_chunks;
+        if (keptChunksEl) keptChunksEl.textContent = data.kept_chunks;
+        if (removedChunksEl) removedChunksEl.textContent = data.removed_chunks;
+        if (reductionEl) reductionEl.textContent = `${data.filtering_stats && data.filtering_stats.content_reduction_percent ? data.filtering_stats.content_reduction_percent.toFixed(1) : '0.0'}%`;
+        
+        // Update cost analysis
+        const originalContentEl = document.getElementById('originalContentLength');
+        const costSavingsEl = document.getElementById('costSavings');
+        const tokensSavedEl = document.getElementById('tokensSaved');
+        
+        if (originalContentEl) originalContentEl.textContent = `${data.content_length !== undefined ? data.content_length.toLocaleString() : '0'} chars`;
+        if (costSavingsEl) costSavingsEl.textContent = `$${data.filtering_stats && data.filtering_stats.cost_savings ? data.filtering_stats.cost_savings.toFixed(4) : '0.0000'}`;
+        if (tokensSavedEl) tokensSavedEl.textContent = `${data.filtering_stats && data.filtering_stats.tokens_saved ? data.filtering_stats.tokens_saved.toLocaleString() : '0'}`;
+        
+        // Update chunk details
+        const chunkDetails = document.getElementById('chunkDetails');
+        if (chunkDetails) {
+            chunkDetails.innerHTML = generateChunkDetails(data.chunk_analysis);
+            // The rebuild above discards every feedback indicator; put them back.
+            loadAllExistingFeedback();
+        }
+        
+        // Update chunk visualization
+        const chunkVisualizationContainer = document.getElementById('chunkVisualizationContainer');
+        if (chunkVisualizationContainer) {
+            chunkVisualizationContainer.innerHTML = generateChunkVisualization(data);
+        }
+        
+        // Update ML Model Performance
+        updateMlPerformancePanel(data);
+
+        // Update processing summary
+        const summaryContainer = document.getElementById('chunkProcessingSummary');
+        if (summaryContainer) {
+            summaryContainer.innerHTML = generateProcessingSummary(data.processing_summary);
+        }
+        
+        // Update global data
+        window.chunkDebugData = data;
+        window.chunkDebugFullAnalysisInProgress = false;
+        const activeFilterBtn = document.querySelector('.chunk-filter-btn[aria-pressed="true"]');
+        updateChunkFilterButtonStates(activeFilterBtn ? activeFilterBtn.dataset.filter : 'all');
+
+        // Show notification
+        showNotification(`Threshold updated to ${window.chunkDebugThreshold}. ${data.kept_chunks} chunks kept, ${data.removed_chunks} removed.`, 'success');
+        if (data.processing_summary?.chunk_limit_applied) {
+            showNotification(
+                `Processed ${data.processing_summary.processed_chunks} of ${data.processing_summary.total_chunks} chunks after threshold update (limit applied).`,
+                'warning'
+            );
+        }
+    }
+    
+    // Feedback Functions
+    async function submitChunkFeedback(chunkIndex, isCorrect) {
+        const chunkData = window.chunkDebugData.chunk_analysis[chunkIndex];
+        
+        await submitFeedback(chunkIndex, {
+            is_correct: isCorrect,
+            user_classification: isCorrect ? 
+                (chunkData.is_kept ? 'Huntable' : 'Not Huntable') : 
+                (chunkData.is_kept ? 'Not Huntable' : 'Huntable'),
+            comment: isCorrect ? 'User confirmed classification is correct' : 'User marked classification as incorrect'
+        });
+    }
+    
+    // Single writer for the "Feedback provided" indicator, shared by the bulk
+    // load and the post-submit re-read so the two cannot render it differently.
+    function renderChunkFeedbackIndicator(chunkIndex, feedback) {
+        const feedbackDiv = document.getElementById(`existingFeedback${chunkIndex}`);
+        if (!feedbackDiv || !feedback) return;
+        const timestamp = new Date(feedback.timestamp).toLocaleString();
+        const statusIcon = feedback.is_correct ? '✅' : '❌';
+        feedbackDiv.innerHTML = `
+            <div class="text-xs text-blue-600 bg-blue-50 p-2 rounded border-l-2 border-blue-400">
+                <div class="font-medium">${statusIcon} Feedback provided (${timestamp})</div>
+            </div>
+        `;
+        feedbackDiv.classList.remove('hidden');
+    }
+
+    // One request for the whole article instead of one per chunk. The per-chunk
+    // loop issued 150 requests on article 7216 (1,250 after a full analysis),
+    // nearly all returning feedback: null, because chunk feedback is rare.
+    //
+    // Also called after a threshold re-render: generateChunkDetails() rebuilds
+    // every chunk card, which discards the indicators, and nothing used to put
+    // them back -- so changing the threshold silently dropped the fact that a
+    // chunk had been reviewed.
+    async function loadAllExistingFeedback() {
+        const articleId = window.chunkDebugData && window.chunkDebugData.article_id;
+        if (!articleId) return;
+        try {
+            const response = await fetch(`/api/feedback/chunk-classification/${articleId}`);
+            const result = await response.json();
+            if (!result.success || !result.feedback) return;
+            for (const [chunkId, feedback] of Object.entries(result.feedback)) {
+                renderChunkFeedbackIndicator(chunkId, feedback);
+            }
+        } catch (error) {
+            console.error('Failed to load existing feedback:', error);
+        }
+    }
+
+    async function loadExistingFeedback(chunkIndex) {
+        try {
+            const response = await fetch(`/api/feedback/chunk-classification/${window.chunkDebugData.article_id}/${chunkIndex}`);
+            const result = await response.json();
+            if (result.success && result.feedback) {
+                renderChunkFeedbackIndicator(chunkIndex, result.feedback);
+            }
+        } catch (error) {
+            console.error('Failed to load existing feedback:', error);
+        }
+    }
+    
+    async function submitFeedback(chunkIndex, feedbackData) {
+        try {
+            const chunkData = window.chunkDebugData.chunk_analysis[chunkIndex];
+            
+            // Get the huntable probability specifically
+            let huntable_probability = chunkData.confidence;
+            if (chunkData.ml_details && chunkData.ml_details.probabilities) {
+                huntable_probability = chunkData.ml_details.probabilities.huntable;
+            } else if (chunkData.ml_details && chunkData.ml_details.confidence) {
+                // If we only have max confidence, assume it's huntable if is_kept is true
+                huntable_probability = chunkData.is_kept ? chunkData.ml_details.confidence : (1.0 - chunkData.ml_details.confidence);
+            } else {
+                // Fallback: assume confidence is huntable if is_kept is true
+                huntable_probability = chunkData.is_kept ? chunkData.confidence : (1.0 - chunkData.confidence);
+            }
+            
+            const payload = {
+                article_id: window.chunkDebugData.article_id,
+                chunk_id: chunkIndex,
+                chunk_text: chunkData.text,
+                model_classification: chunkData.is_kept ? 'Huntable' : 'Not Huntable',
+                model_confidence: huntable_probability,
+                model_reason: chunkData.reason,
+                ...feedbackData,
+                timestamp: new Date().toISOString()
+            };
+            
+            const response = await fetch('/api/feedback/chunk-classification', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+            
+            if (response.ok) {
+                // Show success message
+                const feedbackSubmitted = document.getElementById(`feedbackSubmitted${chunkIndex}`);
+                if (feedbackSubmitted) {
+                    feedbackSubmitted.classList.remove('hidden');
+                }
+                
+                // Reload existing feedback to show updated status
+                await loadExistingFeedback(chunkIndex);
+                
+                showNotification('Feedback submitted successfully!', 'success');
+            } else {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+            
+        } catch (error) {
+            console.error('Feedback submission error:', error);
+            let errorMessage = 'Failed to submit feedback';
+            
+            if (error.message) {
+                errorMessage += ': ' + error.message;
+            } else if (error instanceof TypeError) {
+                errorMessage += ': Network error or server unavailable';
+            } else {
+                errorMessage += ': Unknown error occurred';
+            }
+            
+            showNotification(errorMessage, 'error');
+        }
+    }
+    

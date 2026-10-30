@@ -29,6 +29,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.utils.article_detail_source import read_article_detail_src
+
 pytestmark = pytest.mark.unit
 
 GENERATED_CSS = Path("src/web/static/css/tailwind.css")
@@ -158,6 +160,13 @@ SAFELIST_PATTERN_IN_CONFIG = re.compile(r"pattern:\s*/(?P<regex>.+?)/\s*,")
 SAFELIST_VARIANTS_IN_CONFIG = re.compile(r"variants:\s*\[(?P<variants>[^\]]*)\]")
 
 
+def _read_template(template: Path) -> str:
+    # article_detail.html's inline JS lives in partials/article_detail/*.html.
+    if template == Path("src/web/templates/article_detail.html"):
+        return read_article_detail_src()
+    return template.read_text(encoding="utf-8")
+
+
 @pytest.mark.parametrize("template", FRAGMENT_CLASS_TEMPLATES, ids=lambda p: p.name)
 def test_safelist_pattern_covers_every_fragment_assembled_class(template: Path) -> None:
     """The safelist must cover every class the `${statusColor}` sites can build.
@@ -169,7 +178,7 @@ def test_safelist_pattern_covers_every_fragment_assembled_class(template: Path) 
     what keeps these sites working if those incidental usages are ever edited
     away, so it is pinned directly.
     """
-    source = template.read_text(encoding="utf-8")
+    source = _read_template(template)
     required = _required_fragment_classes(source)
     assert required, f"No ${{statusColor}} class usages parsed from {template} -- the pattern broke."
 
@@ -202,7 +211,7 @@ def test_safelist_pattern_covers_every_fragment_assembled_class(template: Path) 
 @pytest.mark.parametrize("template", FRAGMENT_CLASS_TEMPLATES, ids=lambda p: p.name)
 def test_fragment_assembled_classes_are_generated(template: Path) -> None:
     """The outcome the safelist exists to guarantee: the rules are really there."""
-    source = template.read_text(encoding="utf-8")
+    source = _read_template(template)
 
     values = _status_color_values(source)
     assert values, f"No statusColor values parsed from {template} -- the pattern broke or the code moved."

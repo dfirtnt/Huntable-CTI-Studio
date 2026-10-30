@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Flag new violations of the UX contract (docs/contracts/ui-designer.md).
 
-Checks every src/web/templates/*.html file for two mechanically-detectable,
+Checks every src/web/templates/**/*.html file (partials included) for two mechanically-detectable,
 high-confidence violations of the locked design system:
 
   1. The deprecated raw-Tailwind card stack (bg-gray-800 + border +
@@ -59,7 +59,7 @@ def count_hardcoded_hex_violations(html: str) -> int:
 
 def main() -> int:
     failures = []
-    for path in sorted(TEMPLATES_DIR.glob("*.html")):
+    for path in sorted(TEMPLATES_DIR.rglob("*.html")):
         html = path.read_text(encoding="utf-8")
         found = {
             "card_stack": count_card_stack_violations(html),

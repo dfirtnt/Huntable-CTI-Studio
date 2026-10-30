@@ -1,0 +1,89 @@
+    <style>
+        /* Applied chunk filter gets a visible pressed state -- otherwise nothing
+           distinguishes it after the click that set it. */
+        .chunk-filter-btn {
+            opacity: 0.55;
+        }
+        .chunk-filter-btn[aria-pressed="true"] {
+            opacity: 1;
+            box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.85);
+        }
+        .chunk-filter-count {
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        /* CSS changes from browser preview - text color only */
+        dd.text-sm {
+            color: var(--text-gray-300) !important;
+        }
+        
+        dd.text-sm * {
+            color: var(--text-gray-300) !important;
+        }
+        
+        dd.text-sm.font-mono code {
+            color: var(--text-gray-300) !important;
+        }
+        
+        /* JSON metadata pre element - make all text light grey */
+        pre.bg-panel-0,
+        pre[class*="bg-panel-0"] {
+            color: var(--text-gray-300) !important;
+        }
+        
+        pre.bg-panel-0 *,
+        pre[class*="bg-panel-0"] *,
+        pre.bg-panel-0::before,
+        pre.bg-panel-0::after,
+        pre[class*="bg-panel-0"]::before,
+        pre[class*="bg-panel-0"]::after {
+            color: var(--text-gray-300) !important;
+        }
+        
+        pre.bg-panel-0 span,
+        pre.bg-panel-0 code,
+        pre.bg-panel-0 mark,
+        pre[class*="bg-panel-0"] span,
+        pre[class*="bg-panel-0"] code,
+        pre[class*="bg-panel-0"] mark {
+            color: var(--text-gray-300) !important;
+        }
+        
+        code.bg-panel-0,
+        code[class*="bg-panel-0"] {
+            color: var(--text-gray-300) !important;
+        }
+        
+        dd.text-sm code {
+            color: var(--text-gray-300) !important;
+        }
+        
+        /* Mobile Annotation card styling */
+        #mobile-annotation-instructions {
+            background-color: var(--surface-stone) !important;
+            border: 1px solid var(--border-stone-dark) !important;
+            box-shadow: 0px 4px 12px 0px var(--shadow-modal) !important;
+            color: var(--text-emphasis) !important;
+        }
+
+        .article-help-card {
+            overflow: visible;
+        }
+
+        .article-help-anchor {
+            position: relative;
+            display: inline-flex;
+        }
+
+        .article-help-bubble {
+            width: min(18rem, calc(100vw - 2rem));
+            pointer-events: none;
+        }
+
+        .article-help-anchor:hover .article-help-bubble,
+        .article-help-anchor:focus-within .article-help-bubble,
+        .article-help-bubble.is-visible {
+            opacity: 1;
+            visibility: visible;
+        }
+    </style>
