@@ -45,6 +45,27 @@ OPENAI_MODEL_PATTERN = re.compile(
 )
 
 
+def _load_active_workflow_config_snapshot_sync():
+    """Blocking: read the active workflow config on its own session and return a detached snapshot."""
+    from types import SimpleNamespace
+
+    from src.database.manager import DatabaseManager
+    from src.services.workflow_trigger_service import WorkflowTriggerService
+
+    db_session = DatabaseManager().get_session()
+    try:
+        config_obj = WorkflowTriggerService(db_session).get_active_config()
+        if not config_obj:
+            return None
+        return SimpleNamespace(
+            agent_prompts=config_obj.agent_prompts,
+            agent_models=config_obj.agent_models,
+            junk_filter_threshold=getattr(config_obj, "junk_filter_threshold", None),
+        )
+    finally:
+        db_session.close()
+
+
 async def _call_openai_article_analysis(
     *,
     article_id: int,
@@ -1056,9 +1077,7 @@ async def api_test_langfuse_connection(request: Request):
 async def api_rank_with_gpt4o(article_id: int, request: Request):
     """API endpoint for SIGMA huntability ranking using Workflow config (prompt and model)."""
     try:
-        from src.database.manager import DatabaseManager
         from src.services.llm_service import LLMService
-        from src.services.workflow_trigger_service import WorkflowTriggerService
 
         # Get the article
         article = await async_db_manager.get_article(article_id)
@@ -1139,114 +1158,106 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
         source_name = source.name if source else f"Source {article.source_id}"
 
         # Get workflow config for RankAgent prompt and model
-        db_manager = DatabaseManager()
-        db_session = db_manager.get_session()
-        try:
-            trigger_service = WorkflowTriggerService(db_session)
-            config_obj = trigger_service.get_active_config()
-
-            if not config_obj:
-                raise HTTPException(
-                    status_code=500,
-                    detail="No active workflow configuration found. Please configure the workflow first.",
-                )
-
-            # Get RankAgent prompt from config (canonical {system, user} or legacy)
-            rank_prompt_template = None
-            rank_system_prompt = None
-            if config_obj.agent_prompts and "RankAgent" in config_obj.agent_prompts:
-                from src.utils.prompt_loader import parse_rank_agent_prompt_data
-
-                rank_prompt_template, rank_system_prompt = parse_rank_agent_prompt_data(
-                    config_obj.agent_prompts["RankAgent"]
-                )
-                logger.info(
-                    f"Using RankAgent prompt from workflow config "
-                    f"(template_len={len(rank_prompt_template or '')} chars, "
-                    f"system_len={len(rank_system_prompt or '')} chars)"
-                )
-
-            # Template can be None -- rank_article() falls back to src/prompts/rank_article.txt
-
-            # Get agent models from config
-            agent_models = config_obj.agent_models if config_obj and config_obj.agent_models else None
-
-            # Initialize LLMService with config models
-            llm_service = LLMService(config_models=agent_models)
-            llm_service._current_article_id = article_id
-
-            # Override API keys and provider from request if provided (client-side settings take precedence)
-            if api_key:
-                if ai_model == "chatgpt":
-                    llm_service.openai_api_key = api_key
-                    llm_service.workflow_openai_enabled = True
-                    # Override provider and model for ranking
-                    llm_service.provider_rank = "openai"
-                    llm_service.model_rank = llm_service.provider_defaults.get("openai", "gpt-4o-mini")
-                    logger.info(
-                        f"Using OpenAI API key from request, provider: {llm_service.provider_rank}, model: {llm_service.model_rank}"
-                    )
-                elif ai_model == "anthropic":
-                    # Extract Anthropic key if provided
-                    anthropic_key_raw = request.headers.get("X-Anthropic-API-Key") or body.get("api_key")
-                    anthropic_key = anthropic_key_raw.strip() if anthropic_key_raw else None
-                    if anthropic_key:
-                        llm_service.anthropic_api_key = anthropic_key
-                        llm_service.workflow_anthropic_enabled = True
-                        # Override provider and model for ranking
-                        llm_service.provider_rank = "anthropic"
-                        llm_service.model_rank = llm_service.provider_defaults.get("anthropic", "claude-sonnet-4-5")
-                        logger.info(
-                            f"Using Anthropic API key from request, provider: {llm_service.provider_rank}, model: {llm_service.model_rank}"
-                        )
-
-            # Validate provider is enabled and has API key
-            if llm_service.provider_rank == "openai":
-                if not llm_service.workflow_openai_enabled or not llm_service.openai_api_key:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="OpenAI provider is not enabled or API key is missing. Please configure it in Settings.",
-                    )
-            elif llm_service.provider_rank == "anthropic":
-                if not llm_service.workflow_anthropic_enabled or not llm_service.anthropic_api_key:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Anthropic provider is not enabled or API key is missing. Please configure it in Settings.",
-                    )
-
-            # Get ground truth details for logging
-            hunt_score = article.article_metadata.get("threat_hunting_score") if article.article_metadata else None
-            ml_score = article.article_metadata.get("ml_hunt_score") if article.article_metadata else None
-            ground_truth_details = LLMService.compute_rank_ground_truth(hunt_score, ml_score)
-            ground_truth_rank = ground_truth_details.get("ground_truth_rank")
-
-            # Call LLMService.rank_article() with workflow config prompt
-            ranking_result = await llm_service.rank_article(
-                title=article.title,
-                content=content_to_analyze,
-                source=source_name,
-                url=article.canonical_url or "",
-                prompt_template=rank_prompt_template,
-                system_override=rank_system_prompt,
-                article_id=article.id,
-                ground_truth_rank=ground_truth_rank,
-                ground_truth_details=ground_truth_details,
+        config_obj = await asyncio.to_thread(_load_active_workflow_config_snapshot_sync)
+        if not config_obj:
+            raise HTTPException(
+                status_code=500,
+                detail="No active workflow configuration found. Please configure the workflow first.",
             )
 
-            # Extract score and reasoning from ranking result
-            score = ranking_result.get("score")
-            reasoning = ranking_result.get("reasoning", "")
-            warnings = ranking_result.get("warnings")
+        # Get RankAgent prompt from config (canonical {system, user} or legacy)
+        rank_prompt_template = None
+        rank_system_prompt = None
+        if config_obj.agent_prompts and "RankAgent" in config_obj.agent_prompts:
+            from src.utils.prompt_loader import parse_rank_agent_prompt_data
 
-            # Format analysis similar to original endpoint format
-            analysis = f"Score: {score}/10\n\nReasoning:\n{reasoning}"
+            rank_prompt_template, rank_system_prompt = parse_rank_agent_prompt_data(
+                config_obj.agent_prompts["RankAgent"]
+            )
+            logger.info(
+                f"Using RankAgent prompt from workflow config "
+                f"(template_len={len(rank_prompt_template or '')} chars, "
+                f"system_len={len(rank_system_prompt or '')} chars)"
+            )
 
-            # Get model name from LLMService
-            model_name = llm_service.model_rank or "unknown"
-            model_used = "workflow_config"
+        # Template can be None -- rank_article() falls back to src/prompts/rank_article.txt
 
-        finally:
-            db_session.close()
+        # Get agent models from config
+        agent_models = config_obj.agent_models if config_obj and config_obj.agent_models else None
+
+        # Initialize LLMService with config models
+        llm_service = LLMService(config_models=agent_models)
+        llm_service._current_article_id = article_id
+
+        # Override API keys and provider from request if provided (client-side settings take precedence)
+        if api_key:
+            if ai_model == "chatgpt":
+                llm_service.openai_api_key = api_key
+                llm_service.workflow_openai_enabled = True
+                # Override provider and model for ranking
+                llm_service.provider_rank = "openai"
+                llm_service.model_rank = llm_service.provider_defaults.get("openai", "gpt-4o-mini")
+                logger.info(
+                    f"Using OpenAI API key from request, provider: {llm_service.provider_rank}, model: {llm_service.model_rank}"
+                )
+            elif ai_model == "anthropic":
+                # Extract Anthropic key if provided
+                anthropic_key_raw = request.headers.get("X-Anthropic-API-Key") or body.get("api_key")
+                anthropic_key = anthropic_key_raw.strip() if anthropic_key_raw else None
+                if anthropic_key:
+                    llm_service.anthropic_api_key = anthropic_key
+                    llm_service.workflow_anthropic_enabled = True
+                    # Override provider and model for ranking
+                    llm_service.provider_rank = "anthropic"
+                    llm_service.model_rank = llm_service.provider_defaults.get("anthropic", "claude-sonnet-4-5")
+                    logger.info(
+                        f"Using Anthropic API key from request, provider: {llm_service.provider_rank}, model: {llm_service.model_rank}"
+                    )
+
+        # Validate provider is enabled and has API key
+        if llm_service.provider_rank == "openai":
+            if not llm_service.workflow_openai_enabled or not llm_service.openai_api_key:
+                raise HTTPException(
+                    status_code=400,
+                    detail="OpenAI provider is not enabled or API key is missing. Please configure it in Settings.",
+                )
+        elif llm_service.provider_rank == "anthropic":
+            if not llm_service.workflow_anthropic_enabled or not llm_service.anthropic_api_key:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Anthropic provider is not enabled or API key is missing. Please configure it in Settings.",
+                )
+
+        # Get ground truth details for logging
+        hunt_score = article.article_metadata.get("threat_hunting_score") if article.article_metadata else None
+        ml_score = article.article_metadata.get("ml_hunt_score") if article.article_metadata else None
+        ground_truth_details = LLMService.compute_rank_ground_truth(hunt_score, ml_score)
+        ground_truth_rank = ground_truth_details.get("ground_truth_rank")
+
+        # Call LLMService.rank_article() with workflow config prompt
+        ranking_result = await llm_service.rank_article(
+            title=article.title,
+            content=content_to_analyze,
+            source=source_name,
+            url=article.canonical_url or "",
+            prompt_template=rank_prompt_template,
+            system_override=rank_system_prompt,
+            article_id=article.id,
+            ground_truth_rank=ground_truth_rank,
+            ground_truth_details=ground_truth_details,
+        )
+
+        # Extract score and reasoning from ranking result
+        score = ranking_result.get("score")
+        reasoning = ranking_result.get("reasoning", "")
+        warnings = ranking_result.get("warnings")
+
+        # Format analysis similar to original endpoint format
+        analysis = f"Score: {score}/10\n\nReasoning:\n{reasoning}"
+
+        # Get model name from LLMService
+        model_name = llm_service.model_rank or "unknown"
+        model_used = "workflow_config"
 
         # Save the analysis to the article's metadata
         if article.article_metadata is None:
@@ -1558,27 +1569,19 @@ async def api_detect_os(article_id: int, request: Request):
         junk_filter_threshold = body.get("junk_filter_threshold", 0.8)  # Default threshold
 
         # Import OS detection service and content filter
-        from src.database.manager import DatabaseManager
         from src.services.os_detection_service import OSDetectionService
-        from src.services.workflow_trigger_service import WorkflowTriggerService
         from src.utils.content_filter import ContentFilter
 
         # Get OS detection config from workflow config
-        db_manager = DatabaseManager()
-        db_session = db_manager.get_session()
-        try:
-            trigger_service = WorkflowTriggerService(db_session)
-            config_obj = trigger_service.get_active_config()
+        config_obj = await asyncio.to_thread(_load_active_workflow_config_snapshot_sync)
 
-            # Get junk filter threshold from config if not provided in request
-            if config_obj and not body.get("junk_filter_threshold"):
-                junk_filter_threshold = (
-                    config_obj.junk_filter_threshold
-                    if hasattr(config_obj, "junk_filter_threshold") and config_obj.junk_filter_threshold
-                    else 0.8
-                )
-        finally:
-            db_session.close()
+        # Get junk filter threshold from config if not provided in request
+        if config_obj and not body.get("junk_filter_threshold"):
+            junk_filter_threshold = (
+                config_obj.junk_filter_threshold
+                if hasattr(config_obj, "junk_filter_threshold") and config_obj.junk_filter_threshold
+                else 0.8
+            )
 
         # Apply junk filter if enabled
         content_to_analyze = article.content
@@ -1715,6 +1718,102 @@ def _queued_rules_for_article(article_id: int) -> list[dict[str, Any]]:
     return rules
 
 
+def _assess_sigma_matches_sync(generated_rules: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Blocking Sigma novelty assessment; runs in a worker thread with its own DB session."""
+    from src.database.manager import DatabaseManager
+    from src.services.sigma_matching_service import SigmaMatchingService
+    from src.services.sigma_novelty_service import classify_match_novelty
+
+    db_manager = DatabaseManager()
+    session = db_manager.get_session()
+
+    try:
+        matching_service = SigmaMatchingService(session)
+
+        # Collect all matches across all generated rules
+        all_matches = {}
+
+        for generated_rule in generated_rules:
+            try:
+                # Normalize rule structure - ensure all required fields exist
+                normalized_rule = {
+                    "title": generated_rule.get("title", ""),
+                    "description": generated_rule.get("description", ""),
+                    "tags": generated_rule.get("tags", []),
+                    "logsource": generated_rule.get("logsource", {}),
+                    "detection": generated_rule.get("detection", {}),
+                    "level": generated_rule.get("level"),
+                    "status": generated_rule.get("status"),
+                }
+
+                # Skip if essential fields are missing
+                if not normalized_rule["title"] or not normalized_rule["detection"]:
+                    logger.warning(
+                        f"Skipping rule with missing essential fields: {normalized_rule.get('title', 'Unknown')}"
+                    )
+                    continue
+
+                # Behavioral novelty assessment (per build spec)
+                # Uses canonicalization, atomic predicates, and structural similarity metrics
+                # No LLM reranking - purely algorithmic as per specification
+                match_result = matching_service.assess_rule_novelty(
+                    proposed_rule=normalized_rule,
+                    threshold=0.0,  # No threshold - get top matches
+                )
+                similar_matches = match_result.get("matches", [])
+
+                logger.debug(
+                    f"Rule '{normalized_rule['title']}' found {len(similar_matches)} similar rules via behavioral novelty assessment"
+                )
+
+                # Deduplicate by rule_id, keeping highest similarity score
+                # Also store reference to generated rule for semantic analysis
+                for match in similar_matches:
+                    rule_id = match.get("rule_id")
+                    if rule_id not in all_matches or match.get("similarity", 0) > all_matches[rule_id].get(
+                        "similarity", 0
+                    ):
+                        match["_generated_rule"] = normalized_rule  # Store for semantic overlap calculation
+                        all_matches[rule_id] = match
+            except Exception as e:
+                logger.error(f"Error comparing rule '{generated_rule.get('title', 'Unknown')}': {e}")
+                import traceback
+
+                logger.error(traceback.format_exc())
+                continue
+
+        # Sort by similarity (descending) and return top matches
+        matches = sorted(all_matches.values(), key=lambda x: x.get("similarity", 0), reverse=True)[:20]
+
+        # Classify each match using the shared per-match novelty classifier
+        # (single source of truth for the legacy thresholds + exact-hash override;
+        # Phase 2 of the sigma-similarity unification). Per-match semantics are
+        # preserved: each candidate is judged on its own metrics.
+        for match in matches:
+            novelty_label = str(classify_match_novelty(match))
+            match["novelty_label"] = novelty_label
+
+            # Map novelty_label to coverage_status for UI display (article-specific)
+            # DUPLICATE -> covered, SIMILAR -> extend, NOVEL -> new
+            if novelty_label == "DUPLICATE":
+                match["coverage_status"] = "covered"
+            elif novelty_label == "SIMILAR":
+                match["coverage_status"] = "extend"
+            else:  # NOVEL
+                match["coverage_status"] = "new"
+
+            # Clean up internal fields before returning
+            if "_generated_rule" in match:
+                del match["_generated_rule"]
+            # Remove coverage_reasoning if present (removed from UI)
+            if "coverage_reasoning" in match:
+                del match["coverage_reasoning"]
+
+        return matches
+    finally:
+        session.close()
+
+
 @router.post("/{article_id}/sigma-matches")
 async def api_get_sigma_matches(article_id: int, force: bool = False):
     """
@@ -1731,9 +1830,6 @@ async def api_get_sigma_matches(article_id: int, force: bool = False):
     """
     try:
         from src.database.async_manager import AsyncDatabaseManager
-        from src.database.manager import DatabaseManager
-        from src.services.sigma_matching_service import SigmaMatchingService
-        from src.services.sigma_novelty_service import classify_match_novelty
         from src.services.similarity_serialization import serialize_similarity_match
 
         # Get article with generated rules
@@ -1770,7 +1866,7 @@ async def api_get_sigma_matches(article_id: int, force: bool = False):
         # endpoint; that endpoint is gone and the live workflow queues its rules instead,
         # so reading metadata made this route return "generate rules first" for every
         # article the pipeline had actually produced rules for.
-        generated_rules = _queued_rules_for_article(article_id)
+        generated_rules = await asyncio.to_thread(_queued_rules_for_article, article_id)
 
         if not generated_rules:
             return {
@@ -1781,131 +1877,47 @@ async def api_get_sigma_matches(article_id: int, force: bool = False):
             }
 
         # Compare each generated rule to existing embedded SigmaHQ rules
-        db_manager = DatabaseManager()
-        session = db_manager.get_session()
+        # Blocking matching work runs off the event loop in a worker thread.
+        matches = await asyncio.to_thread(_assess_sigma_matches_sync, generated_rules)
 
+        # Prepare response
+        # Prepare response
+        # Note: Using pure behavioral novelty assessment (no LLM reranking per spec)
+        result = {
+            "success": True,
+            # Project onto the unified canonical contract (Phase 1), preserving
+            # the article-specific coverage_status. (The local novelty
+            # re-classification above is removed in Phase 2.)
+            "matches": [
+                {**serialize_similarity_match(m), "coverage_status": m.get("coverage_status")} for m in matches
+            ],
+            "coverage_summary": {
+                "covered": len([m for m in matches if m.get("coverage_status") == "covered"]),
+                "extend": len([m for m in matches if m.get("coverage_status") == "extend"]),
+                "new": len([m for m in matches if m.get("coverage_status") == "new"]),
+                "total": len(matches),
+            },
+            "assessment_method": "behavioral_novelty",
+        }
+
+        # Save cache to article metadata (server-side) for subsequent fast displays
         try:
-            matching_service = SigmaMatchingService(session)
-
-            # Collect all matches across all generated rules
-            all_matches = {}
-
-            for generated_rule in generated_rules:
-                try:
-                    # Normalize rule structure - ensure all required fields exist
-                    normalized_rule = {
-                        "title": generated_rule.get("title", ""),
-                        "description": generated_rule.get("description", ""),
-                        "tags": generated_rule.get("tags", []),
-                        "logsource": generated_rule.get("logsource", {}),
-                        "detection": generated_rule.get("detection", {}),
-                        "level": generated_rule.get("level"),
-                        "status": generated_rule.get("status"),
-                    }
-
-                    # Skip if essential fields are missing
-                    if not normalized_rule["title"] or not normalized_rule["detection"]:
-                        logger.warning(
-                            f"Skipping rule with missing essential fields: {normalized_rule.get('title', 'Unknown')}"
-                        )
-                        continue
-
-                    # Behavioral novelty assessment (per build spec)
-                    # Uses canonicalization, atomic predicates, and structural similarity metrics
-                    # No LLM reranking - purely algorithmic as per specification
-                    match_result = matching_service.assess_rule_novelty(
-                        proposed_rule=normalized_rule,
-                        threshold=0.0,  # No threshold - get top matches
-                    )
-                    similar_matches = match_result.get("matches", [])
-
-                    logger.debug(
-                        f"Rule '{normalized_rule['title']}' found {len(similar_matches)} similar rules via behavioral novelty assessment"
-                    )
-
-                    # Deduplicate by rule_id, keeping highest similarity score
-                    # Also store reference to generated rule for semantic analysis
-                    for match in similar_matches:
-                        rule_id = match.get("rule_id")
-                        if rule_id not in all_matches or match.get("similarity", 0) > all_matches[rule_id].get(
-                            "similarity", 0
-                        ):
-                            match["_generated_rule"] = normalized_rule  # Store for semantic overlap calculation
-                            all_matches[rule_id] = match
-                except Exception as e:
-                    logger.error(f"Error comparing rule '{generated_rule.get('title', 'Unknown')}': {e}")
-                    import traceback
-
-                    logger.error(traceback.format_exc())
-                    continue
-
-            # Sort by similarity (descending) and return top matches
-            matches = sorted(all_matches.values(), key=lambda x: x.get("similarity", 0), reverse=True)[:20]
-
-            # Classify each match using the shared per-match novelty classifier
-            # (single source of truth for the legacy thresholds + exact-hash override;
-            # Phase 2 of the sigma-similarity unification). Per-match semantics are
-            # preserved: each candidate is judged on its own metrics.
-            for match in matches:
-                novelty_label = str(classify_match_novelty(match))
-                match["novelty_label"] = novelty_label
-
-                # Map novelty_label to coverage_status for UI display (article-specific)
-                # DUPLICATE → covered, SIMILAR → extend, NOVEL → new
-                if novelty_label == "DUPLICATE":
-                    match["coverage_status"] = "covered"
-                elif novelty_label == "SIMILAR":
-                    match["coverage_status"] = "extend"
-                else:  # NOVEL
-                    match["coverage_status"] = "new"
-
-                # Clean up internal fields before returning
-                if "_generated_rule" in match:
-                    del match["_generated_rule"]
-                # Remove coverage_reasoning if present (removed from UI)
-                if "coverage_reasoning" in match:
-                    del match["coverage_reasoning"]
-
-            # Prepare response
-            # Prepare response
-            # Note: Using pure behavioral novelty assessment (no LLM reranking per spec)
-            result = {
-                "success": True,
-                # Project onto the unified canonical contract (Phase 1), preserving
-                # the article-specific coverage_status. (The local novelty
-                # re-classification above is removed in Phase 2.)
-                "matches": [
-                    {**serialize_similarity_match(m), "coverage_status": m.get("coverage_status")} for m in matches
-                ],
-                "coverage_summary": {
-                    "covered": len([m for m in matches if m.get("coverage_status") == "covered"]),
-                    "extend": len([m for m in matches if m.get("coverage_status") == "extend"]),
-                    "new": len([m for m in matches if m.get("coverage_status") == "new"]),
-                    "total": len(matches),
-                },
+            current_metadata = article.article_metadata or {}
+            current_metadata["sigma_similar_cache"] = {
+                "matches": result["matches"],
+                "coverage_summary": result["coverage_summary"],
+                "cached_at": datetime.now().isoformat(),
+                "cache_version": "2.1",  # Mark as novelty_label-based classification cache
                 "assessment_method": "behavioral_novelty",
             }
+            from src.models.article import ArticleUpdate
 
-            # Save cache to article metadata (server-side) for subsequent fast displays
-            try:
-                current_metadata = article.article_metadata or {}
-                current_metadata["sigma_similar_cache"] = {
-                    "matches": result["matches"],
-                    "coverage_summary": result["coverage_summary"],
-                    "cached_at": datetime.now().isoformat(),
-                    "cache_version": "2.1",  # Mark as novelty_label-based classification cache
-                    "assessment_method": "behavioral_novelty",
-                }
-                from src.models.article import ArticleUpdate
+            update_data = ArticleUpdate(article_metadata=current_metadata)
+            await async_db_manager.update_article(article_id, update_data)
+        except Exception as cache_err:
+            logger.debug(f"Sigma similar cache save skipped: {cache_err}")
 
-                update_data = ArticleUpdate(article_metadata=current_metadata)
-                await async_db_manager.update_article(article_id, update_data)
-            except Exception as cache_err:
-                logger.debug(f"Sigma similar cache save skipped: {cache_err}")
-
-            return result
-        finally:
-            session.close()
+        return result
 
     except HTTPException:
         raise
