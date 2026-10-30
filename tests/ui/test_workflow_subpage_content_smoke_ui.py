@@ -97,8 +97,8 @@ def _goto_workflow(fresh_page: Page, hash_fragment: str) -> list[str]:
     errors = _collect_page_errors(fresh_page)
     fresh_page.goto(f"{BASE_URL}/workflow{hash_fragment}", wait_until="domcontentloaded")
     fresh_page.wait_for_load_state("load")
-    # Give any async init handlers time to settle so unhandledrejection events fire.
-    fresh_page.wait_for_timeout(500)
+    # Let async init handlers (and their fetches) finish so unhandledrejection events fire.
+    fresh_page.wait_for_load_state("networkidle")
     return errors
 
 
@@ -313,19 +313,22 @@ def test_workflow_config_rail_nav_contract(fresh_page: Page):
 
     # --- Click a rail number -> that step opens, others close, rail follows.
     fresh_page.locator(".rail-item.c3").click()
-    fresh_page.wait_for_timeout(150)  # smooth scroll + accordion settle
+    expect(fresh_page.locator("#s3")).to_have_class(re.compile(r"\bopen\b"))
+    expect(fresh_page.locator(".rail-item").nth(3)).to_have_class(re.compile(r"\bactive\b"))
     _assert_single_open_matches_rail(fresh_page, 3)
 
     # --- Click a section header -> same contract as rail click.
     fresh_page.locator("#s1 .section-header").click()
-    fresh_page.wait_for_timeout(150)
+    expect(fresh_page.locator("#s1")).to_have_class(re.compile(r"\bopen\b"))
+    expect(fresh_page.locator(".rail-item").nth(1)).to_have_class(re.compile(r"\bactive\b"))
     _assert_single_open_matches_rail(fresh_page, 1)
 
     # --- Clicking the currently-open header must NOT close it (the prior
     # plain-accordion toggle behaviour would have left zero sections open,
     # breaking the invariant).
     fresh_page.locator("#s1 .section-header").click()
-    fresh_page.wait_for_timeout(100)
+    # Negative check (must stay open): flush two animation frames so a wrong toggle would have rendered.
+    fresh_page.evaluate("() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => r())))")
     _assert_single_open_matches_rail(fresh_page, 1)
 
     _assert_no_js_errors(fresh_page, errors, "/workflow#config rail contract")
@@ -343,7 +346,6 @@ def test_workflow_config_rail_collapse_persists(fresh_page: Page):
 
     # Expand via the toggle button; localStorage should record "0".
     fresh_page.locator(".oc-rail-toggle").click()
-    fresh_page.wait_for_timeout(100)
     expect(rail).not_to_have_class(re.compile(r"\bcollapsed\b"))
     stored = fresh_page.evaluate("() => localStorage.getItem('oc-rail-collapsed')")
     assert stored == "0", f"Expected localStorage '0' after expand, got {stored!r}"

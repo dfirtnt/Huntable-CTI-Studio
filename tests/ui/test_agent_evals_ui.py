@@ -155,7 +155,12 @@ def _click_load_previous_results_and_wait(page: Page) -> None:
             ),
             timeout=15000,
         )
-    page.wait_for_timeout(1500)
+    # The table shows a "Loading previous results..." placeholder until the render finishes.
+    with contextlib.suppress(Exception):
+        page.wait_for_function(
+            "() => !document.getElementById('resultsTable').textContent.includes('Loading previous results')",
+            timeout=15000,
+        )
 
 
 @pytest.mark.ui
@@ -389,6 +394,7 @@ def test_switching_subagent_discards_late_results_from_previous_subagent(page: P
 
     page.goto("http://127.0.0.1:8001/mlops/agent-evals")
     page.wait_for_load_state("load")
+    # Poll until the route handler (which runs inside Playwright calls) has captured the request.
     for _ in range(100):
         if held_cmdline_routes:
             break
@@ -411,7 +417,8 @@ def test_switching_subagent_discards_late_results_from_previous_subagent(page: P
             body=json.dumps({"subagent": "cmdline", "models": [{"name": "cmd-model", "config_count": 1}]}),
             headers={"Content-Type": "application/json"},
         )
-    page.wait_for_timeout(1500)
+    # Negative check: let the released stale responses be delivered and processed.
+    page.wait_for_load_state("networkidle")
 
     assert page.locator("#subagentSelect").input_value() == "hunt_queries"
     expect(page.locator('[data-exec-id="111111"]')).to_have_count(0)
@@ -457,6 +464,7 @@ def test_load_eval_articles_discards_stale_response_after_subagent_switch(page: 
 
     load_btn = page.locator("#loadEvalArticlesBtn")
     load_btn.click()
+    # Poll until the route handler (which runs inside Playwright calls) has captured the request.
     for _ in range(100):
         if held_cmdline_routes:
             break
@@ -483,7 +491,8 @@ def test_load_eval_articles_discards_stale_response_after_subagent_switch(page: 
         ),
         headers={"Content-Type": "application/json"},
     )
-    page.wait_for_timeout(500)
+    # Negative check: let the released stale response be delivered and processed.
+    page.wait_for_load_state("networkidle")
 
     assert page.locator("#subagentSelect").input_value() == "hunt_queries"
     expect(page.get_by_text("Stale CommandLine article")).to_have_count(0)

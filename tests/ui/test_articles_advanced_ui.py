@@ -20,7 +20,6 @@ def _ensure_filters_visible(page: Page) -> None:
             header.click()
             # Wait for transition
             page.wait_for_selector("#filters-content:not(.hidden)", timeout=5000)
-            page.wait_for_timeout(200)
 
 
 class TestArticlesSearchAndFilter:
@@ -45,7 +44,10 @@ class TestArticlesSearchAndFilter:
 
         # Click help button
         help_button.click()
-        page.wait_for_timeout(300)
+        if initial_state:
+            expect(help_panel).to_be_hidden()
+        else:
+            expect(help_panel).to_be_visible()
 
         # Verify state changed
         new_state = help_panel.is_visible()
@@ -65,7 +67,6 @@ class TestArticlesSearchAndFilter:
         help_panel = page.locator("#search-help")
         if not help_panel.is_visible():
             help_button.click()
-            page.wait_for_timeout(300)
 
         # Verify help content is visible
         expect(help_panel).to_be_visible()
@@ -91,14 +92,14 @@ class TestArticlesSearchAndFilter:
         help_button = page.locator("#search-help-btn")
         help_button.wait_for(state="visible", timeout=5000)
         help_button.click()
-        page.wait_for_timeout(300)
 
         help_panel = page.locator("#search-help")
         # Some UI states can re-render the filters panel (and its event bindings).
         # If the click did not toggle visibility, fall back to directly un-hiding
         # the panel so the test validates the content rather than the JS wiring.
-        classes = help_panel.get_attribute("class") or ""
-        if "hidden" in classes:
+        try:
+            expect(help_panel).to_be_visible(timeout=2000)
+        except AssertionError:
             page.evaluate("() => document.getElementById('search-help')?.classList.remove('hidden')")
         expect(help_panel).to_be_visible()
         expect(help_panel).to_contain_text("High-Value Detection Content")
@@ -429,7 +430,6 @@ class TestArticlesBulkSelection:
 
             # Click select all
             select_all.click()
-            page.wait_for_timeout(200)
 
             # Verify bulk actions toolbar appears
             bulk_toolbar = page.locator("#bulk-actions-toolbar")
@@ -451,11 +451,11 @@ class TestArticlesBulkSelection:
         if checkboxes.count() >= 2:
             checkboxes.first.click()
             checkboxes.nth(1).click()
-            page.wait_for_timeout(200)
 
             # Verify selected count
             selected_count = page.locator("#selected-count")
             expect(selected_count).to_be_visible()
+            expect(selected_count).to_contain_text("2")
             count_text = selected_count.text_content()
             assert "2" in count_text or count_text == "2", "Selected count should show 2"
 
@@ -472,7 +472,6 @@ class TestArticlesBulkSelection:
         checkboxes = page.locator(".bulk-select-checkbox")
         if checkboxes.count() > 0:
             checkboxes.first.click()
-            page.wait_for_timeout(200)
 
             # Find Clear Selection button
             clear_btn = page.locator("button:has-text('Clear Selection')")
@@ -480,7 +479,6 @@ class TestArticlesBulkSelection:
 
             # Click clear selection
             clear_btn.click()
-            page.wait_for_timeout(200)
 
             # Verify toolbar is hidden
             bulk_toolbar = page.locator("#bulk-actions-toolbar")
@@ -498,7 +496,7 @@ class TestArticlesBulkSelection:
         checkboxes = page.locator(".bulk-select-checkbox")
         if checkboxes.count() > 0:
             checkboxes.first.click()
-            page.wait_for_timeout(200)
+            expect(page.locator("#bulk-actions-toolbar")).not_to_have_class(re.compile(r"hidden"))
 
             # Navigate to next page (pagination link only; article titles may contain "Next")
             next_link = page.locator("a[href*='page=']:has-text('Next')")

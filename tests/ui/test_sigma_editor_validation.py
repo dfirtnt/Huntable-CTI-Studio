@@ -147,6 +147,5 @@ class TestSigmaEditorValidation:
         save_btn.click()
 
         # After saving, the modal should revert to view mode (yamlEditor hidden, pre block shown)
-        page.wait_for_timeout(300)
         # The textarea should no longer be visible in view mode
         expect(editor).not_to_be_visible()
