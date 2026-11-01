@@ -170,14 +170,15 @@ test = [
 members = ["sigma_atom_similarity"]
 
 [tool.uv]
-# safety 3.8.1 (dev-only, latest release) caps filelock<4.0, but every filelock
-# advisory is fixed only in 4.x (4.2.1+). safety only uses filelock for its own cache lock.
-override-dependencies = ["filelock>=4.2.1"]
-# Supply-chain cooldown: resolve only releases published at least 7 days ago
-# (semgrep uv-missing-dependency-cooldown).
 exclude-newer = "7 days"
-# Security releases pinned in this file are exempt from the cooldown.
 exclude-newer-package = { pypdf = false }
+override-dependencies = ["filelock>=4.2.1"]
+# exclude-newer: supply-chain cooldown, resolve only releases published at least 7 days
+# ago (semgrep uv-missing-dependency-cooldown). pypdf 6.21.4 is a fresh security release,
+# so it is exempt via exclude-newer-package.
+# override-dependencies: safety 3.8.1 (dev-only, latest release) caps filelock<4.0, but
+# every filelock advisory is fixed only in 4.x (4.2.1+); safety only uses filelock for its
+# own cache lock.
 
 [tool.uv.sources]
 sigma-atom-similarity = { workspace = true }
