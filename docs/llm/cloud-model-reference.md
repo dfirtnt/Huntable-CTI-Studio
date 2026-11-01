@@ -127,7 +127,7 @@ resolves it, and everything downstream consumes that one answer:
 | `llm_client.py` (OpenAI) | Sends `temperature` only when `supports_temperature`; sends `reasoning_effort` only when the configured tier is in `effort_levels`. |
 | `llm_client.py` (Anthropic) | Sends `temperature` only when `supports_temperature` (Opus 4.7+/4.8/5, Sonnet 5, Fable 5 reject it); sends `output_config.effort` only for a listed tier. |
 | `codex_app_server_client.py` | Never sends sampling parameters. Tiers are discovered live from `model/list` (`supportedReasoningEfforts`, `defaultReasoningEffort`); the configured tier is passed as the `turn/start.effort` override. |
-| `model_supports_variable_temperature()` (`src/utils/model_validation.py`) | Thin wrapper over the resolver; `openai_chat_client.py` and the RAG / enrichment paths keep calling it unchanged. |
+| `model_supports_variable_temperature()` (`src/utils/model_validation.py`) | Thin wrapper over the resolver; only `openai_chat_client.py` calls it, and nothing in `src/` calls `openai_chat_completions` any more (Sigma enrich/chat/validate go through `LLMService.request_chat` since 2026-11-01). |
 | `GET /api/workflow/provider-options` | Returns `model_capabilities` per provider so the Agents page can gate the Temperature / Top_P sliders (disabled with a "Not supported by this model" note, never hidden) and populate the Effort select. |
 | `PUT /api/workflow/config` | Rejects an `{Agent}_effort` the resolved model does not list (Codex tiers are live, so only the token shape is checked there). |
 
