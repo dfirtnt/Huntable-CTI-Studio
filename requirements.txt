@@ -390,7 +390,7 @@ pathspec==1.0.4
     #   mkdocs
 pgvector==0.4.2
     # via cti-scraper
-pillow==12.3.0
+pillow==13.0.0
     # via
     #   cti-scraper
     #   pytesseract
