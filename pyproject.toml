@@ -8,7 +8,7 @@ dependencies = [
     # Core scraping and processing
     "requests==2.34.2",
     "httpx==0.28.1",
-    "brotli==1.2.0",
+    "brotli==1.2.1",
     "beautifulsoup4==4.14.3",
     "lxml==6.1.1",
     "feedparser==6.0.12",
@@ -44,16 +44,16 @@ dependencies = [
     "reportlab==4.5.1",
     "python-dateutil==2.9.0.post0",
     # Security
-    "certifi==2026.5.20",
-    "urllib3==2.7.0",
+    "certifi==2026.10.18",
+    "urllib3==2.8.0",
     "charset-normalizer==3.4.5",
     "python-multipart==0.0.32",
     "cryptography==50.0.0",
     # PDF processing
-    "pypdf==6.16.1", # CVE-2026-54530/54531 + GHSA-jm82-fx9c-mx94 + CVE-2026-71852/71870 + CVE-2026-84309/84310/84311 fixes
+    "pypdf==6.21.4", # CVE-2026-54530/54531 + GHSA-jm82-fx9c-mx94 + CVE-2026-71852/71870 + CVE-2026-84309/84310/84311 fixes
     # SIGMA rule validation
     "pysigma==1.3.3",
-    "GitPython==3.1.60", # PYSEC-2026-3785/3786/3787/3788/3837/3982/3984 fixed by 3.1.60; still zero import sites (flagged for removal)
+    "GitPython==3.2.1", # PYSEC-2026-3785/3786/3787/3788/3837/3982/3984 fixed by 3.1.60; still zero import sites (flagged for removal)
     # AI/ML
     # torch 2.13.0: bumped from 2.12.1 solely to relax its transitive `setuptools<82` floor
     # (2.13.0 requires setuptools>=77.0.3, no ceiling) so the PYSEC-2026-3447 setuptools fix
@@ -65,12 +65,17 @@ dependencies = [
     # Required by the web settings connection test and shared tracing client.
     "langfuse==4.14.4",
     # Agentic workflow
-    # Security pins (transitive dependency floors — >= intentional, mirrored in requirements.txt)
-    "Authlib==1.7.2",
-    "Pillow==12.3.0", # PYSEC-2026-2253/2254/2255/2256/3451/3452/3453: decompression bombs, EPS DoS, ImageCms heap corruption, WindowsViewer shell injection
-    "Mako==1.3.12", # path traversal + CVE-2026-44307 fixes
+    # Security pins (transitive dependency floors, >= intentional; requirements.txt is exported from uv.lock, not hand-edited)
+    "Authlib==1.9.1",
+    "Pillow==13.0.0", # GHSA-5x8w-8jj5-q52h and 38 other 12.3.0 advisories (2026-11-01); PYSEC-2026-2253/2254/2255/2256/3451/3452/3453: decompression bombs, EPS DoS, ImageCms heap corruption, WindowsViewer shell injection
+    "Mako==1.4.3", # path traversal + CVE-2026-44307 fixes; GHSA-5639-2j2p-m4mx (Windows TemplateLookup drive-letter traversal, 2026-11-01)
     "idna==3.16", # CVE-2026-45409 fix; exact pin closes supply-chain window on uv lock re-runs
-    "setuptools>=83.0.0", # PYSEC-2026-3447 fix; >= since spacy/thinc/torch all depend on it (multi-parent, no single floor to == pin)
+    "setuptools>=84.1.0", # PYSEC-2026-3447 + 1 newer advisory (2026-11-01); >= since spacy/thinc/torch all depend on it (multi-parent, no single floor to == pin)
+    "filelock>=4.2.1", # CVE-2026-22701 + 13 advisories (2026-11-01); >= since huggingface-hub/torch/virtualenv all depend on it (multi-parent)
+    "fsspec>=2026.6.0", # 1 advisory (2026-11-01); transitive via huggingface-hub/torch (multi-parent)
+    "joserfc>=1.7.6", # 2 advisories (2026-11-01); transitive via mcp/authlib (multi-parent)
+    "langgraph-sdk>=0.4.6", # 2 advisories (2026-11-01); transitive via langgraph/langgraph-cli (multi-parent)
+    "opentelemetry-api>=1.45.1", # 1 advisory (2026-11-01); transitive via langfuse/mcp (multi-parent)
     # Local packages
     "sigma-atom-similarity",
     "pysigma-validators-sigmahq==0.21.0",
@@ -85,19 +90,19 @@ semantic = [
     "torch==2.13.0; sys_platform != 'darwin' or platform_machine != 'x86_64'",
     "transformers==5.11.0",
     "accelerate==1.15.0; sys_platform != 'darwin' or platform_machine != 'x86_64'",
-    "sentence-transformers==5.5.1; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+    "sentence-transformers==5.6.0; sys_platform != 'darwin' or platform_machine != 'x86_64'",
 ]
 workflow = [
     "langgraph==1.2.4",
-    "langgraph-checkpoint==4.1.1",
-    "langgraph-checkpoint-postgres==3.1.1",
-    "langgraph-cli==0.4.26",
+    "langgraph-checkpoint==4.3.0",
+    "langgraph-checkpoint-postgres==3.1.3",
+    "langgraph-cli==0.4.32",
     "langchain-core>=1.3.3", # CVE-2026-40087 + CVE-2026-44843 fixes; >= intentional: shared by langgraph/langfuse/langchain -- == would block their upgrades
     "langsmith==0.8.18", # streaming token events bypass output redaction + GHSA-f4xh-w4cj-qxq8; exact pin mirrors requirements.txt
 ]
 mcp = [
-    "mcp[cli]==1.28.1",
-    "PyJWT==2.13.0", # CVE PYSEC-2026-175/177/178/179; transitive via mcp[cli] (sole parent), exact pin per single-parent convention
+    "mcp[cli]==1.30.0",
+    "PyJWT==2.15.0", # CVE PYSEC-2026-175/177/178/179; transitive via mcp[cli] (sole parent), exact pin per single-parent convention
 ]
 docs = [
     "mkdocs==1.6.1",
@@ -142,14 +147,16 @@ test = [
     # Exact pins per single-parent convention (pip<-pip-api, msgpack<-cachecontrol).
     "pip-audit==2.10.0",
     "pip==26.2",
-    "msgpack==1.2.1",
+    "msgpack==1.2.3",  # + 1 newer advisory fixed in 1.2.3 (2026-11-01)
+    # pre-commit -> virtualenv: 21.2.4 carried 19 advisories, fixed by 21.14.9 (2026-11-01).
+    "virtualenv>=21.14.9",
     # safety -> nltk 3.10.0 carries a batch of freshly-disclosed CVEs (GHSA-rf74-v2fm-23pw
     # family plus PYSEC-2026-3733/3735/3737-3741/3748-3752 and CVE-2026-12876/71513/71514/
     # 72818/78680/81723); 3.10.3 fixes all of them. Single-parent transitive pin (safety
     # is the sole parent).
     "nltk==3.10.3",
     "safety==3.8.1",
-    "black==26.3.1",
+    "black==26.10.1",  # 1 advisory fixed in 26.10.1 (2026-11-01)
     "isort==5.12.0",
     "mypy==1.8.0",
     "sphinx==9.0.4",
@@ -161,6 +168,17 @@ test = [
 
 [tool.uv.workspace]
 members = ["sigma_atom_similarity"]
+
+[tool.uv]
+exclude-newer = "7 days"
+exclude-newer-package = { pypdf = false }
+override-dependencies = ["filelock>=4.2.1"]
+# exclude-newer: supply-chain cooldown, resolve only releases published at least 7 days
+# ago (semgrep uv-missing-dependency-cooldown). pypdf 6.21.4 is a fresh security release,
+# so it is exempt via exclude-newer-package.
+# override-dependencies: safety 3.8.1 (dev-only, latest release) caps filelock<4.0, but
+# every filelock advisory is fixed only in 4.x (4.2.1+); safety only uses filelock for its
+# own cache lock.
 
 [tool.uv.sources]
 sigma-atom-similarity = { workspace = true }
@@ -225,8 +243,6 @@ disallow_untyped_defs = false
 disable_error_code = [
     "arg-type",       # 357 violations — function argument type mismatches
     "assignment",     # 337 violations — incompatible assignment types
-    "union-attr",     # 157 violations — attribute access on Optional types
-    "attr-defined",   # 117 violations — undefined attributes
     "var-annotated",  # 87 violations — variables needing type annotations
     "operator",       # 41 violations — unsupported operand types
     "call-arg",       # 37 violations — unexpected/missing keyword arguments

@@ -4,7 +4,23 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.services.llm_service import WORKFLOW_PROVIDER_APPSETTING_KEYS
+from src.services.llm_service import WORKFLOW_PROVIDER_APPSETTING_KEYS, LLMService
+from src.web.routes.sigma_queue import SigmaAgentLLM
+
+
+@pytest.fixture(autouse=True)
+def _hermetic_shared_client():
+    """The shared LLM client reads env only here, never the live test DB's AppSettings."""
+    with (
+        patch.object(LLMService, "_load_workflow_provider_settings", return_value={}),
+        patch.object(LLMService, "_load_lmstudio_settings", return_value={}),
+    ):
+        yield
+
+
+def _chat(content):
+    """A request_chat result in the shared client's (OpenAI-shaped) form."""
+    return {"choices": [{"message": {"content": content}}], "usage": {}, "model": "m"}
 
 
 @pytest.mark.api
@@ -152,7 +168,8 @@ class TestGetSigmaAgentLlmFromWorkflow:
         mock_session.query.return_value.filter.return_value.all.return_value = [Row()]
         with patch.dict("os.environ", {}, clear=False):
             with patch("src.web.routes.sigma_queue.os.getenv", return_value=None):
-                provider, model, api_key = _get_sigma_agent_llm_from_workflow(mock_session)
+                resolved = _get_sigma_agent_llm_from_workflow(mock_session)
+                provider, model, api_key = resolved.provider, resolved.model, resolved.api_key
         assert provider == "openai"
         assert model == "gpt-4o-mini"
         assert api_key == "sk-test"
@@ -187,7 +204,8 @@ class TestSigmaAgentProviderResolutionDoesNotSubstitute:
         # fallback path resolved to lmstudio while keeping the codex model name.
         env = {"WORKFLOW_LMSTUDIO_ENABLED": "true", "WORKFLOW_CODEX_ENABLED": "true"}
         with patch.dict("os.environ", env, clear=False):
-            provider, model, api_key = _get_sigma_agent_llm_from_workflow(mock_session)
+            resolved = _get_sigma_agent_llm_from_workflow(mock_session)
+            provider, model, api_key = resolved.provider, resolved.model, resolved.api_key
 
         assert provider == "codex", "codex config must not fall back to another provider"
         assert model == "gpt-5.6-sol"
@@ -219,7 +237,8 @@ class TestSigmaAgentProviderResolutionDoesNotSubstitute:
             {"WORKFLOW_LMSTUDIO_ENABLED": "true", "LMSTUDIO_MODEL": "qwen/qwen3-4b-2507"},
             clear=False,
         ):
-            provider, model, api_key = _get_sigma_agent_llm_from_workflow(mock_session)
+            resolved = _get_sigma_agent_llm_from_workflow(mock_session)
+            provider, model, api_key = resolved.provider, resolved.model, resolved.api_key
 
         assert provider == "lmstudio"
         assert model == "qwen/qwen3-4b-2507"
@@ -249,7 +268,8 @@ class TestSigmaAgentProviderResolutionDoesNotSubstitute:
             settings_rows=[Row()],
         )
         with patch.dict("os.environ", {"WORKFLOW_CODEX_ENABLED": "false"}, clear=False):
-            provider, model, _ = _get_sigma_agent_llm_from_workflow(mock_session)
+            resolved = _get_sigma_agent_llm_from_workflow(mock_session)
+            provider, model, _ = resolved.provider, resolved.model, resolved.api_key
 
         assert provider == "codex"
         assert model == "gpt-5.6-sol"
@@ -264,7 +284,8 @@ class TestSigmaAgentProviderResolutionDoesNotSubstitute:
             "LMSTUDIO_MODEL": "should-not-be-used",
         }
         with patch.dict("os.environ", env, clear=False):
-            provider, model, _ = _get_sigma_agent_llm_from_workflow(mock_session)
+            resolved = _get_sigma_agent_llm_from_workflow(mock_session)
+            provider, model, _ = resolved.provider, resolved.model, resolved.api_key
 
         assert provider == "codex"
         assert model == "gpt-5.6-luna"
@@ -320,7 +341,7 @@ class TestValidateRuleEndpoint:
 
             with patch(
                 "src.web.routes.sigma_queue._get_sigma_agent_llm_from_workflow",
-                return_value=("openai", "gpt-4o-mini", "sk-test"),
+                return_value=SigmaAgentLLM("openai", "gpt-4o-mini", "sk-test"),
             ):
                 # A rule the SigmaHQ blocking layer accepts: id/status/level present and no
                 # EventID inside a category-based logsource (sigmahq_category_event_id).
@@ -333,10 +354,8 @@ class TestValidateRuleEndpoint:
                     "detection:\n  selection:\n    Image|endswith: '\\\\cmd.exe'\n  condition: selection\n"
                     "level: medium"
                 )
-                with patch(
-                    "src.services.openai_chat_client.openai_chat_completions",
-                    new_callable=AsyncMock,
-                    return_value=yaml_response,
+                with patch.object(
+                    LLMService, "request_chat", new_callable=AsyncMock, return_value=_chat(yaml_response)
                 ):
                     result = await validate_rule(mock_request, queue_id=1)
 
@@ -370,12 +389,10 @@ class TestValidateRuleEndpoint:
 
             with patch(
                 "src.web.routes.sigma_queue._get_sigma_agent_llm_from_workflow",
-                return_value=("openai", "gpt-4o-mini", "sk-test"),
+                return_value=SigmaAgentLLM("openai", "gpt-4o-mini", "sk-test"),
             ):
-                with patch(
-                    "src.services.openai_chat_client.openai_chat_completions",
-                    new_callable=AsyncMock,
-                    return_value=invalid_yaml,
+                with patch.object(
+                    LLMService, "request_chat", new_callable=AsyncMock, return_value=_chat(invalid_yaml)
                 ) as mock_completion:
                     result = await validate_rule(mock_request, queue_id=1)
 
@@ -435,15 +452,14 @@ class TestValidateRuleCodexDispatch:
 
             with patch(
                 "src.web.routes.sigma_queue._get_sigma_agent_llm_from_workflow",
-                return_value=("codex", "gpt-5.6-sol", None),
+                return_value=SigmaAgentLLM("codex", "gpt-5.6-sol", None),
             ):
-                with patch(
-                    "src.web.routes.sigma_queue.CodexAppServerClient", return_value=codex_client
-                ) as mock_codex_cls:
-                    with patch(
-                        "src.web.routes.sigma_queue._call_lmstudio_sigma_text", new_callable=AsyncMock
-                    ) as mock_lmstudio:
-                        result = await validate_rule(mock_request, queue_id=1)
+                with (
+                    patch.dict("os.environ", {"WORKFLOW_CODEX_ENABLED": "true"}, clear=False),
+                    patch("src.services.llm_client.CodexAppServerClient", return_value=codex_client) as mock_codex_cls,
+                    patch.object(LLMService, "_post_lmstudio_chat", new_callable=AsyncMock) as mock_lmstudio,
+                ):
+                    result = await validate_rule(mock_request, queue_id=1)
 
         assert result["success"] is True
         assert result["provider"] == "codex"
@@ -480,9 +496,12 @@ class TestValidateRuleCodexDispatch:
 
             with patch(
                 "src.web.routes.sigma_queue._get_sigma_agent_llm_from_workflow",
-                return_value=("codex", "gpt-5.6-sol", None),
+                return_value=SigmaAgentLLM("codex", "gpt-5.6-sol", None),
             ):
-                with patch("src.web.routes.sigma_queue.CodexAppServerClient", return_value=codex_client):
+                with (
+                    patch.dict("os.environ", {"WORKFLOW_CODEX_ENABLED": "true"}, clear=False),
+                    patch("src.services.llm_client.CodexAppServerClient", return_value=codex_client),
+                ):
                     result = await validate_rule(mock_request, queue_id=1)
 
         assert result["success"] is False
@@ -522,7 +541,10 @@ class TestValidateRuleCodexDispatch:
             mock_session.close = MagicMock()
 
             with patch.dict("os.environ", {"WORKFLOW_CODEX_ENABLED": "true"}, clear=False):
-                with patch("src.web.routes.sigma_queue.CodexAppServerClient", return_value=codex_client):
+                with (
+                    patch.dict("os.environ", {"WORKFLOW_CODEX_ENABLED": "true"}, clear=False),
+                    patch("src.services.llm_client.CodexAppServerClient", return_value=codex_client),
+                ):
                     result = await validate_rule(mock_request, queue_id=1)
 
         assert result["success"] is True

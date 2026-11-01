@@ -32,6 +32,7 @@ from src.services.sigma_validator import (
 
 if PYSIGMA_AVAILABLE:
     from sigma.collection import SigmaCollection
+    from sigma.correlations import SigmaCorrelationRule
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +117,8 @@ def check_rule_ci_parity(rule_yaml: str, *, config_path: Path | None = None) -> 
     try:
         collection = SigmaCollection.from_yaml(rule_yaml)
         for sigma_rule in collection.rules:
+            if isinstance(sigma_rule, SigmaCorrelationRule):
+                continue  # correlation rules have no detection block to parse
             for condition in sigma_rule.detection.parsed_condition:
                 _ = condition.parsed
     except Exception as exc:

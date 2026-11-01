@@ -20,7 +20,7 @@ def _open_operator_step(page: Page, step_id: str) -> None:
     section = page.locator(f"#{step_id}")
     if "open" not in (section.get_attribute("class") or ""):
         page.locator(f"#{step_id} .section-header").click()
-        page.wait_for_timeout(300)
+        expect(section).to_have_class(re.compile(r"\bopen\b"))
 
 
 class TestWorkflowTabNavigation:
@@ -46,7 +46,6 @@ class TestWorkflowTabNavigation:
         tab = page.locator(f"#{tab_id}")
         expect(tab).to_be_visible()
         tab.click()
-        page.wait_for_timeout(200)
 
         content = page.locator(f"#{content_id}")
         expect(content).to_be_visible()
@@ -77,7 +76,6 @@ class TestWorkflowExecutionsTabStatistics:
         page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
-        page.wait_for_timeout(1000)
 
         stat = page.locator(f"#{stat_id}")
         expect(stat).to_be_visible()
@@ -131,7 +129,6 @@ def _stub_sigma_queue_list(page: Page) -> None:
 def _trigger_load_queue(page: Page) -> None:
     """Reload the queue list via JavaScript to avoid race with modal open/close animations."""
     page.evaluate("async () => { await window.loadQueue(); }")
-    page.wait_for_timeout(200)
 
 
 class TestWorkflowQueueRegressions:
@@ -193,7 +190,6 @@ class TestWorkflowQueueRegressions:
         page.goto(f"{base_url}/workflow")
         page.wait_for_load_state("load")
         page.locator("#tab-queue").click()
-        page.wait_for_timeout(800)
 
         expect(page.locator("#tab-content-queue th", has_text="Obs Used")).to_be_visible()
         expect(page.locator("#tab-content-queue th", has_text="Job ID")).to_be_visible()
@@ -240,7 +236,6 @@ class TestWorkflowQueueRegressions:
         page.goto(f"{base_url}/workflow#queue")
         page.wait_for_load_state("load")
         page.locator("#tab-queue").click()
-        page.wait_for_timeout(800)
 
         created_cell = page.locator("#queueTableBody tr").first.locator("td.q-cell-date")
         expect(created_cell).to_contain_text("11:16 AM")
@@ -290,7 +285,6 @@ class TestWorkflowQueueRegressions:
         page.goto(f"{base_url}/workflow")
         page.wait_for_load_state("load")
         page.locator("#tab-queue").click()
-        page.wait_for_timeout(800)
 
         tbody = page.locator("#queueTableBody")
         expect(tbody.locator("tr")).to_have_count(1)
@@ -344,13 +338,16 @@ class TestWorkflowQueueRegressions:
         preview_btn = page.locator('#queueTableBody button:has-text("Preview")').first
         expect(preview_btn).to_be_visible(timeout=20000)
         rule_modal = page.locator("#ruleModal")
-        if rule_modal.evaluate("el => el.classList.contains('hidden')"):
+        # ?previewId auto-opens the modal from a 100ms timer after loadQueue; click Preview
+        # only if that did not happen.
+        try:
+            expect(rule_modal).not_to_have_class("hidden", timeout=2000)
+        except AssertionError:
             preview_btn.click()
         expect(rule_modal).not_to_have_class("hidden", timeout=15000)
 
         # Enter edit mode and append marker
         rule_modal.locator('button[onclick="enableEditMode()"]').click()
-        page.wait_for_timeout(900)
         editor = rule_modal.locator("#yamlEditor")
         expect(editor).to_be_visible(timeout=5000)
         merged = editor.evaluate(
@@ -361,6 +358,8 @@ class TestWorkflowQueueRegressions:
 
         # Trigger loadQueue and verify edits survive
         _trigger_load_queue(page)
+        # Negative check (edits must NOT be clobbered): there is no signal for "a late
+        # re-render did not happen", so give a stray post-loadQueue render time to occur.
         page.wait_for_timeout(400)
 
         editor = page.locator("#ruleModal #yamlEditor")
@@ -427,7 +426,6 @@ class TestWorkflowQueueRegressions:
         page.goto(f"{base_url}/workflow")
         page.wait_for_load_state("load")
         page.locator("#tab-queue").click()
-        page.wait_for_timeout(1000)
 
         page.locator('button:has-text("Preview")').first.click()
         rule_modal = page.locator("#ruleModal")
@@ -505,7 +503,6 @@ class TestWorkflowExecutionsRegressions:
         page.goto(f"{base_url}/workflow")
         page.wait_for_load_state("load")
         page.locator("#tab-executions").click()
-        page.wait_for_timeout(1200)
 
         tbody = page.locator("#executionsTableBody")
         expect(tbody.locator("tr")).to_have_count(2)
@@ -583,7 +580,6 @@ class TestWorkflowExecutionsRegressions:
         page.goto(f"{base_url}/workflow")
         page.wait_for_load_state("load")
         page.locator("#tab-executions").click()
-        page.wait_for_timeout(1200)
 
         tbody = page.locator("#executionsTableBody")
         expect(tbody.locator("tr")).to_have_count(2)
@@ -652,7 +648,6 @@ class TestWorkflowExecutionsRegressions:
         page.goto(f"{base_url}/workflow")
         page.wait_for_load_state("load")
         page.locator("#tab-executions").click()
-        page.wait_for_timeout(1200)
 
         created_cell = page.locator("#executionsTableBody tr").first.locator("td.q-cell-date")
         expect(created_cell).to_contain_text("3:04 PM")
@@ -781,7 +776,6 @@ class TestWorkflowExecutionsRegressions:
         page.on("console", on_console)
 
         page.locator("#tab-executions").click()
-        page.wait_for_timeout(200)
 
         tbody = page.locator("#executionsTableBody")
         expect(tbody).to_be_visible()
@@ -817,7 +811,6 @@ class TestWorkflowExecutionsRegressions:
         similarity_tab = page.locator("#exec-tab-strip button.exec-tab:has-text('Similarity')")
         if similarity_tab.count() > 0:
             similarity_tab.first.click()
-            page.wait_for_timeout(200)
 
         page.locator("#executionModal").locator(f"text={similar_rule_title}").first.click()
 
@@ -886,7 +879,7 @@ class TestWorkflowConfigRegressions:
         assert page.evaluate("() => document.activeElement.id") == f"{step}-header"
 
         page.keyboard.press(key)
-        page.wait_for_timeout(200)
+        expect(page.locator(f"#{step}")).to_have_class(re.compile(r"\bopen\b"))
 
         # Accordion invariant: the activated step is the only open one.
         open_ids = page.evaluate(
@@ -915,7 +908,7 @@ class TestWorkflowConfigRegressions:
 
         page.locator(".rail-item").nth(5).focus()
         page.keyboard.press("Enter")
-        page.wait_for_timeout(200)
+        expect(page.locator("#s5")).to_have_class(re.compile(r"\bopen\b"))
 
         open_ids = page.evaluate(
             "() => [...document.querySelectorAll('.step-section')]"
@@ -941,7 +934,7 @@ class TestWorkflowConfigRegressions:
 
         sa_header.focus()
         page.keyboard.press("Enter")
-        page.wait_for_timeout(200)
+        expect(page.locator("#sa-cmdline")).to_have_class(re.compile(r"\bopen\b"))
 
         assert page.evaluate("() => document.getElementById('sa-cmdline').classList.contains('open')") is True
         expect(sa_header).to_have_attribute("aria-expanded", "true")
@@ -963,13 +956,13 @@ class TestWorkflowConfigRegressions:
 
         sa_header.locator("button").first.focus()
         page.keyboard.press("Enter")
-        page.wait_for_timeout(200)
+        # Negative check: flush two animation frames so a (wrong) toggle would have rendered.
+        page.evaluate("() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => r())))")
 
         after = page.evaluate("() => document.getElementById('sa-cmdline').classList.contains('open')")
         assert after == before, "help button activation must not toggle the sub-agent panel"
 
         page.keyboard.press("Escape")
-        page.wait_for_timeout(100)
 
     # ---- Prompt warning badges -------------------------------------------
     # The validator itself is unchanged and already accurate; what is guarded
@@ -1297,7 +1290,7 @@ class TestWorkflowEnrichModalUI:
         page.goto(f"{base_url}/workflow")
         page.wait_for_load_state("load")
         page.locator("#tab-queue").click()
-        page.wait_for_timeout(800)
+        expect(page.locator("#queueTableBody tr").first).to_be_visible(timeout=10000)
         yield
         try:
             page.evaluate(
@@ -1330,7 +1323,6 @@ class TestWorkflowEnrichModalUI:
             " window.history.replaceState({}, '', url.toString());"
             "}"
         )
-        page.wait_for_timeout(200)
 
     def _open_enrich_modal(self, page: Page):
         """Click Preview then Enrich; return enrich modal locator.
@@ -1346,9 +1338,17 @@ class TestWorkflowEnrichModalUI:
         preview_btn.click()
         rule_modal = page.locator("#ruleModal")
         expect(rule_modal).to_be_visible(timeout=5000)
-        rule_modal.locator('button:has-text("Enrich")').first.click()
+        # openEnrichModal shows the modal first, then awaits /prompt/latest before it
+        # syncs the prompt display and resets the validate result; wait for that.
+        with page.expect_response(lambda r: "/api/sigma-queue/prompt/latest" in r.url):
+            rule_modal.locator('button:has-text("Enrich")').first.click()
         enrich_modal = page.locator("#enrichModal")
         expect(enrich_modal).to_be_visible(timeout=5000)
+        page.wait_for_function(
+            "() => { const r = document.getElementById('enrichValidateResult');"
+            " const b = document.getElementById('enrichBtn');"
+            " return r && r.style.display === 'none' && b && !b.classList.contains('hidden'); }"
+        )
         return enrich_modal
 
     @pytest.mark.ui
@@ -1356,7 +1356,6 @@ class TestWorkflowEnrichModalUI:
     def test_system_prompt_display_div_shown_in_view_mode(self, page: Page):
         """On open, display div is visible and textarea is hidden (view mode)."""
         self._open_enrich_modal(page)
-        page.wait_for_timeout(500)
 
         display_div = page.locator("#enrichSystemPromptDisplay")
         textarea = page.locator("#enrichSystemPrompt")
@@ -1399,10 +1398,9 @@ class TestWorkflowEnrichModalUI:
     def test_edit_button_switches_to_edit_mode(self, page: Page):
         """Clicking Edit reveals the textarea and hides the display div."""
         self._open_enrich_modal(page)
-        page.wait_for_timeout(300)
 
         page.locator("#enrichSPEditBtn").click()
-        page.wait_for_timeout(200)
+        expect(page.locator("#enrichSystemPrompt")).to_be_visible()
 
         expect(page.locator("#enrichSystemPrompt")).to_be_visible(timeout=3000)
         expect(page.locator("#enrichSystemPromptDisplay")).to_be_hidden(timeout=3000)
@@ -1414,7 +1412,6 @@ class TestWorkflowEnrichModalUI:
     def test_validate_clears_stale_result_on_modal_reopen(self, page: Page):
         """Validate result from a previous session must not show on fresh open."""
         enrich_modal = self._open_enrich_modal(page)
-        page.wait_for_timeout(300)
 
         # Manually inject a stale result
         page.evaluate(
@@ -1427,9 +1424,8 @@ class TestWorkflowEnrichModalUI:
         # Close via the header X button; use nth(0) to avoid strict-mode violation
         # (.first property does not suppress strict mode in all Playwright versions)
         enrich_modal.locator('button[onclick="closeEnrichModal()"]').nth(0).click()
-        page.wait_for_timeout(200)
+        expect(enrich_modal).to_be_hidden()
         self._open_enrich_modal(page)
-        page.wait_for_timeout(400)
 
         result_div = page.locator("#enrichValidateResult")
         # Should be hidden or empty after reopening
@@ -1442,10 +1438,8 @@ class TestWorkflowEnrichModalUI:
     def test_validate_passes_for_compliant_prompt(self, page: Page):
         """Clicking Validate with a prompt containing updated_sigma_yaml shows a pass result."""
         self._open_enrich_modal(page)
-        page.wait_for_timeout(300)
 
         page.locator('button[onclick="validateEnrichSystemPrompt()"]').click()
-        page.wait_for_timeout(200)
 
         result_div = page.locator("#enrichValidateResult")
         expect(result_div).to_be_visible(timeout=3000)
@@ -1457,16 +1451,14 @@ class TestWorkflowEnrichModalUI:
     def test_validate_errors_on_missing_updated_sigma_yaml(self, page: Page):
         """A prompt without 'updated_sigma_yaml' produces an ERROR in the validate result."""
         self._open_enrich_modal(page)
-        page.wait_for_timeout(300)
 
         # Enter edit mode and replace prompt with one missing updated_sigma_yaml
         page.locator("#enrichSPEditBtn").click()
-        page.wait_for_timeout(200)
+        expect(page.locator("#enrichSystemPrompt")).to_be_visible()
         textarea = page.locator("#enrichSystemPrompt")
         textarea.fill("You are a SIGMA agent. Output only JSON with status pass or fail.")
 
         page.locator('button[onclick="validateEnrichSystemPrompt()"]').click()
-        page.wait_for_timeout(200)
 
         result_div = page.locator("#enrichValidateResult")
         expect(result_div).to_be_visible(timeout=3000)
@@ -1488,14 +1480,12 @@ class TestWorkflowEnrichModalUI:
         page.route("**/api/sigma-queue/prompt/save**", intercept_save)
 
         self._open_enrich_modal(page)
-        page.wait_for_timeout(300)
 
         page.locator("#enrichSPEditBtn").click()
-        page.wait_for_timeout(200)
+        expect(page.locator("#enrichSystemPrompt")).to_be_visible()
         page.locator("#enrichSystemPrompt").fill("Short bad prompt")
 
         page.locator("#enrichSPSaveBtn").click()
-        page.wait_for_timeout(400)
 
         # Validate result must show errors
         result_div = page.locator("#enrichValidateResult")
@@ -1541,7 +1531,6 @@ class TestWorkflowEnrichModalUI:
         not to include its system prompt. Every other setter syncs the display.
         """
         self._open_enrich_modal(page)
-        page.wait_for_timeout(400)
 
         preset_prompt = (
             "PRESET SYSTEM PROMPT -- return a JSON object with status pass|needs_revision|fail and updated_sigma_yaml."
@@ -1571,7 +1560,6 @@ class TestWorkflowEnrichModalUI:
         # path so this asserts only the loadPresetById -> display contract.
         page.evaluate("() => { window.populateEnrichModelDropdown = async () => {}; }")
         page.evaluate("async () => { await loadPresetById(7, { silent: true }); }")
-        page.wait_for_timeout(300)
 
         display_div = page.locator("#enrichSystemPromptDisplay")
         textarea = page.locator("#enrichSystemPrompt")
@@ -1605,7 +1593,6 @@ class TestWorkflowEnrichModalUI:
         verifies the selected value matches the preset's model field.
         """
         self._open_enrich_modal(page)
-        page.wait_for_timeout(400)
 
         preset_model = "gpt-4o"
         preset_provider = "openai"
@@ -1642,7 +1629,6 @@ class TestWorkflowEnrichModalUI:
         )
 
         page.evaluate("async () => { await loadPresetById(8, { silent: true }); }")
-        page.wait_for_timeout(300)
 
         selected = page.evaluate("() => document.getElementById('enrichModelSelect').value")
         assert selected == preset_model, (

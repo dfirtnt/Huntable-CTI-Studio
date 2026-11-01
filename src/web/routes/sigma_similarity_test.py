@@ -52,7 +52,7 @@ class SimilaritySearchRequest(BaseModel):
 
 
 @router.post("/search")
-async def search_similar_rules(request: SimilaritySearchRequest):
+def search_similar_rules(request: SimilaritySearchRequest):
     """
     Search for rules similar to the provided SIGMA rule.
 

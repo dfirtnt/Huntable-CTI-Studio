@@ -7,6 +7,7 @@ and a live LM Studio health probe into a single server-owned response shape.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from dataclasses import dataclass, field
@@ -227,7 +228,8 @@ async def get_provider_options(db_session) -> dict:
             "default_provider": "<first enabled+usable provider or ''>",
         }
     """
-    settings = _read_settings(db_session)
+    # Blocking sync-session read runs in a worker thread so the event loop stays free.
+    settings = await asyncio.to_thread(_read_settings, db_session)
     catalog = load_catalog()
 
     # -- LM Studio --

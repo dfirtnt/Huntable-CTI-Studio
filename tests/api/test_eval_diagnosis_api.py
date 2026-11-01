@@ -95,7 +95,7 @@ async def test_get_saved_diagnosis_no_files_returns_404(tmp_path):
     """Empty diagnoses dir -> 404."""
     with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=tmp_path):
         with pytest.raises(HTTPException) as exc:
-            await get_saved_diagnosis(execution_id=999)
+            get_saved_diagnosis(execution_id=999)
     assert exc.value.status_code == 404
 
 
@@ -113,7 +113,7 @@ async def test_get_saved_diagnosis_returns_most_recent(tmp_path):
     new_file.write_text(json.dumps(diag_new))
 
     with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=tmp_path):
-        result = await get_saved_diagnosis(execution_id=42)
+        result = get_saved_diagnosis(execution_id=42)
 
     assert result["diagnosis_id"] == "new"
 
@@ -125,7 +125,7 @@ async def test_get_saved_diagnosis_ignores_other_executions(tmp_path):
 
     with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=tmp_path):
         with pytest.raises(HTTPException) as exc:
-            await get_saved_diagnosis(execution_id=42)
+            get_saved_diagnosis(execution_id=42)
     assert exc.value.status_code == 404
 
 
@@ -138,7 +138,7 @@ async def test_get_saved_diagnosis_ignores_other_executions(tmp_path):
 async def test_list_diagnoses_empty_returns_empty_list(tmp_path):
     """No files -> empty list (not 404)."""
     with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=tmp_path):
-        result = await list_saved_diagnoses(execution_id=999)
+        result = list_saved_diagnoses(execution_id=999)
     assert result == []
 
 
@@ -149,7 +149,7 @@ async def test_list_diagnoses_single_file(tmp_path):
     (tmp_path / "7_CmdlineExtract_abc.json").write_text(json.dumps(diag))
 
     with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=tmp_path):
-        result = await list_saved_diagnoses(execution_id=7)
+        result = list_saved_diagnoses(execution_id=7)
 
     assert len(result) == 1
     assert result[0]["diagnosis_id"] == "abc"
@@ -169,7 +169,7 @@ async def test_list_diagnoses_newest_first(tmp_path):
     (tmp_path / "42_CmdlineExtract_ccc.json").write_text(json.dumps(diag_third))
 
     with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=tmp_path):
-        result = await list_saved_diagnoses(execution_id=42)
+        result = list_saved_diagnoses(execution_id=42)
 
     assert len(result) == 3
     assert result[0]["diagnosis_id"] == "run3"
@@ -184,7 +184,7 @@ async def test_list_diagnoses_ignores_other_executions(tmp_path):
     (tmp_path / "42_CmdlineExtract_aaa.json").write_text(json.dumps({"diagnosis_id": "right"}))
 
     with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=tmp_path):
-        result = await list_saved_diagnoses(execution_id=42)
+        result = list_saved_diagnoses(execution_id=42)
 
     assert len(result) == 1
     assert result[0]["diagnosis_id"] == "right"
@@ -199,7 +199,7 @@ async def test_list_diagnoses_all_runs_returned(tmp_path):
         time.sleep(0.005)
 
     with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=tmp_path):
-        result = await list_saved_diagnoses(execution_id=10)
+        result = list_saved_diagnoses(execution_id=10)
 
     assert len(result) == 5
 
@@ -225,7 +225,7 @@ async def test_compare_basic_improvement():
         patch("src.web.routes.evaluation_api._load_static_eval_articles", return_value={}),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
+        result = get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
 
     assert result["version_a"] == 10
     assert result["version_b"] == 11
@@ -256,7 +256,7 @@ async def test_compare_regression():
         patch("src.web.routes.evaluation_api._load_static_eval_articles", return_value={}),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
+        result = get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
 
     article = result["articles"][0]
     # A: score=0, B: score=-2 -> improvement = 0 - 2 = -2
@@ -279,7 +279,7 @@ async def test_compare_article_only_in_one_version():
         patch("src.web.routes.evaluation_api._load_static_eval_articles", return_value={}),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
+        result = get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
 
     article = result["articles"][0]
     assert article["improvement"] is None
@@ -311,7 +311,7 @@ async def test_compare_sort_biggest_change_first():
         patch("src.web.routes.evaluation_api._load_static_eval_articles", return_value={}),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
+        result = get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
 
     improvements = [a["improvement"] for a in result["articles"]]
     # url1 (imp=4) before url2 (imp=1), url3 (imp=None) last
@@ -344,7 +344,7 @@ async def test_compare_aggregate_perfect_matches():
         patch("src.web.routes.evaluation_api._load_static_eval_articles", return_value={}),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
+        result = get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
 
     assert result["aggregate_a"]["perfect_matches"] == 1
     assert result["aggregate_a"]["perfect_match_percentage"] == 50.0
@@ -399,7 +399,7 @@ async def test_compare_aggregate_includes_all_replicate_attempts():
         patch("src.web.routes.evaluation_api._load_static_eval_articles", return_value={}),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
+        result = get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
 
     # Aggregate MAE must average ALL attempts:
     #   v10: |0-10|, |6-10|, |6-10| -> (10 + 4 + 4) / 3 = 6.0
@@ -487,7 +487,7 @@ async def test_compare_improvement_uses_averaged_not_latest_attempt():
         patch("src.web.routes.evaluation_api._load_static_eval_articles", return_value={}),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
+        result = get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
 
     article = result["articles"][0]
     # Latest-single would have said "regressed by 2" (abs_err 1 -> 3).
@@ -518,7 +518,7 @@ async def test_compare_preset_expected_overrides_record_expected():
         patch("src.web.routes.evaluation_api._load_static_eval_articles", return_value={}),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
+        result = get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
 
     article = result["articles"][0]
     # A: actual=3, preset_expected=3, score=0
@@ -574,7 +574,7 @@ async def test_version_articles_basic_returns_urls():
         patch("src.web.routes.evaluation_api._resolve_subagent_query", return_value=("cmdline", ["cmdline"])),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_version_articles(request=MagicMock(), subagent="cmdline", config_version=42)
+        result = get_subagent_eval_version_articles(request=MagicMock(), subagent="cmdline", config_version=42)
 
     assert result["config_version"] == 42
     assert result["count"] == 2
@@ -591,7 +591,7 @@ async def test_version_articles_empty_version_returns_empty():
         patch("src.web.routes.evaluation_api._resolve_subagent_query", return_value=("cmdline", ["cmdline"])),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_version_articles(request=MagicMock(), subagent="cmdline", config_version=99)
+        result = get_subagent_eval_version_articles(request=MagicMock(), subagent="cmdline", config_version=99)
 
     assert result["urls"] == []
     assert result["count"] == 0
@@ -608,7 +608,7 @@ async def test_version_articles_skips_none_urls():
         patch("src.web.routes.evaluation_api._resolve_subagent_query", return_value=("cmdline", ["cmdline"])),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_version_articles(request=MagicMock(), subagent="cmdline", config_version=5)
+        result = get_subagent_eval_version_articles(request=MagicMock(), subagent="cmdline", config_version=5)
 
     assert result["count"] == 2
     assert None not in result["urls"]
@@ -624,7 +624,7 @@ async def test_version_articles_response_has_required_keys():
         patch("src.web.routes.evaluation_api._resolve_subagent_query", return_value=("cmdline", ["cmdline"])),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_version_articles(request=MagicMock(), subagent="cmdline", config_version=7)
+        result = get_subagent_eval_version_articles(request=MagicMock(), subagent="cmdline", config_version=7)
 
     assert "config_version" in result
     assert "urls" in result
@@ -642,7 +642,7 @@ async def test_version_articles_count_matches_urls_length():
         patch("src.web.routes.evaluation_api._resolve_subagent_query", return_value=("cmdline", ["cmdline"])),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_version_articles(request=MagicMock(), subagent="cmdline", config_version=20)
+        result = get_subagent_eval_version_articles(request=MagicMock(), subagent="cmdline", config_version=20)
 
     assert result["count"] == len(result["urls"])
 
@@ -656,7 +656,7 @@ async def test_version_articles_count_matches_urls_length():
 async def test_diagnosis_counts_empty_dir_returns_empty(tmp_path):
     """No saved diagnoses -> {} (badge stays hidden, JS `if (!count) return`)."""
     with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=tmp_path):
-        result = await get_diagnosis_counts()
+        result = get_diagnosis_counts()
     assert result == {}
 
 
@@ -665,7 +665,7 @@ async def test_diagnosis_counts_nonexistent_dir_returns_empty(tmp_path):
     """Cold start -- diagnoses dir does not exist yet -> {} (not an error)."""
     missing = tmp_path / "never_created"
     with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=missing):
-        result = await get_diagnosis_counts()
+        result = get_diagnosis_counts()
     assert result == {}
 
 
@@ -679,7 +679,7 @@ async def test_diagnosis_counts_single_file_real_filename(tmp_path):
         json.dumps({"diagnosis_id": "0795c435", "execution_id": 2547})
     )
     with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=tmp_path):
-        result = await get_diagnosis_counts()
+        result = get_diagnosis_counts()
     assert result == {2547: 1}
 
 
@@ -689,7 +689,7 @@ async def test_diagnosis_counts_aggregates_multiple_runs_same_execution(tmp_path
     for short in ("aaa", "bbb", "ccc"):
         (tmp_path / f"42_CmdlineExtract_{short}.json").write_text(json.dumps({"diagnosis_id": short}))
     with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=tmp_path):
-        result = await get_diagnosis_counts()
+        result = get_diagnosis_counts()
     assert result == {42: 3}
 
 
@@ -700,7 +700,7 @@ async def test_diagnosis_counts_multiple_executions_independent(tmp_path):
     (tmp_path / "20_ProcTreeExtract_b.json").write_text(json.dumps({"d": 2}))
     (tmp_path / "20_ProcTreeExtract_c.json").write_text(json.dumps({"d": 3}))
     with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=tmp_path):
-        result = await get_diagnosis_counts()
+        result = get_diagnosis_counts()
     assert result == {10: 1, 20: 2}
 
 
@@ -713,7 +713,7 @@ async def test_diagnosis_counts_ignores_non_numeric_and_malformed_names(tmp_path
     (tmp_path / "README.json").write_text(json.dumps({"d": 3}))
     (tmp_path / "_leadingunderscore.json").write_text(json.dumps({"d": 4}))
     with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=tmp_path):
-        result = await get_diagnosis_counts()
+        result = get_diagnosis_counts()
     assert result == {5: 1}
 
 
@@ -772,8 +772,8 @@ async def test_list_diagnoses_orders_by_created_at_not_mtime(tmp_path):
     (tmp_path / "42_CmdlineExtract_bbb.json").write_text(json.dumps(older))
 
     with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=tmp_path):
-        listed = await list_saved_diagnoses(execution_id=42)
-        latest = await get_saved_diagnosis(execution_id=42)
+        listed = list_saved_diagnoses(execution_id=42)
+        latest = get_saved_diagnosis(execution_id=42)
 
     assert [d["diagnosis_id"] for d in listed] == ["newer", "older"]
     assert latest["diagnosis_id"] == "newer"
@@ -785,6 +785,6 @@ async def test_list_diagnoses_skips_unreadable_files(tmp_path):
     (tmp_path / "42_CmdlineExtract_ok.json").write_text(json.dumps({"diagnosis_id": "ok"}))
 
     with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=tmp_path):
-        result = await list_saved_diagnoses(execution_id=42)
+        result = list_saved_diagnoses(execution_id=42)
 
     assert [d["diagnosis_id"] for d in result] == ["ok"]

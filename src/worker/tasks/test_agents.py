@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from src.worker.celery_app import celery_app
+from src.worker.celery_app import celery_app, task_time_limits
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +66,7 @@ def _filter_content(article, use_junk_filter: bool, junk_filter_threshold: float
         return article.content
 
 
-@celery_app.task(bind=True, max_retries=0, name="test_agents.test_sub_agent")
+@celery_app.task(bind=True, max_retries=0, name="test_agents.test_sub_agent", **task_time_limits("test_sub_agent"))
 def test_sub_agent_task(
     self,
     agent_name: str,
@@ -137,7 +137,7 @@ def test_sub_agent_task(
         db_session.close()
 
 
-@celery_app.task(bind=True, max_retries=0, name="test_agents.test_rank_agent")
+@celery_app.task(bind=True, max_retries=0, name="test_agents.test_rank_agent", **task_time_limits("test_rank_agent"))
 def test_rank_agent_task(
     self,
     article_id: int,
@@ -197,7 +197,7 @@ def test_rank_agent_task(
         db_session.close()
 
 
-@celery_app.task(bind=True, max_retries=0, name="test_agents.test_sigma_agent")
+@celery_app.task(bind=True, max_retries=0, name="test_agents.test_sigma_agent", **task_time_limits("test_sigma_agent"))
 def test_sigma_agent_task(
     self,
     article_id: int,

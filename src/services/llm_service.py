@@ -11,6 +11,8 @@ import math
 import os
 import re
 import subprocess
+from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any
 
 from src.database.manager import DatabaseManager
@@ -39,6 +41,8 @@ from src.utils.langfuse_client import log_llm_completion, log_llm_error, trace_l
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "DEFAULT_LMSTUDIO_MODEL",
+    "AgentSampling",
     "ContextLengthExceededError",
     "DatabaseManager",
     "LLMService",
@@ -55,12 +59,72 @@ __all__ = [
     "_parse_rank_prompt",
     "_validate_extraction_prompt_config",
     "_validate_preprocess_invariants",
+    "default_provider_models",
+    "lmstudio_default_model",
+    "resolve_agent_sampling",
     "subprocess",
 ]
 
 
+DEFAULT_LMSTUDIO_MODEL = "mistralai/mistral-7b-instruct-v0.3"
+
+
+def lmstudio_default_model(lmstudio_settings: Mapping[str, str | None] | None = None) -> str:
+    """LMStudio model used when nothing more specific is configured.
+
+    AppSettings LMSTUDIO_MODEL, then env LMSTUDIO_MODEL, then the built-in default.
+    """
+    return (lmstudio_settings or {}).get("LMSTUDIO_MODEL") or os.getenv("LMSTUDIO_MODEL") or DEFAULT_LMSTUDIO_MODEL
+
+
+def default_provider_models(lmstudio_default: str) -> dict[str, str]:
+    """Per-provider model used when a caller names none (LLMService.provider_defaults)."""
+    return {
+        "lmstudio": lmstudio_default,
+        "openai": os.getenv("WORKFLOW_OPENAI_MODEL") or "gpt-4o-mini",
+        "codex": os.getenv("WORKFLOW_CODEX_MODEL") or "gpt-5.6-luna",
+        "anthropic": os.getenv("WORKFLOW_ANTHROPIC_MODEL") or "claude-sonnet-4-5",
+    }
+
+
+@dataclass(frozen=True)
+class AgentSampling:
+    """Sampling and reasoning settings for one main agent (RankAgent / SigmaAgent)."""
+
+    temperature: float
+    top_p: float
+    effort: str | None
+
+
+def resolve_agent_sampling(
+    agent_name: str,
+    config_models: Mapping[str, Any] | None,
+    lmstudio_settings: Mapping[str, str | None] | None = None,
+) -> AgentSampling:
+    """Resolve `{agent}_temperature` / `{agent}_top_p` / `{agent}_effort` from flat agent_models.
+
+    Unset values fall back to AppSettings LMSTUDIO_TEMPERATURE / LMSTUDIO_TOP_P, then env,
+    then 0.0 / 0.9. A blank effort means the provider default (None).
+    """
+    config_models = config_models or {}
+    lmstudio_settings = lmstudio_settings or {}
+    temp_str = lmstudio_settings.get("LMSTUDIO_TEMPERATURE") or os.getenv("LMSTUDIO_TEMPERATURE") or "0.0"
+    top_p_str = lmstudio_settings.get("LMSTUDIO_TOP_P") or os.getenv("LMSTUDIO_TOP_P") or "0.9"
+    top_p_raw = config_models.get(f"{agent_name}_top_p")
+    effort_raw = config_models.get(f"{agent_name}_effort")
+    return AgentSampling(
+        temperature=float(config_models.get(f"{agent_name}_temperature") or temp_str),
+        top_p=float(top_p_raw) if top_p_raw is not None else float(top_p_str),
+        effort=(effort_raw.strip().lower() or None) if isinstance(effort_raw, str) else None,
+    )
+
+
 class LLMService(LLMRoutingMixin, LLMClientMixin):
     """Service for LLM API calls using Deepseek-R1 via LMStudio."""
+
+    # Set by callers (workflow, AI routes) for request context; not read here.
+    _current_execution_id: int | None
+    _current_article_id: int | None
 
     def __init__(self, config_models: dict[str, str] | None = None):
         """
@@ -101,9 +165,7 @@ class LLMService(LLMRoutingMixin, LLMClientMixin):
         lmstudio_db = self._load_lmstudio_settings()
 
         # Default model: AppSettings DB > env > hardcoded default
-        default_model = lmstudio_db.get("LMSTUDIO_MODEL") or os.getenv(
-            "LMSTUDIO_MODEL", "mistralai/mistral-7b-instruct-v0.3"
-        )
+        default_model = lmstudio_default_model(lmstudio_db)
         self.lmstudio_model = default_model  # Keep for backward compatibility
         # Prefer AppSettings, fall back to env; if a key exists, default enable unless explicitly false
         self.openai_api_key = (
@@ -119,11 +181,17 @@ class LLMService(LLMRoutingMixin, LLMClientMixin):
             or os.getenv("ANTHROPIC_API_KEY")
         )
 
+        # Providers whose enable flag is set explicitly (AppSettings or env). An unset
+        # flag on a keyed provider follows the key; see override_api_key().
+        self._explicit_provider_flags: set[str] = set()
+
         def _enabled(setting_key: str, env_key: str, default: bool) -> bool:
             # AppSettings override, then env flag, else default
             flag = workflow_settings.get(setting_key)
             if flag is None:
                 flag = os.getenv(env_key)
+            if flag is not None:
+                self._explicit_provider_flags.add(setting_key)
             return self._bool_from_setting(flag, default)
 
         self.workflow_openai_enabled = _enabled(
@@ -147,12 +215,7 @@ class LLMService(LLMRoutingMixin, LLMClientMixin):
             False,
         )
 
-        self.provider_defaults = {
-            "lmstudio": default_model,
-            "openai": os.getenv("WORKFLOW_OPENAI_MODEL", "gpt-4o-mini"),
-            "codex": os.getenv("WORKFLOW_CODEX_MODEL", "gpt-5.6-luna"),
-            "anthropic": os.getenv("WORKFLOW_ANTHROPIC_MODEL", "claude-sonnet-4-5"),
-        }
+        self.provider_defaults = default_provider_models(default_model)
 
         _rp = (config_models.get("RankAgent_provider") or "").strip()
         self.provider_rank = self._canonicalize_provider(_rp) if _rp else ""
@@ -162,14 +225,14 @@ class LLMService(LLMRoutingMixin, LLMClientMixin):
         self.provider_sigma = self._canonicalize_provider(_sp) if _sp else ""
 
         rank_override = (config_models.get("RankAgent") or "").strip()
-        rank_env = (lmstudio_db.get("LMSTUDIO_MODEL_RANK") or os.getenv("LMSTUDIO_MODEL_RANK", "")).strip()
+        rank_env = (lmstudio_db.get("LMSTUDIO_MODEL_RANK") or os.getenv("LMSTUDIO_MODEL_RANK") or "").strip()
         self.model_rank = self._resolve_agent_model(
             "RankAgent", rank_override, rank_env, self.provider_rank, default_model
         )
         self.model_extract = self._resolve_agent_model(
             "ExtractAgent",
             (config_models.get("ExtractAgent") or "").strip(),
-            (lmstudio_db.get("LMSTUDIO_MODEL_EXTRACT") or os.getenv("LMSTUDIO_MODEL_EXTRACT", "")).strip(),
+            (lmstudio_db.get("LMSTUDIO_MODEL_EXTRACT") or os.getenv("LMSTUDIO_MODEL_EXTRACT") or "").strip(),
             self.provider_extract,
             default_model,
             require_specific_model=False,
@@ -177,7 +240,7 @@ class LLMService(LLMRoutingMixin, LLMClientMixin):
         self.model_sigma = self._resolve_agent_model(
             "SigmaAgent",
             (config_models.get("SigmaAgent") or "").strip(),
-            (lmstudio_db.get("LMSTUDIO_MODEL_SIGMA") or os.getenv("LMSTUDIO_MODEL_SIGMA", "")).strip(),
+            (lmstudio_db.get("LMSTUDIO_MODEL_SIGMA") or os.getenv("LMSTUDIO_MODEL_SIGMA") or "").strip(),
             self.provider_sigma,
             default_model=default_model,
             require_specific_model=False,
@@ -186,23 +249,19 @@ class LLMService(LLMRoutingMixin, LLMClientMixin):
         # Detect if model requires system message conversion (Mistral models don't support system role)
         self._needs_system_conversion = self._model_needs_system_conversion(default_model)
 
-        # Temperature: AppSettings DB > env > default 0.0
-        _temp_str = lmstudio_db.get("LMSTUDIO_TEMPERATURE") or os.getenv("LMSTUDIO_TEMPERATURE", "0.0")
-        self.temperature = float(_temp_str)
-        self.temperature_rank = float(config_models.get("RankAgent_temperature") or _temp_str)
-        self.temperature_sigma = float(config_models.get("SigmaAgent_temperature") or _temp_str)
-
-        # Top-P: AppSettings DB > env > default 0.9
-        _top_p_str = lmstudio_db.get("LMSTUDIO_TOP_P") or os.getenv("LMSTUDIO_TOP_P", "0.9")
-        self.top_p = float(_top_p_str)
-        rank_top_p_raw = config_models.get("RankAgent_top_p") if config_models else None
-        self.top_p_rank = float(rank_top_p_raw) if rank_top_p_raw is not None else float(_top_p_str)
-        sigma_top_p_raw = config_models.get("SigmaAgent_top_p") if config_models else None
-        self.top_p_sigma = float(sigma_top_p_raw) if sigma_top_p_raw is not None else float(_top_p_str)
-
+        # Temperature: AppSettings DB > env > default 0.0; Top-P: AppSettings DB > env > 0.9.
         # Reasoning effort: per-agent override from {Agent}_effort; None = provider default.
-        self.effort_rank = self._config_effort("RankAgent", config_models)
-        self.effort_sigma = self._config_effort("SigmaAgent", config_models)
+        base_sampling = resolve_agent_sampling("", {}, lmstudio_db)
+        self.temperature = base_sampling.temperature
+        self.top_p = base_sampling.top_p
+        rank_sampling = resolve_agent_sampling("RankAgent", config_models, lmstudio_db)
+        self.temperature_rank = rank_sampling.temperature
+        self.top_p_rank = rank_sampling.top_p
+        self.effort_rank = rank_sampling.effort
+        sigma_sampling = resolve_agent_sampling("SigmaAgent", config_models, lmstudio_db)
+        self.temperature_sigma = sigma_sampling.temperature
+        self.top_p_sigma = sigma_sampling.top_p
+        self.effort_sigma = sigma_sampling.effort
 
         # Store config_models for per-subagent top_p / effort lookup
         self.config_models = config_models if config_models else {}
@@ -217,6 +276,39 @@ class LLMService(LLMRoutingMixin, LLMClientMixin):
             f"rank={self.provider_rank}, extract={self.provider_extract}, sigma={self.provider_sigma} "
             f"- Models: rank={self.model_rank}, extract={self.model_extract}, sigma={self.model_sigma}"
         )
+
+    @classmethod
+    def for_request(cls, *, api_key_overrides: Mapping[str, str | None] | None = None) -> "LLMService":
+        """Build a service for an ad-hoc request (no workflow agent_models).
+
+        Does a sync AppSettings read, so async callers run it via asyncio.to_thread.
+        `api_key_overrides` maps "openai"/"anthropic" to a key the caller supplied
+        (e.g. a request header); that key is the one billed, never the stored one.
+        """
+        service = cls(config_models=None)
+        for provider, api_key in (api_key_overrides or {}).items():
+            service.override_api_key(provider, api_key)
+        return service
+
+    def override_api_key(self, provider: str, api_key: str | None) -> None:
+        """Bill `api_key` for `provider` instead of the stored key.
+
+        An explicit enable flag still wins (a disabled provider stays disabled); an
+        unset flag follows the key, the same default __init__ applies to a stored key.
+        """
+        key = (api_key or "").strip()
+        if not key:
+            return
+        if provider == "openai":
+            self.openai_api_key = key
+            if WORKFLOW_PROVIDER_APPSETTING_KEYS["openai_enabled"] not in self._explicit_provider_flags:
+                self.workflow_openai_enabled = True
+        elif provider == "anthropic":
+            self.anthropic_api_key = key
+            if WORKFLOW_PROVIDER_APPSETTING_KEYS["anthropic_enabled"] not in self._explicit_provider_flags:
+                self.workflow_anthropic_enabled = True
+        else:
+            raise ValueError(f"Provider '{provider}' does not take an API key.")
 
     @staticmethod
     def compute_rank_ground_truth(hunt_score: Any | None, ml_score: Any | None) -> dict[str, float | None]:
@@ -1421,9 +1513,10 @@ Every item in the output array MUST be an object (not a plain string)."""
                         "queries",
                         "process_lineage",
                     ):
-                        if key not in last_result or not isinstance(last_result[key], list):
+                        key_items = last_result.get(key)
+                        if not isinstance(key_items, list):
                             continue
-                        last_result[key] = [_normalize_traceability_item(it, agent_name) for it in last_result[key]]
+                        last_result[key] = [_normalize_traceability_item(it, agent_name) for it in key_items]
 
                     # Log completion to Langfuse with parsed result (inside with block so generation is still active)
                     if generation:

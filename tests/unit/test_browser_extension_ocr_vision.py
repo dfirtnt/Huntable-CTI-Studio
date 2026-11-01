@@ -73,17 +73,12 @@ def test_manifest_has_wasm_unsafe_eval_csp() -> None:
     assert "wasm-unsafe-eval" in csp, "manifest.json extension_pages CSP must include 'wasm-unsafe-eval'"
 
 
-def test_manifest_wasm_files_are_web_accessible() -> None:
-    """All Tesseract WASM and worker files must be in web_accessible_resources."""
+def test_manifest_does_not_expose_wasm_files_to_web_pages() -> None:
+    """OCR worker/WASM load from the popup (extension origin); web pages must not reach them."""
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
-    all_resources: set[str] = set()
-    for entry in manifest.get("web_accessible_resources", []):
-        all_resources.update(entry.get("resources", []))
-
+    assert "web_accessible_resources" not in manifest
     for fname in WASM_FILES:
-        assert fname in all_resources, (
-            f"{fname} must be listed in web_accessible_resources so the extension worker can load it"
-        )
+        assert (MANIFEST.parent / fname).exists(), f"{fname} must still ship in the extension"
 
 
 # ---------------------------------------------------------------------------
@@ -348,12 +343,10 @@ def test_ocr_uses_legacy_core_for_v5_wasm_compatibility() -> None:
 def test_article_extraction_inserts_image_position_markers() -> None:
     """Article extraction must preserve image positions as markers before OCR replacement."""
     popup_text = POPUP_JS.read_text(encoding="utf-8")
-    content_text = (ROOT / "browser-extension" / "content.js").read_text(encoding="utf-8")
 
-    for source in (popup_text, content_text):
-        assert "function extractTextWithImageMarkers(contentElement)" in source
-        assert "document.createTextNode(`\\n\\n${imageMarker(src)}\\n\\n`)" in source
-        assert "data.content = extractTextWithImageMarkers(contentElement)" in source
+    assert "function extractTextWithImageMarkers(contentElement)" in popup_text
+    assert "document.createTextNode(`\\n\\n${imageMarker(src)}\\n\\n`)" in popup_text
+    assert "data.content = extractTextWithImageMarkers(contentElement)" in popup_text
 
 
 def test_image_extraction_carries_marker_for_send_time_join() -> None:
@@ -373,3 +366,15 @@ def test_scrape_replaces_image_markers_instead_of_appending_ocr_only() -> None:
     assert "contentWithOcr.split(marker).join(block)" in replacement_body
     assert "unmatchedBlocks.push(block)" in replacement_body
     assert r"replace(/\n*\[IMAGE:[^\]\n]+\]\n*/g" in replacement_body
+
+
+@pytest.mark.unit
+def test_manifest_has_no_always_on_content_script() -> None:
+    """Extension must extract on click only: no content_scripts, no <all_urls>."""
+    raw = (ROOT / "browser-extension" / "manifest.json").read_text(encoding="utf-8")
+    manifest = json.loads(raw)
+
+    assert "content_scripts" not in manifest
+    assert "<all_urls>" not in raw
+    assert {"activeTab", "scripting"} <= set(manifest["permissions"])
+    assert not (ROOT / "browser-extension" / "content.js").exists()

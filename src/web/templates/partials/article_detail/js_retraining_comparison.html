@@ -1,0 +1,548 @@
+    async function triggerModelRetraining() {
+        try {
+            const confirmed = await ModalManager.confirm(
+                'This will retrain the ML model using collected user feedback. This may take a few minutes. Continue?',
+                { title: 'Retrain Model', confirmText: 'Retrain', confirmClass: 'bg-purple-600 hover:bg-purple-700', cancelText: 'Cancel' }
+            );
+            if (!confirmed) {
+                return;
+            }
+            
+            // Show loading state
+            const button = event.target;
+            const originalText = button.textContent;
+            button.textContent = '🔄 Retraining...';
+            button.disabled = true;
+            
+            const response = await fetch('/api/model/retrain', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showNotification('Model retraining completed successfully!', 'success');
+                
+                // Check if comparison data is available
+                if (result.has_comparison) {
+                    // Show comparison modal
+                    await showComparisonModal();
+                } else {
+                    // Ask if user wants to reload the page to see updated model
+                    const reload = await ModalManager.confirm('Model retraining complete! Reload the page to see the updated model in action?', { title: 'Retraining Complete', confirmText: 'Reload', confirmClass: 'bg-purple-600 hover:bg-purple-700', cancelText: 'Stay' });
+                    if (reload) {
+                        window.location.reload();
+                    }
+                }
+            } else {
+                throw new Error(result.detail || 'Retraining failed');
+            }
+            
+        } catch (error) {
+            console.error('Retraining error:', error);
+            showNotification('Failed to retrain model: ' + error.message, 'error');
+        } finally {
+            // Restore button state
+            button.textContent = originalText;
+            button.disabled = false;
+        }
+    }
+    
+    function toggleFeatureDetails(chunkIndex) {
+        const featureDetails = document.getElementById(`featureDetails${chunkIndex}`);
+        const icon = document.getElementById(`featureDetailsIcon${chunkIndex}`);
+        if (featureDetails) {
+            featureDetails.classList.toggle('hidden');
+            if (icon) {
+                icon.classList.toggle('rotate-180');
+            }
+        }
+    }
+    
+    // COMMENTED OUT: Truncation control function
+    // function toggleChunkContent(chunkIndex) {
+    //     const preview = document.getElementById(`chunkContent${chunkIndex}`);
+    //     const full = document.getElementById(`chunkContentFull${chunkIndex}`);
+    //     const button = preview.parentElement.querySelector('button');
+    //     
+    //     if (preview && full && button) {
+    //         const isHidden = full.classList.contains('hidden');
+    //         
+    //         if (isHidden) {
+    //             // Show full content
+    //             preview.classList.add('hidden');
+    //             full.classList.remove('hidden');
+    //             button.textContent = '📄 Hide Text';
+    //         } else {
+    //             // Show preview
+    //             preview.classList.remove('hidden');
+    //             full.classList.add('hidden');
+    //             button.textContent = '📄 Show Full Text';
+    //         }
+    //     }
+    // }
+
+    // Removed: checkAIAssistantButtonState function and DOMContentLoaded listener (AI Assistant button removed)
+    /*
+    function checkAIAssistantButtonState() {
+        const button = document.getElementById('aiAssistantBtn');
+        if (!button) return;
+        
+        // Get AI model from settings
+        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        const aiModel = settings.aiModel || 'chatgpt';
+        
+        // Check content size limits
+        const contentLength = {{ article.content|length if article.content else 0 }};
+        const contentLimit = aiModel === 'chatgpt' ? {{ chatgpt_content_limit|default(1000000)|int }} :
+                           aiModel === 'anthropic' ? {{ anthropic_content_limit|default(1000000)|int }} : {{ chatgpt_content_limit|default(1000000)|int }};
+        
+        if (contentLength > contentLimit) {
+            // Disable button and add explanation
+            button.disabled = true;
+            button.className = button.className.replace('btn-workflow', 'bg-gray-400 cursor-not-allowed');
+            button.removeAttribute('title'); // Remove tooltip to avoid grey box
+            
+            // Add warning icon
+            const icon = button.querySelector('span');
+            if (icon) {
+                icon.textContent = '⚠️';
+            }
+            
+            // Update popover content
+            const popover = document.getElementById('aiAssistantPopover');
+            const popoverContent = document.getElementById('popoverContent');
+            if (popover && popoverContent) {
+                popoverContent.textContent = `${contentLength.toLocaleString()} characters (limit: ${contentLimit.toLocaleString()})`;
+                
+                // Add hover event listeners to wrapper
+                const wrapper = document.getElementById('aiAssistantWrapper');
+                if (wrapper) {
+                    wrapper.addEventListener('mouseenter', function() {
+                        popover.classList.remove('hidden');
+                    });
+                    
+                    wrapper.addEventListener('mouseleave', function() {
+                        popover.classList.add('hidden');
+                    });
+                }
+            }
+        }
+    }
+    */
+    
+    // Model Comparison Modal Functions
+    async function showComparisonModal() {
+        try {
+            // Get the latest model version for comparison
+            const response = await fetch('/api/model/versions');
+            const data = await response.json();
+            
+            if (!data.success || data.versions.length < 2) {
+                // No comparison available, just reload
+                const reload = await ModalManager.confirm('Model retraining complete! Reload the page to see the updated model in action?', { title: 'Retraining Complete', confirmText: 'Reload', confirmClass: 'bg-purple-600 hover:bg-purple-700', cancelText: 'Stay' });
+                if (reload) {
+                    window.location.reload();
+                }
+                return;
+            }
+            
+            // Get the latest version (first in the list)
+            const latestVersion = data.versions[0];
+            
+            // Get comparison data
+            const compareResponse = await fetch(`/api/model/compare/${latestVersion.id}`);
+            const compareData = await compareResponse.json();
+            
+            if (!compareData.success) {
+                throw new Error('Failed to get comparison data');
+            }
+            
+            // Show the comparison modal
+            displayComparisonModal(compareData.comparison, latestVersion);
+            
+        } catch (error) {
+            console.error('Error showing comparison modal:', error);
+            // Fallback to reload prompt
+            const reload = await ModalManager.confirm('Model retraining complete! Reload the page to see the updated model in action?', { title: 'Retraining Complete', confirmText: 'Reload', confirmClass: 'bg-purple-600 hover:bg-purple-700', cancelText: 'Stay' });
+            if (reload) {
+                window.location.reload();
+            }
+        }
+    }
+    
+    function displayComparisonModal(comparison, version) {
+        // Clean up existing modal
+        const existingModal = document.getElementById('comparisonModal');
+        if (existingModal) {
+            if (window.ModalManager) {
+                const stack = window.ModalManager.getStack();
+                while (stack.includes('comparisonModal')) {
+                    const index = stack.indexOf('comparisonModal');
+                    stack.splice(index, 1);
+                }
+            }
+            existingModal.remove();
+        }
+        
+        // Create modal HTML
+        const modalHTML = `
+            <div id="comparisonModal" role="dialog" aria-modal="true" aria-label="Comparison" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div class="bg-white rounded-lg p-6 max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-bold text-gray-900"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 7.5h10.5v9H6.75v-9z"/></svg> Model Performance Comparison</h2>
+                        <button onclick="closeComparisonModal()" class="text-gray-500 hover:text-gray-700">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <h3 class="text-lg font-semibold text-blue-900 mb-2">Model Version ${version.version_number}</h3>
+                            <p class="text-blue-700">Trained on ${new Date(version.trained_at).toLocaleString()}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Metrics Comparison Table -->
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold mb-3">Performance Metrics</h3>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full bg-white border border-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Metric</th>
+                                        <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Before</th>
+                                        <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">After</th>
+                                        <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Change</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    <tr>
+                                        <td class="px-4 py-2 font-medium">Accuracy</td>
+                                        <td class="px-4 py-2 text-center">${(comparison.old_version.accuracy * 100).toFixed(1)}%</td>
+                                        <td class="px-4 py-2 text-center">${(comparison.new_version.accuracy * 100).toFixed(1)}%</td>
+                                        <td class="px-4 py-2 text-center ${comparison.improvements.accuracy_change >= 0 ? 'text-emerald-400' : 'text-red-600'}">
+                                            ${comparison.improvements.accuracy_change >= 0 ? '+' : ''}${(comparison.improvements.accuracy_change * 100).toFixed(1)}%
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-2 font-medium">Precision (Huntable)</td>
+                                        <td class="px-4 py-2 text-center">${(comparison.old_version.precision_huntable * 100).toFixed(1)}%</td>
+                                        <td class="px-4 py-2 text-center">${(comparison.new_version.precision_huntable * 100).toFixed(1)}%</td>
+                                        <td class="px-4 py-2 text-center ${comparison.improvements.precision_huntable_change >= 0 ? 'text-emerald-400' : 'text-red-600'}">
+                                            ${comparison.improvements.precision_huntable_change >= 0 ? '+' : ''}${(comparison.improvements.precision_huntable_change * 100).toFixed(1)}%
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-2 font-medium">Recall (Huntable)</td>
+                                        <td class="px-4 py-2 text-center">${(comparison.old_version.recall_huntable * 100).toFixed(1)}%</td>
+                                        <td class="px-4 py-2 text-center">${(comparison.new_version.recall_huntable * 100).toFixed(1)}%</td>
+                                        <td class="px-4 py-2 text-center ${comparison.improvements.recall_huntable_change >= 0 ? 'text-emerald-400' : 'text-red-600'}">
+                                            ${comparison.improvements.recall_huntable_change >= 0 ? '+' : ''}${(comparison.improvements.recall_huntable_change * 100).toFixed(1)}%
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-2 font-medium">Training Data</td>
+                                        <td class="px-4 py-2 text-center">${comparison.old_version.training_data_size}</td>
+                                        <td class="px-4 py-2 text-center">${comparison.new_version.training_data_size}</td>
+                                        <td class="px-4 py-2 text-center text-blue-600">
+                                            +${comparison.improvements.training_data_increase}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-2 font-medium">Feedback Samples</td>
+                                        <td class="px-4 py-2 text-center">${comparison.old_version.feedback_samples_count}</td>
+                                        <td class="px-4 py-2 text-center">${comparison.new_version.feedback_samples_count}</td>
+                                        <td class="px-4 py-2 text-center text-blue-600">
+                                            +${comparison.improvements.feedback_samples_added}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Summary -->
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold mb-3">Summary</h3>
+                        ${comparison.summary.key_improvements.length > 0 ? `
+                            <div class="mb-3">
+                                <h4 class="font-medium text-green-700 mb-2"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Key Improvements:</h4>
+                                <ul class="list-disc list-inside text-emerald-400">
+                                    ${comparison.summary.key_improvements.map(improvement => `<li>${improvement}</li>`).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                        ${comparison.summary.areas_of_concern.length > 0 ? `
+                            <div class="mb-3">
+                                <h4 class="font-medium text-yellow-700 mb-2"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg> Areas of Concern:</h4>
+                                <ul class="list-disc list-inside text-amber-400">
+                                    ${comparison.summary.areas_of_concern.map(concern => `<li>${concern}</li>`).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                    </div>
+                    
+                    <!-- Actions -->
+                    <div class="flex justify-end space-x-3">
+                        <button onclick="showFeedbackComparison()" class="px-4 py-2 btn-workflow text-white rounded transition-colors">
+                            View Feedback Impact
+                        </button>
+                        <button onclick="closeComparisonModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
+                            Close
+                        </button>
+                        <button onclick="reloadWithNewModel()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                            Reload Page with New Model
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Add modal to page
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        // Get modal element
+        const comparisonModal = document.getElementById('comparisonModal');
+        if (comparisonModal) {
+            // Ensure modal is visible
+            comparisonModal.classList.remove('hidden');
+            
+            // Register and open with ModalManager
+            if (window.ModalManager) {
+                setTimeout(() => {
+                    window.ModalManager.register('comparisonModal', {
+                        isDynamic: true,
+                        hasInput: false
+                    });
+                    window.ModalManager.open('comparisonModal');
+                    comparisonModal.classList.remove('hidden');
+                }, 50);
+            }
+        }
+    }
+    
+    function closeComparisonModal() {
+        if (window.ModalManager) {
+            window.ModalManager.close('comparisonModal');
+        }
+        const modal = document.getElementById('comparisonModal');
+        if (modal) {
+            modal.remove();
+        }
+    }
+    
+    function reloadWithNewModel() {
+        closeComparisonModal();
+        window.location.reload();
+    }
+    
+    async function showFeedbackComparison() {
+        try {
+            const response = await fetch('/api/model/feedback-comparison');
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.message || 'Failed to get feedback comparison');
+            }
+            
+            displayFeedbackComparisonModal(data);
+            
+        } catch (error) {
+            console.error('Error showing feedback comparison:', error);
+            showNotification('Failed to load feedback comparison: ' + error.message, 'error');
+        }
+    }
+    function displayFeedbackComparisonModal(data) {
+        // Close the current modal
+        closeComparisonModal();
+        
+        // Filter to current article by default
+        const currentArticleId = window.chunkDebugData?.article_id;
+        const filteredData = {
+            ...data,
+            feedback_comparisons: data.feedback_comparisons.filter(c => c.article_id == currentArticleId)
+        };
+        
+        // Create feedback comparison modal
+        const modalHTML = `
+            <div id="feedbackComparisonModal" role="dialog" aria-modal="true" aria-label="Feedback comparison" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div class="bg-white rounded-lg p-6 max-w-6xl max-h-[90vh] overflow-y-auto">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-bold text-gray-900"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg> Feedback Impact Analysis</h2>
+                        <button onclick="closeFeedbackComparisonModal()" class="text-gray-500 hover:text-gray-700">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                            <h3 class="text-lg font-semibold text-green-900 mb-2">Model Version ${filteredData.model_version} vs ${filteredData.previous_model_version}</h3>
+                            <p class="text-green-700">Showing confidence changes for ${filteredData.feedback_comparisons.length} chunks from the latest retraining</p>
+                            <div class="mt-2 text-sm text-emerald-400">
+                                <strong>Comparison Period:</strong> ${filteredData.comparison_period}
+                            </div>
+                            <div class="mt-1 text-sm text-emerald-400">
+                                <strong>Current Article (${currentArticleId || 'N/A'}):</strong> 
+                                ${filteredData.feedback_comparisons.length} chunks
+                            </div>
+                        </div>
+                    </div>
+                    
+                    
+                    <!-- Feedback Comparison Table -->
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold mb-3">Confidence Changes for Your Feedback</h3>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full bg-white border border-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Chunk Text</th>
+                                        <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Old Huntable Confidence</th>
+                                        <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">New Huntable Confidence</th>
+                                        <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Change</th>
+                                        <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Your Feedback</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    ${filteredData.feedback_comparisons.map(comparison => `
+                                        <tr>
+                                            <td class="px-4 py-2 text-sm" data-article-id="${comparison.article_id}">
+                                                <div class="max-w-xs truncate" title="${escapeHtml(comparison.chunk_text)}">
+                                                    ${escapeHtml(comparison.chunk_text)}
+                                                </div>
+                                            </td>
+                                            <td class="px-4 py-2 text-center">
+                                                <span class="text-sm">${(comparison.old_huntable_probability * 100).toFixed(1)}%</span>
+                                                <div class="text-xs text-gray-500">${comparison.old_classification}</div>
+                                            </td>
+                                            <td class="px-4 py-2 text-center">
+                                                <span class="text-sm font-medium">${(comparison.new_huntable_probability * 100).toFixed(1)}%</span>
+                                                <div class="text-xs text-gray-500">${comparison.new_classification}</div>
+                                            </td>
+                                            <td class="px-4 py-2 text-center">
+                                                <span class="text-sm font-bold ${comparison.huntable_probability_change >= 0 ? 'text-emerald-400' : 'text-red-600'}">
+                                                    ${comparison.huntable_probability_change >= 0 ? '+' : ''}${(comparison.huntable_probability_change * 100).toFixed(1)}%
+                                                </span>
+                                            </td>
+                                            <td class="px-4 py-2 text-center">
+                                                <span class="text-xs px-2 py-1 rounded ${comparison.is_correct ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                                    ${comparison.is_correct ? '✅ Correct' : '❌ Incorrect'}
+                                                </span>
+                                                <div class="text-xs text-gray-500 mt-1">${comparison.user_classification}</div>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Summary Statistics -->
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold mb-3">Summary</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <div class="text-sm text-blue-600">Average Huntable Confidence Change</div>
+                                <div class="text-lg font-semibold text-blue-900">
+                                    ${(filteredData.feedback_comparisons.reduce((sum, c) => sum + c.huntable_probability_change, 0) / filteredData.feedback_comparisons.length * 100).toFixed(1)}%
+                                </div>
+                            </div>
+                            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                                <div class="text-sm text-emerald-400">Chunks with Improved Huntable Confidence</div>
+                                <div class="text-lg font-semibold text-green-900">
+                                    ${filteredData.feedback_comparisons.filter(c => c.huntable_probability_change > 0).length}
+                                </div>
+                            </div>
+                            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                                <div class="text-sm text-red-600">Chunks with Decreased Huntable Confidence</div>
+                                <div class="text-lg font-semibold text-red-900">
+                                    ${filteredData.feedback_comparisons.filter(c => c.huntable_probability_change < 0).length}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Actions -->
+                    <div class="flex justify-end space-x-3">
+                        <button onclick="closeFeedbackComparisonModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Add modal to page
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        // Register and open with ModalManager
+        const feedbackComparisonModal = document.getElementById('feedbackComparisonModal');
+        if (feedbackComparisonModal) {
+            if (window.ModalManager) {
+                setTimeout(() => {
+                    window.ModalManager.register('feedbackComparisonModal', {
+                        isDynamic: true,
+                        hasInput: false
+                    });
+                    window.ModalManager.open('feedbackComparisonModal');
+                }, 50);
+            }
+            
+            // Close modal when clicking outside
+            feedbackComparisonModal.addEventListener('click', function(e) {
+                if (e.target === feedbackComparisonModal) {
+                    closeFeedbackComparisonModal();
+                }
+            });
+        }
+    }
+    
+    function closeFeedbackComparisonModal() {
+        if (window.ModalManager) {
+            window.ModalManager.close('feedbackComparisonModal');
+        }
+        const modal = document.getElementById('feedbackComparisonModal');
+        if (modal) {
+            modal.remove();
+        }
+    }
+    
+    function filterFeedbackTable() {
+        const checkbox = document.getElementById('filterCurrentArticle');
+        const table = document.querySelector('#feedbackComparisonModal table tbody');
+        const currentArticleId = window.chunkDebugData?.article_id;
+        
+        if (!table || !currentArticleId) return;
+        
+        const rows = table.querySelectorAll('tr');
+        
+        rows.forEach(row => {
+            const articleIdCell = row.querySelector('td[data-article-id]');
+            if (articleIdCell) {
+                const rowArticleId = parseInt(articleIdCell.getAttribute('data-article-id'));
+                if (checkbox.checked) {
+                    // Show only current article
+                    row.style.display = rowArticleId === currentArticleId ? '' : 'none';
+                } else {
+                    // Show all articles
+                    row.style.display = '';
+                }
+            }
+        });
+    }
+
+
+    // Toggle Keyword Matches panel
+    // toggleKeywordMatches - handled by global initCollapsiblePanels() in base.html
+    function toggleKeywordMatches() {
+        toggleCollapsible('keyword-matches');
+    }
+

@@ -1031,8 +1031,12 @@ class SigmaGenerationService:
         "use the configured provider", so it never overrides ``provider_sigma``.
         """
         sigma_provider = self.llm_service.provider_sigma
+        # Only canonicalize a real hint: canonicalizing the "lmstudio" placeholder raises
+        # when LMStudio is disabled, which broke Sigma generation on cloud-only installs.
+        if not ai_model or ai_model == "lmstudio":
+            return sigma_provider
         requested_provider = self.llm_service._canonicalize_provider(ai_model)
-        if ai_model and ai_model != "lmstudio" and requested_provider != "lmstudio":
+        if requested_provider != "lmstudio":
             sigma_provider = requested_provider
         return sigma_provider
 

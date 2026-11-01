@@ -115,8 +115,8 @@ def assess_for_publish(
             continue
         assessment.sigma_id = sigma_id.strip()
         placement, error = _placement(rule, layout)
-        if error:
-            assessment.problems.append(error)
+        if error or placement is None:
+            assessment.problems.append(error or "Rule placement could not be determined")
             continue
         assessment.warnings.extend(placement.warnings)
         if assessment.sigma_id in owners:

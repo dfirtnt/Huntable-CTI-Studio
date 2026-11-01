@@ -262,8 +262,6 @@ class TestQuickActionsFlows:
         rescore_button = page.locator("#btn-rescore")
         expect(rescore_button).to_be_visible()
 
-        # Click the button
+        # Click the button; quickAction() disables it for the duration of the API call
         rescore_button.click()
-
-        # Wait for API call to complete and check for success notification
-        page.wait_for_timeout(3000)
+        expect(rescore_button).to_be_enabled(timeout=30000)

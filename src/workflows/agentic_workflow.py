@@ -20,6 +20,7 @@ from typing import Any
 
 import yaml
 from langgraph.graph import END, StateGraph
+from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
@@ -714,7 +715,8 @@ def _repair_empty_observable_attribution(
     surfaced as nothing more than an absent ``observables_used``, so the failure was
     indistinguishable from the configured behaviour.
     """
-    rule_logsource = rule.get("logsource") if isinstance(rule.get("logsource"), dict) else {}
+    raw_logsource = rule.get("logsource")
+    rule_logsource = raw_logsource if isinstance(raw_logsource, dict) else {}
     rule_category = rule_logsource.get("category")
     group_category = group_logsource_hint.get("category") if isinstance(group_logsource_hint, dict) else None
     if rule_category and group_category and rule_category != group_category:
@@ -1046,6 +1048,21 @@ class WorkflowState(BaseModel):
         return self.model_dump(exclude_none=True).keys()
 
 
+class ClaimedExecutionError(Exception):
+    """A claimed execution failed and ``run_workflow`` could not record the failure.
+
+    ``run_workflow`` records post-claim failures itself (row -> ``failed``, pending
+    subagent evals reconciled) and returns. This is raised only when that recording
+    itself fails -- typically because the database went away mid-run -- so the Celery
+    task knows the row is ``running`` and owned by this attempt, and must be failed
+    rather than retried: a retry would hit the claim guard and skip.
+    """
+
+    def __init__(self, execution_id: int, message: str):
+        super().__init__(message)
+        self.execution_id = execution_id
+
+
 def _mark_pending_subagent_evals_as_failed(
     execution: "AgenticWorkflowExecutionTable",
     db_session: "Session",
@@ -1342,7 +1359,7 @@ async def _maybe_adjudicate_platform(
     return os_result, detected_os
 
 
-def create_agentic_workflow(db_session: Session) -> StateGraph:
+def create_agentic_workflow(db_session: Session) -> CompiledStateGraph:
     """
     Create LangGraph workflow for agentic processing.
 
@@ -1555,7 +1572,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             content = eval_fixture_content if isinstance(eval_fixture_content, str) else article.content
 
             # Validate the selected source content.
-            if not content or len(content.strip()) == 0:
+            if not content or len(content.strip()) == 0:  # type: ignore[attr-defined]  # legacy Column[str] typing on ArticleTable.content
                 raise ValueError(f"Article {article.id} has no content to filter")
 
             # Evals exercise the extraction agent against the complete article. They
@@ -3031,7 +3048,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     f"[Workflow {state['execution_id']}] intra-batch dedup: {pre_dedup_count} → {len(sigma_rules)} rules"
                 )
 
-            sigma_metadata = {
+            sigma_metadata: dict[str, Any] = {
                 "total_attempts": total_attempts,
                 "valid_rules": valid_rules,
                 "validation_results": combined_validation_results,
@@ -3768,7 +3785,18 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
 
     Returns:
         Workflow execution result
+
+    Raises:
+        Any exception raised before the execution row is claimed, unchanged, so the
+        caller can retry transient infrastructure errors. After the claim, failures are
+        recorded on the row and returned as a result; ``ClaimedExecutionError`` is
+        raised only if that recording fails.
     """
+    # Set once this call has moved the row pending -> running. Before that, the row
+    # belongs to nobody and errors propagate to the caller; after it, this call owns
+    # the row and must leave it terminal.
+    claimed_execution_id: int | None = None
+    execution = None
     try:
         # Get article and execution
         article = db_session.query(ArticleTable).filter(ArticleTable.id == article_id).first()
@@ -3878,6 +3906,8 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                 "execution_id": int(execution.id),
                 "reason": f"execution {execution.id} already claimed (status: {execution.status})",
             }
+
+        claimed_execution_id = int(execution.id)
 
         # The UPDATE bypassed the identity map, so reload the claimed row and mirror
         # its state onto the loaded instance: graph nodes and the finalisation block
@@ -4326,64 +4356,86 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
         except Exception as rollback_error:
             logger.warning(f"Error rolling back transaction: {rollback_error}")
 
+        if claimed_execution_id is None:
+            # Pre-claim: the row is still pending (or was never found), so nothing here
+            # owns it. Hand the original exception to the caller, which retries
+            # transient infrastructure errors and fails the row otherwise.
+            raise
+
         # Only mark as failed if this is NOT a trace cleanup error for a completed workflow
         # Check if execution exists and has sigma_rules (indicating workflow succeeded)
-        if execution:
-            # Refresh execution from database to get latest state including sigma_rules
-            try:
-                db_session.refresh(execution)
-            except Exception as refresh_error:
-                logger.warning(f"Error refreshing execution: {refresh_error}")
-                # Try to get a fresh copy from database
-                execution = (
-                    db_session.query(AgenticWorkflowExecutionTable)
-                    .filter(AgenticWorkflowExecutionTable.id == execution.id)
-                    .first()
-                )
+        try:
+            if execution:
+                # Refresh execution from database to get latest state including sigma_rules
+                try:
+                    db_session.refresh(execution)
+                except Exception as refresh_error:
+                    logger.warning(f"Error refreshing execution: {refresh_error}")
+                    # Try to get a fresh copy from database
+                    execution = (
+                        db_session.query(AgenticWorkflowExecutionTable)
+                        .filter(AgenticWorkflowExecutionTable.id == execution.id)
+                        .first()
+                    )
+                    if execution is None:
+                        # Row is gone; surface it through the record_error path below.
+                        raise RuntimeError(
+                            f"Workflow execution {claimed_execution_id} no longer exists"
+                        ) from refresh_error
 
-            # Check if workflow actually completed successfully despite the error
-            if execution and execution.sigma_rules and len(execution.sigma_rules) > 0:
-                # Workflow succeeded - don't mark as failed
-                logger.warning(
-                    f"Outer exception handler caught error for execution {execution.id}, "
-                    f"but workflow succeeded (generated {len(execution.sigma_rules)} rules). "
-                    f"Error: {e}. Not marking as failed."
-                )
-                # Update status to completed instead
-                execution.status = "completed"
-                execution.completed_at = datetime.now()
-                execution.error_message = None
+                # Check if workflow actually completed successfully despite the error
+                if execution and execution.sigma_rules and len(execution.sigma_rules) > 0:
+                    # Workflow succeeded - don't mark as failed
+                    logger.warning(
+                        f"Outer exception handler caught error for execution {execution.id}, "
+                        f"but workflow succeeded (generated {len(execution.sigma_rules)} rules). "
+                        f"Error: {e}. Not marking as failed."
+                    )
+                    # Update status to completed instead
+                    execution.status = "completed"
+                    execution.completed_at = datetime.now()
+                    execution.error_message = None
+                    db_session.commit()
+                    # Don't re-raise - workflow succeeded
+                    # Extract execution.id as primitive to avoid ORM serialization issues
+                    execution_id_primitive = int(execution.id) if execution else None
+                    return {"success": True, "execution_id": execution_id_primitive, "error": None}
+                # Check for generator errors - these often occur during trace cleanup
+                err_msg = str(e).lower()
+                if "generator didn't stop" in err_msg or "generator" in err_msg:
+                    logger.warning(
+                        f"Generator error for execution {execution.id}; treating as completed/no-rules. Error: {e}"
+                    )
+                    execution.status = "completed"
+                    execution.completed_at = datetime.now()
+                    execution.error_message = None
+                    if not execution.current_step:
+                        execution.current_step = "generate_sigma"
+                    db_session.commit()
+                    # Extract execution.id as primitive to avoid ORM serialization issues
+                    execution_id_primitive = int(execution.id) if execution else None
+                    return {"success": True, "execution_id": execution_id_primitive, "error": None}
+                # Real workflow failure - mark as failed
+                logger.error(f"Workflow execution error for article {article_id}: {e}")
+                execution.status = "failed"
+                # str() of a signal-raised SoftTimeLimitExceeded is empty; keep the type.
+                execution.error_message = str(e) or type(e).__name__
                 db_session.commit()
-                # Don't re-raise - workflow succeeded
-                # Extract execution.id as primitive to avoid ORM serialization issues
-                execution_id_primitive = int(execution.id) if execution else None
-                return {"success": True, "execution_id": execution_id_primitive, "error": None}
-            # Check for generator errors - these often occur during trace cleanup
-            err_msg = str(e).lower()
-            if "generator didn't stop" in err_msg or "generator" in err_msg:
-                logger.warning(
-                    f"Generator error for execution {execution.id}; treating as completed/no-rules. Error: {e}"
-                )
-                execution.status = "completed"
-                execution.completed_at = datetime.now()
-                execution.error_message = None
-                if not execution.current_step:
-                    execution.current_step = "generate_sigma"
-                db_session.commit()
-                # Extract execution.id as primitive to avoid ORM serialization issues
-                execution_id_primitive = int(execution.id) if execution else None
-                return {"success": True, "execution_id": execution_id_primitive, "error": None}
-            # Real workflow failure - mark as failed
-            logger.error(f"Workflow execution error for article {article_id}: {e}")
-            execution.status = "failed"
-            execution.error_message = str(e)
-            db_session.commit()
-            # Reconcile any orphaned pending eval records tied to this execution
-            # (e.g. failure before extract_agent completed).
-            _mark_pending_subagent_evals_as_failed(execution, db_session)
-        else:
-            # No execution record - this is a real error
-            logger.error(f"Workflow execution error for article {article_id}: {e}")
+                # Reconcile any orphaned pending eval records tied to this execution
+                # (e.g. failure before extract_agent completed).
+                _mark_pending_subagent_evals_as_failed(execution, db_session)
+            else:
+                # No execution record - this is a real error
+                logger.error(f"Workflow execution error for article {article_id}: {e}")
+        except Exception as record_error:
+            # Recording the failure itself failed (database gone mid-run). The row is
+            # still running and owned by this call; tell the caller so it fails the
+            # row instead of retrying into the claim guard.
+            raise ClaimedExecutionError(
+                claimed_execution_id,
+                f"Workflow execution {claimed_execution_id} failed ({type(e).__name__}: {e}) and recording "
+                f"the failure also failed ({type(record_error).__name__}: {record_error})",
+            ) from None
 
         # Return error result (sanitized) instead of raising to avoid serialization issues
         # Only re-raise if it's not a generator/trace error

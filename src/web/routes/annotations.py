@@ -255,7 +255,7 @@ async def get_annotation_stats():
 
 
 @router.get("/api/annotations/types")
-async def get_annotation_types():
+def get_annotation_types():
     """Return supported annotation modes and types."""
     return {"success": True, "modes": ANNOTATION_MODE_TYPES}
 

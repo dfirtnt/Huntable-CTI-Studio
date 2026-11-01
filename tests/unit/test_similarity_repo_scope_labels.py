@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 
 from src.services.capability_service import CapabilityService
+from tests.utils.article_detail_source import read_article_detail_src
 from tests.utils.workflow_html_source import read_workflow_src
 
 pytestmark = [pytest.mark.unit]
@@ -38,6 +39,9 @@ def _read(path: Path) -> str:
         # modules (loaded back in via <script src>); include them so substring
         # checks still find content that moved out of the template.
         return read_workflow_src()
+    if path == ARTICLE_DETAIL:
+        # article_detail.html's inline markup/JS lives in partials/article_detail/*.html.
+        return read_article_detail_src()
     return path.read_text(encoding="utf-8")
 
 

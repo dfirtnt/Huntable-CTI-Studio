@@ -46,7 +46,7 @@ async def test_bulk_bundle_export_skips_langfuse_by_default():
         patch("src.web.routes.evaluation_api.DatabaseManager", return_value=db_manager),
         patch("src.web.routes.evaluation_api.EvalBundleService", return_value=bundle_service),
     ):
-        response = await export_bundles_by_config_version(
+        response = export_bundles_by_config_version(
             request=MagicMock(),
             config_version=42,
             subagent="cmdline",
@@ -86,7 +86,7 @@ async def test_bulk_bundle_export_can_include_langfuse_when_requested():
         patch("src.web.routes.evaluation_api.DatabaseManager", return_value=db_manager),
         patch("src.web.routes.evaluation_api.EvalBundleService", return_value=bundle_service),
     ):
-        response = await export_bundles_by_config_version(
+        response = export_bundles_by_config_version(
             request=MagicMock(),
             config_version=42,
             subagent="cmdline",
@@ -133,7 +133,7 @@ async def test_bulk_bundle_export_slim_mode_passes_slim_flag():
         patch("src.web.routes.evaluation_api.DatabaseManager", return_value=db_manager),
         patch("src.web.routes.evaluation_api.EvalBundleService", return_value=bundle_service),
     ):
-        response = await export_bundles_by_config_version(
+        response = export_bundles_by_config_version(
             request=MagicMock(),
             config_version=42,
             subagent="cmdline",

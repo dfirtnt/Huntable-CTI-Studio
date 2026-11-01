@@ -1,0 +1,692 @@
+    window.exportArticleToPDF = exportArticleToPDF;
+    
+    function markOperationComplete(operationId, status = 'completed') {
+        console.log('markOperationComplete called with:', operationId, status);
+        
+        // Update operation status in localStorage
+        const ongoingOps = JSON.parse(localStorage.getItem('ongoingAIOperations') || '[]');
+        const operationIndex = ongoingOps.findIndex(op => op.id === operationId);
+        
+        console.log('Found operation at index:', operationIndex, 'Operations:', ongoingOps);
+        
+        if (operationIndex !== -1) {
+            ongoingOps[operationIndex].status = status;
+            ongoingOps[operationIndex].completedAt = Date.now();
+            localStorage.setItem('ongoingAIOperations', JSON.stringify(ongoingOps));
+            
+            // Store completion notification for cross-page display
+            if (status === 'completed') {
+                const completionNotification = {
+                    id: `completion_${Date.now()}`,
+                    operationId: operationId,
+                    type: ongoingOps[operationIndex].type,
+                    typeText: ongoingOps[operationIndex].typeText,
+                    typeIcon: ongoingOps[operationIndex].typeIcon,
+                    articleId: ongoingOps[operationIndex].articleId,
+                    articleTitle: ongoingOps[operationIndex].articleTitle,
+                    completedAt: Date.now()
+                };
+                
+                console.log('Creating completion notification:', completionNotification);
+                
+                const completions = JSON.parse(localStorage.getItem('pendingCompletions') || '[]');
+                completions.push(completionNotification);
+                localStorage.setItem('pendingCompletions', JSON.stringify(completions));
+                
+                console.log('Stored pending completions:', completions);
+            }
+        }
+    }
+    
+    function showCompletionBanner(type, typeText, typeIcon, articleId = null, articleTitle = null) {
+        console.log('showCompletionBanner called with:', type, typeText, typeIcon, articleId, articleTitle);
+        
+        // Create completion banner
+        const banner = document.createElement('div');
+        banner.id = 'completionBanner';
+        banner.className = 'fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg max-w-sm bg-emerald-500 text-white';
+        
+        const bannerArticleTitle = articleTitle ? 
+            articleTitle.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : 
+            ({{ article.title | tojson }});
+        const bannerArticleId = articleId || {{ article.id|default(0)|int }};
+        
+        banner.innerHTML = `
+            <div class="flex items-center space-x-2">
+                <span class="text-lg">${typeIcon}</span>
+                <div class="flex-1">
+                    <div class="font-medium">${typeText} Complete!</div>
+                    <div class="text-sm opacity-90">Article: ${bannerArticleTitle.length > 30 ? bannerArticleTitle.substring(0, 30) + '...' : bannerArticleTitle}</div>
+                    <a href="#" onclick="event.preventDefault(); window.location.hash = '${type}'; setTimeout(() => window.location.reload(), 100);" class="text-sm underline hover:no-underline">View Results →</a>
+                </div>
+                <button onclick="this.parentElement.parentElement.remove()" class="text-white hover:text-gray-200">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+        `;
+        
+        // Add to page
+        document.body.appendChild(banner);
+        console.log('Banner added to DOM:', banner);
+        
+        // Remove after 10 seconds
+        setTimeout(() => {
+            const bannerElement = document.getElementById('completionBanner');
+            if (bannerElement) {
+                console.log('Removing banner after 10 seconds');
+                bannerElement.remove();
+            }
+        }, 10000);
+    }
+    // Navigation functions
+    async function navigateToPrevious() {
+        try {
+            const currentId = {{ article.id|default(0)|int }};
+            const response = await fetch(`/api/articles/previous?current_article_id=${currentId}`);
+            const data = await response.json();
+            
+            if (data.article_id) {
+                window.location.href = `/articles/${data.article_id}`;
+            } else {
+                showNotification('No previous article found', 'info');
+            }
+        } catch (error) {
+            showNotification(`Error: ${error.message}`, 'error');
+        }
+    }
+    
+    async function navigateToNext() {
+        try {
+            const currentId = {{ article.id|default(0)|int }};
+            const response = await fetch(`/api/articles/next?current_article_id=${currentId}`);
+            const data = await response.json();
+            
+            if (data.article_id) {
+                window.location.href = `/articles/${data.article_id}`;
+            } else {
+                showNotification('No next article found', 'info');
+            }
+        } catch (error) {
+            showNotification(`Error: ${error.message}`, 'error');
+        }
+    }
+    
+    // AL/ML Assistant Functions - DEPRECATED AND REMOVED
+    /*
+    async function showAIAssistant() {
+        // Get AI model from settings
+        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        const aiModel = settings.aiModel || 'chatgpt';
+        
+        // Get current LMStudio model name if using LMStudio
+        let lmstudioModelName = null;
+        if (aiModel === 'lmstudio') {
+            try {
+                const lmstudioResponse = await fetch('/api/lmstudio-models');
+                if (lmstudioResponse.ok) {
+                    const lmstudioData = await lmstudioResponse.json();
+                    if (lmstudioData.success && lmstudioData.models && lmstudioData.models.length > 0) {
+                        lmstudioModelName = lmstudioData.models[0];
+                    }
+                }
+            } catch (error) {
+                console.log('Failed to fetch LMStudio model name:', error);
+            }
+        }
+        
+        // Check content size limits
+        const contentLength = {{ article.content|length if article.content else 0 }};
+        const contentLimit = aiModel === 'chatgpt' ? {{ chatgpt_content_limit|default(1000000)|int }} :
+                           aiModel === 'anthropic' ? {{ anthropic_content_limit|default(1000000)|int }} : {{ chatgpt_content_limit|default(1000000)|int }};
+
+        if (contentLength > contentLimit) {
+            const modelName = aiModel === 'chatgpt' ? 'ChatGPT' :
+                            aiModel === 'anthropic' ? 'Claude' :
+                            aiModel === 'lmstudio' ? (lmstudioModelName || 'LMStudio') : 'LLM';
+            showNotification(`Article too large for ${modelName}. Content: ${contentLength.toLocaleString()} chars, limit: ${contentLimit.toLocaleString()} chars.`, 'warning');
+            return;
+        }
+        
+        // Get current article classification
+        // Get threat hunting score for SIGMA warning
+        const threatHuntingScore = {{ article.article_metadata.get('threat_hunting_score', 0) if article.article_metadata and article.article_metadata.get('threat_hunting_score') else 0 }};
+        const showSigmaWarning = threatHuntingScore < 65;
+        
+
+        
+        // Fetch fresh data from API to get current state
+        let hasSigmaRules = {{ 'true' if article.article_metadata and article.article_metadata.get('sigma_rules') else 'false' }};
+
+        let hasRanking = {{ 'true' if article.article_metadata and article.article_metadata.get('gpt4o_ranking') else 'false' }};
+
+        
+        try {
+            const response = await fetch(`/api/articles/{{ article.id|default(0)|int }}`);
+            if (response.ok) {
+                const data = await response.json();
+                if (data.article_metadata) {
+                    hasSigmaRules = data.article_metadata.sigma_rules ? true : false;
+
+                    hasRanking = data.article_metadata.gpt4o_ranking ? true : false;
+                }
+            }
+        } catch (error) {
+            console.log('Failed to fetch fresh data, using template data:', error);
+        }
+        
+        // Remove any existing modal first (direct removal to avoid ModalManager interference)
+        const existingModal = document.getElementById('aiAssistantModal');
+        if (existingModal) {
+            // Remove from ModalManager stack if present
+            if (window.ModalManager) {
+                const stack = window.ModalManager.getStack();
+                while (stack.includes('aiAssistantModal')) {
+                    const index = stack.indexOf('aiAssistantModal');
+                    stack.splice(index, 1);
+                }
+            }
+            // Remove from DOM
+            existingModal.remove();
+        }
+        
+        // Small delay to ensure cleanup completes
+        await new Promise(resolve => setTimeout(resolve, 10));
+        
+        const modal = document.createElement('div');
+        modal.id = 'aiAssistantModal';
+        modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'AI assistant');
+        
+        // Determine if there is existing generated content to display/regenerate
+        const hasExisting = hasSigmaRules || hasRanking;
+        const rankingButtonText = hasRanking ? 
+            (aiModel === 'chatgpt' ? 'Display GPT4o Rank' : 
+             aiModel === 'anthropic' ? 'Display Claude Rank' : 'Display LLM Rank') :
+            (aiModel === 'chatgpt' ? 'Rank with GPT4o' : 
+             aiModel === 'anthropic' ? 'Rank with Claude' : 'Rank with LLM');
+        
+        // Build model display text
+        let modelDisplayText = '';
+        if (aiModel === 'chatgpt') {
+            modelDisplayText = 'ChatGPT (OpenAI)';
+        } else if (aiModel === 'anthropic') {
+            modelDisplayText = 'Claude (Anthropic)';
+        } else if (aiModel === 'lmstudio') {
+            modelDisplayText = lmstudioModelName ? `LMStudio → ${lmstudioModelName}` : 'LMStudio (Local)';
+        } else {
+            modelDisplayText = 'LLM (Local)';
+        }
+        
+        modal.innerHTML = `
+            <div class="card shadow-2xl p-6 max-w-md w-full mx-4">
+                <div class="mt-3 text-center">
+                    <h3 class="text-lg font-medium text-gray-50 mb-4"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 7.5h10.5v9H6.75v-9z"/></svg> AL/ML Assistant</h3>
+                    <p class="text-sm text-gray-400 mb-4">One shot LLM demos for this article's content. Uses LLM chosen in Settings Page</p>
+                    
+                    <div class="mb-4 p-2 bg-panel-0 border border-gray-700 rounded text-xs text-gray-300" id="aiModelDisplay">
+                        Using: ${modelDisplayText}
+                    </div>
+                    
+                    <div class="space-y-3">
+                        <button onclick="generateAIAnalysis('sigma')"
+                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white btn-workflow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors"
+                                title="${hasSigmaRules ? 'Display existing SIGMA detection rules' : 'Generate SIGMA detection rules for this article'}">
+                            <span class="mr-2"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg></span>
+                            ${hasSigmaRules ? 'Display SIGMA Rules' : 'One Shot SIGMA'}
+                            ${showSigmaWarning ? '<span class="ml-2 text-yellow-300">⚠️</span>' : ''}
+                        </button>
+                        ${showSigmaWarning ? '<div class="text-xs text-amber-400 text-center mt-1">⚠️ Low threat hunting score (' + threatHuntingScore + '/100) - SIGMA rules may lack technical depth</div>' : ''}
+                        
+
+                        <button onclick="generateAIAnalysis('ranking')" 
+                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white btn-workflow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                            <span class="mr-2"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg></span>
+                            ${rankingButtonText}
+                        </button>
+                        
+                        
+                        <button onclick="showCustomPromptModal()" 
+                                class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white btn-workflow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                            <span class="mr-2"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"/></svg></span>
+                            Custom Prompt
+                        </button>
+                    </div>
+
+                    <div class="mt-6 text-center">
+                        <p class="text-sm text-gray-400 mb-4">MLOps Features/Demos</p>
+                        
+                        <div class="space-y-3">
+                            <button onclick="detectOS()" 
+                                    class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white btn-workflow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                                <span class="mr-2"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 7.5h10.5v9H6.75v-9z"/></svg></span>
+                                Detect Operating System
+                            </button>
+
+                            <button onclick="showChunkDebugModal()" 
+                                    class="w-full inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white btn-workflow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                                <span class="mr-2"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg></span>
+                                Junk Filter Tuning
+                            </button>
+
+                            <button onclick="closeAIAssistantModal()"
+                                    class="w-full inline-flex items-center justify-center px-4 py-2 border border-gray-600 hover:bg-gray-800 text-gray-300 text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Append modal to body
+        document.body.appendChild(modal);
+        
+        // Ensure modal is visible (not hidden)
+        modal.classList.remove('hidden');
+        
+        // Register and open with ModalManager
+        if (window.ModalManager) {
+            // Small delay to let mutation observer settle
+            setTimeout(() => {
+                window.ModalManager.register('aiAssistantModal', {
+                    isDynamic: true,
+                    hasInput: false
+                });
+                window.ModalManager.open('aiAssistantModal');
+                // Ensure it's visible
+                modal.classList.remove('hidden');
+            }, 50);
+        }
+        
+        // If LMStudio and model name wasn't fetched yet, update it asynchronously
+        if (aiModel === 'lmstudio' && !lmstudioModelName) {
+            fetch('/api/lmstudio-models')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.models && data.models.length > 0) {
+                        const modelDisplay = document.getElementById('aiModelDisplay');
+                        if (modelDisplay) {
+                            modelDisplay.textContent = `Using: LMStudio → ${data.models[0]}`;
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.log('Failed to fetch LMStudio model name:', error);
+                });
+        }
+    }
+    */
+    
+    // Removed: closeAIAssistantModal, generateAIAnalysis, showCustomPromptModal, closeCustomPromptModal, generateCustomPrompt, showCustomResponseModal, closeCustomResponseModal functions
+    
+    // Stub functions to prevent errors from remaining onclick handlers
+    function showAIAssistant() {
+        console.warn('AI Assistant modal has been deprecated');
+    }
+    
+    function closeAIAssistantModal() {
+        // No-op
+    }
+    
+    function generateAIAnalysis() {
+        console.warn('generateAIAnalysis has been deprecated');
+    }
+    
+    function showCustomPromptModal() {
+        console.warn('Custom prompt modal has been deprecated');
+    }
+    
+    function closeCustomPromptModal() {
+        // No-op
+    }
+    
+    
+    // Enhanced GPT4o Ranking Function with Content Filtering
+    async function rankWithGPT4o() {
+        const articleId = {{ article.id|default(0)|int }};
+        
+        // Get API key from settings
+        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        let aiModel = settings.aiModel || 'chatgpt';
+        
+        // NEVER override user's explicit model selection - always respect Settings page choice
+        
+        // Only set API key for cloud models that require it
+        let apiKey = null;
+        if (aiModel === 'anthropic') {
+            apiKey = settings.aiAnthropicApiKey;
+        } else if (aiModel === 'chatgpt') {
+            apiKey = settings.aiOpenaiApiKey;
+        }
+        // For local models like lmstudio, apiKey remains null
+        
+        if ((aiModel === 'chatgpt' || aiModel === 'anthropic') && !apiKey) {
+            const keyType = aiModel === 'anthropic' ? 'Anthropic' : 'OpenAI';
+            showNotification(`Please configure your ${keyType} API key in Settings first`, 'error');
+            return;
+        }
+        
+        // Show optimization options dialog
+        const optimizationOptions = await showOptimizationDialog();
+        if (!optimizationOptions) {
+            return; // User cancelled
+        }
+        
+        // Estimate cost before proceeding (only for ChatGPT)
+        if (aiModel === 'chatgpt') {
+            const articleContent = {{ article.content[:1000] | tojson }}; // Get first 1000 chars for estimation
+            const estimatedTokens = Math.ceil(articleContent.length / 4); // Rough estimate: 1 token ≈ 4 chars
+            const promptTokens = 1508; // Updated prompt length (6,033 chars ≈ 1,508 tokens)
+            const totalTokens = estimatedTokens + promptTokens;
+            
+            // GPT4o pricing: $5.00 per 1M input tokens, $15.00 per 1M output tokens
+            const inputCost = (totalTokens / 1000000) * 5.00;
+            const outputCost = (2000 / 1000000) * 15.00; // Assume 2000 output tokens
+            const totalCost = inputCost + outputCost;
+            
+            // Estimate cost savings if filtering is enabled
+            let costSavings = 0;
+            let costMessage = `Estimated cost: $${totalCost.toFixed(4)} (${totalTokens.toLocaleString()} input tokens + ~2,000 output tokens)`;
+            
+            if (optimizationOptions.useFiltering) {
+                // Dynamic cost reduction based on confidence threshold
+                // Lower confidence = more aggressive filtering = higher savings
+                let savingsPercent = 0;
+                if (optimizationOptions.minConfidence <= 0.5) {
+                    savingsPercent = 0.6; // 60% savings for aggressive filtering
+                } else if (optimizationOptions.minConfidence <= 0.7) {
+                    savingsPercent = 0.4; // 40% savings for balanced filtering
+                } else {
+                    savingsPercent = 0.25; // 25% savings for conservative filtering
+                }
+                
+                costSavings = totalCost * savingsPercent;
+                const optimizedCost = totalCost - costSavings;
+                costMessage = `Estimated cost: $${optimizedCost.toFixed(4)} (${(savingsPercent*100).toFixed(0)}% savings from content filtering)`;
+            }
+            
+            const confirmed = await ModalManager.confirm(
+                `GPT4o Analysis Cost Estimate:\n\n${costMessage}\n\nOptimization: ${optimizationOptions.useFiltering ? 'Enabled' : 'Disabled'}\nConfidence Threshold: ${optimizationOptions.minConfidence}\n\nDo you want to proceed with the analysis?`,
+                { title: 'Cost Estimate', confirmText: 'Proceed', confirmClass: 'bg-emerald-600 hover:bg-emerald-700', cancelText: 'Cancel' }
+            );
+            if (!confirmed) {
+                return;
+            }
+        }
+        
+        // Show loading state
+        const button = document.querySelector('button[onclick="rankWithGPT4o()"]');
+        const originalText = button.innerHTML;
+        button.innerHTML = '<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Analyzing...';
+        button.disabled = true;
+        button.classList.add('opacity-75', 'cursor-not-allowed');
+        
+        try {
+            // Build request body conditionally
+            const rankRequestBody = {
+                use_filtering: optimizationOptions.useFiltering,
+                min_confidence: optimizationOptions.minConfidence,
+                ai_model: aiModel
+            };
+            
+            // Send API key in header instead of body to avoid corruption with large payloads
+            const rankFetchHeaders = {
+                'Content-Type': 'application/json',
+            };
+            if (apiKey) {
+                if (aiModel === 'anthropic') {
+                    rankFetchHeaders['X-Anthropic-API-Key'] = apiKey;
+                } else {
+                    rankFetchHeaders['X-OpenAI-API-Key'] = apiKey;
+                }
+                // Don't include in body to avoid potential corruption
+            }
+            
+            const response = await fetch(`/api/articles/${articleId}/rank-with-gpt4o`, {
+                method: 'POST',
+                headers: rankFetchHeaders,
+                body: JSON.stringify(rankRequestBody)
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                
+                // Show truncation warnings if any
+                if (data.warnings && Array.isArray(data.warnings) && data.warnings.length > 0) {
+                    data.warnings.forEach(warning => {
+                        showNotification(`⚠️ LMStudio Truncation: ${warning}`, 'warning');
+                    });
+                }
+                
+                showGPT4oRankingModal(data.analysis, data);
+                
+                // Show optimization results if available
+                if (data.optimization && data.optimization.enabled) {
+                    const opt = data.optimization;
+                    showNotification(
+                        `GPT4o analysis completed! Cost savings: $${opt.cost_savings.toFixed(4)} (${opt.tokens_saved.toLocaleString()} tokens saved, ${opt.chunks_removed} chunks removed)`, 
+                        'success'
+                    );
+                    
+                    // Show debug info if available
+                    if (data.debug_info && data.debug_info.removed_chunks.length > 0) {
+                        showRemovedChunksDialog(data.debug_info);
+                    }
+                } else {
+                    showNotification('GPT4o analysis completed successfully!', 'success');
+                }
+            } else {
+                const error = await response.json();
+                showNotification(`GPT4o analysis failed: ${error.detail}`, 'error');
+            }
+        } catch (error) {
+            showNotification(`Error: ${error.message}`, 'error');
+        } finally {
+            // Restore button state
+            button.innerHTML = originalText;
+            button.disabled = false;
+            button.classList.remove('opacity-75', 'cursor-not-allowed');
+        }
+    }
+    // Show optimization options dialog
+    async function showOptimizationDialog(showQAAgent = false) {
+        return new Promise((resolve) => {
+            // Get AI model from settings to determine modal title
+            const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+            const aiModel = settings.aiModel || 'chatgpt';
+            const modelDisplayName = aiModel === 'chatgpt' ? 'GPT-4o' : 
+                                    aiModel === 'anthropic' ? 'Claude' : 'LLM';
+            
+            // Create modal dialog
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Settings');
+            modal.innerHTML = `
+                <div class="card shadow-2xl p-6 max-w-md w-full mx-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold text-gray-50">${modelDisplayName} Content Filter</h3>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="flex items-center">
+                            <input type="checkbox" id="useFiltering" checked class="mr-3 w-4 h-4 rounded border-gray-600 bg-panel-0 text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-900">
+                            <label for="useFiltering" class="text-sm text-gray-300">
+                                Enable content filtering to reduce costs
+                            </label>
+                        </div>
+                        
+                        <div id="confidenceSection" class="ml-6">
+                            <label for="minConfidence" class="block text-sm text-gray-300 mb-2">
+                                Confidence threshold:
+                            </label>
+                            <select id="minConfidence" class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                                <option value="0.5">0.5 - Aggressive filtering (~60% cost savings)</option>
+                                <option value="0.7" selected>0.7 - Balanced filtering (~40% cost savings)</option>
+                                <option value="0.8">0.8 - Conservative filtering (~25% cost savings)</option>
+                            </select>
+                            <p class="text-xs text-gray-400 mt-1">
+                                Higher values keep more content but reduce cost savings
+                            </p>
+                        </div>
+                        
+                        ${showQAAgent ? `
+                        <div class="border-t border-gray-700 pt-4 mt-4">
+                            <div class="flex items-center">
+                                <input type="checkbox" id="useQAAgent" checked class="mr-3 w-4 h-4 rounded border-gray-600 bg-panel-0 text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-900">
+                                <label for="useQAAgent" class="text-sm text-gray-300">
+                                    Enable QA Agent validation
+                                </label>
+                            </div>
+                            <p class="text-xs text-gray-400 mt-1 ml-6">
+                                QA Agent will validate the extraction and retry according to the configured QA retry limit (default 5, max 20). This improves accuracy but increases processing time.
+                            </p>
+                        </div>
+                        ` : ''}
+                        
+                        <div class="bg-blue-500/10 border border-blue-500/30 p-3 rounded-lg">
+                            <h4 class="text-sm font-medium text-blue-400 mb-2">How it works:</h4>
+                            <ul class="text-xs text-blue-300 space-y-1">
+                                <li>• Analyzes content chunks for huntability</li>
+                                <li>• Removes acknowledgments, marketing content</li>
+                                <li>• Keeps technical details, commands, IOCs</li>
+                                <li>• Typically saves 20-40% on costs</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-3 mt-6">
+                        <button id="cancelBtn" class="px-4 py-2 border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                            Cancel
+                        </button>
+                        <button id="confirmBtn" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                            Analyze
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Handle checkbox change
+            const useFilteringCheckbox = modal.querySelector('#useFiltering');
+            const confidenceSection = modal.querySelector('#confidenceSection');
+            
+            useFilteringCheckbox.addEventListener('change', (e) => {
+                confidenceSection.style.display = e.target.checked ? 'block' : 'none';
+            });
+            
+            // Handle button clicks
+            modal.querySelector('#cancelBtn').addEventListener('click', () => {
+                if (modal && modal.parentNode) {
+                    modal.remove();
+                }
+                resolve(null);
+            });
+            
+            modal.querySelector('#confirmBtn').addEventListener('click', () => {
+                const useFiltering = useFilteringCheckbox.checked;
+                const minConfidence = parseFloat(modal.querySelector('#minConfidence').value);
+                const useQAAgent = showQAAgent ? (modal.querySelector('#useQAAgent')?.checked ?? false) : undefined;
+                
+                if (modal && modal.parentNode) {
+                    modal.remove();
+                }
+                const result = {
+                    useFiltering,
+                    minConfidence
+                };
+                if (useQAAgent !== undefined) {
+                    result.useQAAgent = useQAAgent;
+                }
+                resolve(result);
+            });
+            
+            // Handle escape key - just dismisses/closes the modal
+            const handleEscape = (e) => {
+                if (e.key === 'Escape') {
+                    if (modal && modal.parentNode) {
+                        modal.remove();
+                    }
+                    document.removeEventListener('keydown', handleEscape);
+                    resolve(null); // Returns null to indicate modal was dismissed
+                }
+            };
+            document.addEventListener('keydown', handleEscape);
+        });
+    }
+    // Show removed chunks dialog for debugging
+    function showRemovedChunksDialog(debugInfo) {
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Removed chunks');
+        
+        const chunksHtml = debugInfo.removed_chunks.map((chunk, index) => `
+            <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded">
+                <div class="flex justify-between items-center mb-2">
+                    <h4 class="text-sm font-medium text-red-900">Chunk ${chunk.chunk_id}</h4>
+                    <span class="text-xs text-red-600">${chunk.text.length} chars</span>
+                </div>
+                <div class="text-xs text-red-800 bg-white p-2 rounded border max-h-32 overflow-y-auto">
+                    ${escapeHtml(chunk.text).replace(/\n/g, '<br>')}
+                </div>
+                <div class="text-xs text-red-600 mt-1">
+                    Reason: ${chunk.reason || 'Not huntable'} | Confidence: ${chunk.confidence && !isNaN(chunk.confidence) ? chunk.confidence.toFixed(2) : 'N/A'}
+                </div>
+            </div>
+        `).join('');
+        
+        modal.innerHTML = `
+            <div class="card shadow-2xl p-6 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-50"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg> Removed Content Chunks</h3>
+                    <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-200 p-1 rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                    <div class="text-sm text-blue-300">
+                        <strong>Summary:</strong> ${debugInfo.chunks_removed} chunks removed 
+                        (${debugInfo.reduction_percent}% content reduction)
+                        <br>
+                        <strong>Original:</strong> ${debugInfo.original_length.toLocaleString()} chars → 
+                        <strong>Filtered:</strong> ${debugInfo.filtered_length.toLocaleString()} chars
+                    </div>
+                </div>
+                
+                <div class="space-y-2">
+                    ${chunksHtml}
+                </div>
+                
+                <div class="mt-6 flex justify-end">
+                    <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                        Close
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Handle escape key
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                if (modal && modal.parentNode) {
+                    modal.remove();
+                }
+                document.removeEventListener('keydown', handleEscape);
+            }
+        };
+        document.addEventListener('keydown', handleEscape);
+    }
+    

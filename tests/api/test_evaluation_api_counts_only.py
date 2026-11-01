@@ -44,7 +44,7 @@ class TestSubagentEvalCountsOnly:
         session = _make_count_session([("completed", 10), ("pending", 3), ("failed", 1)])
         with patch("src.web.routes.evaluation_api.DatabaseManager") as mock_db:
             mock_db.return_value.get_session.return_value = session
-            result = await get_subagent_eval_results(
+            result = get_subagent_eval_results(
                 request=MagicMock(spec=Request),
                 subagent="cmdline",
                 eval_run_id=None,
@@ -64,7 +64,7 @@ class TestSubagentEvalCountsOnly:
         session = _make_count_session([])
         with patch("src.web.routes.evaluation_api.DatabaseManager") as mock_db:
             mock_db.return_value.get_session.return_value = session
-            result = await get_subagent_eval_results(
+            result = get_subagent_eval_results(
                 request=MagicMock(spec=Request),
                 subagent="cmdline",
                 eval_run_id=None,
@@ -82,7 +82,7 @@ class TestSubagentEvalCountsOnly:
         session = _make_count_session([("completed", 5), ("retrying", 2)])
         with patch("src.web.routes.evaluation_api.DatabaseManager") as mock_db:
             mock_db.return_value.get_session.return_value = session
-            result = await get_subagent_eval_results(
+            result = get_subagent_eval_results(
                 request=MagicMock(spec=Request),
                 subagent="cmdline",
                 eval_run_id=None,
@@ -100,7 +100,7 @@ class TestSubagentEvalCountsOnly:
         session = _make_count_session([])
         with patch("src.web.routes.evaluation_api.DatabaseManager") as mock_db:
             mock_db.return_value.get_session.return_value = session
-            result = await get_subagent_eval_results(
+            result = get_subagent_eval_results(
                 request=MagicMock(spec=Request),
                 subagent="cmdline",
                 eval_run_id=None,
@@ -118,7 +118,7 @@ class TestSubagentEvalCountsOnly:
         session = _make_count_session([("completed", 1)])
         with patch("src.web.routes.evaluation_api.DatabaseManager") as mock_db:
             mock_db.return_value.get_session.return_value = session
-            result = await get_subagent_eval_results(
+            result = get_subagent_eval_results(
                 request=MagicMock(spec=Request),
                 subagent="cmdline",
                 eval_run_id=42,
@@ -152,7 +152,7 @@ class TestSubagentEvalCountsOnly:
 
         with patch("src.web.routes.evaluation_api.DatabaseManager") as mock_db:
             mock_db.return_value.get_session.return_value = session
-            result = await get_subagent_eval_results(
+            result = get_subagent_eval_results(
                 request=MagicMock(spec=Request),
                 subagent="cmdline",
                 eval_run_id=None,
@@ -185,7 +185,7 @@ class TestSubagentEvalExecutionIdsFilter:
         session = _make_count_session([("completed", 2)])
         with patch("src.web.routes.evaluation_api.DatabaseManager") as mock_db:
             mock_db.return_value.get_session.return_value = session
-            await get_subagent_eval_results(
+            get_subagent_eval_results(
                 request=MagicMock(spec=Request),
                 subagent="cmdline",
                 eval_run_id=None,
@@ -207,7 +207,7 @@ class TestSubagentEvalExecutionIdsFilter:
 
         with patch("src.web.routes.evaluation_api.DatabaseManager") as mock_db:
             mock_db.return_value.get_session.return_value = session
-            await get_subagent_eval_results(
+            get_subagent_eval_results(
                 request=MagicMock(spec=Request),
                 subagent="cmdline",
                 eval_run_id=None,
@@ -225,7 +225,7 @@ class TestSubagentEvalExecutionIdsFilter:
         session = _make_count_session([("completed", 1)])
         with patch("src.web.routes.evaluation_api.DatabaseManager") as mock_db:
             mock_db.return_value.get_session.return_value = session
-            await get_subagent_eval_results(
+            get_subagent_eval_results(
                 request=MagicMock(spec=Request),
                 subagent="cmdline",
                 eval_run_id=None,

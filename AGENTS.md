@@ -178,8 +178,10 @@ no separate "served from main" deployment).
   messages. No Unicode ellipsis, em-dash, curly quotes. Hazards in shell under `set -u`.
   Not enforced by any hook or CI check, and many existing files predate the rule -- do not
   mass-rewrite them, just keep your own edits ASCII.
-- **Always pin package versions** (`==` not `>=`). CI (`lint.yml`) checks
-  `requirements.txt` only; `pyproject.toml` pins are on you.
+- **Always pin package versions** (`==` not `>=`). Pins are maintained in
+  `pyproject.toml`; `requirements.txt` is generated from `uv.lock` by
+  `uv export --frozen --no-hashes --no-emit-project --no-emit-workspace --no-default-groups --group ingest --group semantic --group workflow --group mcp --group docs -o requirements.txt`
+  and CI (`lint.yml`) fails if it drifts, so never hand-edit it.
   Exception: transitive security pins where `==` would cause solver conflicts because the
   package is shared across multiple direct deps (e.g. `langchain-core`, pulled by
   langgraph, langfuse, and langchain simultaneously). Use `>=` only for those cases;

@@ -113,7 +113,8 @@ def normalize_completed_turn(
         detail = f" Turn items: {listed}." if item_types else " No turn items were delivered."
         raise CodexAppServerError(f"Codex completed without an agent message.{detail}")
 
-    usage = turn.get("usage") if isinstance(turn.get("usage"), dict) else {}
+    raw_usage = turn.get("usage")
+    usage = raw_usage if isinstance(raw_usage, dict) else {}
     return {
         "choices": [{"message": {"content": agent_text}}],
         "usage": {

@@ -107,7 +107,7 @@ class ChunkAnalysisBackfillService:
                 eligible_articles = eligible_articles[:limit]
 
             total = len(eligible_articles)
-            results = {
+            results: dict[str, Any] = {
                 "total_eligible": total,
                 "processed": 0,
                 "successful": 0,

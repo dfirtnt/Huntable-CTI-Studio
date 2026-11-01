@@ -4,8 +4,8 @@
   "description": "Playwright UI test tooling for the CTIScraper project.",
   "private": true,
   "scripts": {
-    "test": "playwright test",
-    "test:playwright": "playwright test"
+    "test": "playwright test --config tests/playwright.config.ts",
+    "test:playwright": "playwright test --config tests/playwright.config.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.61.0",

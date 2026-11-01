@@ -79,7 +79,7 @@ async def test_commandlines_endpoint_hydrates_externalized_subagent_eval(subagen
     db_manager.get_session.return_value = _session_for(execution)
 
     with patch("src.web.routes.evaluation_api.DatabaseManager", return_value=db_manager):
-        result = await get_execution_commandlines(request=MagicMock(spec=Request), execution_id=3855)
+        result = get_execution_commandlines(request=MagicMock(spec=Request), execution_id=3855)
 
     assert result["subagent_eval"] == subagent_eval
     assert result["result_type"] == subagent_eval
@@ -94,7 +94,7 @@ async def test_results_endpoint_hydrates_externalized_config_version():
     db_manager.get_session.return_value = _session_for(execution)
 
     with patch("src.web.routes.evaluation_api.DatabaseManager", return_value=db_manager):
-        result = await get_execution_results(request=MagicMock(spec=Request), execution_id=3855)
+        result = get_execution_results(request=MagicMock(spec=Request), execution_id=3855)
 
     assert result["config_version"] == 42
 
@@ -126,7 +126,7 @@ async def test_commandlines_endpoint_still_reads_legacy_inline_snapshot():
     db_manager.get_session.return_value = _session_for(execution)
 
     with patch("src.web.routes.evaluation_api.DatabaseManager", return_value=db_manager):
-        result = await get_execution_commandlines(request=MagicMock(spec=Request), execution_id=3671)
+        result = get_execution_commandlines(request=MagicMock(spec=Request), execution_id=3671)
 
     assert result["result_type"] == "process_lineage"
     assert result["commandlines"] == [_ITEMS["process_lineage"]]
@@ -139,7 +139,7 @@ async def test_commandlines_endpoint_defaults_to_cmdline_for_non_eval_run():
     db_manager.get_session.return_value = _session_for(execution)
 
     with patch("src.web.routes.evaluation_api.DatabaseManager", return_value=db_manager):
-        result = await get_execution_commandlines(request=MagicMock(spec=Request), execution_id=3671)
+        result = get_execution_commandlines(request=MagicMock(spec=Request), execution_id=3671)
 
     assert result["subagent_eval"] == ""
     assert result["result_type"] == "cmdline"
@@ -154,7 +154,7 @@ async def test_commandlines_endpoint_falls_back_to_subresults_when_observables_e
     db_manager.get_session.return_value = _session_for(execution)
 
     with patch("src.web.routes.evaluation_api.DatabaseManager", return_value=db_manager):
-        result = await get_execution_commandlines(request=MagicMock(spec=Request), execution_id=3855)
+        result = get_execution_commandlines(request=MagicMock(spec=Request), execution_id=3855)
 
     assert result["result_type"] == "registry_artifacts"
     assert result["commandlines"] == [_ITEMS["registry_artifacts"]]
