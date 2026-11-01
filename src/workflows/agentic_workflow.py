@@ -61,6 +61,7 @@ from src.workflows.status_utils import (
     TERMINATION_REASON_JUNK_FILTER,
     TERMINATION_REASON_NO_SIGMA_RULES,
     TERMINATION_REASON_RANK_THRESHOLD,
+    TERMINATION_REASON_SIGMA_GROUPS_NO_REPLY,
     mark_execution_completed,
 )
 
@@ -3150,6 +3151,22 @@ def create_agentic_workflow(db_session: Session) -> CompiledStateGraph:
                 termination_details = {
                     "reason": "Model returned no rules for any Sigma generation group",
                     "generated_rules": 0,
+                    "groups_with_no_rules": groups_with_no_rules,
+                }
+            elif sigma_rules and groups_with_no_rules and termination_reason is None:
+                # Partial loss: siblings produced rules, but some groups got an empty reply on
+                # every attempt. Surface it where the executions view shows completion reasons
+                # instead of leaving it only in error_log.generate_sigma.
+                missing = len(groups_with_no_rules)
+                total = len(sigma_generation_groups)
+                termination_reason = TERMINATION_REASON_SIGMA_GROUPS_NO_REPLY
+                termination_details = {
+                    "reason": (
+                        f"{missing} of {total} Sigma generation groups returned no reply: "
+                        + ", ".join(g["group"] for g in groups_with_no_rules)
+                    ),
+                    "generated_rules": len(sigma_rules),
+                    "total_groups": total,
                     "groups_with_no_rules": groups_with_no_rules,
                 }
 

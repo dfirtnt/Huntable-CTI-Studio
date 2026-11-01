@@ -514,9 +514,26 @@ class SigmaValidator:
                     if not isinstance(item, (str, dict)):
                         errors.append(f"Invalid search identifier in '{condition_name}': {item}")
             elif isinstance(condition_data, dict):
-                # Direct search definition
-                if "keywords" not in condition_data and "selection" not in condition_data:
-                    warnings.append(f"Condition '{condition_name}' has no keywords or selection")
+                # A field->value map is the normal Sigma selection form. pySigma owns structural
+                # correctness; only flag an empty map or values Sigma can't express.
+                if not condition_data:
+                    warnings.append(f"Selection '{condition_name}' is empty")
+                    continue
+                for field_name, value in condition_data.items():
+                    if not self._is_valid_selection_value(value):
+                        warnings.append(
+                            f"Selection '{condition_name}' field '{field_name}' has an unsupported value "
+                            f"type ({type(value).__name__}); expected a scalar, list of scalars, or null"
+                        )
+
+    @staticmethod
+    def _is_valid_selection_value(value) -> bool:
+        scalar_types = (str, int, float, bool, type(None))
+        if isinstance(value, scalar_types):
+            return True
+        if isinstance(value, list):
+            return all(isinstance(item, scalar_types) for item in value)
+        return False
 
     def _validate_logsource(self, rule_data: dict, errors: list[str], warnings: list[str]):
         """Validate logsource configuration"""

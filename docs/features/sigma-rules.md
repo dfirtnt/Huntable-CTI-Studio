@@ -941,6 +941,8 @@ fetch, pull, or push. SSH remotes continue to use SSH authentication unchanged.
 
 The SIGMA queue enrichment modal uses the selected provider and model for rule revisions. After a successful enrichment, **Start Chat** replays the rule-scoped transcript with that same provider. The follow-up chat is limited to revising the current rule and discussing earlier enrichment turns; it does not perform unrelated research or external actions.
 
+The enrich response is validated with pySigma (`validate_sigma_rule`) before you can apply it; the model's own `status: "pass"` is not trusted. The response carries `validation: {is_valid, errors, warnings}`, and an invalid result marked `pass` is downgraded to `needs_revision` with each error added to `issues`. The modal shows the result above the comparison, and **Apply** on a known-invalid rule asks for confirmation naming the errors. No automatic repair call is made; rerun enrichment or use the follow-up chat to fix it.
+
 ### Sigma Rule Embeddings
 
 Indexing uses `intfloat/e5-base-v2` via local sentence-transformers (no LMStudio

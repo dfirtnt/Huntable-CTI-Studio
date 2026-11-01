@@ -723,3 +723,110 @@ class TestHTTPClientPolitenessBehaviors:
         client.configure_source_robots("example", {"crawl_delay": 1.5, "max_requests_per_minute": 5})
         assert "example" in client._source_robots
         assert client._source_robots["example"]["crawl_delay"] == 1.5
+
+
+class TestSourceUserAgentOverride:
+    """Default UA is the versioned honest crawler UA; config.robots.user_agent overrides it per source."""
+
+    def test_default_user_agent_carries_app_version(self):
+        from src import __version__
+        from src.utils.http import DEFAULT_USER_AGENT
+
+        assert RequestConfig().user_agent == DEFAULT_USER_AGENT
+        assert DEFAULT_USER_AGENT.startswith(f"Huntable-CTI-Studio/{__version__} ")
+
+    def test_content_fetcher_defaults_to_honest_user_agent(self):
+        from src.core.fetcher import ContentFetcher
+        from src.utils.http import DEFAULT_USER_AGENT
+
+        fetcher = ContentFetcher()
+        assert fetcher.user_agent == DEFAULT_USER_AGENT
+        assert fetcher.http_client.config.user_agent == DEFAULT_USER_AGENT
+        assert "Chrome" not in fetcher.user_agent
+
+    @staticmethod
+    async def _sent_user_agent(client, **get_kwargs):
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.is_success = True
+        mock_response.headers = {}
+        mock_response.content = b"ok"
+        mock_response.encoding = "utf-8"
+        mock_response.url = "https://example.com"
+
+        async def fake_sleep(n):
+            return None
+
+        with (
+            patch("httpx.AsyncClient") as mock_client_cls,
+            patch("src.utils.http.asyncio.sleep", side_effect=fake_sleep),
+        ):
+            mock_httpx = AsyncMock()
+            mock_httpx.get.return_value = mock_response
+            mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_httpx)
+            mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+            await client.get("https://example.com", **get_kwargs)
+        return mock_httpx.get.call_args.kwargs["headers"]["User-Agent"]
+
+    @pytest.mark.asyncio
+    async def test_source_override_is_sent(self):
+        client = HTTPClient()
+        client.configure_source_robots("s", {"enabled": True, "crawl_delay": 0.0, "user_agent": "Custom/2.0"})
+        assert await self._sent_user_agent(client, source_id="s") == "Custom/2.0"
+
+    @pytest.mark.asyncio
+    async def test_override_applies_when_throttling_disabled(self):
+        client = HTTPClient()
+        client.configure_source_robots("s", {"enabled": False, "user_agent": "Custom/2.0"})
+        assert client._source_robots["s"]["crawl_delay"] == 0.0
+        assert await self._sent_user_agent(client, source_id="s") == "Custom/2.0"
+
+    @pytest.mark.asyncio
+    async def test_no_override_sends_default(self):
+        client = HTTPClient()
+        client.configure_source_robots("s", {"enabled": True, "crawl_delay": 0.0})
+        assert await self._sent_user_agent(client, source_id="s") == client.config.user_agent
+        assert await self._sent_user_agent(client, source_id="other") == client.config.user_agent
+
+    @pytest.mark.asyncio
+    async def test_blank_override_is_ignored(self):
+        client = HTTPClient()
+        client.configure_source_robots("s", {"enabled": True, "crawl_delay": 0.0, "user_agent": "  "})
+        assert await self._sent_user_agent(client, source_id="s") == client.config.user_agent
+
+    @pytest.mark.asyncio
+    async def test_explicit_header_beats_source_override(self):
+        client = HTTPClient()
+        client.configure_source_robots("s", {"enabled": True, "crawl_delay": 0.0, "user_agent": "Custom/2.0"})
+        sent = await self._sent_user_agent(client, source_id="s", headers={"User-Agent": "Caller/1"})
+        assert sent == "Caller/1"
+
+
+class TestPlaywrightNativeUserAgent:
+    """Playwright uses the bundled Chromium's own UA, minus the HeadlessChrome marker."""
+
+    @pytest.mark.asyncio
+    async def test_native_user_agent_strips_headless_marker_and_caches(self):
+        from src.core.playwright_scraper import PlaywrightScraper
+
+        native = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/148.0.7778.0 Safari/537.36"
+        page = AsyncMock()
+        page.evaluate.return_value = native
+        context = AsyncMock()
+        context.new_page.return_value = page
+        browser = AsyncMock()
+        browser.new_context.return_value = context
+        pw = Mock()
+        pw.chromium.launch = AsyncMock(return_value=browser)
+
+        scraper = PlaywrightScraper()
+        scraper._playwright = pw
+        with patch.object(PlaywrightScraper, "_native_ua_cache", None):
+            ua = await scraper._native_user_agent()
+            again = await scraper._native_user_agent()
+
+        assert ua == native.replace("HeadlessChrome/", "Chrome/")
+        assert "HeadlessChrome" not in ua
+        assert again == ua
+        pw.chromium.launch.assert_awaited_once()
+        browser.close.assert_awaited_once()

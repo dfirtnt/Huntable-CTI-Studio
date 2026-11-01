@@ -23,9 +23,13 @@ import pytest
 
 from src.services.codex_app_server_client import CodexAppServerClient, CodexAppServerError
 from src.services.llm_service import WORKFLOW_PROVIDER_APPSETTING_KEYS, LLMService
-from src.services.sigma_generation_service import SIGMA_NO_RULES_EMPTY_REPLY, SigmaGenerationService
+from src.services.sigma_generation_service import (
+    SIGMA_EMPTY_REPLY_MAX_RETRIES,
+    SIGMA_NO_RULES_EMPTY_REPLY,
+    SigmaGenerationService,
+)
 from src.services.workflow_config_snapshot import build_config_snapshot
-from src.workflows.status_utils import TERMINATION_REASON_NO_SIGMA_RULES
+from src.workflows.status_utils import TERMINATION_REASON_NO_SIGMA_RULES, TERMINATION_REASON_SIGMA_GROUPS_NO_REPLY
 from tests.workflows.test_platform_telemetry_phase_one import (  # noqa: F401  (fixtures)
     _capture_nodes,
     _default_state,
@@ -162,7 +166,9 @@ async def test_empty_group_yields_zero_rules_and_keeps_sibling_rules(article, ex
             _by_group(process=RULE_TURN, network=EMPTY_TURN),
         )
 
-    assert len(prompts) == 2, "one Phase 1 call per group, no retry or expansion on an empty reply"
+    # process_creation: 1 call. network_connection: 1 call + the bounded empty-reply retry.
+    assert len(prompts) == 1 + (1 + SIGMA_EMPTY_REPLY_MAX_RETRIES)
+    assert sum(NETWORK_MARKER in p for p in prompts) == 1 + SIGMA_EMPTY_REPLY_MAX_RETRIES
     assert [rule["title"] for rule in result["sigma_rules"]] == ["Net User Domain Account Discovery"]
     assert not result.get("error")
     assert execution.status != "failed"
@@ -198,13 +204,64 @@ async def test_empty_group_yields_zero_rules_and_keeps_sibling_rules(article, ex
     assert not [r for r in caplog.records if r.levelno >= logging.ERROR], "an empty reply must not log an error"
 
 
+def _assert_partial_loss_indicator(result, execution, *, missing_category, total_groups):
+    assert result["termination_reason"] == TERMINATION_REASON_SIGMA_GROUPS_NO_REPLY
+    details = result["termination_details"]
+    assert details["total_groups"] == total_groups
+    assert [g["telemetry_category"] for g in details["groups_with_no_rules"]] == [missing_category]
+    assert details["reason"].startswith(f"1 of {total_groups} Sigma generation groups returned no reply: ")
+    assert f":{missing_category}:" in details["reason"]
+    assert details["generated_rules"] == len(result["sigma_rules"])
+
+
+@pytest.mark.asyncio
+async def test_partial_empty_group_is_surfaced_on_completion(article, execution, config_obj):
+    """Execution 115: a group lost to an empty reply must be visible on a run that otherwise
+    completed with rules, not only in error_log.generate_sigma."""
+    result, _ = await _run_node(
+        article,
+        execution,
+        config_obj,
+        _two_windows_groups_extraction(),
+        _by_group(process=RULE_TURN, network=EMPTY_TURN),
+    )
+
+    assert len(result["sigma_rules"]) == 1
+    _assert_partial_loss_indicator(result, execution, missing_category="network_connection", total_groups=2)
+
+
+@pytest.mark.asyncio
+async def test_empty_reply_then_successful_retry_keeps_the_group_rules(article, execution, config_obj):
+    """The retry replaces the empty result: the recovered group's rules are kept and it is not
+    listed as a group with no rules."""
+    process_calls = {"n": 0}
+
+    def script(prompt):
+        if NETWORK_MARKER in prompt:
+            return EMPTY_TURN
+        process_calls["n"] += 1
+        return EMPTY_TURN if process_calls["n"] == 1 else RULE_TURN
+
+    result, prompts = await _run_node(article, execution, config_obj, _two_windows_groups_extraction(), script)
+
+    assert process_calls["n"] == 2, "one empty reply, one successful retry"
+    assert [rule["title"] for rule in result["sigma_rules"]] == ["Net User Domain Account Discovery"]
+    entry = execution.error_log["generate_sigma"]
+    assert entry["group_errors"] is None
+    assert [g["telemetry_category"] for g in entry["groups_with_no_rules"]] == ["network_connection"]
+    summaries = {g["telemetry_category"]: g for g in entry["sigma_generation_groups"]}
+    assert summaries["process_creation"]["generated_rules"] == 1
+    assert summaries["process_creation"]["no_rules"] is None
+    _assert_partial_loss_indicator(result, execution, missing_category="network_connection", total_groups=2)
+
+
 @pytest.mark.asyncio
 async def test_only_group_empty_completes_with_zero_rules_and_recorded_reason(article, execution, config_obj):
     """Executions 39/40: network_connection was the ONLY group, so the empty reply failed the
     whole execution. It must complete with zero rules and say why."""
     result, prompts = await _run_node(article, execution, config_obj, _network_extraction(), lambda prompt: EMPTY_TURN)
 
-    assert len(prompts) == 1
+    assert len(prompts) == 1 + SIGMA_EMPTY_REPLY_MAX_RETRIES
     assert result["sigma_rules"] == []
     assert not result.get("error")
     assert result.get("should_continue") is not False
@@ -235,7 +292,8 @@ async def test_all_groups_empty_completes_with_zero_rules(article, execution, co
         article, execution, config_obj, _two_windows_groups_extraction(), lambda prompt: EMPTY_TURN
     )
 
-    assert len(prompts) == 2
+    # Bounded: every group gets exactly one retry, never an open-ended loop.
+    assert len(prompts) == 2 * (1 + SIGMA_EMPTY_REPLY_MAX_RETRIES)
     assert result["sigma_rules"] == []
     assert not result.get("error")
     assert execution.status == "running"
@@ -342,4 +400,5 @@ async def test_non_codex_empty_content_is_zero_rules_not_an_exception():
     assert result["errors"] is None
     assert result["metadata"]["no_rules"]["reason"] == SIGMA_NO_RULES_EMPTY_REPLY
     assert result["metadata"]["no_rules"]["model"] == "gpt-4o-mini"
-    assert llm.request_chat.await_count == 1
+    assert result["metadata"]["no_rules"]["attempts"] == 1 + SIGMA_EMPTY_REPLY_MAX_RETRIES
+    assert llm.request_chat.await_count == 1 + SIGMA_EMPTY_REPLY_MAX_RETRIES

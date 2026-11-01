@@ -443,30 +443,6 @@ class AsyncDatabaseManager:
             logger.error(f"Failed to list source identifiers: {e}")
             return set()
 
-    async def set_robots_user_agent_for_all(self, user_agent: str) -> int:
-        """Ensure every source with robots config uses the provided user agent."""
-        updated = 0
-        try:
-            sources = await self.list_sources()
-            for source in sources:
-                config = dict(source.config or {})
-                robots = dict(config.get("robots") or {})
-                if not robots:
-                    continue
-                if robots.get("user_agent") == user_agent:
-                    continue
-                robots["user_agent"] = user_agent
-                config["robots"] = robots
-                try:
-                    await self.update_source(source.id, SourceUpdate(config=config))
-                    updated += 1
-                except Exception as inner_exc:  # noqa: BLE001
-                    logger.error(f"Failed to update user agent for source {source.identifier}: {inner_exc}")
-            return updated
-        except Exception as e:
-            logger.error(f"Failed to update robots user agents: {e}")
-            return updated
-
     async def create_source(self, source_data: SourceCreate) -> Source | None:
         """Insert a source, updating config fields if the identifier already exists."""
         try:
