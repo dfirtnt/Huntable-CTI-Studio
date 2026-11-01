@@ -41,6 +41,8 @@ from src.utils.langfuse_client import log_llm_completion, log_llm_error, trace_l
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "DEFAULT_LMSTUDIO_MODEL",
+    "AgentSampling",
     "ContextLengthExceededError",
     "DatabaseManager",
     "LLMService",
@@ -57,6 +59,9 @@ __all__ = [
     "_parse_rank_prompt",
     "_validate_extraction_prompt_config",
     "_validate_preprocess_invariants",
+    "default_provider_models",
+    "lmstudio_default_model",
+    "resolve_agent_sampling",
     "subprocess",
 ]
 

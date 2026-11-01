@@ -8,6 +8,23 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 import yaml
 
+from src.services.llm_service import LLMService
+
+
+@pytest.fixture(autouse=True)
+def _hermetic_shared_client():
+    """The shared LLM client reads env only here, never the live test DB's AppSettings."""
+    with (
+        patch.object(LLMService, "_load_workflow_provider_settings", return_value={}),
+        patch.object(LLMService, "_load_lmstudio_settings", return_value={}),
+    ):
+        yield
+
+
+def _chat(content):
+    """A request_chat result in the shared client's (OpenAI-shaped) form."""
+    return {"choices": [{"message": {"content": content}}], "usage": {}, "model": "m"}
+
 
 @pytest.mark.api
 class TestSigmaEnrichAPI:
@@ -182,7 +199,7 @@ class TestSigmaEnrichAPI:
 
         with (
             patch("src.web.routes.sigma_queue.DatabaseManager") as mock_db_manager,
-            patch("src.web.routes.sigma_queue.CodexAppServerClient") as mock_codex_client,
+            patch("src.services.llm_client.CodexAppServerClient") as mock_codex_client,
             patch.dict(os.environ, {"WORKFLOW_CODEX_ENABLED": "true"}),
         ):
             mock_session = MagicMock()
@@ -230,7 +247,7 @@ class TestSigmaEnrichAPI:
 
         with (
             patch("src.web.routes.sigma_queue.DatabaseManager") as mock_db_manager,
-            patch("src.web.routes.sigma_queue.CodexAppServerClient") as mock_codex_client,
+            patch("src.services.llm_client.CodexAppServerClient") as mock_codex_client,
             patch(
                 "src.web.routes.sigma_queue._load_workflow_provider_settings",
                 return_value={"WORKFLOW_CODEX_ENABLED": "false"},
@@ -398,12 +415,14 @@ class TestSigmaEnrichAPI:
         mock_article.content = "body"
         mock_article.article_metadata = None
 
-        mock_llm = AsyncMock(return_value=json.dumps({"status": "pass", "updated_sigma_yaml": mock_rule.rule_yaml}))
+        mock_llm = AsyncMock(
+            return_value=_chat(json.dumps({"status": "pass", "updated_sigma_yaml": mock_rule.rule_yaml}))
+        )
 
         with (
             patch("src.web.routes.sigma_queue.DatabaseManager") as mock_db_manager,
             patch("src.web.routes.sigma_queue.format_prompt", side_effect=capture_format),
-            patch("src.services.openai_chat_client.openai_chat_completions", mock_llm),
+            patch.object(LLMService, "request_chat", mock_llm),
             patch("httpx.AsyncClient") as mock_httpx_client,
         ):
             mock_session = MagicMock()
@@ -467,12 +486,14 @@ class TestSigmaEnrichAPI:
         mock_article.content = "c"
         mock_article.article_metadata = None
 
-        mock_llm = AsyncMock(return_value=json.dumps({"status": "pass", "updated_sigma_yaml": mock_rule.rule_yaml}))
+        mock_llm = AsyncMock(
+            return_value=_chat(json.dumps({"status": "pass", "updated_sigma_yaml": mock_rule.rule_yaml}))
+        )
 
         with (
             patch("src.web.routes.sigma_queue.DatabaseManager") as mock_db_manager,
             patch("src.web.routes.sigma_queue.format_prompt", side_effect=capture_format),
-            patch("src.services.openai_chat_client.openai_chat_completions", mock_llm),
+            patch.object(LLMService, "request_chat", mock_llm),
             patch("httpx.AsyncClient") as mock_httpx_client,
         ):
             mock_session = MagicMock()

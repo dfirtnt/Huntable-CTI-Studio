@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import re
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -44,18 +45,21 @@ from src.services.audit_service import (
     AuditService,
     build_actor_context,
 )
-from src.services.codex_app_server_client import CodexAppServerClient, CodexAppServerError
+from src.services.codex_app_server_client import CodexAppServerError
+from src.services.llm_client import ProviderUnavailableError
 from src.services.llm_provider_clients import (
     WORKFLOW_PROVIDER_APPSETTING_KEYS,
     AnthropicProviderError,
-    LMStudioChatClient,
     LMStudioChatError,
-    lmstudio_chat_url_candidates,
     load_workflow_provider_settings,
-    post_anthropic_with_retry,
 )
 from src.services.llm_routing import LMSTUDIO_APPSETTING_KEYS
-from src.services.llm_service import default_provider_models, lmstudio_default_model
+from src.services.llm_service import (
+    LLMService,
+    default_provider_models,
+    lmstudio_default_model,
+    resolve_agent_sampling,
+)
 from src.services.sigma_ci_parity import check_rule_ci_parity, destination_blocking_config, toolchain_drift
 from src.services.sigma_matching_service import SigmaMatchingService
 from src.services.sigma_pr_service import SigmaPRService
@@ -138,8 +142,8 @@ def _load_workflow_provider_settings(db_session) -> dict[str, str | None]:
         return {}
 
 
-# Providers the Sigma agent validate/repair loop can actually drive. Kept in sync with
-# the dispatch in validate_rule(); codex is routed through CodexAppServerClient.
+# Providers the Sigma routes can drive. Every call is dispatched by the shared LLM
+# client (LLMService.request_chat), which also serves codex via the app-server.
 SIGMA_AGENT_SUPPORTED_PROVIDERS = ("openai", "codex", "anthropic", "lmstudio")
 
 # Providers that need no API key: lmstudio is a local server, codex authenticates
@@ -301,7 +305,7 @@ def _provider_http_error(provider: str, exc: Exception) -> HTTPException:
         return HTTPException(status_code=502, detail=_sanitize_error_detail(str(exc)))
     if isinstance(exc, LMStudioChatError):
         return HTTPException(status_code=exc.status_code, detail=_sanitize_error_detail(str(exc)))
-    if isinstance(exc, ValueError):
+    if isinstance(exc, (ValueError, ProviderUnavailableError)):
         # Local configuration/request errors raised before or instead of a provider call.
         return HTTPException(status_code=400, detail=_sanitize_error_detail(str(exc)))
     if not isinstance(exc, RuntimeError):
@@ -375,9 +379,22 @@ def _first_enabled_provider(db_session) -> str:
     )
 
 
-def _get_sigma_agent_llm_from_workflow(db_session) -> tuple[str, str, str | None]:
-    """Resolve provider, model, and API key for Sigma agent from active workflow config and AppSettings.
-    Returns (provider, model, api_key). api_key is None for lmstudio."""
+@dataclass(frozen=True)
+class SigmaAgentLLM:
+    """What the workflow SigmaAgent is configured to call, resolved like LLMService does."""
+
+    provider: str
+    model: str
+    api_key: str | None  # "not_required" for lmstudio, None for codex
+    temperature: float = 0.2
+    top_p: float | None = None
+    effort: str | None = None
+
+
+def _get_sigma_agent_llm_from_workflow(db_session) -> SigmaAgentLLM:
+    """Resolve the Sigma agent's provider, model, API key and sampling from the active
+    workflow config and AppSettings -- the same values the workflow's SigmaAgent uses
+    (LLMService.model_sigma / temperature_sigma / top_p_sigma / effort_sigma)."""
     config = (
         db_session.query(AgenticWorkflowConfigTable)
         .filter(AgenticWorkflowConfigTable.is_active)
@@ -431,18 +448,21 @@ def _get_sigma_agent_llm_from_workflow(db_session) -> tuple[str, str, str | None
             detail="Codex subscription provider is disabled. Enable WORKFLOW_CODEX_ENABLED in Settings.",
         )
 
+    if provider in ("openai", "anthropic"):
+        app_key, env_key = _PROVIDER_ENABLE_FLAGS[provider]
+        if _provider_flag_state(workflow_settings, app_key, env_key) is False:
+            raise HTTPException(status_code=400, detail=_provider_disabled_detail(provider))
+
+    # Blank model: the same fallback chain LLMService uses for model_sigma.
+    lmstudio_settings = _load_lmstudio_settings(db_session)
     model = (agent_models.get("SigmaAgent") or "").strip()
-    if not model and provider not in SIGMA_AGENT_KEYLESS_PROVIDERS:
-        model = {
-            "openai": "gpt-4o-mini",
-            "anthropic": "claude-sonnet-4-5",
-        }.get(provider, "gpt-4o-mini")
-    if not model:
+    if not model and provider == "lmstudio":
         model = (
-            os.getenv("WORKFLOW_CODEX_MODEL", "gpt-5.6-luna")
-            if provider == "codex"
-            else os.getenv("LMSTUDIO_MODEL", "mistralai/mistral-7b-instruct-v0.3")
-        )
+            lmstudio_settings.get("LMSTUDIO_MODEL_SIGMA") or os.getenv("LMSTUDIO_MODEL_SIGMA") or ""
+        ).strip() or lmstudio_default_model(lmstudio_settings)
+    if not model:
+        model = _default_model_for_provider(provider, lmstudio_settings)
+    sampling = resolve_agent_sampling("SigmaAgent", agent_models, lmstudio_settings)
 
     api_key = None
     if provider == "openai":
@@ -470,53 +490,36 @@ def _get_sigma_agent_llm_from_workflow(db_session) -> tuple[str, str, str | None
             status_code=400,
             detail=f"Sigma agent uses {provider} but no API key is configured. Set it in Settings or environment.",
         )
-    return provider, model, (api_key.strip() if api_key and not keyless else api_key)
+    return SigmaAgentLLM(
+        provider=provider,
+        model=model,
+        api_key=api_key.strip() if api_key and not keyless else api_key,
+        temperature=sampling.temperature,
+        top_p=sampling.top_p,
+        effort=sampling.effort,
+    )
 
 
-async def _call_lmstudio_sigma_text(
-    *,
-    model: str,
-    messages: list[dict[str, str]],
-    failure_context: str,
-    timeout: float = 180.0,
-    response_metadata: dict[str, Any] | None = None,
-) -> str:
-    """Call LMStudio for Sigma queue routes and return non-empty message content."""
-    try:
-        response_data = await LMStudioChatClient(
-            url_candidates=lmstudio_chat_url_candidates("http://localhost:1234/v1")
-        ).post_chat(
-            {
-                "model": model,
-                "messages": messages,
-                "max_tokens": 4000,
-                "temperature": 0.2,
-                "stream": False,
-            },
-            model_name=model,
-            timeout=timeout,
-            failure_context=failure_context,
-        )
-    except LMStudioChatError as e:
-        raise HTTPException(status_code=e.status_code, detail=str(e)) from e
-    if "choices" not in response_data or len(response_data["choices"]) == 0:
-        logger.error("LMStudio response missing choices: %s", response_data)
-        raise HTTPException(status_code=500, detail="LMStudio returned invalid response format")
-    if response_metadata is not None:
-        response_metadata.update({"model": response_data.get("model"), "usage": response_data.get("usage")})
-    message = response_data["choices"][0].get("message", {})
-    content = message.get("content", "")
-    raw_response = content.strip() if content else ""
-    if not raw_response:
-        finish_reason = response_data["choices"][0].get("finish_reason", "unknown")
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                f"LMStudio empty response (finish_reason: {finish_reason}). "
-                "Check LMStudio is running and model is loaded."
-            ),
-        )
-    return raw_response
+async def _sigma_llm_service(provider: str, api_key: str | None) -> LLMService:
+    """Shared LLM client for one Sigma-route request.
+
+    Built without workflow agent_models (an unrelated bad agent entry must not block
+    Sigma) and in a worker thread (LLMService.__init__ reads AppSettings synchronously).
+    The key the route resolved -- a request-header key when one was sent -- overrides
+    the stored key, so it is the key billed.
+    """
+    overrides = {provider: api_key} if provider in _PROVIDER_KEY_HEADERS and api_key else None
+    return await asyncio.to_thread(LLMService.for_request, api_key_overrides=overrides)
+
+
+def _chat_result_text(result: dict[str, Any]) -> str:
+    """Assistant text from a request_chat result (OpenAI-shaped for every provider)."""
+    choices = result.get("choices") or []
+    message = choices[0].get("message", {}) if choices and isinstance(choices[0], dict) else {}
+    content = message.get("content") if isinstance(message, dict) else None
+    if isinstance(content, list):
+        return "".join(part.get("text", "") for part in content if isinstance(part, dict))
+    return content if isinstance(content, str) else ""
 
 
 async def _call_traced_sigma_provider(
@@ -524,7 +527,7 @@ async def _call_traced_sigma_provider(
     agent_name: str,
     provider: str,
     model: str,
-    api_key: str | None,
+    llm_service: LLMService,
     messages: list[dict[str, str]],
     queue_id: int,
     article_id: int | None,
@@ -533,9 +536,10 @@ async def _call_traced_sigma_provider(
     temperature: float,
     timeout: float,
     failure_context: str,
+    top_p: float | None = None,
+    effort: str | None = None,
 ) -> str:
-    """Call a Sigma-route provider and record the complete LLM observation."""
-    response_metadata: dict[str, Any] = {}
+    """Call the shared LLM client for a Sigma route and record the complete LLM observation."""
     with trace_llm_call(
         name=agent_name,
         model=model,
@@ -549,55 +553,30 @@ async def _call_traced_sigma_provider(
         },
     ) as generation:
         try:
-            if provider == "openai":
-                from src.services.openai_chat_client import openai_chat_completions
-
-                raw_response = await openai_chat_completions(
-                    api_key=api_key or "",
-                    model_name=model,
-                    messages=messages,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    timeout=timeout,
-                    response_metadata=response_metadata,
+            result = await llm_service.request_chat(
+                provider=provider,
+                model_name=model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                timeout=timeout,
+                failure_context=failure_context,
+                top_p=top_p,
+                effort=effort,
+            )
+            raw_response = _chat_result_text(result)
+            if provider == "lmstudio" and not raw_response.strip():
+                choices = result.get("choices") or [{}]
+                finish_reason = (
+                    choices[0].get("finish_reason", "unknown") if isinstance(choices[0], dict) else "unknown"
                 )
-            elif provider == "anthropic":
-                response = await post_anthropic_with_retry(
-                    api_key=api_key or "",
-                    anthropic_api_url="https://api.anthropic.com/v1/messages",
-                    timeout=timeout,
-                    payload={
-                        "model": model,
-                        "max_tokens": max_tokens,
-                        "temperature": temperature,
-                        "system": messages[0].get("content", "") if messages else "",
-                        "messages": messages[1:] if len(messages) > 1 else messages,
-                    },
+                raise HTTPException(
+                    status_code=503,
+                    detail=(
+                        f"LMStudio empty response (finish_reason: {finish_reason}). "
+                        "Check LMStudio is running and model is loaded."
+                    ),
                 )
-                response_data = response.json()
-                response_metadata.update({"model": response_data.get("model"), "usage": response_data.get("usage")})
-                content = response_data.get("content", [])
-                raw_response = content[0].get("text", "") if content else ""
-            elif provider == "lmstudio":
-                raw_response = await _call_lmstudio_sigma_text(
-                    model=model,
-                    messages=messages,
-                    failure_context=failure_context,
-                    timeout=timeout,
-                    response_metadata=response_metadata,
-                )
-            elif provider == "codex":
-                response_data = await CodexAppServerClient(timeout=timeout).complete(
-                    messages=messages,
-                    model_name=model,
-                    max_tokens=max_tokens,
-                )
-                response_metadata.update({"model": response_data.get("model"), "usage": response_data.get("usage")})
-                choices = response_data.get("choices", [])
-                message = choices[0].get("message", {}) if choices else {}
-                raw_response = message.get("content", "")
-            else:
-                raise ValueError(f"Unsupported Sigma provider: {provider}")
         except Exception as error:
             log_llm_error(generation, error, metadata={"provider": provider, "queue_id": queue_id})
             raise
@@ -606,13 +585,13 @@ async def _call_traced_sigma_provider(
             generation,
             input_messages=messages,
             output=raw_response,
-            usage=response_metadata.get("usage"),
+            usage=result.get("usage"),
             metadata={
                 "agent_name": agent_name,
                 "attempt": attempt,
                 "provider": provider,
                 "queue_id": queue_id,
-                "model": response_metadata.get("model") or model,
+                "model": result.get("model") or model,
             },
         )
         return raw_response
@@ -1812,13 +1791,14 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
             f"has_system_prompt={bool(enrich_request.system_prompt)}"
         )
 
-        # One provider call for every provider; failures map through one error table.
+        # One shared-client call for every provider; failures map through one error table.
+        # The user picked this model, so no workflow effort override applies.
         try:
             raw_response = await _call_traced_sigma_provider(
                 agent_name="sigma_enrichment",
                 provider=provider,
                 model=model,
-                api_key=api_key,
+                llm_service=await _sigma_llm_service(provider, api_key),
                 messages=enrichment_messages,
                 queue_id=queue_id,
                 article_id=article_id,
@@ -2029,7 +2009,7 @@ async def continue_enrichment_chat(queue_id: int, conversation_id: int, chat_req
             agent_name="sigma_enrichment_chat",
             provider=provider,
             model=model,
-            api_key=api_key,
+            llm_service=await _sigma_llm_service(provider, api_key),
             messages=messages,
             queue_id=queue_id,
             article_id=prep["article_id"],
@@ -2542,8 +2522,15 @@ async def validate_rule(request: Request, queue_id: int):
 
             # Use workflow Sigma agent LLM when requested (same as agent workflow)
             use_workflow_sigma_agent = body.get("use_workflow_sigma_agent") is True
+            # Manual validation runs a user-picked model: fixed temperature, provider
+            # default effort. The workflow path uses the SigmaAgent's own settings.
+            call_temperature: float = 0.2
+            call_top_p: float | None = None
+            call_effort: str | None = None
             if use_workflow_sigma_agent:
-                provider, model, api_key = await asyncio.to_thread(_get_sigma_agent_llm_from_workflow, db_session)
+                sigma_llm = await asyncio.to_thread(_get_sigma_agent_llm_from_workflow, db_session)
+                provider, model, api_key = sigma_llm.provider, sigma_llm.model, sigma_llm.api_key
+                call_temperature, call_top_p, call_effort = sigma_llm.temperature, sigma_llm.top_p, sigma_llm.effort
             else:
                 # Get provider and model from request, default to OpenAI
                 provider = (body.get("provider") or "openai").lower()
@@ -2578,6 +2565,8 @@ async def validate_rule(request: Request, queue_id: int):
             current_rule_yaml_from_request = None
             if body.get("rule_yaml") and isinstance(body["rule_yaml"], str) and body["rule_yaml"].strip():
                 current_rule_yaml_from_request = body["rule_yaml"].strip()
+
+            llm_service = await _sigma_llm_service(provider, api_key)
 
             # Initialize conversation log before any early returns
             conversation_log = []
@@ -2679,15 +2668,17 @@ async def validate_rule(request: Request, queue_id: int):
                             agent_name="sigma_validation",
                             provider=provider,
                             model=model,
-                            api_key=api_key,
+                            llm_service=llm_service,
                             messages=attempt_messages,
                             queue_id=queue_id,
                             article_id=rule.article_id,
                             attempt=attempt,
                             max_tokens=4000,
-                            temperature=0.2,
+                            temperature=call_temperature,
                             timeout=_provider_timeout(provider),
                             failure_context=f"{_provider_label(provider)} validation for rule {queue_id}",
+                            top_p=call_top_p,
+                            effort=call_effort,
                         )
                     except Exception as e:
                         mapped = _provider_http_error(provider, e)

@@ -17,6 +17,10 @@ from src.utils.model_validation import clamp_temperature_for_provider
 logger = logging.getLogger(__name__)
 
 
+class ProviderUnavailableError(RuntimeError):
+    """The provider is unset, disabled, unsupported or has no API key; nothing was sent."""
+
+
 class LLMClientMixin:
     # Instance attributes assigned by LLMService.__init__.
     lmstudio_model: str
@@ -35,38 +39,38 @@ class LLMClientMixin:
 
     def _validate_provider(self, provider: str) -> None:
         if not provider:
-            raise RuntimeError(
+            raise ProviderUnavailableError(
                 "No LLM provider configured for this agent. "
                 "Set Provider to 'anthropic', 'openai', 'codex', or 'lmstudio' in workflow settings."
             )
         if provider == "openai":
             if not self.workflow_openai_enabled:
-                raise RuntimeError(
+                raise ProviderUnavailableError(
                     "OpenAI provider is disabled for agentic workflows "
                     "(enable WORKFLOW_OPENAI_ENABLED or set in Settings)."
                 )
             if not self.openai_api_key:
-                raise RuntimeError("OpenAI API key is not configured for agentic workflows.")
+                raise ProviderUnavailableError("OpenAI API key is not configured for agentic workflows.")
         elif provider == "codex":
             if not self.workflow_codex_enabled:
-                raise RuntimeError(
+                raise ProviderUnavailableError(
                     "Codex subscription provider is disabled for agentic workflows "
                     "(enable WORKFLOW_CODEX_ENABLED in Settings)."
                 )
         elif provider == "anthropic":
             if not self.workflow_anthropic_enabled:
-                raise RuntimeError(
+                raise ProviderUnavailableError(
                     "Anthropic provider is disabled for agentic workflows "
                     "(enable WORKFLOW_ANTHROPIC_ENABLED or set in Settings)."
                 )
             if not self.anthropic_api_key:
-                raise RuntimeError(
+                raise ProviderUnavailableError(
                     "Anthropic API key is not configured for agentic workflows. "
                     "Save the key in Settings (click Save after entering it) or set "
                     "WORKFLOW_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY in .env and restart workers."
                 )
         elif provider != "lmstudio":
-            raise RuntimeError(f"Provider '{provider}' is not supported for agentic workflows.")
+            raise ProviderUnavailableError(f"Provider '{provider}' is not supported for agentic workflows.")
 
     async def request_chat(
         self,

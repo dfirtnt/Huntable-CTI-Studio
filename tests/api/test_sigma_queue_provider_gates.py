@@ -17,6 +17,7 @@ import pytest
 from fastapi import HTTPException
 from starlette.requests import Request
 
+from src.services.llm_service import LLMService
 from src.web.routes.sigma_queue import (
     EnrichmentChatTurnRequest,
     EnrichRuleRequest,
@@ -50,9 +51,21 @@ _MODEL_NOT_FOUND_ERROR = (
 
 @pytest.fixture(autouse=True)
 def _clean_provider_env(monkeypatch):
-    """Start every test with no provider flags or default-model overrides in env."""
+    """Start every test with no provider flags or default-model overrides in env, and
+    keep the shared LLM client off the live test DB's AppSettings."""
     for key in _FLAG_AND_MODEL_ENV:
         monkeypatch.delenv(key, raising=False)
+    with (
+        patch.object(LLMService, "_load_workflow_provider_settings", return_value={}),
+        patch.object(LLMService, "_load_lmstudio_settings", return_value={}),
+    ):
+        yield
+
+
+def _billed_key(call, provider):
+    """The API key the shared client handed to a traced call will send."""
+    service = call.kwargs["llm_service"]
+    return service.openai_api_key if provider == "openai" else service.anthropic_api_key
 
 
 def _request(headers=None, body=None):
@@ -166,7 +179,7 @@ class TestDisabledProvidersAreNeverCalled:
             db_patch.stop()
 
         traced.assert_awaited_once()
-        assert traced.await_args.kwargs["api_key"] == "sk-ant-stored"
+        assert _billed_key(traced.await_args, "anthropic") == "sk-ant-stored"
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -278,7 +291,7 @@ class TestHeaderKeyIsTheKeyBilled:
             db_patch.stop()
 
         resolver.assert_not_awaited()
-        assert traced.await_args.kwargs["api_key"] == "sk-from-header"
+        assert _billed_key(traced.await_args, provider) == "sk-from-header"
 
     @pytest.mark.asyncio
     async def test_manual_validate_passes_the_header_key(self):
@@ -298,7 +311,7 @@ class TestHeaderKeyIsTheKeyBilled:
             db_patch.stop()
 
         resolver.assert_not_awaited()
-        assert all(call.kwargs["api_key"] == "sk-from-header" for call in traced.await_args_list)
+        assert all(_billed_key(call, "anthropic") == "sk-from-header" for call in traced.await_args_list)
 
 
 # --------------------------------------------------------------------------- B3
