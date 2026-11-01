@@ -580,16 +580,20 @@ class TestEnrichResolvesTheStoredKey:
         enrich_request.provider = "lmstudio"
         enrich_request.model = "local-model"
 
-        with patch("src.web.routes.sigma_queue.DatabaseManager") as mock_db_manager:
+        with (
+            patch("src.web.routes.sigma_queue.DatabaseManager") as mock_db_manager,
+            patch.dict(os.environ, {"WORKFLOW_LMSTUDIO_ENABLED": "true"}),
+        ):
             session = MagicMock()
             session.query.return_value.filter.return_value.first.return_value = None
             mock_db_manager.return_value.get_session.return_value = session
 
             with patch("src.web.routes.sigma_queue.resolve_provider_api_key", AsyncMock()) as resolver:
-                with pytest.raises(HTTPException):
+                with pytest.raises(HTTPException) as exc_info:
                     await enrich_rule(self._request(), queue_id=999999, enrich_request=enrich_request)
 
         resolver.assert_not_awaited()
+        assert exc_info.value.status_code == 404, "an enabled LMStudio must reach the rule lookup"
 
     def test_persisted_chat_hides_the_system_prompt_from_browser(self):
         """The scoped guardrail is sent to the provider but not exposed to the page."""
@@ -634,7 +638,10 @@ class TestEnrichResolvesTheStoredKey:
 
         with (
             patch("src.web.routes.sigma_queue.DatabaseManager") as db_manager,
-            patch("src.web.routes.sigma_queue._load_workflow_provider_settings", return_value={}),
+            patch(
+                "src.web.routes.sigma_queue._load_workflow_provider_settings",
+                return_value={"WORKFLOW_LMSTUDIO_ENABLED": "true"},
+            ),
             patch("src.web.routes.sigma_queue._call_traced_sigma_provider", traced_call),
         ):
             db_manager.return_value.get_session.return_value = session

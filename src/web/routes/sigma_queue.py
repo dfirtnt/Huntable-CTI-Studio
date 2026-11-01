@@ -21,6 +21,7 @@ from sqlalchemy import func
 from src.database.manager import DatabaseManager
 from src.database.models import (
     AgenticWorkflowConfigTable,
+    AppSettingsTable,
     ArticleTable,
     EnrichmentPresetTable,
     EnrichmentPromptVersionTable,
@@ -53,6 +54,8 @@ from src.services.llm_provider_clients import (
     load_workflow_provider_settings,
     post_anthropic_with_retry,
 )
+from src.services.llm_routing import LMSTUDIO_APPSETTING_KEYS
+from src.services.llm_service import default_provider_models, lmstudio_default_model
 from src.services.sigma_ci_parity import check_rule_ci_parity, destination_blocking_config, toolchain_drift
 from src.services.sigma_matching_service import SigmaMatchingService
 from src.services.sigma_pr_service import SigmaPRService
@@ -144,17 +147,198 @@ SIGMA_AGENT_SUPPORTED_PROVIDERS = ("openai", "codex", "anthropic", "lmstudio")
 SIGMA_AGENT_KEYLESS_PROVIDERS = ("lmstudio", "codex")
 
 
+def _provider_flag_state(settings: dict[str, str | None], app_settings_key: str, env_key: str) -> bool | None:
+    """Read a provider enablement flag: AppSettings first, then env; None when unset in both."""
+    value = settings.get(WORKFLOW_PROVIDER_APPSETTING_KEYS[app_settings_key])
+    if value is None:
+        value = os.getenv(env_key)
+    if value is None:
+        return None
+    return str(value).strip().lower() == "true"
+
+
 def _provider_flag_enabled(settings: dict[str, str | None], app_settings_key: str, env_key: str) -> bool:
-    """Read a provider enablement flag: AppSettings first, then env.
+    """Read a provider enablement flag: AppSettings first, then env (unset means disabled).
 
     Every caller must use this. Reading one provider's flag from env only lets two
     adjacent checks disagree after a live settings change, because AppSettings values
     are written into os.environ at runtime rather than replacing it.
     """
-    value = settings.get(WORKFLOW_PROVIDER_APPSETTING_KEYS[app_settings_key])
-    if value is None:
-        value = os.getenv(env_key, "false")
-    return str(value).strip().lower() == "true"
+    return bool(_provider_flag_state(settings, app_settings_key, env_key))
+
+
+# provider -> (WORKFLOW_PROVIDER_APPSETTING_KEYS name, env var) for its enable flag.
+_PROVIDER_ENABLE_FLAGS = {
+    "openai": ("openai_enabled", "WORKFLOW_OPENAI_ENABLED"),
+    "anthropic": ("anthropic_enabled", "WORKFLOW_ANTHROPIC_ENABLED"),
+    "lmstudio": ("lmstudio_enabled", "WORKFLOW_LMSTUDIO_ENABLED"),
+    "codex": ("codex_enabled", "WORKFLOW_CODEX_ENABLED"),
+}
+
+_PROVIDER_LABELS = {"openai": "OpenAI", "anthropic": "Anthropic", "lmstudio": "LMStudio", "codex": "Codex"}
+
+
+def _provider_label(provider: str) -> str:
+    return _PROVIDER_LABELS.get(provider, provider.capitalize())
+
+
+def _provider_disabled_detail(provider: str) -> str:
+    if provider == "codex":
+        return "Codex subscription provider is disabled. Enable WORKFLOW_CODEX_ENABLED in Settings."
+    env_key = _PROVIDER_ENABLE_FLAGS[provider][1]
+    return f"{_provider_label(provider)} provider is disabled. Enable {env_key} in Settings."
+
+
+async def _require_usable_provider(
+    provider: str, settings: dict[str, str | None], header_key: str | None = None
+) -> str | None:
+    """Refuse a disabled or unconfigured provider before anything is sent to it.
+
+    Returns the API key to bill: the request-header key when one was supplied (it is
+    never replaced by the stored key), else the stored key. None for keyless providers.
+    Enable flags read AppSettings first, then env. Keyless providers (lmstudio, codex)
+    need their flag set to true; a keyed provider is refused when its flag is explicitly
+    off, and an unset flag follows the key -- the same default LLMService applies.
+    """
+    app_key, env_key = _PROVIDER_ENABLE_FLAGS[provider]
+    state = _provider_flag_state(settings, app_key, env_key)
+    if provider in SIGMA_AGENT_KEYLESS_PROVIDERS:
+        if not state:
+            raise HTTPException(status_code=400, detail=_provider_disabled_detail(provider))
+        return None
+    if state is False:
+        raise HTTPException(status_code=400, detail=_provider_disabled_detail(provider))
+    api_key = (header_key or "").strip()
+    if not api_key:
+        api_key = ((await resolve_provider_api_key(provider)) or "").strip()
+    if not api_key:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No {_provider_label(provider)} API key is configured. Add one in Settings.",
+        )
+    return api_key
+
+
+_PROVIDER_KEY_HEADERS = {"openai": "X-OpenAI-API-Key", "anthropic": "X-Anthropic-API-Key"}
+
+
+def _provider_header_key(request: Request, provider: str) -> str | None:
+    """Caller-supplied API key header for `provider` (None when absent or keyless)."""
+    header = _PROVIDER_KEY_HEADERS.get(provider)
+    return request.headers.get(header) if header else None
+
+
+def _load_lmstudio_settings(db_session) -> dict[str, str]:
+    """LMStudio model/tuning AppSettings (non-empty values only); {} when unreadable."""
+    try:
+        rows = db_session.query(AppSettingsTable).filter(AppSettingsTable.key.in_(LMSTUDIO_APPSETTING_KEYS)).all() or []
+        return {
+            row.key: row.value.strip()
+            for row in rows
+            if row.key in LMSTUDIO_APPSETTING_KEYS and isinstance(row.value, str) and row.value.strip()
+        }
+    except Exception as e:
+        logger.warning("Failed to load LMStudio settings from AppSettings: %s", e)
+        return {}
+
+
+def _default_model_for_provider(provider: str, lmstudio_settings: dict[str, str] | None = None) -> str:
+    """Model the shared LLM client uses for `provider` when the caller names none."""
+    return default_provider_models(lmstudio_default_model(lmstudio_settings))[provider]
+
+
+def _load_provider_settings() -> tuple[dict[str, str | None], dict[str, str]]:
+    """(workflow provider settings, LMStudio settings) from AppSettings in one session."""
+    db_session = DatabaseManager().get_session()
+    try:
+        return _load_workflow_provider_settings(db_session), _load_lmstudio_settings(db_session)
+    finally:
+        db_session.close()
+
+
+def _provider_timeout(provider: str) -> float:
+    """Per-request timeout: local LMStudio inference is slower than hosted providers."""
+    return 180.0 if provider == "lmstudio" else 120.0
+
+
+_OPENAI_STATUS_RE = re.compile(r"API error \((\d{3})\)")
+
+
+def _provider_error_status(exc: Exception) -> int | None:
+    """HTTP status the provider returned, from a typed error or the shared "(NNN)" text."""
+    if isinstance(exc, AnthropicProviderError) and exc.status_code is not None:
+        return exc.status_code
+    match = _OPENAI_STATUS_RE.search(str(exc))
+    return int(match.group(1)) if match else None
+
+
+def _provider_error_message(text: str) -> str:
+    """Short provider-supplied reason (the JSON error.message when present)."""
+    body = text.split(": ", 1)[1] if ": " in text else text
+    try:
+        parsed = json.loads(body)
+        message = parsed.get("error", {}).get("message") if isinstance(parsed, dict) else None
+        if isinstance(message, str) and message.strip():
+            body = message
+    except (ValueError, AttributeError):
+        pass
+    return _sanitize_error_detail(body)[:300]
+
+
+def _provider_http_error(provider: str, exc: Exception) -> HTTPException:
+    """Map a provider-call failure to the HTTPException a Sigma route reports.
+
+    One table for every provider: quota -> 402, 401 -> 401, 429 -> 429, other 4xx
+    request errors (bad model, invalid parameter) -> 400, timeouts -> 504, and
+    everything else -> 502. A 400/404 is never reported as an invalid API key.
+    """
+    if isinstance(exc, HTTPException):
+        return exc
+    label = _provider_label(provider)
+    if isinstance(exc, httpx.TimeoutException):
+        return HTTPException(status_code=504, detail="Request timeout. Please try again.")
+    if isinstance(exc, CodexAppServerError):
+        return HTTPException(status_code=502, detail=_sanitize_error_detail(str(exc)))
+    if isinstance(exc, LMStudioChatError):
+        return HTTPException(status_code=exc.status_code, detail=_sanitize_error_detail(str(exc)))
+    if isinstance(exc, ValueError):
+        # Local configuration/request errors raised before or instead of a provider call.
+        return HTTPException(status_code=400, detail=_sanitize_error_detail(str(exc)))
+    if not isinstance(exc, RuntimeError):
+        logger.error("%s request failed: %s", label, exc, exc_info=exc)
+        return HTTPException(status_code=502, detail=f"{label} request failed ({type(exc).__name__}).")
+
+    text = str(exc)
+    lower = text.lower()
+    status = _provider_error_status(exc)
+    if status is None:
+        # Older clients put only the provider's JSON body in the message.
+        if "invalid_api_key" in lower:
+            status = 401
+        elif "insufficient_quota" in lower or "rate_limit" in lower:
+            status = 429
+        elif "invalid_request_error" in lower:
+            status = 400
+    logger.error("%s API error (%s): %s", label, status, text)
+    if "insufficient_quota" in lower:
+        return HTTPException(
+            status_code=402, detail=f"{label} quota exceeded. Please check your plan and billing details."
+        )
+    if status == 401:
+        return HTTPException(
+            status_code=401, detail=f"{label} API key is invalid or expired. Please check your API key."
+        )
+    if status == 429:
+        return HTTPException(status_code=429, detail=f"{label} API rate limit exceeded. Please wait and try again.")
+    if status in (408, 504):
+        return HTTPException(status_code=504, detail=f"{label} request timed out. Please try again.")
+    if status is not None and 400 <= status < 500:
+        return HTTPException(
+            status_code=400,
+            detail=f"{label} rejected the request ({status}): {_provider_error_message(text)}",
+        )
+    suffix = f" ({status})" if status else ""
+    return HTTPException(status_code=502, detail=f"{label} API error{suffix}: {_provider_error_message(text)}")
 
 
 def _first_enabled_provider(db_session) -> str:
@@ -1519,38 +1703,20 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
     try:
         # Validate provider/model before DB work
         provider = (enrich_request.provider or "openai").lower()
-        model = enrich_request.model or "gpt-4o-mini"
-        if provider not in {"openai", "codex", "anthropic", "lmstudio"}:
+        if provider not in SIGMA_AGENT_SUPPORTED_PROVIDERS:
             raise HTTPException(
                 status_code=400,
                 detail=f"Unsupported provider '{provider}'. Supported providers: openai, codex, anthropic, lmstudio.",
             )
 
-        # Get API key from request headers (not needed for LMStudio). The page no
-        # longer reads keys back out of GET /api/settings, so a missing header is
-        # the normal case: resolve the stored key server-side.
-        api_key = None
-        if provider == "openai":
-            api_key = request.headers.get("X-OpenAI-API-Key")
-        elif provider == "anthropic":
-            api_key = request.headers.get("X-Anthropic-API-Key")
-        elif provider == "lmstudio":
-            api_key = "not_required"
-
-        if provider not in {"lmstudio", "codex"} and (not api_key or not api_key.strip()):
-            api_key = await resolve_provider_api_key(provider)
-
-        if provider not in {"lmstudio", "codex"} and (not api_key or not api_key.strip()):
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"No {provider.capitalize()} API key is configured. "
-                    f"Add one in Settings. Provider: {provider}, Model: {model}"
-                ),
-            )
-
-        # Run all sync DB queries and prompt building in a thread
-        import asyncio
+        # Refuse a disabled or unconfigured provider before anything is billed. The page
+        # no longer reads keys back out of GET /api/settings, so a missing header is the
+        # normal case: the stored key is resolved server-side; a header key, when sent,
+        # is the one billed.
+        workflow_settings, lmstudio_settings = await asyncio.to_thread(_load_provider_settings)
+        api_key = await _require_usable_provider(provider, workflow_settings, _provider_header_key(request, provider))
+        # An empty model resolves exactly as the shared LLM client would for this provider.
+        model = (enrich_request.model or "").strip() or _default_model_for_provider(provider, lmstudio_settings)
 
         def _prepare_enrichment():
             db_manager = DatabaseManager()
@@ -1621,7 +1787,6 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                     "enrichment_prompt": enrichment_prompt,
                     "system_message": system_message,
                     "article_id": rule.article_id,
-                    "workflow_settings": _load_workflow_provider_settings(db_session),
                     "canonical_author": canonical_author,
                     "rule_origin": rule.rule_origin or "generated",
                     "attribution": rule.attribution,
@@ -1637,15 +1802,6 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
         enrichment_prompt = prep["enrichment_prompt"]
         system_message = prep["system_message"]
         article_id = prep.get("article_id")
-        if provider == "codex":
-            codex_enabled = prep["workflow_settings"].get(WORKFLOW_PROVIDER_APPSETTING_KEYS["codex_enabled"])
-            if codex_enabled is None:
-                codex_enabled = os.getenv("WORKFLOW_CODEX_ENABLED", "false")
-            if str(codex_enabled).strip().lower() != "true":
-                raise HTTPException(
-                    status_code=400,
-                    detail="Codex subscription provider is disabled. Enable WORKFLOW_CODEX_ENABLED in Settings.",
-                )
         enrichment_messages = [
             {"role": "system", "content": system_message},
             {"role": "user", "content": enrichment_prompt},
@@ -1656,225 +1812,134 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
             f"has_system_prompt={bool(enrich_request.system_prompt)}"
         )
 
-        # Call provider API
-        async with httpx.AsyncClient() as client:
-            try:
-                if provider == "openai":
-                    try:
-                        raw_response = await _call_traced_sigma_provider(
-                            agent_name="sigma_enrichment",
-                            provider=provider,
-                            model=model,
-                            api_key=api_key,
-                            messages=enrichment_messages,
-                            queue_id=queue_id,
-                            article_id=article_id,
-                            attempt=1,
-                            max_tokens=4000,
-                            temperature=0.2,
-                            timeout=120.0,
-                            failure_context=f"OpenAI API for rule {queue_id}",
-                        )
-                        raw_response = raw_response.strip()
-                    except ValueError as e:
-                        raise HTTPException(status_code=400, detail="Provider response processing error") from e
-                    except RuntimeError as e:
-                        err = str(e)
-                        if "401" in err or "invalid" in err.lower() or "expired" in err.lower():
-                            raise HTTPException(
-                                status_code=401,
-                                detail="OpenAI API key is invalid or expired. Please check your API key.",
-                            ) from e
-                        if ("429" in err or "rate limit" in err.lower()) and "insufficient_quota" not in err.lower():
-                            raise HTTPException(
-                                status_code=429, detail="OpenAI API rate limit exceeded. Please wait and try again."
-                            ) from e
-                        if "insufficient_quota" in err.lower():
-                            raise HTTPException(
-                                status_code=402,
-                                detail="OpenAI quota exceeded. Please check your plan and billing details.",
-                            ) from e
-                        raise HTTPException(status_code=502, detail=err) from e
-                elif provider == "anthropic":
-                    try:
-                        raw_response = await _call_traced_sigma_provider(
-                            agent_name="sigma_enrichment",
-                            provider=provider,
-                            model=model,
-                            api_key=api_key,
-                            messages=enrichment_messages,
-                            queue_id=queue_id,
-                            article_id=article_id,
-                            attempt=1,
-                            max_tokens=4000,
-                            temperature=0.2,
-                            timeout=120.0,
-                            failure_context=f"Anthropic API for rule {queue_id}",
-                        )
-                    except AnthropicProviderError as e:
-                        status_code = e.status_code or 502
-                        error_detail = f"Anthropic API error: {status_code}"
-                        if status_code == 401:
-                            error_detail = "Anthropic API key is invalid or expired. Please check your API key."
-                        elif status_code == 429:
-                            error_detail = "Anthropic API rate limit exceeded. Please wait and try again."
-                        logger.error("Anthropic API error: %s", e)
-                        raise HTTPException(status_code=status_code, detail=error_detail) from e
+        # One provider call for every provider; failures map through one error table.
+        try:
+            raw_response = await _call_traced_sigma_provider(
+                agent_name="sigma_enrichment",
+                provider=provider,
+                model=model,
+                api_key=api_key,
+                messages=enrichment_messages,
+                queue_id=queue_id,
+                article_id=article_id,
+                attempt=1,
+                max_tokens=4000,
+                temperature=0.2,
+                timeout=_provider_timeout(provider),
+                failure_context=f"{_provider_label(provider)} enrichment for rule {queue_id}",
+            )
+        except Exception as e:
+            raise _provider_http_error(provider, e) from e
 
-                elif provider == "lmstudio":
-                    logger.info(f"Calling LMStudio API for rule {queue_id} with model {model}")
-                    raw_response = await _call_traced_sigma_provider(
-                        agent_name="sigma_enrichment",
-                        provider=provider,
-                        model=model,
-                        api_key=api_key,
-                        messages=enrichment_messages,
-                        queue_id=queue_id,
-                        article_id=article_id,
-                        attempt=1,
-                        max_tokens=4000,
-                        temperature=0.2,
-                        timeout=180.0,
-                        failure_context=f"LMStudio API for rule {queue_id}",
-                    )
-
-                elif provider == "codex":
-                    try:
-                        raw_response = await _call_traced_sigma_provider(
-                            agent_name="sigma_enrichment",
-                            provider=provider,
-                            model=model,
-                            api_key=None,
-                            messages=enrichment_messages,
-                            queue_id=queue_id,
-                            article_id=article_id,
-                            attempt=1,
-                            max_tokens=4000,
-                            temperature=0.2,
-                            timeout=120.0,
-                            failure_context=f"Codex subscription for rule {queue_id}",
-                        )
-                    except CodexAppServerError as e:
-                        raise HTTPException(status_code=502, detail=str(e)) from e
-
-                else:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Unsupported provider '{provider}'. Supported providers: openai, codex, anthropic, lmstudio.",
-                    )
-
-                # Validate we got a response
-                if not raw_response or not raw_response.strip():
-                    logger.error(f"Empty response from {provider} API for rule {queue_id}")
-                    raise HTTPException(
-                        status_code=500,
-                        detail=f"Empty response from {provider} API. Try again or use a different model.",
-                    )
-
-                # JSON envelope (sigma_enrichment OUTPUT CONTRACT) or legacy plain YAML
-                enriched_yaml = None
-                enrichment_result = None
-                try:
-                    uy, meta = _enrichment_payload_from_llm_response(raw_response)
-                    if meta is not None:
-                        enriched_yaml = uy
-                        enrichment_result = meta
-                        st = meta.get("status")
-                        logger.info("Parsed JSON enrichment response with status: %s", st)
-                        logger.debug("Parsed enrichment JSON keys: %s", list(meta.keys()))
-                        if str(meta.get("status", "")).lower() == "needs_revision":
-                            issues = meta.get("issues", [])
-                            if issues:
-                                logger.warning("Enrichment needs revision: %s", issues)
-                    else:
-                        enriched_yaml = raw_response
-                        logger.debug("Enrichment response treated as legacy YAML (no JSON envelope)")
-                except HTTPException:
-                    raise
-                except Exception as e:
-                    error_msg = _sanitize_error_detail(str(e))
-                    logger.error(
-                        "Unexpected error parsing enrichment envelope: %s, preview=%r",
-                        error_msg,
-                        raw_response[:200],
-                        exc_info=True,
-                    )
-                    enriched_yaml = raw_response
-                    enrichment_result = None
-
-                # Extract YAML from response (remove markdown code blocks / leading prose).
-                if enriched_yaml:
-                    enriched_yaml = _extract_yaml_block(enriched_yaml)
-
-                # Validate that we got a response
-                if not enriched_yaml or not enriched_yaml.strip():
-                    logger.error(
-                        f"Empty enriched YAML received from {provider} API. Raw response: {raw_response[:500]}"
-                    )
-                    # If we have enrichment_result but no YAML, provide more context
-                    if enrichment_result and isinstance(enrichment_result, dict):
-                        status = enrichment_result.get("status", "unknown")
-                        error_detail = f"Enrichment returned status '{status}' but no YAML. "
-                        issues = enrichment_result.get("issues")
-                        if issues:
-                            error_detail += f"Issues: {issues[:2] if isinstance(issues, list) else issues}"
-                        # Sanitize error message
-                        error_detail = error_detail.replace("\n", " ").replace("\r", " ").strip()
-                        raise HTTPException(status_code=400, detail=error_detail)
-                    raise HTTPException(
-                        status_code=500,
-                        detail=f"Empty response from {provider} API. Try again or use a different model.",
-                    )
-
-                logger.info(f"Successfully enriched rule {queue_id} {provider}/{model}, len={len(enriched_yaml)}")
-
-                enriched_normalization = normalize_rule_yaml(
-                    enriched_yaml,
-                    origin=prep["rule_origin"],
-                    canonical_author=prep["canonical_author"],
-                    attribution=prep["attribution"],
+        try:
+            # Validate we got a response
+            if not raw_response or not raw_response.strip():
+                logger.error(f"Empty response from {provider} API for rule {queue_id}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Empty response from {provider} API. Try again or use a different model.",
                 )
-                enriched_yaml = enriched_normalization.rule_yaml
 
-                response_data = {
-                    "success": True,
-                    "enriched_yaml": enriched_yaml,
-                    "publish_readiness": readiness_metadata(enriched_normalization),
-                    "raw_response": raw_response,
-                    "message": f"Rule {queue_id} enriched successfully",
-                }
-
-                try:
-                    response_data["conversation_id"] = await asyncio.to_thread(
-                        _create_enrichment_conversation,
-                        queue_id,
-                        provider,
-                        model,
-                        system_message,
-                        enrichment_prompt,
-                        raw_response,
-                    )
-                except Exception:
-                    # An enrichment remains usable if transcript persistence has a transient problem.
-                    logger.exception("Could not save enrichment conversation for rule %s", queue_id)
-                    response_data["conversation_id"] = None
-
-                # Include enrichment result metadata if available
-                if enrichment_result and isinstance(enrichment_result, dict):
-                    response_data["enrichment_status"] = enrichment_result.get("status")
-                    response_data["summary"] = enrichment_result.get("summary")
-                    response_data["issues"] = enrichment_result.get("issues", [])
-                    response_data["actions_taken"] = enrichment_result.get("actions_taken", [])
-                    response_data["diff_notes"] = enrichment_result.get("diff_notes", [])
-
-                return response_data
-            except httpx.TimeoutException as e:
-                raise HTTPException(status_code=504, detail="Request timeout. Please try again.") from e
+            # JSON envelope (sigma_enrichment OUTPUT CONTRACT) or legacy plain YAML
+            enriched_yaml = None
+            enrichment_result = None
+            try:
+                uy, meta = _enrichment_payload_from_llm_response(raw_response)
+                if meta is not None:
+                    enriched_yaml = uy
+                    enrichment_result = meta
+                    st = meta.get("status")
+                    logger.info("Parsed JSON enrichment response with status: %s", st)
+                    logger.debug("Parsed enrichment JSON keys: %s", list(meta.keys()))
+                    if str(meta.get("status", "")).lower() == "needs_revision":
+                        issues = meta.get("issues", [])
+                        if issues:
+                            logger.warning("Enrichment needs revision: %s", issues)
+                else:
+                    enriched_yaml = raw_response
+                    logger.debug("Enrichment response treated as legacy YAML (no JSON envelope)")
             except HTTPException:
                 raise
             except Exception as e:
-                logger.error(f"Error calling {provider} API: {e}", exc_info=True)
-                raise HTTPException(status_code=500, detail="Internal server error") from e
+                error_msg = _sanitize_error_detail(str(e))
+                logger.error(
+                    "Unexpected error parsing enrichment envelope: %s, preview=%r",
+                    error_msg,
+                    raw_response[:200],
+                    exc_info=True,
+                )
+                enriched_yaml = raw_response
+                enrichment_result = None
+
+            # Extract YAML from response (remove markdown code blocks / leading prose).
+            if enriched_yaml:
+                enriched_yaml = _extract_yaml_block(enriched_yaml)
+
+            # Validate that we got a response
+            if not enriched_yaml or not enriched_yaml.strip():
+                logger.error(f"Empty enriched YAML received from {provider} API. Raw response: {raw_response[:500]}")
+                # If we have enrichment_result but no YAML, provide more context
+                if enrichment_result and isinstance(enrichment_result, dict):
+                    status = enrichment_result.get("status", "unknown")
+                    error_detail = f"Enrichment returned status '{status}' but no YAML. "
+                    issues = enrichment_result.get("issues")
+                    if issues:
+                        error_detail += f"Issues: {issues[:2] if isinstance(issues, list) else issues}"
+                    # Sanitize error message
+                    error_detail = error_detail.replace("\n", " ").replace("\r", " ").strip()
+                    raise HTTPException(status_code=400, detail=error_detail)
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Empty response from {provider} API. Try again or use a different model.",
+                )
+
+            logger.info(f"Successfully enriched rule {queue_id} {provider}/{model}, len={len(enriched_yaml)}")
+
+            enriched_normalization = normalize_rule_yaml(
+                enriched_yaml,
+                origin=prep["rule_origin"],
+                canonical_author=prep["canonical_author"],
+                attribution=prep["attribution"],
+            )
+            enriched_yaml = enriched_normalization.rule_yaml
+
+            response_data = {
+                "success": True,
+                "enriched_yaml": enriched_yaml,
+                "publish_readiness": readiness_metadata(enriched_normalization),
+                "raw_response": raw_response,
+                "message": f"Rule {queue_id} enriched successfully",
+            }
+
+            try:
+                response_data["conversation_id"] = await asyncio.to_thread(
+                    _create_enrichment_conversation,
+                    queue_id,
+                    provider,
+                    model,
+                    system_message,
+                    enrichment_prompt,
+                    raw_response,
+                )
+            except Exception:
+                # An enrichment remains usable if transcript persistence has a transient problem.
+                logger.exception("Could not save enrichment conversation for rule %s", queue_id)
+                response_data["conversation_id"] = None
+
+            # Include enrichment result metadata if available
+            if enrichment_result and isinstance(enrichment_result, dict):
+                response_data["enrichment_status"] = enrichment_result.get("status")
+                response_data["summary"] = enrichment_result.get("summary")
+                response_data["issues"] = enrichment_result.get("issues", [])
+                response_data["actions_taken"] = enrichment_result.get("actions_taken", [])
+                response_data["diff_notes"] = enrichment_result.get("diff_notes", [])
+
+            return response_data
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error processing {provider} enrichment response: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail="Internal server error") from e
 
     except HTTPException:
         raise
@@ -1934,14 +1999,14 @@ async def continue_enrichment_chat(queue_id: int, conversation_id: int, chat_req
             rule = db_session.query(SigmaRuleQueueTable).filter(SigmaRuleQueueTable.id == queue_id).first()
             if not rule:
                 return {"error": "Queued rule not found", "status_code": 404}
-            settings = _load_workflow_provider_settings(db_session)
             return {
                 "conversation": _public_enrichment_conversation(conversation),
                 "messages": list(conversation.messages or []),
                 "provider": conversation.provider.lower(),
                 "model": conversation.model,
                 "article_id": rule.article_id,
-                "workflow_settings": settings,
+                "workflow_settings": _load_workflow_provider_settings(db_session),
+                "lmstudio_settings": _load_lmstudio_settings(db_session),
             }
         finally:
             db_session.close()
@@ -1951,31 +2016,19 @@ async def continue_enrichment_chat(queue_id: int, conversation_id: int, chat_req
         raise HTTPException(status_code=prep["status_code"], detail=prep["error"])
 
     provider = prep["provider"]
-    if provider not in {"openai", "codex", "anthropic", "lmstudio"}:
+    if provider not in SIGMA_AGENT_SUPPORTED_PROVIDERS:
         raise HTTPException(status_code=400, detail="This conversation uses an unsupported provider.")
-    api_key = None
-    if provider == "lmstudio":
-        api_key = "not_required"
-    elif provider == "codex":
-        codex_enabled = prep["workflow_settings"].get(WORKFLOW_PROVIDER_APPSETTING_KEYS["codex_enabled"])
-        if codex_enabled is None:
-            codex_enabled = os.getenv("WORKFLOW_CODEX_ENABLED", "false")
-        if str(codex_enabled).strip().lower() != "true":
-            raise HTTPException(
-                status_code=400,
-                detail="Codex subscription provider is disabled. Enable WORKFLOW_CODEX_ENABLED in Settings.",
-            )
-    else:
-        api_key = await resolve_provider_api_key(provider)
-        if not api_key or not api_key.strip():
-            raise HTTPException(status_code=400, detail=f"No {provider.capitalize()} API key is configured.")
+    # The stored conversation names the provider it started on; it may have been
+    # disabled since, so the replay passes the same gate as a new enrichment.
+    api_key = await _require_usable_provider(provider, prep["workflow_settings"])
+    model = (prep["model"] or "").strip() or _default_model_for_provider(provider, prep["lmstudio_settings"])
 
     messages = [*prep["messages"], {"role": "user", "content": user_message}]
     try:
         raw_response = await _call_traced_sigma_provider(
             agent_name="sigma_enrichment_chat",
             provider=provider,
-            model=prep["model"],
+            model=model,
             api_key=api_key,
             messages=messages,
             queue_id=queue_id,
@@ -1983,8 +2036,8 @@ async def continue_enrichment_chat(queue_id: int, conversation_id: int, chat_req
             attempt=sum(1 for message in messages if message.get("role") == "user"),
             max_tokens=4000,
             temperature=0.2,
-            timeout=180.0 if provider == "lmstudio" else 120.0,
-            failure_context=f"{provider.capitalize()} enrichment chat for rule {queue_id}",
+            timeout=_provider_timeout(provider),
+            failure_context=f"{_provider_label(provider)} enrichment chat for rule {queue_id}",
         )
     except CodexAppServerError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
@@ -2494,7 +2547,7 @@ async def validate_rule(request: Request, queue_id: int):
             else:
                 # Get provider and model from request, default to OpenAI
                 provider = (body.get("provider") or "openai").lower()
-                model = body.get("model") or "gpt-4o-mini"
+                model = (body.get("model") or "").strip() if isinstance(body.get("model"), str) else ""
                 if provider not in SIGMA_AGENT_SUPPORTED_PROVIDERS:
                     supported = ", ".join(SIGMA_AGENT_SUPPORTED_PROVIDERS)
                     return {
@@ -2508,21 +2561,18 @@ async def validate_rule(request: Request, queue_id: int):
                         "provider": provider,
                         "model": model,
                     }
-                # Get API key from request headers (not needed for LMStudio or Codex)
-                api_key = None
-                if provider == "openai":
-                    api_key = request.headers.get("X-OpenAI-API-Key")
-                elif provider == "anthropic":
-                    api_key = request.headers.get("X-Anthropic-API-Key")
-                elif provider == "lmstudio":
-                    api_key = "not_required"
-                elif provider == "codex":
-                    codex_settings = await asyncio.to_thread(_load_workflow_provider_settings, db_session)
-                    if not _provider_flag_enabled(codex_settings, "codex_enabled", "WORKFLOW_CODEX_ENABLED"):
-                        raise HTTPException(
-                            status_code=400,
-                            detail="Codex subscription provider is disabled. Enable WORKFLOW_CODEX_ENABLED in Settings.",
-                        )
+                # Refuse a disabled or unconfigured provider before anything is billed. The
+                # page cannot read stored keys back any more, so an absent header is the
+                # normal case: the stored key is resolved server-side; a header key, when
+                # sent, is the one billed.
+                workflow_settings = await asyncio.to_thread(_load_workflow_provider_settings, db_session)
+                api_key = await _require_usable_provider(
+                    provider, workflow_settings, _provider_header_key(request, provider)
+                )
+                if not model:
+                    # Resolve exactly as the shared LLM client would for this provider.
+                    lmstudio_settings = await asyncio.to_thread(_load_lmstudio_settings, db_session)
+                    model = _default_model_for_provider(provider, lmstudio_settings)
 
             # Use modal rule YAML when provided so edits are validated
             current_rule_yaml_from_request = None
@@ -2532,25 +2582,6 @@ async def validate_rule(request: Request, queue_id: int):
             # Initialize conversation log before any early returns
             conversation_log = []
             validation_results = []
-
-            # The page cannot read stored keys back any more, so an absent header is
-            # the normal case: resolve server-side before reporting a missing key.
-            if provider not in SIGMA_AGENT_KEYLESS_PROVIDERS and (not api_key or not api_key.strip()):
-                api_key = await resolve_provider_api_key(provider)
-
-            if provider not in SIGMA_AGENT_KEYLESS_PROVIDERS and (not api_key or not api_key.strip()):
-                # Return error response with empty conversation log
-                return {
-                    "success": False,
-                    "validated_yaml": None,
-                    "errors": [f"No {provider.capitalize()} API key is configured. Add one in Settings."],
-                    "attempts": 0,
-                    "message": f"API key is required for {provider}",
-                    "conversation_log": conversation_log,
-                    "validation_results": validation_results,
-                    "provider": provider,
-                    "model": model,
-                }
 
             system_message = SIGMA_QUEUE_VALIDATION_SYSTEM_PROMPT
 
@@ -2638,238 +2669,134 @@ async def validate_rule(request: Request, queue_id: int):
                     {"role": "user", "content": validation_prompt},
                 ]
 
-                # Call provider API to enrich/fix the rule
-                async with httpx.AsyncClient() as client:
+                # Call provider API to enrich/fix the rule: one call for every provider,
+                # failures map through the same error table as enrichment.
+                try:
+                    raw_response = None
+                    error_occurred = None
                     try:
-                        raw_response = None
-                        error_occurred = None
-
-                        if provider == "openai":
-                            try:
-                                raw_response = await _call_traced_sigma_provider(
-                                    agent_name="sigma_validation",
-                                    provider=provider,
-                                    model=model,
-                                    api_key=api_key,
-                                    messages=attempt_messages,
-                                    queue_id=queue_id,
-                                    article_id=rule.article_id,
-                                    attempt=attempt,
-                                    max_tokens=4000,
-                                    temperature=0.2,
-                                    timeout=120.0,
-                                    failure_context=f"OpenAI validation API for rule {queue_id}",
-                                )
-                                raw_response = raw_response.strip()
-                            except ValueError as e:
-                                error_occurred = type(e).__name__
-                                raise HTTPException(status_code=400, detail="Provider response processing error") from e
-                            except RuntimeError as e:
-                                err = str(e)
-                                error_occurred = err
-                                if "401" in err or "invalid" in err.lower() or "expired" in err.lower():
-                                    raise HTTPException(
-                                        status_code=401,
-                                        detail="OpenAI API key is invalid or expired. Please check your API key.",
-                                    ) from e
-                                if "429" in err or "rate limit" in err.lower():
-                                    raise HTTPException(
-                                        status_code=429,
-                                        detail="OpenAI API rate limit exceeded. Please wait and try again.",
-                                    ) from e
-                                logger.error("OpenAI API error: %s", err)
-                                raise HTTPException(
-                                    status_code=502, detail="OpenAI API request failed. Please try again."
-                                ) from e
-
-                        elif provider == "anthropic":
-                            try:
-                                raw_response = await _call_traced_sigma_provider(
-                                    agent_name="sigma_validation",
-                                    provider=provider,
-                                    model=model,
-                                    api_key=api_key,
-                                    messages=attempt_messages,
-                                    queue_id=queue_id,
-                                    article_id=rule.article_id,
-                                    attempt=attempt,
-                                    max_tokens=4000,
-                                    temperature=0.2,
-                                    timeout=120.0,
-                                    failure_context=f"Anthropic validation API for rule {queue_id}",
-                                )
-                            except AnthropicProviderError as e:
-                                status_code = e.status_code or 502
-                                error_detail = f"Anthropic API error: {status_code}"
-                                if status_code == 401:
-                                    error_detail = "Anthropic API key is invalid or expired. Please check your API key."
-                                elif status_code == 429:
-                                    error_detail = "Anthropic API rate limit exceeded. Please wait and try again."
-                                logger.error("Anthropic API error: %s", e)
-                                error_occurred = error_detail
-                                raise HTTPException(status_code=status_code, detail=error_detail) from e
-
-                        elif provider == "lmstudio":
-                            raw_response = await _call_traced_sigma_provider(
-                                agent_name="sigma_validation",
-                                provider=provider,
-                                model=model,
-                                api_key=api_key,
-                                messages=attempt_messages,
-                                queue_id=queue_id,
-                                article_id=rule.article_id,
-                                attempt=attempt,
-                                max_tokens=4000,
-                                temperature=0.2,
-                                timeout=180.0,
-                                failure_context=f"LMStudio repair API for rule {queue_id}",
-                            )
-                        elif provider == "codex":
-                            try:
-                                raw_response = await _call_traced_sigma_provider(
-                                    agent_name="sigma_validation",
-                                    provider=provider,
-                                    model=model,
-                                    api_key=None,
-                                    messages=attempt_messages,
-                                    queue_id=queue_id,
-                                    article_id=rule.article_id,
-                                    attempt=attempt,
-                                    max_tokens=4000,
-                                    temperature=0.2,
-                                    timeout=120.0,
-                                    failure_context=f"Codex subscription repair for rule {queue_id}",
-                                )
-                            except CodexAppServerError as e:
-                                error_occurred = str(e)
-                                raise HTTPException(status_code=502, detail=str(e)) from e
-                        else:
-                            supported = ", ".join(SIGMA_AGENT_SUPPORTED_PROVIDERS)
-                            raise HTTPException(
-                                status_code=400,
-                                detail=f"Unsupported provider '{provider}'. Supported providers: {supported}.",
-                            )
-
-                        if not raw_response:
-                            error_occurred = "Empty response from LLM"
-                            raise HTTPException(status_code=500, detail="LLM returned empty response")
-
-                        # Extract YAML from response (remove markdown code blocks if present)
-                        enriched_yaml = raw_response
-                        if enriched_yaml.startswith("```"):
-                            lines = enriched_yaml.split("\n")
-                            enriched_yaml = (
-                                "\n".join(lines[1:-1]) if lines[-1].startswith("```") else "\n".join(lines[1:])
-                            )
-
-                        # Validate with pySIGMA
-                        validation_result = validate_sigma_rule(enriched_yaml)
-                        attempt_validation_results = [validation_result]
-                        all_valid = validation_result.is_valid
-
-                        # Store validation result
-                        validation_results.append(
-                            {
-                                "is_valid": validation_result.is_valid,
-                                "errors": validation_result.errors,
-                                "warnings": validation_result.warnings,
-                                "rule_index": 1,
-                            }
+                        raw_response = await _call_traced_sigma_provider(
+                            agent_name="sigma_validation",
+                            provider=provider,
+                            model=model,
+                            api_key=api_key,
+                            messages=attempt_messages,
+                            queue_id=queue_id,
+                            article_id=rule.article_id,
+                            attempt=attempt,
+                            max_tokens=4000,
+                            temperature=0.2,
+                            timeout=_provider_timeout(provider),
+                            failure_context=f"{_provider_label(provider)} validation for rule {queue_id}",
                         )
-
-                        # Store conversation log entry
-                        conversation_log.append(
-                            {
-                                "attempt": attempt,
-                                "messages": attempt_messages,
-                                "llm_response": raw_response if raw_response else "",
-                                "validation": [
-                                    {
-                                        "is_valid": validation_result.is_valid,
-                                        "errors": validation_result.errors,
-                                        "warnings": validation_result.warnings,
-                                        "rule_index": 1,
-                                    }
-                                ],
-                                "all_valid": all_valid,
-                                "error": None,
-                            }
-                        )
-
-                        if validation_result.is_valid:
-                            # Validation passed!
-                            logger.info(f"Validation passed on attempt {attempt} for rule {queue_id}")
-                            return {
-                                "success": True,
-                                "validated_yaml": enriched_yaml,
-                                "raw_response": raw_response,
-                                "attempts": attempt,
-                                "message": f"Rule validated successfully after {attempt} attempt(s)",
-                                "conversation_log": conversation_log,
-                                "validation_results": validation_results,
-                                "provider": provider,
-                                "model": model,
-                            }
-                        # Validation failed, collect errors for next attempt
-                        validation_errors = validation_result.errors
-                        current_rule_yaml = enriched_yaml  # Use enriched version for next attempt
-                        # Update previous_yaml_preview for feedback prompt (same as AI/ML Assistant modal)
-                        if validation_result.content_preview:
-                            previous_yaml_preview = validation_result.content_preview
-                        else:
-                            previous_yaml_preview = enriched_yaml[:VALIDATION_RULE_MAX_CHARS] if enriched_yaml else ""
-                        logger.warning(f"Validation failed on attempt {attempt}: {validation_errors}")
-
-                    except httpx.TimeoutException:
-                        error_occurred = "Request timeout"
-                        conversation_log.append(
-                            {
-                                "attempt": attempt,
-                                "messages": attempt_messages,
-                                "llm_response": "",
-                                "validation": [],
-                                "all_valid": False,
-                                "error": "Request timeout",
-                            }
-                        )
-                        # Don't raise, continue to next attempt or return with conversation log
-                        if attempt == max_attempts:
-                            break  # Exit loop to return final result
-                        continue
-                    except HTTPException as e:
-                        if not error_occurred:
-                            error_occurred = f"HTTP error: {e.detail}"
-                        conversation_log.append(
-                            {
-                                "attempt": attempt,
-                                "messages": attempt_messages,
-                                "llm_response": "",
-                                "validation": [],
-                                "all_valid": False,
-                                "error": error_occurred,
-                            }
-                        )
-                        # Don't raise, continue to next attempt or return with conversation log
-                        if attempt == max_attempts:
-                            break  # Exit loop to return final result
-                        continue
                     except Exception as e:
-                        error_occurred = type(e).__name__
-                        conversation_log.append(
-                            {
-                                "attempt": attempt,
-                                "messages": attempt_messages,
-                                "llm_response": "",
-                                "validation": [],
-                                "all_valid": False,
-                                "error": type(e).__name__,
-                            }
-                        )
-                        logger.error("Error calling provider API: %s", type(e).__name__)
-                        # Don't raise, continue to next attempt or return with conversation log
-                        if attempt == max_attempts:
-                            break  # Exit loop to return final result
-                        continue
+                        mapped = _provider_http_error(provider, e)
+                        error_occurred = str(mapped.detail)
+                        raise mapped from e
+                    raw_response = (raw_response or "").strip()
+
+                    if not raw_response:
+                        error_occurred = "Empty response from LLM"
+                        raise HTTPException(status_code=500, detail="LLM returned empty response")
+
+                    # Extract YAML from response (remove markdown code blocks if present)
+                    enriched_yaml = raw_response
+                    if enriched_yaml.startswith("```"):
+                        lines = enriched_yaml.split("\n")
+                        enriched_yaml = "\n".join(lines[1:-1]) if lines[-1].startswith("```") else "\n".join(lines[1:])
+
+                    # Validate with pySIGMA
+                    validation_result = validate_sigma_rule(enriched_yaml)
+                    attempt_validation_results = [validation_result]
+                    all_valid = validation_result.is_valid
+
+                    # Store validation result
+                    validation_results.append(
+                        {
+                            "is_valid": validation_result.is_valid,
+                            "errors": validation_result.errors,
+                            "warnings": validation_result.warnings,
+                            "rule_index": 1,
+                        }
+                    )
+
+                    # Store conversation log entry
+                    conversation_log.append(
+                        {
+                            "attempt": attempt,
+                            "messages": attempt_messages,
+                            "llm_response": raw_response if raw_response else "",
+                            "validation": [
+                                {
+                                    "is_valid": validation_result.is_valid,
+                                    "errors": validation_result.errors,
+                                    "warnings": validation_result.warnings,
+                                    "rule_index": 1,
+                                }
+                            ],
+                            "all_valid": all_valid,
+                            "error": None,
+                        }
+                    )
+
+                    if validation_result.is_valid:
+                        # Validation passed!
+                        logger.info(f"Validation passed on attempt {attempt} for rule {queue_id}")
+                        return {
+                            "success": True,
+                            "validated_yaml": enriched_yaml,
+                            "raw_response": raw_response,
+                            "attempts": attempt,
+                            "message": f"Rule validated successfully after {attempt} attempt(s)",
+                            "conversation_log": conversation_log,
+                            "validation_results": validation_results,
+                            "provider": provider,
+                            "model": model,
+                        }
+                    # Validation failed, collect errors for next attempt
+                    validation_errors = validation_result.errors
+                    current_rule_yaml = enriched_yaml  # Use enriched version for next attempt
+                    # Update previous_yaml_preview for feedback prompt (same as AI/ML Assistant modal)
+                    if validation_result.content_preview:
+                        previous_yaml_preview = validation_result.content_preview
+                    else:
+                        previous_yaml_preview = enriched_yaml[:VALIDATION_RULE_MAX_CHARS] if enriched_yaml else ""
+                    logger.warning(f"Validation failed on attempt {attempt}: {validation_errors}")
+
+                except HTTPException as e:
+                    if not error_occurred:
+                        error_occurred = f"HTTP error: {e.detail}"
+                    conversation_log.append(
+                        {
+                            "attempt": attempt,
+                            "messages": attempt_messages,
+                            "llm_response": "",
+                            "validation": [],
+                            "all_valid": False,
+                            "error": error_occurred,
+                        }
+                    )
+                    # Don't raise, continue to next attempt or return with conversation log
+                    if attempt == max_attempts:
+                        break  # Exit loop to return final result
+                    continue
+                except Exception as e:
+                    error_occurred = type(e).__name__
+                    conversation_log.append(
+                        {
+                            "attempt": attempt,
+                            "messages": attempt_messages,
+                            "llm_response": "",
+                            "validation": [],
+                            "all_valid": False,
+                            "error": type(e).__name__,
+                        }
+                    )
+                    logger.error("Error calling provider API: %s", type(e).__name__)
+                    # Don't raise, continue to next attempt or return with conversation log
+                    if attempt == max_attempts:
+                        break  # Exit loop to return final result
+                    continue
 
             # All attempts failed
             logger.error(f"Validation failed after {max_attempts} attempts for rule {queue_id}")
