@@ -147,14 +147,16 @@ test = [
     # Exact pins per single-parent convention (pip<-pip-api, msgpack<-cachecontrol).
     "pip-audit==2.10.0",
     "pip==26.2",
-    "msgpack==1.2.1",
+    "msgpack==1.2.3",  # + 1 newer advisory fixed in 1.2.3 (2026-11-01)
+    # pre-commit -> virtualenv: 21.2.4 carried 19 advisories, fixed by 21.14.9 (2026-11-01).
+    "virtualenv>=21.14.9",
     # safety -> nltk 3.10.0 carries a batch of freshly-disclosed CVEs (GHSA-rf74-v2fm-23pw
     # family plus PYSEC-2026-3733/3735/3737-3741/3748-3752 and CVE-2026-12876/71513/71514/
     # 72818/78680/81723); 3.10.3 fixes all of them. Single-parent transitive pin (safety
     # is the sole parent).
     "nltk==3.10.3",
     "safety==3.8.1",
-    "black==26.3.1",
+    "black==26.10.1",  # 1 advisory fixed in 26.10.1 (2026-11-01)
     "isort==5.12.0",
     "mypy==1.8.0",
     "sphinx==9.0.4",
