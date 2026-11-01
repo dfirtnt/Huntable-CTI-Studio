@@ -42,6 +42,11 @@ class SigmaEmptyResponseError(ValueError):
 # group holding nothing but atomic indicators (domains, URLs) has no permitted answer.
 SIGMA_NO_RULES_EMPTY_REPLY = "model_returned_empty_reply"
 
+# Extra Phase 1 calls made after an empty reply. An empty reply can be a provider/transport
+# glitch (execution 115: Codex agentMessage with no text) rather than a deliberate "nothing",
+# so retry once. Bounded because every call bills the Sigma provider (LMStudio excepted).
+SIGMA_EMPTY_REPLY_MAX_RETRIES = 1
+
 # Optional top-level Sigma fields preserved from the generated YAML into the stored rule
 # dict (and therefore the queue YAML).
 SIGMA_OPTIONAL_RULE_FIELDS = ("author", "date", "modified", "references", "falsepositives", "fields")
@@ -405,6 +410,9 @@ class RuleValidationResult:
     final_status: str = "pending"
     observables_used: list[int] | None = None
     observables_used_inferred: bool = False
+    # Pre-repair validation of the original draft; set by _repair_rules so a successful
+    # repair (which replaces validation_result) doesn't erase why the draft failed.
+    initial_validation: dict[str, Any] | None = None
 
     def __post_init__(self):
         if self.repair_attempts is None:
@@ -670,24 +678,36 @@ class SigmaGenerationService:
 
             # Phase 1: Multi-rule generation (structurally constrained)
             logger.info("Phase 1: Multi-rule generation")
-            try:
-                generated_yaml = await self._generate_multi_rules(
-                    sigma_prompt=sigma_prompt,
-                    sigma_system_prompt=sigma_system_prompt,
-                    ai_model=ai_model,
-                    execution_id=execution_id,
-                    article_id=article_id,
-                )
-            except (SigmaEmptyResponseError, CodexEmptyAgentMessageError) as empty_reply:
-                # An empty reply is the model declining to write a rule, not a provider fault
-                # (executions 26, 37-40: network_connection groups holding only C2 domains/URLs
-                # under a "behavior over IOC" prompt). It means zero rules for this call.
+            # An empty reply may be the model declining to write a rule (executions 26, 37-40:
+            # network_connection groups holding only C2 domains/URLs) or a provider glitch
+            # (execution 115). The reply alone can't tell them apart, so retry a bounded number
+            # of times; if every attempt is empty, it means zero rules for this call.
+            empty_replies: list[Exception] = []
+            generated_yaml = None
+            for _ in range(1 + SIGMA_EMPTY_REPLY_MAX_RETRIES):
+                try:
+                    generated_yaml = await self._generate_multi_rules(
+                        sigma_prompt=sigma_prompt,
+                        sigma_system_prompt=sigma_system_prompt,
+                        ai_model=ai_model,
+                        execution_id=execution_id,
+                        article_id=article_id,
+                    )
+                    break
+                except (SigmaEmptyResponseError, CodexEmptyAgentMessageError) as empty_reply:
+                    empty_replies.append(empty_reply)
+                    logger.warning(
+                        f"SIGMA generation: empty reply on attempt {len(empty_replies)}/"
+                        f"{1 + SIGMA_EMPTY_REPLY_MAX_RETRIES}: {empty_reply}"
+                    )
+            else:
                 return self._empty_reply_result(
-                    empty_reply,
+                    empty_replies[-1],
                     ai_model=ai_model,
                     sigma_prompt=sigma_prompt,
                     sigma_system_prompt=sigma_system_prompt,
                     extraction_result=extraction_result,
+                    attempts=len(empty_replies),
                 )
 
             # Phase 2: Validation & Categorization
@@ -863,6 +883,8 @@ class SigmaGenerationService:
                         "rule_index": rule_result.rule_index,
                     },
                 }
+                if rule_result.initial_validation is not None:
+                    rule_log["initial_validation"] = rule_result.initial_validation
                 conversation_log.append(rule_log)
 
             # Build validation results summary
@@ -951,8 +973,9 @@ class SigmaGenerationService:
         sigma_prompt: str,
         sigma_system_prompt: str | None,
         extraction_result: dict[str, Any] | None,
+        attempts: int = 1,
     ) -> dict[str, Any]:
-        """Result for a Phase 1 call the model answered with no text: zero rules, no error."""
+        """Result for Phase 1 calls the model answered with no text every time: zero rules, no error."""
         provider = self._resolve_sigma_provider(ai_model)
         model_name = self.llm_service.model_sigma or self.llm_service.provider_defaults.get(provider)
         group = extraction_result.get("sigma_generation_group") if isinstance(extraction_result, dict) else None
@@ -968,18 +991,19 @@ class SigmaGenerationService:
             "detail": str(empty_reply),
             "provider": provider,
             "model": model_name,
+            "attempts": attempts,
         }
         return {
             "rules": [],
             "metadata": {
-                "total_attempts": 1,
+                "total_attempts": attempts,
                 "valid_rules": 0,
                 "validation_results": [],
                 "conversation_log": [
                     {
                         "event_type": "generation_call",
                         "generation_phase": "generation",
-                        "attempt": 1,
+                        "attempt": attempts,
                         "messages": [
                             {
                                 "role": "system",
@@ -1194,6 +1218,13 @@ class SigmaGenerationService:
 
         for rule_result in invalid_rules:
             logger.info(f"Repairing rule {rule_result.rule_id} (attempt 1/{max_repair_attempts_per_rule})")
+
+            if rule_result.initial_validation is None:
+                rule_result.initial_validation = {
+                    "is_valid": rule_result.validation_result.is_valid,
+                    "errors": list(rule_result.validation_result.errors),
+                    "warnings": list(rule_result.validation_result.warnings),
+                }
 
             previous_errors_text = (
                 "\n".join(rule_result.validation_result.errors)

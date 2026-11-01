@@ -1840,6 +1840,7 @@ async function openEnrichModal() {
     // Reset state
     currentEnrichedYaml = null;
     enrichIteration = 0;
+    _renderEnrichValidation(null, null);
     
     // Set original rule YAML from current modal content (including unsaved edits)
     document.getElementById('enrichOriginalRule').value = getCurrentRuleYamlFromModal();
@@ -2795,12 +2796,13 @@ async function enrichRule() {
             
             // Update current enriched state
             currentEnrichedYaml = enrichedYaml;
-            
+
             // Set enriched rule in textarea
             textarea.value = enrichedYaml;
-            
+            _renderEnrichValidation(data.validation || null, enrichedYaml);
+
             setRawLLMResponse(rawResponse);
-            
+
             // Update labels and info based on iteration
             if (isIterative) {
                 leftLabel.textContent = `Previous (Iteration ${enrichIteration - 1})`;
@@ -2861,14 +2863,66 @@ async function enrichRule() {
     }
 }
 
+// pySigma result for the YAML the server last returned from /enrich: { yaml, validation }.
+let lastEnrichValidation = null;
+
+function _renderEnrichValidation(validation, yaml) {
+    lastEnrichValidation = validation ? { yaml, validation } : null;
+    const panel = document.getElementById('enrichValidation');
+    if (!panel) return;
+    panel.replaceChildren();
+    if (!validation) {
+        panel.classList.add('hidden');
+        return;
+    }
+    const ok = validation.is_valid === true;
+    panel.className = `mb-3 rounded-md border p-3 text-sm ${ok
+        ? 'border-green-300 bg-green-50 text-green-800 dark:border-green-700 dark:bg-green-900/30 dark:text-green-200'
+        : 'border-red-300 bg-red-50 text-red-800 dark:border-red-700 dark:bg-red-900/30 dark:text-red-200'}`;
+    const heading = document.createElement('p');
+    heading.className = 'font-semibold';
+    heading.textContent = ok
+        ? 'pySigma validation passed.'
+        : 'pySigma validation failed. Fix these before applying, or rerun enrichment:';
+    panel.appendChild(heading);
+    const errors = validation.errors || [];
+    if (!ok && errors.length) {
+        const list = document.createElement('ul');
+        list.className = 'mt-1 list-disc pl-5';
+        errors.forEach((error) => {
+            const item = document.createElement('li');
+            item.textContent = error;
+            list.appendChild(item);
+        });
+        panel.appendChild(list);
+    }
+    const warnings = validation.warnings || [];
+    if (warnings.length) {
+        const note = document.createElement('p');
+        note.className = 'mt-1 text-xs opacity-80';
+        note.textContent = `Warnings (non-blocking): ${warnings.join('; ')}`;
+        panel.appendChild(note);
+    }
+}
+
 async function applyEnrichedRule() {
     const enrichedYaml = document.getElementById('enrichedRuleYaml').value;
     if (!enrichedYaml.trim()) {
         showNotification('No enriched rule to apply', 'warning');
         return;
     }
-    
-    if (!await ModalManager.confirm('Apply the enriched rule? This will update the rule YAML.', { title: 'Apply Enriched Rule', confirmText: 'Apply', confirmClass: 'bg-purple-600 hover:bg-purple-700' })) return;
+
+    // Only trust the validation result if the operator hasn't edited the YAML since.
+    const knownInvalid = lastEnrichValidation
+        && lastEnrichValidation.yaml === enrichedYaml
+        && lastEnrichValidation.validation.is_valid === false;
+    const confirmMessage = knownInvalid
+        ? `This enriched rule failed pySigma validation: ${(lastEnrichValidation.validation.errors || []).join('; ')}. Apply it anyway?`
+        : 'Apply the enriched rule? This will update the rule YAML.';
+    const confirmOptions = knownInvalid
+        ? { title: 'Apply Invalid Rule?', confirmText: 'Apply anyway', confirmClass: 'bg-red-600 hover:bg-red-700' }
+        : { title: 'Apply Enriched Rule', confirmText: 'Apply', confirmClass: 'bg-purple-600 hover:bg-purple-700' };
+    if (!await ModalManager.confirm(confirmMessage, confirmOptions)) return;
     
     try {
         const response = await fetch(`/api/sigma-queue/${currentRuleId}/yaml`, {
@@ -3011,9 +3065,10 @@ async function enrichRuleFurther() {
             
             // Set enriched rule in textarea
             textarea.value = enrichedYaml;
-            
+            _renderEnrichValidation(data.validation || null, enrichedYaml);
+
             setRawLLMResponse(rawResponse);
-            
+
             // Update labels for iterative enrichment
             leftLabel.textContent = `Previous (Iteration ${enrichIteration - 1})`;
             rightLabel.textContent = `Enriched (Iteration ${enrichIteration})`;

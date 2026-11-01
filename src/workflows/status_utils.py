@@ -14,6 +14,9 @@ from typing import Any
 TERMINATION_REASON_RANK_THRESHOLD = "rank_below_threshold"
 TERMINATION_REASON_NO_SIGMA_RULES = "no_sigma_rules_generated"
 TERMINATION_REASON_JUNK_FILTER = "no_huntable_content"
+# Completed with rules, but at least one Sigma generation group got an empty model reply on
+# every attempt; its rules are missing. Informational only -- it does not stop the workflow.
+TERMINATION_REASON_SIGMA_GROUPS_NO_REPLY = "sigma_groups_no_reply"
 
 
 def _prepare_termination_payload(

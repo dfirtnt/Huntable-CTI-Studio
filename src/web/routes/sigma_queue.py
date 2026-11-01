@@ -1837,11 +1837,31 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                     logger.exception("Could not save enrichment conversation for rule %s", queue_id)
                     response_data["conversation_id"] = None
 
+                # The model's "pass" is a claim, not a check: run pySigma + the policy validators on
+                # what the operator would apply. No automatic repair call (it would bill the provider
+                # again); errors go back to the operator to rerun or fix via the revision chat.
+                validation = await asyncio.to_thread(validate_sigma_rule, enriched_yaml)
+                response_data["validation"] = {
+                    "is_valid": validation.is_valid,
+                    "errors": list(validation.errors),
+                    "warnings": list(validation.warnings),
+                }
+
                 # Include enrichment result metadata if available
                 if enrichment_result and isinstance(enrichment_result, dict):
-                    response_data["enrichment_status"] = enrichment_result.get("status")
+                    status = enrichment_result.get("status")
+                    issues = enrichment_result.get("issues", [])
+                    issues = list(issues) if isinstance(issues, list) else []
+                    if not validation.is_valid:
+                        if str(status or "").strip().lower() == "pass":
+                            status = "needs_revision"
+                        issues.extend(
+                            {"directive": "standard", "severity": "high", "type": "schema", "message": error}
+                            for error in validation.errors
+                        )
+                    response_data["enrichment_status"] = status
                     response_data["summary"] = enrichment_result.get("summary")
-                    response_data["issues"] = enrichment_result.get("issues", [])
+                    response_data["issues"] = issues
                     response_data["actions_taken"] = enrichment_result.get("actions_taken", [])
                     response_data["diff_notes"] = enrichment_result.get("diff_notes", [])
 

@@ -498,6 +498,107 @@ class TestSigmaEnrichAPI:
         assert "d8" not in toggles
 
 
+_ENRICH_RULE_HEADER = """title: Hidden PowerShell Process Launch with RunAs
+id: 6e7a5413-0ac4-4c9a-8fb0-265a8aeaf179
+status: experimental
+description: Detects PowerShell using Start-Process to launch a process with the RunAs verb and a hidden window.
+author: Unit Test Author
+date: '2026-10-26'
+tags:
+- attack.execution
+- attack.t1059.001
+logsource:
+  category: process_creation
+  product: windows
+"""
+_ENRICH_RULE_FOOTER = """falsepositives:
+- Administrative scripts
+level: medium
+"""
+# windash combined with all: pySigma raises WindowsDashCombinedWithAllModifierIssue.
+INVALID_WINDASH_ALL_RULE = (
+    _ENRICH_RULE_HEADER
+    + """detection:
+  selection:
+    CommandLine|contains|all|windash:
+    - -FilePath
+    - -Verb
+    - -WindowStyle
+  condition: selection
+"""
+    + _ENRICH_RULE_FOOTER
+)
+VALID_SPLIT_WINDASH_RULE = (
+    _ENRICH_RULE_HEADER
+    + """detection:
+  selection_filepath:
+    CommandLine|contains|windash: -FilePath
+  selection_verb:
+    CommandLine|contains|windash: -Verb
+  condition: selection_filepath and selection_verb
+"""
+    + _ENRICH_RULE_FOOTER
+)
+
+
+@pytest.mark.api
+class TestEnrichValidatesOutput:
+    """The model's "pass" is only a claim; enrich must run pySigma on what Apply would write."""
+
+    @staticmethod
+    async def _enrich_with_model_reply(rule_yaml: str, status: str = "pass"):
+        from starlette.requests import Request
+
+        from src.web.routes.sigma_queue import EnrichRuleRequest, enrich_rule
+
+        mock_request = MagicMock(spec=Request)
+        mock_request.headers = {}
+        enrich_request = EnrichRuleRequest(provider="codex", model="gpt-5.6-luna", author_value="Unit Test Author")
+
+        with (
+            patch("src.web.routes.sigma_queue.DatabaseManager") as mock_db_manager,
+            patch("src.web.routes.sigma_queue.CodexAppServerClient") as mock_codex_client,
+            patch.dict(os.environ, {"WORKFLOW_CODEX_ENABLED": "true"}),
+        ):
+            mock_session = MagicMock()
+            mock_db_manager.return_value.get_session.return_value = mock_session
+            mock_rule = MagicMock(id=1, rule_yaml=rule_yaml, article_id=1)
+            mock_article = MagicMock(content="Test article content", title="Test Article", canonical_url="")
+            mock_session.query.return_value.filter.return_value.first.side_effect = [mock_rule, mock_article, None]
+            envelope = {"status": status, "summary": "ok", "issues": [], "updated_sigma_yaml": rule_yaml}
+            mock_codex_client.return_value.complete = AsyncMock(
+                return_value={
+                    "choices": [{"message": {"content": json.dumps(envelope)}}],
+                    "usage": {"total_tokens": 42},
+                    "model": "gpt-5.6-luna",
+                }
+            )
+            result = await enrich_rule(mock_request, queue_id=1, enrich_request=enrich_request)
+            # No automatic repair: exactly one billed provider call per enrich.
+            assert mock_codex_client.return_value.complete.await_count == 1
+        return result
+
+    @pytest.mark.asyncio
+    async def test_pass_with_pysigma_invalid_rule_is_downgraded(self):
+        result = await self._enrich_with_model_reply(INVALID_WINDASH_ALL_RULE)
+
+        assert result["validation"]["is_valid"] is False
+        assert result["enrichment_status"] == "needs_revision"
+        schema_issues = [i for i in result["issues"] if i["type"] == "schema" and i["directive"] == "standard"]
+        assert schema_issues
+        assert any("windash" in i["message"].lower() for i in schema_issues)
+        assert [i["message"] for i in schema_issues] == result["validation"]["errors"]
+
+    @pytest.mark.asyncio
+    async def test_valid_rule_keeps_model_status(self):
+        result = await self._enrich_with_model_reply(VALID_SPLIT_WINDASH_RULE)
+
+        assert result["validation"]["is_valid"] is True, result["validation"]["errors"]
+        assert result["validation"]["errors"] == []
+        assert result["enrichment_status"] == "pass"
+        assert result["issues"] == []
+
+
 @pytest.mark.api
 class TestEnrichResolvesTheStoredKey:
     """Enrich stopped requiring the browser to hand it a provider key.

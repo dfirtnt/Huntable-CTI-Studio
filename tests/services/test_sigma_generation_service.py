@@ -1108,6 +1108,77 @@ level: medium
                                     assert len(log_entry["repair_attempts"]) > 0
 
     @pytest.mark.asyncio
+    async def test_repaired_rule_trace_keeps_initial_validation_errors(self, service, sample_article_data):
+        """A successful repair must not erase why the original draft failed."""
+        invalid_rule = """title: Invalid Rule
+id: invalid-1
+description: Missing detection
+logsource:
+    category: process_creation
+    product: windows
+"""
+        repaired_rule = """title: Valid Rule
+id: valid-1
+description: Fixed rule
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        CommandLine|contains: 'test'
+    condition: selection
+level: medium
+"""
+
+        def validate_side_effect(rule_str):
+            if "detection:" in rule_str and "condition:" in rule_str:
+                return ValidationResult(
+                    is_valid=True,
+                    errors=[],
+                    warnings=[],
+                    metadata={"rule": yaml.safe_load(rule_str)},
+                    content_preview=rule_str,
+                )
+            return ValidationResult(
+                is_valid=False,
+                errors=["Missing detection"],
+                warnings=["draft warning"],
+                metadata=None,
+                content_preview=rule_str,
+            )
+
+        with (
+            patch("src.services.sigma_generation_service.optimize_article_content") as mock_optimize,
+            patch("src.utils.prompt_loader.format_prompt_async", return_value="Generate rule"),
+            patch.object(service, "_call_provider_for_sigma", side_effect=[invalid_rule, repaired_rule]),
+            patch("src.services.sigma_generation_service.validate_sigma_rule", side_effect=validate_side_effect),
+        ):
+            mock_optimize.return_value = {
+                "success": True,
+                "filtered_content": sample_article_data["content"],
+                "tokens_saved": 0,
+            }
+            result = await service.generate_sigma_rules(
+                article_title=sample_article_data["title"],
+                article_content=sample_article_data["content"],
+                source_name=sample_article_data["source_name"],
+                url=sample_article_data["url"],
+                max_repair_attempts_per_rule=3,
+            )
+
+        rule_logs = [e for e in result["metadata"]["conversation_log"] if e.get("event_type") == "rule_validation"]
+        assert len(rule_logs) == 1
+        entry = rule_logs[0]
+        assert entry["final_status"] == "repaired"
+        assert entry["validation"]["is_valid"] is True
+        assert entry["validation"]["errors"] == []
+        assert entry["initial_validation"] == {
+            "is_valid": False,
+            "errors": ["Missing detection"],
+            "warnings": ["draft warning"],
+        }
+
+    @pytest.mark.asyncio
     async def test_observables_used_survives_repair_of_yaml_invalid_escape(self, service, sample_article_data):
         """Regression for execution 3778: observables_used must survive Phase 3 repair.
 
