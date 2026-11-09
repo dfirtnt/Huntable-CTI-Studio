@@ -1,5 +1,6 @@
 # Environment variables and secrets
 .env
+.env.*
 .env.local
 .env.production
 .env.staging
@@ -52,6 +53,8 @@ venv.bak/
 .venv-*/
 
 # IDE and editors
+# Keep machine-local command approvals out of Git at every directory depth.
+**/.claude/settings.local.json
 .claude/*
 !.claude/skills/
 !.claude/skills/**
