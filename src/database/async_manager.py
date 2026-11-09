@@ -1005,43 +1005,37 @@ class AsyncDatabaseManager:
 
                 logger.info(f"Created article with deduplication: {article.title}")
 
-                # Get hunt score once for both workflow and chunk analysis
+                # Used below by both the workflow trigger (through WorkflowTriggerService's
+                # own threshold check) and the chunk-analysis trigger.
                 hunt_score = (
                     new_article.article_metadata.get("threat_hunting_score", 0) if new_article.article_metadata else 0
                 )
 
-                # Get threshold from workflow config
-                from src.database.models import AgenticWorkflowConfigTable
+                # Route through WorkflowTriggerService so this path gets the same
+                # eligibility checks (threshold, config-aware active-execution guard,
+                # idempotency) and execution-row creation as every other trigger site.
+                # A bare `trigger_agentic_workflow.delay(article_id)` here used to skip
+                # execution creation entirely, which left `run_workflow()`'s no-execution_id
+                # fallback as this path's only guard against double-running the article.
+                def _trigger_workflow() -> None:
+                    from src.database.manager import DatabaseManager
+                    from src.services.workflow_trigger_service import WorkflowTriggerService
 
-                config_result = await session.execute(
-                    select(AgenticWorkflowConfigTable)
-                    .where(AgenticWorkflowConfigTable.is_active == True)
-                    .order_by(desc(AgenticWorkflowConfigTable.version))
-                    .limit(1)
-                )
-                config = config_result.scalar_one_or_none()
-                threshold = (
-                    config.auto_trigger_hunt_score_threshold
-                    if config and hasattr(config, "auto_trigger_hunt_score_threshold")
-                    else 60.0
-                )
-
-                # Check if workflow should be triggered
-                # Only trigger if RegexHuntScore > threshold
-                if hunt_score > threshold:
+                    db_manager = DatabaseManager()
+                    db_session = db_manager.get_session()
                     try:
-                        from src.worker.celery_app import trigger_agentic_workflow
+                        triggered, reason = WorkflowTriggerService(db_session).trigger_workflow(new_article.id)
+                        if triggered:
+                            logger.info(f"Triggered agentic workflow for article {new_article.id}")
+                        else:
+                            logger.debug(f"Skipping workflow trigger for article {new_article.id}: {reason}")
+                    finally:
+                        db_session.close()
 
-                        trigger_agentic_workflow.delay(new_article.id)
-                        logger.info(
-                            f"Triggered agentic workflow for article {new_article.id} (hunt_score: {hunt_score} > {threshold})"
-                        )
-                    except Exception as e:
-                        logger.warning(f"Failed to trigger workflow for article {new_article.id}: {e}")
-                else:
-                    logger.debug(
-                        f"Skipping workflow trigger for article {new_article.id} (hunt_score: {hunt_score} <= {threshold})"
-                    )
+                try:
+                    await asyncio.to_thread(_trigger_workflow)
+                except Exception as e:
+                    logger.warning(f"Failed to trigger workflow for article {new_article.id}: {e}")
 
                 # Automatically run chunk analysis for articles with hunt_score > 50
                 # This calculates ML hunt score automatically

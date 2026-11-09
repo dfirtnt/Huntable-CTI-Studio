@@ -45,7 +45,7 @@ from src.services.sigma_pr_service import SigmaPRService
 from src.services.source_sigma_import_service import import_source_sigma_rules
 from src.services.workflow_config_snapshot import build_config_snapshot, snapshot_is_complete
 from src.services.workflow_provider_options import _probe_lmstudio
-from src.services.workflow_trigger_service import WorkflowTriggerService
+from src.services.workflow_trigger_service import WorkflowTriggerService, find_active_execution_for_config
 from src.utils.content_filter import ContentFilter
 from src.utils.langfuse_client import (
     get_active_trace_id,
@@ -3811,19 +3811,23 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                 .first()
             )
 
-        if not execution:
-            execution = (
-                db_session.query(AgenticWorkflowExecutionTable)
-                .filter(
-                    AgenticWorkflowExecutionTable.article_id == article_id,
-                    AgenticWorkflowExecutionTable.status.in_(["pending", "running"]),
-                )
-                .order_by(AgenticWorkflowExecutionTable.created_at.desc())
-                .first()
-            )
-
         # Get config service (needed for both paths)
         trigger_service = WorkflowTriggerService(db_session)
+
+        if not execution:
+            # No execution_id given: this is a bare dispatch (e.g. a direct Celery
+            # retry) with nothing to pin it to a specific execution row. Only attach to
+            # an existing pending/running row if it was dispatched under the config that
+            # is *currently* active. Without the config filter, two concurrent runs on
+            # different configs could leave this attach to whichever one is newest --
+            # silently running the wrong execution's config under this call.
+            active_config = trigger_service.get_active_config()
+            execution = find_active_execution_for_config(
+                db_session,
+                article_id,
+                active_config.id if active_config else None,
+                active_config.version if active_config else None,
+            )
 
         if not execution:
             # Create execution record if it doesn't exist (e.g., when called directly via Celery)
