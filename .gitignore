@@ -8,6 +8,7 @@
 .env.test
 *.env
 !.env.example
+!.env.*.example
 secrets/
 credentials/
 api_keys.txt
