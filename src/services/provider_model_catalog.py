@@ -103,6 +103,7 @@ MODEL_CONTEXT_TOKENS: dict[str, int] = {
     "gpt-6-luna": 1_050_000,
     "gpt-6-sol": 1_050_000,
     "gpt-6.1-sol": 1_050_000,
+    "gpt-6.1-terra": 1_050_000,
     "o1": 200_000,
     "o1-pro": 200_000,
     "o1-mini": 128_000,

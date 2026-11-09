@@ -442,6 +442,19 @@
       "default_effort": "medium",
       "note": "none/minimal efforts unsupported; temperature/top_p not documented, kept omitted. Chat Completions has no tool calling (use Responses)."
     },
+    "gpt-6.1-terra": {
+      "supports_temperature": false,
+      "supports_top_p": false,
+      "effort_levels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "default_effort": "medium",
+      "note": "6.1-generation sibling of gpt-6.1-sol; none/minimal efforts unsupported, temperature/top_p not documented, kept omitted. Chat Completions has no tool calling (use Responses)."
+    },
     "o3": {
       "supports_temperature": false,
       "supports_top_p": false,
