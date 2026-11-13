@@ -90,7 +90,7 @@ the Agents config dropdown alongside the other supported reasoning models.
 
 | Model Family | Token Param | Temperature | `reasoning_effort` |
 |--------------|-------------|-------------|--------------------|
-| gpt-5.x, o1, o3, o4 | `max_completion_tokens` | Not supported | Model-dependent tiers (see below) |
+| gpt-5.x, gpt-6.x, o1, o3, o4 | `max_completion_tokens` | Not supported | Model-dependent tiers (see below) |
 | gpt-4.x, gpt-4o, gpt-3.5 | `max_tokens` | Supported | Not supported |
 
 The per-model tier list is the source of truth in `config/model_capabilities.json`, not this table.

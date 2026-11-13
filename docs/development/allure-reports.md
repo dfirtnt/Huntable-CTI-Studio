@@ -5,10 +5,7 @@ Allure Reports provides interactive, step-by-step test execution reports. `run_t
 ## Setup
 
 ### Dependencies
-Allure is included in test dependencies (`requirements-test.txt`):
-```text
-allure-pytest>=2.13.0
-```
+Allure is in the `test` dependency group (`allure-pytest==2.16.0` in `pyproject.toml`); install with `uv sync --frozen --group test`.
 
 ### Configuration
 Allure is **not** wired into the global pytest `addopts`. Instead, `run_tests.py`

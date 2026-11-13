@@ -17,7 +17,7 @@ These resources expose small JSON context snapshots so MCP clients can attach am
 | Resource URI | Summary |
 |---|---|
 | `huntable://sigma-queue/status` | Global Sigma queue status counts and total. |
-| `huntable://sigma-queue/recent-rules` | Ten most recent AI-generated Sigma queue entries, including queue number, status, title, source article, similarity, and PR URL. |
+| `huntable://sigma-queue/recent-rules` | Ten most recent Sigma queue entries (generated and publisher-authored), including queue number, status, origin, declared license, attribution, title, source article, similarity, and PR URL. |
 | `huntable://workflow/active-config` | Active workflow config id/version, thresholds, toggles, model assignments, and prompt agent names. Prompt bodies are intentionally omitted. |
 
 ## Write risk tiers
@@ -51,8 +51,8 @@ MCP writes are intentionally not action-parity with the web app. Huntable ingest
 | 7 | `search_unified` | One call for **articles** (same pipeline as `search_articles`) **and** Sigma rules. Params: `query`, `top_k_articles`, `top_k_rules`, `threshold`. |
 | 8 | `list_sources` | Feed/site registry: names, URLs, RSS, article counts, active flag, last check, failures, average response time. Param: `active_only` (default `true`). |
 | 9 | `list_workflow_executions` | Recent agentic workflow runs (article, status, step, ranking score, errors). Params: optional `status` filter (`pending`, `running`, `completed`, `failed`), `limit`. |
-| 10 | `list_sigma_queue` | Sigma rule review queue (AI-generated rules): rule title/metadata, source article, max similarity to existing rules, notes, PR link. Params: optional `status` filter (`pending`, `approved`, `rejected`, `submitted`), `limit`. |
-| 11 | `get_queue_rule` | Full YAML, status, similarity scores, and reviewer notes for a single AI-generated queue item. Param: `queue_number` (integer; the number after "Queue #" in `list_sigma_queue` output). Returns the raw YAML block, top-10 similarity matches to existing rules, and any reviewer comments. |
+| 10 | `list_sigma_queue` | Sigma rule review queue (generated and publisher-authored rules): rule title/metadata, origin, declared license, attribution, source article, max similarity to existing rules, notes, PR link. Params: optional `status` filter (`pending`, `approved`, `rejected`, `submitted`), `limit`. |
+| 11 | `get_queue_rule` | Full YAML, status, similarity scores, and reviewer notes for a single queue item (generated or publisher-authored), including provenance: origin, license, attribution, source URL, source rule ID and source SHA-256. Param: `queue_number` (integer; the number after "Queue #" in `list_sigma_queue` output). Returns the raw YAML block, top-10 similarity matches to existing rules, and any reviewer comments. |
 | 12 | `list_tables` | Schema discovery helper. Lists all tables in the connected database with each column's name, data type, nullability, and default, so callers can plan ad-hoc SQL before issuing `execute_sql`. No row counts. No params. |
 | 13 | `execute_sql` | Execute a single **read-only** `SELECT` statement — the statement must literally start with `SELECT` (CTEs starting with `WITH` are rejected). Rejects write keywords, semicolons, and comment-masked keywords before execution, then opens the query in a read-only transaction. Param: `sql` (string). Use `list_tables` first to discover schema. |
 | 14 | `retry_workflow_execution` | Auto-executable write. Creates a new pending execution for a failed/completed workflow execution, refreshes current active model settings into the retry snapshot, enqueues Celery, and audits `workflow.retried`. Param: `execution_id`. |
@@ -82,11 +82,11 @@ MCP writes are intentionally not action-parity with the web app. Huntable ingest
 | 38 | `get_subagent_test_result` | Read-only poll for a `test_subagent_on_article` task: `pending`, `completed` (extractor items, count and raw model response) or `failed`. `include_debug=true` adds the prompt messages and provider payload. Unknown or expired (30 min after finishing) task ids read as `pending`. Params: `task_id`, optional `include_debug`. |
 | 39 | `set_sigma_queue_rule_status` | Auto-executable write. Sets a queue item to `pending`, `approved`, or `rejected` (`pending` reopens a reviewed rule; audits `sigma_queue.rule_reopened`). `submitted` is not settable and submitted rows are refused. Same source-delivery gate as approval. Params: `queue_number`, `status`, optional `review_notes`. |
 
-Implementation lives under `src/huntable_mcp/` (`stdio_server.py`, `resources.py`, `tools/articles.py`, `tools/sigma.py`, `tools/sources.py`, `tools/workflow.py`, `tools/query.py`, `tools/evals.py`, `tools/write_support.py`).
+Implementation lives under `src/huntable_mcp/` (`stdio_server.py`, `resources.py`, `tools/articles.py`, `tools/sigma.py`, `tools/sources.py`, `tools/workflow.py`, `tools/query.py`, `tools/evals.py`, `tools/agent_tests.py`, `tools/write_support.py`).
 
 ## Schema note — raw_yaml column
 
 `sigma_rules.raw_yaml` (TEXT, nullable) stores the verbatim YAML from the SigmaHQ repo file. It is populated during `sigma index` / `sigma index-metadata`. Run `scripts/migrate_sigma_raw_yaml.py` once on existing databases before re-indexing.
 
-_Last updated: 2026-09-28_
-_Last reviewed: 2026-09-01_
+_Last updated: 2026-11-12_
+_Last reviewed: 2026-11-12_

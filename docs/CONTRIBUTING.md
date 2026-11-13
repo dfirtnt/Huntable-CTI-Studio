@@ -182,8 +182,9 @@ python3 run_tests.py ui
 
 ### Test Coverage
 
-- CI enforces coverage gates on `src.services`/`src.utils` in `.github/workflows/tests.yml`
-  (currently 60% combined baseline, 68% for `src.services`, 20% for `src.utils`; not a repo-wide 85% target)
+- CI enforces coverage gates in `.github/workflows/tests.yml`
+  (currently 60% combined baseline for `src.services` + `src.utils`, 68% for `src.services`, 35% for `src.utils`;
+  ratchet floors of 20% `src/web`, 72% `src/workflows`, 26% `src/core`; not a repo-wide 85% target)
 - Write tests for new features
 - Update tests when modifying existing functionality
 - Use appropriate test markers and categories
