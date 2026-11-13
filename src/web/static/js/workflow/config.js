@@ -1782,6 +1782,32 @@ if (typeof window !== 'undefined') {
     };
 }
 
+/**
+ * Bulk action: copy the Extract Agent provider + model onto every extractor
+ * sub-agent, then save once. Per-agent temperature/effort are left untouched.
+ */
+function applyExtractModelToAllSubAgents() {
+    const status = document.getElementById('apply-extract-model-to-all-status');
+    const provider = getAgentProvider('extractagent');
+    const model = getAgentModel('extractagent', provider);
+    if (!model) {
+        if (status) status.textContent = 'Choose an Extract Agent model above first.';
+        return;
+    }
+    let applied = 0;
+    EXTRACT_SUB_AGENTS.forEach(agentName => {
+        const prefix = agentName.toLowerCase();
+        if (!setAgentProvider(prefix, provider)) return;
+        if (setAgentModel(prefix, model, provider)) {
+            applied += 1;
+            validateAgentModelOnChange(prefix);
+        }
+    });
+    if (status) status.textContent = `Applied ${provider} / ${model} to ${applied} of ${EXTRACT_SUB_AGENTS.length} extractors.`;
+    if (typeof window.autoSaveModelChange === 'function') window.autoSaveModelChange();
+}
+window.applyExtractModelToAllSubAgents = applyExtractModelToAllSubAgents;
+
 function onAgentProviderChange(agentPrefix) {
     const select = document.getElementById(`${agentPrefix}-provider`);
     if (!select) return;
