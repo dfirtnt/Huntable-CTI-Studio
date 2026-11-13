@@ -7,8 +7,9 @@ out or cancelling whatever config happened to be running already. The guard is n
 keyed on config identity (``find_active_execution_for_config``, matched against the
 dispatched execution's resolved ``config_id``/``config_version``): a different config
 may proceed, a duplicate trigger on the *same* config is still blocked.
-``run_workflow()``'s no-``execution_id`` fallback got the same config filter, so it can
-no longer attach to a concurrently running execution that belongs to some other config.
+``run_workflow()`` no longer attaches to an existing run by article when called without an
+``execution_id``, and an explicit id that names no row is an error, so a dispatch can only
+ever run the execution it was handed.
 
 These tests exercise that against the real test database; Celery dispatch is mocked
 (no worker involved) and the LangGraph graph is replaced by a recording stub.
@@ -221,50 +222,81 @@ def _graph_stub(graph: _RecordingGraph):
         yield
 
 
-def test_bare_dispatch_without_execution_id_only_attaches_to_the_active_configs_row():
-    """``run_workflow``'s no-``execution_id`` fallback must not grab the wrong run.
+def _two_pending_runs(session) -> tuple[int, int, int]:
+    """One article with a pending run for each of two configs; returns (article, old, new)."""
+    article_id = _create_article(session)
+    config_old_id, _ = _activate_new_config(session)
+    with patch("src.worker.celery_app.trigger_agentic_workflow"):
+        WorkflowTriggerService(session).trigger_workflow(article_id, force=True)
+    config_new_id, _ = _activate_new_config(session)
+    with patch("src.worker.celery_app.trigger_agentic_workflow"):
+        WorkflowTriggerService(session).trigger_workflow(article_id, force=True)
+    rows = _pending_executions(session, article_id)
+    assert len(rows) == 2
+    old_id = next(r.id for r in rows if _config_identity(r)[0] == config_old_id)
+    new_id = next(r.id for r in rows if _config_identity(r)[0] == config_new_id)
+    return article_id, old_id, new_id
 
-    Two pending executions on one article, each for a different config. A bare
-    dispatch (``execution_id=None``, the path a direct Celery call without a
-    pre-created execution takes) must attach to the one whose config is currently
-    active, and must leave the other execution untouched -- never the other way
-    around, and never whichever row happens to be newest.
+
+def test_explicit_execution_ids_each_update_their_own_record():
+    """With two runs in flight, each dispatch touches only the row it was given."""
+    db = DatabaseManager(database_url=_sync_test_db_url())
+    session = db.get_session()
+    graph = _RecordingGraph()
+    try:
+        article_id, old_id, new_id = _two_pending_runs(session)
+
+        with _graph_stub(graph):
+            first = asyncio.run(run_workflow(article_id, session, execution_id=old_id))
+            session.expire_all()
+            new_row = session.get(AgenticWorkflowExecutionTable, new_id)
+            assert new_row.status == "pending", "running the older config must not touch the other run"
+            second = asyncio.run(run_workflow(article_id, session, execution_id=new_id))
+
+        assert graph.calls == [old_id, new_id]
+        assert first.get("execution_id") == old_id
+        assert second.get("execution_id") == new_id
+    finally:
+        session.close()
+
+
+def test_bare_dispatch_never_attaches_to_an_existing_run():
+    """A dispatch without an execution_id must not pick one of the in-flight runs.
+
+    Both rows belong to configs that are (or were) in flight on the article, so the
+    fallback has no way to know which was meant. It creates nothing (the active config
+    already has a run, so eligibility refuses) and leaves both rows alone.
     """
     db = DatabaseManager(database_url=_sync_test_db_url())
     session = db.get_session()
     graph = _RecordingGraph()
     try:
-        article_id = _create_article(session)
-        config_old_id, _config_old_version = _activate_new_config(session)
-        with patch("src.worker.celery_app.trigger_agentic_workflow") as dispatched:
-            WorkflowTriggerService(session).trigger_workflow(article_id, force=True)
-        assert dispatched.delay.called
-
-        config_active_id, _config_active_version = _activate_new_config(session)
-        assert config_active_id != config_old_id
-        with patch("src.worker.celery_app.trigger_agentic_workflow") as dispatched_active:
-            WorkflowTriggerService(session).trigger_workflow(article_id, force=True)
-        assert dispatched_active.delay.called
-
-        rows_before = _pending_executions(session, article_id)
-        assert len(rows_before) == 2
-        old_execution_id = next(r.id for r in rows_before if _config_identity(r)[0] == config_old_id)
-        active_execution_id = next(r.id for r in rows_before if _config_identity(r)[0] == config_active_id)
+        article_id, old_id, new_id = _two_pending_runs(session)
 
         with _graph_stub(graph):
             result = asyncio.run(run_workflow(article_id, session, execution_id=None))
 
-        assert graph.calls == [active_execution_id], (
-            f"expected the active config's execution {active_execution_id} to run, got {graph.calls}"
-        )
-        assert result.get("execution_id") == active_execution_id
+        assert graph.calls == []
+        assert result.get("skipped") is True
+        rows = _pending_executions(session, article_id)
+        assert sorted(r.id for r in rows) == sorted([old_id, new_id])
+    finally:
+        session.close()
 
-        session.expire_all()
-        old_row = (
-            session.query(AgenticWorkflowExecutionTable)
-            .filter(AgenticWorkflowExecutionTable.id == old_execution_id)
-            .first()
-        )
-        assert old_row.status == "pending", "the other config's execution must be left alone"
+
+def test_unknown_execution_id_is_an_error_not_a_substitute_run():
+    """An explicit id that names no row must fail rather than run some other execution."""
+    db = DatabaseManager(database_url=_sync_test_db_url())
+    session = db.get_session()
+    graph = _RecordingGraph()
+    try:
+        article_id, _old_id, _new_id = _two_pending_runs(session)
+        missing_id = (session.query(func.max(AgenticWorkflowExecutionTable.id)).scalar() or 0) + 1000
+
+        with _graph_stub(graph), pytest.raises(ValueError, match="not found"):
+            asyncio.run(run_workflow(article_id, session, execution_id=missing_id))
+
+        assert graph.calls == []
+        assert len(_pending_executions(session, article_id)) == 2
     finally:
         session.close()
