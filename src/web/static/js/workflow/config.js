@@ -4510,6 +4510,11 @@ function refreshAllModelCapabilityUI() {
     Object.values(AGENT_CONFIG).forEach(config => {
         updateTemperatureCapabilityUI(config.prefix, { effort: config.effortKey ? stored[config.effortKey] : undefined });
     });
+    // Repopulating the effort selects changes what the form reads back (blank
+    // before the catalog arrives, the stored tier after). The dirty state moves
+    // without any user edit, so the Save button must be re-derived here or it
+    // keeps whatever the transient pre-catalog state left it as.
+    if (typeof updateSaveButtonState === 'function') updateSaveButtonState();
 }
 if (typeof window !== 'undefined') {
     window.resolveModelCapabilities = resolveModelCapabilities;
