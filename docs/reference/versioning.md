@@ -51,10 +51,16 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 ## Version History
 
 ### v7.10.0 "Europa" (2026-11-13)
-<!-- TODO: fill Significance and Features before merging to main; pull content from docs/CHANGELOG.md [7.10.0] section. -->
-- **Named After**: <fill>
-- **Significance**: <fill>
-- **Features**: <fill>
+- **Named After**: Europa, one of Jupiter's four Galilean moons; minor release continues the Europa codename
+- **Significance**: Sigma rules now leave the queue in a SigmaHQ-style directory layout with normalized metadata, and Submit PR refuses rules the destination repository's CI would reject instead of discovering the failure after submission. Chatbots can drive more of the workflow over MCP (queue status changes, one-extractor-on-one-article tests), and workflow runs become safer to repeat: a second config can run on an article while another is active, and a claimed execution is never retried.
+- **Features**:
+    - Sigma publishing: `.huntable/rule-layout.yml` maps `(product, category, service)` to SigmaHQ directories, filenames are the title slug, and `sigma_publish_normalizer` applies the configured author, `YYYY-MM-DD` dates and hyphenated `attack.*` tags at queue entry and again in `submit-pr`; `scripts/migrate_sigma_repo_layout.py` migrates an existing rules repo (dry run by default)
+    - CI parity gate: `POST /api/sigma-queue/submit-pr` validates the whole batch against the destination repo's blocking validator set and returns 409 with per-rule reasons before any git or GitHub side effect; a dry-run preflight endpoint and a "CI FAIL" queue badge show the same findings
+    - MCP: `test_subagent_on_article` and `get_subagent_test_result` test one extractor on any article; `approve_sigma_queue_rule`, `reject_sigma_queue_rule` and the new `set_sigma_queue_rule_status` change queue status directly with a mandatory audit row, and `delete_sigma_queue_rule` is caller-attested
+    - Workflow reliability: per-config active-execution guard, claim-aware Celery retries with per-task time limits and a 6 h visibility timeout, and empty Sigma group replies retried once and surfaced as a "Partial SIGMA" badge
+    - Quickstart preset prompts are generated from `src/prompts/` by `scripts/build_quickstart_prompts.py`; `gpt-6*` models are admitted with registered capabilities, and Codex CLI is pinned to 0.162.1
+    - "Apply model to all extractors" bulk button on the agents config page; the config Save button no longer enables itself on an untouched page
+    - Dependencies are upgraded for advisories, `requirements.txt` is generated from `uv.lock` with a CI drift check, and a 7-day dependency cooldown applies
 
 ### v7.9.0 "Europa" (2026-09-25)
 - **Named After**: Europa, one of Jupiter's four Galilean moons; minor release continues the Europa codename
