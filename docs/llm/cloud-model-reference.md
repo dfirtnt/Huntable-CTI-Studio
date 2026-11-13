@@ -39,6 +39,7 @@ Source: platform.openai.com/docs/models (2026-09-03).
 |-------|----------------|-------------------|------------|
 | **GPT-6 series** | | | |
 | gpt-6.1-sol | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
+| gpt-6.1-terra | 1,050,000 | not verified | Classified as a 6.1-generation sibling of gpt-6.1-sol (`config/model_capabilities.json`): no `temperature`/`top_p`, efforts low through max. Not yet confirmed against the OpenAI docs. |
 | gpt-6-sol | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
 | gpt-6-luna | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
 | gpt-6-astra | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |

@@ -38,7 +38,7 @@ EXECUTION_ID=$(echo "$TRIGGER" | jq -r '.execution_id')
 echo "Execution ID: ${EXECUTION_ID}"
 ```
 
-If an execution is already running for the article, the API returns an error. Wait for it to finish or clear the stuck run before retrying. Note that ingestion can also start a workflow automatically when an article's RegexHunt score exceeds the auto-trigger threshold (default 100, above the maximum possible score, so auto-trigger is off until you lower it in Settings → Workflow), so a run may already exist before you trigger one manually if the threshold has been lowered.
+If an execution is already pending or running for the article under the **same active config** (same config id and version), the API returns an error. Wait for it to finish or clear the stuck run before retrying. A run under a *different* config is not blocked, so you can trigger a new config on an article while a run on the previous config is still in flight. Each run is pinned to its own execution ID and never attaches to another run on the same article. Note that ingestion can also start a workflow automatically when an article's RegexHunt score exceeds the auto-trigger threshold (default 100, above the maximum possible score, so auto-trigger is off until you lower it in Settings → Workflow), so a run may already exist before you trigger one manually if the threshold has been lowered.
 
 The same threshold gates manual triggers: if the API replies that the article's RegexHunt score is not above the auto-trigger threshold, re-run with `?force=true`:
 
