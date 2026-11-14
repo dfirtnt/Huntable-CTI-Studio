@@ -75,7 +75,7 @@ dependencies = [
     "fsspec>=2026.6.0", # 1 advisory (2026-11-01); transitive via huggingface-hub/torch (multi-parent)
     "joserfc>=1.7.6", # 2 advisories (2026-11-01); transitive via mcp/authlib (multi-parent)
     "langgraph-sdk>=0.4.6", # 2 advisories (2026-11-01); transitive via langgraph/langgraph-cli (multi-parent)
-    "opentelemetry-api>=1.45.1", # 1 advisory (2026-11-01); transitive via langfuse/mcp (multi-parent)
+    "opentelemetry-api>=1.45.2", # GHSA-mf5v-w3w3-f6cg (1.45.2, 2026-10-29); transitive via langfuse/mcp (multi-parent)
     # Local packages
     "sigma-atom-similarity",
     "pysigma-validators-sigmahq==0.21.0",

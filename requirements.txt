@@ -341,7 +341,7 @@ nvidia-nvtx==13.0.85 ; (platform_machine == 'aarch64' and sys_platform == 'linux
     # via cuda-toolkit
 openai==2.38.0
     # via cti-scraper
-opentelemetry-api==1.45.1
+opentelemetry-api==1.45.2
     # via
     #   cti-scraper
     #   langfuse
@@ -361,12 +361,12 @@ opentelemetry-proto==1.45.1
     # via
     #   opentelemetry-exporter-otlp-proto-common
     #   opentelemetry-exporter-otlp-proto-http
-opentelemetry-sdk==1.45.1
+opentelemetry-sdk==1.45.2
     # via
     #   langfuse
     #   opentelemetry-exporter-otlp-common
     #   opentelemetry-exporter-otlp-proto-http
-opentelemetry-semantic-conventions==0.66b1
+opentelemetry-semantic-conventions==0.66b2
     # via opentelemetry-sdk
 orjson==3.11.8
     # via
