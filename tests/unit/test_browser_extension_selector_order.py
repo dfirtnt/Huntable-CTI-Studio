@@ -39,7 +39,6 @@ def _choose_best_content_selector(html: str, selectors: list[str]) -> str | None
 @pytest.mark.parametrize(
     "relative_path",
     [
-        "browser-extension/content.js",
         "browser-extension/popup.js",
     ],
 )

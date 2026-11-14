@@ -17,7 +17,6 @@ This document tracks tests that are currently skipped and need to be fixed.
 | Target | Count | Blocker | Fix |
 |--------|-------|---------|-----|
 | **test_source_manager.py** `TestSourceConfigLoader` | 5 | Tests mock JSON + single `write()`; implementation uses **YAML** and multiple `write()` calls | Use YAML in mocks (or patch `yaml.safe_load`); assert `write` called with expected content or drop `assert_called_once()` |
-| **test_annotations_api.py** | many | `pytest.skip("No articles available")` | Seed test DB with articles in API test setup (or shared fixture) |
 | **test_endpoints.py** | 4 | 500 / "No articles" / 422 skips | Same: ensure DB + seed data in API job |
 | **test_article_detail_advanced_ui.py** | 2 | No articles; observables mode inactive | Seed data; skip observables test if feature off |
 | ~~test_annotation_ui_persistence.py~~ | 3 | Removed in UI test diet (all tests skipped, zero coverage) | N/A |

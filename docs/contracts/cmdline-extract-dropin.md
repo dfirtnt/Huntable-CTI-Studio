@@ -86,12 +86,10 @@ A command is VALID only if ALL conditions hold.
 
 ## NEGATIVE EXTRACTION SCOPE
 Do NOT extract:
-- Placeholders: generic template slots <command>, {payload}, $(...) -> REJECT. (Allowed,
-  preserve verbatim: [REDACTED] and analyst redaction labels that mask a real observed value,
-  e.g. [Username], [IP Address], [Hostname], <redacted>; defanged indicators hxxp://, [.].)
-  A bracketed/braced token is an allowed redaction when the command is otherwise
-  literal/observed and the token conceals a real value; it is a rejected placeholder when it
-  is a generic slot in a template or hypothetical command.
+- Placeholders: decide by what the slot REPLACES, not by its bracket style.
+  REJECT when the slot stands in for the command itself or its executable (<command>, {payload}, $(...), cmd.exe /c <command>), or when taking the slots away leaves no fixed switch/flag -- only an executable and a subcommand (net user <computer_name> <password>).
+  EXTRACT verbatim, slot included, when a literal executable and at least one fixed non-trivial switch/flag remain and each slot stands only for an argument VALUE (encoded blob, path, host, name): powershell.exe -NoP -W Hidden -enc <base64>; powershell -NoProfile -ExecutionPolicy Bypass -File <path-to-ps1>. A slotted value alone does not make such a command a template or a hypothetical.
+  (Allowed, preserve verbatim: [REDACTED] and analyst redaction labels that mask a real observed value, e.g. [Username], [IP Address], [Hostname], <redacted>; defanged indicators hxxp://, [.].) A bracketed/braced token that conceals a real value in an otherwise literal/observed command is an allowed redaction, not a slot -- the fixed-switch test above does not apply to it.
 - Bare commands with no arguments/syntax: whoami, ipconfig, hostname.
 - Chains with zero non-trivial components: whoami & hostname.
 - Single-token commands (no spaces).
@@ -189,7 +187,10 @@ observability, not interestingness.
 - Wrapped trivial command: cmd.exe /c whoami  -> SKIP (post-wrapper is trivial).
 - Wrapped valid chain:     cmd.exe /c ipconfig /all & whoami  -> Extract "ipconfig /all & whoami".
 - Quoted first token:      "net.exe" group "domain admins" /dom  -> Extract verbatim.
-- PowerShell block:        powershell.exe -NoP -W Hidden -enc <base64>  -> Extract verbatim.
+- PowerShell block:        powershell.exe -NoP -W Hidden -enc <base64>  -> Extract verbatim (fixed switches; slot is only the value of -enc).
+- Value slot after switches: powershell -NoProfile -ExecutionPolicy Bypass -File <path-to-ps1>  -> Extract verbatim.
+- Slot is the command:      cmd.exe /c <command>  |  powershell.exe <command>  -> SKIP.
+- No fixed switch remains:  net user <computer_name> <password>  -> SKIP.
 - reg.exe command:         reg add HKLM\...\Run /v X /t REG_SZ /d Y  -> Extract the command.
 - sc.exe command:          sc create MalSvc binPath= "C:\m.exe" start= auto  -> Extract.
 - Wildcards:               dir C:\Users\*\AppData\*.dat   INVALID (non-deterministic copy-paste)
@@ -218,6 +219,7 @@ Apply to EVERY candidate before including it:
 - [ ] Starts with a recognized Windows execution component (quoting ignored)?
 - [ ] Contains at least one space AND at least one non-trivial argument / switch / pipe /
       redirect / chain component?
+- [ ] If it contains a placeholder slot: does a literal executable plus at least one fixed switch/flag remain, with every slot standing only for an argument value? (If no: SKIP)
 - [ ] If wrapped, wrapper was correctly stripped (cmd.exe or %COMSPEC% only) and post-wrapper
       still valid?
 - [ ] Preserves exact casing, spacing, quoting, punctuation?

@@ -1782,6 +1782,32 @@ if (typeof window !== 'undefined') {
     };
 }
 
+/**
+ * Bulk action: copy the Extract Agent provider + model onto every extractor
+ * sub-agent, then save once. Per-agent temperature/effort are left untouched.
+ */
+function applyExtractModelToAllSubAgents() {
+    const status = document.getElementById('apply-extract-model-to-all-status');
+    const provider = getAgentProvider('extractagent');
+    const model = getAgentModel('extractagent', provider);
+    if (!model) {
+        if (status) status.textContent = 'Choose an Extract Agent model above first.';
+        return;
+    }
+    let applied = 0;
+    EXTRACT_SUB_AGENTS.forEach(agentName => {
+        const prefix = agentName.toLowerCase();
+        if (!setAgentProvider(prefix, provider)) return;
+        if (setAgentModel(prefix, model, provider)) {
+            applied += 1;
+            validateAgentModelOnChange(prefix);
+        }
+    });
+    if (status) status.textContent = `Applied ${provider} / ${model} to ${applied} of ${EXTRACT_SUB_AGENTS.length} extractors.`;
+    if (typeof window.autoSaveModelChange === 'function') window.autoSaveModelChange();
+}
+window.applyExtractModelToAllSubAgents = applyExtractModelToAllSubAgents;
+
 function onAgentProviderChange(agentPrefix) {
     const select = document.getElementById(`${agentPrefix}-provider`);
     if (!select) return;
@@ -4364,7 +4390,7 @@ function validateAllTemperatureInputs() {
 }
 
 // OpenAI reasoning models that reject variable temperature -- mirrors _OPENAI_REASONING_PREFIXES in model_validation.py.
-const OPENAI_REASONING_PREFIXES = ['o1', 'o3', 'o4-mini', 'o4-', 'o4', 'gpt-5'];
+const OPENAI_REASONING_PREFIXES = ['o1', 'o3', 'o4-mini', 'o4-', 'o4', 'gpt-5', 'gpt-6'];
 
 function isOpenAIReasoningModel(modelName) {
     if (!modelName) return false;
@@ -4484,6 +4510,11 @@ function refreshAllModelCapabilityUI() {
     Object.values(AGENT_CONFIG).forEach(config => {
         updateTemperatureCapabilityUI(config.prefix, { effort: config.effortKey ? stored[config.effortKey] : undefined });
     });
+    // Repopulating the effort selects changes what the form reads back (blank
+    // before the catalog arrives, the stored tier after). The dirty state moves
+    // without any user edit, so the Save button must be re-derived here or it
+    // keeps whatever the transient pre-catalog state left it as.
+    if (typeof updateSaveButtonState === 'function') updateSaveButtonState();
 }
 if (typeof window !== 'undefined') {
     window.resolveModelCapabilities = resolveModelCapabilities;

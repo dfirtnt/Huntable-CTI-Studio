@@ -37,6 +37,12 @@ Source: platform.openai.com/docs/models (2026-09-03).
 
 | Model | Context Window | Max Output Tokens | API Params |
 |-------|----------------|-------------------|------------|
+| **GPT-6 series** | | | |
+| gpt-6.1-sol | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
+| gpt-6.1-terra | 1,050,000 | not verified | Classified as a 6.1-generation sibling of gpt-6.1-sol (`config/model_capabilities.json`): no `temperature`/`top_p`, efforts low through max. Not yet confirmed against the OpenAI docs. |
+| gpt-6-sol | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
+| gpt-6-luna | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
+| gpt-6-astra | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
 | **GPT-5 series** | | | |
 | gpt-5.6-luna | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
 | gpt-5.6-sol | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
@@ -84,7 +90,7 @@ the Agents config dropdown alongside the other supported reasoning models.
 
 | Model Family | Token Param | Temperature | `reasoning_effort` |
 |--------------|-------------|-------------|--------------------|
-| gpt-5.x, o1, o3, o4 | `max_completion_tokens` | Not supported | Model-dependent tiers (see below) |
+| gpt-5.x, gpt-6.x, o1, o3, o4 | `max_completion_tokens` | Not supported | Model-dependent tiers (see below) |
 | gpt-4.x, gpt-4o, gpt-3.5 | `max_tokens` | Supported | Not supported |
 
 The per-model tier list is the source of truth in `config/model_capabilities.json`, not this table.
@@ -122,7 +128,7 @@ resolves it, and everything downstream consumes that one answer:
 | `llm_client.py` (OpenAI) | Sends `temperature` only when `supports_temperature`; sends `reasoning_effort` only when the configured tier is in `effort_levels`. |
 | `llm_client.py` (Anthropic) | Sends `temperature` only when `supports_temperature` (Opus 4.7+/4.8/5, Sonnet 5, Fable 5 reject it); sends `output_config.effort` only for a listed tier. |
 | `codex_app_server_client.py` | Never sends sampling parameters. Tiers are discovered live from `model/list` (`supportedReasoningEfforts`, `defaultReasoningEffort`); the configured tier is passed as the `turn/start.effort` override. |
-| `model_supports_variable_temperature()` (`src/utils/model_validation.py`) | Thin wrapper over the resolver; `openai_chat_client.py` and the RAG / enrichment paths keep calling it unchanged. |
+| `model_supports_variable_temperature()` (`src/utils/model_validation.py`) | Thin wrapper over the resolver; only `openai_chat_client.py` calls it, and nothing in `src/` calls `openai_chat_completions` any more (Sigma enrich/chat/validate go through `LLMService.request_chat` since 2026-11-01). |
 | `GET /api/workflow/provider-options` | Returns `model_capabilities` per provider so the Agents page can gate the Temperature / Top_P sliders (disabled with a "Not supported by this model" note, never hidden) and populate the Effort select. |
 | `PUT /api/workflow/config` | Rejects an `{Agent}_effort` the resolved model does not list (Codex tiers are live, so only the token shape is checked there). |
 

@@ -1040,7 +1040,7 @@ async def api_track_event(request: Request):
 
 
 @router.get("/events")
-async def api_get_event_counts():
+def api_get_event_counts():
     """Expose in-memory event counters for quick verification."""
     try:
         return {"counts": dict(EVENT_COUNTS)}

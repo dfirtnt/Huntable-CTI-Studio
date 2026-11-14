@@ -80,7 +80,6 @@ logger = logging.getLogger("cti_scraper.web")
 
 # Environment configuration
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
-DEFAULT_SOURCE_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
 
 
 def _csrf_context(request: Request) -> dict[str, str]:
@@ -148,7 +147,6 @@ def get_content_filter() -> ContentFilter:
 
 __all__ = [
     "ENVIRONMENT",
-    "DEFAULT_SOURCE_USER_AGENT",
     "logger",
     "templates",
     "get_content_filter",

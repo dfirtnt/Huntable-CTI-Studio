@@ -128,7 +128,7 @@ async def api_update_embeddings(request: Request):
 
 
 @router.get("/api/embeddings/logs")
-async def get_embedding_logs():
+def get_embedding_logs():
     """Get real-time embedding processing logs."""
     try:
         import subprocess

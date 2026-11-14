@@ -39,6 +39,14 @@ LMSTUDIO_APPSETTING_KEYS = (
 
 
 class LLMRoutingMixin:
+    # Instance attributes assigned by LLMService.__init__.
+    lmstudio_url: str
+    assumed_lmstudio_context_tokens: int
+    assumed_cloud_context_tokens: int
+    provider_defaults: dict[str, str]
+    provider_rank: str
+    model_rank: str
+
     @staticmethod
     def _database_manager_cls():
         llm_service_module = sys.modules.get("src.services.llm_service")

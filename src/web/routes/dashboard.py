@@ -16,6 +16,53 @@ from src.web.dependencies import logger
 router = APIRouter(tags=["Dashboard"])
 
 
+def _article_created_at(article) -> datetime | None:
+    """Return an article's created_at as a naive local datetime, or None."""
+    raw = getattr(article, "created_at", None)
+    if raw is None and isinstance(article, dict):
+        raw = article.get("created_at")
+    if raw is None:
+        return None
+    if isinstance(raw, datetime):
+        parsed = raw
+    else:
+        try:
+            parsed = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        except ValueError as exc:
+            logger.warning("Failed to parse date %s: %s", raw, exc)
+            return None
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone().replace(tzinfo=None)
+    return parsed
+
+
+def _bucket_article_volume(articles, now: datetime | None = None) -> tuple[dict[str, int], dict[str, int]]:
+    """Count articles per day (last 10 days) and per hour (rolling last 24 hours).
+
+    Hourly keys are "YYYY-MM-DDTHH", oldest first, ending with the current hour.
+    They are deliberately not bare "HH": JS objects reorder integer-like keys,
+    which would scramble the chart's x-axis.
+    """
+    now = now or datetime.now()
+    current_hour = now.replace(minute=0, second=0, microsecond=0)
+
+    daily_data = {(now - timedelta(days=i)).strftime("%Y-%m-%d"): 0 for i in range(10)}
+    hourly_data = {(current_hour - timedelta(hours=i)).strftime("%Y-%m-%dT%H"): 0 for i in range(23, -1, -1)}
+
+    for article in articles:
+        created_at = _article_created_at(article)
+        if created_at is None:
+            continue
+        date_key = created_at.strftime("%Y-%m-%d")
+        hour_key = created_at.strftime("%Y-%m-%dT%H")
+        if date_key in daily_data:
+            daily_data[date_key] += 1
+        if hour_key in hourly_data:
+            hourly_data[hour_key] += 1
+
+    return daily_data, hourly_data
+
+
 def _compute_ingestion_health(sources):
     """Score ingestion health using failure severity instead of raw active/total ratio."""
     monitored_sources = [
@@ -110,41 +157,7 @@ async def api_dashboard_data():
         health = _compute_ingestion_health(sources)
 
         recent_articles = await async_db_manager.list_articles(limit=1000)
-        daily_data: dict[str, int] = {}
-        hourly_data: dict[str, int] = {}
-
-        for i in range(10):
-            date = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
-            daily_data[date] = 0
-
-        for hour in range(24):
-            hourly_data[f"{hour:02d}"] = 0
-
-        for article in recent_articles:
-            created_at_str = None
-            if hasattr(article, "created_at"):
-                created_at_str = article.created_at
-            elif isinstance(article, dict) and "created_at" in article:
-                created_at_str = article["created_at"]
-
-            if created_at_str:
-                try:
-                    # Parse timestamp - if it has timezone info, convert to local time
-                    parsed = datetime.fromisoformat(str(created_at_str).replace("Z", "+00:00"))
-                    if parsed.tzinfo is not None:
-                        # Convert to local time and remove timezone info
-                        parsed = parsed.astimezone().replace(tzinfo=None)
-                    created_at = parsed
-                    date_key = created_at.strftime("%Y-%m-%d")
-                    hour_key = created_at.strftime("%H")
-
-                    if date_key in daily_data:
-                        daily_data[date_key] += 1
-                    if hour_key in hourly_data:
-                        hourly_data[hour_key] += 1
-                except Exception as exc:  # noqa: BLE001
-                    logger.warning("Failed to parse date %s: %s", created_at_str, exc)
-                    continue
+        daily_data, hourly_data = _bucket_article_volume(recent_articles)
 
         failing_sources = []
         for source in sources:

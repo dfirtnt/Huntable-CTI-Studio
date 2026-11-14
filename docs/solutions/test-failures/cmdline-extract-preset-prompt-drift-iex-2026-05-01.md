@@ -8,7 +8,7 @@ component: testing_framework
 symptoms:
   - "test_preset_prompt_parses_and_matches_source[CmdlineExtract] fails with: AssertionError: Quickstart-openai-gpt-4o-mini.json -> CmdlineExtract.Prompt.prompt drifted from src/prompts/CmdlineExtract. Re-run preset regeneration."
   - "test_preset_qa_prompt_synced[CmdLineQA] fails with same drift assertion"
-  - "Running build_baseline_presets.py prints 'Updated (UI-ordered) ...' for each preset but tests still fail afterward"
+  - "Running normalize_quickstart_presets.py prints 'Updated (UI-ordered) ...' for each preset but tests still fail afterward"
 root_cause: logic_error
 resolution_type: seed_data_update
 severity: medium
@@ -40,12 +40,12 @@ The `test_subagent_traceability_contract` suite detected that `Quickstart-openai
   drifted from src/prompts/CmdlineExtract. Re-run preset regeneration.
   ```
 - `test_preset_qa_prompt_synced[CmdLineQA]` fails with the same drift assertion.
-- Running `uv run python3 scripts/build_baseline_presets.py` prints
+- Running `uv run python3 scripts/normalize_quickstart_presets.py` prints
   `Updated (UI-ordered) Quickstart-openai-gpt-4o-mini.json` for each preset, appearing to fix the problem. Tests still fail afterward.
 
 ## What Didn't Work
 
-Running `scripts/build_baseline_presets.py` appeared to be the correct response to the error message "Re-run preset regeneration." It was not.
+Running `scripts/normalize_quickstart_presets.py` appeared to be the correct response to the error message "Re-run preset regeneration." It was not.
 
 The script calls `export_preset_as_canonical_v2(data)` for each `quickstart/*.json`, which:
 - Normalizes key ordering
@@ -115,11 +115,11 @@ for preset_path in preset_paths:                             # all quickstart/*.
     assert embedded == source  # must match exactly
 ```
 
-Neither `build_baseline_presets.py` nor `scripts/merge_prompts_into_preset.py` bridge this gap:
-- `build_baseline_presets.py` — reorders structure, preserves existing prompt strings
+Neither `normalize_quickstart_presets.py` nor `scripts/merge_prompts_into_preset.py` bridge this gap:
+- `normalize_quickstart_presets.py` — reorders structure, preserves existing prompt strings
 - `merge_prompts_into_preset.py` — writes to `agent_prompts` (v2 format), not `AgentName.Prompt.prompt` (v1 format)
 
-There is no existing script that re-embeds seed content into v1 quickstart presets. When content drift occurs, the fix must be applied by script or inline code as shown above. (auto memory [claude]: `src/prompts/` files are seed defaults, not live prompts -- live prompts live in DB; disk files are only read on bootstrap, empty fallback, or explicit reset.)
+At the time there was no script that re-embedded seed content into quickstart presets, so the fix was applied by inline code as shown above. Since 2026-10-27, `scripts/build_quickstart_prompts.py` renders every preset prompt from `src/prompts/`, and `tests/config/test_quickstart_prompts_generated.py` fails on drift. (auto memory [claude]: `src/prompts/` files are seed defaults, not live prompts -- live prompts live in DB; disk files are only read on bootstrap, empty fallback, or explicit reset.)
 
 ## Prevention
 
@@ -130,7 +130,7 @@ There is no existing script that re-embeds seed content into v1 quickstart prese
   2. Re-embed the updated seed content into all target presets using the inline script pattern above.
   3. Commit seed files and all affected presets in the same commit. If any presets are intentionally excluded, document why in the commit message -- and create a follow-up task immediately rather than leaving the gap open-ended.
 
-- **Add a clarifying note to `scripts/build_baseline_presets.py`** (or its inline docstring) explicitly stating that it does NOT re-embed prompt content from `src/prompts/` and cannot fix content drift. Consider making the "Updated ..." output conditional on whether structural changes were actually made.
+- **Add a clarifying note to `scripts/normalize_quickstart_presets.py`** (or its inline docstring) explicitly stating that it does NOT re-embed prompt content from `src/prompts/` and cannot fix content drift. Consider making the "Updated ..." output conditional on whether structural changes were actually made.
 
 - **When a commit says "seed files not yet updated -- staged rollout,"** treat that as a deferred CI breakage, not a safe interim state. Open a follow-up Todoist task in the same session.
 
@@ -139,7 +139,7 @@ There is no existing script that re-embeds seed content into v1 quickstart prese
 ## Related Issues
 
 - `tests/config/test_subagent_traceability_contract.py` -- the test suite that catches and prevents this drift
-- `docs/architecture/agent-config-schema.md` -- documents `build_baseline_presets.py` behavior and quickstart preset locations; should be updated to note the script does not re-embed prompt content
+- `docs/architecture/agent-config-schema.md` -- documents `normalize_quickstart_presets.py` behavior and quickstart preset locations; should be updated to note the script does not re-embed prompt content
 - `docs/development/preset-lifecycle-tests.md` -- preset lifecycle test framework; could reference the traceability contract tests
 - `docs/contracts/cmdline-extract.md` -- CmdlineExtract prompt contract (the seed file that drifted)
-- `scripts/build_baseline_presets.py` -- the script that does NOT re-embed prompts (root cause context)
+- `scripts/normalize_quickstart_presets.py` -- the script that does NOT re-embed prompts (root cause context)

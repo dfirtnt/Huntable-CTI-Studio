@@ -179,6 +179,133 @@ def test_non_sigma_hunt_query_with_explicit_target_remains_generation_eligible()
     assert _observable_sigma_eligible(obs) is True
 
 
+_STORM_2570_PSEXEC_KQL = (
+    "DeviceProcessEvents\n"
+    "| where Timestamp > ago(30d)\n"
+    '| where FileName in~ ("psexec.exe", "psexec64.exe")\n'
+    '    or ProcessCommandLine has_any ("psexec.exe", "psexec64.exe")\n'
+    "| project Timestamp, DeviceName, AccountName, FileName, ProcessCommandLine\n"
+    "| order by Timestamp desc"
+)
+
+
+def _enrich_hunt_query(item, article_platforms):
+    obs = {"type": "hunt_queries", "value": item}
+    _enrich_observable_metadata(
+        obs,
+        item=item,
+        observable_type="hunt_queries",
+        article_platforms=article_platforms,
+    )
+    return obs
+
+
+def test_kql_hunt_query_without_extractor_metadata_routes_to_process_creation():
+    """Execution 30: HuntQueriesExtract emits only type/query/context, never a logsource_hint.
+
+    The query's own schema table names its telemetry, so the workflow derives the hint instead
+    of leaving every real hunt query display-only.
+    """
+    obs = _enrich_hunt_query(
+        {"type": "kql", "query": _STORM_2570_PSEXEC_KQL, "context": "PsExec hunt"},
+        ["windows"],
+    )
+
+    assert obs["telemetry_category"] == "process_creation"
+    assert obs["logsource_hint"] == {"product": "windows", "category": "process_creation"}
+    assert obs["logsource_hint_source"] == "inferred_from_query"
+    assert obs["artifact_type"] == "kql"
+    assert obs["source_text_authoritative"] is False
+    assert _observable_sigma_eligible(obs) is True
+
+
+@pytest.mark.parametrize(
+    ("query", "expected_category", "expected_hint"),
+    [
+        (
+            "DeviceNetworkEvents | where RemoteIP == '203.0.113.10'",
+            "network_connection",
+            {"product": "windows", "category": "network_connection"},
+        ),
+        (
+            "DeviceRegistryEvents | where RegistryKey has 'Run'",
+            "registry",
+            {"product": "windows", "category": "registry_event"},
+        ),
+        (
+            "| tstats count from datamodel=Endpoint.Processes where Processes.process_name=psexec.exe",
+            "process_creation",
+            {"product": "windows", "category": "process_creation"},
+        ),
+        (
+            "#event_simpleName=ProcessRollup2 | ImageFileName=/psexec/i",
+            "process_creation",
+            {"product": "windows", "category": "process_creation"},
+        ),
+    ],
+)
+def test_hunt_query_target_is_inferred_from_schema_indicator(query, expected_category, expected_hint):
+    obs = _enrich_hunt_query({"type": "kql", "query": query}, ["windows"])
+
+    assert obs["telemetry_category"] == expected_category
+    assert obs["logsource_hint"] == expected_hint
+    assert _observable_sigma_eligible(obs) is True
+
+
+def test_hunt_query_inference_uses_the_primary_table_when_several_are_named():
+    query = "DeviceNetworkEvents\n| join kind=inner (DeviceProcessEvents | where FileName == 'x.exe') on DeviceId"
+
+    obs = _enrich_hunt_query({"type": "kql", "query": query}, ["windows"])
+
+    assert obs["telemetry_category"] == "network_connection"
+
+
+def test_hunt_query_inference_does_not_override_extractor_supplied_target():
+    item = {
+        "type": "kql",
+        "query": _STORM_2570_PSEXEC_KQL,
+        "telemetry_category": "network_connection",
+        "logsource_hint": {"product": "windows", "category": "network_connection"},
+    }
+
+    obs = _enrich_hunt_query(item, ["windows"])
+
+    assert obs["telemetry_category"] == "network_connection"
+    assert obs["logsource_hint"] == {"product": "windows", "category": "network_connection"}
+    assert "logsource_hint_source" not in obs
+
+
+@pytest.mark.parametrize(
+    ("item", "article_platforms"),
+    [
+        # No schema indicator: nothing names the telemetry, so it stays display-only.
+        ({"type": "kql", "query": "search for suspicious logins"}, ["windows"]),
+        # Named table but the platform cannot be pinned, so no product-scoped hint exists.
+        ({"type": "kql", "query": _STORM_2570_PSEXEC_KQL}, ["unknown"]),
+        # macOS is excluded from Sigma generation in phase one.
+        ({"type": "kql", "query": _STORM_2570_PSEXEC_KQL}, ["macos"]),
+    ],
+)
+def test_hunt_query_without_resolvable_target_stays_display_only(item, article_platforms):
+    obs = _enrich_hunt_query(item, article_platforms)
+
+    assert obs.get("logsource_hint") is None
+    assert "logsource_hint_source" not in obs
+    assert _observable_sigma_eligible(obs) is False
+
+
+def test_captured_sigma_hunt_query_is_not_inferred_into_eligibility():
+    item = {
+        "type": "sigma",
+        "query": "title: t\nlogsource:\n  product: windows\n  category: process_creation\ndetection:\n  s: {a: b}\n  condition: s",
+    }
+
+    obs = _enrich_hunt_query(item, ["windows"])
+
+    assert obs.get("logsource_hint") is None
+    assert _observable_sigma_eligible(obs) is False
+
+
 def test_has_sigma_generation_eligible_observables_requires_logsource_hint():
     eligible = {
         "observables": [

@@ -8,7 +8,15 @@ from urllib.parse import urljoin, urlparse
 
 import httpx
 
+from src import __version__
+
 logger = logging.getLogger(__name__)
+
+# Honest, identifiable crawler UA. Do not impersonate a browser here: httpx's
+# TLS/HTTP fingerprint is not a browser's, and WAFs (e.g. Cloudflare on
+# huntress.com) block browser UAs sent from non-browser clients. Sources that
+# need something else set config.robots.user_agent.
+DEFAULT_USER_AGENT = f"Huntable-CTI-Studio/{__version__} (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
 
 
 @dataclass
@@ -20,7 +28,7 @@ class RequestConfig:
     retry_delay: float = 1.0
     follow_redirects: bool = True
     verify_ssl: bool = True
-    user_agent: str = "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
+    user_agent: str = DEFAULT_USER_AGENT
     headers: dict[str, str] | None = None
 
     def __post_init__(self):
@@ -198,7 +206,7 @@ class HTTPClient:
         self.config = config or RequestConfig()
         self.rate_limiter = rate_limiter or RateLimiter()
 
-        # Per-source polite crawl settings: source_id -> {crawl_delay, max_requests_per_minute}
+        # Per-source settings: source_id -> {crawl_delay, max_requests_per_minute, user_agent}
         self._source_robots: dict[str, dict] = {}
 
         # Statistics tracking
@@ -208,14 +216,31 @@ class HTTPClient:
         self._total_time = 0.0
 
     def configure_source_robots(self, source_id: str, robots_config: dict) -> None:
-        """Store per-source crawl settings from the robots config block in sources.yaml."""
-        if not robots_config or not robots_config.get("enabled", True):
+        """Store per-source crawl settings from the source's ``config.robots`` block.
+
+        ``user_agent`` is a per-source override of the client default; it applies
+        even when polite-crawl throttling is disabled.
+        """
+        if not robots_config:
+            return
+        user_agent = robots_config.get("user_agent")
+        user_agent = user_agent.strip() if isinstance(user_agent, str) and user_agent.strip() else None
+        if not robots_config.get("enabled", True):
+            if user_agent:
+                self._source_robots[source_id] = {
+                    "crawl_delay": 0.0,
+                    "max_requests_per_minute": 0,
+                    "user_agent": user_agent,
+                }
+            else:
+                self._source_robots.pop(source_id, None)
             return
         crawl_delay = float(robots_config.get("crawl_delay") or 1.0)
         max_rpm = int(robots_config.get("max_requests_per_minute") or 0)
         self._source_robots[source_id] = {
             "crawl_delay": crawl_delay,
             "max_requests_per_minute": max_rpm,
+            "user_agent": user_agent,
         }
 
     async def __aenter__(self):
@@ -240,7 +265,8 @@ class HTTPClient:
             url: URL to fetch
             headers: Optional HTTP headers (will be merged with default browser headers)
             params: Optional query parameters
-            source_id: Optional source identifier for tracking (unused, for compatibility)
+            source_id: Optional source identifier; selects that source's crawl delay
+                and ``robots.user_agent`` override (see ``configure_source_robots``)
             _use_conditional: Optional flag for conditional requests (unused, for compatibility)
         """
         if not url:
@@ -252,6 +278,9 @@ class HTTPClient:
 
         # Build browser-like headers and merge with provided headers
         default_headers = self.config.get_browser_headers(url)
+        source_ua = (self._source_robots.get(source_id) or {}).get("user_agent") if source_id else None
+        if source_ua:
+            default_headers["User-Agent"] = source_ua
         if headers:
             # Merge: provided headers override defaults
             merged_headers = {**default_headers, **headers}

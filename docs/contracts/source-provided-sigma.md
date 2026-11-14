@@ -9,7 +9,11 @@ paths.
 - The only authoritative input is `articles.content`. `hunt_queries` and other
   extracted observables are non-authoritative display/evaluation data.
 - A candidate must parse as one YAML mapping with a non-empty `title`, mapping
-  `logsource`, mapping `detection`, and string `detection.condition`.
+  `logsource`, mapping `detection`, string `detection.condition`, and a last
+  top-level key that is part of the Sigma rule specification. The last-key
+  check exists because publisher annotation lines printed after a rule
+  (`Tier:`, `Robustness:`, `Confidence:`, ...) are valid YAML and would
+  otherwise be absorbed as extra top-level keys on the rule itself.
 - `rule_yaml` is an exact substring of `articles.content`. Import never repairs,
   reformats, re-indents, enriches, or normalizes it.
 - Source records are immutable. Reviewers create a generated copy before editing
@@ -51,6 +55,26 @@ service; one ineligible item rejects the entire batch without opening a PR.
 Similarity is reviewer context only. It never suppresses, changes, re-homes, or
 deduplicates a source rule. An unresolved canonical logsource is stored as a
 warning and does not reject otherwise valid Sigma.
+
+## CI-parity gate
+
+Because a source rule's YAML is never edited, the only way to keep a queue
+approval from failing the destination repository's CI is to check the same
+things CI checks before the rule leaves the queue. `src/services/sigma_ci_parity.py`
+re-runs, over the raw `rule_yaml`, what the destination's `Validate` workflow
+does: duplicate YAML keys, pySigma parse/condition errors, and the blocking
+validator set read from the destination repo's own
+`.sigma/validation-blocking.yml` (the bundled mirror is the fallback when that
+file is absent). This gate is independent of, and additional to, the license
+and delivery policy above -- a rule can pass one and fail the other. PR
+submission enforces it the same way: the existing atomic preflight in
+`POST /api/sigma-queue/submit-pr` runs it over the whole approved batch and
+returns 409 with a per-rule reason before any git or GitHub side effect, and
+`GET /api/sigma-queue/submit-pr/preflight` is a dry run of the same check.
+Not covered: the destination's cross-rule duplicate-detection script and its
+yamllint style rules, and any drift between this app's pySigma/pyparsing
+versions and the destination's pinned `requirements-ci.txt` (reported as
+`toolchain_drift`, not enforced).
 
 ## Deployment
 

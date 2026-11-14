@@ -706,7 +706,7 @@ async def api_get_classification_timeline():
 
 
 @router.get("/eval-chunk-count")
-async def api_get_eval_chunk_count():
+def api_get_eval_chunk_count():
     """Get count of chunks in evaluation dataset."""
     try:
         import os

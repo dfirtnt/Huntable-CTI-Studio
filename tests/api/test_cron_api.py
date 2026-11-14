@@ -10,10 +10,6 @@ from src.web.routes import cron as cron_routes
 pytestmark = pytest.mark.api
 
 
-async def _run_async(awaitable):
-    return await awaitable
-
-
 def test_get_cron_returns_snapshot(monkeypatch):
     """GET /api/cron should return the current crontab snapshot."""
 
@@ -29,7 +25,7 @@ def test_get_cron_returns_snapshot(monkeypatch):
 
     monkeypatch.setattr(cron_routes, "BackupCronService", lambda: FakeService())
 
-    result = __import__("asyncio").run(cron_routes.api_get_cron())
+    result = cron_routes.api_get_cron()
 
     assert result["success"] is True
     assert result["cron_available"] is True
@@ -52,9 +48,7 @@ def test_replace_cron_returns_updated_snapshot(monkeypatch):
 
     monkeypatch.setattr(cron_routes, "BackupCronService", lambda: FakeService())
 
-    result = __import__("asyncio").run(
-        cron_routes.api_replace_cron(cron_routes.CronUpdate(content="5 4 * * * echo updated"))
-    )
+    result = cron_routes.api_replace_cron(cron_routes.CronUpdate(content="5 4 * * * echo updated"))
 
     assert result["success"] is True
     assert result["jobs"][0]["schedule"] == "5 4 * * *"
@@ -83,7 +77,7 @@ def test_replace_cron_returns_success_when_cron_unavailable(monkeypatch):
 
     monkeypatch.setattr(cron_routes, "BackupCronService", lambda: FakeService())
 
-    result = __import__("asyncio").run(cron_routes.api_replace_cron(cron_routes.CronUpdate(content="")))
+    result = cron_routes.api_replace_cron(cron_routes.CronUpdate(content=""))
 
     assert result["success"] is True
     assert result["cron_available"] is False

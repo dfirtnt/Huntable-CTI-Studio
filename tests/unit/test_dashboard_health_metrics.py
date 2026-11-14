@@ -87,3 +87,48 @@ async def test_api_metrics_health_returns_computed_status(monkeypatch):
     assert payload["monitored_sources"] == 6
     assert payload["total_sources"] == 7
     assert payload["uptime"] == pytest.approx(83.3, abs=0.1)
+
+
+def _article(created_at):
+    return SimpleNamespace(created_at=created_at)
+
+
+def test_hourly_volume_is_a_rolling_24h_window_not_hour_of_day():
+    from datetime import datetime, timedelta
+
+    from src.web.routes.dashboard import _bucket_article_volume
+
+    now = datetime(2026, 11, 1, 13, 47)
+    articles = [
+        _article(datetime(2026, 11, 1, 13, 5)),  # current hour
+        _article(datetime(2026, 10, 31, 14, 10)),  # oldest in-window hour
+        _article(datetime(2026, 10, 31, 13, 30)),  # 24h+ ago: excluded
+        _article(datetime(2026, 10, 20, 13, 0)),  # same hour-of-day, weeks ago: excluded
+        _article(None),
+    ]
+
+    daily, hourly = _bucket_article_volume(articles, now=now)
+
+    keys = list(hourly)
+    assert len(keys) == 24
+    assert keys == sorted(keys)  # oldest first, stable order
+    assert keys[0] == "2026-10-31T14"
+    assert keys[-1] == "2026-11-01T13"
+    assert hourly["2026-11-01T13"] == 1
+    assert hourly["2026-10-31T14"] == 1
+    assert sum(hourly.values()) == 2
+    assert daily["2026-11-01"] == 1
+    assert daily["2026-10-31"] == 2
+    assert "2026-10-20" not in daily
+    assert min(daily) == (now - timedelta(days=9)).strftime("%Y-%m-%d")
+
+
+def test_hourly_volume_accepts_iso_strings_with_timezone():
+    from datetime import datetime
+
+    from src.web.routes.dashboard import _bucket_article_volume
+
+    now = datetime.now()
+    stamp = now.astimezone().isoformat()
+    _, hourly = _bucket_article_volume([_article(stamp)], now=now)
+    assert hourly[now.strftime("%Y-%m-%dT%H")] == 1

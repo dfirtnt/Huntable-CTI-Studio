@@ -2,11 +2,13 @@
 API routes for SIGMA rule queue management.
 """
 
+import asyncio
 import contextlib
 import json
 import logging
 import os
 import re
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -36,24 +38,39 @@ from src.services.audit_service import (
     ACTION_SIGMA_QUEUE_RULE_DELETED,
     ACTION_SIGMA_QUEUE_RULE_EDITED,
     ACTION_SIGMA_QUEUE_RULE_REJECTED,
+    ACTION_SIGMA_QUEUE_RULE_REOPENED,
     STATUS_FAILURE,
     STATUS_SUCCESS,
     AuditEvent,
     AuditService,
     build_actor_context,
 )
-from src.services.codex_app_server_client import CodexAppServerClient, CodexAppServerError
+from src.services.codex_app_server_client import CodexAppServerError
+from src.services.llm_client import ProviderUnavailableError
 from src.services.llm_provider_clients import (
     WORKFLOW_PROVIDER_APPSETTING_KEYS,
     AnthropicProviderError,
-    LMStudioChatClient,
     LMStudioChatError,
-    lmstudio_chat_url_candidates,
     load_workflow_provider_settings,
-    post_anthropic_with_retry,
 )
+from src.services.llm_routing import LMSTUDIO_APPSETTING_KEYS
+from src.services.llm_service import (
+    LLMService,
+    default_provider_models,
+    lmstudio_default_model,
+    resolve_agent_sampling,
+)
+from src.services.sigma_ci_parity import check_rule_ci_parity, destination_blocking_config, toolchain_drift
 from src.services.sigma_matching_service import SigmaMatchingService
 from src.services.sigma_pr_service import SigmaPRService
+from src.services.sigma_publish_normalizer import (
+    normalize_for_queue_entry,
+    normalize_rule_yaml,
+    problems_as_review_note,
+    readiness_metadata,
+    resolve_canonical_author,
+)
+from src.services.sigma_publish_plan import PublishAssessment, PublishCandidate, assess_for_publish
 from src.services.sigma_validator import validate_sigma_rule
 from src.services.similarity_serialization import serialize_similarity_match
 from src.services.source_sigma_import_service import (
@@ -125,8 +142,8 @@ def _load_workflow_provider_settings(db_session) -> dict[str, str | None]:
         return {}
 
 
-# Providers the Sigma agent validate/repair loop can actually drive. Kept in sync with
-# the dispatch in validate_rule(); codex is routed through CodexAppServerClient.
+# Providers the Sigma routes can drive. Every call is dispatched by the shared LLM
+# client (LLMService.request_chat), which also serves codex via the app-server.
 SIGMA_AGENT_SUPPORTED_PROVIDERS = ("openai", "codex", "anthropic", "lmstudio")
 
 # Providers that need no API key: lmstudio is a local server, codex authenticates
@@ -134,17 +151,198 @@ SIGMA_AGENT_SUPPORTED_PROVIDERS = ("openai", "codex", "anthropic", "lmstudio")
 SIGMA_AGENT_KEYLESS_PROVIDERS = ("lmstudio", "codex")
 
 
+def _provider_flag_state(settings: dict[str, str | None], app_settings_key: str, env_key: str) -> bool | None:
+    """Read a provider enablement flag: AppSettings first, then env; None when unset in both."""
+    value = settings.get(WORKFLOW_PROVIDER_APPSETTING_KEYS[app_settings_key])
+    if value is None:
+        value = os.getenv(env_key)
+    if value is None:
+        return None
+    return str(value).strip().lower() == "true"
+
+
 def _provider_flag_enabled(settings: dict[str, str | None], app_settings_key: str, env_key: str) -> bool:
-    """Read a provider enablement flag: AppSettings first, then env.
+    """Read a provider enablement flag: AppSettings first, then env (unset means disabled).
 
     Every caller must use this. Reading one provider's flag from env only lets two
     adjacent checks disagree after a live settings change, because AppSettings values
     are written into os.environ at runtime rather than replacing it.
     """
-    value = settings.get(WORKFLOW_PROVIDER_APPSETTING_KEYS[app_settings_key])
-    if value is None:
-        value = os.getenv(env_key, "false")
-    return str(value).strip().lower() == "true"
+    return bool(_provider_flag_state(settings, app_settings_key, env_key))
+
+
+# provider -> (WORKFLOW_PROVIDER_APPSETTING_KEYS name, env var) for its enable flag.
+_PROVIDER_ENABLE_FLAGS = {
+    "openai": ("openai_enabled", "WORKFLOW_OPENAI_ENABLED"),
+    "anthropic": ("anthropic_enabled", "WORKFLOW_ANTHROPIC_ENABLED"),
+    "lmstudio": ("lmstudio_enabled", "WORKFLOW_LMSTUDIO_ENABLED"),
+    "codex": ("codex_enabled", "WORKFLOW_CODEX_ENABLED"),
+}
+
+_PROVIDER_LABELS = {"openai": "OpenAI", "anthropic": "Anthropic", "lmstudio": "LMStudio", "codex": "Codex"}
+
+
+def _provider_label(provider: str) -> str:
+    return _PROVIDER_LABELS.get(provider, provider.capitalize())
+
+
+def _provider_disabled_detail(provider: str) -> str:
+    if provider == "codex":
+        return "Codex subscription provider is disabled. Enable WORKFLOW_CODEX_ENABLED in Settings."
+    env_key = _PROVIDER_ENABLE_FLAGS[provider][1]
+    return f"{_provider_label(provider)} provider is disabled. Enable {env_key} in Settings."
+
+
+async def _require_usable_provider(
+    provider: str, settings: dict[str, str | None], header_key: str | None = None
+) -> str | None:
+    """Refuse a disabled or unconfigured provider before anything is sent to it.
+
+    Returns the API key to bill: the request-header key when one was supplied (it is
+    never replaced by the stored key), else the stored key. None for keyless providers.
+    Enable flags read AppSettings first, then env. Keyless providers (lmstudio, codex)
+    need their flag set to true; a keyed provider is refused when its flag is explicitly
+    off, and an unset flag follows the key -- the same default LLMService applies.
+    """
+    app_key, env_key = _PROVIDER_ENABLE_FLAGS[provider]
+    state = _provider_flag_state(settings, app_key, env_key)
+    if provider in SIGMA_AGENT_KEYLESS_PROVIDERS:
+        if not state:
+            raise HTTPException(status_code=400, detail=_provider_disabled_detail(provider))
+        return None
+    if state is False:
+        raise HTTPException(status_code=400, detail=_provider_disabled_detail(provider))
+    api_key = (header_key or "").strip()
+    if not api_key:
+        api_key = ((await resolve_provider_api_key(provider)) or "").strip()
+    if not api_key:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No {_provider_label(provider)} API key is configured. Add one in Settings.",
+        )
+    return api_key
+
+
+_PROVIDER_KEY_HEADERS = {"openai": "X-OpenAI-API-Key", "anthropic": "X-Anthropic-API-Key"}
+
+
+def _provider_header_key(request: Request, provider: str) -> str | None:
+    """Caller-supplied API key header for `provider` (None when absent or keyless)."""
+    header = _PROVIDER_KEY_HEADERS.get(provider)
+    return request.headers.get(header) if header else None
+
+
+def _load_lmstudio_settings(db_session) -> dict[str, str]:
+    """LMStudio model/tuning AppSettings (non-empty values only); {} when unreadable."""
+    try:
+        rows = db_session.query(AppSettingsTable).filter(AppSettingsTable.key.in_(LMSTUDIO_APPSETTING_KEYS)).all() or []
+        return {
+            row.key: row.value.strip()
+            for row in rows
+            if row.key in LMSTUDIO_APPSETTING_KEYS and isinstance(row.value, str) and row.value.strip()
+        }
+    except Exception as e:
+        logger.warning("Failed to load LMStudio settings from AppSettings: %s", e)
+        return {}
+
+
+def _default_model_for_provider(provider: str, lmstudio_settings: dict[str, str] | None = None) -> str:
+    """Model the shared LLM client uses for `provider` when the caller names none."""
+    return default_provider_models(lmstudio_default_model(lmstudio_settings))[provider]
+
+
+def _load_provider_settings() -> tuple[dict[str, str | None], dict[str, str]]:
+    """(workflow provider settings, LMStudio settings) from AppSettings in one session."""
+    db_session = DatabaseManager().get_session()
+    try:
+        return _load_workflow_provider_settings(db_session), _load_lmstudio_settings(db_session)
+    finally:
+        db_session.close()
+
+
+def _provider_timeout(provider: str) -> float:
+    """Per-request timeout: local LMStudio inference is slower than hosted providers."""
+    return 180.0 if provider == "lmstudio" else 120.0
+
+
+_OPENAI_STATUS_RE = re.compile(r"API error \((\d{3})\)")
+
+
+def _provider_error_status(exc: Exception) -> int | None:
+    """HTTP status the provider returned, from a typed error or the shared "(NNN)" text."""
+    if isinstance(exc, AnthropicProviderError) and exc.status_code is not None:
+        return exc.status_code
+    match = _OPENAI_STATUS_RE.search(str(exc))
+    return int(match.group(1)) if match else None
+
+
+def _provider_error_message(text: str) -> str:
+    """Short provider-supplied reason (the JSON error.message when present)."""
+    body = text.split(": ", 1)[1] if ": " in text else text
+    try:
+        parsed = json.loads(body)
+        message = parsed.get("error", {}).get("message") if isinstance(parsed, dict) else None
+        if isinstance(message, str) and message.strip():
+            body = message
+    except (ValueError, AttributeError):
+        pass
+    return _sanitize_error_detail(body)[:300]
+
+
+def _provider_http_error(provider: str, exc: Exception) -> HTTPException:
+    """Map a provider-call failure to the HTTPException a Sigma route reports.
+
+    One table for every provider: quota -> 402, 401 -> 401, 429 -> 429, other 4xx
+    request errors (bad model, invalid parameter) -> 400, timeouts -> 504, and
+    everything else -> 502. A 400/404 is never reported as an invalid API key.
+    """
+    if isinstance(exc, HTTPException):
+        return exc
+    label = _provider_label(provider)
+    if isinstance(exc, httpx.TimeoutException):
+        return HTTPException(status_code=504, detail="Request timeout. Please try again.")
+    if isinstance(exc, CodexAppServerError):
+        return HTTPException(status_code=502, detail=_sanitize_error_detail(str(exc)))
+    if isinstance(exc, LMStudioChatError):
+        return HTTPException(status_code=exc.status_code, detail=_sanitize_error_detail(str(exc)))
+    if isinstance(exc, (ValueError, ProviderUnavailableError)):
+        # Local configuration/request errors raised before or instead of a provider call.
+        return HTTPException(status_code=400, detail=_sanitize_error_detail(str(exc)))
+    if not isinstance(exc, RuntimeError):
+        logger.error("%s request failed: %s", label, exc, exc_info=exc)
+        return HTTPException(status_code=502, detail=f"{label} request failed ({type(exc).__name__}).")
+
+    text = str(exc)
+    lower = text.lower()
+    status = _provider_error_status(exc)
+    if status is None:
+        # Older clients put only the provider's JSON body in the message.
+        if "invalid_api_key" in lower:
+            status = 401
+        elif "insufficient_quota" in lower or "rate_limit" in lower:
+            status = 429
+        elif "invalid_request_error" in lower:
+            status = 400
+    logger.error("%s API error (%s): %s", label, status, text)
+    if "insufficient_quota" in lower:
+        return HTTPException(
+            status_code=402, detail=f"{label} quota exceeded. Please check your plan and billing details."
+        )
+    if status == 401:
+        return HTTPException(
+            status_code=401, detail=f"{label} API key is invalid or expired. Please check your API key."
+        )
+    if status == 429:
+        return HTTPException(status_code=429, detail=f"{label} API rate limit exceeded. Please wait and try again.")
+    if status in (408, 504):
+        return HTTPException(status_code=504, detail=f"{label} request timed out. Please try again.")
+    if status is not None and 400 <= status < 500:
+        return HTTPException(
+            status_code=400,
+            detail=f"{label} rejected the request ({status}): {_provider_error_message(text)}",
+        )
+    suffix = f" ({status})" if status else ""
+    return HTTPException(status_code=502, detail=f"{label} API error{suffix}: {_provider_error_message(text)}")
 
 
 def _first_enabled_provider(db_session) -> str:
@@ -181,9 +379,22 @@ def _first_enabled_provider(db_session) -> str:
     )
 
 
-def _get_sigma_agent_llm_from_workflow(db_session) -> tuple[str, str, str | None]:
-    """Resolve provider, model, and API key for Sigma agent from active workflow config and AppSettings.
-    Returns (provider, model, api_key). api_key is None for lmstudio."""
+@dataclass(frozen=True)
+class SigmaAgentLLM:
+    """What the workflow SigmaAgent is configured to call, resolved like LLMService does."""
+
+    provider: str
+    model: str
+    api_key: str | None  # "not_required" for lmstudio, None for codex
+    temperature: float = 0.2
+    top_p: float | None = None
+    effort: str | None = None
+
+
+def _get_sigma_agent_llm_from_workflow(db_session) -> SigmaAgentLLM:
+    """Resolve the Sigma agent's provider, model, API key and sampling from the active
+    workflow config and AppSettings -- the same values the workflow's SigmaAgent uses
+    (LLMService.model_sigma / temperature_sigma / top_p_sigma / effort_sigma)."""
     config = (
         db_session.query(AgenticWorkflowConfigTable)
         .filter(AgenticWorkflowConfigTable.is_active)
@@ -237,18 +448,21 @@ def _get_sigma_agent_llm_from_workflow(db_session) -> tuple[str, str, str | None
             detail="Codex subscription provider is disabled. Enable WORKFLOW_CODEX_ENABLED in Settings.",
         )
 
+    if provider in ("openai", "anthropic"):
+        app_key, env_key = _PROVIDER_ENABLE_FLAGS[provider]
+        if _provider_flag_state(workflow_settings, app_key, env_key) is False:
+            raise HTTPException(status_code=400, detail=_provider_disabled_detail(provider))
+
+    # Blank model: the same fallback chain LLMService uses for model_sigma.
+    lmstudio_settings = _load_lmstudio_settings(db_session)
     model = (agent_models.get("SigmaAgent") or "").strip()
-    if not model and provider not in SIGMA_AGENT_KEYLESS_PROVIDERS:
-        model = {
-            "openai": "gpt-4o-mini",
-            "anthropic": "claude-sonnet-4-5",
-        }.get(provider, "gpt-4o-mini")
-    if not model:
+    if not model and provider == "lmstudio":
         model = (
-            os.getenv("WORKFLOW_CODEX_MODEL", "gpt-5.6-luna")
-            if provider == "codex"
-            else os.getenv("LMSTUDIO_MODEL", "mistralai/mistral-7b-instruct-v0.3")
-        )
+            lmstudio_settings.get("LMSTUDIO_MODEL_SIGMA") or os.getenv("LMSTUDIO_MODEL_SIGMA") or ""
+        ).strip() or lmstudio_default_model(lmstudio_settings)
+    if not model:
+        model = _default_model_for_provider(provider, lmstudio_settings)
+    sampling = resolve_agent_sampling("SigmaAgent", agent_models, lmstudio_settings)
 
     api_key = None
     if provider == "openai":
@@ -276,53 +490,36 @@ def _get_sigma_agent_llm_from_workflow(db_session) -> tuple[str, str, str | None
             status_code=400,
             detail=f"Sigma agent uses {provider} but no API key is configured. Set it in Settings or environment.",
         )
-    return provider, model, (api_key.strip() if api_key and not keyless else api_key)
+    return SigmaAgentLLM(
+        provider=provider,
+        model=model,
+        api_key=api_key.strip() if api_key and not keyless else api_key,
+        temperature=sampling.temperature,
+        top_p=sampling.top_p,
+        effort=sampling.effort,
+    )
 
 
-async def _call_lmstudio_sigma_text(
-    *,
-    model: str,
-    messages: list[dict[str, str]],
-    failure_context: str,
-    timeout: float = 180.0,
-    response_metadata: dict[str, Any] | None = None,
-) -> str:
-    """Call LMStudio for Sigma queue routes and return non-empty message content."""
-    try:
-        response_data = await LMStudioChatClient(
-            url_candidates=lmstudio_chat_url_candidates("http://localhost:1234/v1")
-        ).post_chat(
-            {
-                "model": model,
-                "messages": messages,
-                "max_tokens": 4000,
-                "temperature": 0.2,
-                "stream": False,
-            },
-            model_name=model,
-            timeout=timeout,
-            failure_context=failure_context,
-        )
-    except LMStudioChatError as e:
-        raise HTTPException(status_code=e.status_code, detail=str(e)) from e
-    if "choices" not in response_data or len(response_data["choices"]) == 0:
-        logger.error("LMStudio response missing choices: %s", response_data)
-        raise HTTPException(status_code=500, detail="LMStudio returned invalid response format")
-    if response_metadata is not None:
-        response_metadata.update({"model": response_data.get("model"), "usage": response_data.get("usage")})
-    message = response_data["choices"][0].get("message", {})
-    content = message.get("content", "")
-    raw_response = content.strip() if content else ""
-    if not raw_response:
-        finish_reason = response_data["choices"][0].get("finish_reason", "unknown")
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                f"LMStudio empty response (finish_reason: {finish_reason}). "
-                "Check LMStudio is running and model is loaded."
-            ),
-        )
-    return raw_response
+async def _sigma_llm_service(provider: str, api_key: str | None) -> LLMService:
+    """Shared LLM client for one Sigma-route request.
+
+    Built without workflow agent_models (an unrelated bad agent entry must not block
+    Sigma) and in a worker thread (LLMService.__init__ reads AppSettings synchronously).
+    The key the route resolved -- a request-header key when one was sent -- overrides
+    the stored key, so it is the key billed.
+    """
+    overrides = {provider: api_key} if provider in _PROVIDER_KEY_HEADERS and api_key else None
+    return await asyncio.to_thread(LLMService.for_request, api_key_overrides=overrides)
+
+
+def _chat_result_text(result: dict[str, Any]) -> str:
+    """Assistant text from a request_chat result (OpenAI-shaped for every provider)."""
+    choices = result.get("choices") or []
+    message = choices[0].get("message", {}) if choices and isinstance(choices[0], dict) else {}
+    content = message.get("content") if isinstance(message, dict) else None
+    if isinstance(content, list):
+        return "".join(part.get("text", "") for part in content if isinstance(part, dict))
+    return content if isinstance(content, str) else ""
 
 
 async def _call_traced_sigma_provider(
@@ -330,7 +527,7 @@ async def _call_traced_sigma_provider(
     agent_name: str,
     provider: str,
     model: str,
-    api_key: str | None,
+    llm_service: LLMService,
     messages: list[dict[str, str]],
     queue_id: int,
     article_id: int | None,
@@ -339,9 +536,10 @@ async def _call_traced_sigma_provider(
     temperature: float,
     timeout: float,
     failure_context: str,
+    top_p: float | None = None,
+    effort: str | None = None,
 ) -> str:
-    """Call a Sigma-route provider and record the complete LLM observation."""
-    response_metadata: dict[str, Any] = {}
+    """Call the shared LLM client for a Sigma route and record the complete LLM observation."""
     with trace_llm_call(
         name=agent_name,
         model=model,
@@ -355,55 +553,30 @@ async def _call_traced_sigma_provider(
         },
     ) as generation:
         try:
-            if provider == "openai":
-                from src.services.openai_chat_client import openai_chat_completions
-
-                raw_response = await openai_chat_completions(
-                    api_key=api_key or "",
-                    model_name=model,
-                    messages=messages,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    timeout=timeout,
-                    response_metadata=response_metadata,
+            result = await llm_service.request_chat(
+                provider=provider,
+                model_name=model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                timeout=timeout,
+                failure_context=failure_context,
+                top_p=top_p,
+                effort=effort,
+            )
+            raw_response = _chat_result_text(result)
+            if provider == "lmstudio" and not raw_response.strip():
+                choices = result.get("choices") or [{}]
+                finish_reason = (
+                    choices[0].get("finish_reason", "unknown") if isinstance(choices[0], dict) else "unknown"
                 )
-            elif provider == "anthropic":
-                response = await post_anthropic_with_retry(
-                    api_key=api_key or "",
-                    anthropic_api_url="https://api.anthropic.com/v1/messages",
-                    timeout=timeout,
-                    payload={
-                        "model": model,
-                        "max_tokens": max_tokens,
-                        "temperature": temperature,
-                        "system": messages[0].get("content", "") if messages else "",
-                        "messages": messages[1:] if len(messages) > 1 else messages,
-                    },
+                raise HTTPException(
+                    status_code=503,
+                    detail=(
+                        f"LMStudio empty response (finish_reason: {finish_reason}). "
+                        "Check LMStudio is running and model is loaded."
+                    ),
                 )
-                response_data = response.json()
-                response_metadata.update({"model": response_data.get("model"), "usage": response_data.get("usage")})
-                content = response_data.get("content", [])
-                raw_response = content[0].get("text", "") if content else ""
-            elif provider == "lmstudio":
-                raw_response = await _call_lmstudio_sigma_text(
-                    model=model,
-                    messages=messages,
-                    failure_context=failure_context,
-                    timeout=timeout,
-                    response_metadata=response_metadata,
-                )
-            elif provider == "codex":
-                response_data = await CodexAppServerClient(timeout=timeout).complete(
-                    messages=messages,
-                    model_name=model,
-                    max_tokens=max_tokens,
-                )
-                response_metadata.update({"model": response_data.get("model"), "usage": response_data.get("usage")})
-                choices = response_data.get("choices", [])
-                message = choices[0].get("message", {}) if choices else {}
-                raw_response = message.get("content", "")
-            else:
-                raise ValueError(f"Unsupported Sigma provider: {provider}")
         except Exception as error:
             log_llm_error(generation, error, metadata={"provider": provider, "queue_id": queue_id})
             raise
@@ -412,13 +585,13 @@ async def _call_traced_sigma_provider(
             generation,
             input_messages=messages,
             output=raw_response,
-            usage=response_metadata.get("usage"),
+            usage=result.get("usage"),
             metadata={
                 "agent_name": agent_name,
                 "attempt": attempt,
                 "provider": provider,
                 "queue_id": queue_id,
-                "model": response_metadata.get("model") or model,
+                "model": result.get("model") or model,
             },
         )
         return raw_response
@@ -447,6 +620,9 @@ class QueuedRuleResponse(BaseModel):
     source_permission_granted_at: str | None
     delivery_eligible: bool
     delivery_eligibility_reason: str
+    # Reasons the destination repo's CI would reject this rule; only computed for approved,
+    # unsubmitted rows (what submit-pr would publish). Empty means "passes" or "not checked".
+    ci_parity_findings: list[dict[str, str]] = []
     similarity_scores: list[dict[str, Any]] | None
     max_similarity: float | None
     behavioral_matches_found: int | None = None
@@ -540,6 +716,31 @@ def _source_delivery_decision(rule: SigmaRuleQueueTable, repo_path=None):
     return evaluate_source_rule_delivery(rule, destination)
 
 
+def _ci_parity_findings(rule: SigmaRuleQueueTable, config_path: Path) -> list[dict[str, str]]:
+    """CI-parity findings for one queued rule, as JSON-ready dicts."""
+    return [f.as_dict() for f in check_rule_ci_parity(rule.rule_yaml or "", config_path=config_path)]
+
+
+def _ci_parity_failures(
+    rules: list[SigmaRuleQueueTable], repo_path: Path, yaml_by_id: dict[int, str] | None = None
+) -> list[dict[str, Any]]:
+    """Per-rule CI-parity failures for a batch; rules that pass are omitted.
+
+    ``yaml_by_id`` checks a rule's would-be-published YAML instead of its stored YAML (the
+    preflight dry run, which must not persist normalization).
+    """
+    config_path = destination_blocking_config(repo_path)
+    failures = []
+    for rule in rules:
+        rule_yaml = (yaml_by_id or {}).get(rule.id, rule.rule_yaml or "")
+        findings = [f.as_dict() for f in check_rule_ci_parity(rule_yaml, config_path=config_path)]
+        if findings:
+            metadata = getattr(rule, "rule_metadata", None)
+            title = metadata.get("title") if isinstance(metadata, dict) else None
+            failures.append({"id": rule.id, "title": title, "findings": findings})
+    return failures
+
+
 def _enforce_source_delivery(rule: SigmaRuleQueueTable, repo_path=None) -> None:
     decision = _source_delivery_decision(rule, repo_path)
     if not decision.eligible:
@@ -556,7 +757,6 @@ class BulkActionRequest(BaseModel):
 
 
 DEFAULT_SIGMA_ENRICHMENT_TOGGLES: dict[str, bool] = {f"d{i}": True for i in range(1, 8)}
-DEFAULT_SIGMA_ENRICHMENT_AUTHOR = "Huntable CTI Studio User"
 DEFAULT_SIGMA_ENRICHMENT_INSTRUCTION = (
     "Validate and polish this Sigma rule under the enabled directives. Preserve the detection logic; "
     "improve metadata, evidence grounding, and false-positive guidance."
@@ -639,11 +839,8 @@ def _create_enrichment_conversation(
 
 
 def _sigma_author_from_db(db_session) -> str:
-    """Resolve sigma rule author string for enrichment (Settings → sigmaAuthor)."""
-    row = db_session.query(AppSettingsTable).filter(AppSettingsTable.key == "sigmaAuthor").first()
-    if row and row.value and str(row.value).strip():
-        return str(row.value).strip()
-    return DEFAULT_SIGMA_ENRICHMENT_AUTHOR
+    """The one author for generated rules: Settings ``sigmaAuthor``, else ``SIGMA_RULE_AUTHOR``."""
+    return resolve_canonical_author(db_session)
 
 
 class EnrichRuleRequest(BaseModel):
@@ -738,6 +935,11 @@ def add_rule_to_queue(request: Request, add_request: AddRuleToQueueRequest):
                     detail=f"rule_yaml is missing required Sigma keys: {_missing}. Preview: {rule_yaml[:120]!r}",
                 )
 
+            # Publish metadata (author, date, tags, non-Sigma keys) is fixed as the rule enters
+            # the queue; what cannot be fixed is recorded and enforced at submit-pr.
+            entry_normalization = normalize_for_queue_entry(rule_yaml, db_session=db_session)
+            rule_yaml = entry_normalization.rule_yaml
+
             # Verify article exists (only when one is supplied; "from scratch" drafts have none)
             if add_request.article_id is not None:
                 article = db_session.query(ArticleTable).filter(ArticleTable.id == add_request.article_id).first()
@@ -796,6 +998,7 @@ def add_rule_to_queue(request: Request, add_request: AddRuleToQueueRequest):
             # (no canonical_class → weak logsource_key fallback / degraded dedup) is queryable
             # and logged, not silent. Fail open — the rule is still enqueued.
             if isinstance(rule_metadata, dict):
+                rule_metadata["publish_readiness"] = readiness_metadata(entry_normalization)
                 rule_metadata["canonical_class"] = canonical_class
                 rule_metadata["logsource_unresolved"] = canonical_class is None
                 rule_metadata["logsource_lint_failures"] = ["unresolved_logsource"] if canonical_class is None else []
@@ -880,6 +1083,7 @@ def list_queued_rules(
             result = []
             matching_service = None  # Lazy initialization
             source_repo_path = None  # Resolve once per response, and only if a source row is present.
+            ci_config_path = None  # Resolved lazily, only if an approved unsubmitted row is present.
 
             for rule in rules:
                 # Get article title
@@ -887,6 +1091,12 @@ def list_queued_rules(
                 if rule.rule_origin == SOURCE_ORIGIN and source_repo_path is None:
                     source_repo_path = SigmaPRService().repo_path
                 delivery = _source_delivery_decision(rule, source_repo_path)
+
+                ci_findings: list[dict[str, str]] = []
+                if rule.status == "approved" and not rule.pr_submitted:
+                    if ci_config_path is None:
+                        ci_config_path = destination_blocking_config(SigmaPRService().repo_path)
+                    ci_findings = _ci_parity_findings(rule, ci_config_path)
 
                 # Recompute on-the-fly only for legacy/never-scored rows. A row with
                 # evidence columns set but max_similarity=None is *inconclusive*
@@ -963,6 +1173,7 @@ def list_queued_rules(
                         ),
                         delivery_eligible=delivery.eligible,
                         delivery_eligibility_reason=delivery.reason,
+                        ci_parity_findings=ci_findings,
                         similarity_scores=rule.similarity_scores,
                         max_similarity=max_similarity,
                         behavioral_matches_found=rule.behavioral_matches_found,
@@ -1051,51 +1262,72 @@ def approve_queued_rule(request: Request, queue_id: int, update: QueueUpdateRequ
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+def _reject_queued_rule_sync(
+    request: Request,
+    queue_id: int,
+    review_notes_provided: bool,
+    review_notes: Any,
+    new_yaml: Any,
+) -> dict[str, Any]:
+    """Blocking part of rule rejection; owns its DB session for the whole call."""
+    db_manager = DatabaseManager()
+    db_session = db_manager.get_session()
+
+    try:
+        rule = db_session.query(SigmaRuleQueueTable).filter(SigmaRuleQueueTable.id == queue_id).first()
+        if not rule:
+            raise HTTPException(status_code=404, detail="Queued rule not found")
+
+        if review_notes_provided:
+            rule.review_notes = review_notes
+        if new_yaml:
+            _apply_rule_yaml(rule, new_yaml)
+
+        rule.status = "rejected"
+        rule.reviewed_at = datetime.now()
+        rule.reviewed_by = _sigma_author_from_db(db_session)
+
+        AuditService.record_mandatory(
+            db_session,
+            _sigma_audit_event(
+                request,
+                ACTION_SIGMA_QUEUE_RULE_REJECTED,
+                queue_id,
+                f"Rejected queued Sigma rule {queue_id}",
+            ),
+        )
+        db_session.commit()
+
+        return {"success": True, "message": f"Rule {queue_id} rejected"}
+    finally:
+        db_session.close()
+
+
 @router.post("/{queue_id}/reject")
 async def reject_queued_rule(request: Request, queue_id: int):
     """Reject a queued rule."""
     try:
-        db_manager = DatabaseManager()
-        db_session = db_manager.get_session()
-
+        # Read the request body on the event loop, then do the blocking DB work in a worker thread.
+        # Try to parse JSON body first (new format with rule_yaml support)
+        review_notes_provided = False
+        review_notes = None
+        new_yaml = None
         try:
-            rule = db_session.query(SigmaRuleQueueTable).filter(SigmaRuleQueueTable.id == queue_id).first()
-            if not rule:
-                raise HTTPException(status_code=404, detail="Queued rule not found")
+            body = await request.json()
+            if body:
+                review_notes_provided = True
+                review_notes = body.get("review_notes")
+                new_yaml = body.get("rule_yaml")
+        except Exception:
+            # Fall back to query params (backward compatibility)
+            query_notes = request.query_params.get("review_notes")
+            if query_notes:
+                review_notes_provided = True
+                review_notes = query_notes
 
-            # Try to parse JSON body first (new format with rule_yaml support)
-            new_yaml = None
-            try:
-                body = await request.json()
-                if body:
-                    rule.review_notes = body.get("review_notes")
-                    new_yaml = body.get("rule_yaml")
-            except Exception:
-                # Fall back to query params (backward compatibility)
-                review_notes = request.query_params.get("review_notes")
-                if review_notes:
-                    rule.review_notes = review_notes
-            if new_yaml:
-                _apply_rule_yaml(rule, new_yaml)
-
-            rule.status = "rejected"
-            rule.reviewed_at = datetime.now()
-            rule.reviewed_by = _sigma_author_from_db(db_session)
-
-            AuditService.record_mandatory(
-                db_session,
-                _sigma_audit_event(
-                    request,
-                    ACTION_SIGMA_QUEUE_RULE_REJECTED,
-                    queue_id,
-                    f"Rejected queued Sigma rule {queue_id}",
-                ),
-            )
-            db_session.commit()
-
-            return {"success": True, "message": f"Rule {queue_id} rejected"}
-        finally:
-            db_session.close()
+        return await asyncio.to_thread(
+            _reject_queued_rule_sync, request, queue_id, review_notes_provided, review_notes, new_yaml
+        )
 
     except HTTPException:
         raise
@@ -1450,38 +1682,20 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
     try:
         # Validate provider/model before DB work
         provider = (enrich_request.provider or "openai").lower()
-        model = enrich_request.model or "gpt-4o-mini"
-        if provider not in {"openai", "codex", "anthropic", "lmstudio"}:
+        if provider not in SIGMA_AGENT_SUPPORTED_PROVIDERS:
             raise HTTPException(
                 status_code=400,
                 detail=f"Unsupported provider '{provider}'. Supported providers: openai, codex, anthropic, lmstudio.",
             )
 
-        # Get API key from request headers (not needed for LMStudio). The page no
-        # longer reads keys back out of GET /api/settings, so a missing header is
-        # the normal case: resolve the stored key server-side.
-        api_key = None
-        if provider == "openai":
-            api_key = request.headers.get("X-OpenAI-API-Key")
-        elif provider == "anthropic":
-            api_key = request.headers.get("X-Anthropic-API-Key")
-        elif provider == "lmstudio":
-            api_key = "not_required"
-
-        if provider not in {"lmstudio", "codex"} and (not api_key or not api_key.strip()):
-            api_key = await resolve_provider_api_key(provider)
-
-        if provider not in {"lmstudio", "codex"} and (not api_key or not api_key.strip()):
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"No {provider.capitalize()} API key is configured. "
-                    f"Add one in Settings. Provider: {provider}, Model: {model}"
-                ),
-            )
-
-        # Run all sync DB queries and prompt building in a thread
-        import asyncio
+        # Refuse a disabled or unconfigured provider before anything is billed. The page
+        # no longer reads keys back out of GET /api/settings, so a missing header is the
+        # normal case: the stored key is resolved server-side; a header key, when sent,
+        # is the one billed.
+        workflow_settings, lmstudio_settings = await asyncio.to_thread(_load_provider_settings)
+        api_key = await _require_usable_provider(provider, workflow_settings, _provider_header_key(request, provider))
+        # An empty model resolves exactly as the shared LLM client would for this provider.
+        model = (enrich_request.model or "").strip() or _default_model_for_provider(provider, lmstudio_settings)
 
         def _prepare_enrichment():
             db_manager = DatabaseManager()
@@ -1523,7 +1737,8 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                         if k in toggles_merged and isinstance(v, bool):
                             toggles_merged[k] = v
                 toggles_json = json.dumps(toggles_merged, sort_keys=True)
-                author_for_enrich = (enrich_request.author_value or "").strip() or _sigma_author_from_db(db_session)
+                canonical_author = _sigma_author_from_db(db_session)
+                author_for_enrich = (enrich_request.author_value or "").strip() or canonical_author
 
                 prompt_params = {
                     "rule_yaml": rule_yaml_to_enrich,
@@ -1532,6 +1747,8 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                     "user_instruction": instruction_text,
                     "toggles_json": toggles_json,
                     "author_value": author_for_enrich,
+                    # The template's date rule ("use today's date if missing") needs a real date.
+                    "today": datetime.now().strftime("%Y-%m-%d"),
                 }
 
                 if article_content:
@@ -1549,7 +1766,9 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                     "enrichment_prompt": enrichment_prompt,
                     "system_message": system_message,
                     "article_id": rule.article_id,
-                    "workflow_settings": _load_workflow_provider_settings(db_session),
+                    "canonical_author": canonical_author,
+                    "rule_origin": rule.rule_origin or "generated",
+                    "attribution": rule.attribution,
                 }
             finally:
                 db_session.close()
@@ -1562,15 +1781,6 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
         enrichment_prompt = prep["enrichment_prompt"]
         system_message = prep["system_message"]
         article_id = prep.get("article_id")
-        if provider == "codex":
-            codex_enabled = prep["workflow_settings"].get(WORKFLOW_PROVIDER_APPSETTING_KEYS["codex_enabled"])
-            if codex_enabled is None:
-                codex_enabled = os.getenv("WORKFLOW_CODEX_ENABLED", "false")
-            if str(codex_enabled).strip().lower() != "true":
-                raise HTTPException(
-                    status_code=400,
-                    detail="Codex subscription provider is disabled. Enable WORKFLOW_CODEX_ENABLED in Settings.",
-                )
         enrichment_messages = [
             {"role": "system", "content": system_message},
             {"role": "user", "content": enrichment_prompt},
@@ -1581,216 +1791,155 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
             f"has_system_prompt={bool(enrich_request.system_prompt)}"
         )
 
-        # Call provider API
-        async with httpx.AsyncClient() as client:
+        # One shared-client call for every provider; failures map through one error table.
+        # The user picked this model, so no workflow effort override applies.
+        try:
+            raw_response = await _call_traced_sigma_provider(
+                agent_name="sigma_enrichment",
+                provider=provider,
+                model=model,
+                llm_service=await _sigma_llm_service(provider, api_key),
+                messages=enrichment_messages,
+                queue_id=queue_id,
+                article_id=article_id,
+                attempt=1,
+                max_tokens=4000,
+                temperature=0.2,
+                timeout=_provider_timeout(provider),
+                failure_context=f"{_provider_label(provider)} enrichment for rule {queue_id}",
+            )
+        except Exception as e:
+            raise _provider_http_error(provider, e) from e
+
+        try:
+            # Validate we got a response
+            if not raw_response or not raw_response.strip():
+                logger.error(f"Empty response from {provider} API for rule {queue_id}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Empty response from {provider} API. Try again or use a different model.",
+                )
+
+            # JSON envelope (sigma_enrichment OUTPUT CONTRACT) or legacy plain YAML
+            enriched_yaml = None
+            enrichment_result = None
             try:
-                if provider == "openai":
-                    try:
-                        raw_response = await _call_traced_sigma_provider(
-                            agent_name="sigma_enrichment",
-                            provider=provider,
-                            model=model,
-                            api_key=api_key,
-                            messages=enrichment_messages,
-                            queue_id=queue_id,
-                            article_id=article_id,
-                            attempt=1,
-                            max_tokens=4000,
-                            temperature=0.2,
-                            timeout=120.0,
-                            failure_context=f"OpenAI API for rule {queue_id}",
-                        )
-                        raw_response = raw_response.strip()
-                    except ValueError as e:
-                        raise HTTPException(status_code=400, detail="Provider response processing error") from e
-                    except RuntimeError as e:
-                        err = str(e)
-                        if "401" in err or "invalid" in err.lower() or "expired" in err.lower():
-                            raise HTTPException(
-                                status_code=401,
-                                detail="OpenAI API key is invalid or expired. Please check your API key.",
-                            ) from e
-                        if ("429" in err or "rate limit" in err.lower()) and "insufficient_quota" not in err.lower():
-                            raise HTTPException(
-                                status_code=429, detail="OpenAI API rate limit exceeded. Please wait and try again."
-                            ) from e
-                        if "insufficient_quota" in err.lower():
-                            raise HTTPException(
-                                status_code=402,
-                                detail="OpenAI quota exceeded. Please check your plan and billing details.",
-                            ) from e
-                        raise HTTPException(status_code=502, detail=err) from e
-                elif provider == "anthropic":
-                    try:
-                        raw_response = await _call_traced_sigma_provider(
-                            agent_name="sigma_enrichment",
-                            provider=provider,
-                            model=model,
-                            api_key=api_key,
-                            messages=enrichment_messages,
-                            queue_id=queue_id,
-                            article_id=article_id,
-                            attempt=1,
-                            max_tokens=4000,
-                            temperature=0.2,
-                            timeout=120.0,
-                            failure_context=f"Anthropic API for rule {queue_id}",
-                        )
-                    except AnthropicProviderError as e:
-                        status_code = e.status_code or 502
-                        error_detail = f"Anthropic API error: {status_code}"
-                        if status_code == 401:
-                            error_detail = "Anthropic API key is invalid or expired. Please check your API key."
-                        elif status_code == 429:
-                            error_detail = "Anthropic API rate limit exceeded. Please wait and try again."
-                        logger.error("Anthropic API error: %s", e)
-                        raise HTTPException(status_code=status_code, detail=error_detail) from e
-
-                elif provider == "lmstudio":
-                    logger.info(f"Calling LMStudio API for rule {queue_id} with model {model}")
-                    raw_response = await _call_traced_sigma_provider(
-                        agent_name="sigma_enrichment",
-                        provider=provider,
-                        model=model,
-                        api_key=api_key,
-                        messages=enrichment_messages,
-                        queue_id=queue_id,
-                        article_id=article_id,
-                        attempt=1,
-                        max_tokens=4000,
-                        temperature=0.2,
-                        timeout=180.0,
-                        failure_context=f"LMStudio API for rule {queue_id}",
-                    )
-
-                elif provider == "codex":
-                    try:
-                        raw_response = await _call_traced_sigma_provider(
-                            agent_name="sigma_enrichment",
-                            provider=provider,
-                            model=model,
-                            api_key=None,
-                            messages=enrichment_messages,
-                            queue_id=queue_id,
-                            article_id=article_id,
-                            attempt=1,
-                            max_tokens=4000,
-                            temperature=0.2,
-                            timeout=120.0,
-                            failure_context=f"Codex subscription for rule {queue_id}",
-                        )
-                    except CodexAppServerError as e:
-                        raise HTTPException(status_code=502, detail=str(e)) from e
-
-                else:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Unsupported provider '{provider}'. Supported providers: openai, codex, anthropic, lmstudio.",
-                    )
-
-                # Validate we got a response
-                if not raw_response or not raw_response.strip():
-                    logger.error(f"Empty response from {provider} API for rule {queue_id}")
-                    raise HTTPException(
-                        status_code=500,
-                        detail=f"Empty response from {provider} API. Try again or use a different model.",
-                    )
-
-                # JSON envelope (sigma_enrichment OUTPUT CONTRACT) or legacy plain YAML
-                enriched_yaml = None
-                enrichment_result = None
-                try:
-                    uy, meta = _enrichment_payload_from_llm_response(raw_response)
-                    if meta is not None:
-                        enriched_yaml = uy
-                        enrichment_result = meta
-                        st = meta.get("status")
-                        logger.info("Parsed JSON enrichment response with status: %s", st)
-                        logger.debug("Parsed enrichment JSON keys: %s", list(meta.keys()))
-                        if str(meta.get("status", "")).lower() == "needs_revision":
-                            issues = meta.get("issues", [])
-                            if issues:
-                                logger.warning("Enrichment needs revision: %s", issues)
-                    else:
-                        enriched_yaml = raw_response
-                        logger.debug("Enrichment response treated as legacy YAML (no JSON envelope)")
-                except HTTPException:
-                    raise
-                except Exception as e:
-                    error_msg = _sanitize_error_detail(str(e))
-                    logger.error(
-                        "Unexpected error parsing enrichment envelope: %s, preview=%r",
-                        error_msg,
-                        raw_response[:200],
-                        exc_info=True,
-                    )
-                    enriched_yaml = raw_response
-                    enrichment_result = None
-
-                # Extract YAML from response (remove markdown code blocks / leading prose).
-                if enriched_yaml:
-                    enriched_yaml = _extract_yaml_block(enriched_yaml)
-
-                # Validate that we got a response
-                if not enriched_yaml or not enriched_yaml.strip():
-                    logger.error(
-                        f"Empty enriched YAML received from {provider} API. Raw response: {raw_response[:500]}"
-                    )
-                    # If we have enrichment_result but no YAML, provide more context
-                    if enrichment_result and isinstance(enrichment_result, dict):
-                        status = enrichment_result.get("status", "unknown")
-                        error_detail = f"Enrichment returned status '{status}' but no YAML. "
-                        issues = enrichment_result.get("issues")
+                uy, meta = _enrichment_payload_from_llm_response(raw_response)
+                if meta is not None:
+                    enriched_yaml = uy
+                    enrichment_result = meta
+                    st = meta.get("status")
+                    logger.info("Parsed JSON enrichment response with status: %s", st)
+                    logger.debug("Parsed enrichment JSON keys: %s", list(meta.keys()))
+                    if str(meta.get("status", "")).lower() == "needs_revision":
+                        issues = meta.get("issues", [])
                         if issues:
-                            error_detail += f"Issues: {issues[:2] if isinstance(issues, list) else issues}"
-                        # Sanitize error message
-                        error_detail = error_detail.replace("\n", " ").replace("\r", " ").strip()
-                        raise HTTPException(status_code=400, detail=error_detail)
-                    raise HTTPException(
-                        status_code=500,
-                        detail=f"Empty response from {provider} API. Try again or use a different model.",
-                    )
-
-                logger.info(f"Successfully enriched rule {queue_id} {provider}/{model}, len={len(enriched_yaml)}")
-
-                response_data = {
-                    "success": True,
-                    "enriched_yaml": enriched_yaml,
-                    "raw_response": raw_response,
-                    "message": f"Rule {queue_id} enriched successfully",
-                }
-
-                try:
-                    response_data["conversation_id"] = await asyncio.to_thread(
-                        _create_enrichment_conversation,
-                        queue_id,
-                        provider,
-                        model,
-                        system_message,
-                        enrichment_prompt,
-                        raw_response,
-                    )
-                except Exception:
-                    # An enrichment remains usable if transcript persistence has a transient problem.
-                    logger.exception("Could not save enrichment conversation for rule %s", queue_id)
-                    response_data["conversation_id"] = None
-
-                # Include enrichment result metadata if available
-                if enrichment_result and isinstance(enrichment_result, dict):
-                    response_data["enrichment_status"] = enrichment_result.get("status")
-                    response_data["summary"] = enrichment_result.get("summary")
-                    response_data["issues"] = enrichment_result.get("issues", [])
-                    response_data["actions_taken"] = enrichment_result.get("actions_taken", [])
-                    response_data["diff_notes"] = enrichment_result.get("diff_notes", [])
-
-                return response_data
-            except httpx.TimeoutException as e:
-                raise HTTPException(status_code=504, detail="Request timeout. Please try again.") from e
+                            logger.warning("Enrichment needs revision: %s", issues)
+                else:
+                    enriched_yaml = raw_response
+                    logger.debug("Enrichment response treated as legacy YAML (no JSON envelope)")
             except HTTPException:
                 raise
             except Exception as e:
-                logger.error(f"Error calling {provider} API: {e}", exc_info=True)
-                raise HTTPException(status_code=500, detail="Internal server error") from e
+                error_msg = _sanitize_error_detail(str(e))
+                logger.error(
+                    "Unexpected error parsing enrichment envelope: %s, preview=%r",
+                    error_msg,
+                    raw_response[:200],
+                    exc_info=True,
+                )
+                enriched_yaml = raw_response
+                enrichment_result = None
+
+            # Extract YAML from response (remove markdown code blocks / leading prose).
+            if enriched_yaml:
+                enriched_yaml = _extract_yaml_block(enriched_yaml)
+
+            # Validate that we got a response
+            if not enriched_yaml or not enriched_yaml.strip():
+                logger.error(f"Empty enriched YAML received from {provider} API. Raw response: {raw_response[:500]}")
+                # If we have enrichment_result but no YAML, provide more context
+                if enrichment_result and isinstance(enrichment_result, dict):
+                    status = enrichment_result.get("status", "unknown")
+                    error_detail = f"Enrichment returned status '{status}' but no YAML. "
+                    issues = enrichment_result.get("issues")
+                    if issues:
+                        error_detail += f"Issues: {issues[:2] if isinstance(issues, list) else issues}"
+                    # Sanitize error message
+                    error_detail = error_detail.replace("\n", " ").replace("\r", " ").strip()
+                    raise HTTPException(status_code=400, detail=error_detail)
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Empty response from {provider} API. Try again or use a different model.",
+                )
+
+            logger.info(f"Successfully enriched rule {queue_id} {provider}/{model}, len={len(enriched_yaml)}")
+
+            enriched_normalization = normalize_rule_yaml(
+                enriched_yaml,
+                origin=prep["rule_origin"],
+                canonical_author=prep["canonical_author"],
+                attribution=prep["attribution"],
+            )
+            enriched_yaml = enriched_normalization.rule_yaml
+
+            response_data = {
+                "success": True,
+                "enriched_yaml": enriched_yaml,
+                "publish_readiness": readiness_metadata(enriched_normalization),
+                "raw_response": raw_response,
+                "message": f"Rule {queue_id} enriched successfully",
+            }
+
+            try:
+                response_data["conversation_id"] = await asyncio.to_thread(
+                    _create_enrichment_conversation,
+                    queue_id,
+                    provider,
+                    model,
+                    system_message,
+                    enrichment_prompt,
+                    raw_response,
+                )
+            except Exception:
+                # An enrichment remains usable if transcript persistence has a transient problem.
+                logger.exception("Could not save enrichment conversation for rule %s", queue_id)
+                response_data["conversation_id"] = None
+
+            # The model's "pass" is a claim, not a check: run pySigma + the policy validators on
+            # what the operator would apply. No automatic repair call (it would bill the provider
+            # again); errors go back to the operator to rerun or fix via the revision chat.
+            validation = await asyncio.to_thread(validate_sigma_rule, enriched_yaml)
+            response_data["validation"] = {
+                "is_valid": validation.is_valid,
+                "errors": list(validation.errors),
+                "warnings": list(validation.warnings),
+            }
+
+            # Include enrichment result metadata if available
+            if enrichment_result and isinstance(enrichment_result, dict):
+                status = enrichment_result.get("status")
+                issues = enrichment_result.get("issues", [])
+                issues = list(issues) if isinstance(issues, list) else []
+                if not validation.is_valid:
+                    if str(status or "").strip().lower() == "pass":
+                        status = "needs_revision"
+                    issues.extend(
+                        {"directive": "standard", "severity": "high", "type": "schema", "message": error}
+                        for error in validation.errors
+                    )
+                response_data["enrichment_status"] = status
+                response_data["summary"] = enrichment_result.get("summary")
+                response_data["issues"] = issues
+                response_data["actions_taken"] = enrichment_result.get("actions_taken", [])
+                response_data["diff_notes"] = enrichment_result.get("diff_notes", [])
+
+            return response_data
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error processing {provider} enrichment response: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail="Internal server error") from e
 
     except HTTPException:
         raise
@@ -1850,14 +1999,14 @@ async def continue_enrichment_chat(queue_id: int, conversation_id: int, chat_req
             rule = db_session.query(SigmaRuleQueueTable).filter(SigmaRuleQueueTable.id == queue_id).first()
             if not rule:
                 return {"error": "Queued rule not found", "status_code": 404}
-            settings = _load_workflow_provider_settings(db_session)
             return {
                 "conversation": _public_enrichment_conversation(conversation),
                 "messages": list(conversation.messages or []),
                 "provider": conversation.provider.lower(),
                 "model": conversation.model,
                 "article_id": rule.article_id,
-                "workflow_settings": settings,
+                "workflow_settings": _load_workflow_provider_settings(db_session),
+                "lmstudio_settings": _load_lmstudio_settings(db_session),
             }
         finally:
             db_session.close()
@@ -1867,40 +2016,28 @@ async def continue_enrichment_chat(queue_id: int, conversation_id: int, chat_req
         raise HTTPException(status_code=prep["status_code"], detail=prep["error"])
 
     provider = prep["provider"]
-    if provider not in {"openai", "codex", "anthropic", "lmstudio"}:
+    if provider not in SIGMA_AGENT_SUPPORTED_PROVIDERS:
         raise HTTPException(status_code=400, detail="This conversation uses an unsupported provider.")
-    api_key = None
-    if provider == "lmstudio":
-        api_key = "not_required"
-    elif provider == "codex":
-        codex_enabled = prep["workflow_settings"].get(WORKFLOW_PROVIDER_APPSETTING_KEYS["codex_enabled"])
-        if codex_enabled is None:
-            codex_enabled = os.getenv("WORKFLOW_CODEX_ENABLED", "false")
-        if str(codex_enabled).strip().lower() != "true":
-            raise HTTPException(
-                status_code=400,
-                detail="Codex subscription provider is disabled. Enable WORKFLOW_CODEX_ENABLED in Settings.",
-            )
-    else:
-        api_key = await resolve_provider_api_key(provider)
-        if not api_key or not api_key.strip():
-            raise HTTPException(status_code=400, detail=f"No {provider.capitalize()} API key is configured.")
+    # The stored conversation names the provider it started on; it may have been
+    # disabled since, so the replay passes the same gate as a new enrichment.
+    api_key = await _require_usable_provider(provider, prep["workflow_settings"])
+    model = (prep["model"] or "").strip() or _default_model_for_provider(provider, prep["lmstudio_settings"])
 
     messages = [*prep["messages"], {"role": "user", "content": user_message}]
     try:
         raw_response = await _call_traced_sigma_provider(
             agent_name="sigma_enrichment_chat",
             provider=provider,
-            model=prep["model"],
-            api_key=api_key,
+            model=model,
+            llm_service=await _sigma_llm_service(provider, api_key),
             messages=messages,
             queue_id=queue_id,
             article_id=prep["article_id"],
             attempt=sum(1 for message in messages if message.get("role") == "user"),
             max_tokens=4000,
             temperature=0.2,
-            timeout=180.0 if provider == "lmstudio" else 120.0,
-            failure_context=f"{provider.capitalize()} enrichment chat for rule {queue_id}",
+            timeout=_provider_timeout(provider),
+            failure_context=f"{_provider_label(provider)} enrichment chat for rule {queue_id}",
         )
     except CodexAppServerError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
@@ -2379,17 +2516,22 @@ async def validate_rule(request: Request, queue_id: int):
         model: str = "Sigma agent"
         conversation_log: list = []
         validation_results: list = []
-        db_manager = DatabaseManager()
-        db_session = db_manager.get_session()
+        # The sync session is only ever touched from worker threads (never the event loop),
+        # one call at a time, so the long LLM awaits below do not block other requests.
+        db_session = await asyncio.to_thread(lambda: DatabaseManager().get_session())
 
         try:
-            rule = db_session.query(SigmaRuleQueueTable).filter(SigmaRuleQueueTable.id == queue_id).first()
+            rule = await asyncio.to_thread(
+                lambda: db_session.query(SigmaRuleQueueTable).filter(SigmaRuleQueueTable.id == queue_id).first()
+            )
             if not rule:
                 raise HTTPException(status_code=404, detail="Queued rule not found")
 
             # Get article for context (hand-authored drafts have no source article)
             if rule.article_id is not None:
-                article = db_session.query(ArticleTable).filter(ArticleTable.id == rule.article_id).first()
+                article = await asyncio.to_thread(
+                    lambda: db_session.query(ArticleTable).filter(ArticleTable.id == rule.article_id).first()
+                )
                 if not article:
                     raise HTTPException(status_code=404, detail="Article not found")
 
@@ -2400,12 +2542,19 @@ async def validate_rule(request: Request, queue_id: int):
 
             # Use workflow Sigma agent LLM when requested (same as agent workflow)
             use_workflow_sigma_agent = body.get("use_workflow_sigma_agent") is True
+            # Manual validation runs a user-picked model: fixed temperature, provider
+            # default effort. The workflow path uses the SigmaAgent's own settings.
+            call_temperature: float = 0.2
+            call_top_p: float | None = None
+            call_effort: str | None = None
             if use_workflow_sigma_agent:
-                provider, model, api_key = _get_sigma_agent_llm_from_workflow(db_session)
+                sigma_llm = await asyncio.to_thread(_get_sigma_agent_llm_from_workflow, db_session)
+                provider, model, api_key = sigma_llm.provider, sigma_llm.model, sigma_llm.api_key
+                call_temperature, call_top_p, call_effort = sigma_llm.temperature, sigma_llm.top_p, sigma_llm.effort
             else:
                 # Get provider and model from request, default to OpenAI
                 provider = (body.get("provider") or "openai").lower()
-                model = body.get("model") or "gpt-4o-mini"
+                model = (body.get("model") or "").strip() if isinstance(body.get("model"), str) else ""
                 if provider not in SIGMA_AGENT_SUPPORTED_PROVIDERS:
                     supported = ", ".join(SIGMA_AGENT_SUPPORTED_PROVIDERS)
                     return {
@@ -2419,49 +2568,29 @@ async def validate_rule(request: Request, queue_id: int):
                         "provider": provider,
                         "model": model,
                     }
-                # Get API key from request headers (not needed for LMStudio or Codex)
-                api_key = None
-                if provider == "openai":
-                    api_key = request.headers.get("X-OpenAI-API-Key")
-                elif provider == "anthropic":
-                    api_key = request.headers.get("X-Anthropic-API-Key")
-                elif provider == "lmstudio":
-                    api_key = "not_required"
-                elif provider == "codex":
-                    codex_settings = _load_workflow_provider_settings(db_session)
-                    if not _provider_flag_enabled(codex_settings, "codex_enabled", "WORKFLOW_CODEX_ENABLED"):
-                        raise HTTPException(
-                            status_code=400,
-                            detail="Codex subscription provider is disabled. Enable WORKFLOW_CODEX_ENABLED in Settings.",
-                        )
+                # Refuse a disabled or unconfigured provider before anything is billed. The
+                # page cannot read stored keys back any more, so an absent header is the
+                # normal case: the stored key is resolved server-side; a header key, when
+                # sent, is the one billed.
+                workflow_settings = await asyncio.to_thread(_load_workflow_provider_settings, db_session)
+                api_key = await _require_usable_provider(
+                    provider, workflow_settings, _provider_header_key(request, provider)
+                )
+                if not model:
+                    # Resolve exactly as the shared LLM client would for this provider.
+                    lmstudio_settings = await asyncio.to_thread(_load_lmstudio_settings, db_session)
+                    model = _default_model_for_provider(provider, lmstudio_settings)
 
             # Use modal rule YAML when provided so edits are validated
             current_rule_yaml_from_request = None
             if body.get("rule_yaml") and isinstance(body["rule_yaml"], str) and body["rule_yaml"].strip():
                 current_rule_yaml_from_request = body["rule_yaml"].strip()
 
+            llm_service = await _sigma_llm_service(provider, api_key)
+
             # Initialize conversation log before any early returns
             conversation_log = []
             validation_results = []
-
-            # The page cannot read stored keys back any more, so an absent header is
-            # the normal case: resolve server-side before reporting a missing key.
-            if provider not in SIGMA_AGENT_KEYLESS_PROVIDERS and (not api_key or not api_key.strip()):
-                api_key = await resolve_provider_api_key(provider)
-
-            if provider not in SIGMA_AGENT_KEYLESS_PROVIDERS and (not api_key or not api_key.strip()):
-                # Return error response with empty conversation log
-                return {
-                    "success": False,
-                    "validated_yaml": None,
-                    "errors": [f"No {provider.capitalize()} API key is configured. Add one in Settings."],
-                    "attempts": 0,
-                    "message": f"API key is required for {provider}",
-                    "conversation_log": conversation_log,
-                    "validation_results": validation_results,
-                    "provider": provider,
-                    "model": model,
-                }
 
             system_message = SIGMA_QUEUE_VALIDATION_SYSTEM_PROMPT
 
@@ -2549,238 +2678,136 @@ async def validate_rule(request: Request, queue_id: int):
                     {"role": "user", "content": validation_prompt},
                 ]
 
-                # Call provider API to enrich/fix the rule
-                async with httpx.AsyncClient() as client:
+                # Call provider API to enrich/fix the rule: one call for every provider,
+                # failures map through the same error table as enrichment.
+                try:
+                    raw_response = None
+                    error_occurred = None
                     try:
-                        raw_response = None
-                        error_occurred = None
-
-                        if provider == "openai":
-                            try:
-                                raw_response = await _call_traced_sigma_provider(
-                                    agent_name="sigma_validation",
-                                    provider=provider,
-                                    model=model,
-                                    api_key=api_key,
-                                    messages=attempt_messages,
-                                    queue_id=queue_id,
-                                    article_id=rule.article_id,
-                                    attempt=attempt,
-                                    max_tokens=4000,
-                                    temperature=0.2,
-                                    timeout=120.0,
-                                    failure_context=f"OpenAI validation API for rule {queue_id}",
-                                )
-                                raw_response = raw_response.strip()
-                            except ValueError as e:
-                                error_occurred = type(e).__name__
-                                raise HTTPException(status_code=400, detail="Provider response processing error") from e
-                            except RuntimeError as e:
-                                err = str(e)
-                                error_occurred = err
-                                if "401" in err or "invalid" in err.lower() or "expired" in err.lower():
-                                    raise HTTPException(
-                                        status_code=401,
-                                        detail="OpenAI API key is invalid or expired. Please check your API key.",
-                                    ) from e
-                                if "429" in err or "rate limit" in err.lower():
-                                    raise HTTPException(
-                                        status_code=429,
-                                        detail="OpenAI API rate limit exceeded. Please wait and try again.",
-                                    ) from e
-                                logger.error("OpenAI API error: %s", err)
-                                raise HTTPException(
-                                    status_code=502, detail="OpenAI API request failed. Please try again."
-                                ) from e
-
-                        elif provider == "anthropic":
-                            try:
-                                raw_response = await _call_traced_sigma_provider(
-                                    agent_name="sigma_validation",
-                                    provider=provider,
-                                    model=model,
-                                    api_key=api_key,
-                                    messages=attempt_messages,
-                                    queue_id=queue_id,
-                                    article_id=rule.article_id,
-                                    attempt=attempt,
-                                    max_tokens=4000,
-                                    temperature=0.2,
-                                    timeout=120.0,
-                                    failure_context=f"Anthropic validation API for rule {queue_id}",
-                                )
-                            except AnthropicProviderError as e:
-                                status_code = e.status_code or 502
-                                error_detail = f"Anthropic API error: {status_code}"
-                                if status_code == 401:
-                                    error_detail = "Anthropic API key is invalid or expired. Please check your API key."
-                                elif status_code == 429:
-                                    error_detail = "Anthropic API rate limit exceeded. Please wait and try again."
-                                logger.error("Anthropic API error: %s", e)
-                                error_occurred = error_detail
-                                raise HTTPException(status_code=status_code, detail=error_detail) from e
-
-                        elif provider == "lmstudio":
-                            raw_response = await _call_traced_sigma_provider(
-                                agent_name="sigma_validation",
-                                provider=provider,
-                                model=model,
-                                api_key=api_key,
-                                messages=attempt_messages,
-                                queue_id=queue_id,
-                                article_id=rule.article_id,
-                                attempt=attempt,
-                                max_tokens=4000,
-                                temperature=0.2,
-                                timeout=180.0,
-                                failure_context=f"LMStudio repair API for rule {queue_id}",
-                            )
-                        elif provider == "codex":
-                            try:
-                                raw_response = await _call_traced_sigma_provider(
-                                    agent_name="sigma_validation",
-                                    provider=provider,
-                                    model=model,
-                                    api_key=None,
-                                    messages=attempt_messages,
-                                    queue_id=queue_id,
-                                    article_id=rule.article_id,
-                                    attempt=attempt,
-                                    max_tokens=4000,
-                                    temperature=0.2,
-                                    timeout=120.0,
-                                    failure_context=f"Codex subscription repair for rule {queue_id}",
-                                )
-                            except CodexAppServerError as e:
-                                error_occurred = str(e)
-                                raise HTTPException(status_code=502, detail=str(e)) from e
-                        else:
-                            supported = ", ".join(SIGMA_AGENT_SUPPORTED_PROVIDERS)
-                            raise HTTPException(
-                                status_code=400,
-                                detail=f"Unsupported provider '{provider}'. Supported providers: {supported}.",
-                            )
-
-                        if not raw_response:
-                            error_occurred = "Empty response from LLM"
-                            raise HTTPException(status_code=500, detail="LLM returned empty response")
-
-                        # Extract YAML from response (remove markdown code blocks if present)
-                        enriched_yaml = raw_response
-                        if enriched_yaml.startswith("```"):
-                            lines = enriched_yaml.split("\n")
-                            enriched_yaml = (
-                                "\n".join(lines[1:-1]) if lines[-1].startswith("```") else "\n".join(lines[1:])
-                            )
-
-                        # Validate with pySIGMA
-                        validation_result = validate_sigma_rule(enriched_yaml)
-                        attempt_validation_results = [validation_result]
-                        all_valid = validation_result.is_valid
-
-                        # Store validation result
-                        validation_results.append(
-                            {
-                                "is_valid": validation_result.is_valid,
-                                "errors": validation_result.errors,
-                                "warnings": validation_result.warnings,
-                                "rule_index": 1,
-                            }
+                        raw_response = await _call_traced_sigma_provider(
+                            agent_name="sigma_validation",
+                            provider=provider,
+                            model=model,
+                            llm_service=llm_service,
+                            messages=attempt_messages,
+                            queue_id=queue_id,
+                            article_id=rule.article_id,
+                            attempt=attempt,
+                            max_tokens=4000,
+                            temperature=call_temperature,
+                            timeout=_provider_timeout(provider),
+                            failure_context=f"{_provider_label(provider)} validation for rule {queue_id}",
+                            top_p=call_top_p,
+                            effort=call_effort,
                         )
-
-                        # Store conversation log entry
-                        conversation_log.append(
-                            {
-                                "attempt": attempt,
-                                "messages": attempt_messages,
-                                "llm_response": raw_response if raw_response else "",
-                                "validation": [
-                                    {
-                                        "is_valid": validation_result.is_valid,
-                                        "errors": validation_result.errors,
-                                        "warnings": validation_result.warnings,
-                                        "rule_index": 1,
-                                    }
-                                ],
-                                "all_valid": all_valid,
-                                "error": None,
-                            }
-                        )
-
-                        if validation_result.is_valid:
-                            # Validation passed!
-                            logger.info(f"Validation passed on attempt {attempt} for rule {queue_id}")
-                            return {
-                                "success": True,
-                                "validated_yaml": enriched_yaml,
-                                "raw_response": raw_response,
-                                "attempts": attempt,
-                                "message": f"Rule validated successfully after {attempt} attempt(s)",
-                                "conversation_log": conversation_log,
-                                "validation_results": validation_results,
-                                "provider": provider,
-                                "model": model,
-                            }
-                        # Validation failed, collect errors for next attempt
-                        validation_errors = validation_result.errors
-                        current_rule_yaml = enriched_yaml  # Use enriched version for next attempt
-                        # Update previous_yaml_preview for feedback prompt (same as AI/ML Assistant modal)
-                        if validation_result.content_preview:
-                            previous_yaml_preview = validation_result.content_preview
-                        else:
-                            previous_yaml_preview = enriched_yaml[:VALIDATION_RULE_MAX_CHARS] if enriched_yaml else ""
-                        logger.warning(f"Validation failed on attempt {attempt}: {validation_errors}")
-
-                    except httpx.TimeoutException:
-                        error_occurred = "Request timeout"
-                        conversation_log.append(
-                            {
-                                "attempt": attempt,
-                                "messages": attempt_messages,
-                                "llm_response": "",
-                                "validation": [],
-                                "all_valid": False,
-                                "error": "Request timeout",
-                            }
-                        )
-                        # Don't raise, continue to next attempt or return with conversation log
-                        if attempt == max_attempts:
-                            break  # Exit loop to return final result
-                        continue
-                    except HTTPException as e:
-                        if not error_occurred:
-                            error_occurred = f"HTTP error: {e.detail}"
-                        conversation_log.append(
-                            {
-                                "attempt": attempt,
-                                "messages": attempt_messages,
-                                "llm_response": "",
-                                "validation": [],
-                                "all_valid": False,
-                                "error": error_occurred,
-                            }
-                        )
-                        # Don't raise, continue to next attempt or return with conversation log
-                        if attempt == max_attempts:
-                            break  # Exit loop to return final result
-                        continue
                     except Exception as e:
-                        error_occurred = type(e).__name__
-                        conversation_log.append(
-                            {
-                                "attempt": attempt,
-                                "messages": attempt_messages,
-                                "llm_response": "",
-                                "validation": [],
-                                "all_valid": False,
-                                "error": type(e).__name__,
-                            }
-                        )
-                        logger.error("Error calling provider API: %s", type(e).__name__)
-                        # Don't raise, continue to next attempt or return with conversation log
-                        if attempt == max_attempts:
-                            break  # Exit loop to return final result
-                        continue
+                        mapped = _provider_http_error(provider, e)
+                        error_occurred = str(mapped.detail)
+                        raise mapped from e
+                    raw_response = (raw_response or "").strip()
+
+                    if not raw_response:
+                        error_occurred = "Empty response from LLM"
+                        raise HTTPException(status_code=500, detail="LLM returned empty response")
+
+                    # Extract YAML from response (remove markdown code blocks if present)
+                    enriched_yaml = raw_response
+                    if enriched_yaml.startswith("```"):
+                        lines = enriched_yaml.split("\n")
+                        enriched_yaml = "\n".join(lines[1:-1]) if lines[-1].startswith("```") else "\n".join(lines[1:])
+
+                    # Validate with pySIGMA
+                    validation_result = validate_sigma_rule(enriched_yaml)
+                    attempt_validation_results = [validation_result]
+                    all_valid = validation_result.is_valid
+
+                    # Store validation result
+                    validation_results.append(
+                        {
+                            "is_valid": validation_result.is_valid,
+                            "errors": validation_result.errors,
+                            "warnings": validation_result.warnings,
+                            "rule_index": 1,
+                        }
+                    )
+
+                    # Store conversation log entry
+                    conversation_log.append(
+                        {
+                            "attempt": attempt,
+                            "messages": attempt_messages,
+                            "llm_response": raw_response if raw_response else "",
+                            "validation": [
+                                {
+                                    "is_valid": validation_result.is_valid,
+                                    "errors": validation_result.errors,
+                                    "warnings": validation_result.warnings,
+                                    "rule_index": 1,
+                                }
+                            ],
+                            "all_valid": all_valid,
+                            "error": None,
+                        }
+                    )
+
+                    if validation_result.is_valid:
+                        # Validation passed!
+                        logger.info(f"Validation passed on attempt {attempt} for rule {queue_id}")
+                        return {
+                            "success": True,
+                            "validated_yaml": enriched_yaml,
+                            "raw_response": raw_response,
+                            "attempts": attempt,
+                            "message": f"Rule validated successfully after {attempt} attempt(s)",
+                            "conversation_log": conversation_log,
+                            "validation_results": validation_results,
+                            "provider": provider,
+                            "model": model,
+                        }
+                    # Validation failed, collect errors for next attempt
+                    validation_errors = validation_result.errors
+                    current_rule_yaml = enriched_yaml  # Use enriched version for next attempt
+                    # Update previous_yaml_preview for feedback prompt (same as AI/ML Assistant modal)
+                    if validation_result.content_preview:
+                        previous_yaml_preview = validation_result.content_preview
+                    else:
+                        previous_yaml_preview = enriched_yaml[:VALIDATION_RULE_MAX_CHARS] if enriched_yaml else ""
+                    logger.warning(f"Validation failed on attempt {attempt}: {validation_errors}")
+
+                except HTTPException as e:
+                    if not error_occurred:
+                        error_occurred = f"HTTP error: {e.detail}"
+                    conversation_log.append(
+                        {
+                            "attempt": attempt,
+                            "messages": attempt_messages,
+                            "llm_response": "",
+                            "validation": [],
+                            "all_valid": False,
+                            "error": error_occurred,
+                        }
+                    )
+                    # Don't raise, continue to next attempt or return with conversation log
+                    if attempt == max_attempts:
+                        break  # Exit loop to return final result
+                    continue
+                except Exception as e:
+                    error_occurred = type(e).__name__
+                    conversation_log.append(
+                        {
+                            "attempt": attempt,
+                            "messages": attempt_messages,
+                            "llm_response": "",
+                            "validation": [],
+                            "all_valid": False,
+                            "error": type(e).__name__,
+                        }
+                    )
+                    logger.error("Error calling provider API: %s", type(e).__name__)
+                    # Don't raise, continue to next attempt or return with conversation log
+                    if attempt == max_attempts:
+                        break  # Exit loop to return final result
+                    continue
 
             # All attempts failed
             logger.error(f"Validation failed after {max_attempts} attempts for rule {queue_id}")
@@ -2797,7 +2824,7 @@ async def validate_rule(request: Request, queue_id: int):
             }
 
         finally:
-            db_session.close()
+            await asyncio.to_thread(db_session.close)
 
     except HTTPException as e:
         # If we have a conversation log, include it in the error response
@@ -3023,9 +3050,139 @@ def get_similar_rules_for_queued_rule(request: Request, queue_id: int, force: bo
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+def _publish_assessments(rules: list[SigmaRuleQueueTable], repo_path: Path, db_session) -> dict[int, PublishAssessment]:
+    """Normalized YAML, destination path and readiness for each approved rule (no writes)."""
+    canonical_author = _sigma_author_from_db(db_session)
+    candidates = [
+        PublishCandidate(
+            rule.id,
+            rule.rule_yaml or "",
+            getattr(rule, "rule_origin", None) or "generated",
+            getattr(rule, "attribution", None),
+        )
+        for rule in rules
+    ]
+    return {a.key: a for a in assess_for_publish(candidates, repo_path, canonical_author=canonical_author)}
+
+
+def _publish_report(assessments: dict[int, PublishAssessment]) -> dict[str, list[dict[str, Any]]]:
+    """Preflight / submit-pr report sections: demoted rules, warnings, and metadata changes."""
+    values = list(assessments.values())
+    return {
+        "demoted": [{"id": a.key, "title": a.title, "reasons": a.problems} for a in values if not a.ready],
+        "warnings": [
+            {"id": a.key, "title": a.title, "path": str(a.relative_path), "warnings": a.warnings}
+            for a in values
+            if a.ready and a.warnings
+        ],
+        "normalized": [
+            {"id": a.key, "title": a.title, "path": str(a.relative_path), "changes": a.changes}
+            for a in values
+            if a.ready and a.changes
+        ],
+    }
+
+
+@router.get("/submit-pr/preflight")
+def preflight_submit_pr():
+    """Dry run of the submit-pr checks: what would block, without any git or GitHub side effect.
+
+    The CI-parity check runs on the normalized YAML submit-pr would persist and publish.
+    ``demoted`` lists approved rules submit-pr would send back to review, with reasons.
+    """
+    db_session = DatabaseManager().get_session()
+    try:
+        approved_rules = (
+            db_session.query(SigmaRuleQueueTable)
+            .filter(SigmaRuleQueueTable.status == "approved", SigmaRuleQueueTable.pr_submitted.is_(False))
+            .all()
+        )
+        pr_service = SigmaPRService()
+        assessments = _publish_assessments(approved_rules, pr_service.repo_path, db_session)
+        ready_rules = [rule for rule in approved_rules if assessments[rule.id].ready]
+        blocked = []
+        for rule in approved_rules:
+            decision = _source_delivery_decision(rule, pr_service.repo_path)
+            if not decision.eligible:
+                blocked.append({"id": rule.id, "reason": decision.reason})
+        ci_failures = _ci_parity_failures(
+            ready_rules, pr_service.repo_path, {rule.id: assessments[rule.id].rule_yaml for rule in ready_rules}
+        )
+        return {
+            "ready": bool(ready_rules) and not blocked and not ci_failures,
+            "rules_checked": len(approved_rules),
+            "rules": blocked,
+            "ci_failures": ci_failures,
+            "toolchain_drift": toolchain_drift(pr_service.repo_path),
+            **_publish_report(assessments),
+        }
+    finally:
+        db_session.close()
+
+
+def _persist_publish_assessments(
+    request: Request, db_session, rules: list[SigmaRuleQueueTable], assessments: dict[int, PublishAssessment]
+) -> list[SigmaRuleQueueTable]:
+    """Write normalized YAML to ready rows and send not-ready rows back to ``pending``.
+
+    Runs before the CI-parity check so the YAML that is checked is byte-identical to the
+    YAML that is published. Returns the rules that remain publishable.
+    """
+    now = datetime.now()
+    ready: list[SigmaRuleQueueTable] = []
+    for rule in rules:
+        assessment = assessments[rule.id]
+        metadata = dict(getattr(rule, "rule_metadata", None) or {})
+        if not assessment.ready:
+            note = problems_as_review_note(assessment.problems)
+            rule.status = "pending"
+            rule.review_notes = f"{rule.review_notes}\n{note}" if rule.review_notes else note
+            metadata["publish_readiness"] = {
+                "ready": False,
+                "problems": assessment.problems,
+                "checked_at": now.isoformat(),
+            }
+            rule.rule_metadata = metadata
+            AuditService.record_mandatory(
+                db_session,
+                _sigma_audit_event(
+                    request,
+                    ACTION_SIGMA_QUEUE_RULE_REOPENED,
+                    rule.id,
+                    f"Returned Sigma rule {rule.id} to review: not ready to publish",
+                    {"reason": "publish_readiness", "problems": assessment.problems},
+                ),
+            )
+            continue
+        if assessment.rule_yaml != rule.rule_yaml:
+            rule.rule_yaml = assessment.rule_yaml
+            metadata["publish_normalization"] = {"changes": assessment.changes, "normalized_at": now.isoformat()}
+            if assessment.title:
+                metadata["title"] = assessment.title
+            rule.rule_metadata = metadata
+            AuditService.record_mandatory(
+                db_session,
+                _sigma_audit_event(
+                    request,
+                    ACTION_SIGMA_QUEUE_RULE_EDITED,
+                    rule.id,
+                    f"Normalized publish metadata for Sigma rule {rule.id}",
+                    {"reason": "publish_normalization", "changes": assessment.changes},
+                ),
+            )
+        ready.append(rule)
+    db_session.commit()
+    return ready
+
+
 @router.post("/submit-pr")
 def submit_pr_for_approved_rules(request: Request):
-    """Submit all approved rules as a GitHub PR."""
+    """Submit all approved rules as a GitHub PR.
+
+    Order: normalize and persist every approved rule's YAML, return not-ready rules to
+    ``pending`` (listed in ``demoted``), then run the source-delivery and CI-parity gates
+    on what remains, then publish exactly the persisted YAML.
+    """
     try:
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
@@ -3048,8 +3205,8 @@ def submit_pr_for_approved_rules(request: Request):
                     "message": "Please approve rules before submitting a PR",
                 }
 
-            # Re-evaluate the entire batch before the first repository/GitHub side
-            # effect. One ineligible source rule blocks the batch atomically.
+            # Re-evaluate source delivery for the entire batch before any write: one
+            # ineligible source rule blocks the batch atomically, with nothing persisted.
             pr_service = SigmaPRService()
             blocked = []
             for rule in approved_rules:
@@ -3059,7 +3216,35 @@ def submit_pr_for_approved_rules(request: Request):
             if blocked:
                 raise HTTPException(
                     status_code=409,
-                    detail={"message": "PR submission blocked by source delivery policy.", "rules": blocked},
+                    detail={
+                        "message": "PR submission blocked by source delivery policy.",
+                        "rules": blocked,
+                        "ci_failures": [],
+                    },
+                )
+
+            # Normalize and persist, sending not-ready rules back to review, so the
+            # CI-parity check below reads exactly the YAML that will be published.
+            assessments = _publish_assessments(approved_rules, pr_service.repo_path, db_session)
+            report = _publish_report(assessments)
+            approved_rules = _persist_publish_assessments(request, db_session, approved_rules, assessments)
+            if not approved_rules:
+                return {
+                    "success": False,
+                    "error": "No approved rules are ready to publish; every rule was returned to review",
+                    **report,
+                }
+
+            ci_failures = _ci_parity_failures(approved_rules, pr_service.repo_path)
+            if ci_failures:
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "message": "PR submission blocked by the destination repository's CI checks.",
+                        "rules": [],
+                        "ci_failures": ci_failures,
+                        **report,
+                    },
                 )
 
             # Prepare rules for PR service
@@ -3109,6 +3294,7 @@ def submit_pr_for_approved_rules(request: Request):
                     "rules_count": result.get("rules_count", len(approved_rules)),
                     "files_added": result.get("files_added", []),
                     "message": f"Successfully created PR with {len(approved_rules)} rules",
+                    **report,
                 }
             # PR creation failed
             error_msg = result.get("error", "Unknown error")
@@ -3132,6 +3318,7 @@ def submit_pr_for_approved_rules(request: Request):
                 "error": error_msg,
                 "branch": result.get("branch"),  # May have branch even if PR failed
                 "files_added": result.get("files_added", []),
+                **report,
             }
 
         finally:

@@ -156,10 +156,13 @@ Route module: `src/web/routes/models.py`. Version data is stored in the `ml_mode
 
 - `GET /workflow/queue` — HTML page for the Sigma queue console (redirects to `/workflow#queue`; uses `/api/sigma-queue/*` for data).
 - `GET /api/sigma-queue/list` — List queued Sigma rules with pagination. Query params: `status` (optional, values: `pending`, `needs_review`, `approved`, `rejected`, `submitted`), `workflow_execution_id` (optional, filter to one workflow job's rules), `limit` (default 50, max 500), `offset` (default 0). Response: `{ "items": [...], "total": N, "limit": L, "offset": O }`.
-- `POST /api/sigma-queue/{queue_id}/enrich` — Enrich a queued rule with OpenAI, Anthropic, LM Studio, or the optional Codex subscription provider. The configured provider credential stays server-side. A successful response includes the enriched YAML and `conversation_id` for a persisted, rule-scoped follow-up conversation.
+- `POST /api/sigma-queue/{queue_id}/enrich` — Enrich a queued rule with OpenAI, Anthropic, LM Studio, or the optional Codex subscription provider. The configured provider credential stays server-side. A successful response includes the enriched YAML and `conversation_id` for a persisted, rule-scoped follow-up conversation, plus `validation: {is_valid, errors, warnings}`; a model `pass` that fails pySigma is downgraded to `needs_revision`. A provider whose `WORKFLOW_<PROVIDER>_ENABLED` flag is off returns 400.
 - `GET /api/sigma-queue/{queue_id}/enrichment-chat` — Return the latest persisted enrichment conversation for the rule. System prompts are excluded from the browser response.
 - `POST /api/sigma-queue/{queue_id}/enrichment-chat/{conversation_id}/turn` — Continue that conversation through its original provider and model. Follow-up turns are limited to revising the current Sigma rule or discussing earlier enrichment turns.
-- `POST /api/sigma-queue/{queue_id}/validate` — Validate and optionally LLM-enrich a queued rule. Returns `{ "validated_yaml": ... }`.
+- `POST /api/sigma-queue/{queue_id}/validate` — Validate and optionally LLM-enrich a queued rule. Returns `{ "validated_yaml": ... }`. Refuses (400) a provider whose `WORKFLOW_<PROVIDER>_ENABLED` flag is off; an empty `model` resolves to that provider's default; provider errors map as in enrich (OpenAI `invalid_request_error` 400, `insufficient_quota` 402).
+- `POST /api/sigma-queue/submit-pr` — Normalizes and persists approved rules, demotes not-ready ones (`demoted`), runs the source-delivery and CI-parity gates, and returns 409 with per-rule reasons before any git or GitHub side effect. See `docs/features/sigma-rules.md`.
+- `GET /api/sigma-queue/submit-pr/preflight` — The same checks as a dry run, with no side effects.
+- `PUT /api/sigma-queue/{queue_id}/yaml`, `POST /api/sigma-queue/{queue_id}/approve` and `/reject` — return 409 on any YAML change once `pr_submitted` or `submitted_at` is set.
 - `GET /api/sigma-queue/*` (other endpoints)
 - `GET /api/eval/os-detection-manual-results` and `GET /api/eval/observables-count-results` — remaining legacy evaluation result routes (`src/web/routes/evaluation.py`)
 - `/mlops/agent-evals` and `/mlops/agent-evals2` — HTML evaluation pages registered in `src/web/routes/pages.py`
@@ -170,7 +173,7 @@ These support per-subagent extraction evals (CmdlineExtract, ProcTreeExtract, Hu
 
 - `GET /api/evaluations/subagent-eval-articles` — List seeded eval articles for a given subagent.
 - `POST /api/evaluations/run-subagent-eval` — Trigger a subagent eval run against the active config (the legacy `use_active_config` field is ignored). Rejected with 422 before any write when a URL has no committed fixture or the run exceeds `MAX_EVAL_EXECUTIONS_PER_LAUNCH` (default 100). Shares its planner with the `run_subagent_eval` MCP tool.
-- `GET /api/evaluations/subagent-eval-results` — Get results for completed subagent eval runs (includes `expected_items`, `actual_items`, `matched_count`, `missed_count`, `extra_count` when item-level ground truth is set).
+- `GET /api/evaluations/subagent-eval-results` — Get results for completed subagent eval runs (includes `expected_items`, `actual_items`, `matched_count`, `missed_count`, `extra_count` when item-level ground truth is set). Params: `subagent` (required), `eval_run_id`, `counts_only`, repeatable `execution_ids` (restrict to one launch's own executions).
 - `GET /api/evaluations/subagent-eval-status/{eval_record_id}` — Poll status of a single eval record.
 - `DELETE /api/evaluations/subagent-eval-clear-pending` — Clear pending/stuck eval records.
 - `POST /api/evaluations/subagent-eval-backfill` — Backfill pending eval records from existing workflow executions.

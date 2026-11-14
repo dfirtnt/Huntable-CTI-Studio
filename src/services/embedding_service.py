@@ -107,6 +107,8 @@ class EmbeddingService:
         self._load_model()
 
         try:
+            if self.model is None:
+                raise RuntimeError("embedding model is not loaded")
             # Generate embedding
             embedding = self.model.encode(text, convert_to_tensor=False)
 
@@ -152,6 +154,8 @@ class EmbeddingService:
                 return [[0.0] * 768 for _ in range(len(texts))]
 
             # Generate embeddings in batches
+            if self.model is None:
+                raise RuntimeError("embedding model is not loaded")
             embeddings = self.model.encode(
                 valid_texts,
                 batch_size=batch_size,

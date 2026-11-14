@@ -51,21 +51,21 @@ class ContentFetcher:
 
     def __init__(
         self,
-        user_agent: str = (
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-        ),
+        user_agent: str | None = None,
         timeout: float = 30.0,
         max_concurrent: int = 5,
         rate_limit_delay: float = 1.0,
     ):
+        # Initialize HTTP client and parsers
+        from src.utils.http import DEFAULT_USER_AGENT, RateLimiter, RequestConfig
+
+        # Default is the honest crawler UA; per-source overrides come from
+        # config.robots.user_agent via HTTPClient.configure_source_robots.
+        user_agent = user_agent or DEFAULT_USER_AGENT
         self.user_agent = user_agent
         self.timeout = timeout
         self.max_concurrent = max_concurrent
         self.rate_limit_delay = rate_limit_delay
-
-        # Initialize HTTP client and parsers
-        from src.utils.http import RateLimiter, RequestConfig
 
         config = RequestConfig(user_agent=user_agent, timeout=timeout, retry_delay=rate_limit_delay)
         rate_limiter = RateLimiter()

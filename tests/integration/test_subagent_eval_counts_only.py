@@ -8,8 +8,6 @@ of status counts that EXACTLY matches the tallies the full payload would produce
 
 from __future__ import annotations
 
-import asyncio
-
 import pytest
 
 from src.database.manager import DatabaseManager
@@ -47,11 +45,11 @@ def test_counts_only_matches_full_path():
 
         # Called directly (not via FastAPI), so every Query()-defaulted param must be
         # passed explicitly -- otherwise eval_run_id stays as the Query default object.
-        counts_resp = asyncio.run(
-            get_subagent_eval_results(request=None, subagent=_TEST_SUBAGENT, eval_run_id=None, counts_only=True)
+        counts_resp = get_subagent_eval_results(
+            request=None, subagent=_TEST_SUBAGENT, eval_run_id=None, counts_only=True
         )
-        full_resp = asyncio.run(
-            get_subagent_eval_results(request=None, subagent=_TEST_SUBAGENT, eval_run_id=None, counts_only=False)
+        full_resp = get_subagent_eval_results(
+            request=None, subagent=_TEST_SUBAGENT, eval_run_id=None, counts_only=False
         )
 
         # Shape: counts_only returns aggregate counts and an empty results list.

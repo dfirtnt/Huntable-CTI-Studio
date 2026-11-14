@@ -18,7 +18,7 @@ class CronUpdate(BaseModel):
 
 
 @router.get("")
-async def api_get_cron():
+def api_get_cron():
     """Return the current user's crontab, parsed jobs, and managed CTI entries."""
     try:
         service = BackupCronService()
@@ -31,7 +31,7 @@ async def api_get_cron():
 
 
 @router.put("")
-async def api_replace_cron(payload: CronUpdate):
+def api_replace_cron(payload: CronUpdate):
     """Replace the current user's crontab."""
     try:
         service = BackupCronService()

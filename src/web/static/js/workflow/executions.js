@@ -20,7 +20,8 @@ function getTerminationBadge(reason) {
     const labels = {
         'rank_below_threshold': 'Below Threshold',
         'no_sigma_rules_generated': 'No SIGMA Rules',
-        'no_huntable_content': 'Junk Filtered'
+        'no_huntable_content': 'Junk Filtered',
+        'sigma_groups_no_reply': 'Partial SIGMA'
     };
     const label = labels[reason] || reason;
     return `<span class="q-badge-term">${label}</span>`;
@@ -39,6 +40,11 @@ function describeTermination(reason, details) {
         }
         case 'no_sigma_rules_generated': {
             return 'Completed without generating SIGMA rules';
+        }
+        case 'sigma_groups_no_reply': {
+            return payload.reason
+                ? `Completed with partial SIGMA output — ${payload.reason}`
+                : 'Completed with partial SIGMA output — some generation groups returned no reply';
         }
         case 'no_huntable_content': {
             const confidence = typeof payload.confidence === 'number' ? (payload.confidence * 100).toFixed(0) : null;

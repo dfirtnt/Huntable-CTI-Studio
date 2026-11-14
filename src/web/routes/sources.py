@@ -5,7 +5,7 @@ Source management API routes.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from celery import Celery
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -360,6 +360,7 @@ async def api_update_source_check_frequency(request: Request, source_id: int, pa
             raise HTTPException(status_code=400, detail="check_frequency must be at least 60 seconds")
 
         from sqlalchemy import update
+        from sqlalchemy.engine import CursorResult
 
         from src.database.models import SourceTable
 
@@ -369,7 +370,7 @@ async def api_update_source_check_frequency(request: Request, source_id: int, pa
                 .where(SourceTable.id == source_id)
                 .values(check_frequency=check_frequency, updated_at=datetime.now())
             )
-            if result.rowcount == 0:
+            if cast(CursorResult[Any], result).rowcount == 0:
                 raise HTTPException(status_code=404, detail="Source not found")
             await AsyncAuditService.record_mandatory(
                 session,

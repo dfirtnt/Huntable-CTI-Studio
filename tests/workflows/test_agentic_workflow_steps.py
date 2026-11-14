@@ -1083,6 +1083,42 @@ class TestQueuePromotionNode:
         # between a configured full-content rule and a lost tie-back is unqueryable.
         assert queue_entry.rule_metadata["observable_attribution"] == "attribution_failed"
 
+    def test_promotion_normalizes_publish_metadata_at_queue_entry(self, article, execution, config_obj):
+        db_session = _make_db_session(article, execution)
+        nodes = _capture_nodes(db_session, trigger_service_config=config_obj)
+        rule = {
+            "title": "Linux Process Rule",
+            "id": "4b5e9c2a-0000-4000-8000-000000000001",
+            "description": "Detects Linux process behavior",
+            "author": "Cybersecurity Detection Engineer",
+            "date": "2026/10/01",
+            "tags": ["attack.defense_evasion", "stp.2"],
+            "logsource": {"product": "linux", "category": "process_creation"},
+            "detection": {"selection": {"CommandLine|contains": "/bin/bash"}, "condition": "selection"},
+        }
+        state = _default_state(
+            sigma_rules=[rule],
+            similarity_results=[{"rule_title": "Linux Process Rule", "max_similarity": 0.1, "similar_rules": []}],
+            max_similarity=0.1,
+            config={"similarity_threshold": 0.5},
+        )
+
+        with patch(
+            "src.services.sigma_publish_normalizer.resolve_canonical_author", return_value="Huntable CTI Studio"
+        ):
+            nodes["promote_to_queue"](state)
+
+        queue_entry = db_session.add.call_args.args[0]
+        parsed_yaml = yaml.safe_load(queue_entry.rule_yaml)
+        assert parsed_yaml["author"] == "Huntable CTI Studio"
+        assert str(parsed_yaml["date"]) == "2026-10-01"
+        assert parsed_yaml["tags"] == ["attack.defense-evasion", "stp.2"]
+        assert parsed_yaml["detection"] == rule["detection"]
+        assert queue_entry.rule_metadata["tags"] == ["attack.defense-evasion", "stp.2"]
+        readiness = queue_entry.rule_metadata["publish_readiness"]
+        assert readiness["ready"] is False
+        assert set(readiness["problems"]) == {"Missing required references", "Missing required falsepositives"}
+
 
 # ---------------------------------------------------------------------------
 # Platform Detection node — verdict wiring

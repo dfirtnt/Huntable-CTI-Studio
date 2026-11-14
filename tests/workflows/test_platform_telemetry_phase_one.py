@@ -616,6 +616,40 @@ async def test_huntquery_generates_sigma_only_with_clear_backend_and_target(arti
     assert _build_sigma_generation_groups(vague) == []
 
 
+@pytest.mark.asyncio
+async def test_kql_huntquery_as_extracted_generates_sigma_without_extractor_metadata(article, execution, config_obj):
+    """Execution 30 (Storm-2570): HuntQueriesExtract returned a Defender KQL query carrying only
+    type/query/context. It must still route to a windows process_creation group and yield a rule."""
+    # Single line: the stubbed SIGMA service pastes the value into CommandLine|contains verbatim.
+    kql = 'DeviceProcessEvents | where FileName in~ ("psexec.exe", "psexec64.exe")'
+    extraction = _enriched_extraction(
+        [
+            (
+                "hunt_queries",
+                {
+                    "type": "kql",
+                    "query": kql,
+                    "value": kql,
+                    "context": "Microsoft Sentinel hunting query for PsExec-based remote execution",
+                },
+            )
+        ],
+        article_platforms=["windows"],
+    )
+    observable = extraction["observables"][0]
+    assert observable["logsource_hint"] == {"product": "windows", "category": "process_creation"}
+    assert observable["logsource_hint_source"] == "inferred_from_query"
+
+    result = await _run_generate_sigma(article, execution, config_obj, extraction)
+
+    assert result.get("termination_reason") != TERMINATION_REASON_NO_SIGMA_RULES
+    assert len(result["sigma_rules"]) == 1
+    rule = result["sigma_rules"][0]
+    assert rule["logsource"] == {"product": "windows", "category": "process_creation"}
+    _, validation = _validate_emitted_rule(rule)
+    assert validation.is_valid, validation.errors
+
+
 def test_llm_captured_sigma_huntquery_is_display_only_even_with_explicit_target():
     extraction = _enriched_extraction(
         [

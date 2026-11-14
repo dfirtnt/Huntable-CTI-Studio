@@ -13,6 +13,7 @@ from typing import Any
 
 import yaml
 
+from src.services.codex_app_server_client import CodexEmptyAgentMessageError
 from src.services.llm_service import LLMService
 from src.services.sigma_validator import (
     SIGMA_GROUNDING_METADATA_FIELDS,
@@ -26,6 +27,25 @@ from src.utils.llm_optimizer import optimize_article_content
 logger = logging.getLogger(__name__)
 
 SIGMA_RULE_AUTHOR = "Huntable CTI Studio"
+
+
+class SigmaEmptyResponseError(ValueError):
+    """The provider answered a SIGMA generation call with no text.
+
+    A ValueError subclass so existing handlers keep working; the Phase 1 caller catches it
+    (with Codex's CodexEmptyAgentMessageError) and reports "zero rules" instead of a failure.
+    """
+
+
+# Recorded on the generation result (metadata["no_rules"]["reason"]) when the model replied
+# with nothing: the prompt tells it to write rules only for durable behavior, so an observable
+# group holding nothing but atomic indicators (domains, URLs) has no permitted answer.
+SIGMA_NO_RULES_EMPTY_REPLY = "model_returned_empty_reply"
+
+# Extra Phase 1 calls made after an empty reply. An empty reply can be a provider/transport
+# glitch (execution 115: Codex agentMessage with no text) rather than a deliberate "nothing",
+# so retry once. Bounded because every call bills the Sigma provider (LMStudio excepted).
+SIGMA_EMPTY_REPLY_MAX_RETRIES = 1
 
 # Optional top-level Sigma fields preserved from the generated YAML into the stored rule
 # dict (and therefore the queue YAML).
@@ -295,6 +315,25 @@ def _build_observables_section(
     )
 
 
+def _expansion_subresults(extraction_result: dict[str, Any]) -> dict[str, Any]:
+    """Subresults that Phase 4 expansion may consider for this call.
+
+    A per-group input is built as ``{**article_extraction, "observables": group_observables}``, so
+    ``subresults`` still describes the whole article. Reading it as-is made every group see its
+    siblings' observables as "uncovered" and regenerate their rules (execution 36: the
+    service_creation group re-wrote the curl rule the process_creation group had already
+    produced). A group-scoped input keeps only the subresults whose type it actually owns.
+    """
+    subresults = extraction_result.get("subresults", {})
+    if not isinstance(subresults, dict) or "sigma_generation_group" not in extraction_result:
+        return subresults if isinstance(subresults, dict) else {}
+    observables = extraction_result.get("observables")
+    if not isinstance(observables, list):
+        return subresults
+    owned_types = {obs.get("type") for obs in observables if isinstance(obs, dict)}
+    return {obs_type: result for obs_type, result in subresults.items() if obs_type in owned_types}
+
+
 def _observable_by_index(extraction_result: dict[str, Any] | None, index: int) -> dict[str, Any] | None:
     if not isinstance(extraction_result, dict):
         return None
@@ -371,6 +410,9 @@ class RuleValidationResult:
     final_status: str = "pending"
     observables_used: list[int] | None = None
     observables_used_inferred: bool = False
+    # Pre-repair validation of the original draft; set by _repair_rules so a successful
+    # repair (which replaces validation_result) doesn't erase why the draft failed.
+    initial_validation: dict[str, Any] | None = None
 
     def __post_init__(self):
         if self.repair_attempts is None:
@@ -636,13 +678,37 @@ class SigmaGenerationService:
 
             # Phase 1: Multi-rule generation (structurally constrained)
             logger.info("Phase 1: Multi-rule generation")
-            generated_yaml = await self._generate_multi_rules(
-                sigma_prompt=sigma_prompt,
-                sigma_system_prompt=sigma_system_prompt,
-                ai_model=ai_model,
-                execution_id=execution_id,
-                article_id=article_id,
-            )
+            # An empty reply may be the model declining to write a rule (executions 26, 37-40:
+            # network_connection groups holding only C2 domains/URLs) or a provider glitch
+            # (execution 115). The reply alone can't tell them apart, so retry a bounded number
+            # of times; if every attempt is empty, it means zero rules for this call.
+            empty_replies: list[Exception] = []
+            generated_yaml = None
+            for _ in range(1 + SIGMA_EMPTY_REPLY_MAX_RETRIES):
+                try:
+                    generated_yaml = await self._generate_multi_rules(
+                        sigma_prompt=sigma_prompt,
+                        sigma_system_prompt=sigma_system_prompt,
+                        ai_model=ai_model,
+                        execution_id=execution_id,
+                        article_id=article_id,
+                    )
+                    break
+                except (SigmaEmptyResponseError, CodexEmptyAgentMessageError) as empty_reply:
+                    empty_replies.append(empty_reply)
+                    logger.warning(
+                        f"SIGMA generation: empty reply on attempt {len(empty_replies)}/"
+                        f"{1 + SIGMA_EMPTY_REPLY_MAX_RETRIES}: {empty_reply}"
+                    )
+            else:
+                return self._empty_reply_result(
+                    empty_replies[-1],
+                    ai_model=ai_model,
+                    sigma_prompt=sigma_prompt,
+                    sigma_system_prompt=sigma_system_prompt,
+                    extraction_result=extraction_result,
+                    attempts=len(empty_replies),
+                )
 
             # Phase 2: Validation & Categorization
             logger.info("Phase 2: Validation & categorization")
@@ -817,6 +883,8 @@ class SigmaGenerationService:
                         "rule_index": rule_result.rule_index,
                     },
                 }
+                if rule_result.initial_validation is not None:
+                    rule_log["initial_validation"] = rule_result.initial_validation
                 conversation_log.append(rule_log)
 
             # Build validation results summary
@@ -897,6 +965,65 @@ class SigmaGenerationService:
                 "errors": str(e),
             }
 
+    def _empty_reply_result(
+        self,
+        empty_reply: Exception,
+        *,
+        ai_model: str,
+        sigma_prompt: str,
+        sigma_system_prompt: str | None,
+        extraction_result: dict[str, Any] | None,
+        attempts: int = 1,
+    ) -> dict[str, Any]:
+        """Result for Phase 1 calls the model answered with no text every time: zero rules, no error."""
+        provider = self._resolve_sigma_provider(ai_model)
+        model_name = self.llm_service.model_sigma or self.llm_service.provider_defaults.get(provider)
+        group = extraction_result.get("sigma_generation_group") if isinstance(extraction_result, dict) else None
+        group_key = (
+            f"{group.get('platform')}:{group.get('telemetry_category')}" if isinstance(group, dict) else "ungrouped"
+        )
+        logger.warning(
+            f"SIGMA generation: model {model_name!r} ({provider}) returned an empty reply for group "
+            f"{group_key}; treating as zero rules. Detail: {empty_reply}"
+        )
+        no_rules = {
+            "reason": SIGMA_NO_RULES_EMPTY_REPLY,
+            "detail": str(empty_reply),
+            "provider": provider,
+            "model": model_name,
+            "attempts": attempts,
+        }
+        return {
+            "rules": [],
+            "metadata": {
+                "total_attempts": attempts,
+                "valid_rules": 0,
+                "validation_results": [],
+                "conversation_log": [
+                    {
+                        "event_type": "generation_call",
+                        "generation_phase": "generation",
+                        "attempt": attempts,
+                        "messages": [
+                            {
+                                "role": "system",
+                                "content": _truncate_trace_text(
+                                    sigma_system_prompt or DEFAULT_SIGMA_SYSTEM_PROMPT, _TRACE_MESSAGE_MAX_CHARS
+                                ),
+                            },
+                            {"role": "user", "content": _truncate_trace_text(sigma_prompt, _TRACE_MESSAGE_MAX_CHARS)},
+                        ],
+                        "llm_response": "",
+                        "generated_rule_count": 0,
+                        "no_rules": no_rules,
+                    }
+                ],
+                "expansion_error": None,
+                "no_rules": no_rules,
+            },
+            "errors": None,
+        }
+
     def _resolve_sigma_provider(self, ai_model: str) -> str:
         """The provider a generation call will really use.
 
@@ -904,8 +1031,12 @@ class SigmaGenerationService:
         "use the configured provider", so it never overrides ``provider_sigma``.
         """
         sigma_provider = self.llm_service.provider_sigma
+        # Only canonicalize a real hint: canonicalizing the "lmstudio" placeholder raises
+        # when LMStudio is disabled, which broke Sigma generation on cloud-only installs.
+        if not ai_model or ai_model == "lmstudio":
+            return sigma_provider
         requested_provider = self.llm_service._canonicalize_provider(ai_model)
-        if ai_model and ai_model != "lmstudio" and requested_provider != "lmstudio":
+        if requested_provider != "lmstudio":
             sigma_provider = requested_provider
         return sigma_provider
 
@@ -1092,6 +1223,13 @@ class SigmaGenerationService:
         for rule_result in invalid_rules:
             logger.info(f"Repairing rule {rule_result.rule_id} (attempt 1/{max_repair_attempts_per_rule})")
 
+            if rule_result.initial_validation is None:
+                rule_result.initial_validation = {
+                    "is_valid": rule_result.validation_result.is_valid,
+                    "errors": list(rule_result.validation_result.errors),
+                    "warnings": list(rule_result.validation_result.warnings),
+                }
+
             previous_errors_text = (
                 "\n".join(rule_result.validation_result.errors)
                 if rule_result.validation_result.errors
@@ -1198,7 +1336,7 @@ class SigmaGenerationService:
 
         # Get available observables from extraction_result
         available_observables = {}
-        subresults = extraction_result.get("subresults", {})
+        subresults = _expansion_subresults(extraction_result)
         if isinstance(subresults, dict):
             for obs_type, obs_result in subresults.items():
                 if isinstance(obs_result, dict):
@@ -1257,7 +1395,7 @@ class SigmaGenerationService:
             "wmi": "wmi",
         }
 
-        subresults = extraction_result.get("subresults", {})
+        subresults = _expansion_subresults(extraction_result)
         for obs_type, category in observable_to_category.items():
             if category in uncovered_categories and obs_type in subresults:
                 obs_result = subresults[obs_type]
@@ -1407,7 +1545,7 @@ Focus on generating rules for the uncovered categories listed above."""
 
                 if not output or len(output.strip()) == 0:
                     logger.error("LLM returned empty response for SIGMA generation")
-                    raise ValueError(
+                    raise SigmaEmptyResponseError(
                         "LLM returned empty response for SIGMA generation. Check the configured provider is responding correctly."
                     )
 

@@ -548,7 +548,7 @@ class MetadataExtractor:
             name = meta.get("name") or meta.get("property") or meta.get("http-equiv")
             content = meta.get("content")
 
-            if name and content:
+            if isinstance(name, str) and isinstance(content, str) and name and content:
                 meta_data[name.lower()] = content
 
         return meta_data
@@ -560,7 +560,7 @@ class MetadataExtractor:
 
         for meta in soup.find_all("meta"):
             property_name = meta.get("property", "")
-            if property_name.startswith("og:"):
+            if isinstance(property_name, str) and property_name.startswith("og:"):
                 content = meta.get("content")
                 if content:
                     key = property_name[3:]  # Remove 'og:' prefix
@@ -585,7 +585,7 @@ class MetadataExtractor:
         author_meta = soup.find("meta", {"name": "author"})
         if author_meta:
             content = author_meta.get("content", "")
-            if content:
+            if isinstance(content, str) and content:
                 # Split on common delimiters
                 for delimiter in [",", ";", "&", " and "]:
                     if delimiter in content:
@@ -598,9 +598,9 @@ class MetadataExtractor:
         if not authors:
             og_author = soup.find("meta", {"property": "article:author"})
             if og_author:
-                content = og_author.get("content", "").strip()
-                if content:
-                    authors.append(content)
+                og_content = og_author.get("content", "")
+                if isinstance(og_content, str) and og_content.strip():
+                    authors.append(og_content.strip())
 
         # Try structured data (basic)
         if not authors:
@@ -628,22 +628,22 @@ class MetadataExtractor:
         keywords_meta = soup.find("meta", {"name": "keywords"})
         if keywords_meta:
             content = keywords_meta.get("content", "")
-            if content:
+            if isinstance(content, str) and content:
                 tags.update([tag.strip() for tag in content.split(",") if tag.strip()])
 
         # OpenGraph tags
         og_tags = soup.find_all("meta", {"property": "article:tag"})
         for tag_meta in og_tags:
-            content = tag_meta.get("content", "").strip()
-            if content:
-                tags.add(content)
+            tag_content = tag_meta.get("content", "")
+            if isinstance(tag_content, str) and tag_content.strip():
+                tags.add(tag_content.strip())
 
         # Category meta
         category_meta = soup.find("meta", {"name": "category"})
         if category_meta:
-            content = category_meta.get("content", "").strip()
-            if content:
-                tags.add(content)
+            category_content = category_meta.get("content", "")
+            if isinstance(category_content, str) and category_content.strip():
+                tags.add(category_content.strip())
 
         # Convert to sorted list and limit
         return sorted(list(tags))[:10]  # Limit to 10 tags
@@ -1101,8 +1101,9 @@ class ContentExtractor:
 
             # Try meta title
             meta_title = soup.find("meta", {"property": "og:title"})
-            if meta_title and meta_title.get("content"):
-                return meta_title.get("content").strip()
+            meta_title_content = meta_title.get("content") if meta_title else None
+            if isinstance(meta_title_content, str) and meta_title_content:
+                return meta_title_content.strip()
 
             return ""
         except Exception:
@@ -1115,13 +1116,15 @@ class ContentExtractor:
 
             # Try meta description
             meta_desc = soup.find("meta", {"name": "description"})
-            if meta_desc and meta_desc.get("content"):
-                return meta_desc.get("content").strip()
+            meta_desc_content = meta_desc.get("content") if meta_desc else None
+            if isinstance(meta_desc_content, str) and meta_desc_content:
+                return meta_desc_content.strip()
 
             # Try OpenGraph description
             og_desc = soup.find("meta", {"property": "og:description"})
-            if og_desc and og_desc.get("content"):
-                return og_desc.get("content").strip()
+            og_desc_content = og_desc.get("content") if og_desc else None
+            if isinstance(og_desc_content, str) and og_desc_content:
+                return og_desc_content.strip()
 
             return ""
         except Exception:
@@ -1134,8 +1137,9 @@ class ContentExtractor:
 
             # Try meta keywords
             meta_keywords = soup.find("meta", {"name": "keywords"})
-            if meta_keywords and meta_keywords.get("content"):
-                keywords = [k.strip() for k in meta_keywords.get("content").split(",")]
+            meta_keywords_content = meta_keywords.get("content") if meta_keywords else None
+            if isinstance(meta_keywords_content, str) and meta_keywords_content:
+                keywords = [k.strip() for k in meta_keywords_content.split(",")]
                 return [k for k in keywords if k]
 
             return []
@@ -1149,13 +1153,15 @@ class ContentExtractor:
 
             # Try meta author
             meta_author = soup.find("meta", {"name": "author"})
-            if meta_author and meta_author.get("content"):
-                return meta_author.get("content").strip()
+            meta_author_content = meta_author.get("content") if meta_author else None
+            if isinstance(meta_author_content, str) and meta_author_content:
+                return meta_author_content.strip()
 
             # Try OpenGraph author
             og_author = soup.find("meta", {"property": "article:author"})
-            if og_author and og_author.get("content"):
-                return og_author.get("content").strip()
+            og_author_content = og_author.get("content") if og_author else None
+            if isinstance(og_author_content, str) and og_author_content:
+                return og_author_content.strip()
 
             return ""
         except Exception:
@@ -1170,13 +1176,15 @@ class ContentExtractor:
             meta_date = soup.find("meta", {"property": "article:published_time"}) or soup.find(
                 "meta", {"name": "article:published_time"}
             )
-            if meta_date and meta_date.get("content"):
-                return meta_date.get("content").strip()
+            meta_date_content = meta_date.get("content") if meta_date else None
+            if isinstance(meta_date_content, str) and meta_date_content:
+                return meta_date_content.strip()
 
             # Try time tag
             time_tag = soup.find("time")
-            if time_tag and time_tag.get("datetime"):
-                return time_tag.get("datetime").strip()
+            time_tag_datetime = time_tag.get("datetime") if time_tag else None
+            if isinstance(time_tag_datetime, str) and time_tag_datetime:
+                return time_tag_datetime.strip()
 
             return ""
         except Exception:
@@ -1189,8 +1197,9 @@ class ContentExtractor:
 
             # Try canonical link
             canonical = soup.find("link", {"rel": "canonical"})
-            if canonical and canonical.get("href"):
-                return canonical.get("href").strip()
+            canonical_href = canonical.get("href") if canonical else None
+            if isinstance(canonical_href, str) and canonical_href:
+                return canonical_href.strip()
 
             return ""
         except Exception:

@@ -43,6 +43,15 @@ config:
   rss_only: true
 ```
 
+### Per-source User-Agent (`config.robots.user_agent`)
+Requests send an honest crawler User-Agent by default: `Huntable-CTI-Studio/<version> (+https://github.com/dfirtnt/Huntable-CTI-Studio)`, with the version read from `pyproject.toml`. A source that blocks it can override the header with `config.robots.user_agent`. The override applies even when polite-crawl throttling is disabled (`robots.enabled: false`).
+
+```yaml
+config:
+  robots:
+    user_agent: "Mozilla/5.0 (compatible; ExampleBot/1.0)"
+```
+
 ## Implications for Backup/Restore
 
 ### ✅ Default Behavior (Database-First)

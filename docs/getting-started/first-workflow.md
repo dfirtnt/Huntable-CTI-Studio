@@ -6,13 +6,18 @@ Run the full agentic pipeline against a real CTI article: source-Sigma import ->
 
 ## 0) Load a quickstart preset (recommended for first run)
 
-If you haven't configured the workflow yet, load a preset so all LLM agents have prompts and models set. On the **Workflow** page, use **Import Preset from file** and pick one of:
+Enable and test a provider in **Settings -> Agentic Workflow Configuration** first. API providers need a usable key; Codex needs its managed login; LM Studio needs its server running with the exact model loaded. A preset supplies workflow settings and prompts, not credentials or global provider switches.
+
+On **Workflow -> Config**, open the config actions menu and choose **Import Preset** (or **Import Preset from file** in the preset modal). Pick a matching preset:
 
 - **Anthropic**: `config/presets/AgentConfigs/quickstart/Quickstart-anthropic-sonnet-4-6.json`
-- **OpenAI / ChatGPT**: `config/presets/AgentConfigs/quickstart/Quickstart-openai-gpt-4.1-mini.json`
-- **LM Studio (local)**: `config/presets/AgentConfigs/quickstart/Quickstart-LMStudio-Qwen3.json`
+- **OpenAI API**: `config/presets/AgentConfigs/quickstart/Quickstart-openai-gpt-4.1-mini.json`
+- **Codex subscription**: `config/presets/AgentConfigs/quickstart/Quickstart-codex-gpt-6-luna.json`, if your login lists `gpt-6-luna`
+- **LM Studio (local)**: `config/presets/AgentConfigs/quickstart/Quickstart-LMStudio-Qwen3.json`, which assigns `qwen/qwen3-8b`
 
-These files are committed to the repo and always present. See [Configuration -> Workflow Presets](configuration.md#workflow-presets) for the full list.
+Import replaces the active workflow configuration. All 14 quickstart presets disable ranking, enable all seven extractors, and store Windows as the platform selection. Review those settings and thresholds after import; enable ranking if you want the ranking stage described below to run. Use **Export Preset** before import to keep a file copy of your current configuration.
+
+See [Configuration -> Workflow Presets](configuration.md#workflow-presets) for the full list, exact model IDs, and shared thresholds.
 
 ## 1) Ingest a CTI Article
 
@@ -33,7 +38,7 @@ EXECUTION_ID=$(echo "$TRIGGER" | jq -r '.execution_id')
 echo "Execution ID: ${EXECUTION_ID}"
 ```
 
-If an execution is already running for the article, the API returns an error. Wait for it to finish or clear the stuck run before retrying. Note that ingestion can also start a workflow automatically when an article's RegexHunt score exceeds the auto-trigger threshold (default 100, above the maximum possible score, so auto-trigger is off until you lower it in Settings → Workflow), so a run may already exist before you trigger one manually if the threshold has been lowered.
+If an execution is already pending or running for the article under the **same active config** (same config id and version), the API returns an error. Wait for it to finish or clear the stuck run before retrying. A run under a *different* config is not blocked, so you can trigger a new config on an article while a run on the previous config is still in flight. Each run is pinned to its own execution ID and never attaches to another run on the same article. Note that ingestion can also start a workflow automatically when an article's RegexHunt score exceeds the auto-trigger threshold (default 100, above the maximum possible score, so auto-trigger is off until you lower it in Settings → Workflow), so a run may already exist before you trigger one manually if the threshold has been lowered.
 
 The same threshold gates manual triggers: if the API replies that the article's RegexHunt score is not above the auto-trigger threshold, re-run with `?force=true`:
 

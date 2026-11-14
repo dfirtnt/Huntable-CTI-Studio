@@ -6,7 +6,7 @@ This guide covers installing and running Huntable CTI Studio using Docker Compos
 
 - **Docker Desktop** with Compose plugin installed
 - **8GB RAM minimum** (16GB recommended for production use)
-- **Python 3.11** only if you plan to run tests or tooling locally (otherwise Docker-only)
+- **Python 3.11.5+** only if you plan to run tests or tooling locally (otherwise Docker-only)
 
 ## Quick Start
 

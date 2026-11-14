@@ -82,7 +82,7 @@ def _parse_and_validate_rule(raw: str, field: str) -> dict[str, Any]:
 
 
 @router.post("/compare")
-async def compare_rules(compare_request: CompareRequest):
+def compare_rules(compare_request: CompareRequest):
     """
     Compare two SIGMA rules pairwise.
 
@@ -148,7 +148,7 @@ async def compare_rules(compare_request: CompareRequest):
 
 
 @router.post("/compare-to-repository")
-async def compare_rule_to_repository(compare_request: CompareToRepositoryRequest):
+def compare_rule_to_repository(compare_request: CompareToRepositoryRequest):
     """
     Compare a SIGMA rule against the repository (behavioral atom set-math via
     assess_rule_novelty; proposed-rule atoms come from the same precompute

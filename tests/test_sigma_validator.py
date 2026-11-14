@@ -604,3 +604,90 @@ tags:
 
         fixed = yaml_rule.replace("attack.t1086", "attack.t1059.001")
         assert validate_sigma_rule(fixed).is_valid is True
+
+
+class TestDictSelectionWarnings:
+    """Dict-form selections (field->value maps) are normal Sigma and must not warn."""
+
+    # Repaired rule from workflow execution 115 (article 3192), queue row 295.
+    EXECUTION_115_RULE = r"""
+title: Hidden PowerShell Process Launch with RunAs
+id: 6e7a5413-0ac4-4c9a-8fb0-265a8aeaf179
+status: experimental
+description: Detects PowerShell using Start-Process to launch a process with the RunAs
+  verb and a hidden window.
+references:
+- https://gbhackers.com/windows-tools-to-hide-malware/#google_vignette
+author: Huntable CTI Studio
+date: '2026-10-26'
+tags:
+- attack.execution
+- attack.t1059.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_image:
+  - Image|endswith: \powershell.exe
+  - OriginalFileName: PowerShell.EXE
+  selection_command:
+    CommandLine|contains|all:
+    - Start-Process
+    - RunAs
+    - Hidden
+  selection_filepath:
+    CommandLine|contains|windash: -FilePath
+  selection_verb:
+    CommandLine|contains|windash: -Verb
+  selection_windowstyle:
+    CommandLine|contains|windash: -WindowStyle
+  condition: selection_image and selection_command and selection_filepath and selection_verb
+    and selection_windowstyle
+falsepositives:
+- Administrative scripts or software installers that launch elevated processes with
+  hidden windows
+level: medium
+"""
+
+    @staticmethod
+    def _rule(detection):
+        return {
+            "title": "Suspicious PowerShell Execution",
+            "description": "Detects suspicious PowerShell execution patterns",
+            "logsource": {"category": "process_creation", "product": "windows"},
+            "detection": detection,
+            "level": "medium",
+            "tags": ["attack.execution", "attack.t1059.001"],
+        }
+
+    def test_dict_selections_produce_no_warning(self):
+        result = SigmaValidator().validate_rule(
+            self._rule(
+                {
+                    "selection_img": {"Image|endswith": "\\powershell.exe"},
+                    "selection_cmd": {"CommandLine|contains": ["-enc", "-nop"], "ParentImage": None},
+                    "condition": "selection_img and selection_cmd",
+                }
+            )
+        )
+        assert result.is_valid is True
+        assert result.warnings == []
+
+    def test_execution_115_repaired_rule_has_no_warnings(self):
+        from src.services.sigma_validator import clean_sigma_rule, validate_sigma_rule
+
+        result = validate_sigma_rule(clean_sigma_rule(self.EXECUTION_115_RULE))
+        assert result.is_valid is True
+        assert result.errors == []
+        assert result.warnings == []
+
+    def test_empty_dict_selection_is_flagged(self):
+        result = SigmaValidator().validate_rule(self._rule({"selection": {}, "condition": "selection"}))
+        flagged = result.errors + result.warnings
+        assert any("selection" in msg.lower() and "empty" in msg.lower() for msg in flagged)
+
+    def test_nested_dict_value_is_flagged(self):
+        result = SigmaValidator().validate_rule(
+            self._rule({"selection": {"CommandLine": {"nested": "x"}}, "condition": "selection"})
+        )
+        assert any("unsupported value type" in w for w in result.warnings)

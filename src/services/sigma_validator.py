@@ -17,6 +17,7 @@ from src.services.attack_taxonomy import AttackTaxonomy, check_attack_tag, load_
 
 try:
     from sigma.collection import SigmaCollection
+    from sigma.correlations import SigmaCorrelationRule
 
     PYSIGMA_AVAILABLE = True
 except ImportError:
@@ -513,9 +514,26 @@ class SigmaValidator:
                     if not isinstance(item, (str, dict)):
                         errors.append(f"Invalid search identifier in '{condition_name}': {item}")
             elif isinstance(condition_data, dict):
-                # Direct search definition
-                if "keywords" not in condition_data and "selection" not in condition_data:
-                    warnings.append(f"Condition '{condition_name}' has no keywords or selection")
+                # A field->value map is the normal Sigma selection form. pySigma owns structural
+                # correctness; only flag an empty map or values Sigma can't express.
+                if not condition_data:
+                    warnings.append(f"Selection '{condition_name}' is empty")
+                    continue
+                for field_name, value in condition_data.items():
+                    if not self._is_valid_selection_value(value):
+                        warnings.append(
+                            f"Selection '{condition_name}' field '{field_name}' has an unsupported value "
+                            f"type ({type(value).__name__}); expected a scalar, list of scalars, or null"
+                        )
+
+    @staticmethod
+    def _is_valid_selection_value(value) -> bool:
+        scalar_types = (str, int, float, bool, type(None))
+        if isinstance(value, scalar_types):
+            return True
+        if isinstance(value, list):
+            return all(isinstance(item, scalar_types) for item in value)
+        return False
 
     def _validate_logsource(self, rule_data: dict, errors: list[str], warnings: list[str]):
         """Validate logsource configuration"""
@@ -657,35 +675,44 @@ def _close_unclosed_scalars(yaml_text: str) -> str:
 
 
 @functools.lru_cache(maxsize=1)
-def _load_sigmahq_blocking_config() -> tuple[tuple[dict[str, Any], dict[str, Any]] | None, str | None]:
-    """Load the blocking config and discover installed validator classes once.
+def _installed_sigma_validators() -> dict[str, Any]:
+    """Plugin discovery is slow; the installed set cannot change within a process."""
+    plugins = InstalledSigmaPlugins.autodiscover(include_backends=False, include_pipelines=False)
+    return dict(plugins.validators)
+
+
+def _load_sigmahq_blocking_config(
+    config_path: Path | None = None,
+) -> tuple[tuple[dict[str, Any], dict[str, Any]] | None, str | None]:
+    """Load the blocking config and discover installed validator classes.
 
     Returns ``((config, validator_classes), None)`` when every validator named in the config
     is installed, else ``(None, reason)``. A partial set would report a rule as clean that
     the repository CI rejects, so a missing validator disables the whole layer rather than
-    silently narrowing it.
+    silently narrowing it. The config file is read on every call (a destination repo's copy
+    changes when it is pulled); only plugin discovery is cached.
     """
     if not PYSIGMA_VALIDATION_AVAILABLE:
         return None, "pySigma validation API unavailable"
     try:
-        config = yaml.safe_load(SIGMAHQ_BLOCKING_CONFIG_PATH.read_text(encoding="utf-8")) or {}
-        plugins = InstalledSigmaPlugins.autodiscover(include_backends=False, include_pipelines=False)
+        config = yaml.safe_load((config_path or SIGMAHQ_BLOCKING_CONFIG_PATH).read_text(encoding="utf-8")) or {}
+        installed = _installed_sigma_validators()
         requested = [name for name in config.get("validators", []) if not str(name).startswith("-")]
-        missing = sorted(name for name in requested if name not in plugins.validators)
+        missing = sorted(name for name in requested if name not in installed)
         if missing:
             return None, f"validators not installed: {', '.join(missing)}"
-        return (config, dict(plugins.validators)), None
+        return (config, installed), None
     except Exception as exc:  # config parse or plugin discovery failure
         return None, f"{type(exc).__name__}: {exc}"
 
 
-def _load_sigmahq_blocking_validator() -> tuple[Any | None, str | None]:
+def _load_sigmahq_blocking_validator(config_path: Path | None = None) -> tuple[Any | None, str | None]:
     """A fresh validator set per call.
 
     ``duplicate_title`` and ``identifier_uniqueness`` remember every rule they have seen, so a
     shared instance would report a collision between two unrelated validate_sigma_rule calls.
     """
-    loaded, reason = _load_sigmahq_blocking_config()
+    loaded, reason = _load_sigmahq_blocking_config(config_path)
     if loaded is None:
         return None, reason
     config, validator_classes = loaded
@@ -717,14 +744,23 @@ def _issue_concerns_only_pipeline_metadata(issue: Any) -> bool:
     return False
 
 
-def run_sigmahq_blocking_validators(rules: list[Any]) -> dict[str, Any]:
+def run_sigmahq_blocking_validators(
+    rules: list[Any],
+    *,
+    config_path: Path | None = None,
+    exempt_pipeline_metadata: bool = True,
+) -> dict[str, Any]:
     """Run the rules repository's blocking validator set over parsed pySigma rules.
+
+    ``config_path`` overrides the bundled mirror (e.g. the destination repo's own config).
+    ``exempt_pipeline_metadata=False`` reports the app's grounding keys too, for callers
+    checking YAML that will be published verbatim.
 
     Returns ``{"available": bool, "reason": str | None, "issues": [...]}`` where each issue is
     ``{"issue": class name, "severity": name, "description": str, "details": {...}}``. Pipeline
     grounding keys never produce an issue (see ``SIGMA_GROUNDING_METADATA_FIELDS``).
     """
-    validator, reason = _load_sigmahq_blocking_validator()
+    validator, reason = _load_sigmahq_blocking_validator(config_path)
     if validator is None:
         logger.warning("SigmaHQ blocking validators disabled: %s", reason)
         return {"available": False, "reason": reason, "issues": []}
@@ -754,7 +790,7 @@ def run_sigmahq_blocking_validators(rules: list[Any]) -> dict[str, Any]:
         except Exception as exc:
             logger.warning("SigmaHQ validator %s failed to finalize: %s", type(rule_validator).__name__, exc)
     for issue in raw_issues:
-        if _issue_concerns_only_pipeline_metadata(issue):
+        if exempt_pipeline_metadata and _issue_concerns_only_pipeline_metadata(issue):
             continue
         issues.append(
             {
@@ -818,6 +854,8 @@ def validate_sigma_rule(rule_yaml: str) -> ValidationResult:
     try:
         collection = SigmaCollection.from_yaml(cleaned_content)
         for sigma_rule in collection.rules:
+            if isinstance(sigma_rule, SigmaCorrelationRule):
+                continue  # correlation rules have no detection block to parse
             for condition in sigma_rule.detection.parsed_condition:
                 _ = condition.parsed
     except Exception as exc:

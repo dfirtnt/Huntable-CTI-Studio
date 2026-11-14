@@ -82,9 +82,7 @@ async def _run(session, subagent="registry_artifacts", apply=False):
         patch.object(evaluation_api, "_audit_eval") as audit,
     ):
         database_manager.return_value.get_session.return_value = session
-        result = await evaluation_api.rescore_eval_records(
-            request=MagicMock(spec=Request), subagent=subagent, apply=apply
-        )
+        result = evaluation_api.rescore_eval_records(request=MagicMock(spec=Request), subagent=subagent, apply=apply)
     return result, audit
 
 
@@ -179,8 +177,6 @@ async def test_unknown_subagent_returns_422():
         pytest.raises(evaluation_api.HTTPException) as exc_info,
     ):
         database_manager.return_value.get_session.return_value = session
-        await evaluation_api.rescore_eval_records(
-            request=MagicMock(spec=Request), subagent="not_a_real_agent", apply=False
-        )
+        evaluation_api.rescore_eval_records(request=MagicMock(spec=Request), subagent="not_a_real_agent", apply=False)
     assert exc_info.value.status_code == 422
     session.close.assert_called_once()

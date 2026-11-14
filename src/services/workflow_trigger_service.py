@@ -9,15 +9,52 @@ from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import Any
 
+from sqlalchemy import exists
 from sqlalchemy.orm import Session
 
-from src.database.models import AgenticWorkflowConfigTable, AgenticWorkflowExecutionTable, ArticleTable
+from src.database.models import (
+    AgenticWorkflowConfigTable,
+    AgenticWorkflowExecutionSnapshotTable,
+    AgenticWorkflowExecutionTable,
+    ArticleTable,
+)
 from src.services.audit_service import AuditEvent, AuditService
 from src.services.execution_snapshot_store import attach_snapshot, hydrate_snapshot
 from src.services.workflow_config_snapshot import build_config_snapshot
 from src.utils.default_agent_prompts import get_default_agent_prompts
 
 logger = logging.getLogger(__name__)
+
+
+def find_active_execution_for_config(
+    db: Session, article_id: int, config_id: int | None, config_version: int | None
+) -> AgenticWorkflowExecutionTable | None:
+    """Pending/running execution for *article_id* dispatched under exactly this config.
+
+    Keying the active-execution guard on config identity (instead of article_id alone)
+    is what lets two different configs run concurrently on one article while a
+    duplicate trigger on the *same* config is still blocked.
+
+    Matched through the content-addressed snapshot (``config_snapshot_id`` ->
+    ``AgenticWorkflowExecutionSnapshotTable.payload``) that ``attach_snapshot`` writes
+    for every execution today. A correlated EXISTS (not a join) so this stays a single
+    ``.filter(...).first()`` call -- no row multiplication, and the query shape callers
+    already expect is preserved.
+    """
+    snapshot_matches_config = exists().where(
+        AgenticWorkflowExecutionSnapshotTable.id == AgenticWorkflowExecutionTable.config_snapshot_id,
+        AgenticWorkflowExecutionSnapshotTable.payload["config_id"].as_integer() == config_id,
+        AgenticWorkflowExecutionSnapshotTable.payload["config_version"].as_integer() == config_version,
+    )
+    return (
+        db.query(AgenticWorkflowExecutionTable)
+        .filter(
+            AgenticWorkflowExecutionTable.article_id == article_id,
+            AgenticWorkflowExecutionTable.status.in_(["pending", "running"]),
+            snapshot_matches_config,
+        )
+        .first()
+    )
 
 
 # A complete workflow normally takes 7--10 minutes, but local-model extraction can
@@ -201,14 +238,11 @@ class WorkflowTriggerService:
                         "Lower the threshold in Settings → Workflow, or use an article with a higher RegexHunt score."
                     )
 
-            existing_execution = (
-                self.db.query(AgenticWorkflowExecutionTable)
-                .filter(
-                    AgenticWorkflowExecutionTable.article_id == article.id,
-                    AgenticWorkflowExecutionTable.status.in_(["pending", "running"]),
-                )
-                .first()
-            )
+            # Keyed on config identity, not just article_id: a pending/running execution
+            # under a *different* config must not block a new trigger on the current
+            # config (that is how two configs are allowed to run concurrently on the
+            # same article). A duplicate trigger on the same config is still blocked.
+            existing_execution = find_active_execution_for_config(self.db, article.id, config.id, config.version)
 
             if existing_execution:
                 if recover_orphaned_running_execution(existing_execution):

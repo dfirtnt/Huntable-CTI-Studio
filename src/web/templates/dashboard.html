@@ -760,8 +760,10 @@
                 dailyChart.update('none');
             }
             if (hourlyChart && data.volume?.hourly) {
-                hourlyChart.data.labels = Object.keys(data.volume.hourly);
-                hourlyChart.data.datasets[0].data = Object.values(data.volume.hourly);
+                // Keys are "YYYY-MM-DDTHH", rolling 24h; sort so order never depends on JS key ordering
+                const hKeys = Object.keys(data.volume.hourly).sort();
+                hourlyChart.data.labels = hKeys.map(k => k.slice(11, 13)); // → HH
+                hourlyChart.data.datasets[0].data = hKeys.map(k => data.volume.hourly[k]);
                 hourlyChart.update('none');
             }
 

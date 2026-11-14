@@ -23,6 +23,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.utils.article_detail_source import read_article_detail_src
+
 pytestmark = pytest.mark.unit
 
 TEMPLATE_DIR = Path("src/web/templates")
@@ -79,7 +81,7 @@ def test_every_safe_filter_sink_is_reviewed() -> None:
 
 def test_article_content_sink_still_routes_through_highlight_keywords() -> None:
     """The article body is the sink that carries attacker-controlled text."""
-    rendered = (TEMPLATE_DIR / "article_detail.html").read_text(encoding="utf-8")
+    rendered = read_article_detail_src()
     sinks = [_normalize(m.group("expr")) for m in SAFE_FILTER_PATTERN.finditer(rendered)]
 
     assert sinks == ["article.content|highlight_keywords(keyword_resolution.matches)|safe"]
@@ -206,7 +208,7 @@ def _unescaped_field_uses(text: str, field: str) -> list[str]:
 
 def test_article_detail_tainted_field_scan_is_not_vacuous() -> None:
     """If the fields get renamed, this contract must fail loudly, not pass empty."""
-    text = (TEMPLATE_DIR / "article_detail.html").read_text(encoding="utf-8")
+    text = read_article_detail_src()
     exprs = _all_interpolations(text)
 
     for field in TAINTED_ARTICLE_DETAIL_FIELDS:
@@ -219,7 +221,7 @@ def test_article_detail_tainted_field_scan_is_not_vacuous() -> None:
 
 
 def test_article_detail_escapes_article_derived_chunk_text() -> None:
-    text = (TEMPLATE_DIR / "article_detail.html").read_text(encoding="utf-8")
+    text = read_article_detail_src()
 
     offenders: list[tuple[str, str]] = []
     for field in TAINTED_ARTICLE_DETAIL_FIELDS:

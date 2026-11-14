@@ -238,7 +238,7 @@ class TestUpdateProviderModels:
         with patch.object(catalog_module, "CATALOG_PATH", path):
             # Save a broad list (raw, unfiltered)
             update_provider_models("openai", ["gpt-4o", "o1", "gpt-5", "o4-mini"])
-            # Reload -- filter chain should narrow; gpt-5 passes via _GPT5_PATTERN
+            # Reload -- filter chain should narrow; gpt-5 passes via _GPT_FRONTIER_PATTERN
             reloaded = load_catalog()
         assert set(reloaded["openai"]) == {"gpt-4o", "o4-mini", "gpt-5"}
 
@@ -358,6 +358,25 @@ class TestFindProviderModelMismatch:
         with patch.object(catalog_module, "load_catalog", side_effect=AssertionError("display filter used")):
             assert find_provider_model_mismatch("codex", "gpt-5.6-sol") is None
             assert find_provider_model_mismatch("lmstudio", "gpt-5.6-sol") is not None
+
+    def test_openai_and_codex_presets_use_one_provider_and_model_matching_the_filename(self):
+        """Quickstart-<provider>-<model>.json must configure every agent identically; a
+        copy-pasted preset with one agent left on the old model silently bills the wrong one."""
+        preset_dir = CATALOG_FILE.parent / "presets" / "AgentConfigs" / "quickstart"
+        checked = 0
+        for path in sorted(preset_dir.glob("Quickstart-*.json")):
+            provider, _, model = path.stem.removeprefix("Quickstart-").partition("-")
+            if provider not in {"openai", "codex"}:
+                continue
+            data = json.loads(path.read_text())
+            pairs = {
+                (block["Provider"], block["Model"])
+                for block in data.values()
+                if isinstance(block, dict) and "Provider" in block
+            }
+            assert pairs == {(provider, model)}, f"{path.name}: agents use {sorted(pairs)}"
+            checked += 1
+        assert checked >= 3, "expected the openai/codex quickstart presets to be discovered"
 
     def test_every_shipped_quickstart_preset_passes(self):
         """A shipped preset that cannot be imported is a release blocker."""

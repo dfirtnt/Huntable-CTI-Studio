@@ -99,7 +99,7 @@ and must keep their hand-written ARIA. They are an accordion driven by `scrollTo
 lives in `.step-section.open`, exactly one section is open at a time, and opening also aligns
 the scroll container and the left rail. `initCollapsiblePanels()` models an independent
 show/hide per panel and cannot express any of that. Their Enter/Space handling is one delegated
-`keydown` listener in `static/js/workflow/prompt-editor.js` that calls `click()` on the trigger,
+`keydown` listener in `src/web/static/js/workflow/prompt-editor.js` that calls `click()` on the trigger,
 reusing the inline `onclick`; `aria-expanded` is synced from `scrollToStep`, the only live
 mutation path for `.step-section.open`. Guarded by `TestWorkflowConfigRegressions` in
 `tests/ui/test_workflow_comprehensive_ui.py`.
@@ -618,7 +618,7 @@ and hides, and focuses the first `input`/`textarea`/`select` it finds after
 100ms -- which is whatever happens to be first in the DOM, not necessarily a safe
 target. It has no focus trap, no focus restore, and no scroll lock, so a modal
 needing those must wire them itself (see `showChunkDebugResults` /
-`closeChunkDebugModal` in `article_detail.html`). A `setTimeout` longer than
+`closeChunkDebugModal` in `partials/article_detail/js_chunk_visualization.html`). A `setTimeout` longer than
 100ms is required to win over its first-input focus.
 
 ### 6.6 Overflow Menus

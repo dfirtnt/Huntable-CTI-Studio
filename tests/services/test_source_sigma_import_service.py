@@ -71,6 +71,39 @@ def test_scanner_rejects_fragments_non_mappings_and_non_sigma_queries(bad_conten
     assert scan_sigma_rules(bad_content) == []
 
 
+_ANNOTATIONS = """Tier: Detection
+Robustness: 3
+ATT&CK Coverage: T1572 (Protocol Tunneling), T1021.004 (Remote Services: SSH)
+Confidence: HIGH
+Rationale: Requires an SSH-family tool AND a tunnel-specific flag.
+"""
+
+
+def test_scanner_excludes_trailing_article_annotations_from_rule():
+    content = "Intro\n" + _rule(1) + "\n" + _ANNOTATIONS + "\nNarrative after the rule.\n"
+    [candidate] = scan_sigma_rules(content)
+    assert candidate.yaml_text == content[candidate.start : candidate.end]
+    assert candidate.yaml_text.startswith("title: Source Rule 1\n")
+    assert "Tier" not in candidate.yaml_text
+    assert set(candidate.parsed) == {"title", "id", "author", "logsource", "detection", "level"}
+    assert candidate.yaml_text.rstrip().endswith("level: high")
+
+
+def test_scanner_keeps_custom_key_inside_rule_but_drops_trailing_annotations():
+    rule = _rule(1).replace("level: high\n", "x_publisher_note: kept\nlevel: high\n")
+    [candidate] = scan_sigma_rules(rule + "\n" + _ANNOTATIONS)
+    assert candidate.parsed["x_publisher_note"] == "kept"
+    assert "Tier" not in candidate.parsed
+    assert candidate.yaml_text.rstrip().endswith("level: high")
+
+
+def test_scanner_annotation_trim_does_not_bleed_into_next_rule():
+    content = _rule(1) + "\n" + _ANNOTATIONS + "\n" + _rule(2) + "\n" + _ANNOTATIONS
+    candidates = scan_sigma_rules(content)
+    assert [c.parsed["title"] for c in candidates] == ["Source Rule 1", "Source Rule 2"]
+    assert all("Tier" not in c.parsed for c in candidates)
+
+
 def test_flattened_eval_fixture_records_structural_rejection_reason():
     flattened = """title: Flattened Eval Rule
 id: 00000000-0000-0000-0000-000000000099

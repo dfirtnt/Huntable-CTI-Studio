@@ -58,7 +58,7 @@ async def test_get_backup_cron_returns_state(monkeypatch):
     }
     monkeypatch.setattr(backup_routes, "_get_cron_state", lambda: expected)
 
-    result = await backup_routes.api_get_backup_cron()
+    result = backup_routes.api_get_backup_cron()
 
     assert result["success"] is True
     assert result["cron_available"] is True

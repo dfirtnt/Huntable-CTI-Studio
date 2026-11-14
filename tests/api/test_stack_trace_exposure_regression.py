@@ -129,7 +129,7 @@ async def test_export_eval_bundle_value_error_does_not_leak_exception_detail():
         patch("src.web.routes.workflow_executions.EvalBundleService", return_value=bundle_service),
         pytest.raises(HTTPException) as exc_info,
     ):
-        await export_eval_bundle(fake_request, execution_id=99, export_request=_ExportRequest())
+        export_eval_bundle(fake_request, execution_id=99, export_request=_ExportRequest())
 
     assert exc_info.value.status_code == 404
     _assert_no_canary(exc_info.value.detail, CANARY_DB_DETAIL)

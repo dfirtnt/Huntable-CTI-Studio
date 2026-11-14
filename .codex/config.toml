@@ -1,0 +1,3 @@
+[mcp_servers.huntable-cti-studio]
+command = "bash"
+args = ["scripts/run_mcp_server.sh"]

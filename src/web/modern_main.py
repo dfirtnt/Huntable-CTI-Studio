@@ -22,7 +22,7 @@ from fastapi.staticfiles import StaticFiles
 from src import __version__
 from src.database.async_manager import async_db_manager
 from src.services.source_sync import SourceSyncService
-from src.web.dependencies import DEFAULT_SOURCE_USER_AGENT, logger, templates
+from src.web.dependencies import logger, templates
 from src.web.routes import register_routes
 from src.web.security.config import load_security_config
 from src.web.security.headers import SecurityHeadersMiddleware
@@ -158,10 +158,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             logger.info("Workflow config seed at startup: ensured")
         except Exception as e:
             logger.exception("Workflow config seed at startup failed: %s", e)
-
-        updated_agents = await async_db_manager.set_robots_user_agent_for_all(DEFAULT_SOURCE_USER_AGENT)
-        if updated_agents:
-            logger.info("Normalized robots user-agent for %s sources", updated_agents)
 
         # Disabled startup collection to prevent UI hanging
         # try:

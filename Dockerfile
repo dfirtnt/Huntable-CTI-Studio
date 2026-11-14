@@ -100,7 +100,7 @@ RUN apt-get update \
         npm \
     && rm -rf /var/lib/apt/lists/*
 
-ARG CODEX_VERSION=0.147.0
+ARG CODEX_VERSION=0.162.1
 RUN npm install --global @openai/codex@${CODEX_VERSION} \
     && npm cache clean --force
 
@@ -209,7 +209,7 @@ RUN apt-get update \
         npm \
     && rm -rf /var/lib/apt/lists/*
 
-ARG CODEX_VERSION=0.147.0
+ARG CODEX_VERSION=0.162.1
 RUN npm install --global @openai/codex@${CODEX_VERSION} \
     && npm cache clean --force
 
@@ -288,7 +288,7 @@ RUN curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /
     && apt-get install -y --no-install-recommends docker-ce-cli \
     && rm -rf /var/lib/apt/lists/*
 
-ARG CODEX_VERSION=0.147.0
+ARG CODEX_VERSION=0.162.1
 RUN npm install --global @openai/codex@${CODEX_VERSION} \
     && npm cache clean --force \
     && python -m playwright install-deps chromium

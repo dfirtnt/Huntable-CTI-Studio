@@ -2,9 +2,28 @@
 
 import json
 import os
+import re
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import yaml
+
+from src.services.llm_service import LLMService
+
+
+@pytest.fixture(autouse=True)
+def _hermetic_shared_client():
+    """The shared LLM client reads env only here, never the live test DB's AppSettings."""
+    with (
+        patch.object(LLMService, "_load_workflow_provider_settings", return_value={}),
+        patch.object(LLMService, "_load_lmstudio_settings", return_value={}),
+    ):
+        yield
+
+
+def _chat(content):
+    """A request_chat result in the shared client's (OpenAI-shaped) form."""
+    return {"choices": [{"message": {"content": content}}], "usage": {}, "model": "m"}
 
 
 @pytest.mark.api
@@ -180,7 +199,7 @@ class TestSigmaEnrichAPI:
 
         with (
             patch("src.web.routes.sigma_queue.DatabaseManager") as mock_db_manager,
-            patch("src.web.routes.sigma_queue.CodexAppServerClient") as mock_codex_client,
+            patch("src.services.llm_client.CodexAppServerClient") as mock_codex_client,
             patch.dict(os.environ, {"WORKFLOW_CODEX_ENABLED": "true"}),
         ):
             mock_session = MagicMock()
@@ -188,7 +207,11 @@ class TestSigmaEnrichAPI:
 
             mock_rule = MagicMock(id=1, rule_yaml="title: Test Rule", article_id=1)
             mock_article = MagicMock(content="Test article content", title="Test Article", canonical_url="")
-            mock_session.query.return_value.filter.return_value.first.side_effect = [mock_rule, mock_article]
+            mock_session.query.return_value.filter.return_value.first.side_effect = [
+                mock_rule,
+                mock_article,
+                None,
+            ]  # None: no sigmaAuthor setting
             mock_codex_client.return_value.complete = AsyncMock(
                 return_value={
                     "choices": [
@@ -224,7 +247,7 @@ class TestSigmaEnrichAPI:
 
         with (
             patch("src.web.routes.sigma_queue.DatabaseManager") as mock_db_manager,
-            patch("src.web.routes.sigma_queue.CodexAppServerClient") as mock_codex_client,
+            patch("src.services.llm_client.CodexAppServerClient") as mock_codex_client,
             patch(
                 "src.web.routes.sigma_queue._load_workflow_provider_settings",
                 return_value={"WORKFLOW_CODEX_ENABLED": "false"},
@@ -234,7 +257,11 @@ class TestSigmaEnrichAPI:
             mock_db_manager.return_value.get_session.return_value = mock_session
             mock_rule = MagicMock(id=1, rule_yaml="title: Test Rule", article_id=1)
             mock_article = MagicMock(content="Test article content", title="Test Article", canonical_url="")
-            mock_session.query.return_value.filter.return_value.first.side_effect = [mock_rule, mock_article]
+            mock_session.query.return_value.filter.return_value.first.side_effect = [
+                mock_rule,
+                mock_article,
+                None,
+            ]  # None: no sigmaAuthor setting
 
             with pytest.raises(HTTPException, match="Codex subscription provider is disabled") as exc_info:
                 await enrich_rule(mock_request, queue_id=1, enrich_request=enrich_request)
@@ -338,6 +365,7 @@ class TestSigmaEnrichAPI:
             user_instruction="polish",
             toggles_json=toggles_json,
             author_value="Unit Test Author",
+            today="2026-10-26",
         )
         assert "Unit Test Author" in body
         assert toggles_json in body
@@ -346,11 +374,12 @@ class TestSigmaEnrichAPI:
     def test_sigma_author_from_db(self):
         from unittest.mock import MagicMock
 
-        from src.web.routes.sigma_queue import DEFAULT_SIGMA_ENRICHMENT_AUTHOR, _sigma_author_from_db
+        from src.services.sigma_generation_service import SIGMA_RULE_AUTHOR
+        from src.web.routes.sigma_queue import _sigma_author_from_db
 
         sess = MagicMock()
         sess.query.return_value.filter.return_value.first.return_value = None
-        assert _sigma_author_from_db(sess) == DEFAULT_SIGMA_ENRICHMENT_AUTHOR
+        assert _sigma_author_from_db(sess) == SIGMA_RULE_AUTHOR == "Huntable CTI Studio"
 
         row = MagicMock()
         row.value = "  Custom Author  "
@@ -386,19 +415,25 @@ class TestSigmaEnrichAPI:
         mock_article.content = "body"
         mock_article.article_metadata = None
 
-        mock_llm = AsyncMock(return_value=json.dumps({"status": "pass", "updated_sigma_yaml": mock_rule.rule_yaml}))
+        mock_llm = AsyncMock(
+            return_value=_chat(json.dumps({"status": "pass", "updated_sigma_yaml": mock_rule.rule_yaml}))
+        )
 
         with (
             patch("src.web.routes.sigma_queue.DatabaseManager") as mock_db_manager,
             patch("src.web.routes.sigma_queue.format_prompt", side_effect=capture_format),
-            patch("src.services.openai_chat_client.openai_chat_completions", mock_llm),
+            patch.object(LLMService, "request_chat", mock_llm),
             patch("httpx.AsyncClient") as mock_httpx_client,
         ):
             mock_session = MagicMock()
             mock_db_instance = MagicMock()
             mock_db_instance.get_session.return_value = mock_session
             mock_db_manager.return_value = mock_db_instance
-            mock_session.query.return_value.filter.return_value.first.side_effect = [mock_rule, mock_article]
+            mock_session.query.return_value.filter.return_value.first.side_effect = [
+                mock_rule,
+                mock_article,
+                None,
+            ]  # None: no sigmaAuthor setting
 
             mock_httpx_client.return_value.__aenter__.return_value = MagicMock()
             mock_httpx_client.return_value.__aexit__.return_value = None
@@ -406,10 +441,17 @@ class TestSigmaEnrichAPI:
             result = await enrich_rule(mock_request, queue_id=1, enrich_request=enrich_request)
 
         assert captured.get("author_value") == "Wire Test Author"
+        assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", captured.get("today", ""))
         toggles = json.loads(captured["toggles_json"])
         assert toggles == DEFAULT_SIGMA_ENRICHMENT_TOGGLES
         assert result["success"] is True
-        assert result["enriched_yaml"] == mock_rule.rule_yaml
+        # The enriched YAML is normalized on the way out: the configured author (not the
+        # prompt's author_value override) and a YYYY-MM-DD date; detection is untouched.
+        enriched = yaml.safe_load(result["enriched_yaml"])
+        assert enriched["author"] == "Huntable CTI Studio"
+        assert enriched["detection"] == yaml.safe_load(mock_rule.rule_yaml)["detection"]
+        assert result["publish_readiness"]["ready"] is False
+        assert "Missing required references" in result["publish_readiness"]["problems"]
         mock_llm.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -444,12 +486,14 @@ class TestSigmaEnrichAPI:
         mock_article.content = "c"
         mock_article.article_metadata = None
 
-        mock_llm = AsyncMock(return_value=json.dumps({"status": "pass", "updated_sigma_yaml": mock_rule.rule_yaml}))
+        mock_llm = AsyncMock(
+            return_value=_chat(json.dumps({"status": "pass", "updated_sigma_yaml": mock_rule.rule_yaml}))
+        )
 
         with (
             patch("src.web.routes.sigma_queue.DatabaseManager") as mock_db_manager,
             patch("src.web.routes.sigma_queue.format_prompt", side_effect=capture_format),
-            patch("src.services.openai_chat_client.openai_chat_completions", mock_llm),
+            patch.object(LLMService, "request_chat", mock_llm),
             patch("httpx.AsyncClient") as mock_httpx_client,
         ):
             mock_session = MagicMock()
@@ -473,6 +517,107 @@ class TestSigmaEnrichAPI:
         assert toggles["d2"] is True
         assert toggles["d7"] is True
         assert "d8" not in toggles
+
+
+_ENRICH_RULE_HEADER = """title: Hidden PowerShell Process Launch with RunAs
+id: 6e7a5413-0ac4-4c9a-8fb0-265a8aeaf179
+status: experimental
+description: Detects PowerShell using Start-Process to launch a process with the RunAs verb and a hidden window.
+author: Unit Test Author
+date: '2026-10-26'
+tags:
+- attack.execution
+- attack.t1059.001
+logsource:
+  category: process_creation
+  product: windows
+"""
+_ENRICH_RULE_FOOTER = """falsepositives:
+- Administrative scripts
+level: medium
+"""
+# windash combined with all: pySigma raises WindowsDashCombinedWithAllModifierIssue.
+INVALID_WINDASH_ALL_RULE = (
+    _ENRICH_RULE_HEADER
+    + """detection:
+  selection:
+    CommandLine|contains|all|windash:
+    - -FilePath
+    - -Verb
+    - -WindowStyle
+  condition: selection
+"""
+    + _ENRICH_RULE_FOOTER
+)
+VALID_SPLIT_WINDASH_RULE = (
+    _ENRICH_RULE_HEADER
+    + """detection:
+  selection_filepath:
+    CommandLine|contains|windash: -FilePath
+  selection_verb:
+    CommandLine|contains|windash: -Verb
+  condition: selection_filepath and selection_verb
+"""
+    + _ENRICH_RULE_FOOTER
+)
+
+
+@pytest.mark.api
+class TestEnrichValidatesOutput:
+    """The model's "pass" is only a claim; enrich must run pySigma on what Apply would write."""
+
+    @staticmethod
+    async def _enrich_with_model_reply(rule_yaml: str, status: str = "pass"):
+        from starlette.requests import Request
+
+        from src.web.routes.sigma_queue import EnrichRuleRequest, enrich_rule
+
+        mock_request = MagicMock(spec=Request)
+        mock_request.headers = {}
+        enrich_request = EnrichRuleRequest(provider="codex", model="gpt-5.6-luna", author_value="Unit Test Author")
+
+        with (
+            patch("src.web.routes.sigma_queue.DatabaseManager") as mock_db_manager,
+            patch("src.services.llm_client.CodexAppServerClient") as mock_codex_client,
+            patch.dict(os.environ, {"WORKFLOW_CODEX_ENABLED": "true"}),
+        ):
+            mock_session = MagicMock()
+            mock_db_manager.return_value.get_session.return_value = mock_session
+            mock_rule = MagicMock(id=1, rule_yaml=rule_yaml, article_id=1)
+            mock_article = MagicMock(content="Test article content", title="Test Article", canonical_url="")
+            mock_session.query.return_value.filter.return_value.first.side_effect = [mock_rule, mock_article, None]
+            envelope = {"status": status, "summary": "ok", "issues": [], "updated_sigma_yaml": rule_yaml}
+            mock_codex_client.return_value.complete = AsyncMock(
+                return_value={
+                    "choices": [{"message": {"content": json.dumps(envelope)}}],
+                    "usage": {"total_tokens": 42},
+                    "model": "gpt-5.6-luna",
+                }
+            )
+            result = await enrich_rule(mock_request, queue_id=1, enrich_request=enrich_request)
+            # No automatic repair: exactly one billed provider call per enrich.
+            assert mock_codex_client.return_value.complete.await_count == 1
+        return result
+
+    @pytest.mark.asyncio
+    async def test_pass_with_pysigma_invalid_rule_is_downgraded(self):
+        result = await self._enrich_with_model_reply(INVALID_WINDASH_ALL_RULE)
+
+        assert result["validation"]["is_valid"] is False
+        assert result["enrichment_status"] == "needs_revision"
+        schema_issues = [i for i in result["issues"] if i["type"] == "schema" and i["directive"] == "standard"]
+        assert schema_issues
+        assert any("windash" in i["message"].lower() for i in schema_issues)
+        assert [i["message"] for i in schema_issues] == result["validation"]["errors"]
+
+    @pytest.mark.asyncio
+    async def test_valid_rule_keeps_model_status(self):
+        result = await self._enrich_with_model_reply(VALID_SPLIT_WINDASH_RULE)
+
+        assert result["validation"]["is_valid"] is True, result["validation"]["errors"]
+        assert result["validation"]["errors"] == []
+        assert result["enrichment_status"] == "pass"
+        assert result["issues"] == []
 
 
 @pytest.mark.api
@@ -557,16 +702,20 @@ class TestEnrichResolvesTheStoredKey:
         enrich_request.provider = "lmstudio"
         enrich_request.model = "local-model"
 
-        with patch("src.web.routes.sigma_queue.DatabaseManager") as mock_db_manager:
+        with (
+            patch("src.web.routes.sigma_queue.DatabaseManager") as mock_db_manager,
+            patch.dict(os.environ, {"WORKFLOW_LMSTUDIO_ENABLED": "true"}),
+        ):
             session = MagicMock()
             session.query.return_value.filter.return_value.first.return_value = None
             mock_db_manager.return_value.get_session.return_value = session
 
             with patch("src.web.routes.sigma_queue.resolve_provider_api_key", AsyncMock()) as resolver:
-                with pytest.raises(HTTPException):
+                with pytest.raises(HTTPException) as exc_info:
                     await enrich_rule(self._request(), queue_id=999999, enrich_request=enrich_request)
 
         resolver.assert_not_awaited()
+        assert exc_info.value.status_code == 404, "an enabled LMStudio must reach the rule lookup"
 
     def test_persisted_chat_hides_the_system_prompt_from_browser(self):
         """The scoped guardrail is sent to the provider but not exposed to the page."""
@@ -611,7 +760,10 @@ class TestEnrichResolvesTheStoredKey:
 
         with (
             patch("src.web.routes.sigma_queue.DatabaseManager") as db_manager,
-            patch("src.web.routes.sigma_queue._load_workflow_provider_settings", return_value={}),
+            patch(
+                "src.web.routes.sigma_queue._load_workflow_provider_settings",
+                return_value={"WORKFLOW_LMSTUDIO_ENABLED": "true"},
+            ),
             patch("src.web.routes.sigma_queue._call_traced_sigma_provider", traced_call),
         ):
             db_manager.return_value.get_session.return_value = session

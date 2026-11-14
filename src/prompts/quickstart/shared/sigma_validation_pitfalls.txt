@@ -1,0 +1,6 @@
+VALIDATION PITFALLS (pySigma rejects these; each one forces a repair)
+- Never combine `|windash` with `|all`. For several required flags use one selection per flag (`CommandLine|contains|windash: ' -Verb '`, `CommandLine|contains|windash: ' -WindowStyle '`) and AND them in the condition.
+- `|all` only on a list of two or more values; for one value use plain `|contains`.
+- Revoked ATT&CK IDs fail validation. Known case: `attack.t1562.001` (Disable or Modify Tools) is revoked; use `attack.t1685` with `attack.defense-evasion`. If unsure whether a technique ID is current, prefer its parent technique over guessing a replacement.
+- Placeholder, redacted or sample tokens (`XLOADERX`, `XURL_EXEX`, `XINSTALL_DIR`, `<path>`, `[REDACTED]`, `example.com`) are never detection values. Keep the real tokens around them, or drop the rule if nothing discriminating remains.
+- Task Scheduler: `service: taskscheduler` with `EventID: 106` (task registered) or `140` (task updated). TaskName is logged as a path with a leading backslash (`\Windows Error Reporting`); match it with `TaskName|endswith`, never bare equality.

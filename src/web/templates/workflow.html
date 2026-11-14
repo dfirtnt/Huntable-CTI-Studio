@@ -2106,6 +2106,14 @@ tr.q-row-selected td {
                     <!-- Default model/provider for sub-agents when per-agent model is unset -->
                     <div id="extract-agent-model-container"></div>
 
+                    <!-- Bulk: copy the Extract Agent provider/model onto every sub-agent -->
+                    <div class="flex items-center gap-3">
+                      <button type="button" id="apply-extract-model-to-all-btn" onclick="applyExtractModelToAllSubAgents()"
+                              class="px-3 py-1.5 text-xs font-medium rounded-md bg-purple-600 hover:bg-purple-700 text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                              title="Set every extractor sub-agent to the provider and model chosen above">Apply model to all extractors</button>
+                      <span id="apply-extract-model-to-all-status" class="text-[11px] text-gray-500 dark:text-gray-400" aria-live="polite"></span>
+                    </div>
+
                     <!-- Sub-Agents accordion -->
                     <div class="pt-4 border-t border-yellow-700/40">
                       <h4 class="text-xs font-semibold mb-3" style="color: var(--text-secondary) !important;">SUB-AGENTS  --  Execution Order</h4>
@@ -3255,6 +3263,7 @@ END SYSTEM PROMPT</textarea>
                                 </button>
                             </div>
                         </div>
+                        <div id="enrichValidation" class="hidden mb-3 rounded-md border p-3 text-sm" role="status"></div>
                         <div id="enrichComparisonView" class="hidden mb-4">
                             <div class="mb-2 text-xs text-gray-600 dark:text-gray-400" id="enrichIterationInfo"></div>
                             <div class="grid grid-cols-2 gap-4">

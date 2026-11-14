@@ -155,7 +155,12 @@ def _click_load_previous_results_and_wait(page: Page) -> None:
             ),
             timeout=15000,
         )
-    page.wait_for_timeout(1500)
+    # The table shows a "Loading previous results..." placeholder until the render finishes.
+    with contextlib.suppress(Exception):
+        page.wait_for_function(
+            "() => !document.getElementById('resultsTable').textContent.includes('Loading previous results')",
+            timeout=15000,
+        )
 
 
 @pytest.mark.ui
@@ -310,16 +315,14 @@ def test_poller_survives_transient_fetch_failures(page: Page):
     page.evaluate(
         """
         currentSubagent = 'cmdline';
-        pollSubagentResults([
-            { execution_id: 999999, article_id: 1, url: 'http://example.test', eval_record_id: 1 }
-        ]);
+        pollSubagentResults(evalRuns.start('cmdline', [999999]));
         """
     )
 
-    # It must reach the transient "Reconnecting" state (proof it did not give up),
-    expect(status).to_contain_text("Reconnecting", timeout=10000)
-    # then recover to the completed/refresh state once the endpoint returns.
-    expect(status).to_contain_text("completed", timeout=15000)
+    # It must reach the transient "reconnecting" state (proof it did not give up),
+    expect(status).to_contain_text("reconnecting", timeout=10000)
+    # then recover to the finished state once the endpoint returns.
+    expect(status).to_contain_text("cmdline: 1/1 done - finished", timeout=15000)
     # and it must never have shown the fatal "Error polling results" message.
     assert "Error polling results" not in status.inner_text()
 
@@ -391,6 +394,7 @@ def test_switching_subagent_discards_late_results_from_previous_subagent(page: P
 
     page.goto("http://127.0.0.1:8001/mlops/agent-evals")
     page.wait_for_load_state("load")
+    # Poll until the route handler (which runs inside Playwright calls) has captured the request.
     for _ in range(100):
         if held_cmdline_routes:
             break
@@ -413,7 +417,8 @@ def test_switching_subagent_discards_late_results_from_previous_subagent(page: P
             body=json.dumps({"subagent": "cmdline", "models": [{"name": "cmd-model", "config_count": 1}]}),
             headers={"Content-Type": "application/json"},
         )
-    page.wait_for_timeout(1500)
+    # Negative check: let the released stale responses be delivered and processed.
+    page.wait_for_load_state("networkidle")
 
     assert page.locator("#subagentSelect").input_value() == "hunt_queries"
     expect(page.locator('[data-exec-id="111111"]')).to_have_count(0)
@@ -459,6 +464,7 @@ def test_load_eval_articles_discards_stale_response_after_subagent_switch(page: 
 
     load_btn = page.locator("#loadEvalArticlesBtn")
     load_btn.click()
+    # Poll until the route handler (which runs inside Playwright calls) has captured the request.
     for _ in range(100):
         if held_cmdline_routes:
             break
@@ -485,7 +491,8 @@ def test_load_eval_articles_discards_stale_response_after_subagent_switch(page: 
         ),
         headers={"Content-Type": "application/json"},
     )
-    page.wait_for_timeout(500)
+    # Negative check: let the released stale response be delivered and processed.
+    page.wait_for_load_state("networkidle")
 
     assert page.locator("#subagentSelect").input_value() == "hunt_queries"
     expect(page.get_by_text("Stale CommandLine article")).to_have_count(0)
@@ -557,3 +564,62 @@ def test_results_modal_empty_state_names_the_extractor(page: Page):
         expect(page.locator("#commandlinesModalTitle")).to_have_text(_MODAL_TITLES[subagent])
         expect(page.locator("#commandlinesContent")).to_contain_text(_EMPTY_STATE_LABELS[subagent])
         expect(page.locator("#commandlinesContent")).to_contain_text(f"#{exec_ids[subagent]}")
+
+
+@pytest.mark.ui
+@pytest.mark.parametrize(
+    ("path", "poll_fn"),
+    [("/mlops/agent-evals", "pollSubagentResults"), ("/mlops/agent-evals2", "pollResults")],
+)
+def test_overlapping_launches_each_track_their_own_executions(page: Page, path: str, poll_fn: str):
+    """Regression: launching extractor B while A is still polling must not hijack A's loop.
+
+    Both pages polled by the page-global ``currentSubagent``, so A's loop switched to B's
+    rows and the shared status line showed whichever loop wrote last. Each launch now
+    polls only its own subagent + execution IDs (eval-run-tracker.js).
+    """
+    from urllib.parse import parse_qs, urlparse
+
+    seen: list[tuple[str, tuple[int, ...]]] = []
+    polls = {"n": 0}
+
+    def handle(route):
+        qs = parse_qs(urlparse(route.request.url).query)
+        ids = tuple(int(i) for i in qs.get("execution_ids", []))
+        subagent = qs.get("subagent", [""])[0]
+        if ids:
+            seen.append((subagent, ids))
+            polls["n"] += 1
+        # Executions complete only after a few polls, so both loops overlap.
+        status = "completed" if polls["n"] > 6 else "pending"
+        rows = [
+            {"execution_id": i, "article_id": 1, "status": status, "subagent_name": subagent, "warnings": None}
+            for i in ids
+        ]
+        route.fulfill(
+            status=200,
+            body=json.dumps({"subagent": subagent, "results": rows, "total": len(rows)}),
+            headers={"Content-Type": "application/json"},
+        )
+
+    page.route("**/api/evaluations/subagent-eval-results**", handle)
+    page.goto(f"http://127.0.0.1:8001{path}")
+    page.wait_for_load_state("load")
+
+    page.evaluate(
+        f"""
+        currentSubagent = 'cmdline';
+        {poll_fn}(evalRuns.start('cmdline', [9101, 9102]));
+        currentSubagent = 'hunt_queries';
+        {poll_fn}(evalRuns.start('hunt_queries', [9201]));
+        """
+    )
+
+    status = page.locator("#evalStatusText")
+    expect(status).to_contain_text("cmdline: 2/2 done - finished", timeout=20000)
+    expect(status).to_contain_text("hunt_queries: 1/1 done - finished", timeout=20000)
+
+    assert ("cmdline", (9101, 9102)) in seen
+    assert ("hunt_queries", (9201,)) in seen
+    # No loop ever mixed one launch's subagent with another launch's executions.
+    assert set(seen) == {("cmdline", (9101, 9102)), ("hunt_queries", (9201,))}

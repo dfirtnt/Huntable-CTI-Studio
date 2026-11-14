@@ -140,7 +140,7 @@ async def test_each_pending_execution_is_queued_on_the_worker(wire, request_stub
     ]
     session, task, events = wire(rows)
 
-    result = await trigger_stuck_executions(request_stub)
+    result = trigger_stuck_executions(request_stub)
 
     assert task.calls == [(11, 101), (22, 102)], "each pending row must be re-dispatched as (article_id, execution_id)"
     assert result["count"] == 2
@@ -156,7 +156,7 @@ async def test_dispatch_is_audited_per_execution(wire, request_stub):
     rows = [_pending(101, 11, age=STUCK)]
     _session, _task, events = wire(rows)
 
-    await trigger_stuck_executions(request_stub)
+    trigger_stuck_executions(request_stub)
 
     assert len(events) == 1
     event = events[0]
@@ -170,7 +170,7 @@ async def test_dispatch_is_audited_per_execution(wire, request_stub):
 async def test_no_pending_executions_short_circuits_without_dispatching(wire, request_stub):
     _session, task, _events = wire([])
 
-    result = await trigger_stuck_executions(request_stub)
+    result = trigger_stuck_executions(request_stub)
 
     assert result == {
         "success": True,
@@ -187,7 +187,7 @@ async def test_broker_failure_is_reported_per_row_without_leaking_details(wire, 
     rows = [_pending(101, 11, age=STUCK)]
     _session, _task, _events = wire(rows, delay_exc=OSError("redis://user:secret@redis:6379 unreachable"))
 
-    result = await trigger_stuck_executions(request_stub)
+    result = trigger_stuck_executions(request_stub)
 
     assert result["successful"] == 0
     assert result["failed"] == 1
@@ -211,7 +211,7 @@ async def test_broker_failure_is_reported_per_row_without_leaking_details(wire, 
 async def test_fresh_pending_row_is_skipped_not_redispatched(wire, request_stub):
     _session, task, _events = wire([_pending(101, 11, age=FRESH)])
 
-    result = await trigger_stuck_executions(request_stub)
+    result = trigger_stuck_executions(request_stub)
 
     assert task.calls == [], "a row whose task is probably still queued must not be re-dispatched"
     assert result["count"] == 0
@@ -224,7 +224,7 @@ async def test_only_the_stuck_rows_are_dispatched_from_a_mixed_batch(wire, reque
     rows = [_pending(101, 11, age=STUCK), _pending(102, 22, age=FRESH)]
     _session, task, events = wire(rows)
 
-    result = await trigger_stuck_executions(request_stub)
+    result = trigger_stuck_executions(request_stub)
 
     assert task.calls == [(11, 101)]
     assert result["count"] == 1
@@ -239,7 +239,7 @@ async def test_a_row_the_worker_already_claimed_is_skipped(wire, request_stub):
     claimed.started_at = datetime.now()
     _session, task, _events = wire([claimed])
 
-    result = await trigger_stuck_executions(request_stub)
+    result = trigger_stuck_executions(request_stub)
 
     assert task.calls == []
     assert result["skipped"] == 1
@@ -266,7 +266,7 @@ def test_route_and_trigger_service_share_one_definition_of_stuck():
 async def test_eval_row_inside_its_stagger_window_is_skipped(wire, request_stub):
     _session, task, _events = wire([_pending(101, 11, age=STUCK, eval_run=True)])
 
-    result = await trigger_stuck_executions(request_stub)
+    result = trigger_stuck_executions(request_stub)
 
     assert task.calls == [], "an eval row whose countdown has not elapsed still has a live task"
     assert result["count"] == 0
@@ -278,7 +278,7 @@ async def test_eval_row_past_its_stagger_window_is_redispatched(wire, request_st
     lost = _pending(101, 11, age=eval_pending_stuck_after() + timedelta(minutes=1), eval_run=True)
     _session, task, _events = wire([lost])
 
-    result = await trigger_stuck_executions(request_stub)
+    result = trigger_stuck_executions(request_stub)
 
     assert task.calls == [(11, 101)]
     assert result["successful"] == 1

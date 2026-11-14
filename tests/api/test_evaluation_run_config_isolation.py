@@ -72,7 +72,7 @@ async def test_full_eval_keeps_active_config_unchanged_and_snapshots_fixture_con
         patch("src.web.routes.evaluation_api.attach_snapshot", side_effect=_capture_snapshot(captured_snapshots)),
         patch("src.web.routes.evaluation_api.trigger_agentic_workflow.apply_async") as apply_async,
     ):
-        result = await run_evaluation(
+        result = run_evaluation(
             request=MagicMock(spec=Request),
             eval_request=EvaluationRunRequest(article_ids=[100], config_ids=[20]),
         )
@@ -118,7 +118,7 @@ async def test_full_eval_dispatch_failure_cannot_change_active_config():
         ),
         pytest.raises(HTTPException),
     ):
-        await run_evaluation(
+        run_evaluation(
             request=MagicMock(spec=Request),
             eval_request=EvaluationRunRequest(article_ids=[100], config_ids=[20]),
         )

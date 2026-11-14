@@ -202,48 +202,33 @@ async def api_pdf_upload(file: UploadFile = File(...)):
                     score,
                 )
 
-                # Get threshold from workflow config
+                # Route through WorkflowTriggerService so this path gets the same
+                # eligibility checks (threshold, config-aware active-execution guard,
+                # idempotency) and execution-row creation as every other trigger site.
+                # A bare `trigger_agentic_workflow.delay(article_id)` here used to skip
+                # execution creation entirely, which left `run_workflow()`'s no-execution_id
+                # fallback as this path's only guard against double-running the article.
                 import asyncio
 
-                from src.database.manager import DatabaseManager
-                from src.database.models import AgenticWorkflowConfigTable
+                def _trigger_workflow() -> tuple[bool, str | None]:
+                    from src.database.manager import DatabaseManager
+                    from src.services.workflow_trigger_service import WorkflowTriggerService
 
-                def _get_threshold():
                     db_manager = DatabaseManager()
                     db_session = db_manager.get_session()
                     try:
-                        config = (
-                            db_session.query(AgenticWorkflowConfigTable)
-                            .filter(AgenticWorkflowConfigTable.is_active == True)
-                            .order_by(AgenticWorkflowConfigTable.version.desc())
-                            .first()
-                        )
-                        return (
-                            config.auto_trigger_hunt_score_threshold
-                            if config and hasattr(config, "auto_trigger_hunt_score_threshold")
-                            else 60.0
-                        )
+                        return WorkflowTriggerService(db_session).trigger_workflow(article_id)
                     finally:
                         db_session.close()
 
-                threshold = await asyncio.to_thread(_get_threshold)
-
-                # Check if workflow should be triggered
-                # Only trigger if RegexHuntScore > threshold
-                if score > threshold:
-                    try:
-                        from src.worker.celery_app import trigger_agentic_workflow
-
-                        trigger_agentic_workflow.delay(article_id)
-                        logger.info(
-                            f"Triggered agentic workflow for PDF article {article_id} (hunt_score: {score} > {threshold})"
-                        )
-                    except Exception as e:
-                        logger.warning(f"Failed to trigger workflow for PDF article {article_id}: {e}")
-                else:
-                    logger.debug(
-                        f"Skipping workflow trigger for PDF article {article_id} (hunt_score: {score} <= {threshold})"
-                    )
+                try:
+                    triggered, reason = await asyncio.to_thread(_trigger_workflow)
+                    if triggered:
+                        logger.info(f"Triggered agentic workflow for PDF article {article_id} (hunt_score: {score})")
+                    else:
+                        logger.debug(f"Skipping workflow trigger for PDF article {article_id}: {reason}")
+                except Exception as e:
+                    logger.warning(f"Failed to trigger workflow for PDF article {article_id}: {e}")
 
             except Exception as exc:  # noqa: BLE001
                 logger.warning("Failed to generate threat hunting score for PDF: %s", exc)

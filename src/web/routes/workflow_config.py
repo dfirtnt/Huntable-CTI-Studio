@@ -2,6 +2,7 @@
 API routes for agentic workflow configuration management.
 """
 
+import asyncio
 import json
 import logging
 from typing import Any
@@ -2611,12 +2612,11 @@ async def get_workflow_provider_options():
     Aggregates Settings (DB), the commercial model catalog, and a live LM Studio
     probe into a single response so the UI makes one request instead of three.
     """
-    db_manager = DatabaseManager()
-    db_session = db_manager.get_session()
+    db_session = await asyncio.to_thread(lambda: DatabaseManager().get_session())
     try:
         return await get_provider_options(db_session)
     except Exception as exc:
         logger.error("Error building provider options: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error") from exc
     finally:
-        db_session.close()
+        await asyncio.to_thread(db_session.close)

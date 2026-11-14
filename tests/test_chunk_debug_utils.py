@@ -74,7 +74,7 @@ class TestChunkDebugProgressEndpoint:
     and the analysis can land on different uvicorn workers (--workers 2)."""
 
     async def test_no_entry_reports_not_in_progress(self, fake_redis):
-        result = await api_chunk_debug_progress(article_id=999)
+        result = api_chunk_debug_progress(article_id=999)
         assert result == {"in_progress": False, "processed_chunks": 0, "total_chunks": 0}
 
     async def test_existing_entry_is_reported_after_increments(self, fake_redis):
@@ -88,7 +88,7 @@ class TestChunkDebugProgressEndpoint:
         )
         debug_module._redis_client().hincrby(debug_module._chunk_debug_progress_key(42), "processed_chunks", 150)
 
-        result = await api_chunk_debug_progress(article_id=42)
+        result = api_chunk_debug_progress(article_id=42)
 
         assert result["in_progress"] is True
         assert result["processed_chunks"] == 150
@@ -107,7 +107,7 @@ class TestChunkDebugProgressEndpoint:
             per_chunk_timeout_seconds=12.0,
         )
 
-        result = await api_chunk_debug_progress(article_id=2)
+        result = api_chunk_debug_progress(article_id=2)
 
         assert result == {"in_progress": False, "processed_chunks": 0, "total_chunks": 0}
 
@@ -122,7 +122,7 @@ class TestChunkDebugProgressEndpoint:
         )
         _clear_chunk_debug_progress(7)
 
-        result = await api_chunk_debug_progress(article_id=7)
+        result = api_chunk_debug_progress(article_id=7)
 
         assert result["in_progress"] is False
 
@@ -144,7 +144,7 @@ class TestChunkDebugProgressEndpoint:
         # nor must a phase update -- it runs on the same best-effort contract
         _set_chunk_debug_phase(5, _PHASE_ANALYZING)
 
-        result = await api_chunk_debug_progress(article_id=5)
+        result = api_chunk_debug_progress(article_id=5)
         assert result["in_progress"] is False
 
     async def test_phase_advances_through_the_three_stages(self, fake_redis):
@@ -166,7 +166,7 @@ class TestChunkDebugProgressEndpoint:
         )
 
         # Filtering: the article-wide total is known, no per-chunk counter yet.
-        result = await api_chunk_debug_progress(article_id=11)
+        result = api_chunk_debug_progress(article_id=11)
         assert result["phase"] == _PHASE_FILTERING
         assert result["article_total_chunks"] == 1250
         assert result["total_chunks"] == 150
@@ -174,13 +174,13 @@ class TestChunkDebugProgressEndpoint:
 
         _set_chunk_debug_phase(11, _PHASE_ANALYZING)
         debug_module._redis_client().hincrby(debug_module._chunk_debug_progress_key(11), "processed_chunks", 42)
-        result = await api_chunk_debug_progress(article_id=11)
+        result = api_chunk_debug_progress(article_id=11)
         assert result["phase"] == _PHASE_ANALYZING
         assert result["processed_chunks"] == 42
         assert result["article_total_chunks"] == 1250, "phase change must not disturb the counters"
 
         _set_chunk_debug_phase(11, _PHASE_FINALIZING)
-        result = await api_chunk_debug_progress(article_id=11)
+        result = api_chunk_debug_progress(article_id=11)
         assert result["phase"] == _PHASE_FINALIZING
         assert result["processed_chunks"] == 42
 
@@ -203,7 +203,7 @@ class TestChunkDebugProgressEndpoint:
 
         _set_chunk_debug_phase(12, _PHASE_FINALIZING)
 
-        result = await api_chunk_debug_progress(article_id=12)
+        result = api_chunk_debug_progress(article_id=12)
         assert result["in_progress"] is False
 
 
@@ -343,7 +343,7 @@ class TestChunkDebugProgressCoversTheWholeRun:
 
         await debug_module.api_chunk_debug(article_id=78)
 
-        result = await api_chunk_debug_progress(article_id=78)
+        result = api_chunk_debug_progress(article_id=78)
         assert result["in_progress"] is False
         assert debug_module._chunk_debug_progress_key(78) not in fake_redis
 
@@ -360,7 +360,7 @@ class TestChunkDebugProgressCoversTheWholeRun:
         with pytest.raises(HTTPException):
             await debug_module.api_chunk_debug(article_id=79)
 
-        result = await api_chunk_debug_progress(article_id=79)
+        result = api_chunk_debug_progress(article_id=79)
         assert result["in_progress"] is False
 
 

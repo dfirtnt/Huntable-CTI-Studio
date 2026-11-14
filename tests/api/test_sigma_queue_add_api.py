@@ -108,3 +108,25 @@ class TestAddRuleToQueueYamlValidation:
         assert match is not None, f"Queued draft {queue_id} not found in list"
         assert match["article_id"] is None
         assert match["article_title"] is None
+
+    @pytest.mark.asyncio
+    async def test_queue_entry_normalizes_publish_metadata(self, async_client):
+        """A queued draft gets the configured author, an ISO date and clean tags at entry;
+        what cannot be fixed (no references) is recorded, not enforced, until submit-pr."""
+        import yaml
+
+        messy = VALID_SIGMA_YAML.replace("level: high\n", "level: high\ntags:\n  - attack.defense_evasion\nname: x\n")
+        response = await async_client.post("/api/sigma-queue/add", json={"rule_yaml": messy})
+        assert response.status_code == 200, response.text[:300]
+        queue_id = response.json()["queue_id"]
+
+        list_resp = await async_client.get("/api/sigma-queue/list?limit=500")
+        item = next(it for it in list_resp.json()["items"] if it["id"] == queue_id)
+        stored = yaml.safe_load(item["rule_yaml"])
+        assert stored["author"] != "test"
+        assert stored["tags"] == ["attack.defense-evasion"]
+        assert "name" not in stored
+        assert stored["detection"] == yaml.safe_load(VALID_SIGMA_YAML)["detection"]
+        readiness = item["rule_metadata"]["publish_readiness"]
+        assert readiness["ready"] is False
+        assert "Missing required references" in readiness["problems"]

@@ -54,6 +54,16 @@ trigger attempt for that article, an execution with no `updated_at` change for 3
 `failed` with a recovery message, which permits a forced retry. Recent executions are left running;
 this recovers the trigger path only and does not resume interrupted work.
 
+## Retries and Time Limits
+
+`trigger_agentic_workflow` retries (up to 3, exponential backoff) only on transient infrastructure
+errors raised before the execution row is claimed (DB, Redis, broker connections). A claimed row is
+never retried: failures, retry exhaustion and the 3 h soft limit mark it `failed` once. Per-task
+soft/hard limits live in `TASK_TIME_LIMITS` in `src/worker/celery_app.py` (workflow: 10800 s / 11400 s).
+The Redis `visibility_timeout` (6 h, `src/worker/celeryconfig.py`) must exceed every hard limit;
+`tests/worker/test_celery_reliability.py` enforces that. A hard kill leaves the row `running` until
+the 30-minute orphan recovery above or the retention reaper (6 h idle).
+
 ## Deployment
 
 ### Restart Services

@@ -1,0 +1,1907 @@
+    const HUNTABILITY_MODE = 'huntability';
+    const ANNOTATION_STYLE_MAP = {
+        huntable: {
+            label: 'Huntable',
+            highlightClass: 'bg-blue-100 dark:bg-blue-900 border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-200'
+        },
+        not_huntable: {
+            label: 'Not Huntable',
+            highlightClass: 'bg-red-100 dark:bg-red-900 border-red-300 dark:border-red-700 text-red-800 dark:text-red-200'
+        }
+    };
+
+    // Canonical article text (immutable, from database - before any DOM mutation)
+    const CANONICAL_ARTICLE_TEXT = {{ article.content|tojson if article.content else '""' }};
+
+    // Simple Text Management System - Single Source of Truth
+    class SimpleTextManager {
+        constructor() {
+            this.richContentElement = document.getElementById('article-content');
+            this.contentElement = this.richContentElement;
+            this.canonicalText = CANONICAL_ARTICLE_TEXT; // immutable buffer for offset calculations
+            this.userClassifications = new Map();
+            this.previousStates = []; // Store previous HTML states for undo
+            this.maxUndoStates = 10;
+            this.isSubmitting = false; // Prevent duplicate submissions
+            this.selectionListenersAttached = false; // Track if selection listeners are attached
+            this.selectionTarget = null;
+            this.mouseDownHandler = null;
+            this.mouseMoveHandler = null;
+            this.mouseUpHandler = null;
+            this.annotationMode = localStorage.getItem('annotationMode') || HUNTABILITY_MODE;
+            this.articleId = {{ article.id|default(0)|int }};
+            this.currentModal = null; // Store reference to current modal for reliable closing
+            
+            // Check localStorage for annotation system state (default: enabled)
+            const storedState = localStorage.getItem('annotationsEnabled');
+            this.annotationsEnabled = storedState === null ? true : storedState === 'true';
+            
+            this.init();
+        }
+        
+        init() {
+            // Load existing user classifications
+            this.loadExistingClassifications();
+            
+            // Set active content element based on initial mode
+            this.setActiveContentElement();
+            this.applyContentVisibility();
+            
+            // Enable user text selection (only if annotations are enabled)
+            if (this.annotationsEnabled) {
+                this.enableUserSelection();
+            }
+            
+            // Enable keyboard shortcuts
+            this.enableKeyboardShortcuts();
+            
+            // Enable clicking on annotations to remove them
+            this.enableAnnotationClicking();
+            
+            // Update button state
+            this.updateToggleButton();
+            this.updateModeUI();
+        }
+        
+        updateToggleButton() {
+            const btn = document.getElementById('toggle-annotations-btn');
+            const icon = document.getElementById('toggle-annotations-icon');
+            if (!btn || !icon) return;
+            
+            if (this.annotationsEnabled) {
+                btn.title = 'Disable annotation system';
+                btn.classList.remove('opacity-50');
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>';
+            } else {
+                btn.title = 'Enable annotation system';
+                btn.classList.add('opacity-50');
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>';
+            }
+        }
+        
+        updateModeUI() {
+            const huntabilityBtn = document.getElementById('annotation-mode-huntability');
+
+            if (huntabilityBtn) {
+                if (this.annotationMode === HUNTABILITY_MODE) {
+                    huntabilityBtn.classList.add('bg-blue-600', 'text-white', 'dark:bg-blue-600', 'dark:text-white');
+                    huntabilityBtn.classList.remove('bg-white', 'text-gray-700', 'dark:text-gray-200');
+                } else {
+                    huntabilityBtn.classList.remove('bg-blue-600', 'text-white', 'dark:bg-blue-600', 'dark:text-white');
+                    huntabilityBtn.classList.add('bg-white', 'text-gray-700', 'dark:text-gray-200');
+                }
+            }
+        }
+
+        setActiveContentElement() {
+            if (this.richContentElement) {
+                this.contentElement = this.richContentElement;
+            }
+        }
+
+        applyContentVisibility() {
+            if (this.richContentElement) {
+                this.contentElement = this.richContentElement;
+            }
+        }
+
+        setAnnotationMode(mode) {
+            if (mode !== HUNTABILITY_MODE) {
+                return;
+            }
+            this.annotationMode = mode;
+            localStorage.setItem('annotationMode', mode);
+            this.updateModeUI();
+            this.setActiveContentElement();
+            this.applyContentVisibility();
+            this.detachSelectionListeners();
+            this.enableUserSelection();
+            showNotification('Switched to Huntability mode', 'info');
+        }
+        
+        enableAnnotations() {
+            this.annotationsEnabled = true;
+            localStorage.setItem('annotationsEnabled', 'true');
+            // Reset flag to allow re-attaching listeners
+            this.selectionListenersAttached = false;
+            this.enableUserSelection();
+            this.updateToggleButton();
+        }
+        
+        disableAnnotations() {
+            this.annotationsEnabled = false;
+            localStorage.setItem('annotationsEnabled', 'false');
+            // Clear any active selection
+            window.getSelection().removeAllRanges();
+            // Hide any open annotation menus
+            const menus = document.querySelectorAll('.annotation-menu');
+            menus.forEach(menu => menu.remove());
+            // Remove native selection handler if it exists
+            if (this.nativeSelectionHandler) {
+                document.removeEventListener('mouseup', this.nativeSelectionHandler);
+                this.nativeSelectionHandler = null;
+            }
+            // Reset flag so listeners can be re-attached when re-enabled
+            this.selectionListenersAttached = false;
+            this.updateToggleButton();
+        }
+        
+        async loadExistingClassifications() {
+            try {
+                // Loading existing classifications for article {{ article.id }}
+                const response = await fetch(`/api/articles/{{ article.id }}/annotations`);
+                const data = await response.json();
+                
+                // API response received
+                
+                if (data.success && data.annotations) {
+                    // Found ${data.annotations.length} existing annotations
+                    
+                    // Wait a bit for the page to fully load before adding annotations
+                    setTimeout(() => {
+                        data.annotations.forEach(annotation => {
+                            // Loading annotation: ${annotation.annotation_type}
+                            this.addExistingClassification(
+                                annotation.start_position,
+                                annotation.end_position,
+                                annotation.annotation_type,
+                                annotation.selected_text
+                            );
+                        });
+                    }, 100);
+                } else {
+                    // No existing annotations found
+                }
+            } catch (error) {
+                console.error('Failed to load existing classifications:', error);
+            }
+        }
+        
+        addExistingClassification(start, end, classification, text) {
+            // Checking existing annotation: ${classification}
+            
+            // Check if this text is already highlighted by looking for spans with our classes
+            const existingSpans = this.contentElement.querySelectorAll(`span[data-annotation-type="${classification}"]`);
+            let alreadyHighlighted = false;
+            
+            for (const span of existingSpans) {
+                // Check if this span contains our text (or vice versa for partial matches)
+                const spanText = span.textContent.trim();
+                const searchText = text.trim();
+                
+                // More precise matching - check if the span text matches our annotation text
+                if (spanText === searchText || spanText.includes(searchText)) {
+                    alreadyHighlighted = true;
+                    console.log(`Text already highlighted in span: "${spanText.substring(0, 50)}..."`);
+                    break;
+                }
+            }
+            
+            if (!alreadyHighlighted) {
+                console.log('Text not yet highlighted, adding annotation');
+                this.addUserClassification(start, end, classification, text);
+            } else {
+                console.log('Skipping duplicate annotation');
+            }
+        }
+        
+        addUserClassification(start, end, classification, text) {
+            // Always use position-based highlighting to avoid text duplication issues
+            // The text-based replacement was causing duplication when the same text appeared multiple times
+            this.highlightTextAtPosition(start, end, classification, text);
+        }
+
+        highlightTextAtPosition(start, end, classification, text) {
+            // Create a range to select the text at the exact position
+            const range = document.createRange();
+            const walker = document.createTreeWalker(
+                this.contentElement,
+                NodeFilter.SHOW_TEXT,
+                null,
+                false
+            );
+            
+            let currentPos = 0;
+            let startNode = null;
+            let startOffset = 0;
+            let endNode = null;
+            let endOffset = 0;
+            
+            // Find the text nodes that contain our selection
+            let node;
+            while (node = walker.nextNode()) {
+                const nodeLength = node.textContent.length;
+                
+                if (!startNode && currentPos + nodeLength >= start) {
+                    startNode = node;
+                    startOffset = start - currentPos;
+                }
+                
+                if (!endNode && currentPos + nodeLength >= end) {
+                    endNode = node;
+                    endOffset = end - currentPos;
+                    break;
+                }
+                
+                currentPos += nodeLength;
+            }
+            
+            if (startNode && endNode) {
+                try {
+                    range.setStart(startNode, startOffset);
+                    range.setEnd(endNode, endOffset);
+                    
+                    // Create highlight span
+                    const style = this.getTypeStyle(classification);
+                    const highlightSpan = document.createElement('span');
+                    highlightSpan.className = `px-1 py-0.5 rounded border ${style.highlightClass}`;
+                    highlightSpan.title = `${style.label}: ${text.substring(0, 50)}...`;
+                    highlightSpan.dataset.annotationType = classification;
+                    
+                    // Move the existing DOM fragment so server-rendered keyword highlights survive annotation restore.
+                    const selectedFragment = range.extractContents();
+                    highlightSpan.appendChild(selectedFragment);
+                    range.insertNode(highlightSpan);
+                    
+                    // Save state for undo
+                    this.saveState();
+                    
+                } catch (error) {
+                    console.error('Error in position-based highlighting:', error);
+                    // Fallback: just add a visual indicator
+                    this.addVisualIndicator(start, end, classification, text);
+                }
+            } else {
+                console.error('Could not find text nodes for position-based highlighting');
+                this.addVisualIndicator(start, end, classification, text);
+            }
+        }
+        
+        addVisualIndicator(start, end, classification, text) {
+            console.log('Adding visual indicator as last resort');
+            
+            // Create a simple visual indicator at the top of the content
+            const indicator = document.createElement('div');
+            const style = this.getTypeStyle(classification);
+            let containerClass = 'bg-gray-50 border-gray-400';
+            let textClass = 'text-gray-800';
+            if (classification === 'huntable') {
+                containerClass = 'bg-blue-50 border-blue-400';
+                textClass = 'text-blue-800';
+            } else if (classification === 'not_huntable') {
+                containerClass = 'bg-red-50 border-red-400';
+                textClass = 'text-red-800';
+            }
+            indicator.className = `p-2 mb-2 rounded border-l-4 ${containerClass}`;
+            indicator.innerHTML = `
+                <div class="text-sm font-medium ${textClass}">
+                    ${style.label} Text Annotated
+                </div>
+                <div class="text-xs text-gray-600 mt-1">
+                    "${escapeHtml(text.substring(0, 100))}${text.length > 100 ? '...' : ''}"
+                </div>
+            `;
+            
+            // Insert at the beginning of the content
+            this.contentElement.insertBefore(indicator, this.contentElement.firstChild);
+            
+            // Save state for undo
+            this.saveState();
+        }
+        
+        addLongTextClassification(start, end, classification, text) {
+            // For very long text, try to highlight multiple parts of it
+            const style = this.getTypeStyle(classification);
+            
+            // Get the current HTML content
+            const content = this.contentElement.innerHTML;
+            
+            // Try to highlight the first 500 characters and add an indicator
+            const shortText = text.substring(0, Math.min(500, text.length));
+            const highlightSpan = `<span class="px-1 py-0.5 rounded border ${style.highlightClass}" data-annotation-type="${escapeHtml(classification)}" title="${escapeHtml(style.label)}: Long selection (${text.length} chars)">${escapeHtml(shortText)}${text.length > 500 ? '...' : ''}</span>`;
+            
+            // Try to find and replace the text
+            if (content.includes(shortText)) {
+                let newContent = content.replace(shortText, highlightSpan);
+                
+                // Also try to highlight the end of the selection if it's very long
+                if (text.length > 1000) {
+                    const endText = text.substring(text.length - 100);
+                    const endHighlightSpan = `<span class="px-1 py-0.5 rounded border ${style.highlightClass}" data-annotation-type="${escapeHtml(classification)}" title="End of long ${escapeHtml(style.label)} selection">...${escapeHtml(endText)}</span>`;
+                    
+                    if (newContent.includes(endText) && !newContent.includes(endHighlightSpan)) {
+                        newContent = newContent.replace(endText, endHighlightSpan);
+                    }
+                }
+                
+                this.contentElement.innerHTML = newContent;
+                console.log(`Added ${classification} highlight for long text selection (${text.length} chars)`);
+            } else {
+                // Fallback to shorter text
+                const veryShortText = text.substring(0, Math.min(100, text.length));
+                if (content.includes(veryShortText)) {
+                    const shortHighlightSpan = `<span class="px-1 py-0.5 rounded border ${style.highlightClass}" data-annotation-type="${escapeHtml(classification)}" title="${escapeHtml(style.label)}: Long selection (${text.length} chars)">${escapeHtml(veryShortText)}...</span>`;
+                    const newContent = content.replace(veryShortText, shortHighlightSpan);
+                    this.contentElement.innerHTML = newContent;
+                    console.log(`Added ${classification} highlight for part of long text selection`);
+                } else {
+                    console.log(`Could not find text for long selection highlighting`);
+                }
+            }
+        }
+        
+        saveState() {
+            // Save current HTML state for undo functionality
+            this.previousStates.push(this.contentElement.innerHTML);
+            
+            // Keep only the last maxUndoStates
+            if (this.previousStates.length > this.maxUndoStates) {
+                this.previousStates.shift();
+            }
+        }
+        
+        async undo() {
+            if (this.previousStates.length > 0) {
+                const previousState = this.previousStates.pop();
+                this.contentElement.innerHTML = previousState;
+                
+                // Delete the last annotation from database
+                try {
+                    const response = await fetch(`/api/articles/{{ article.id }}/annotations`, {
+                        method: 'GET'
+                    });
+                    const data = await response.json();
+                    
+                    if (data.success && data.annotations.length > 0) {
+                        // Get the most recent annotation (highest ID)
+                        const lastAnnotation = data.annotations.reduce((prev, current) => 
+                            (prev.id > current.id) ? prev : current
+                        );
+                        
+                        // Delete it from database
+                        const deleteResponse = await fetch(`/api/articles/{{ article.id }}/annotations/${lastAnnotation.id}`, {
+                            method: 'DELETE'
+                        });
+                        
+                        if (deleteResponse.ok) {
+                            console.log(`Undid last classification and removed annotation ID ${lastAnnotation.id} from database`);
+                        } else {
+                            console.error('Failed to remove annotation from database');
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error removing annotation from database:', error);
+                }
+                
+                console.log('Undid last classification');
+                return true;
+            } else {
+                console.log('No previous states to undo');
+                return false;
+            }
+        }
+        
+        
+        enableKeyboardShortcuts() {
+            document.addEventListener('keydown', (e) => {
+                // Ctrl+Z for undo
+                if (e.ctrlKey && e.key === 'z') {
+                    e.preventDefault();
+                    this.undo();
+                }
+            });
+        }
+        
+        enableAnnotationClicking() {
+            // Use event delegation to handle clicks on annotation spans
+            // Always bind to current contentElement; if switching surfaces, remove old listener first
+            if (this.annotationClickHandler && this.contentElement) {
+                this.contentElement.removeEventListener('click', this.annotationClickHandler);
+            }
+            this.annotationClickHandler = (e) => {
+                // Check if clicked element is an annotation span
+                const clickedSpan = e.target.closest('span[data-annotation-type]');
+                
+                if (clickedSpan) {
+                    const annotationType = clickedSpan.dataset.annotationType;
+                    if (!annotationType) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const annotationText = clickedSpan.textContent;
+                    this.showRemoveAnnotationModal(clickedSpan, annotationType, annotationText);
+                }
+            };
+            this.contentElement.addEventListener('click', this.annotationClickHandler);
+        }
+
+        detachSelectionListeners() {
+            if (this.selectionTarget && this.mouseDownHandler) {
+                this.selectionTarget.removeEventListener('mousedown', this.mouseDownHandler);
+            }
+            if (this.selectionTarget && this.mouseMoveHandler) {
+                this.selectionTarget.removeEventListener('mousemove', this.mouseMoveHandler);
+            }
+            if (this.selectionTarget && this.mouseUpHandler) {
+                this.selectionTarget.removeEventListener('mouseup', this.mouseUpHandler);
+            }
+            if (this.nativeSelectionHandler) {
+                document.removeEventListener('mouseup', this.nativeSelectionHandler);
+                this.nativeSelectionHandler = null;
+            }
+            this.mouseDownHandler = null;
+            this.mouseMoveHandler = null;
+            this.mouseUpHandler = null;
+            this.selectionTarget = null;
+            this.selectionListenersAttached = false;
+        }
+        
+        enableUserSelection() {
+            if (!this.annotationsEnabled) return;
+            
+            const target = this.richContentElement;
+            if (!target) return;
+            target.style.removeProperty('user-select');
+
+            // Prevent duplicate listeners on the same target
+            if (this.selectionListenersAttached && this.selectionTarget === target) return;
+            // If switching targets, detach old listeners first
+            if (this.selectionTarget && this.selectionTarget !== target) {
+                this.detachSelectionListeners();
+            }
+            this.selectionListenersAttached = true;
+            this.selectionTarget = target;
+            
+            let isSelecting = false;
+            let startPos = null;
+            let endPos = null;
+            
+            this.mouseDownHandler = (e) => {
+                if (!this.annotationsEnabled) return;
+                isSelecting = true;
+                startPos = this.getTextPositionFromEvent(e);
+            };
+            
+            this.mouseMoveHandler = (e) => {
+                if (!this.annotationsEnabled) return;
+                if (isSelecting) {
+                    endPos = this.getTextPositionFromEvent(e);
+                    this.showSelectionPreview(startPos, endPos);
+                }
+            };
+            
+            this.mouseUpHandler = (e) => {
+                if (!this.annotationsEnabled) return;
+                if (isSelecting) {
+                    isSelecting = false;
+                    
+                    const selection = window.getSelection();
+                    const selectedText = selection ? selection.toString().trim() : '';
+                    if (selection && selectedText.length > 0) {
+                        try {
+                            const range = selection.getRangeAt(0);
+                            const withinContent = this.contentElement.contains(range.commonAncestorContainer);
+                            if (withinContent) {
+                                const selectionStart = this.getTextPositionFromRange(
+                                    range.startContainer,
+                                    range.startOffset
+                                );
+                                const selectionEnd = this.getTextPositionFromRange(
+                                    range.endContainer,
+                                    range.endOffset
+                                );
+                                this.showClassificationOptions(selectionStart, selectionEnd);
+                                return;
+                            }
+                        } catch (error) {
+                            console.error('Error processing selection range on mouseup:', error);
+                        }
+                    }
+
+                    // Fallback: use pointer-based offsets (can be imprecise on touch/mobile).
+                    endPos = this.getTextPositionFromEvent(e);
+                    this.showClassificationOptions(startPos ?? 0, endPos ?? 0);
+                }
+            };
+
+            target.addEventListener('mousedown', this.mouseDownHandler);
+            target.addEventListener('mousemove', this.mouseMoveHandler);
+            target.addEventListener('mouseup', this.mouseUpHandler);
+            
+            // Also listen for native text selection events (as backup)
+            this.nativeSelectionHandler = (e) => {
+                if (!this.annotationsEnabled) return;
+                // Only handle if the click was within our content area
+                if (this.contentElement.contains(e.target)) {
+                    setTimeout(() => {
+                        // Skip if we're currently updating the selection programmatically
+                        if (this.isUpdatingSelection) {
+                            console.log('Skipping native selection handler - programmatic update in progress');
+                            return;
+                        }
+                        
+                        const selection = window.getSelection();
+                        const selectedText = selection ? selection.toString().trim() : '';
+                        
+                        if (selectedText.length > 0) {
+                            console.log('Native selection detected:', {
+                                text: selectedText.substring(0, 100),
+                                fullLength: selectedText.length
+                            });
+                            
+                            try {
+                                const range = selection.getRangeAt(0);
+                                const startPos = this.getTextPositionFromRange(range.startContainer, range.startOffset);
+                                const endPos = this.getTextPositionFromRange(range.endContainer, range.endOffset);
+                                
+                                if (startPos !== endPos && endPos - startPos === selectedText.length) {
+                                    console.log('Position calculation successful:', {
+                                        start: startPos,
+                                        end: endPos,
+                                        calculatedLength: endPos - startPos,
+                                        actualLength: selectedText.length
+                                    });
+                                    this.showClassificationOptions(startPos, endPos);
+                                } else {
+                                    console.log('Position calculation mismatch, using fallback');
+                                    // Fallback: try to find the text in the content
+                                    const contentText = this.contentElement.textContent;
+                                    const textIndex = contentText.indexOf(selectedText);
+                                    if (textIndex !== -1) {
+                                        this.showClassificationOptions(textIndex, textIndex + selectedText.length);
+                                    }
+                                }
+                            } catch (error) {
+                                console.error('Error processing native selection:', error);
+                                // Fallback: try to find the text in the content
+                                const contentText = this.contentElement.textContent;
+                                const textIndex = contentText.indexOf(selectedText);
+                                if (textIndex !== -1) {
+                                    this.showClassificationOptions(textIndex, textIndex + selectedText.length);
+                                }
+                            }
+                        }
+                    }, 50);
+                }
+            };
+            
+            document.addEventListener('mouseup', this.nativeSelectionHandler);
+        }
+        
+        getTextPositionFromEvent(e) {
+            const range = document.caretRangeFromPoint(e.clientX, e.clientY);
+            if (!range) return 0;
+            
+            // Find the character position in the text content (ignoring HTML)
+            const preCaretRange = range.cloneRange();
+            preCaretRange.selectNodeContents(this.contentElement);
+            preCaretRange.setEnd(range.endContainer, range.endOffset);
+            
+            return preCaretRange.toString().length;
+        }
+        
+        getTextPositionFromRange(container, offset) {
+            // Handle element nodes by finding the actual text node
+            let textNode = container;
+            let textOffset = offset;
+            
+            if (container.nodeType !== Node.TEXT_NODE) {
+                // Create a collapsed range to find the text node
+                const tempRange = document.createRange();
+                tempRange.setStart(container, Math.min(offset, container.childNodes.length));
+                tempRange.collapse(true);
+                textNode = tempRange.startContainer;
+                textOffset = tempRange.startOffset;
+                
+                // If still not a text node, walk to find it
+                if (textNode.nodeType !== Node.TEXT_NODE) {
+                    const walker = document.createTreeWalker(
+                        textNode,
+                        NodeFilter.SHOW_TEXT,
+                        null,
+                        false
+                    );
+                    const firstTextNode = walker.nextNode();
+                    if (firstTextNode) {
+                        textNode = firstTextNode;
+                        textOffset = 0;
+                    }
+                }
+            }
+            
+            // Walk text nodes from start of content to calculate position
+            const walker = document.createTreeWalker(
+                this.contentElement,
+                NodeFilter.SHOW_TEXT,
+                null,
+                false
+            );
+            
+            let position = 0;
+            let node;
+            while ((node = walker.nextNode())) {
+                if (node === textNode) {
+                    return position + Math.min(textOffset, node.textContent.length);
+                }
+                position += node.textContent.length;
+            }
+            
+            // Fallback: use range.toString() if walker didn't find it
+            const range = document.createRange();
+            range.setStart(this.contentElement, 0);
+            range.setEnd(container, offset);
+            return range.toString().length;
+        }
+        
+        showSelectionPreview(start, end) {
+            // Clear previous preview
+            this.clearSelectionPreview();
+            
+            if (start === end) return;
+            
+            const min = Math.min(start, end);
+            const max = Math.max(start, end);
+            
+            const preview = document.createElement('div');
+            preview.className = 'absolute bg-yellow-200 bg-opacity-50 border border-yellow-400';
+            preview.id = 'selection-preview';
+            
+            try {
+                // Create a range based on text content positions
+                const range = document.createRange();
+                const textContent = this.contentElement.textContent;
+                
+                // Find the text nodes that contain our selection
+                const walker = document.createTreeWalker(
+                    this.contentElement,
+                    NodeFilter.SHOW_TEXT,
+                    null,
+                    false
+                );
+                
+                let currentPos = 0;
+                let startNode = null;
+                let endNode = null;
+                let startOffset = 0;
+                let endOffset = 0;
+                
+                while (walker.nextNode()) {
+                    const textNode = walker.currentNode;
+                    const nodeLength = textNode.textContent.length;
+                    
+                    if (!startNode && currentPos + nodeLength >= min) {
+                        startNode = textNode;
+                        startOffset = min - currentPos;
+                    }
+                    
+                    if (!endNode && currentPos + nodeLength >= max) {
+                        endNode = textNode;
+                        endOffset = max - currentPos;
+                        break;
+                    }
+                    
+                    currentPos += nodeLength;
+                }
+                
+                if (startNode && endNode) {
+                    range.setStart(startNode, startOffset);
+                    range.setEnd(endNode, endOffset);
+                    
+                    const rect = range.getBoundingClientRect();
+                    const containerRect = this.contentElement.getBoundingClientRect();
+                    
+                    preview.style.left = `${rect.left - containerRect.left}px`;
+                    preview.style.top = `${rect.top - containerRect.top}px`;
+                    preview.style.width = `${rect.width}px`;
+                    preview.style.height = `${rect.height}px`;
+                    
+                    this.contentElement.appendChild(preview);
+                }
+            } catch (error) {
+                console.error('Error showing selection preview:', error);
+            }
+        }
+        
+        clearSelectionPreview() {
+            const preview = document.getElementById('selection-preview');
+            if (preview) {
+                preview.remove();
+            }
+        }
+
+        /**
+         * Calculate absolute start/end offsets for a range using rendered DOM text.
+         * Walks text nodes from the start of the article content without mutating the DOM.
+         */
+        calculateOffsetsFromRange(range) {
+            try {
+                const walker = document.createTreeWalker(
+                    this.contentElement,
+                    NodeFilter.SHOW_TEXT,
+                    null,
+                    false
+                );
+
+                let currentPos = 0;
+                let startOffset = null;
+                let endOffset = null;
+                let node;
+
+                while ((node = walker.nextNode())) {
+                    const len = node.textContent.length;
+
+                    if (node === range.startContainer) {
+                        startOffset = currentPos + Math.min(range.startOffset, len);
+                    }
+                    if (node === range.endContainer) {
+                        endOffset = currentPos + Math.min(range.endOffset, len);
+                    }
+
+                    currentPos += len;
+                }
+
+                if (startOffset === null || endOffset === null) {
+                    return null;
+                }
+
+                return { startOffset, endOffset };
+            } catch (error) {
+                console.error('Failed to calculate offsets from range:', error);
+                return null;
+            }
+        }
+
+        resolveBoundaryToText(node, offset, preferStart) {
+            if (!node || !this.contentElement.contains(node)) return null;
+            
+            // Text node: clamp offset
+            if (node.nodeType === Node.TEXT_NODE) {
+                return { node, offset: Math.min(offset, node.textContent.length) };
+            }
+            
+            // Element boundary: offset refers to child index
+            const children = node.childNodes;
+            if (!children || children.length === 0) {
+                return null;
+            }
+            
+            if (preferStart) {
+                // Start boundary: find first text descendant at/after offset
+                for (let i = offset; i < children.length; i++) {
+                    const textNode = this.findFirstTextDescendant(children[i], true);
+                    if (textNode) return { node: textNode, offset: 0 };
+                }
+                // Fallback: search before offset
+                for (let i = offset - 1; i >= 0; i--) {
+                    const textNode = this.findFirstTextDescendant(children[i], true);
+                    if (textNode) return { node: textNode, offset: 0 };
+                }
+            } else {
+                // End boundary: find last text descendant before offset
+                for (let i = Math.min(offset - 1, children.length - 1); i >= 0; i--) {
+                    const textNode = this.findFirstTextDescendant(children[i], false);
+                    if (textNode) return { node: textNode, offset: textNode.textContent.length };
+                }
+                // Fallback: search after offset
+                for (let i = offset; i < children.length; i++) {
+                    const textNode = this.findFirstTextDescendant(children[i], false);
+                    if (textNode) return { node: textNode, offset: textNode.textContent.length };
+                }
+            }
+            
+            return null;
+        }
+
+        orderBoundaries(nodeA, offsetA, nodeB, offsetB) {
+            const position = nodeA.compareDocumentPosition(nodeB);
+            if (
+                position & Node.DOCUMENT_POSITION_FOLLOWING ||
+                (nodeA === nodeB && offsetA <= offsetB)
+            ) {
+                return {
+                    start: { node: nodeA, offset: Math.min(offsetA, nodeA.textContent.length) },
+                    end: { node: nodeB, offset: Math.min(offsetB, nodeB.textContent.length) }
+                };
+            }
+            return {
+                start: { node: nodeB, offset: Math.min(offsetB, nodeB.textContent.length) },
+                end: { node: nodeA, offset: Math.min(offsetA, nodeA.textContent.length) }
+            };
+        }
+        
+        getOffsetWithPrefix(container, offset) {
+            try {
+                const prefixRange = document.createRange();
+                prefixRange.setStart(this.contentElement, 0);
+                prefixRange.setEnd(container, offset);
+                return prefixRange.toString().length;
+            } catch (e) {
+                console.error('Prefix range offset failed:', e);
+                return null;
+            }
+        }
+
+        findFirstTextDescendant(node, forward = true) {
+            if (!node || !this.contentElement.contains(node)) return null;
+            
+            if (node.nodeType === Node.TEXT_NODE && node.textContent.length > 0) {
+                return node;
+            }
+            
+            const children = node.childNodes;
+            if (!children || children.length === 0) return null;
+            
+            if (forward) {
+                for (let i = 0; i < children.length; i++) {
+                    const found = this.findFirstTextDescendant(children[i], true);
+                    if (found) return found;
+                }
+            } else {
+                for (let i = children.length - 1; i >= 0; i--) {
+                    const found = this.findFirstTextDescendant(children[i], false);
+                    if (found) return found;
+                }
+            }
+            
+            return null;
+        }
+
+        normalizeSelectionToContent(startPos, endPos) {
+            // Try to get selection from DOM first
+            const selection = window.getSelection();
+            if (selection && selection.rangeCount > 0) {
+                const range = selection.getRangeAt(0);
+                
+                // Ensure selection is within article content
+                if (this.contentElement.contains(range.startContainer) && 
+                    this.contentElement.contains(range.endContainer)) {
+                    
+                    const start = this.getTextPositionFromRange(range.startContainer, range.startOffset);
+                    const end = this.getTextPositionFromRange(range.endContainer, range.endOffset);
+                    
+                    if (start < end) {
+                        const fullText = this.contentElement.textContent;
+                        const selectedText = fullText.substring(start, end);
+                        
+                        if (selectedText.trim()) {
+                            return {
+                                min: start,
+                                max: end,
+                                selectedText: selectedText
+                            };
+                        }
+                    }
+                }
+            }
+            
+            // Fallback to provided positions if DOM selection unavailable
+            if (startPos !== undefined && endPos !== undefined && startPos < endPos) {
+                const fullText = this.contentElement.textContent;
+                if (endPos <= fullText.length) {
+                    const selectedText = fullText.substring(startPos, endPos);
+                    if (selectedText.trim()) {
+                        return {
+                            min: startPos,
+                            max: endPos,
+                            selectedText: selectedText
+                        };
+                    }
+                }
+            }
+            
+            return null;
+        }
+        
+        showClassificationOptions(start, end) {
+            this.clearSelectionPreview();
+            
+            if (start === end) return;
+            
+            // For huntability: continue using normalization (allows expansion)
+            const normalized = this.normalizeSelectionToContent(start, end);
+            if (!normalized) {
+                console.warn('Could not normalize selection to article content');
+                return;
+            }
+            let { min, max, selectedText } = normalized;
+
+            // Prefer the live DOM selection if present to avoid offset drift
+            const selection = window.getSelection();
+            if (selection && selection.rangeCount > 0 && selection.toString().trim().length > 0) {
+                try {
+                    const range = selection.getRangeAt(0);
+                    if (this.contentElement.contains(range.startContainer) && this.contentElement.contains(range.endContainer)) {
+                        const selStart = this.getTextPositionFromRange(range.startContainer, range.startOffset);
+                        const selEnd = this.getTextPositionFromRange(range.endContainer, range.endOffset);
+                        if (selEnd > selStart) {
+                            min = selStart;
+                            max = selEnd;
+                            selectedText = selection.toString();
+                        }
+                    }
+                } catch (err) {
+                    console.error('Failed to normalize selection:', err);
+                }
+            }
+
+            console.log('Showing classification options:', {
+                start: min,
+                end: max,
+                textLength: selectedText.length,
+                textPreview: selectedText.substring(0, 100)
+            });
+            
+            // Show classification modal with enhanced features
+            this.showClassificationModal(selectedText, min, max);
+        }
+        showClassificationModal(text, start, end) {
+            // Prevent infinite loops when updating existing modal
+            if (this.isUpdatingModal) {
+                return;
+            }
+            
+            // Auto-expand to 1000 characters before showing modal
+            const expandedSelection = this.autoExpandTo1000(start, end);
+            const expandedText = expandedSelection.text;
+            const expandedStart = expandedSelection.start;
+            const expandedEnd = expandedSelection.end;
+            
+            // Create modal for classification
+            const modal = document.createElement('div');
+            modal.id = 'annotationClassificationModal';
+            modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Annotation classification');
+            this.currentModal = modal; // Store reference for reliable closing
+            
+            // Add click outside to close
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    this.closeModal();
+                }
+            }.bind(this));
+            
+            // Calculate character count and length guidance
+            const charCount = expandedText.length;
+            const targetLength = 1000;
+            
+            // Color coding for length guidance (production-aligned)
+            let lengthStatus = 'good'; // green
+            let lengthMessage = '';
+            if (charCount < 800) {
+                lengthStatus = 'short'; // yellow
+                lengthMessage = '⚠️ Too short - add more context to match production chunks';
+            } else if (charCount < 950) {
+                lengthStatus = 'acceptable'; // blue
+                lengthMessage = '⚠️ Acceptable but not optimal - aim for 950-1000 chars';
+            } else if (charCount > 1000) {
+                lengthStatus = 'long'; // red
+                lengthMessage = '⚠️ Too long - will be chunked differently in production';
+            }
+            
+            modal.innerHTML = `
+                <div class="card shadow-2xl p-6 max-w-md w-full mx-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-50">Classify Selected Text</h3>
+                        <div class="char-counter ${lengthStatus}">
+                            ${charCount}/${targetLength} chars
+                        </div>
+                    </div>
+                    ${lengthMessage ? `<div class="length-guidance ${lengthStatus} mb-4">${lengthMessage}</div>` : ''}
+                    <p class="text-sm text-gray-300 mb-4">"${expandedText.substring(0, 100)}${expandedText.length > 100 ? '...' : ''}"</p>
+                    
+                    <div class="flex space-x-3">
+                        <button id="huntable-btn" 
+                                class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-3 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                            🎯 Huntable
+                        </button>
+                        <button id="not-huntable-btn" 
+                                class="flex-1 bg-red-500 hover:bg-red-600 text-white px-4 py-3 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                            ❌ Not Huntable
+                        </button>
+                        <button id="cancel-btn" 
+                                class="px-4 py-3 border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Register with ModalManager and make Escape trigger Cancel button
+            if (window.ModalManager) {
+                // Get cancel button reference
+                const cancelBtn = modal.querySelector('#cancel-btn');
+                
+                // Register modal with ModalManager
+                window.ModalManager.register('annotationClassificationModal', {
+                    isDynamic: true,
+                    hasInput: false,
+                    onClose: () => {
+                        this.closeModal();
+                    }
+                });
+                
+                // Open modal via ModalManager
+                window.ModalManager.open('annotationClassificationModal');
+                
+                // Add Escape handler that triggers Cancel button (only if this is the topmost modal)
+                const modalEscHandler = function(e) {
+                    if ((e.key === 'Escape' || e.keyCode === 27) && 
+                        modal && !modal.classList.contains('hidden')) {
+                        // Check if this is the topmost modal
+                        if (window.ModalManager) {
+                            const stack = window.ModalManager.getStack();
+                            const isTopmost = stack.length > 0 && stack[stack.length - 1] === 'annotationClassificationModal';
+                            if (!isTopmost) {
+                                // Not topmost, let ModalManager handle it
+                                return;
+                            }
+                        }
+                        e.preventDefault();
+                        e.stopPropagation();
+                        // Trigger Cancel button click (equivalent to clicking Cancel)
+                        if (cancelBtn) {
+                            cancelBtn.click();
+                        } else {
+                            this.closeModal();
+                        }
+                        return false;
+                    }
+                }.bind(this);
+                
+                // Use capture phase with higher priority (runs before ModalManager's handler)
+                document.addEventListener('keydown', modalEscHandler, true);
+                
+                // Store handler reference for cleanup
+                modal._annotationEscHandler = modalEscHandler;
+            }
+            
+            // Add touch event handlers for mobile
+            addMobileModalHandlers(modal, expandedStart, expandedEnd);
+            
+            // Add CSS styles if not already present
+            if (!document.getElementById('annotation-enhancement-styles')) {
+                const styles = document.createElement('style');
+                styles.id = 'annotation-enhancement-styles';
+                styles.textContent = `
+                    .char-counter {
+                        font-size: 12px;
+                        font-weight: 600;
+                        padding: 2px 6px;
+                        border-radius: 4px;
+                        margin-left: 8px;
+                    }
+                    
+                    .char-counter.good {
+                        background: var(--action-success-bg);
+                        color: var(--action-success-dark);
+                        border: 1px solid var(--action-success);
+                    }
+                    
+                    .char-counter.short {
+                        background: var(--surface-highlight);
+                        color: var(--action-warning);
+                        border: 1px solid var(--border-warning);
+                    }
+                    
+                    .char-counter.acceptable {
+                        background: var(--action-info-bg);
+                        color: var(--action-info-dark);
+                        border: 1px solid var(--action-info);
+                    }
+                    
+                    .char-counter.long {
+                        background: var(--action-danger-bg);
+                        color: var(--action-danger);
+                        border: 1px solid var(--action-danger);
+                    }
+                    
+                    .length-guidance {
+                        font-size: 12px;
+                        padding: 6px 8px;
+                        border-radius: 4px;
+                        text-align: center;
+                    }
+                    
+                    .length-guidance.good {
+                        background: var(--action-success-bg);
+                        color: var(--action-success-dark);
+                        border: 1px solid var(--action-success);
+                    }
+                    
+                    .length-guidance.short {
+                        background: var(--surface-highlight);
+                        color: var(--action-warning);
+                        border: 1px solid var(--border-warning);
+                    }
+                    
+                    .length-guidance.acceptable {
+                        background: var(--action-info-bg);
+                        color: var(--action-info-dark);
+                        border: 1px solid var(--action-info);
+                    }
+                    
+                    .length-guidance.long {
+                        background: var(--action-danger-bg);
+                        color: var(--action-danger);
+                        border: 1px solid var(--action-danger);
+                    }
+                `;
+                document.head.appendChild(styles);
+            }
+        }
+        
+        expandSelection(currentStart, currentEnd, expandBy) {
+            // Get the full article text
+            const fullText = this.contentElement.textContent;
+            
+            // Calculate new boundaries
+            let newStart, newEnd;
+            
+            if (expandBy > 0) {
+                // Expanding - add to both sides symmetrically
+                const halfExpand = Math.floor(expandBy / 2);
+                newStart = Math.max(0, currentStart - halfExpand);
+                newEnd = Math.min(fullText.length, currentEnd + halfExpand);
+            } else {
+                // Contracting - remove from both sides symmetrically
+                const halfContract = Math.floor(Math.abs(expandBy) / 2);
+                newStart = currentStart + halfContract;
+                newEnd = currentEnd - halfContract;
+            }
+            
+            // Apply smart boundary detection
+            const smartBoundaries = this.findSmartBoundaries(fullText, newStart, newEnd);
+            newStart = smartBoundaries.start;
+            newEnd = smartBoundaries.end;
+            
+            // Get new text
+            const newText = fullText.substring(newStart, newEnd);
+            
+            // Update the live text selection in the browser
+            this.updateLiveSelection(newStart, newEnd);
+            
+            // Update the current modal with new selection data
+            this.updateModalWithNewSelection(newText, newStart, newEnd);
+        }
+        
+        autoExpandTo1000(currentStart, currentEnd) {
+            // Get the full article text
+            const fullText = this.contentElement.textContent;
+            const currentText = fullText.substring(currentStart, currentEnd);
+            const currentLength = currentText.length;
+            const targetLength = 1000;
+            
+            let newStart, newEnd;
+            
+            if (currentLength >= targetLength) {
+                // Already at or over target, just trim to exactly 1000
+                const trimAmount = currentLength - targetLength;
+                const halfTrim = Math.floor(trimAmount / 2);
+                newStart = currentStart + halfTrim;
+                newEnd = currentEnd - (trimAmount - halfTrim);
+            } else {
+                // Need to expand - calculate how much to add
+                const expandBy = targetLength - currentLength;
+                const halfExpand = Math.floor(expandBy / 2);
+                
+                // Try to expand symmetrically
+                newStart = Math.max(0, currentStart - halfExpand);
+                newEnd = Math.min(fullText.length, currentEnd + halfExpand);
+                
+                // If we hit boundaries, expand more on the other side
+                if (newStart === 0 && newEnd < fullText.length) {
+                    const remainingExpand = targetLength - (newEnd - newStart);
+                    newEnd = Math.min(fullText.length, newEnd + remainingExpand);
+                } else if (newEnd === fullText.length && newStart > 0) {
+                    const remainingExpand = targetLength - (newEnd - newStart);
+                    newStart = Math.max(0, newStart - remainingExpand);
+                }
+                
+                // CRITICAL: Ensure we don't exceed 1000 characters for ML training
+                const finalLength = newEnd - newStart;
+                if (finalLength > targetLength) {
+                    const excess = finalLength - targetLength;
+                    const halfExcess = Math.floor(excess / 2);
+                    newStart += halfExcess;
+                    newEnd -= (excess - halfExcess);
+                    console.log(`Trimmed selection to stay under 1000 chars: ${finalLength} → ${newEnd - newStart}`);
+                }
+            }
+            
+            // Apply smart boundary detection
+            const smartBoundaries = this.findSmartBoundaries(fullText, newStart, newEnd);
+            newStart = smartBoundaries.start;
+            newEnd = smartBoundaries.end;
+            
+            // CRITICAL: Final check - ensure we don't exceed 1000 characters for ML training
+            const finalLength = newEnd - newStart;
+            if (finalLength > targetLength) {
+                const excess = finalLength - targetLength;
+                const halfExcess = Math.floor(excess / 2);
+                newStart += halfExcess;
+                newEnd -= (excess - halfExcess);
+                console.log(`Final trim to stay under 1000 chars: ${finalLength} → ${newEnd - newStart}`);
+            }
+            
+            const newText = fullText.substring(newStart, newEnd);
+            
+            console.log(`Auto-expand: ${currentLength} → ${newText.length} chars`);
+            
+            // Update the live text selection in the browser
+            this.updateLiveSelection(newStart, newEnd);
+            
+            // Update the current modal with new selection data
+            this.updateModalWithNewSelection(newText, newStart, newEnd);
+
+            // Return expanded selection so callers can use it without re-deriving
+            return {
+                text: newText,
+                start: newStart,
+                end: newEnd
+            };
+        }
+        updateLiveSelection(newStart, newEnd) {
+            // Update the browser's text selection to show the expanded selection
+            try {
+                // Temporarily disable the native selection event handler to prevent conflicts
+                this.isUpdatingSelection = true;
+                
+                const range = document.createRange();
+                const startNode = this.getTextNodeAtOffset(newStart);
+                const endNode = this.getTextNodeAtOffset(newEnd);
+                
+                if (startNode && endNode) {
+                    range.setStart(startNode.node, startNode.offset);
+                    range.setEnd(endNode.node, endNode.offset);
+                    
+                    const selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                    
+                    // Disable automatic scrolling for Auto 1000 to prevent background page jumping
+                    // The selection will be updated but the page position will remain stable
+                }
+                
+                // Re-enable the native selection event handler after a short delay
+                setTimeout(() => {
+                    this.isUpdatingSelection = false;
+                }, 100);
+                
+            } catch (error) {
+                console.error('Error updating live selection:', error);
+                this.isUpdatingSelection = false;
+            }
+        }
+        
+        updateModalWithNewSelection(newText, newStart, newEnd) {
+            // NUCLEAR OPTION: Completely recreate the modal to force UI update
+            console.log('Recreating modal to force UI update');
+            
+            // Set flag to prevent infinite loops
+            this.isUpdatingModal = true;
+            
+            // Close the current modal
+            this.closeModal();
+            
+            // Wait a frame to ensure DOM cleanup
+            setTimeout(() => {
+                // Create modal directly without auto-expanding (we already have the right text)
+                this.createModalDirectly(newText, newStart, newEnd);
+                
+                // Clear the flag after modal is recreated
+                setTimeout(() => {
+                    this.isUpdatingModal = false;
+                }, 100);
+            }, 10);
+        }
+        
+        createModalDirectly(text, start, end) {
+            // Create modal for classification without auto-expanding
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Annotation classification');
+            this.currentModal = modal; // Store reference for reliable closing
+            
+            // Add click outside to close
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    this.closeModal();
+                }
+            }.bind(this));
+            
+            // Add ESC key to close
+            const handleEsc = function(e) {
+                if (e.key === 'Escape') {
+                    this.closeModal();
+                    document.removeEventListener('keydown', handleEsc);
+                }
+            }.bind(this);
+            document.addEventListener('keydown', handleEsc);
+            
+            // Calculate character count and length guidance
+            const charCount = text.length;
+            const targetLength = 1000;
+            
+            // Color coding for length guidance (production-aligned)
+            let lengthStatus = 'good'; // green
+            let lengthMessage = '';
+            if (charCount < 800) {
+                lengthStatus = 'short'; // yellow
+                lengthMessage = '⚠️ Too short - add more context to match production chunks';
+            } else if (charCount < 950) {
+                lengthStatus = 'acceptable'; // blue
+                lengthMessage = '⚠️ Acceptable but not optimal - aim for 950-1000 chars';
+            } else if (charCount > 1000) {
+                lengthStatus = 'long'; // red
+                lengthMessage = '⚠️ Too long - will be chunked differently in production';
+            }
+            
+            modal.innerHTML = `
+                <div class="card shadow-2xl p-6 max-w-md w-full mx-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-50">Classify Selected Text</h3>
+                        <div class="char-counter ${lengthStatus}">
+                            ${charCount}/${targetLength} chars
+                        </div>
+                    </div>
+                    ${lengthMessage ? `<div class="length-guidance ${lengthStatus} mb-4">${lengthMessage}</div>` : ''}
+                    <p class="text-sm text-gray-300 mb-4">"${text.substring(0, 100)}${text.length > 100 ? '...' : ''}"</p>
+                    
+                    <div class="flex space-x-3">
+                        <button id="huntable-btn" 
+                                class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-3 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                            🎯 Huntable
+                        </button>
+                        <button id="not-huntable-btn" 
+                                class="flex-1 bg-red-500 hover:bg-red-600 text-white px-4 py-3 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                            ❌ Not Huntable
+                        </button>
+                        <button id="cancel-btn" 
+                                class="px-4 py-3 border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg text-lg font-semibold min-h-[48px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Add touch event handlers for mobile
+            addMobileModalHandlers(modal, start, end);
+            
+            // Add CSS styles if not already present
+            if (!document.getElementById('annotation-enhancement-styles')) {
+                const styles = document.createElement('style');
+                styles.id = 'annotation-enhancement-styles';
+                styles.textContent = `
+                    .char-counter {
+                        font-size: 12px;
+                        font-weight: 600;
+                        padding: 2px 6px;
+                        border-radius: 4px;
+                        margin-left: 8px;
+                    }
+                    
+                    .char-counter.good {
+                        background: var(--action-success-bg);
+                        color: var(--action-success-dark);
+                        border: 1px solid var(--action-success);
+                    }
+                    
+                    .char-counter.short {
+                        background: var(--surface-highlight);
+                        color: var(--action-warning-dark);
+                        border: 1px solid var(--border-warning);
+                    }
+                    
+                    .char-counter.acceptable {
+                        background: var(--action-info-bg);
+                        color: var(--action-info-dark);
+                        border: 1px solid var(--action-info);
+                    }
+                    
+                    .char-counter.long {
+                        background: var(--action-danger-bg);
+                        color: var(--action-danger);
+                        border: 1px solid var(--action-danger);
+                    }
+                    
+                    .length-guidance {
+                        font-size: 12px;
+                        padding: 8px 12px;
+                        border-radius: 6px;
+                        border-left: 4px solid;
+                    }
+                    
+                    .length-guidance.good {
+                        background: var(--action-success-bg);
+                        color: var(--action-success-dark);
+                        border-left-color: var(--action-success);
+                    }
+                    
+                    .length-guidance.short {
+                        background: var(--surface-highlight);
+                        color: var(--action-warning-dark);
+                        border-left-color: var(--border-warning);
+                    }
+                    
+                    .length-guidance.acceptable {
+                        background: var(--action-info-bg);
+                        color: var(--action-info-dark);
+                        border-left-color: var(--action-info);
+                    }
+                    
+                    .length-guidance.long {
+                        background: var(--action-danger-bg);
+                        color: var(--action-danger);
+                        border-left-color: var(--action-danger);
+                    }
+                `;
+                document.head.appendChild(styles);
+            }
+        }
+        
+        findSmartBoundaries(text, start, end) {
+            // Smart boundary detection - prefer sentence, paragraph, then word boundaries
+            const maxLookback = 100; // Don't look back more than 100 chars
+            const maxLookahead = 100; // Don't look ahead more than 100 chars
+            
+            // Find sentence boundaries (preferred)
+            const sentenceStart = this.findSentenceStart(text, start, maxLookback);
+            const sentenceEnd = this.findSentenceEnd(text, end, maxLookahead);
+            
+            if (sentenceStart !== start || sentenceEnd !== end) {
+                return { start: sentenceStart, end: sentenceEnd };
+            }
+            
+            // Find paragraph boundaries (second choice)
+            const paragraphStart = this.findParagraphStart(text, start, maxLookback);
+            const paragraphEnd = this.findParagraphEnd(text, end, maxLookahead);
+            
+            if (paragraphStart !== start || paragraphEnd !== end) {
+                return { start: paragraphStart, end: paragraphEnd };
+            }
+            
+            // Find word boundaries (last resort)
+            const wordStart = this.findWordStart(text, start, maxLookback);
+            const wordEnd = this.findWordEnd(text, end, maxLookahead);
+            
+            return { start: wordStart, end: wordEnd };
+        }
+        
+        findSentenceStart(text, position, maxLookback) {
+            const start = Math.max(0, position - maxLookback);
+            const searchText = text.substring(start, position);
+            
+            // Look for sentence endings followed by whitespace and capital letter
+            const sentenceEndRegex = /[.!?]\s+[A-Z]/g;
+            let match;
+            let lastMatch = start;
+            
+            while ((match = sentenceEndRegex.exec(searchText)) !== null) {
+                lastMatch = start + match.index + match[0].length - 1; // Position after the capital letter
+            }
+            
+            return lastMatch;
+        }
+        
+        findSentenceEnd(text, position, maxLookahead) {
+            const end = Math.min(text.length, position + maxLookahead);
+            const searchText = text.substring(position, end);
+            
+            // Look for sentence endings
+            const sentenceEndRegex = /[.!?](?=\s|$)/g;
+            const match = sentenceEndRegex.exec(searchText);
+            
+            if (match) {
+                return position + match.index + 1; // Position after the punctuation
+            }
+            
+            return position;
+        }
+        
+        findParagraphStart(text, position, maxLookback) {
+            const start = Math.max(0, position - maxLookback);
+            const searchText = text.substring(start, position);
+            
+            // Look for double newlines (paragraph breaks)
+            const paragraphBreak = searchText.lastIndexOf('\n\n');
+            if (paragraphBreak !== -1) {
+                return start + paragraphBreak + 2; // After the double newline
+            }
+            
+            return start;
+        }
+        
+        findParagraphEnd(text, position, maxLookahead) {
+            const end = Math.min(text.length, position + maxLookahead);
+            const searchText = text.substring(position, end);
+            
+            // Look for double newlines (paragraph breaks)
+            const paragraphBreak = searchText.indexOf('\n\n');
+            if (paragraphBreak !== -1) {
+                return position + paragraphBreak; // Before the double newline
+            }
+            
+            return position;
+        }
+        
+        findWordStart(text, position, maxLookback) {
+            const start = Math.max(0, position - maxLookback);
+            const searchText = text.substring(start, position);
+            
+            // Look for word boundary (space or punctuation followed by letter)
+            const wordBoundaryRegex = /[^\w](?=\w)/g;
+            let match;
+            let lastMatch = start;
+            
+            while ((match = wordBoundaryRegex.exec(searchText)) !== null) {
+                lastMatch = start + match.index + 1; // Position after the boundary
+            }
+            
+            return lastMatch;
+        }
+        
+        findWordEnd(text, position, maxLookahead) {
+            const end = Math.min(text.length, position + maxLookahead);
+            const searchText = text.substring(position, end);
+            
+            // Look for word boundary (letter followed by space or punctuation)
+            const wordBoundaryRegex = /\w(?=[^\w]|$)/g;
+            const match = wordBoundaryRegex.exec(searchText);
+            
+            if (match) {
+                return position + match.index + 1; // Position after the word
+            }
+            
+            return position;
+        }
+        
+        getTextNodeAtOffset(offset) {
+            // Helper method to find text node at character offset
+            let currentOffset = 0;
+            const walker = document.createTreeWalker(
+                this.contentElement,
+                NodeFilter.SHOW_TEXT,
+                null,
+                false
+            );
+            
+            let node;
+            while (node = walker.nextNode()) {
+                const nodeLength = node.textContent.length;
+                if (currentOffset + nodeLength >= offset) {
+                    return {
+                        node: node,
+                        offset: offset - currentOffset
+                    };
+                }
+                currentOffset += nodeLength;
+            }
+            
+            // Fallback to last node
+            const lastNode = this.contentElement.lastChild;
+            if (lastNode && lastNode.nodeType === Node.TEXT_NODE) {
+                return {
+                    node: lastNode,
+                    offset: lastNode.textContent.length
+                };
+            }
+            
+            return null;
+        }
+        
+        async classifySelection(start, end, classification) {
+            // Prevent duplicate submissions - check immediately
+            if (this.isSubmitting) {
+                console.log('Preventing duplicate submission - already submitting');
+                return;
+            }
+            this.isSubmitting = true;
+            
+            try {
+                const text = this.contentElement.textContent.substring(start, end);
+                
+                console.log('Classifying selection:', {
+                    start: start,
+                    end: end,
+                    textLength: text.length,
+                    textPreview: text.substring(0, 100),
+                    classification: classification
+                });
+                
+                // Close modal immediately to provide visual feedback
+                this.closeModal();
+                
+                // Add the classification highlight
+                this.addUserClassification(start, end, classification, text);
+                
+                // Save to server
+                await this.saveClassification(start, end, text, classification);
+                
+                // Show success message
+                const label = this.getAnnotationLabel(classification);
+                this.showSuccessMessage(`Text classified as ${label}`);
+                
+            } finally {
+                // Reset submission state after a short delay to prevent rapid clicking
+                setTimeout(() => {
+                    this.isSubmitting = false;
+                }, 500);
+            }
+        }
+        showRemoveAnnotationModal(spanElement, annotationType, annotationText) {
+            // Store reference to the span element for removal
+            this.pendingRemovalSpan = spanElement;
+            this.pendingRemovalText = annotationText;
+            
+            // Create modal for removing annotation
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Remove annotation');
+            
+            // Add click outside to close
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    this.closeModal();
+                }
+            }.bind(this));
+            
+            // Add ESC key to close
+            const handleEsc = function(e) {
+                if (e.key === 'Escape') {
+                    this.closeModal();
+                    document.removeEventListener('keydown', handleEsc);
+                }
+            }.bind(this);
+            document.addEventListener('keydown', handleEsc);
+            
+            modal.innerHTML = `
+                <div class="card shadow-2xl p-6 max-w-md w-full mx-4">
+                    <h3 class="text-lg font-semibold text-gray-50 mb-4">Remove Annotation</h3>
+                    <p class="text-sm text-gray-300 mb-2">
+                        <strong>Type:</strong> ${this.getAnnotationLabel(annotationType)}
+                    </p>
+                    <p class="text-sm text-gray-300 mb-4">
+                        <strong>Text:</strong> "${annotationText.substring(0, 100)}${annotationText.length > 100 ? '...' : ''}"
+                    </p>
+                    <p class="text-sm text-gray-300 mb-4">
+                        Do you want to remove this annotation?
+                    </p>
+                    <div class="flex space-x-3">
+                        <button onclick="simpleTextManager.confirmRemoveAnnotation()" 
+                                class="flex-1 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                            Remove
+                        </button>
+                        <button onclick="simpleTextManager.closeModal()" 
+                                class="flex-1 px-4 py-2 border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+        
+        async confirmRemoveAnnotation() {
+            if (!this.pendingRemovalSpan || !this.pendingRemovalText) {
+                console.error('No pending annotation removal');
+                return;
+            }
+            
+            try {
+                // Save state for undo
+                this.saveState();
+                
+                // Remove the span from the DOM (replace with original text)
+                const originalText = this.pendingRemovalText;
+                const parent = this.pendingRemovalSpan.parentNode;
+                const textNode = document.createTextNode(originalText);
+                parent.replaceChild(textNode, this.pendingRemovalSpan);
+                
+                // Find and delete the annotation from the database
+                const response = await fetch(`/api/articles/{{ article.id }}/annotations`, {
+                    method: 'GET'
+                });
+                const data = await response.json();
+                
+                if (data.success && data.annotations.length > 0) {
+                    // Find the annotation that matches our text
+                    const matchingAnnotation = data.annotations.find(annotation => 
+                        annotation.selected_text === originalText
+                    );
+                    
+                    if (matchingAnnotation) {
+                        // Delete it from database
+                        const deleteResponse = await fetch(`/api/articles/{{ article.id }}/annotations/${matchingAnnotation.id}`, {
+                            method: 'DELETE'
+                        });
+                        
+                        if (deleteResponse.ok) {
+                            console.log(`Removed annotation ID ${matchingAnnotation.id} from database`);
+                        } else {
+                            console.error('Failed to remove annotation from database');
+                        }
+                    } else {
+                        console.log('Could not find matching annotation in database');
+                    }
+                }
+                
+                // Clear pending removal references
+                this.pendingRemovalSpan = null;
+                this.pendingRemovalText = null;
+                
+                console.log('Annotation removed successfully');
+                
+            } catch (error) {
+                console.error('Error removing annotation:', error);
+            }
+            
+            this.closeModal();
+        }
+        
+        closeModal() {
+            // Remove Escape handler if it exists
+            if (this.currentModal && this.currentModal._annotationEscHandler) {
+                document.removeEventListener('keydown', this.currentModal._annotationEscHandler, true);
+                delete this.currentModal._annotationEscHandler;
+            }
+            
+            // Close via ModalManager if registered
+            if (this.currentModal && window.ModalManager && this.currentModal.id === 'annotationClassificationModal') {
+                window.ModalManager.close('annotationClassificationModal');
+            }
+            
+            // First try to use stored modal reference (most reliable)
+            if (this.currentModal && this.currentModal.parentNode) {
+                this.currentModal.remove();
+                this.currentModal = null;
+            } else {
+                // Fallback: Try multiple selectors to find the modal
+                // First try the old observable modal selector
+                let modal = document.querySelector('.fixed.inset-0.bg-gray-600.bg-opacity-50');
+                
+                // If not found, look for any modal containing "Classify Selected Text"
+                if (!modal) {
+                    const modals = document.querySelectorAll('.fixed.inset-0');
+                    for (const m of modals) {
+                        if (m.textContent && m.textContent.includes('Classify Selected Text')) {
+                            modal = m;
+                            break;
+                        }
+                    }
+                }
+                
+                // Fallback: find any fixed inset-0 modal with z-50 (classification modals)
+                if (!modal) {
+                    const allModals = document.querySelectorAll('.fixed.inset-0');
+                    for (const m of allModals) {
+                        if (m.classList.contains('z-50')) {
+                            modal = m;
+                            break;
+                        }
+                    }
+                }
+                
+                if (modal) {
+                    modal.remove();
+                }
+            }
+        }
+        
+        showSuccessMessage(message) {
+            // Create a temporary success message
+            const successDiv = document.createElement('div');
+            successDiv.className = 'fixed top-4 right-4 bg-emerald-500 text-white px-4 py-2 rounded shadow-lg z-50';
+            successDiv.textContent = message;
+            document.body.appendChild(successDiv);
+            
+            // Remove after 2 seconds
+            setTimeout(() => {
+                if (successDiv.parentNode) {
+                    successDiv.parentNode.removeChild(successDiv);
+                }
+            }, 2000);
+        }
+        
+        async saveClassification(start, end, text, classification, contextOverride = null, usage = null) {
+            try {
+                console.log('Saving classification:', {
+                    start: start,
+                    end: end,
+                    textLength: text.length,
+                    textPreview: text.substring(0, 100),
+                    classification: classification
+                });
+                const context = contextOverride || this.getContextAroundSelection(start, end);
+
+                const payload = {
+                    selected_text: text,
+                    start_position: start,
+                    end_position: end,
+                    annotation_type: classification,
+                    context_before: context.before,
+                    context_after: context.after,
+                    confidence_score: 1.0
+                };
+                if (usage) {
+                    payload.usage = usage;
+                }
+
+                const response = await fetch(`/api/articles/${this.articleId}/annotations`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('API Error Response:', errorText);
+                    throw new Error(`Failed to save classification: ${response.status} - ${errorText}`);
+                }
+                
+                const result = await response.json();
+                console.log('Classification saved successfully:', result);
+                
+                // Show success notification
+                showNotification(`Annotation saved successfully!`, 'success');
+                
+            } catch (error) {
+                console.error('Error saving classification:', error);
+                showNotification(`Failed to save annotation: ${error.message}`, 'error');
+            }
+        }
+
+        getTypeStyle(annotationType) {
+            return ANNOTATION_STYLE_MAP[annotationType] || {
+                label: annotationType,
+                highlightClass: 'bg-gray-100 border-gray-300 text-gray-800'
+            };
+        }
+
+        getAnnotationLabel(annotationType) {
+            const style = this.getTypeStyle(annotationType);
+            return style.label;
+        }
+
+        getContextAroundSelection(start, end) {
+            // Use canonical text to ensure context matches the offset calculation buffer
+            const fullText = this.canonicalText || this.contentElement.textContent;
+            const CONTEXT_RADIUS = 400; // capture broader context for observables training
+            const contextBefore = fullText.substring(Math.max(0, start - CONTEXT_RADIUS), start);
+            const contextAfter = fullText.substring(end, Math.min(fullText.length, end + CONTEXT_RADIUS));
+            return { before: contextBefore, after: contextAfter };
+        }
+
+    }
+    

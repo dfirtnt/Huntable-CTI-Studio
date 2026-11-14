@@ -11,6 +11,8 @@ Sources are defined in `config/sources.yaml`, seeded into PostgreSQL, and used b
 
 ## Steps to add a source
 1. Edit `config/sources.yaml` and add an entry with a unique `id`.
+   The example below shows syntax only; VMRay Blog is currently `active: false` in `config/sources.yaml`.
+
    ```yaml
    - id: "vmray_blog"
      name: "VMRay Blog"

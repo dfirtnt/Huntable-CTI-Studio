@@ -11,6 +11,7 @@ import time
 import uuid
 from pathlib import Path
 
+from billiard.exceptions import SoftTimeLimitExceeded  # the class celery.exceptions re-exports
 from celery import Celery
 from celery.schedules import crontab
 from celery.signals import worker_process_init
@@ -29,6 +30,61 @@ _SOURCE_CHECK_LOCK_TTL_SECONDS = int(os.getenv("SOURCE_CHECK_LOCK_TTL_SECONDS", 
 
 _CUSTOMER_INDEX_LOCK_KEY = "celery:lock:index_customer_repo"
 _CUSTOMER_INDEX_LOCK_TTL_SECONDS = int(os.getenv("CUSTOMER_INDEX_LOCK_TTL_SECONDS", "3600"))
+
+# Per-task Celery time limits in seconds: (soft_time_limit, time_limit). Workers run
+# the prefork pool (no -P in docker-compose.yml), where both limits are enforced. The
+# soft limit raises SoftTimeLimitExceeded inside the task so it can clean up; the hard
+# limit kills the child process. Sized from the code's own per-call timeouts and
+# generous on purpose: a hard kill mid-workflow leaves its execution row "running"
+# until orphan recovery (30 min idle) or the retention reaper (6 h idle) fails it.
+# celeryconfig.broker_transport_options["visibility_timeout"] must stay above every
+# hard limit here (tests/worker/test_celery_reliability.py enforces it).
+TASK_TIME_LIMITS: dict[str, tuple[int, int]] = {
+    # Typical run 7-10 min. One fully degraded pass where every LLM call runs to its
+    # client timeout on a local reasoning model: rank 180s + 7 sequential extractors x
+    # 600s + SIGMA generation ~4 groups x (1 + 3 repairs) x 300s ~= 2.5 h. Soft 3 h; the
+    # extra 10 min lets the task fail its execution row after the soft limit.
+    "trigger_agentic_workflow": (3 * 3600, 3 * 3600 + 600),
+    # One extractor/rank/SIGMA call chain on the active config: up to 5 extraction
+    # attempts x 600s, or a SIGMA generation with repairs. These return an error dict
+    # on any exception, so the soft limit surfaces as a normal test failure.
+    "test_sub_agent": (3600, 3900),
+    "test_rank_agent": (3600, 3900),
+    "test_sigma_agent": (3600, 3900),
+    # Sequential fetch of every active source (30s HTTP, 30s Playwright page loads,
+    # 30s OCR budget per article). Hard limit equals the default
+    # SOURCE_CHECK_LOCK_TTL_SECONDS so the run lock cannot expire under a live check.
+    "check_all_sources": (5100, 5400),
+    # One source: RSS/scrape at 30s per request plus up to 30s OCR per article.
+    "check_source": (2700, 3000),
+    "collect_from_source": (2700, 3000),
+    # Hard limit equals the default CUSTOMER_INDEX_LOCK_TTL_SECONDS.
+    "index_customer_repo": (3300, 3600),
+    # git clone (600s timeout) or pull (300s) plus metadata/embedding indexing of the
+    # full SigmaHQ corpus on CPU.
+    "sync_sigma_rules": (7200, 7800),
+    # Retention deletes across large tables.
+    "cleanup_old_data": (3600, 3900),
+    # Embedding of every article lacking one, in CPU batches. Already-embedded
+    # articles are skipped, so a retry after the soft limit resumes the work.
+    "batch_generate_embeddings": (7200, 7800),
+    # Query plus dispatch of batch_generate_embeddings; no embedding happens here.
+    "embed_new_articles": (600, 900),
+    "retroactive_embed_all_articles": (600, 900),
+    # Single-article work.
+    "generate_article_embedding": (600, 900),
+    "run_chunk_analysis": (900, 1200),
+    "test_source_connectivity": (300, 360),
+    # The catalog script runs under a 120s subprocess timeout.
+    "update_provider_model_catalogs": (300, 360),
+}
+
+
+def task_time_limits(task_name: str) -> dict[str, int]:
+    """Celery decorator kwargs for ``task_name``'s entry in ``TASK_TIME_LIMITS``."""
+    soft, hard = TASK_TIME_LIMITS[task_name]
+    return {"soft_time_limit": soft, "time_limit": hard}
+
 
 # CRITICAL: Get Redis URL from environment BEFORE any other imports
 # Check both REDIS_URL and CELERY_BROKER_URL (Celery's preferred env var name)
@@ -224,7 +280,7 @@ def _build_collection_check_metadata(
     }
 
 
-@celery_app.task(bind=True, max_retries=2)
+@celery_app.task(bind=True, max_retries=2, **task_time_limits("index_customer_repo"))
 def index_customer_repo(self):
     """Index approved Sigma rules from the customer repo into the similarity corpus.
 
@@ -302,7 +358,7 @@ def setup_periodic_tasks(sender, **kwargs):
     )
 
 
-@celery_app.task(bind=True, max_retries=3)
+@celery_app.task(bind=True, max_retries=3, **task_time_limits("check_all_sources"))
 def check_all_sources(self):
     """Check all active sources for new content."""
     lock_token = _acquire_redis_lock(_SOURCE_CHECK_LOCK_KEY, _SOURCE_CHECK_LOCK_TTL_SECONDS)
@@ -486,7 +542,7 @@ def check_all_sources(self):
         _release_redis_lock(_SOURCE_CHECK_LOCK_KEY, lock_token)
 
 
-@celery_app.task(bind=True, max_retries=2)
+@celery_app.task(bind=True, max_retries=2, **task_time_limits("cleanup_old_data"))
 def cleanup_old_data(self, dry_run: bool = False):
     """Apply age-based retention and reap stale workflow executions.
 
@@ -517,7 +573,7 @@ def cleanup_old_data(self, dry_run: bool = False):
         raise self.retry(exc=exc, countdown=300 * (2**self.request.retries)) from exc
 
 
-@celery_app.task(bind=True, max_retries=3)
+@celery_app.task(bind=True, max_retries=3, **task_time_limits("embed_new_articles"))
 def embed_new_articles(self, batch_size: int = 50):
     """Generate embeddings for new articles that don't have them yet."""
     try:
@@ -572,7 +628,7 @@ def embed_new_articles(self, batch_size: int = 50):
         raise self.retry(exc=e, countdown=60 * (2**self.request.retries)) from e
 
 
-@celery_app.task(bind=True, max_retries=3)
+@celery_app.task(bind=True, max_retries=3, **task_time_limits("test_source_connectivity"))
 def test_source_connectivity(self, source_id: int):
     """Test connectivity to a specific source."""
     try:
@@ -594,7 +650,7 @@ def test_source_connectivity(self, source_id: int):
         raise self.retry(exc=exc, countdown=30 * (2**self.request.retries)) from exc
 
 
-@celery_app.task(bind=True, max_retries=3)
+@celery_app.task(bind=True, max_retries=3, **task_time_limits("check_source"))
 def check_source(self, source_identifier: str):
     """Check a specific source by identifier for new content."""
     try:
@@ -785,80 +841,150 @@ def check_source(self, source_identifier: str):
         raise self.retry(exc=exc, countdown=60 * (2**self.request.retries)) from exc
 
 
-@celery_app.task(bind=True, max_retries=3)
-def trigger_agentic_workflow(self, article_id: int, execution_id: int | None = None):
-    """Trigger agentic workflow for an article with high hunt score."""
+def _is_transient_infrastructure_error(exc: BaseException) -> bool:
+    """True for connection-level failures worth retrying: database, Redis/broker, socket.
+
+    Deliberately narrow. LLM/provider, validation and logic errors are not transient
+    in this sense -- retrying them re-runs the same failure (and re-bills the provider).
+    """
+    from sqlalchemy import exc as sa_exc  # noqa: PLC0415
+
+    if isinstance(exc, (sa_exc.OperationalError, sa_exc.DisconnectionError, sa_exc.TimeoutError)):
+        return True
+    if isinstance(exc, sa_exc.DBAPIError) and exc.connection_invalidated:
+        return True
+    if isinstance(exc, (ConnectionError, TimeoutError)):
+        return True
     try:
-        import asyncio
+        import redis.exceptions  # noqa: PLC0415
 
-        from src.database.manager import DatabaseManager
-        from src.workflows.agentic_workflow import run_workflow
+        if isinstance(exc, (redis.exceptions.ConnectionError, redis.exceptions.TimeoutError)):
+            return True
+    except ImportError:
+        pass
+    try:
+        from kombu.exceptions import OperationalError as BrokerOperationalError  # noqa: PLC0415
 
-        async def run_workflow_execution():
-            """Run the actual workflow execution."""
-            try:
-                db_manager = DatabaseManager()
-                db_session = db_manager.get_session()
+        if isinstance(exc, BrokerOperationalError):
+            return True
+    except ImportError:
+        pass
+    return False
 
-                try:
-                    result = await run_workflow(article_id, db_session, execution_id=execution_id)
-                    logger.info(f"Agentic workflow completed for article {article_id}: {result.get('success', False)}")
-                    return result
-                finally:
-                    db_session.close()
 
-            except Exception as e:
-                logger.error(f"Error running agentic workflow for article {article_id}: {e}")
-                # Convert to new exception to avoid serializing ArticleTable in traceback
-                raise Exception(f"Workflow execution failed: {str(e)}") from None
+def _fail_workflow_execution(execution_id: int | None, error_msg: str, *, from_statuses: tuple[str, ...]) -> bool:
+    """Move an execution row to ``failed`` and reconcile its pending subagent evals.
 
-        # Run async workflow
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+    The UPDATE is conditional on ``from_statuses``, so it fires at most once per row
+    and never overwrites a terminal row or one in a state the caller does not own.
+    Evals are reconciled only when this call made the transition. Best effort: a
+    failure here is logged, and orphan recovery / the retention reaper remain the
+    backstop. Returns True when the row was transitioned.
+    """
+    if execution_id is None:
+        return False
+    try:
+        from datetime import datetime  # noqa: PLC0415
+
+        from src.database.manager import DatabaseManager  # noqa: PLC0415 -- deferred to avoid import cycle
+        from src.database.models import AgenticWorkflowExecutionTable  # noqa: PLC0415
+        from src.workflows.agentic_workflow import _mark_pending_subagent_evals_as_failed  # noqa: PLC0415
+
+        session = DatabaseManager().get_session()
         try:
-            result = loop.run_until_complete(run_workflow_execution())
-            return result
-        finally:
-            loop.close()
-
-    except Exception as exc:
-        logger.error(f"Agentic workflow task failed for article {article_id}: {exc}")
-        # Retry with exponential backoff
-        # Convert exception to string to avoid serializing ORM objects in traceback
-        error_msg = str(exc)
-        # On final retry exhaustion, reconcile any orphaned pending eval rows so
-        # the eval report doesn't report "pending" forever.
-        if self.request.retries >= self.max_retries and execution_id is not None:
-            try:
-                from src.database.manager import DatabaseManager  # noqa: PLC0415 -- deferred to avoid import cycle
-                from src.database.models import AgenticWorkflowExecutionTable  # noqa: PLC0415
-                from src.workflows.agentic_workflow import _mark_pending_subagent_evals_as_failed  # noqa: PLC0415
-
-                cleanup_session = DatabaseManager().get_session()
-                try:
-                    failed_execution = (
-                        cleanup_session.query(AgenticWorkflowExecutionTable)
-                        .filter(AgenticWorkflowExecutionTable.id == execution_id)
-                        .first()
-                    )
-                    if failed_execution is not None:
-                        if failed_execution.status != "failed":
-                            failed_execution.status = "failed"
-                            failed_execution.error_message = error_msg
-                            cleanup_session.commit()
-                        _mark_pending_subagent_evals_as_failed(failed_execution, cleanup_session)
-                finally:
-                    cleanup_session.close()
-            except Exception as cleanup_exc:  # noqa: BLE001
-                logger.warning(
-                    "Orphan eval reconciliation failed for execution %s: %s",
-                    execution_id,
-                    cleanup_exc,
+            updated = (
+                session.query(AgenticWorkflowExecutionTable)
+                .filter(
+                    AgenticWorkflowExecutionTable.id == execution_id,
+                    AgenticWorkflowExecutionTable.status.in_(from_statuses),
                 )
-        raise self.retry(exc=Exception(error_msg), countdown=60 * (2**self.request.retries)) from exc
+                .update(
+                    {"status": "failed", "error_message": error_msg, "completed_at": datetime.now()},
+                    synchronize_session=False,
+                )
+            )
+            session.commit()
+            if not updated:
+                return False
+            execution = (
+                session.query(AgenticWorkflowExecutionTable)
+                .filter(AgenticWorkflowExecutionTable.id == execution_id)
+                .first()
+            )
+            _mark_pending_subagent_evals_as_failed(execution, session)
+            return True
+        finally:
+            session.close()
+    except Exception as cleanup_exc:  # noqa: BLE001
+        logger.warning("Could not mark execution %s failed: %s", execution_id, cleanup_exc)
+        return False
 
 
-@celery_app.task(bind=True, max_retries=2)
+@celery_app.task(bind=True, max_retries=3, **task_time_limits("trigger_agentic_workflow"))
+def trigger_agentic_workflow(self, article_id: int, execution_id: int | None = None):
+    """Trigger agentic workflow for an article with high hunt score.
+
+    Retry policy follows ``run_workflow``'s claim guard. Once the execution row is
+    claimed (pending -> running), a retry is a guaranteed no-op: it finds the row
+    no longer pending and skips. So only errors raised *before* the claim are
+    retried, and only transient infrastructure ones. Post-claim failures are
+    recorded on the row by ``run_workflow`` itself; the cases it cannot record
+    (``ClaimedExecutionError``, the soft time limit) are recorded here, once.
+    Exceptions are re-raised as plain strings so no ORM object is serialized.
+    """
+    import asyncio
+
+    from src.database.manager import DatabaseManager
+    from src.workflows.agentic_workflow import ClaimedExecutionError, run_workflow
+
+    async def run_workflow_execution():
+        db_session = DatabaseManager().get_session()
+        try:
+            return await run_workflow(article_id, db_session, execution_id=execution_id)
+        finally:
+            db_session.close()
+
+    try:
+        # asyncio.run (not a hand-managed loop): on an exception escaping the loop --
+        # notably SoftTimeLimitExceeded raised while it waits on I/O -- it cancels the
+        # still-pending workflow coroutine and shuts down async generators instead of
+        # closing the loop under them. Safe here: prefork children have no running loop.
+        result = asyncio.run(run_workflow_execution())
+    except SoftTimeLimitExceeded:
+        soft_limit = TASK_TIME_LIMITS["trigger_agentic_workflow"][0]
+        error_msg = f"Workflow exceeded the {soft_limit}s soft time limit and was stopped"
+        logger.error("Agentic workflow for article %s (execution %s): %s", article_id, execution_id, error_msg)
+        _fail_workflow_execution(execution_id, error_msg, from_statuses=("pending", "running"))
+        raise Exception(error_msg) from None
+    except ClaimedExecutionError as exc:
+        error_msg = str(exc)
+        logger.error("Agentic workflow for article %s: %s", article_id, error_msg)
+        _fail_workflow_execution(exc.execution_id, error_msg, from_statuses=("running",))
+        raise Exception(error_msg) from None
+    except Exception as exc:
+        # run_workflow re-raises only pre-claim errors; the row is still pending.
+        error_msg = f"Workflow execution failed before start: {type(exc).__name__}: {exc}"
+        if _is_transient_infrastructure_error(exc) and self.request.retries < self.max_retries:
+            countdown = 60 * (2**self.request.retries)
+            logger.warning(
+                "Agentic workflow for article %s hit a transient error before claiming its execution; "
+                "retry %s/%s in %ss: %s",
+                article_id,
+                self.request.retries + 1,
+                self.max_retries,
+                countdown,
+                error_msg,
+            )
+            raise self.retry(exc=Exception(error_msg), countdown=countdown) from None
+        logger.error("Agentic workflow task failed for article %s: %s", article_id, error_msg)
+        _fail_workflow_execution(execution_id, error_msg, from_statuses=("pending",))
+        raise Exception(error_msg) from None
+
+    logger.info(f"Agentic workflow completed for article {article_id}: {result.get('success', False)}")
+    return result
+
+
+@celery_app.task(bind=True, max_retries=2, **task_time_limits("run_chunk_analysis"))
 def run_chunk_analysis(self, article_id: int):
     """Run chunk analysis and calculate ML hunt score for an article."""
     try:
@@ -891,7 +1017,7 @@ def run_chunk_analysis(self, article_id: int):
         raise self.retry(exc=exc, countdown=30 * (2**self.request.retries)) from exc
 
 
-@celery_app.task(bind=True, max_retries=3)
+@celery_app.task(bind=True, max_retries=3, **task_time_limits("generate_article_embedding"))
 def generate_article_embedding(self, article_id: int):
     """Generate embedding for a single article."""
     try:
@@ -962,7 +1088,7 @@ def generate_article_embedding(self, article_id: int):
         raise self.retry(exc=exc, countdown=60 * (2**self.request.retries)) from exc
 
 
-@celery_app.task(bind=True, max_retries=3)
+@celery_app.task(bind=True, max_retries=3, **task_time_limits("batch_generate_embeddings"))
 def batch_generate_embeddings(self, article_ids: list[int], batch_size: int = 32):
     """Generate embeddings for multiple articles in batches."""
     try:
@@ -1098,7 +1224,7 @@ def batch_generate_embeddings(self, article_ids: list[int], batch_size: int = 32
         raise self.retry(exc=exc, countdown=120 * (2**self.request.retries)) from exc
 
 
-@celery_app.task(bind=True, max_retries=2)
+@celery_app.task(bind=True, max_retries=2, **task_time_limits("retroactive_embed_all_articles"))
 def retroactive_embed_all_articles(self, batch_size: int = 1000):
     """Generate embeddings for all existing articles without embeddings."""
     try:
@@ -1194,7 +1320,7 @@ def _set_collection_task_error(task_id: str, exc: BaseException) -> None:
         logger.warning("Could not write collection error to Redis: %s", e)
 
 
-@celery_app.task(bind=True, max_retries=3)
+@celery_app.task(bind=True, max_retries=3, **task_time_limits("collect_from_source"))
 def collect_from_source(self, source_id: int):
     """Collect new content from a specific source."""
     try:
@@ -1418,7 +1544,7 @@ def collect_from_source(self, source_id: int):
         raise self.retry(exc=exc, countdown=60 * (2**self.request.retries)) from exc
 
 
-@celery_app.task(bind=True, max_retries=2)
+@celery_app.task(bind=True, max_retries=2, **task_time_limits("sync_sigma_rules"))
 def sync_sigma_rules(self, force_reindex=False):
     """Sync SigmaHQ repository and index rules (metadata always, embeddings optional)."""
     try:
@@ -1496,7 +1622,7 @@ def _parse_unclassified_models(stdout: str) -> dict[str, list[str]]:
     return {}
 
 
-@celery_app.task(bind=True, max_retries=2)
+@celery_app.task(bind=True, max_retries=2, **task_time_limits("update_provider_model_catalogs"))
 def update_provider_model_catalogs(self):
     """Refresh OpenAI/Anthropic model lists and write config/provider_model_catalog.json.
 
