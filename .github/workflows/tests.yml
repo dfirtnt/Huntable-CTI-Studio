@@ -461,7 +461,7 @@ jobs:
 
   ui:
     name: UI Tests (Python Playwright)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # Playwright has no chromium build for ubuntu-26.04 (ubuntu-latest)
     timeout-minutes: 40
     services:
       postgres:

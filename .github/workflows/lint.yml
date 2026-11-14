@@ -50,7 +50,10 @@ jobs:
             stripped = line.strip()
             if not stripped or stripped.startswith("#"):
               continue
-            if ">=" in stripped and "#" not in stripped:
+            # Drop environment markers (`; python_full_version >= '3.11.5'`):
+            # they legitimately contain >= and do not make the version unpinned.
+            requirement = stripped.split(";", 1)[0]
+            if ">=" in requirement and "#" not in stripped:
               unpinned.append(stripped)
           if unpinned:
             print("ERROR: Found unpinned versions in requirements.txt (must use == not >=):")
