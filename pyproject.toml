@@ -93,7 +93,7 @@ semantic = [
     "sentence-transformers==5.6.0; sys_platform != 'darwin' or platform_machine != 'x86_64'",
 ]
 workflow = [
-    "langgraph==1.2.4",
+    "langgraph==1.2.14",  # GHSA-3fx2-cqw9-xr3c fixed in 1.2.14
     "langgraph-checkpoint==4.3.0",
     "langgraph-checkpoint-postgres==3.1.3",
     "langgraph-cli==0.4.32",
@@ -152,9 +152,9 @@ test = [
     "virtualenv>=21.14.9",
     # safety -> nltk 3.10.0 carries a batch of freshly-disclosed CVEs (GHSA-rf74-v2fm-23pw
     # family plus PYSEC-2026-3733/3735/3737-3741/3748-3752 and CVE-2026-12876/71513/71514/
-    # 72818/78680/81723); 3.10.3 fixes all of them. Single-parent transitive pin (safety
-    # is the sole parent).
-    "nltk==3.10.3",
+    # 72818/78680/81723); 3.10.3 fixes all of them, and 3.10.4 adds GHSA-8mgp-746c-j5xp +
+    # GHSA-j456-xh4h-cpf2. Single-parent transitive pin (safety is the sole parent).
+    "nltk==3.10.4",
     "safety==3.8.1",
     "black==26.10.1",  # 1 advisory fixed in 26.10.1 (2026-11-01)
     "isort==5.12.0",

@@ -36,10 +36,6 @@ jobs:
         run: >-
           uv run pip-audit
           --skip-editable
-          --ignore-vuln GHSA-rf74-v2fm-23pw
-          --ignore-vuln CVE-2026-33230
-          --ignore-vuln CVE-2026-33231
-          --ignore-vuln PYSEC-2026-3740
           --ignore-vuln CVE-2026-4539
           --ignore-vuln CVE-2026-3219
           --ignore-vuln CVE-2026-6357
@@ -47,10 +43,6 @@ jobs:
           --ignore-vuln CVE-2025-3000
           --ignore-vuln CVE-2025-69872
         # --skip-editable: sigma-atom-similarity is a local uv workspace member; not on PyPI
-        # nltk: no fixed release for GHSA-rf74 / CVE-2026-33230 / CVE-2026-33231 /
-        #   PYSEC-2026-3740 (path traversal in model-artifact APIs) yet -- 3.10.3 is
-        #   nltk's latest PyPI release and pip-audit still flags it. nltk is a
-        #   transitive test-only dependency of `safety`, never used by app code.
         # CVE-2026-3219 / CVE-2026-6357 / PYSEC-2026-196: affect pip the tool, not our code; runner upgrade path
         # CVE-2025-3000: torch.jit.script memory corruption, local attack only, no fix released; we do not use torch.jit anywhere (grep -r torch.jit src/ tests/ scripts/ is empty); torch is only loaded for sentence-transformers embeddings inference
         # CVE-2025-69872: diskcache 5.6.3 — no fix released upstream; diskcache is used for local response caching only, never deserializes untrusted input
