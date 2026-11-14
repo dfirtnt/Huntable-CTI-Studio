@@ -1,17 +1,14 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
+
+from tests.utils.article_detail_source import read_article_detail_src
 
 pytestmark = pytest.mark.unit
 
 
-ARTICLE_DETAIL_TEMPLATE = Path("src/web/templates/article_detail.html")
-
-
 def test_position_annotation_preserves_existing_keyword_highlight_dom() -> None:
-    template = ARTICLE_DETAIL_TEMPLATE.read_text()
+    template = read_article_detail_src()
     function_body = template[
         template.index("        highlightTextAtPosition(") : template.index("        addVisualIndicator(")
     ]

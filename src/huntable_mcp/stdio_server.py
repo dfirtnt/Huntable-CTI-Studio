@@ -14,7 +14,7 @@ from mcp.server.fastmcp import FastMCP
 
 from src.database.async_manager import AsyncDatabaseManager
 from src.huntable_mcp import resources
-from src.huntable_mcp.tools import articles, evals, query, sigma, sources, workflow
+from src.huntable_mcp.tools import agent_tests, articles, evals, query, sigma, sources, workflow
 from src.services.rag_service import RAGService
 
 # .env is the single source of truth for credentials. override=True ensures .env
@@ -93,12 +93,19 @@ mcp = FastMCP(
         "confirmed_by_user=true. A launch bills the extractor's configured provider unless it is lmstudio. "
         "Then poll get_subagent_eval_status with the returned run_label until is_complete, retrieve bundles "
         "with get_eval_run, and diagnose as above. "
+        "To test one extractor on one article (any article, not only eval fixtures; no workflow execution or eval "
+        "record), call test_subagent_on_article the same way: confirmed_by_user=false returns the plan and billing "
+        "line, then a fresh confirmed_by_user=true per run dispatches it. Poll get_subagent_test_result with the "
+        "returned task_id; results expire 30 minutes after the task finishes. "
         "Use get_sigma_rule to fetch the full YAML and metadata for a Sigma rule by its UUID (Rule ID from search results). "
         "Use list_tables to discover the database schema, then execute_sql to run a read-only SELECT query directly. "
         "execute_sql is permanently read-only. "
-        "Write tools are risk-tiered: workflow retry/cancel, source toggle, article reviewed marker, and annotation CRUD "
-        "are directly executable and audited; Sigma queue mutations and article deletion create pending human-confirmation "
-        "requests and do not apply production mutations through MCP."
+        "Write tools are risk-tiered: workflow retry/cancel, source toggle, annotation CRUD, and Sigma queue status "
+        "changes (approve_sigma_queue_rule, reject_sigma_queue_rule, set_sigma_queue_rule_status) are directly "
+        "executable and audited. delete_sigma_queue_rule is permanent: call it with confirmed_by_user=false to get a "
+        "description, ask the user, then call again with confirmed_by_user=true. Sigma queue YAML edits, adding rules to "
+        "the queue, and article deletion create pending human-confirmation requests and do not apply production "
+        "mutations through MCP."
     ),
 )
 
@@ -125,6 +132,7 @@ sources.register(mcp, _db_svc)
 workflow.register(mcp, _db_svc)
 query.register(mcp, _db_svc)
 evals.register(mcp, _db_svc)
+agent_tests.register(mcp, _db_svc)
 resources.register(mcp, _db_svc)
 
 logger.info("Huntable CTI Studio MCP server ready.")

@@ -580,6 +580,7 @@
 </div>
 </div>
 
+<script src="{{ asset_url('js/components/eval-run-tracker.js') }}"></script>
 <script>
 'use strict';
 
@@ -588,6 +589,8 @@ let activeConfig = null;
 let _configIsRunnable = true; // false when no agent models are configured
 let selectedArticleUrls = new Set();
 let currentSubagent = 'cmdline';
+// Per-launch eval progress; see /static/js/components/eval-run-tracker.js.
+const evalRuns = EvalRunTracker.createRegistry();
 
 // Rows cache used by modal -- avoids passing data through DOM attributes
 let cachedResultRows = [];
@@ -856,14 +859,20 @@ async function runEvaluation() {
     statusDiv.classList.remove('hidden');
     document.getElementById('evalSpinner').classList.remove('hidden');
     const windowSec = Math.max(0, Math.round((repeatedUrls.length - 1) * (0.2 + throttle)));
-    statusText.textContent = 'Triggering ' + repeatedUrls.length + ' executions @ ' + throttle + 's throttle (~' + windowSec + 's dispatch window)...';
+    // Captured once: the dropdown may change while this launch is still running.
+    const subagentForRun = currentSubagent;
+    statusText.style.whiteSpace = 'pre-line';
+    statusText.style.color = '';
+    statusText.textContent = evalRuns.statusLines().concat(
+        'Triggering ' + repeatedUrls.length + ' ' + subagentForRun + ' executions @ ' + throttle + 's throttle (~' + windowSec + 's dispatch window)...'
+    ).join('\n');
 
     try {
         const resp = await fetch('/api/evaluations/run-subagent-eval', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                subagent_name: currentSubagent,
+                subagent_name: subagentForRun,
                 article_urls: repeatedUrls,
                 use_active_config: true,
                 concurrency_throttle_seconds: throttle,
@@ -878,19 +887,26 @@ async function runEvaluation() {
 
         const executions = data.executions || [];
         if (executions.length > 0) {
-            statusText.textContent = 'Triggered ' + executions.length + ' executions. Polling for results...';
-            pollResults();
+            // The run owns its subagent and execution IDs (eval-run-tracker.js), so a later
+            // launch for another extractor cannot redirect or overwrite this poll loop.
+            const run = evalRuns.start(
+                subagentForRun,
+                executions.map(function(exec) { return exec.execution_id; }).filter(function(id) { return id != null; })
+            );
+            renderEvalRunStatus();
+            pollResults(run);
         } else {
             statusText.textContent = 'Evaluated ' + (data.total_articles || 0) + ' article(s). Refreshing results...';
             statusText.style.color = '#34d399';
-            document.getElementById('evalSpinner').classList.add('hidden');
+            if (!evalRuns.anyPolling()) document.getElementById('evalSpinner').classList.add('hidden');
             setTimeout(loadPreviousResults, 100);
         }
     } catch (e) {
         console.error('Error running evaluation:', e);
-        statusText.textContent = 'Error: ' + e.message;
+        // Keep any still-running launches visible under the error.
+        statusText.textContent = ['Error: ' + e.message].concat(evalRuns.statusLines()).join('\n');
         statusText.style.color = '#f87171';
-        document.getElementById('evalSpinner').classList.add('hidden');
+        if (!evalRuns.anyPolling()) document.getElementById('evalSpinner').classList.add('hidden');
     } finally {
         runBtn.disabled = false;
     }
@@ -898,52 +914,45 @@ async function runEvaluation() {
 
 // ─── Poll ─────────────────────────────────────────────────────────────────────
 
-function pollResults() {
+// One status line per launch on this page; the spinner runs while any launch is still polling.
+function renderEvalRunStatus() {
     const statusText = document.getElementById('evalStatusText');
-    let attempts = 0;
-    const maxAttempts = 60;
+    const runs = evalRuns.runs();
+    const polling = evalRuns.anyPolling();
+    const stopped = runs.some(function(run) { return run.state === 'timed_out' || run.state === 'lost'; });
+    statusText.style.whiteSpace = 'pre-line';
+    statusText.textContent = evalRuns.statusLines().join('\n');
+    statusText.style.color = polling ? '' : (stopped ? '#fbbf24' : '#34d399');
+    document.getElementById('evalSpinner').classList.toggle('hidden', !polling);
+}
 
+// Poll one launch's eval rows (filtered to its own execution IDs, so the payload stays
+// small) until its executions finish, time out, or the server stays unreachable.
+function pollResults(run) {
     function poll() {
-        attempts++;
-        // counts_only=true returns a cheap GROUP BY of status counts instead of the full
-        // per-record payload -- avoids loading 1900+ rows on every 2s poll.
-        fetch('/api/evaluations/subagent-eval-results?counts_only=true&subagent=' + encodeURIComponent(currentSubagent))
+        fetch(EvalRunTracker.resultsUrl(run))
             .then(function(resp) {
-                if (!resp.ok) { setTimeout(poll, 2000); return; }
+                if (!resp.ok) {
+                    evalRuns.recordFailure(run.id);
+                    return null;
+                }
                 return resp.json();
             })
             .then(function(data) {
-                if (!data) return;
-                // Prefer the aggregate counts payload; fall back to filtering results for
-                // backward compatibility if an older endpoint returns the full list.
-                let completed, pending, failed, total;
-                if (data.counts) {
-                    completed = data.counts.completed || 0;
-                    pending = data.counts.pending || 0;
-                    failed = data.counts.failed || 0;
-                    total = (typeof data.total === 'number') ? data.total : (completed + pending + failed);
-                } else {
-                    const results = data.results || [];
-                    completed = results.filter(function(r) { return r.status === 'completed'; }).length;
-                    pending = results.filter(function(r) { return r.status === 'pending'; }).length;
-                    failed = results.filter(function(r) { return r.status === 'failed'; }).length;
-                    total = results.length;
-                }
-                statusText.textContent = 'Completed: ' + completed + '/' + total + ', Pending: ' + pending + ', Failed: ' + failed;
-                if (completed + failed === total || attempts >= maxAttempts) {
-                    statusText.textContent = 'All executions completed. Refreshing results...';
-                    statusText.style.color = '#34d399';
-                    document.getElementById('evalSpinner').classList.add('hidden');
-                    setTimeout(loadPreviousResults, 100);
-                } else {
-                    setTimeout(poll, 2000);
-                }
+                if (data) evalRuns.update(run.id, EvalRunTracker.countExecutionStatuses(data.results || [], run.executionIds));
             })
             .catch(function(e) {
-                console.error('Poll error:', e);
-                statusText.textContent = 'Poll error: ' + e.message;
-                statusText.style.color = '#f87171';
-                document.getElementById('evalSpinner').classList.add('hidden');
+                // Server mid-restart: the eval keeps running; the tracker gives up only after a sustained outage.
+                console.warn('Transient polling error, will retry:', e);
+                evalRuns.recordFailure(run.id);
+            })
+            .then(function() {
+                renderEvalRunStatus();
+                if (run.state === 'polling') {
+                    setTimeout(poll, EvalRunTracker.POLL_INTERVAL_MS);
+                } else if (run.state === 'done' && run.subagent === currentSubagent) {
+                    setTimeout(loadPreviousResults, 100);
+                }
             });
     }
     poll();

@@ -22,7 +22,7 @@ def analyze_detection_structure(detection: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Dictionary with structural analysis results
     """
-    structure = {
+    structure: dict[str, Any] = {
         "selection_count": 0,
         "selection_keys": [],
         "max_nesting_depth": 0,
@@ -80,7 +80,7 @@ def analyze_detection_fields(detection: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Dictionary with field analysis results
     """
-    fields_analysis = {
+    fields_analysis: dict[str, Any] = {
         "field_names": [],
         "field_names_with_modifiers": [],
         "normalized_values": [],

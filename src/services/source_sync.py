@@ -82,7 +82,7 @@ class SourceSyncService:
                     continue
 
                 # Extract config: SourceConfig model has inner 'config' dict
-                if hasattr(config.config, "config"):
+                if config.config is not None and hasattr(config.config, "config"):
                     # SourceConfig Pydantic model: extract inner config dict
                     config_dict = config.config.config if isinstance(config.config.config, dict) else {}
                 elif isinstance(config.config, dict):
@@ -103,8 +103,16 @@ class SourceSyncService:
                 if existing_ocr is not None:
                     config_dict["image_ocr_enabled"] = existing_ocr
 
-                check_freq = config.config.check_frequency if hasattr(config.config, "check_frequency") else 3600
-                lookback = config.config.lookback_days if hasattr(config.config, "lookback_days") else 180
+                check_freq = (
+                    config.config.check_frequency
+                    if config.config is not None and hasattr(config.config, "check_frequency")
+                    else 3600
+                )
+                lookback = (
+                    config.config.lookback_days
+                    if config.config is not None and hasattr(config.config, "lookback_days")
+                    else 180
+                )
                 source_config_model = SourceConfig(
                     check_frequency=check_freq, lookback_days=lookback, config=config_dict
                 )

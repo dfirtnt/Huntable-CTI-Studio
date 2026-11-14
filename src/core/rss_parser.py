@@ -675,6 +675,10 @@ class RSSParser:
 
                     await asyncio.sleep(1)
 
+            if response is None:
+                # Unreachable: the retry loop either breaks with a response or re-raises.
+                raise RuntimeError(f"No response fetched for {url}")
+
             # Use basic content extraction
             from bs4 import BeautifulSoup
 
@@ -1175,7 +1179,7 @@ class FeedValidator:
         Returns:
             Dictionary with validation results and feed metadata
         """
-        result = {
+        result: dict[str, Any] = {
             "valid": False,
             "feed_type": None,
             "title": None,

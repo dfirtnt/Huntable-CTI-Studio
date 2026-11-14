@@ -11,6 +11,7 @@ from src.services.codex_app_server_client import (
     CODEX_STREAM_LIMIT,
     CodexAppServerClient,
     CodexAppServerError,
+    CodexEmptyAgentMessageError,
     messages_to_codex_input,
     normalize_completed_turn,
 )
@@ -83,13 +84,79 @@ async def test_list_models_uses_visible_models_with_subscription_default_first()
                     {"model": "gpt-5.6-luna", "hidden": False, "isDefault": True},
                     {"model": "hidden", "hidden": True, "isDefault": False},
                     {"id": "gpt-5.6-sol", "hidden": False, "isDefault": False},
-                    {"model": "gpt-5.5", "hidden": False, "isDefault": False},
+                    {"model": "gpt-5.5", "hidden": True, "isDefault": False},
                 ]
             },
         ]
     )
 
     assert await client.list_models() == ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]
+
+
+@pytest.mark.asyncio
+async def test_list_models_keeps_every_visible_numbered_generation_and_drops_codenames():
+    """A gpt-6.1 default must not hide gpt-6-* or the gpt-5.6-* models existing configs use."""
+    client = CodexAppServerClient(timeout=15.0)
+    client._start = AsyncMock()
+    client._close = AsyncMock()
+    client._rpc = AsyncMock(
+        side_effect=[
+            {},
+            {
+                "data": [
+                    {"model": "gpt-6-luna", "hidden": False, "isDefault": False},
+                    {"model": "gpt-6.1-sol", "hidden": False, "isDefault": True},
+                    {"model": "gpt-5.6-sol", "hidden": False, "isDefault": False},
+                    {"model": "gpt-5.5", "hidden": True, "isDefault": False},
+                    {"model": "gpt-daybreak-blue-latest", "hidden": False, "isDefault": False},
+                ]
+            },
+        ]
+    )
+
+    assert await client.list_models() == ["gpt-6.1-sol", "gpt-6-luna", "gpt-5.6-sol"]
+
+
+@pytest.mark.asyncio
+async def test_list_models_without_a_default_flag_and_with_id_only_entries():
+    """Entries may carry only ``id``; with no isDefault the numbered models are still listed
+    and a codename-only catalog yields an empty picker rather than leaking codenames."""
+
+    def client_for(data):
+        client = CodexAppServerClient(timeout=15.0)
+        client._start = AsyncMock()
+        client._close = AsyncMock()
+        client._rpc = AsyncMock(side_effect=[{}, {"data": data}])
+        return client
+
+    mixed = client_for(
+        [
+            {"id": "gpt-6-luna", "hidden": False},
+            {"id": "gpt-daybreak-blue-latest", "hidden": False},
+            {"id": "gpt-5.6-terra", "hidden": False},
+        ]
+    )
+    assert await mixed.list_models() == ["gpt-6-luna", "gpt-5.6-terra"]
+
+    only_codenames = client_for([{"id": "gpt-daybreak-blue-latest", "hidden": False}])
+    assert await only_codenames.list_models() == []
+
+
+@pytest.mark.parametrize(
+    ("model_id", "expected"),
+    [
+        ("gpt-5.6-luna", (5, 6)),
+        ("gpt-6-sol", (6, 0)),
+        ("gpt-6.1-sol", (6, 1)),
+        ("gpt-5", (5, 0)),
+        ("gpt-daybreak-blue-latest", None),
+        ("codex-auto-review", None),
+    ],
+)
+def test_model_generation_parses_numbered_ids_only(model_id, expected):
+    from src.services.codex_app_server_client import _model_generation
+
+    assert _model_generation(model_id) == expected
 
 
 @pytest.mark.asyncio
@@ -176,6 +243,79 @@ async def test_read_completed_turn_rejects_missing_agent_text():
         await client._read_completed_turn("gpt-5.6-luna")
 
 
+def _scripted_client(*messages):
+    client = CodexAppServerClient(timeout=15.0)
+    client._pending_notifications = []
+    client._read_message = AsyncMock(side_effect=list(messages))
+    return client
+
+
+_EMPTY_TURN_COMPLETED = {"method": "turn/completed", "params": {"turn": {"status": "completed", "items": []}}}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("text", ["", "  \n"])
+async def test_read_completed_turn_flags_empty_agent_message_distinctly(text):
+    """Executions 26/37-40: the model DID answer (item/completed delivered an agentMessage) but
+    with no text. That is not the same outcome as a turn with no agentMessage at all, and the
+    old message ("Turn carried no items") said the opposite of what happened."""
+    client = _scripted_client(
+        {"method": "item/completed", "params": {"item": {"type": "reasoning", "id": "r1"}}},
+        {"method": "item/completed", "params": {"item": {"type": "agentMessage", "text": text}}},
+        _EMPTY_TURN_COMPLETED,
+    )
+
+    with pytest.raises(CodexEmptyAgentMessageError) as excinfo:
+        await client._read_completed_turn("gpt-5.6-luna")
+
+    message = str(excinfo.value)
+    assert "empty agent message" in message
+    assert "gpt-5.6-luna" in message
+    assert "agentMessage" in message
+    assert "no items" not in message.lower()
+    # Still a CodexAppServerError, so callers that do not special-case it keep failing closed.
+    assert isinstance(excinfo.value, CodexAppServerError)
+
+
+@pytest.mark.asyncio
+async def test_read_completed_turn_without_any_agent_message_is_not_an_empty_reply():
+    """A reasoning-only / refused / throttled turn must keep raising the generic error."""
+    client = _scripted_client(
+        {"method": "item/completed", "params": {"item": {"type": "reasoning", "id": "r1"}}},
+        _EMPTY_TURN_COMPLETED,
+    )
+
+    with pytest.raises(CodexAppServerError, match="without an agent message") as excinfo:
+        await client._read_completed_turn("gpt-5.6-luna")
+
+    assert not isinstance(excinfo.value, CodexEmptyAgentMessageError)
+    # Item types seen only in notifications are now part of the forensic trace.
+    assert "Turn items: reasoning." in str(excinfo.value)
+
+
+@pytest.mark.asyncio
+async def test_read_completed_turn_failed_turn_with_empty_agent_message_still_raises_the_failure():
+    client = _scripted_client(
+        {"method": "item/completed", "params": {"item": {"type": "agentMessage", "text": ""}}},
+        {
+            "method": "turn/completed",
+            "params": {"turn": {"status": "failed", "error": {"message": "usage limit reached"}}},
+        },
+    )
+
+    with pytest.raises(CodexAppServerError, match="usage limit reached") as excinfo:
+        await client._read_completed_turn("gpt-5.6-luna")
+
+    assert not isinstance(excinfo.value, CodexEmptyAgentMessageError)
+
+
+def test_normalize_completed_turn_empty_agent_message_listed_in_turn_items():
+    with pytest.raises(CodexEmptyAgentMessageError):
+        normalize_completed_turn(
+            {"status": "completed", "items": [{"type": "agentMessage", "text": ""}]}, "", "gpt-5.6-luna"
+        )
+
+
 @pytest.mark.asyncio
 async def test_read_message_rejects_invalid_json_line():
     client = CodexAppServerClient(timeout=15.0)
@@ -249,7 +389,7 @@ async def test_list_model_details_preserves_reasoning_effort_tiers_and_default()
                         "defaultReasoningEffort": "low",
                     },
                     {"model": "gpt-5.6-sol", "hidden": False, "isDefault": False},
-                    {"model": "gpt-5.5", "hidden": False, "isDefault": False},
+                    {"model": "gpt-5.5", "hidden": True, "isDefault": False},
                 ]
             },
         ]

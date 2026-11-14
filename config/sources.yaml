@@ -20,7 +20,6 @@ sources:
   #     post_url_regex: ["^https://hunt\\.io/blog/.*"]
   #     robots:
   #       enabled: true
-  #       user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
   #       respect_delay: true
   #       max_requests_per_minute: 10
   #       crawl_delay: 1.0
@@ -51,7 +50,6 @@ sources:
       post_url_regex: ["^https://www\\.picussecurity\\.com/resource/blog/.*"]  # Only blog articles, not datasheets/reports
       robots:
         enabled: true
-        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 10
         crawl_delay: 1.0
@@ -75,19 +73,20 @@ sources:
         author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
     description: "MITRE ATT&CK technique analysis and threat simulation intelligence (Web scraping only)"
 
-  # VMRay Blog — primary feed is blog/feed/; if empty try https://www.vmray.com/feed/
+  # VMRay Blog — DISABLED 2026-09-27: CloudFront-level blocking prevents all collection
+  # Primary feed (blog/feed/) returns 403 Forbidden; all content paths blocked.
+  # Re-enable only if VMRay removes infrastructure-level access restrictions.
   - id: "vmray_blog"
     name: "VMRay Blog"
     url: "https://www.vmray.com/blog/"
     rss_url: "https://www.vmray.com/blog/feed/"
     check_frequency: 1800  # 30 minutes (overrides 4h default)
-    active: true
+    active: false
     config:
       allow: ["vmray.com"]
       post_url_regex: ["^https://www\\.vmray\\.com/blog/.*"]
       robots:
         enabled: true
-        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 10
         crawl_delay: 1.0
@@ -122,7 +121,6 @@ sources:
       post_url_regex: ["^https://www\\.group-ib\\.com/blog/.*"]
       robots:
         enabled: true
-        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 3
         crawl_delay: 5.0
@@ -158,7 +156,6 @@ sources:
       post_url_regex: ["^https?://ctrlaltintel\\.com/research/.*"]
       robots:
         enabled: false  # RSS-first; avoid robots checks for feed-only mode
-        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: false
         max_requests_per_minute: 0  # No web scraping
         crawl_delay: 0.0
@@ -188,7 +185,6 @@ sources:
       post_url_regex: ["^https://blog\\.talosintelligence\\.com/.*"]
       robots:
         enabled: true
-        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 10
         crawl_delay: 1.0
@@ -217,7 +213,6 @@ sources:
       post_url_regex: ["^https://www\\.huntress\\.com/blog/.*"]
       robots:
         enabled: true
-        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 8
         crawl_delay: 2.0
@@ -242,7 +237,6 @@ sources:
       post_url_regex: ["^https://cloud\\.google\\.com/blog/topics/threat-intelligence/.*"]
       robots:
         enabled: false  # Disable robots.txt checking for RSS-only
-        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: false
         max_requests_per_minute: 0  # No web scraping
         crawl_delay: 0.0
@@ -359,7 +353,6 @@ sources:
       post_url_regex: ["^https://www\\.microsoft\\.com/en-us/security/blog/.*"]
       robots:
         enabled: true
-        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 5
         crawl_delay: 4.0
@@ -387,7 +380,6 @@ sources:
       post_url_regex: ["^https://techcommunity\\.microsoft\\.com/.*"]
       robots:
         enabled: true
-        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 6
         crawl_delay: 3.0
@@ -414,7 +406,6 @@ sources:
       post_url_regex: ["^https://socprime\\.com/blog/.*"]
       robots:
         enabled: true
-        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 8
         crawl_delay: 2.0
@@ -460,7 +451,6 @@ sources:
       post_url_regex: ["^https://corelight\\.com/blog/.*"]
       robots:
         enabled: true
-        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 8
         crawl_delay: 2.0
@@ -488,7 +478,6 @@ sources:
       post_url_regex: ["^https://blog\\.sekoia\\.io/.*"]
       robots:
         enabled: true
-        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 10
         crawl_delay: 1.0
@@ -519,7 +508,6 @@ sources:
       post_url_regex: ["^https://research\\.checkpoint\\.com/.*"]
       robots:
         enabled: true
-        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 6
         crawl_delay: 2.0
@@ -567,7 +555,6 @@ sources:
       post_url_regex: ["^https://www\\.bleepingcomputer\\.com/.*"]
       robots:
         enabled: true
-        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 6
         crawl_delay: 2.0
@@ -676,7 +663,6 @@ sources:
         - "^https://the-hunters-ledger\\.com/hunting-detections/.+"
       robots:
         enabled: true
-        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 10
         crawl_delay: 1.0
@@ -726,7 +712,6 @@ sources:
       post_url_regex: ["^https://thedfirreport\\.com/.*"]
       robots:
         enabled: true
-        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 10
         crawl_delay: 1.0
@@ -795,7 +780,6 @@ sources:
       use_playwright: true
       robots:
         enabled: true
-        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 10
         crawl_delay: 2.0
@@ -856,7 +840,6 @@ sources:
       post_url_regex: ["^https://www\\.cisa\\.gov/news-events/analysis-reports/.*"]  # Filter for analysis reports only
       robots:
         enabled: true
-        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 5
         crawl_delay: 3.0
@@ -883,7 +866,6 @@ sources:
       post_url_regex: ["^https://www\\.assetnote\\.io/resources/research/.*"]
       robots:
         enabled: true
-        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 6
         crawl_delay: 3.0
@@ -930,7 +912,6 @@ sources:
       post_url_regex: ["^https://www\\.ncsc\\.gov\\.uk/(news|blog-post|report)/.*"]
       robots:
         enabled: true
-        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 5
         crawl_delay: 4.0
@@ -965,7 +946,6 @@ sources:
       post_url_regex: ["^https://us-cert\\.cisa\\.gov/.*"]
       robots:
         enabled: true
-        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 5
         crawl_delay: 4.0
@@ -994,7 +974,6 @@ sources:
       post_url_regex: ["^https://www\\.splunk\\.com/en_us/blog/security/.*"]
       robots:
         enabled: true
-        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 8
         crawl_delay: 2.0
@@ -1041,7 +1020,6 @@ sources:
       post_url_regex: ["^https://symantec-enterprise-blogs\\.security\\.com/.*"]
       robots:
         enabled: true
-        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 8
         crawl_delay: 2.0
@@ -1070,7 +1048,6 @@ sources:
       post_url_regex: ["^https://securitylabs\\.datadoghq\\.com/articles/.*"]
       robots:
         enabled: true
-        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 10
         crawl_delay: 1.0
@@ -1099,7 +1076,6 @@ sources:
       post_url_regex: ["^https://www\\.endorlabs\\.com/learn/[^?#]+$"]
       robots:
         enabled: true
-        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 10
         crawl_delay: 1.0

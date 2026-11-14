@@ -257,6 +257,8 @@ _Note: `sigma_fallback_enabled` defaults to `False`, so Sigma generation normall
 
 **Important:** When every sub-agent returns zero items and fallback is disabled, SIGMA generation returns early with `termination_reason: 'no_sigma_rules_generated'` (the value of the `TERMINATION_REASON_NO_SIGMA_RULES` constant in `src/workflows/status_utils.py`).
 
+**Empty model replies:** when the Sigma model returns no text for a generation group, `SigmaGenerationService` retries that group once (`SIGMA_EMPTY_REPLY_MAX_RETRIES`). A group still empty after the retry contributes zero rules, not an error, and is listed in `error_log.generate_sigma.groups_with_no_rules`. If every group is empty, the run completes with `no_sigma_rules_generated`. If sibling groups produced rules, it completes with `termination_reason: 'sigma_groups_no_reply'` (`TERMINATION_REASON_SIGMA_GROUPS_NO_REPLY`), which the executions view shows as a "Partial SIGMA" badge and a completion reason that names the missing groups. This reason is informational and does not stop the workflow.
+
 ## Celery vs Direct Execution
 
 ### Same Workflow Implementation

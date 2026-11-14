@@ -742,6 +742,7 @@
 </div>
 </div>
 
+<script src="{{ asset_url('js/components/eval-run-tracker.js') }}"></script>
 <script>
 let evalArticles = [];
 let activeConfig = null;
@@ -751,7 +752,8 @@ let currentSubagent = 'cmdline';
 // Bumped by every results load. The initial CommandLine load takes seconds; a
 // response from an older load must not overwrite a newer subagent's table.
 let _subagentLoadSeq = 0;
-let executionResults = {};
+// Per-launch eval progress; see /static/js/components/eval-run-tracker.js.
+const evalRuns = EvalRunTracker.createRegistry();
 const excludedVersions = [594, 603, 606, 633, 665, 668, 962, 1013, 1022, 1029, 1034, 1037, 5220, 7666, 7667];
 
 // Map dropdown values to agent names
@@ -1354,9 +1356,11 @@ async function runEvaluation() {
     document.getElementById('evalSpinner').classList.remove('hidden');
     const perStep = THROTTLE_INTERNAL_FLOOR_SECONDS + concurrencyThrottle;
     const dispatchWindow = Math.max(0, Math.round((repeatedUrls.length - 1) * perStep));
-    statusText.textContent = multiplier > 1
-        ? `Triggering ${repeatedUrls.length} executions (${baseUrls.length} articles x ${multiplier} runs) @ ${concurrencyThrottle}s throttle (~${dispatchWindow}s dispatch window)...`
-        : `Triggering ${repeatedUrls.length} executions @ ${concurrencyThrottle}s throttle (~${dispatchWindow}s dispatch window)...`;
+    const triggeringLine = multiplier > 1
+        ? `Triggering ${repeatedUrls.length} ${currentSubagent} executions (${baseUrls.length} articles x ${multiplier} runs) @ ${concurrencyThrottle}s throttle (~${dispatchWindow}s dispatch window)...`
+        : `Triggering ${repeatedUrls.length} ${currentSubagent} executions @ ${concurrencyThrottle}s throttle (~${dispatchWindow}s dispatch window)...`;
+    statusText.style.whiteSpace = 'pre-line';
+    statusText.textContent = [...evalRuns.statusLines(), triggeringLine].join('\n');
 
     try {
         // Use current subagent directly
@@ -1389,262 +1393,93 @@ async function runEvaluation() {
         const executions = data.executions || [];
         
         if (executions.length > 0) {
-            // Some or all articles used workflow executions (DB path)  --  poll until they complete
-            statusText.textContent = `✅ Triggered ${executions.length} executions. Polling for results...`;
-            statusText.className = 'text-sm text-gray-600 dark:text-gray-400';
-            executionResults = {};
-            for (const exec of executions) {
-                executionResults[exec.execution_id] = {
-                    execution_id: exec.execution_id,
-                    article_id: exec.article_id,
-                    url: exec.url,
-                    eval_record_id: exec.eval_record_id,
-                    status: 'pending'
-                };
-            }
-            await pollSubagentResults(executions);
+            // Some or all articles used workflow executions (DB path)  --  poll until they complete.
+            // The run owns its subagent and execution IDs, so launching another extractor while
+            // this one is still running cannot redirect this poll loop (eval-run-tracker.js).
+            const run = evalRuns.start(
+                subagentForRun,
+                executions.map(exec => exec.execution_id).filter(id => id != null)
+            );
+            renderEvalRunStatus();
+            pollSubagentResults(run);
         } else {
             // All articles were evaluated from static files (no workflow executions)  --  refresh results immediately
             statusText.textContent = `✅ Evaluated ${totalArticles} article(s) from static files. Refreshing results...`;
             statusText.className = 'text-sm text-green-600 dark:text-green-400';
-            document.getElementById('evalSpinner').classList.add('hidden');
+            if (!evalRuns.anyPolling()) document.getElementById('evalSpinner').classList.add('hidden');
             setTimeout(() => {
                 loadPreviousResults();
             }, 100);
         }
     } catch (error) {
         console.error('Error running evaluation:', error);
-        statusText.textContent = `❌ Error: ${error.message}`;
+        // Keep any still-running launches visible under the error.
+        statusText.textContent = [`❌ Error: ${error.message}`, ...evalRuns.statusLines()].join('\n');
         statusText.className = 'text-sm text-red-600 dark:text-red-400';
-        document.getElementById('evalSpinner').classList.add('hidden');
+        if (!evalRuns.anyPolling()) document.getElementById('evalSpinner').classList.add('hidden');
     } finally {
         runBtn.disabled = false;
     }
 }
 
-// Poll for subagent eval results
-async function pollSubagentResults(executions) {
+// One status line per launch on this page; the spinner runs while any launch is still polling.
+function renderEvalRunStatus() {
     const statusText = document.getElementById('evalStatusText');
-    const maxAttempts = 60;
-    let attempts = 0;
-    let pollInterval = null;
-    let isPolling = true;
-    // Transient-failure tolerance. A dev hot-reload restart can leave the server
-    // unreachable for ~45s; a single failed poll must NOT abandon a live run.
-    // Tolerate this many consecutive failures (~60s at the 2s interval) before
-    // surfacing a hard error, and reset the counter on any successful poll.
-    let consecutiveFailures = 0;
-    const maxConsecutiveFailures = 30;
+    const runs = evalRuns.runs();
+    const polling = evalRuns.anyPolling();
+    const stopped = runs.some(run => run.state === 'timed_out' || run.state === 'lost');
+    statusText.style.whiteSpace = 'pre-line';
+    statusText.textContent = evalRuns.statusLines().join('\n');
+    statusText.className = polling
+        ? 'text-sm text-gray-600 dark:text-gray-400'
+        : (stopped ? 'text-sm text-yellow-600 dark:text-yellow-400' : 'text-sm text-green-600 dark:text-green-400');
+    document.getElementById('evalSpinner').classList.toggle('hidden', !polling);
+}
 
-    // Preserve current run's execution map (caller already set executionResults; do not clear)
-    if (executions && executions.length > 0) {
-        executionResults = {};
-        for (const exec of executions) {
-            if (exec.execution_id != null) {
-                executionResults[exec.execution_id] = {
-                    execution_id: exec.execution_id,
-                    article_id: exec.article_id,
-                    url: exec.url,
-                    eval_record_id: exec.eval_record_id,
-                    status: 'pending'
-                };
-            }
-        }
-    }
-    
+// Poll one launch's eval rows until its executions finish, time out, or the server stays
+// unreachable. Reads only run.subagent and run.executionIds -- never the page's current
+// selection -- so overlapping launches each track their own executions.
+function pollSubagentResults(run) {
+    const lastStatus = new Map(); // execution_id -> last seen status, for truncation warnings
+
     const pollOnce = async () => {
-        if (!isPolling) return;
-        
-        attempts++;
-        let completed = 0;
-        let pending = 0;
-        
         try {
-            // Poll subagent eval results instead of individual executions
-            const subagent = currentSubagent;
-            const response = await fetch(`/api/evaluations/subagent-eval-results?subagent=${subagent}`);
-
+            const response = await fetch(EvalRunTracker.resultsUrl(run));
             if (!response.ok) {
                 console.warn(`Failed to get eval results: ${response.status}`);
-                handlePollFailure(`server returned ${response.status}`);
-                return;
-            }
-
-            // Successful reach: clear any transient-failure streak.
-            consecutiveFailures = 0;
-            const data = await response.json();
-            const results = data.results || [];
-            
-            // Update executionResults with latest data
-            for (const result of results) {
-                if (result.execution_id && executionResults[result.execution_id]) {
-                    executionResults[result.execution_id] = {
-                        ...executionResults[result.execution_id],
-                        status: result.status,
-                        actual_count: result.actual_count,
-                        expected_count: result.expected_count,
-                        score: result.score,
-                        warnings: result.warnings
-                    };
-                }
-                
-                // Show warnings for newly completed results
-                if (result.status === 'completed' && result.warnings && Array.isArray(result.warnings) && result.warnings.length > 0) {
-                    const wasPending = executionResults[result.execution_id]?.status === 'pending';
-                    if (wasPending) {
+                evalRuns.recordFailure(run.id);
+            } else {
+                const data = await response.json();
+                const results = data.results || [];
+                for (const result of results) {
+                    const previous = lastStatus.get(result.execution_id);
+                    if (result.status === 'completed' && previous !== 'completed' && Array.isArray(result.warnings)) {
                         result.warnings.forEach(warning => {
                             showNotification(`⚠️ LMStudio Truncation: ${warning}`, 'warning');
                         });
                     }
+                    lastStatus.set(result.execution_id, result.status);
                 }
-            }
-            
-            // Count completed vs pending -- restrict to the current run's executions only.
-            // The API returns all historical records; filter so the status bar reflects
-            // only what was just launched (executionResults keys = current run's execution IDs).
-            const currentExecIds = new Set(Object.keys(executionResults).map(Number));
-            const currentRunResults = results.filter(r => currentExecIds.has(r.execution_id));
-
-            // For hunt_queries, count only the most recent execution per article
-            // (each article can have multiple runs, each run has 2 eval records but 1 execution)
-            let completed, pending, failed, total;
-            if (subagent === 'hunt_queries') {
-                // Group by article_id, then find the most recent execution_id for each article
-                const articlesToExecutions = new Map(); // article_id -> array of {execution_id, created_at, status}
-
-                currentRunResults.forEach(r => {
-                    const articleId = r.article_id;
-                    if (!articleId) return; // Skip records without article_id
-                    
-                    if (!articlesToExecutions.has(articleId)) {
-                        articlesToExecutions.set(articleId, []);
-                    }
-                    
-                    const execId = r.execution_id;
-                    const createdAt = r.created_at ? new Date(r.created_at) : null;
-                    const status = r.status;
-                    
-                    // Check if we already have this execution_id for this article
-                    const existing = articlesToExecutions.get(articleId).find(e => e.execution_id === execId);
-                    if (!existing && execId) {
-                        articlesToExecutions.get(articleId).push({
-                            execution_id: execId,
-                            created_at: createdAt,
-                            status: status
-                        });
-                    }
-                });
-                
-                // For each article, find the most recent execution and its status
-                const latestExecutionStatus = new Map(); // article_id -> {status, hasCompleted, hasPending, hasFailed}
-                
-                articlesToExecutions.forEach((executions, articleId) => {
-                    if (executions.length === 0) return;
-                    
-                    // Find most recent execution by created_at, fallback to execution_id
-                    const latest = executions.reduce((latest, current) => {
-                        if (!latest) return current;
-                        if (current.created_at && latest.created_at) {
-                            return current.created_at > latest.created_at ? current : latest;
-                        }
-                        if (current.created_at) return current;
-                        if (latest.created_at) return latest;
-                        // Fallback to execution_id comparison
-                        return current.execution_id > latest.execution_id ? current : latest;
-                    });
-                    
-                    // Get all eval records for this execution to determine combined status
-                    const execRecords = currentRunResults.filter(r =>
-                        r.article_id === articleId && r.execution_id === latest.execution_id
-                    );
-                    
-                    const hasCompleted = execRecords.some(r => r.status === 'completed');
-                    const hasPending = execRecords.some(r => r.status === 'pending');
-                    const hasFailed = execRecords.every(r => r.status === 'failed');
-                    
-                    latestExecutionStatus.set(articleId, {
-                        hasCompleted,
-                        hasPending,
-                        hasFailed
-                    });
-                });
-                
-                // Count status based on most recent executions only
-                completed = Array.from(latestExecutionStatus.values()).filter(item => item.hasCompleted).length;
-                pending = Array.from(latestExecutionStatus.values()).filter(item => !item.hasCompleted && item.hasPending).length;
-                failed = Array.from(latestExecutionStatus.values()).filter(item => !item.hasCompleted && !item.hasPending && item.hasFailed).length;
-                total = latestExecutionStatus.size;
-            } else {
-                completed = currentRunResults.filter(r => r.status === 'completed').length;
-                pending = currentRunResults.filter(r => r.status === 'pending').length;
-                failed = currentRunResults.filter(r => r.status === 'failed').length;
-                total = currentRunResults.length;
-            }
-            
-            statusText.textContent = `⏳ Completed: ${completed}/${total}, Pending: ${pending}, Failed: ${failed}`;
-            
-            // Stop polling if all completed or max attempts reached
-            if (completed + failed === total || attempts >= maxAttempts) {
-                if (pollInterval) {
-                    clearInterval(pollInterval);
-                    pollInterval = null;
-                }
-                isPolling = false;
-                
-                statusText.textContent = `✅ All executions completed. Refreshing results and chart...`;
-                statusText.className = 'text-sm text-green-600 dark:text-green-400';
-                document.getElementById('evalSpinner').classList.add('hidden');
-
-                // Full refresh: refetch results, reload aggregates/chart, render pivot (same as Load Previous Results)
-                setTimeout(() => {
-                    loadPreviousResults();
-                }, 100);
-            } else if (isPolling) {
-                scheduleNext();
+                evalRuns.update(run.id, EvalRunTracker.countExecutionStatuses(results, run.executionIds));
             }
         } catch (error) {
-            // Network-level failure (e.g. server mid hot-reload -> "Failed to fetch").
-            // Do NOT tear the loop down: the eval keeps running server-side and the
-            // endpoint recovers within seconds. Retry until the streak cap is hit.
+            // Network-level failure (e.g. server mid hot-reload -> "Failed to fetch"). The eval
+            // keeps running server-side; the tracker gives up only after a sustained outage.
             console.warn('Transient polling error, will retry:', error);
-            handlePollFailure(error.message);
+            evalRuns.recordFailure(run.id);
         }
 
-        // Schedule the next poll unless the overall attempt budget is exhausted.
-        function scheduleNext() {
-            if (!isPolling) return;
-            if (attempts >= maxAttempts) {
-                isPolling = false;
-                statusText.textContent = `⚠️ Stopped polling after ${maxAttempts} attempts. Use "Load Previous Results" to refresh.`;
-                statusText.className = 'text-sm text-yellow-600 dark:text-yellow-400';
-                document.getElementById('evalSpinner').classList.add('hidden');
-                return;
-            }
-            pollInterval = setTimeout(pollOnce, 2000);
-        }
-
-        // A failed poll (bad HTTP status or network throw) keeps the run alive across
-        // transient outages; only gives up after maxConsecutiveFailures in a row.
-        function handlePollFailure(reason) {
-            consecutiveFailures++;
-            if (consecutiveFailures >= maxConsecutiveFailures) {
-                if (pollInterval) {
-                    clearTimeout(pollInterval);
-                    pollInterval = null;
-                }
-                isPolling = false;
-                statusText.textContent = `❌ Lost connection to server after ${consecutiveFailures} attempts (${reason}). Use "Load Previous Results" once it is back.`;
-                statusText.className = 'text-sm text-red-600 dark:text-red-400';
-                document.getElementById('evalSpinner').classList.add('hidden');
-                return;
-            }
-            statusText.textContent = `⏳ Reconnecting to server (attempt ${consecutiveFailures}/${maxConsecutiveFailures})…`;
-            statusText.className = 'text-sm text-yellow-600 dark:text-yellow-400';
-            scheduleNext();
+        renderEvalRunStatus();
+        if (run.state === 'polling') {
+            setTimeout(pollOnce, EvalRunTracker.POLL_INTERVAL_MS);
+        } else if (run.state === 'done' && run.subagent === currentSubagent) {
+            // Full refresh: refetch results, reload aggregates/chart, render pivot (same as Load Previous Results)
+            setTimeout(() => {
+                loadPreviousResults();
+            }, 100);
         }
     };
 
-    // Start polling
     pollOnce();
 }
 

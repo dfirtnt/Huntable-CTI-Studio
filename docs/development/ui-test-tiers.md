@@ -31,13 +31,13 @@ disjoint set of spec files:
 
 | Area           | Files | What it covers                                             |
 |----------------|-------|------------------------------------------------------------|
-| `agent-config` | 17    | `agent_config_*.spec.ts` -- presets, validation, autosave  |
+| `agent-config` | 18    | `agent_config_*.spec.ts` -- presets, validation, autosave  |
 | `workflow`     | 11    | execution detail tabs, prompt editor, workflow config persistence/versions/pollution-guard, platform badge/detection/capability-matrix, auto-refresh cadence |
 | `sources`      | 1     | sources page                                                |
 | `articles`     | 8     | article detail, clipboard copy, article-content/annotation/chunk-dialog XSS, chunk debug modal, dashboard, jobs |
-| `intelligence` | 3     | sigma enrich, sigma queue lifecycle, sigma similarity unification |
+| `intelligence` | 4     | sigma enrich, sigma queue lifecycle, sigma source provenance, sigma similarity unification |
 | `ui-misc`      | 8     | collapsible sections, health-check diagnostics, modals, hunt-comparison error handling, settings |
-| `quarantine`   | 1     | `quarantined_workflow_config_phantom_003.spec.ts` -- WF-CFG-PHANTOM-003, quarantined 2026-09-02 for CI-only flakiness (passes in isolation) |
+| `quarantine`   | 0     | Empty by design (the UI test diet removed the quarantined suites); kept so `--project=quarantine` resolves. Add patterns in `tests/playwright.config.ts` when a suite needs quarantining. |
 
 Run a single area: `npx playwright test --config tests/playwright.config.ts --project=sources`
 or via the runner: `python3 run_tests.py ui-fast --area=sources`.

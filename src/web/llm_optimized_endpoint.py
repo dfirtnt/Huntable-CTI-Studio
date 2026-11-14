@@ -251,10 +251,10 @@ Please analyze the following blog content:
         )
 
         # Save the analysis to the article's metadata
-        if article.metadata is None:
-            article.metadata = {}
+        if article.article_metadata is None:
+            article.article_metadata = {}
 
-        article.metadata["gpt4o_ranking"] = {
+        article.article_metadata["gpt4o_ranking"] = {
             "analysis": analysis,
             "timestamp": datetime.now().isoformat(),
             "model": "gpt-4o",
@@ -268,7 +268,7 @@ Please analyze the following blog content:
         # Update the article in the database
         from src.models.article import ArticleUpdate
 
-        update_data = ArticleUpdate(metadata=article.metadata)
+        update_data = ArticleUpdate(article_metadata=article.article_metadata)
         await async_db_manager.update_article(article_id, update_data)
 
         return {

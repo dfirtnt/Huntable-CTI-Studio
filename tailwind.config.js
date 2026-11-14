@@ -32,7 +32,7 @@ module.exports = {
   safelist: [
     // Four sites assemble class names from a colour FRAGMENT, so the full class
     // name never appears literally anywhere and the scanner cannot see it:
-    //   article_detail.html:7616-7617      text-${statusColor}-600, bg-${statusColor}-100
+    //   partials/article_detail/js_similar_rules.html:292 text-${statusColor}-600, bg-${statusColor}-100
     //   sigma_similarity_test.html:302-303 text/bg-${statusColor}-{600,400,100,900}
     // Both statusColor values come from closed ternary/if chains -- article_detail
     // yields green|yellow|purple, sigma_similarity_test yields blue|green|yellow --

@@ -60,9 +60,33 @@ To submit approved rules from the Sigma Queue to your GitHub repo:
 
 ```bash
 git clone https://github.com/YOUR_USER/Huntable-SIGMA-Rules.git ../Huntable-SIGMA-Rules
-cd ../Huntable-SIGMA-Rules
-mkdir -p rules/{windows,linux,macos,network,cloud}
-# Add .gitkeep or initial rules, then commit and push
+mkdir -p ../Huntable-SIGMA-Rules/.huntable
+cp config/sigma_rule_layout.yml ../Huntable-SIGMA-Rules/.huntable/rule-layout.yml
+# Commit and push. Do not pre-create rules/<platform>/ folders; each PR creates what it needs.
+```
+
+Approved rules are written to `rules/<platform>/<logsource dir>/<slug>.yml`, or
+`rules-emerging-threats/<family>/<slug>.yml` for rules tagged `detection.emerging-threats`
+(`_unsorted/` when no family resolves). Before the PR is opened, each rule's author, date and
+tags are normalized and saved to the queue row; a rule missing `references`,
+`falsepositives` or `tags` goes back to **Pending** with a review note instead of into the
+PR. Run **`GET /api/sigma-queue/submit-pr/preflight`** to see the result without side
+effects. Details: [Publish layout and metadata](../features/sigma-rules.md#publish-layout-and-metadata).
+
+**Migrating an existing flat repository** (every rule in `rules/windows/`):
+
+```bash
+.venv/bin/python scripts/migrate_sigma_repo_layout.py --repo ../Huntable-SIGMA-Rules --report migration.md
+```
+
+The dry run prints every old -> new path, the emerging-threat rules left in `_unsorted/`,
+each metadata change, and the rules that still need a hand-written fix. `--apply --branch
+<name>` creates the branch, commits the `git mv` renames, then commits the metadata fixes
+separately. It never pushes and never changes `id`, `title`, `logsource` or `detection`.
+After the migration merges, refresh the indexed paths:
+
+```bash
+./run_cli.sh sigma index-customer-repo --force
 ```
 
 Configure in **Settings → GitHub**:
@@ -76,5 +100,5 @@ Configure in **Settings → GitHub**:
 - No rules are generated when extraction produces zero huntables and the filtered content toggle is disabled.
 - Similarity search requires embeddings; run `sigma index-embeddings` (uses local sentence-transformers). Use `capabilities check` to verify status.
 
-_Last updated: 2026-07-05_
+_Last updated: 2026-10-17_
 _Last reviewed: 2026-09-01_

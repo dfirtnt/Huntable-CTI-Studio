@@ -12,7 +12,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import and_, case, func, or_
+from sqlalchemy import Column, and_, case, func, or_
 from sqlalchemy.orm import Session, defer, joinedload
 
 from src.database.manager import DatabaseManager
@@ -457,7 +457,7 @@ class ExecutionListResponse(BaseModel):
     limit: int = 50
 
 
-_SORT_COLUMNS = {
+_SORT_COLUMNS: dict[str, Column[Any]] = {
     "id": AgenticWorkflowExecutionTable.id,
     "article_id": AgenticWorkflowExecutionTable.article_id,
     "status": AgenticWorkflowExecutionTable.status,
@@ -524,7 +524,8 @@ def list_workflow_executions(
             )
             if base_filters:
                 count_q = count_q.filter(*base_filters)
-            row = count_q.first()
+            # An aggregate query without GROUP BY always yields exactly one row.
+            row = count_q.one()
             total = int(row.total or 0)
             running = int(row.running or 0)
             completed = int(row.completed or 0)
@@ -851,6 +852,35 @@ def cleanup_stale_executions(
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+def _poll_execution_snapshot_sync(db_manager, execution_id: int):
+    """Blocking: read the fields the SSE stream needs on a short-lived session.
+
+    The session is opened and closed inside this call (one worker thread) so it is
+    never held across a yield; returns None when the execution does not exist.
+    """
+    from types import SimpleNamespace
+
+    db_session = db_manager.get_session()
+    try:
+        execution = (
+            db_session.query(AgenticWorkflowExecutionTable)
+            .filter(AgenticWorkflowExecutionTable.id == execution_id)
+            .first()
+        )
+        if not execution:
+            return None
+        return SimpleNamespace(
+            current_step=execution.current_step,
+            status=execution.status,
+            error_log=execution.error_log,
+            ranking_score=execution.ranking_score,
+            ranking_reasoning=execution.ranking_reasoning,
+            error_message=execution.error_message,
+        )
+    finally:
+        db_session.close()
+
+
 @router.get("/executions/{execution_id}/stream")
 async def stream_execution_updates(execution_id: int):
     """
@@ -873,88 +903,79 @@ async def stream_execution_updates(execution_id: int):
 
         try:
             while True:
-                db_session = db_manager.get_session()
-                try:
-                    execution = (
-                        db_session.query(AgenticWorkflowExecutionTable)
-                        .filter(AgenticWorkflowExecutionTable.id == execution_id)
-                        .first()
-                    )
+                execution = await asyncio.to_thread(_poll_execution_snapshot_sync, db_manager, execution_id)
 
-                    if not execution:
-                        yield f"data: {json.dumps({'type': 'error', 'message': 'Execution not found'})}\n\n"
+                if not execution:
+                    yield f"data: {json.dumps({'type': 'error', 'message': 'Execution not found'})}\n\n"
+                    break
+
+                # Check for updates
+                current_step = execution.current_step
+                current_status = execution.status
+                current_error_log = execution.error_log
+                current_ranking_score = execution.ranking_score
+
+                # Send ranking score as soon as it becomes available (independent of step changes)
+                if current_ranking_score is not None and last_ranking_score is None:
+                    yield f"data: {json.dumps({'type': 'ranking', 'score': current_ranking_score, 'reasoning': execution.ranking_reasoning, 'timestamp': datetime.now().isoformat()})}\n\n"
+                    last_ranking_score = current_ranking_score
+
+                # Check for step completion markers and emit completion events
+                if current_error_log and isinstance(current_error_log, dict):
+                    # Check if extract_agent just completed
+                    extract_agent_log = current_error_log.get("extract_agent", {})
+                    if isinstance(extract_agent_log, dict) and extract_agent_log.get("completed"):
+                        # Emit step completion event (only once per completion)
+                        last_extract_log = last_error_log.get("extract_agent", {}) if last_error_log else {}
+                        if not isinstance(last_extract_log, dict) or not last_extract_log.get("completed"):
+                            yield f"data: {json.dumps({'type': 'step_complete', 'step': 'extract_agent', 'timestamp': extract_agent_log.get('completed_at', datetime.now().isoformat())})}\n\n"
+
+                # Send step update
+                if current_step != last_step:
+                    last_step = current_step
+                    yield f"data: {json.dumps({'type': 'step', 'step': current_step, 'timestamp': datetime.now().isoformat()})}\n\n"
+
+                # Send status update
+                if current_status != last_status:
+                    last_status = current_status
+                    yield f"data: {json.dumps({'type': 'status', 'status': current_status, 'timestamp': datetime.now().isoformat()})}\n\n"
+
+                    # If completed or failed, send final update and close
+                    if current_status in ["completed", "failed"]:
+                        yield f"data: {json.dumps({'type': 'complete', 'status': current_status, 'error_message': execution.error_message, 'timestamp': datetime.now().isoformat()})}\n\n"
                         break
 
-                    # Check for updates
-                    current_step = execution.current_step
-                    current_status = execution.status
-                    current_error_log = execution.error_log
-                    current_ranking_score = execution.ranking_score
+                # Send LLM interaction updates from error_log
+                if current_error_log and current_error_log != last_error_log:
+                    # Normalize current_error_log to dict if it's not already
+                    if not isinstance(current_error_log, dict):
+                        current_error_log = {}
 
-                    # Send ranking score as soon as it becomes available (independent of step changes)
-                    if current_ranking_score is not None and last_ranking_score is None:
-                        yield f"data: {json.dumps({'type': 'ranking', 'score': current_ranking_score, 'reasoning': execution.ranking_reasoning, 'timestamp': datetime.now().isoformat()})}\n\n"
-                        last_ranking_score = current_ranking_score
+                    # Normalize last_error_log to dict if it's not already
+                    if last_error_log is None or not isinstance(last_error_log, dict):
+                        last_error_log = {}
 
-                    # Check for step completion markers and emit completion events
-                    if current_error_log and isinstance(current_error_log, dict):
-                        # Check if extract_agent just completed
-                        extract_agent_log = current_error_log.get("extract_agent", {})
-                        if isinstance(extract_agent_log, dict) and extract_agent_log.get("completed"):
-                            # Emit step completion event (only once per completion)
-                            last_extract_log = last_error_log.get("extract_agent", {}) if last_error_log else {}
-                            if not isinstance(last_extract_log, dict) or not last_extract_log.get("completed"):
-                                yield f"data: {json.dumps({'type': 'step_complete', 'step': 'extract_agent', 'timestamp': extract_agent_log.get('completed_at', datetime.now().isoformat())})}\n\n"
+                    # Check for LLM interactions in each agent's error_log entry
+                    for agent_name in ["rank_article", "extract_agent", "generate_sigma", "os_detection"]:
+                        agent_log = current_error_log.get(agent_name, {})
+                        last_agent_log = last_error_log.get(agent_name, {})
 
-                    # Send step update
-                    if current_step != last_step:
-                        last_step = current_step
-                        yield f"data: {json.dumps({'type': 'step', 'step': current_step, 'timestamp': datetime.now().isoformat()})}\n\n"
+                        # Ensure agent_log is a dict
+                        if not isinstance(agent_log, dict):
+                            agent_log = {}
+                        if not isinstance(last_agent_log, dict):
+                            last_agent_log = {}
 
-                    # Send status update
-                    if current_status != last_status:
-                        last_status = current_status
-                        yield f"data: {json.dumps({'type': 'status', 'status': current_status, 'timestamp': datetime.now().isoformat()})}\n\n"
+                        for event_payload in _build_conversation_stream_events(
+                            agent_name,
+                            agent_log,
+                            last_agent_log,
+                            datetime.now().isoformat(),
+                        ):
+                            yield f"data: {json.dumps(event_payload)}\n\n"
 
-                        # If completed or failed, send final update and close
-                        if current_status in ["completed", "failed"]:
-                            yield f"data: {json.dumps({'type': 'complete', 'status': current_status, 'error_message': execution.error_message, 'timestamp': datetime.now().isoformat()})}\n\n"
-                            break
-
-                    # Send LLM interaction updates from error_log
-                    if current_error_log and current_error_log != last_error_log:
-                        # Normalize current_error_log to dict if it's not already
-                        if not isinstance(current_error_log, dict):
-                            current_error_log = {}
-
-                        # Normalize last_error_log to dict if it's not already
-                        if last_error_log is None or not isinstance(last_error_log, dict):
-                            last_error_log = {}
-
-                        # Check for LLM interactions in each agent's error_log entry
-                        for agent_name in ["rank_article", "extract_agent", "generate_sigma", "os_detection"]:
-                            agent_log = current_error_log.get(agent_name, {})
-                            last_agent_log = last_error_log.get(agent_name, {})
-
-                            # Ensure agent_log is a dict
-                            if not isinstance(agent_log, dict):
-                                agent_log = {}
-                            if not isinstance(last_agent_log, dict):
-                                last_agent_log = {}
-
-                            for event_payload in _build_conversation_stream_events(
-                                agent_name,
-                                agent_log,
-                                last_agent_log,
-                                datetime.now().isoformat(),
-                            ):
-                                yield f"data: {json.dumps(event_payload)}\n\n"
-
-                        # Update last_error_log after processing
-                        last_error_log = json.loads(json.dumps(current_error_log)) if current_error_log else {}
-
-                finally:
-                    db_session.close()
+                    # Update last_error_log after processing
+                    last_error_log = json.loads(json.dumps(current_error_log)) if current_error_log else {}
 
                 # Poll every 1 second
                 await asyncio.sleep(1)
@@ -975,7 +996,7 @@ async def stream_execution_updates(execution_id: int):
 
 
 @router.post("/executions/trigger-stuck")
-async def trigger_stuck_executions(request: Request):
+def trigger_stuck_executions(request: Request):
     """
     Re-dispatch workflow executions whose Celery task is presumed lost.
 
@@ -1110,7 +1131,7 @@ async def trigger_stuck_executions(request: Request):
 
 
 @router.post("/executions/{execution_id}/retry")
-async def retry_workflow_execution(request: Request, execution_id: int):
+def retry_workflow_execution(request: Request, execution_id: int):
     """
     Retry a failed workflow execution.
     """
@@ -1239,7 +1260,7 @@ async def retry_workflow_execution(request: Request, execution_id: int):
 
 
 @router.post("/executions/{execution_id}/cancel")
-async def cancel_workflow_execution(request: Request, execution_id: int):
+def cancel_workflow_execution(request: Request, execution_id: int):
     """
     Cancel a running or pending workflow execution.
 
@@ -1302,7 +1323,7 @@ async def cancel_workflow_execution(request: Request, execution_id: int):
 
 
 @router.post("/executions/cancel-all-running")
-async def cancel_all_running_executions(request: Request):
+def cancel_all_running_executions(request: Request):
     """
     Cancel all running or pending workflow executions.
 
@@ -1412,7 +1433,7 @@ def _build_langfuse_debug_urls(
 
 
 @router.get("/executions/{execution_id}/debug-info")
-async def get_workflow_debug_info(request: Request, execution_id: int):
+def get_workflow_debug_info(request: Request, execution_id: int):
     """Get debug information for opening execution in Agent Chat UI."""
     try:
         db_manager = get_db_manager()
@@ -1540,7 +1561,7 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
 
 
 @router.post("/articles/{article_id}/trigger")
-async def trigger_workflow_for_article(
+def trigger_workflow_for_article(
     request: Request,
     article_id: int,
     force: bool = Query(
@@ -1626,7 +1647,7 @@ class ExportBundleRequest(BaseModel):
 
 
 @router.post("/executions/{execution_id}/export-bundle")
-async def export_eval_bundle(request: Request, execution_id: int, export_request: ExportBundleRequest):
+def export_eval_bundle(request: Request, execution_id: int, export_request: ExportBundleRequest):
     """
     Export evaluation bundle for a specific LLM call within a workflow execution.
 
@@ -1671,9 +1692,7 @@ async def export_eval_bundle(request: Request, execution_id: int, export_request
 
 
 @router.get("/executions/{execution_id}/export-bundle")
-async def get_eval_bundle_metadata(
-    request: Request, execution_id: int, agent_name: str | None = None, attempt: int = 1
-):
+def get_eval_bundle_metadata(request: Request, execution_id: int, agent_name: str | None = None, attempt: int = 1):
     """
     Get metadata for the most recent eval bundle or regenerate on demand.
 

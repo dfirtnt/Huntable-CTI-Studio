@@ -1496,7 +1496,7 @@ async def test_get_subagent_eval_status_mixed_statuses_match_http_status_endpoin
 
     http_db_manager, _http_session = _status_session(records)
     with patch("src.web.routes.evaluation_api.DatabaseManager", return_value=http_db_manager):
-        http_payload = await _evaluation_api.get_subagent_eval_status(request=MagicMock(), eval_record_id=11)
+        http_payload = _evaluation_api.get_subagent_eval_status(request=MagicMock(), eval_record_id=11)
 
     assert mcp_payload["progress"] == {"completed": 3, "failed": 1, "pending": 1, "total": 5}
     assert mcp_payload["metrics"] == {"accuracy": 0.5, "mean_score": -1.0, "perfect_matches": 1}

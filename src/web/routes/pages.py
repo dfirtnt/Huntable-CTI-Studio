@@ -91,7 +91,7 @@ async def dashboard(request: Request):
 
 
 @router.get("/analytics", response_class=HTMLResponse)
-async def analytics_page(request: Request):
+def analytics_page(request: Request):
     """Analytics dashboard page."""
     try:
         return templates.TemplateResponse(request, "analytics.html")
@@ -106,7 +106,7 @@ async def analytics_page(request: Request):
 
 
 @router.get("/mlops", response_class=HTMLResponse)
-async def mlops_page(request: Request):
+def mlops_page(request: Request):
     """MLOps control center page."""
     try:
         return templates.TemplateResponse(request, "mlops.html")
@@ -121,7 +121,7 @@ async def mlops_page(request: Request):
 
 
 @router.get("/mlops/agent-evals", response_class=HTMLResponse)
-async def agent_evals_page(request: Request):
+def agent_evals_page(request: Request):
     """Agent evaluation comparison page."""
     try:
         return templates.TemplateResponse(request, "agent_evals.html")
@@ -136,7 +136,7 @@ async def agent_evals_page(request: Request):
 
 
 @router.get("/mlops/agent-evals2", response_class=HTMLResponse)
-async def agent_evals2_page(request: Request):
+def agent_evals2_page(request: Request):
     """Agent evaluation page with item-level precision/recall scoring."""
     try:
         return templates.TemplateResponse(request, "agent_evals2.html")
@@ -151,7 +151,7 @@ async def agent_evals2_page(request: Request):
 
 
 @router.get("/settings", response_class=HTMLResponse)
-async def settings_page(request: Request):
+def settings_page(request: Request):
     """Settings page."""
     try:
         return templates.TemplateResponse(request, "settings.html")
@@ -166,7 +166,7 @@ async def settings_page(request: Request):
 
 
 @router.get("/diags", response_class=HTMLResponse)
-async def diags_page(request: Request):
+def diags_page(request: Request):
     """System diagnostics and health monitoring page combining jobs, health checks, and analytics."""
     try:
         return templates.TemplateResponse(request, "diags.html", {"environment": ENVIRONMENT})
@@ -181,7 +181,7 @@ async def diags_page(request: Request):
 
 
 @router.get("/analytics/scraper-metrics", response_class=HTMLResponse)
-async def scraper_metrics_page(request: Request):
+def scraper_metrics_page(request: Request):
     """Scraper metrics analytics page."""
     try:
         return templates.TemplateResponse(request, "scraper_metrics.html", {"environment": ENVIRONMENT})
@@ -196,7 +196,7 @@ async def scraper_metrics_page(request: Request):
 
 
 @router.get("/analytics/hunt-metrics", response_class=HTMLResponse)
-async def hunt_metrics_page(request: Request):
+def hunt_metrics_page(request: Request):
     """Hunt scoring metrics analytics page."""
     try:
         return templates.TemplateResponse(request, "hunt_metrics.html", {"environment": ENVIRONMENT})
@@ -537,25 +537,25 @@ async def article_detail(request: Request, article_id: int):
 
 
 @router.get("/pdf-upload")
-async def pdf_upload_page(request: Request):
+def pdf_upload_page(request: Request):
     """PDF upload page."""
     return templates.TemplateResponse(request, "pdf_upload.html")
 
 
 @router.get("/jobs", response_class=HTMLResponse)
-async def jobs_page(request: Request):
+def jobs_page(request: Request):
     """Job monitoring page."""
     return templates.TemplateResponse(request, "jobs.html", {"environment": ENVIRONMENT})
 
 
 @router.get("/ml-model-performance", response_class=HTMLResponse)
-async def ml_hunt_comparison_page(request: Request):
+def ml_hunt_comparison_page(request: Request):
     """ML model performance page."""
     return templates.TemplateResponse(request, "ml_hunt_comparison.html", {"environment": ENVIRONMENT})
 
 
 @router.get("/sigma-ab-test", response_class=HTMLResponse)
-async def sigma_ab_test_page(request: Request):
+def sigma_ab_test_page(request: Request):
     """SIGMA rule A/B testing interface."""
     try:
         return templates.TemplateResponse(request, "sigma_ab_test.html")
@@ -570,7 +570,7 @@ async def sigma_ab_test_page(request: Request):
 
 
 @router.get("/sigma-similarity-test", response_class=HTMLResponse)
-async def sigma_similarity_test_page(request: Request):
+def sigma_similarity_test_page(request: Request):
     """SIGMA rule cosine similarity testing interface."""
     try:
         return templates.TemplateResponse(request, "sigma_similarity_test.html")

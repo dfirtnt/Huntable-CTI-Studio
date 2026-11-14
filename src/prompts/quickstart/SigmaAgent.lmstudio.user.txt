@@ -1,0 +1,9 @@
+Threat Intel:
+- title: {title}
+- source: {source}
+- url: {url}
+- author: {author}
+- date: {date}
+- content: {content}
+
+{observables_section}

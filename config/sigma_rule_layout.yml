@@ -1,0 +1,119 @@
+# Destination layout for rules CTI Studio publishes to the customer Sigma repository.
+#
+# The authoritative copy lives in the destination repository at
+# .huntable/rule-layout.yml; this file is the bundled fallback used when that copy is
+# absent. CTI Studio's PR writer, scripts/migrate_sigma_repo_layout.py, and the rules
+# repository's scripts/check_rule_layout.py all read the same table, so a rule's
+# directory is decided in exactly one place.
+#
+# logsource_dirs: (product, category, service) -> directory under generic_root.
+#   Lookup: exact (product, category, service), then (product, category) when the rule
+#   has a category, then (product, service) when it has no category. A combination
+#   that matches nothing is an error -- it never falls into a catch-all directory.
+#   Directory names follow SigmaHQ's rules/ tree.
+#
+# families: emerging-threat family slug -> aliases. A rule tagged
+#   detection.emerging-threats is filed under emerging_threats_root/<family>/.
+#   Aliases match case-insensitively on word boundaries, against the title first and
+#   the description second; the longest alias wins, then the earliest. Titles naming a
+#   CVE map to cve-<year>-<number>. Unresolved rules go to <unsorted_family>/.
+version: 1
+generic_root: rules
+emerging_threats_root: rules-emerging-threats
+unsorted_family: _unsorted
+
+logsource_dirs:
+  # Windows -- Sysmon / EDR categories
+  - {product: windows, category: process_creation, dir: windows/process_creation}
+  - {product: windows, category: process_access, dir: windows/process_access}
+  - {product: windows, category: process_tampering, dir: windows/process_tampering}
+  - {product: windows, category: image_load, dir: windows/image_load}
+  - {product: windows, category: driver_load, dir: windows/driver_load}
+  - {product: windows, category: create_remote_thread, dir: windows/create_remote_thread}
+  - {product: windows, category: create_stream_hash, dir: windows/create_stream_hash}
+  - {product: windows, category: raw_access_thread, dir: windows/raw_access_thread}
+  - {product: windows, category: pipe_created, dir: windows/pipe_created}
+  - {product: windows, category: network_connection, dir: windows/network_connection}
+  - {product: windows, category: dns_query, dir: windows/dns_query}
+  - {product: windows, category: wmi_event, dir: windows/wmi_event}
+  - {product: windows, category: registry_add, dir: windows/registry/registry_add}
+  - {product: windows, category: registry_delete, dir: windows/registry/registry_delete}
+  - {product: windows, category: registry_event, dir: windows/registry/registry_event}
+  - {product: windows, category: registry_rename, dir: windows/registry/registry_rename}
+  - {product: windows, category: registry_set, dir: windows/registry/registry_set}
+  - {product: windows, category: file_access, dir: windows/file/file_access}
+  - {product: windows, category: file_change, dir: windows/file/file_change}
+  - {product: windows, category: file_delete, dir: windows/file/file_delete}
+  - {product: windows, category: file_event, dir: windows/file/file_event}
+  - {product: windows, category: file_executable_detected, dir: windows/file/file_executable_detected}
+  - {product: windows, category: file_rename, dir: windows/file/file_rename}
+  - {product: windows, category: ps_classic_provider_start, dir: windows/powershell/powershell_classic}
+  - {product: windows, category: ps_classic_start, dir: windows/powershell/powershell_classic}
+  - {product: windows, category: ps_module, dir: windows/powershell/powershell_module}
+  - {product: windows, category: ps_script, dir: windows/powershell/powershell_script}
+  - {product: windows, category: sysmon_error, dir: windows/sysmon}
+  - {product: windows, category: sysmon_status, dir: windows/sysmon}
+  # Windows -- event-log channels (service, no category)
+  - {product: windows, service: application, dir: windows/builtin/application}
+  - {product: windows, service: bits-client, dir: windows/builtin/bits_client}
+  - {product: windows, service: codeintegrity-operational, dir: windows/builtin/code_integrity}
+  - {product: windows, service: dns-server, dir: windows/builtin/dns_server}
+  - {product: windows, service: firewall-as, dir: windows/builtin/firewall_as}
+  - {product: windows, service: ntlm, dir: windows/builtin/ntlm}
+  - {product: windows, service: powershell, dir: windows/builtin/powershell}
+  - {product: windows, service: security, dir: windows/builtin/security}
+  - {product: windows, service: system, dir: windows/builtin/system}
+  - {product: windows, service: taskscheduler, dir: windows/builtin/taskscheduler}
+  - {product: windows, service: terminalservices-localsessionmanager, dir: windows/builtin/terminalservices}
+  - {product: windows, service: windefend, dir: windows/builtin/windefend}
+  - {product: windows, service: wmi, dir: windows/builtin/wmi}
+  # Sysmon's own channel is not a builtin Windows log; SigmaHQ files it separately.
+  - {product: windows, service: sysmon, dir: windows/sysmon}
+  # Linux
+  - {product: linux, category: process_creation, dir: linux/process_creation}
+  - {product: linux, category: file_event, dir: linux/file_event}
+  - {product: linux, category: file_delete, dir: linux/file_delete}
+  - {product: linux, category: network_connection, dir: linux/network_connection}
+  - {product: linux, service: auditd, dir: linux/auditd}
+  - {product: linux, service: auth, dir: linux/builtin/auth}
+  - {product: linux, service: cron, dir: linux/builtin/cron}
+  - {product: linux, service: sshd, dir: linux/builtin/sshd}
+  - {product: linux, service: sudo, dir: linux/builtin/sudo}
+  - {product: linux, service: syslog, dir: linux/builtin/syslog}
+  # macOS
+  - {product: macos, category: process_creation, dir: macos/process_creation}
+  - {product: macos, category: file_event, dir: macos/file_event}
+  # Cloud
+  - {product: aws, service: cloudtrail, dir: cloud/aws/cloudtrail}
+  - {product: azure, service: activitylogs, dir: cloud/azure/activity_logs}
+  - {product: azure, service: auditlogs, dir: cloud/azure/audit_logs}
+  - {product: azure, service: signinlogs, dir: cloud/azure/signin_logs}
+  - {product: gcp, service: gcp.audit, dir: cloud/gcp/audit}
+  - {product: m365, service: audit, dir: cloud/m365/audit}
+  - {product: okta, service: okta, dir: cloud/okta}
+  # Network and web
+  - {category: dns, dir: network/dns}
+  - {category: firewall, dir: network/firewall}
+  - {product: zeek, service: conn, dir: network/zeek}
+  - {product: zeek, service: dns, dir: network/zeek}
+  - {product: zeek, service: http, dir: network/zeek}
+  - {category: proxy, dir: web/proxy_generic}
+  - {category: webserver, dir: web/webserver_generic}
+
+families:
+  - {family: adaptixc2, aliases: [AdaptixC2]}
+  - {family: chaos, aliases: [Chaos Loader, Chaos TorBrowserTor, Chaos Ransomware]}
+  - {family: cobalt-strike, aliases: [Cobalt Strike, Artifact Kit]}
+  - {family: covertvpn, aliases: [CovertVPN]}
+  - {family: hijackloader, aliases: [HijackLoader, IDAT Loader]}
+  - {family: kaido-rat, aliases: [KAIDO RAT, KAIDO]}
+  - {family: ligolo-ng, aliases: [Ligolo-ng]}
+  - {family: netsupport-rat, aliases: [NetSupport RAT, NetSupport]}
+  - {family: openstrike, aliases: [OpenStrike]}
+  - {family: orcus-rat, aliases: [Orcus RAT, Orcus]}
+  - {family: raven-rat, aliases: [Raven RAT]}
+  - {family: rhadamanthys, aliases: [Rhadamanthys]}
+  - {family: shadow-rat, aliases: [Shadow RAT]}
+  - {family: sliver, aliases: [Sliver C2, Sliver implant, Sliver beacon]}
+  - {family: xiebroc2, aliases: [XiebroC2]}
+  - {family: xworm, aliases: [XWorm]}

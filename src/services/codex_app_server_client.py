@@ -9,12 +9,23 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from pathlib import Path
 from typing import Any
 
 
 class CodexAppServerError(RuntimeError):
     """A Codex app-server request could not be completed."""
+
+
+class CodexEmptyAgentMessageError(CodexAppServerError):
+    """The turn completed and the model's agentMessage carried no text.
+
+    Distinct from a turn with no agentMessage at all (refusal, reasoning-only or throttled
+    turn): here the model answered, and the answer was empty. Callers that can treat "nothing
+    to say" as a valid outcome (SIGMA generation for an observable group with no rule-worthy
+    behavior) catch this subclass; everything else still sees a CodexAppServerError.
+    """
 
 
 # asyncio's default StreamReader limit is 64 KiB. Codex echoes turn input back in
@@ -69,23 +80,41 @@ def _normalize_reasoning_efforts(raw: Any) -> list[dict[str, str]]:
 
 
 def normalize_completed_turn(
-    turn: dict[str, Any], agent_text: str, model_name: str, effort: str | None = None
+    turn: dict[str, Any],
+    agent_text: str,
+    model_name: str,
+    effort: str | None = None,
+    *,
+    seen_item_types: set[str] | None = None,
 ) -> dict[str, Any]:
-    """Map Codex turn events into the OpenAI-compatible shape LLMService consumes."""
+    """Map Codex turn events into the OpenAI-compatible shape LLMService consumes.
+
+    ``seen_item_types`` are the item types delivered by ``item/completed`` notifications.
+    ``turn.items`` on ``turn/completed`` is empty by design, so the notifications are the only
+    place an agentMessage (even an empty one) shows up.
+    """
     if turn.get("status") != "completed":
         error = turn.get("error") or {}
         message = error.get("message") if isinstance(error, dict) else None
         raise CodexAppServerError(message or f"Codex turn ended with status '{turn.get('status')}'.")
     if not agent_text.strip():
+        item_types = {str(item.get("type")) for item in (turn.get("items") or []) if isinstance(item, dict)}
+        item_types |= set(seen_item_types or ())
+        listed = ", ".join(sorted(item_types))
+        if "agentMessage" in item_types:
+            raise CodexEmptyAgentMessageError(
+                f"Codex completed with an empty agent message: model '{model_name}' returned no text. "
+                f"Turn items: {listed}."
+            )
         # A completed turn carrying no agentMessage is the one Codex outcome whose cause is
         # absent from the error itself -- a refusal, a reasoning-only turn and a throttled
         # turn are indistinguishable here. The turn is not persisted anywhere else, so
         # naming the item types it did carry is the only forensic trace that survives.
-        item_types = sorted({str(item.get("type")) for item in (turn.get("items") or []) if isinstance(item, dict)})
-        detail = f" Turn items: {', '.join(item_types)}." if item_types else " Turn carried no items."
+        detail = f" Turn items: {listed}." if item_types else " No turn items were delivered."
         raise CodexAppServerError(f"Codex completed without an agent message.{detail}")
 
-    usage = turn.get("usage") if isinstance(turn.get("usage"), dict) else {}
+    raw_usage = turn.get("usage")
+    usage = raw_usage if isinstance(raw_usage, dict) else {}
     return {
         "choices": [{"message": {"content": agent_text}}],
         "usage": {
@@ -103,6 +132,17 @@ def normalize_completed_turn(
         ),
         "_provider_url": "codex-app-server://local",
     }
+
+
+_MODEL_GENERATION = re.compile(r"^gpt-(\d+)(?:\.(\d+))?(?:-|$)")
+
+
+def _model_generation(model_id: str) -> tuple[int, int] | None:
+    """(major, minor) from ids like gpt-5.6-luna / gpt-6-sol / gpt-6.1-sol; None for codenames."""
+    match = _MODEL_GENERATION.match(model_id)
+    if not match:
+        return None
+    return int(match.group(1)), int(match.group(2) or 0)
 
 
 class CodexAppServerClient:
@@ -172,17 +212,13 @@ class CodexAppServerClient:
             and isinstance(item.get("model") or item.get("id"), str)
         ]
         visible.sort(key=lambda item: not bool(item.get("isDefault")))
-        default_model = next((str(item.get("model") or item["id"]) for item in visible if item.get("isDefault")), "")
-        # Codex keeps older models visible during a migration. Present the current
-        # default family instead, so a ChatGPT subscription picker does not offer
-        # deprecated models merely because they remain temporarily runnable.
-        family = default_model.rsplit("-", 1)[0] if "-" in default_model else default_model
+        # Deprecated models are already flagged ``hidden`` by Codex, so the picker trusts
+        # that flag instead of guessing at a "current family" from the default's name
+        # (a default of gpt-6.1-sol would otherwise hide gpt-6-* and the gpt-5.6-* models
+        # that existing configs still use). Ids with no numbered generation are codenames
+        # (e.g. gpt-daybreak-blue-latest) and stay out of the picker.
         current_models = [
-            item
-            for item in visible
-            if not family
-            or str(item.get("model") or item["id"]) in {family, default_model}
-            or str(item.get("model") or item["id"]).startswith(f"{family}-")
+            item for item in visible if _model_generation(str(item.get("model") or item["id"])) is not None
         ]
         details: dict[str, dict[str, Any]] = {}
         for item in current_models:
@@ -277,10 +313,13 @@ class CodexAppServerClient:
 
     async def _read_completed_turn(self, model_name: str, effort: str | None = None) -> dict[str, Any]:
         agent_text = ""
+        seen_item_types: set[str] = set()
         while True:
             message = self._pending_notifications.pop(0) if self._pending_notifications else await self._read_message()
             if message.get("method") == "item/completed":
                 item = (message.get("params") or {}).get("item") or {}
+                if isinstance(item.get("type"), str):
+                    seen_item_types.add(item["type"])
                 if item.get("type") == "agentMessage" and isinstance(item.get("text"), str):
                     agent_text = item["text"]
             if message.get("method") == "turn/completed":
@@ -289,7 +328,9 @@ class CodexAppServerClient:
                     for item in turn.get("items") or []:
                         if item.get("type") == "agentMessage" and isinstance(item.get("text"), str):
                             agent_text = item["text"]
-                return normalize_completed_turn(turn, agent_text, model_name, effort=effort)
+                return normalize_completed_turn(
+                    turn, agent_text, model_name, effort=effort, seen_item_types=seen_item_types
+                )
 
     async def _send(self, payload: dict[str, Any]) -> None:
         if not self.process or not self.process.stdin:

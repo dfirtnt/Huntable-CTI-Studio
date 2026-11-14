@@ -16,7 +16,7 @@ router = APIRouter(tags=["workflow-ui"])
 
 
 @router.get("/workflow", response_class=HTMLResponse)
-async def workflow_page(request: Request):
+def workflow_page(request: Request):
     """Unified workflow management page with tabs."""
     response = templates.TemplateResponse(
         request,
@@ -33,7 +33,7 @@ async def workflow_page(request: Request):
 
 
 @router.get("/workflow/config", response_class=HTMLResponse)
-async def workflow_config_page_redirect(request: Request):
+def workflow_config_page_redirect(request: Request):
     """Redirect to unified workflow page config tab."""
     from fastapi.responses import RedirectResponse
 
@@ -41,7 +41,7 @@ async def workflow_config_page_redirect(request: Request):
 
 
 @router.get("/workflow/execution", response_class=HTMLResponse)
-async def workflow_execution_page_redirect(request: Request):
+def workflow_execution_page_redirect(request: Request):
     """Redirect to unified workflow page executions tab."""
     from fastapi.responses import RedirectResponse
 
@@ -49,7 +49,7 @@ async def workflow_execution_page_redirect(request: Request):
 
 
 @router.get("/workflow/executions", response_class=HTMLResponse)
-async def workflow_executions_page_redirect(request: Request):
+def workflow_executions_page_redirect(request: Request):
     """Redirect to unified workflow page."""
     from fastapi.responses import RedirectResponse
 
@@ -57,7 +57,7 @@ async def workflow_executions_page_redirect(request: Request):
 
 
 @router.get("/workflow/queue", response_class=HTMLResponse)
-async def workflow_queue_page_redirect(request: Request):
+def workflow_queue_page_redirect(request: Request):
     """Redirect to unified workflow page."""
     from fastapi.responses import RedirectResponse
 

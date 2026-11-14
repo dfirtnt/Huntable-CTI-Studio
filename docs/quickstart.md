@@ -54,7 +54,7 @@ echo "Article ID: ${ARTICLE_ID}"
 *Capture the returned `article_id`; subsequent workflow calls reference it.*
 
 ## 4) Run the agentic workflow
-On a fresh install, make sure the workflow agents have a provider and model configured first; the fastest way is to load a quickstart preset (see [First Workflow, step 0](getting-started/first-workflow.md)).
+Enable and test a provider in Settings, then import a matching quickstart preset on **Workflow -> Config** (see [First Workflow, step 0](getting-started/first-workflow.md#0-load-a-quickstart-preset-recommended-for-first-run)). Presets replace workflow settings and prompts; they do not configure credentials or enable providers globally. All 14 presets disable ranking, enable all seven extractors, and store Windows as the platform selection. Review those settings after import and enable ranking if you want that stage to run.
 
 Trigger the full pipeline (Platform Detection → junk filter → ranking → Extract Agent → Sigma generation → similarity search). Platform Detection routes Windows-only extractors based on detected platform: Linux/macOS articles skip RegistryExtract, ServicesExtract, and ScheduledTasksExtract automatically:
 ```bash

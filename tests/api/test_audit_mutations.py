@@ -232,7 +232,6 @@ class TestSigmaQueueAudit:
 
 class TestWorkflowAudit:
     def test_cancel_records_audit_and_commits(self):
-        import asyncio
 
         from src.web.routes.workflow_executions import cancel_workflow_execution
 
@@ -243,7 +242,7 @@ class TestWorkflowAudit:
 
         with patch("src.web.routes.workflow_executions.get_db_manager") as mock_get:
             mock_get.return_value.get_session.return_value = session
-            result = asyncio.run(cancel_workflow_execution(_fake_request(), 11))
+            result = cancel_workflow_execution(_fake_request(), 11)
 
         assert result["success"] is True
         rows = _audit_rows(session)
@@ -253,7 +252,6 @@ class TestWorkflowAudit:
         session.commit.assert_called_once()
 
     def test_cancel_rolls_back_when_audit_fails(self):
-        import asyncio
 
         from src.web.routes.workflow_executions import cancel_workflow_execution
 
@@ -269,13 +267,12 @@ class TestWorkflowAudit:
                 side_effect=RuntimeError("audit write failed"),
             ):
                 with pytest.raises(HTTPException) as exc_info:
-                    asyncio.run(cancel_workflow_execution(_fake_request(), 11))
+                    cancel_workflow_execution(_fake_request(), 11)
 
         assert exc_info.value.status_code == 500
         session.commit.assert_not_called()
 
     def test_cancel_all_records_single_bulk_audit(self):
-        import asyncio
 
         from src.web.routes.workflow_executions import cancel_all_running_executions
 
@@ -286,7 +283,7 @@ class TestWorkflowAudit:
 
         with patch("src.web.routes.workflow_executions.get_db_manager") as mock_get:
             mock_get.return_value.get_session.return_value = session
-            result = asyncio.run(cancel_all_running_executions(_fake_request()))
+            result = cancel_all_running_executions(_fake_request())
 
         assert result["count"] == 2
         rows = _audit_rows(session)
@@ -325,7 +322,6 @@ class TestWorkflowAudit:
         return execution
 
     def test_retry_records_audit_commits_and_persists_initiator(self):
-        import asyncio
 
         from src.database.models import AgenticWorkflowExecutionTable
         from src.web.routes.workflow_executions import retry_workflow_execution
@@ -339,7 +335,7 @@ class TestWorkflowAudit:
         ):
             mock_get.return_value.get_session.return_value = session
             mock_service_cls.return_value.get_active_config.return_value = None
-            result = asyncio.run(retry_workflow_execution(_fake_request(), 11))
+            result = retry_workflow_execution(_fake_request(), 11)
 
         assert result["success"] is True
         rows = _audit_rows(session)
@@ -360,7 +356,6 @@ class TestWorkflowAudit:
 
     def test_retry_without_identity_omits_initiated_by(self):
         """No request identity -> no initiated_by key (absence means service-originated)."""
-        import asyncio
 
         from src.database.models import AgenticWorkflowExecutionTable
         from src.web.routes.workflow_executions import retry_workflow_execution
@@ -376,7 +371,7 @@ class TestWorkflowAudit:
         ):
             mock_get.return_value.get_session.return_value = session
             mock_service_cls.return_value.get_active_config.return_value = None
-            result = asyncio.run(retry_workflow_execution(request, 11))
+            result = retry_workflow_execution(request, 11)
 
         assert result["success"] is True
         new_executions = [
@@ -385,7 +380,6 @@ class TestWorkflowAudit:
         assert "initiated_by" not in new_executions[0].config_snapshot
 
     def test_retry_rolls_back_when_audit_fails(self):
-        import asyncio
 
         from src.web.routes.workflow_executions import retry_workflow_execution
 
@@ -403,14 +397,13 @@ class TestWorkflowAudit:
             mock_get.return_value.get_session.return_value = session
             mock_service_cls.return_value.get_active_config.return_value = None
             with pytest.raises(HTTPException) as exc_info:
-                asyncio.run(retry_workflow_execution(_fake_request(), 11))
+                retry_workflow_execution(_fake_request(), 11)
 
         assert exc_info.value.status_code == 500
         session.commit.assert_not_called()
         mock_task.delay.assert_not_called()
 
     def test_trigger_route_passes_initiator_and_audit_factory(self):
-        import asyncio
 
         from src.web.routes.workflow_executions import trigger_workflow_for_article
 
@@ -423,7 +416,7 @@ class TestWorkflowAudit:
             mock_get.return_value.get_session.return_value = session
             mock_service = mock_service_cls.return_value
             mock_service.trigger_workflow.return_value = (True, None)
-            result = asyncio.run(trigger_workflow_for_article(_fake_request(), article_id=7, force=True))
+            result = trigger_workflow_for_article(_fake_request(), article_id=7, force=True)
 
         assert result["success"] is True
         kwargs = mock_service.trigger_workflow.call_args.kwargs
@@ -436,7 +429,6 @@ class TestWorkflowAudit:
 
     def test_trigger_route_delegates_active_execution_recovery_to_trigger_service(self):
         """The route must not preempt the service's updated_at-based recovery check."""
-        import asyncio
 
         from src.web.routes.workflow_executions import trigger_workflow_for_article
 
@@ -448,7 +440,7 @@ class TestWorkflowAudit:
         ):
             mock_get.return_value.get_session.return_value = session
             mock_service_cls.return_value.trigger_workflow.return_value = (True, None)
-            result = asyncio.run(trigger_workflow_for_article(_fake_request(), article_id=7, force=True))
+            result = trigger_workflow_for_article(_fake_request(), article_id=7, force=True)
 
         assert result["success"] is True
         mock_service_cls.return_value.trigger_workflow.assert_called_once()
@@ -456,7 +448,6 @@ class TestWorkflowAudit:
     def test_trigger_route_surfaces_audit_failure_as_500(self):
         """A trigger whose mandatory audit fails must reach the operator as a 500,
         never a false 'triggered' success (WorkflowAuditError -> generic 500 path)."""
-        import asyncio
 
         from src.services.workflow_trigger_service import WorkflowAuditError
         from src.web.routes.workflow_executions import trigger_workflow_for_article
@@ -470,7 +461,7 @@ class TestWorkflowAudit:
             mock_get.return_value.get_session.return_value = session
             mock_service_cls.return_value.trigger_workflow.side_effect = WorkflowAuditError("audit write failed")
             with pytest.raises(HTTPException) as exc_info:
-                asyncio.run(trigger_workflow_for_article(_fake_request(), article_id=7, force=True))
+                trigger_workflow_for_article(_fake_request(), article_id=7, force=True)
 
         assert exc_info.value.status_code == 500
         # The route's generic handler rolls the request session back before re-raising.

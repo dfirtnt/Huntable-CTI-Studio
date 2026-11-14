@@ -1,8 +1,11 @@
 """Tests for src.utils.model_validation."""
 
+import ast
 import re
+from pathlib import Path
 
 from src.utils.model_validation import (
+    _OPENAI_REASONING_PREFIXES,
     OPENAI_DATED,
     PROJECT_OPENAI_ALLOWLIST,
     _anthropic_family,
@@ -10,6 +13,7 @@ from src.utils.model_validation import (
     filter_anthropic_models_latest_only,
     filter_openai_models_latest_only,
     filter_openai_models_project_allowlist,
+    heuristic_supports_variable_temperature,
     is_valid_openai_chat_model,
     model_supports_variable_temperature,
     suggest_base_model,
@@ -163,10 +167,20 @@ class TestFilterOpenaiModelsProjectAllowlist:
         assert out == ["gpt-4o", "o4-mini"]
 
     def test_gpt5_4_subfamily_all_pass_via_pattern(self):
-        """gpt-5.4 family passes via _GPT5_PATTERN -- no explicit allowlist entry required."""
+        """gpt-5.4 family passes via _GPT_FRONTIER_PATTERN -- no explicit allowlist entry required."""
         models = ["gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano", "gpt-5.4-pro"]
         out = filter_openai_models_project_allowlist(models)
         assert set(out) == set(models)
+
+    def test_gpt6_family_passes_via_pattern(self):
+        """gpt-6* passes via _GPT_FRONTIER_PATTERN -- the gate was gpt-5-only and silently hid these."""
+        models = ["gpt-6-astra", "gpt-6-luna", "gpt-6-sol", "gpt-6.1-sol"]
+        out = filter_openai_models_project_allowlist(models)
+        assert set(out) == set(models)
+
+    def test_gpt6_is_treated_as_reasoning_model_for_temperature(self):
+        """A gpt-6 id missing from model_capabilities.json must still fall back to no-temperature."""
+        assert heuristic_supports_variable_temperature("gpt-6-future-model") is False
 
     def test_gpt5_codex_passes_allowlist_pattern_in_isolation(self):
         """filter_openai_models_project_allowlist alone does no chat-validity check; gpt-5*
@@ -422,3 +436,17 @@ class TestModelSupportsVariableTemperature:
         for model in PROJECT_OPENAI_ALLOWLIST:
             assert model in expected, f"{model} added to allowlist but not in temperature expectation map"
             assert model_supports_variable_temperature(model) is expected[model], model
+
+
+class TestReasoningPrefixMirror:
+    """config.js documents OPENAI_REASONING_PREFIXES as a mirror of the Python tuple.
+
+    A prefix added on one side only makes the UI enable the Temperature slider for a
+    model the server then rejects with a 400 (or the reverse), so keep them identical.
+    """
+
+    def test_js_reasoning_prefixes_match_python(self):
+        js = (Path(__file__).resolve().parents[2] / "src/web/static/js/workflow/config.js").read_text()
+        match = re.search(r"const OPENAI_REASONING_PREFIXES = (\[[^\]]*\]);", js)
+        assert match, "OPENAI_REASONING_PREFIXES not found in config.js"
+        assert tuple(ast.literal_eval(match.group(1))) == _OPENAI_REASONING_PREFIXES

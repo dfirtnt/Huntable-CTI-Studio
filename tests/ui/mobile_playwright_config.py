@@ -135,6 +135,7 @@ class MobileTestHelpers:
         element = page.locator(selector)
         element.hover()
         page.mouse.down()
+        # The hold duration is the behavior being simulated, not a wait for a condition.
         page.wait_for_timeout(int(duration * 1000))
         page.mouse.up()
 

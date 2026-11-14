@@ -91,7 +91,7 @@ async def _rescore_articles(articles):
 
 
 @router.post("/generate-report")
-async def api_generate_report():
+def api_generate_report():
     """Generate system report."""
     return {
         "success": True,
@@ -101,7 +101,7 @@ async def api_generate_report():
 
 
 @router.post("/trigger-ingestion")
-async def api_trigger_ingestion():
+def api_trigger_ingestion():
     """Manually trigger article ingestion by running check_all_sources task."""
     try:
         from celery import Celery

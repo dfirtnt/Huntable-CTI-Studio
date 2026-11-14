@@ -447,6 +447,14 @@ verify_installation() {
 }
 
 # Function to ensure Sigma rules repo exists for PR submission (../Huntable-SIGMA-Rules)
+# Seed a customer rules repository with the rule layout table CTI Studio publishes by.
+seed_sigma_rule_layout() {
+    local repo_dir="$1"
+    mkdir -p "$repo_dir/.huntable"
+    cp config/sigma_rule_layout.yml "$repo_dir/.huntable/rule-layout.yml"
+    (cd "$repo_dir" && git add .huntable/rule-layout.yml 2>/dev/null && git commit -m "Add Sigma rule layout table" 2>/dev/null || true)
+}
+
 handle_sigma_repo_setup() {
     local sigma_repo_dir="../Huntable-SIGMA-Rules"
     local default_repo="your-username/Huntable-SIGMA-Rules"
@@ -510,29 +518,23 @@ handle_sigma_repo_setup() {
     done
 
     if [[ "$clone_success" != "true" ]]; then
-        print_warning "Creating local repo with rules structure..."
+        print_warning "Creating local rules repo with the rule layout table..."
         mkdir -p "$sigma_repo_dir"
-        (cd "$sigma_repo_dir" && git init && mkdir -p rules/windows rules/linux rules/macos rules/network rules/cloud)
-        for d in windows linux macos network cloud; do
-            touch "$sigma_repo_dir/rules/$d/.gitkeep"
-        done
-        (cd "$sigma_repo_dir" && git add rules/ && git commit -m "Add rules directory structure" 2>/dev/null || true)
+        (cd "$sigma_repo_dir" && git init)
+        seed_sigma_rule_layout "$sigma_repo_dir"
         if [[ "$repo_input" != "your-username/Huntable-SIGMA-Rules" ]]; then
             (cd "$sigma_repo_dir" && git remote add origin "https://github.com/${repo_input}.git" 2>/dev/null || true)
-            print_status "Created $sigma_repo_dir with rules structure. Create repo on GitHub, then: cd $sigma_repo_dir && git push -u origin main"
+            print_status "Created $sigma_repo_dir with the rule layout table. Create repo on GitHub, then: cd $sigma_repo_dir && git push -u origin main"
         else
-            print_status "Created $sigma_repo_dir with rules structure. Create repo on GitHub, then: cd $sigma_repo_dir && git remote add origin https://github.com/YOUR_USER/Huntable-SIGMA-Rules.git && git push -u origin main"
+            print_status "Created $sigma_repo_dir with the rule layout table. Create repo on GitHub, then: cd $sigma_repo_dir && git remote add origin https://github.com/YOUR_USER/Huntable-SIGMA-Rules.git && git push -u origin main"
         fi
     fi
 
-    # Ensure rules structure exists
-    if [[ -d "$sigma_repo_dir" ]] && [[ ! -d "$sigma_repo_dir/rules" ]]; then
-        print_status "Adding rules directory structure..."
-        mkdir -p "$sigma_repo_dir/rules"/{windows,linux,macos,network,cloud}
-        for d in windows linux macos network cloud; do
-            touch "$sigma_repo_dir/rules/$d/.gitkeep"
-        done
-        (cd "$sigma_repo_dir" && git add rules/ 2>/dev/null && git commit -m "Add rules directory structure" 2>/dev/null || true)
+    # Seed the rule layout table into a repo that has no rules yet. Rule directories are
+    # created by the first PR that needs them (no empty platform placeholders). An existing
+    # rules repo is left alone; scripts/migrate_sigma_repo_layout.py migrates it.
+    if [[ -d "$sigma_repo_dir" ]] && [[ ! -d "$sigma_repo_dir/rules" ]] && [[ ! -f "$sigma_repo_dir/.huntable/rule-layout.yml" ]]; then
+        seed_sigma_rule_layout "$sigma_repo_dir"
     fi
 
     # Persist the selection, including an accepted default and older env files

@@ -1,4 +1,4 @@
-"""Unit tests for scripts/build_baseline_presets.py path constants."""
+"""Unit tests for scripts/normalize_quickstart_presets.py path constants."""
 
 import sys
 from pathlib import Path
@@ -8,7 +8,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-import build_baseline_presets as script
+import normalize_quickstart_presets as script
 import pytest
 
 pytestmark = pytest.mark.unit

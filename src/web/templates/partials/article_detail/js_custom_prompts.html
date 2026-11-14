@@ -1,0 +1,1023 @@
+    // Removed: showCustomPromptModal, closeCustomPromptModal, generateCustomPrompt, showCustomResponseModal, closeCustomResponseModal functions
+    /*
+    async function showCustomPromptModal() {
+        // DEPRECATED
+        await cleanupExistingModal('customPromptModal');
+        
+        // Get AI model from settings
+        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        const aiModel = settings.aiModel || 'chatgpt';
+        const modelDisplayName = aiModel === 'chatgpt' ? 'ChatGPT (OpenAI)' : 
+                                aiModel === 'anthropic' ? 'Claude (Anthropic)' : 
+                                aiModel === 'lmstudio' ? 'LMStudio (Local)' : 'LLM';
+        
+        const modal = document.createElement('div');
+        modal.id = 'customPromptModal';
+        modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Custom prompt');
+        
+        // Add click outside to close
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeCustomPromptModal();
+            }
+        });
+        
+        // Add ESC key to close
+        const handleEsc = function(e) {
+            if (e.key === 'Escape') {
+                closeCustomPromptModal();
+                document.removeEventListener('keydown', handleEsc);
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
+        
+        modal.innerHTML = `
+            <div class="card shadow-2xl p-6 max-w-2xl w-full mx-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-gray-50"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"/></svg> Custom AI Prompt</h3>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="showCustomHelp()" class="text-blue-400 hover:text-blue-300 text-sm px-2 py-1 rounded-lg border border-blue-500/30 hover:bg-blue-500/10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            Help
+                        </button>
+                        <button onclick="closeCustomPromptModal()" aria-label="Close" class="text-gray-400 hover:text-gray-200 p-1 rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="mb-4 p-3 bg-panel-0 border border-gray-700 rounded-lg">
+                    <div class="text-sm text-gray-300">
+                        <p class="font-medium mb-1"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 7.5h10.5v9H6.75v-9z"/></svg> AI Model:</p>
+                        <p class="text-gray-400">${modelDisplayName}</p>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="customPrompt" class="block text-sm font-medium text-gray-300 mb-2">
+                        Your Question or Request
+                    </label>
+                    <textarea id="customPrompt" 
+                              rows="4" 
+                              class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                              placeholder="Ask anything about this article. For example:&#10;- What are the main attack vectors mentioned?&#10;- How would I detect this threat in my network?&#10;- What are the key IOCs to monitor?&#10;- Explain the technical details in simple terms"></textarea>
+                </div>
+                
+                <div class="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                    <div class="text-sm text-blue-300">
+                        <p class="font-medium mb-1">💡 Tips:</p>
+                        <ul class="list-disc list-inside space-y-1">
+                            <li>Be specific about what you want to know</li>
+                            <li>Ask for technical details, IOCs, or analysis</li>
+                            <li>Request detection rules or threat hunting queries</li>
+                            <li>Ask for explanations in different detail levels</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="flex justify-between">
+                    <button onclick="showCustomPromptHistory()" 
+                            class="inline-flex items-center px-4 py-2 border border-gray-600 hover:bg-gray-800 text-gray-300 text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
+                        <span class="mr-2"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/></svg></span>
+                        View Previous Prompts
+                    </button>
+                    <div class="flex space-x-3">
+                        <button onclick="closeCustomPromptModal()" 
+                                class="inline-flex items-center px-4 py-2 border border-gray-600 hover:bg-gray-800 text-gray-300 text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
+                            Cancel
+                        </button>
+                        <button onclick="generateCustomPrompt()" 
+                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-purple-500 hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
+                            <span class="mr-2"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 7.5h10.5v9H6.75v-9z"/></svg></span>
+                            Generate Response
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        // Ensure modal is visible
+        modal.classList.remove('hidden');
+        
+        // Register and open with ModalManager
+        if (window.ModalManager) {
+            setTimeout(() => {
+                const submitBtn = modal.querySelector('button[onclick*="generateCustomPrompt"]');
+                window.ModalManager.register('customPromptModal', {
+                    isDynamic: true,
+                    hasInput: true,
+                    submitButton: submitBtn
+                });
+                window.ModalManager.open('customPromptModal');
+                modal.classList.remove('hidden');
+            }, 50);
+        }
+        
+        // Add Cmd/Ctrl+Enter key handler to textarea
+        const textarea = document.getElementById('customPrompt');
+        if (textarea) {
+            textarea.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    generateCustomPrompt();
+                }
+            });
+            // Focus the textarea
+            textarea.focus();
+        }
+    }
+    
+    /*
+    function closeCustomPromptModal() {
+        const modal = document.getElementById('customPromptModal');
+        if (modal) {
+            modal.remove();
+        }
+    }
+    
+    async function generateCustomPrompt() {
+        const customPrompt = document.getElementById('customPrompt').value.trim();
+        
+        if (!customPrompt) {
+            showNotification('Please enter a question or request', 'error');
+            return;
+        }
+        
+        closeCustomPromptModal();
+        
+        // Get AI model from settings
+        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
+        const aiModel = settings.aiModel || 'chatgpt';
+        
+        // Only set API key for cloud models that require it
+        let apiKey = null;
+        if (aiModel === 'anthropic') {
+            apiKey = settings.aiAnthropicApiKey;
+        } else if (aiModel === 'chatgpt') {
+            apiKey = settings.aiOpenaiApiKey;
+        }
+        // For local models like lmstudio, apiKey remains null
+        
+        if ((aiModel === 'chatgpt' || aiModel === 'anthropic') && !apiKey) {
+            const keyType = aiModel === 'anthropic' ? 'Anthropic' : 'OpenAI';
+            showNotification(`Please configure your ${keyType} API key in Settings first`, 'error');
+            return;
+        }
+        
+        // Show loading modal
+        const loadingModal = document.createElement('div');
+        loadingModal.id = 'loadingModal';
+        loadingModal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4';
+loadingModal.setAttribute('role', 'dialog');
+loadingModal.setAttribute('aria-modal', 'true');
+loadingModal.setAttribute('aria-label', 'Loading');
+        
+        // Track if request has started
+        let requestStarted = false;
+        
+        // Create AbortController for cancellation
+        const abortController = new AbortController();
+        let isCancelled = false;
+        
+        // Cancel handler function
+        const handleCancel = function() {
+            if (requestStarted && !isCancelled) {
+                isCancelled = true;
+                abortController.abort();
+                showNotification('Custom prompt generation cancelled', 'info');
+            }
+            const modal = document.getElementById('loadingModal');
+            if (modal && modal.parentNode) {
+                modal.remove();
+            }
+            document.removeEventListener('keydown', handleEsc);
+        };
+        
+        // Close modal when clicking outside (dismiss without cancelling)
+        loadingModal.addEventListener('click', function(e) {
+            if (e.target === loadingModal) {
+                const modal = document.getElementById('loadingModal');
+                if (modal && modal.parentNode) {
+                    modal.remove();
+                }
+                document.removeEventListener('keydown', handleEsc);
+            }
+        });
+        
+        // Add ESC key handler to close loading modal (dismiss without cancelling)
+        const handleEsc = function(e) {
+            if (e.key === 'Escape') {
+                // ESC just closes the modal, operation continues in background
+                const modal = document.getElementById('loadingModal');
+                if (modal && modal.parentNode) {
+                    modal.remove();
+                }
+                document.removeEventListener('keydown', handleEsc);
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
+        
+        loadingModal.innerHTML = `
+            <div class="mx-auto p-5 border border-gray-700 w-96 shadow-lg rounded-md bg-gray-800">
+                <div class="mt-3 text-center">
+                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-purple-900/30">
+                        <svg class="animate-spin h-6 w-6 text-purple-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-100 mt-4"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 7.5h10.5v9H6.75v-9z"/></svg> Processing Custom Request...</h3>
+                    <p class="text-sm text-gray-400 mt-2">This may take a few moments.</p>
+                    <div class="mt-6 flex flex-col items-center space-y-3">
+                        <button id="cancelBtnCustom" class="px-6 py-2.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 focus:ring-offset-gray-900 shadow-sm transition-colors">
+                            Cancel Operation
+                        </button>
+                        <div class="flex items-center space-x-2 text-sm text-gray-400">
+                            <span>Press</span>
+                            <kbd class="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs font-semibold text-gray-300 shadow-sm">ESC</kbd>
+                            <span>or click outside to dismiss (operation continues)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(loadingModal);
+        
+        // Wire up cancel button
+        const cancelBtn = loadingModal.querySelector('#cancelBtnCustom');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', handleCancel);
+        }
+        
+        try {
+            // Create a timeout promise - longer for LLM operations
+            const timeoutPromise = new Promise((_, reject) => {
+                const timeoutMs = aiModel === 'chatgpt' ? 180000 : 600000; // 180s for ChatGPT, 600s for LLM
+                setTimeout(() => reject(new Error(`Request timed out after ${timeoutMs/1000} seconds`)), timeoutMs);
+            });
+            
+            // Build request body conditionally
+            const customPromptBody = {
+                prompt: customPrompt,
+                ai_model: aiModel
+            };
+            
+            // Only include API key if it's provided (for cloud models)
+            if (apiKey) {
+                customPromptBody.api_key = apiKey;
+            }
+            
+            // Create the fetch promise
+            const fetchPromise = fetch(`/api/articles/{{ article.id }}/custom-prompt`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(customPromptBody),
+                signal: abortController.signal
+            });
+            
+            // Mark request as started
+            requestStarted = true;
+            
+            // Race between fetch and timeout
+            const response = await Promise.race([fetchPromise, timeoutPromise]);
+            
+            if (response.ok) {
+                const data = await response.json();
+                showCustomResponseModal(data.response, customPrompt, data);
+            } else {
+                const error = await response.json();
+                showNotification(`Custom prompt failed: ${error.detail}`, 'error');
+            }
+        } catch (error) {
+            // Don't show error if request was cancelled
+            if (isCancelled || error.name === 'AbortError') {
+                return; // Already handled in handleCancel
+            }
+            if (error.message.includes('timed out')) {
+                const timeoutMsg = aiModel === 'chatgpt' ? '60 seconds' : '200 seconds';
+                showNotification(`Custom prompt timed out after ${timeoutMsg}. Try using a different model or check your settings.`, 'error');
+            } else {
+                showNotification(`Error: ${error.message}`, 'error');
+            }
+        } finally {
+            // Remove loading modal and clean up ESC handler
+            const loadingModal = document.getElementById('loadingModal');
+            if (loadingModal && loadingModal.parentNode) {
+                loadingModal.remove();
+            }
+            // Clean up the ESC key handler
+            document.removeEventListener('keydown', handleEsc);
+        }
+    }
+    
+    async function showCustomResponseModal(response, originalPrompt, data = null) {
+        await cleanupExistingModal('customResponseModal');
+        
+        const modal = document.createElement('div');
+        modal.id = 'customResponseModal';
+        modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Custom response');
+        
+        // Add click outside to close
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeCustomResponseModal();
+            }
+        });
+        
+        // Add ESC key to close
+        const handleEsc = function(e) {
+            if (e.key === 'Escape') {
+                closeCustomResponseModal();
+                document.removeEventListener('keydown', handleEsc);
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
+        
+        const modelUsed = data?.ai_model || data?.model_name || 'Unknown';
+        const respondedAt = data?.responded_at ? new Date(data.responded_at).toLocaleString() : 'Unknown';
+        
+        modal.innerHTML = `
+            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-gray-900"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"/></svg> Custom AI Response</h3>
+                    <button onclick="closeCustomResponseModal()" aria-label="Close" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="mb-4 p-3 bg-gray-50 rounded-md">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="font-medium text-gray-700">Your Question:</span>
+                            <p class="text-gray-900 mt-1">${originalPrompt}</p>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-700">Model Used:</span>
+                            <span class="text-gray-900">${modelUsed}</span>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-700">Responded At:</span>
+                            <span class="text-gray-900">${respondedAt}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
+                    <div class="prose max-w-none">
+                        <pre class="whitespace-pre-wrap text-sm text-gray-800 font-mono">${response}</pre>
+                    </div>
+                </div>
+                
+                <div class="mt-4 flex justify-end space-x-3">
+                    <button onclick="showCustomPromptModal()" 
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white btn-workflow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                        <span class="mr-2"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"/></svg></span>
+                        Ask a new question
+                    </button>
+                    <button onclick="closeCustomResponseModal()" 
+                            class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        // Ensure modal is visible
+        modal.classList.remove('hidden');
+        
+        // Register and open with ModalManager
+        if (window.ModalManager) {
+            setTimeout(() => {
+                window.ModalManager.register('customResponseModal', {
+                    isDynamic: true,
+                    hasInput: false
+                });
+                window.ModalManager.open('customResponseModal');
+                modal.classList.remove('hidden');
+            }, 50);
+        }
+    }
+    
+    function closeCustomResponseModal() {
+        const modal = document.getElementById('customResponseModal');
+        if (modal) {
+            modal.remove();
+        }
+    }
+    */
+    
+    // Removed: showCustomPromptHistory function (depended on custom prompt modal)
+    function showCustomPromptHistory() {
+        // DEPRECATED - Custom prompt modal removed
+        
+        const modal = document.createElement('div');
+        modal.id = 'customPromptHistoryModal';
+        modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Custom prompt history');
+        
+        // Add click outside to close
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeCustomPromptHistoryModal();
+            }
+        });
+        
+        // Add ESC key to close
+        const handleEsc = function(e) {
+            if (e.key === 'Escape') {
+                closeCustomPromptHistoryModal();
+                document.removeEventListener('keydown', handleEsc);
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
+        
+        // Get stored custom prompts from article metadata
+        const customPrompts = {{ article.article_metadata.get('custom_prompts', []) | tojson }};
+        console.log('Custom prompts data:', customPrompts);
+        console.log('Custom prompts length:', customPrompts ? customPrompts.length : 'null');
+        
+        let historyContent = '';
+        if (customPrompts && customPrompts.length > 0) {
+            console.log('Processing custom prompts...');
+            historyContent = customPrompts.map((prompt, index) => {
+                const respondedAt = new Date(prompt.responded_at).toLocaleString();
+                const responsePreview = prompt.response.substring(0, 200) + (prompt.response.length > 200 ? '...' : '');
+                
+                return `
+                    <div class="border border-gray-200 rounded-lg p-4 mb-4 bg-white">
+                        <div class="flex justify-between items-start mb-3">
+                            <div class="flex-1">
+                                <h4 class="font-semibold text-gray-900 mb-2">${prompt.prompt}</h4>
+                                <div class="text-sm text-gray-600 mb-2">
+                                    <span class="font-medium">Model:</span> ${prompt.model_name || prompt.model_used || 'Unknown'} • 
+                                    <span class="font-medium">Date:</span> ${respondedAt}
+                                </div>
+                            </div>
+                            <button onclick="showFullPromptResponse(${index})" 
+                                    class="ml-4 px-3 py-1 text-sm bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition-colors">
+                                View Full
+                            </button>
+                        </div>
+                        <div class="bg-gray-50 rounded p-3">
+                            <div class="text-sm text-gray-700 font-mono whitespace-pre-wrap">${responsePreview}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            console.log('Generated history content:', historyContent);
+        } else {
+            console.log('No custom prompts found, showing empty state');
+            historyContent = `
+                <div class="text-center py-8 text-gray-500">
+                    <div class="text-xl mb-4">📝</div>
+                    <p class="text-lg font-medium mb-2">No Previous Prompts</p>
+                    <p class="text-sm">You haven't asked any custom questions about this article yet.</p>
+                </div>
+            `;
+        }
+        
+        modal.innerHTML = `
+            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold text-gray-900"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/></svg> Custom Prompt History</h3>
+                    <div class="flex space-x-3">
+                        <button onclick="showCustomPromptModal()" 
+                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white btn-workflow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                            <span class="mr-2"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"/></svg></span>
+                            Ask New Question
+                        </button>
+                        <button onclick="closeCustomPromptHistoryModal()" aria-label="Close" class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="max-h-96 overflow-y-auto">
+                    ${historyContent}
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        // Ensure modal is visible
+        modal.classList.remove('hidden');
+        
+        // Register and open with ModalManager
+        if (window.ModalManager) {
+            setTimeout(() => {
+                window.ModalManager.register('customPromptHistoryModal', {
+                    isDynamic: true,
+                    hasInput: false
+                });
+                window.ModalManager.open('customPromptHistoryModal');
+                modal.classList.remove('hidden');
+            }, 50);
+        }
+    }
+    
+    function closeCustomPromptHistoryModal() {
+        const modal = document.getElementById('customPromptHistoryModal');
+        if (modal) {
+            modal.remove();
+        }
+    }
+    
+    function showFullPromptResponse(index) {
+        const customPrompts = {{ article.article_metadata.get('custom_prompts', []) | tojson }};
+        if (!customPrompts || !customPrompts[index]) {
+            showNotification('Prompt not found', 'error');
+            return;
+        }
+        
+        const prompt = customPrompts[index];
+        closeCustomPromptHistoryModal();
+        showCustomResponseModal(prompt.response, prompt.prompt, {
+            model_name: prompt.model_name || prompt.model_used,
+            responded_at: prompt.responded_at
+        });
+    }
+    
+    // Store generated rules globally for easy access
+    let currentGeneratedSigmaRules = [];
+    
+    async function showSigmaRulesModal(sigmaRules, data) {
+        // Remove any existing modal
+        closeSigmaRulesModal();
+        await cleanupExistingModal('sigmaRulesModal');
+        
+        // Store generated rules globally
+        if (sigmaRules && Array.isArray(sigmaRules)) {
+            currentGeneratedSigmaRules = sigmaRules;
+        } else if (data && data.rules && Array.isArray(data.rules)) {
+            currentGeneratedSigmaRules = data.rules;
+        }
+        
+        const modal = document.createElement('div');
+        modal.id = 'sigmaRulesModal';
+        modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', 'Sigma rules');
+        
+        // Add click outside to close
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeSigmaRulesModal();
+            }
+        });
+        
+        // Add ESC key to close
+        const handleEsc = function(e) {
+            if (e.key === 'Escape') {
+                closeSigmaRulesModal();
+                document.removeEventListener('keydown', handleEsc);
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
+        
+        const provider = data?.ai_model || data?.metadata?.ai_model || 'unknown';
+        const modelName = data?.model_name || data?.metadata?.model_name || null;
+        const modelUsed = modelName ? `${provider}  --  ${modelName}` : provider;
+        const generatedAt = data?.generated_at || data?.metadata?.generated_at ? new Date(data.generated_at || data.metadata.generated_at).toLocaleString() : 'Unknown';
+        const temperature = data?.temperature || data?.metadata?.temperature || '0.2';
+        const validationResults = data?.validation_results || data?.metadata?.validation_results || [];
+        const failureError = data?.error || null;
+        const hasFailure = (sigmaRules === null || sigmaRules === 'null') && failureError;
+        
+        // Convert sigmaRules to string if it's an object
+        let sigmaRulesText = sigmaRules;
+        if (typeof sigmaRules === 'object' && sigmaRules !== null) {
+            // If it's an array of rules with content field, extract and format the content
+            if (Array.isArray(sigmaRules) && sigmaRules.length > 0 && sigmaRules[0].content) {
+                sigmaRulesText = sigmaRules.map((rule, index) => {
+                    return `--- Rule ${index + 1} ---\n${rule.content.replace(/\\n/g, '\n')}`;
+                }).join('\n\n');
+            } else {
+                sigmaRulesText = JSON.stringify(sigmaRules, null, 2);
+            }
+        }
+        
+        // Build error banner if there was a failure
+        let errorBannerHtml = '';
+        if (hasFailure) {
+            errorBannerHtml = `
+                <div class="mb-4 p-4 bg-red-50 border-2 border-red-300 rounded-lg">
+                    <div class="flex items-start">
+                        <span class="text-lg mr-3"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg></span>
+                        <div class="flex-1">
+                            <h4 class="font-bold text-red-900 mb-2">SIGMA Generation Failed</h4>
+                            <p class="text-sm text-red-800 mb-2">${failureError}</p>
+                            <p class="text-xs text-red-700">The conversation log below shows what was attempted before the failure. Click "Regenerate" to try again.</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Build validation status display
+        let validationStatusHtml = '';
+        if (validationResults.length > 0) {
+            validationStatusHtml = '<div class="mb-4 p-3 bg-gray-50 rounded-lg">';
+            validationStatusHtml += '<h4 class="font-medium text-gray-900 mb-2"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg> Validation Results</h4>';
+            
+            validationResults.forEach((result, index) => {
+                const statusIcon = result.is_valid ? '✅' : '❌';
+                const statusColor = result.is_valid ? 'text-emerald-400' : 'text-red-600';
+                const statusText = result.is_valid ? 'Valid' : 'Invalid';
+                const ruleIndex = result.rule_index !== undefined ? result.rule_index : (index + 1);
+                
+                validationStatusHtml += `<div class="mb-2 p-2 border rounded ${result.is_valid ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}">`;
+                validationStatusHtml += `<div class="flex items-center mb-1">`;
+                validationStatusHtml += `<span class="mr-2">${statusIcon}</span>`;
+                validationStatusHtml += `<span class="font-medium ${statusColor}">Rule ${ruleIndex}: ${statusText}</span>`;
+                validationStatusHtml += `</div>`;
+                
+                if (result.errors && result.errors.length > 0) {
+                    validationStatusHtml += `<div class="text-sm text-red-600 mb-1">`;
+                    validationStatusHtml += `<strong>Errors:</strong><ul class="list-disc list-inside ml-2">`;
+                    result.errors.forEach(error => {
+                        const escapedError = String(error).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                        validationStatusHtml += `<li>${escapedError}</li>`;
+                    });
+                    validationStatusHtml += `</ul></div>`;
+                }
+                
+                if (result.warnings && result.warnings.length > 0) {
+                    validationStatusHtml += `<div class="text-sm text-amber-400 mb-1">`;
+                    validationStatusHtml += `<strong>Warnings:</strong><ul class="list-disc list-inside ml-2">`;
+                    result.warnings.forEach(warning => {
+                        const escapedWarning = String(warning).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                        validationStatusHtml += `<li>${escapedWarning}</li>`;
+                    });
+                    validationStatusHtml += `</ul></div>`;
+                }
+                
+                if (result.rule_info) {
+                    validationStatusHtml += `<div class="text-sm text-gray-600">`;
+                    validationStatusHtml += `<strong>Rule Info:</strong> ${result.rule_info.title || 'Untitled'} `;
+                    if (result.rule_info.level) {
+                        validationStatusHtml += `(${result.rule_info.level})`;
+                    }
+                    validationStatusHtml += `</div>`;
+                }
+                
+                validationStatusHtml += `</div>`;
+            });
+            
+            validationStatusHtml += '</div>';
+        }
+        
+        modal.innerHTML = `
+            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md" style="background-color: var(--surface-modal-muted);">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg> One Shot - SIGMA Detection Rules</h3>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="showSigmaHelp()" class="text-blue-500 hover:text-blue-700 text-sm px-2 py-1 rounded border border-blue-300 hover:bg-blue-50">
+                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            Help
+                        </button>
+                        <button onclick="closeSigmaRulesModal()" class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="mb-4 text-sm text-gray-600">
+                    <span class="font-medium">Generated by:</span> ${modelUsed} | 
+                    <span class="font-medium">Generated at:</span> ${generatedAt} |
+                    <span class="font-medium">Temperature:</span> ${temperature}
+                    ${data?.cached ? ' | <span class="font-medium text-blue-600">(Cached)</span>' : ''}
+                </div>
+                
+                ${data?.optimization ? `
+                <div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                    <div class="flex items-center mb-2">
+                        <span class="text-emerald-400 font-medium"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a48.475 48.475 0 00-6.58-6.58M15.59 14.37A20.067 20.067 0 0119.5 12c2.91 0 5.306.57 7.5 1.613M15.59 14.37l3.472 3.472M6.5 7.79A20.067 20.067 0 004.5 12c0 2.91.57 5.306 1.613 7.5M6.5 7.79l-3.472 3.472"/></svg> Content Optimization Applied</span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                        ${modelUsed.includes('gpt') || modelUsed.includes('chatgpt') ? `
+                        <div>
+                            <span class="font-medium text-gray-700">Cost Savings:</span>
+                            <span class="text-emerald-400 font-medium">$${data.optimization.cost_savings.toFixed(4)}</span>
+                        </div>
+                        ` : ''}
+                        <div>
+                            <span class="font-medium text-gray-700">Tokens Saved:</span>
+                            <span class="text-emerald-400 font-medium">${data.optimization.tokens_saved.toLocaleString()}</span>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-700">Chunks Removed:</span>
+                            <span class="text-emerald-400 font-medium">${data.optimization.chunks_removed}</span>
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+                
+                ${errorBannerHtml}
+                ${hasFailure ? '' : `
+                <div class="mt-4">
+                    <h4 class="text-md font-medium text-gray-900 mb-2"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125"/></svg> SIGMA Rules</h4>
+                    <div class="p-4 rounded-lg max-h-96 overflow-y-auto" style="background-color: var(--color-text-secondary);">
+                        <pre class="text-sm font-mono whitespace-pre-wrap text-gray-800">${sigmaRulesText}</pre>
+                    </div>
+                </div>
+                `}
+
+                ${validationStatusHtml}
+
+                <div class="mt-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h4 class="text-md font-medium text-gray-900"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.992 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M2.985 19.644l3.181-3.182"/></svg> LLM ↔ pySigma Conversation Log</h4>
+                        <button id="toggleSigmaConversation" class="text-sm text-blue-600 hover:text-blue-800 px-3 py-1 border border-blue-300 rounded hover:bg-blue-50">
+                            Show Log
+                        </button>
+                    </div>
+                    <div class="text-xs text-gray-600 mb-2">Shows the iterative pySigma semantic validation and Huntable policy checks</div>
+                    <div id="sigmaConversationContent" style="display: none;">
+                        <div id="sigmaConversation" class="space-y-4 max-h-96 overflow-y-auto p-4 bg-gray-50 rounded border">
+                            <!-- Filled by script below -->
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4 flex justify-between items-center">
+                    <div class="flex space-x-2">
+                        <button onclick="regenerateSigmaRules()" 
+                                class="px-4 py-2 btn-workflow text-white rounded-md transition-colors">
+                            🔄 Regenerate
+                        </button>
+                        <button id="checkSimilarRulesBtn" onclick="checkSimilarSigmaRules(false)" 
+                                class="px-4 py-2 btn-workflow text-white rounded-md transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                title="Search for similar rules across indexed repositories"
+                                disabled>
+                            🔍 Similarity Search
+                        </button>
+                        <button id="regenerateSimilarRulesBtn" onclick="checkSimilarSigmaRules(true)"
+                                class="px-4 py-2 btn-workflow text-white rounded-md transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed hidden"
+                                title="Re-run similar rules search (forces re-check)">
+                            🔄 Regenerate Similar
+                        </button>
+                        <button id="embedArticleBtn" onclick="generateArticleEmbedding()" 
+                                class="px-4 py-2 btn-workflow text-white rounded-md transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                title="Generate article embedding for semantic search"
+                                disabled>
+                            🧬 Embed Article
+                        </button>
+                        <button id="sendToQueueBtn" onclick="sendRuleToQueue()" 
+                                class="px-4 py-2 btn-workflow text-white rounded-md transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                title="Send generated rule to SIGMA Queue for review"
+                                disabled>
+                            📋 Send to Queue
+                        </button>
+                    </div>
+                    <button onclick="closeSigmaRulesModal()" 
+                            class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Ensure modal is visible
+        modal.classList.remove('hidden');
+        
+        // Register and open with ModalManager
+        if (window.ModalManager) {
+            setTimeout(() => {
+                window.ModalManager.register('sigmaRulesModal', {
+                    isDynamic: true,
+                    hasInput: false
+                });
+                window.ModalManager.open('sigmaRulesModal');
+                modal.classList.remove('hidden');
+            }, 50);
+        }
+
+        // Check if article has embeddings and enable/disable buttons
+        const checkBtn = document.getElementById('checkSimilarRulesBtn');
+        const embedBtn = document.getElementById('embedArticleBtn');
+        const queueBtn = document.getElementById('sendToQueueBtn');
+        const articleId = {{ article.id|default(0)|int }};
+        
+        // Enable queue button if rules are available
+        if (queueBtn && currentGeneratedSigmaRules && currentGeneratedSigmaRules.length > 0) {
+            queueBtn.disabled = false;
+        }
+        
+        // Fetch embedding status from API
+        fetch(`/api/articles/${articleId}`)
+            .then(response => response.json())
+            .then(data => {
+                const hasEmbedding = data.embedding && data.embedding.length > 0;
+                
+                if (checkBtn) {
+                    if (hasEmbedding) {
+                        checkBtn.disabled = false;
+                        checkBtn.title = 'Search for similar rules across indexed repositories';
+                    } else {
+                        checkBtn.disabled = true;
+                        checkBtn.title = 'Article embeddings required. Click "Embed Article" below to generate.';
+                    }
+                }
+                
+                if (embedBtn) {
+                    if (hasEmbedding) {
+                        embedBtn.disabled = true;
+                        embedBtn.textContent = '✓ Embedded';
+                        embedBtn.title = 'Article already has embedding';
+                    } else {
+                        embedBtn.disabled = false;
+                        embedBtn.title = 'Generate article embedding for semantic search';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Failed to check embedding status:', error);
+                if (checkBtn) {
+                    checkBtn.disabled = true;
+                    checkBtn.title = 'Unable to verify embedding status';
+                }
+                if (embedBtn) {
+                    embedBtn.disabled = false;
+                }
+            });
+
+        // Add toggle functionality for conversation log
+        const toggleButton = document.getElementById('toggleSigmaConversation');
+        const conversationContent = document.getElementById('sigmaConversationContent');
+        if (toggleButton && conversationContent) {
+            toggleButton.addEventListener('click', function() {
+                if (conversationContent.style.display === 'none') {
+                    conversationContent.style.display = 'block';
+                    toggleButton.textContent = 'Hide Log';
+                } else {
+                    conversationContent.style.display = 'none';
+                    toggleButton.textContent = 'Show Log';
+                }
+            });
+        }
+        
+        // Render conversation entries if present
+        try {
+            console.log('DEBUG: data object:', data);
+            console.log('DEBUG: data.metadata:', data && data.metadata);
+            console.log('DEBUG: data.metadata.conversation:', data && data.metadata && data.metadata.conversation);
+            const convo = (data && data.metadata && data.metadata.conversation) ? data.metadata.conversation : []; // Corrected data path
+            console.log('DEBUG: convo array:', convo);
+            const container = document.getElementById('sigmaConversation');
+            if (container) {
+                if (!convo.length) {
+                    container.innerHTML = '<div class="text-sm text-gray-600 text-center py-4">⚠️ No conversation log available. This might be cached data from an older version.</div>';
+                } else {
+                    container.innerHTML = convo.map((entry, idx) => {
+                        const attempt = entry.attempt || (idx + 1);
+                        const attemptBadgeColor = idx === convo.length - 1 ? 'bg-emerald-500' : 'bg-blue-500';
+                        const attemptIcon = idx === convo.length - 1 ? '✅' : '🔄';
+                        
+                        // Format the messages (system + user prompts)
+                        const messages = entry.messages || [];
+                        const messagesHtml = messages.map((msg, msgIdx) => {
+                            const role = msg.role || 'user';
+                            const content = String(msg.content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                            const roleIcon = role === 'system' ? '⚙️' : '👤';
+                            const roleColor = role === 'system' ? 'text-purple-700' : 'text-blue-700';
+                            // COMMENTED OUT: Truncation control
+                            // const preview = content.substring(0, 200) + (content.length > 200 ? '...' : '');
+                            const collapsibleId = 'msg-' + idx + '-' + msgIdx;
+                            
+                            return '<div class="mb-2">' +
+                                '<div class="flex items-center mb-1">' +
+                                    '<span class="mr-2">' + roleIcon + '</span>' +
+                                    '<span class="font-semibold ' + roleColor + ' text-sm uppercase">' + role + '</span>' +
+                                    // COMMENTED OUT: Truncation control button
+                                    // '<button onclick="toggleCollapse(\'' + collapsibleId + '\')" class="ml-2 text-xs text-blue-600 hover:text-blue-800 underline">' +
+                                    //     '[toggle full content]' +
+                                    // '</button>' +
+                                '</div>' +
+                                '<div class="bg-gray-100 p-2 rounded border border-gray-300">' +
+                                    '<div id="' + collapsibleId + '-preview" class="text-xs text-gray-700">' + content + '</div>' +
+                                    // COMMENTED OUT: Truncation control - showing full content directly
+                                    // '<div id="' + collapsibleId + '-preview" class="text-xs text-gray-700">' + preview + '</div>' +
+                                    // '<pre id="' + collapsibleId + '-full" class="text-xs whitespace-pre-wrap text-gray-800 hidden">' + content + '</pre>' +
+                                '</div>' +
+                            '</div>';
+                        }).join('');
+                        
+                        // Format LLM response
+                        const llmResponse = entry.llm_response || '';
+                        const llmContent = String(llmResponse).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        // COMMENTED OUT: Truncation control
+                        // const llmPreview = llmContent.substring(0, 200) + (llmContent.length > 200 ? '...' : '');
+                        const llmCollapsibleId = 'llm-' + idx;
+                        
+                        // Format validation results
+                        const validation = entry.validation || [];
+                        const hasErrors = validation.some(v => !v.is_valid);
+                        const validationIcon = hasErrors ? '❌' : '✅';
+                        const validationColor = hasErrors ? 'text-red-700' : 'text-green-700';
+                        
+                        const validationHtml = validation.map((v, vIdx) => {
+                            const errs = (v.errors || []).map(e => '<li class="text-red-700 text-xs">' + String(e).replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>').join('');
+                            const warns = (v.warnings || []).map(w => '<li class="text-yellow-700 text-xs">' + String(w).replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>').join('');
+                            const statusBadge = v.is_valid 
+                                ? '<span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">✅ VALID</span>'
+                                : '<span class="px-2 py-1 text-xs bg-red-100 text-red-800 rounded">❌ INVALID</span>';
+                            const borderClass = v.is_valid ? 'border-green-300' : 'border-red-300';
+                            const errsHtml = errs ? '<div class="mt-2"><strong class="text-sm text-red-800">Errors:</strong><ul class="list-disc ml-5 mt-1">' + errs + '</ul></div>' : '';
+                            const warnsHtml = warns ? '<div class="mt-2"><strong class="text-sm text-yellow-800">Warnings:</strong><ul class="list-disc ml-5 mt-1">' + warns + '</ul></div>' : '';
+                            
+                            return '<div class="mb-3 p-3 bg-white border ' + borderClass + ' rounded">' +
+                                '<div class="flex items-center justify-between mb-2">' +
+                                    '<span class="font-semibold text-sm">Rule #' + (vIdx + 1) + '</span>' +
+                                    statusBadge +
+                                '</div>' +
+                                errsHtml +
+                                warnsHtml +
+                            '</div>';
+                        }).join('');
+                        
+                        return '<div class="mb-4 p-3 border border-solid rounded ' + (hasErrors ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200') + '">' +
+                            '<div class="flex items-center mb-2">' +
+                                '<span class="mr-2">' + attemptIcon + '</span>' +
+                                '<span class="font-medium">Attempt ' + attempt + ':</span>' +
+                            '</div>' +
+                            '<div class="space-y-3">' +
+                                '<div class="border-l-4 border-blue-500 pl-3">' +
+                                    '<div class="font-semibold text-sm text-gray-700 mb-2">📝 Prompts Sent to LLM</div>' +
+                                    messagesHtml +
+                                '</div>' +
+                                '<div class="border-l-4 border-purple-500 pl-3">' +
+                                    '<div class="flex items-center mb-2">' +
+                                        '<span class="mr-2"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 7.5h10.5v9H6.75v-9z"/></svg></span>' +
+                                        '<span class="font-semibold text-sm text-gray-700">LLM Response</span>' +
+                                        // COMMENTED OUT: Truncation control button
+                                        // '<button onclick="toggleCollapse(\'' + llmCollapsibleId + '\')" class="ml-2 text-xs text-blue-600 hover:text-blue-800 underline">' +
+                                        //     '[toggle full response]' +
+                                        // '</button>' +
+                                    '</div>' +
+                                    '<div class="bg-purple-50 p-3 rounded border border-purple-200">' +
+                                        '<div id="' + llmCollapsibleId + '-preview" class="text-xs text-gray-700">' + llmContent + '</div>' +
+                                        // COMMENTED OUT: Truncation control - showing full content directly
+                                        // '<div id="' + llmCollapsibleId + '-preview" class="text-xs text-gray-700">' + llmPreview + '</div>' +
+                                        // '<pre id="' + llmCollapsibleId + '-full" class="text-xs whitespace-pre-wrap text-gray-800 hidden">' + llmContent + '</pre>' +
+                                    '</div>' +
+                                '</div>' +
+                                '<div class="border-l-4 ' + (hasErrors ? 'border-red-500' : 'border-green-500') + ' pl-3">' +
+                                    '<div class="flex items-center mb-2">' +
+                                        '<span class="mr-2">' + validationIcon + '</span>' +
+                                        '<span class="font-semibold text-sm ' + validationColor + '">pySigma Validation</span>' +
+                                    '</div>' +
+                                    '<div class="space-y-2">' +
+                                        validationHtml +
+                                    '</div>' +
+                                '</div>' +
+                            '</div>' +
+                        '</div>';
+                    }).join('');
+                }
+            }
+        } catch (e) {
+            console.error('Failed to render sigma conversation', e);
+            const container = document.getElementById('sigmaConversation');
+            if (container) {
+                container.innerHTML = '<div class="text-sm text-red-600">Error rendering conversation log. Check console for details.</div>';
+            }
+        }
+    }
+    
+    // COMMENTED OUT: Helper function to toggle collapsible sections
+    // function toggleCollapse(id) {
+    //     const preview = document.getElementById(id + '-preview');
+    //     const full = document.getElementById(id + '-full');
+    //     if (preview && full) {
+    //         preview.classList.toggle('hidden');
+    //         full.classList.toggle('hidden');
+    //     }
+    // }
+    

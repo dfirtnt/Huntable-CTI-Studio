@@ -1,0 +1,36 @@
+# Which prompt variant each quickstart preset gets.
+#
+# scripts/build_quickstart_prompts.py renders every agent prompt in
+# config/presets/AgentConfigs/quickstart/*.json from src/prompts/. Agents not listed
+# for a preset use the "default" variant. Variant sources:
+#   default  -> src/prompts/<AGENT_PROMPT_FILES[agent]> (extractors, RankAgent);
+#               src/prompts/quickstart/SigmaAgent.default.{system,user}.txt (SigmaAgent)
+#   <name>   -> src/prompts/quickstart/<Agent>.<name>.txt, or
+#               src/prompts/quickstart/<Agent>.<name>.{system,user}.txt for SigmaAgent
+# A new quickstart preset must be listed here, even if it uses only defaults.
+
+presets:
+  Quickstart-LMStudio-Gemma4B.json:
+    SigmaAgent: lmstudio
+    RankAgent: lmstudio
+  Quickstart-LMStudio-Qwen3.json:
+    SigmaAgent: lmstudio
+    RankAgent: lmstudio
+  Quickstart-anthropic-haiku-4-5.json: {}
+  Quickstart-anthropic-sonnet-4-6.json: {}
+  Quickstart-openai-gpt-4.1-mini.json: {}
+  Quickstart-openai-gpt-4.1.json: {}
+  Quickstart-openai-gpt-4o-mini.json: {}
+  Quickstart-openai-gpt-4o.json: {}
+  Quickstart-codex-gpt-5.6-luna.json:
+    SigmaAgent: codex
+  Quickstart-codex-gpt-5.6-sol.json:
+    SigmaAgent: codex
+  Quickstart-codex-gpt-5.6-terra.json:
+    SigmaAgent: codex
+  Quickstart-codex-gpt-6-luna.json:
+    SigmaAgent: codex
+  Quickstart-openai-gpt-5.json:
+    SigmaAgent: codex
+  Quickstart-openai-gpt-6-luna.json:
+    SigmaAgent: codex

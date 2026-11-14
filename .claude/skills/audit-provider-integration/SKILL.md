@@ -124,7 +124,7 @@ the target via a constant.
 - **Enablement**: is the target in `_PROVIDER_TO_SETTINGS_KEY` *and* its `scripts/apply_preset.py` copy?
 - **Fallback discovery**: can `_first_enabled_provider`-style helpers ever *return* the target?
   A keyless provider is invisible to any "first provider with an API key" scan.
-- **Presets**: do any of the 12 quickstart presets use the target, and do they still import?
+- **Presets**: do any of the 14 quickstart presets use the target, and do they still import?
 - **UI**: does the provider `<select>` offer it, and does the API accept what the UI offers?
 
 ### 5. Verify, don't assert

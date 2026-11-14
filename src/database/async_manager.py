@@ -10,7 +10,7 @@ import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from sqlalchemy import (
     delete,
@@ -22,6 +22,7 @@ from sqlalchemy import (
     update,
 )
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -441,30 +442,6 @@ class AsyncDatabaseManager:
         except Exception as e:
             logger.error(f"Failed to list source identifiers: {e}")
             return set()
-
-    async def set_robots_user_agent_for_all(self, user_agent: str) -> int:
-        """Ensure every source with robots config uses the provided user agent."""
-        updated = 0
-        try:
-            sources = await self.list_sources()
-            for source in sources:
-                config = dict(source.config or {})
-                robots = dict(config.get("robots") or {})
-                if not robots:
-                    continue
-                if robots.get("user_agent") == user_agent:
-                    continue
-                robots["user_agent"] = user_agent
-                config["robots"] = robots
-                try:
-                    await self.update_source(source.id, SourceUpdate(config=config))
-                    updated += 1
-                except Exception as inner_exc:  # noqa: BLE001
-                    logger.error(f"Failed to update user agent for source {source.identifier}: {inner_exc}")
-            return updated
-        except Exception as e:
-            logger.error(f"Failed to update robots user agents: {e}")
-            return updated
 
     async def create_source(self, source_data: SourceCreate) -> Source | None:
         """Insert a source, updating config fields if the identifier already exists."""
@@ -1000,6 +977,10 @@ class AsyncDatabaseManager:
                     similar_articles,
                 ) = await dedup_service.create_article_with_deduplication(article)
 
+                if new_article is None:
+                    # Unreachable: dedup returns the existing row for duplicates, the new row otherwise
+                    return None
+
                 if not created:
                     logger.info(f"Duplicate article detected: {article.title}")
                     # Update existing article metadata with threat hunting scoring
@@ -1024,43 +1005,37 @@ class AsyncDatabaseManager:
 
                 logger.info(f"Created article with deduplication: {article.title}")
 
-                # Get hunt score once for both workflow and chunk analysis
+                # Used below by both the workflow trigger (through WorkflowTriggerService's
+                # own threshold check) and the chunk-analysis trigger.
                 hunt_score = (
                     new_article.article_metadata.get("threat_hunting_score", 0) if new_article.article_metadata else 0
                 )
 
-                # Get threshold from workflow config
-                from src.database.models import AgenticWorkflowConfigTable
+                # Route through WorkflowTriggerService so this path gets the same
+                # eligibility checks (threshold, config-aware active-execution guard,
+                # idempotency) and execution-row creation as every other trigger site.
+                # A bare `trigger_agentic_workflow.delay(article_id)` here used to skip
+                # execution creation entirely, which left `run_workflow()`'s no-execution_id
+                # fallback as this path's only guard against double-running the article.
+                def _trigger_workflow() -> None:
+                    from src.database.manager import DatabaseManager
+                    from src.services.workflow_trigger_service import WorkflowTriggerService
 
-                config_result = await session.execute(
-                    select(AgenticWorkflowConfigTable)
-                    .where(AgenticWorkflowConfigTable.is_active == True)
-                    .order_by(desc(AgenticWorkflowConfigTable.version))
-                    .limit(1)
-                )
-                config = config_result.scalar_one_or_none()
-                threshold = (
-                    config.auto_trigger_hunt_score_threshold
-                    if config and hasattr(config, "auto_trigger_hunt_score_threshold")
-                    else 60.0
-                )
-
-                # Check if workflow should be triggered
-                # Only trigger if RegexHuntScore > threshold
-                if hunt_score > threshold:
+                    db_manager = DatabaseManager()
+                    db_session = db_manager.get_session()
                     try:
-                        from src.worker.celery_app import trigger_agentic_workflow
+                        triggered, reason = WorkflowTriggerService(db_session).trigger_workflow(new_article.id)
+                        if triggered:
+                            logger.info(f"Triggered agentic workflow for article {new_article.id}")
+                        else:
+                            logger.debug(f"Skipping workflow trigger for article {new_article.id}: {reason}")
+                    finally:
+                        db_session.close()
 
-                        trigger_agentic_workflow.delay(new_article.id)
-                        logger.info(
-                            f"Triggered agentic workflow for article {new_article.id} (hunt_score: {hunt_score} > {threshold})"
-                        )
-                    except Exception as e:
-                        logger.warning(f"Failed to trigger workflow for article {new_article.id}: {e}")
-                else:
-                    logger.debug(
-                        f"Skipping workflow trigger for article {new_article.id} (hunt_score: {hunt_score} <= {threshold})"
-                    )
+                try:
+                    await asyncio.to_thread(_trigger_workflow)
+                except Exception as e:
+                    logger.warning(f"Failed to trigger workflow for article {new_article.id}: {e}")
 
                 # Automatically run chunk analysis for articles with hunt_score > 50
                 # This calculates ML hunt score automatically
@@ -1523,7 +1498,7 @@ class AsyncDatabaseManager:
 
                 # Recent articles query
                 start_time = time.time()
-                result = await session.execute(
+                recent_result = await session.execute(
                     select(ArticleTable.id).order_by(desc(ArticleTable.discovered_at)).limit(10)
                 )
                 query_time = (time.time() - start_time) * 1000
@@ -1531,7 +1506,7 @@ class AsyncDatabaseManager:
                     {
                         "test": "Recent Articles",
                         "query_time_ms": round(query_time, 2),
-                        "rows_returned": len(result.fetchall()),
+                        "rows_returned": len(recent_result.fetchall()),
                     }
                 )
 
@@ -2515,7 +2490,7 @@ class AsyncDatabaseManager:
                     .values(used_for_training=True)
                 )
                 await session.commit()
-                return result.rowcount
+                return cast(CursorResult[Any], result).rowcount
         except Exception as e:
             logger.error(f"Failed to mark chunk feedback as used: {e}")
             raise

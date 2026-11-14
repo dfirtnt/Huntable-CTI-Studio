@@ -298,6 +298,10 @@ function renderQueue() {
         const sourceBadge = rule.rule_origin === 'source_provided'
             ? `<span class="q-badge source-provided" title="Publisher-authored source rule; original YAML is immutable">Source Provided${rule.declared_license ? ` · ${escapeHtml(rule.declared_license)}` : ''}</span>`
             : '';
+        const ciFindings = Array.isArray(rule.ci_parity_findings) ? rule.ci_parity_findings : [];
+        const ciBadge = ciFindings.length
+            ? `<span class="q-badge rejected" data-testid="ci-parity-badge" title="${escapeHtml('Destination CI would reject this rule:\n' + ciFindings.map(f => '- ' + f.message).join('\n'))}">CI FAIL · ${ciFindings.length}</span>`
+            : '';
         const rowClass = isSelected ? ' class="q-row-selected"' : '';
         const checked = isSelected ? ' checked' : '';
         const canActOn = (rule.status === 'pending' || rule.status === 'needs_review') && rule.delivery_eligible !== false;
@@ -328,7 +332,7 @@ function renderQueue() {
                 <td class="q-cell-sim">
                     ${typeof rule.max_similarity === 'number' ? (rule.max_similarity * 100).toFixed(1) + '%' : '-'}
                 </td>
-                <td>${getQueueStatusBadge(rule.status)}</td>
+                <td>${getQueueStatusBadge(rule.status)}${ciBadge ? `<div style="margin-top:4px">${ciBadge}</div>` : ''}</td>
                 <td class="q-cell-date">${formatLocalDateTime(rule.created_at)}</td>
                 <td><div class="q-actions-cell">
                     <button onclick="previewRule(${rule.id})" class="q-action preview">Preview</button>${inlineActions}<button onclick="deleteQueueRule(${rule.id})" class="q-action delete" title="Delete">${deleteIcon}</button>
@@ -448,7 +452,7 @@ async function createNewRule() {
     resetQualityReviewCard();
 
     // Default the author from Settings (sigmaAuthor) when available.
-    let author = 'Huntable CTI Studio User';
+    let author = 'Huntable CTI Studio';
     try {
         const r = await fetch('/api/settings');
         if (r.ok) {
@@ -641,6 +645,17 @@ function renderRulePreview(rule, observablesData) {
         </section>
     ` : '';
 
+    const ciFindingsDetail = Array.isArray(rule.ci_parity_findings) ? rule.ci_parity_findings : [];
+    const ciParityHtml = ciFindingsDetail.length ? `
+        <section class="rounded-lg border border-red-500/40 bg-red-950/20 p-3" data-testid="ci-parity-findings">
+            <div class="font-semibold text-red-300">Destination CI would reject this rule</div>
+            <ul class="list-disc pl-5 text-sm">
+                ${ciFindingsDetail.map(f => `<li><code>${escapeHtml(f.check)}</code> — ${escapeHtml(f.message)}</li>`).join('')}
+            </ul>
+            <div class="text-xs text-red-200/80 mt-1">Submit PR is blocked while this rule is approved. Reject it or set it back to pending.</div>
+        </section>
+    ` : '';
+
     const yamlSection = isEditMode ? `
         <div class="mt-4">
             <div class="flex justify-between items-center mb-2">
@@ -665,6 +680,7 @@ function renderRulePreview(rule, observablesData) {
         <div class="space-y-4 text-gray-600 dark:text-gray-300">
             <div><strong>Rule ID:</strong> ${rule.id}</div>
             ${provenanceHtml}
+            ${ciParityHtml}
             ${platformBadge ? `<div><strong>Platform:</strong> ${platformBadge}</div>` : ''}
             <div><strong>Article:</strong> ${rule.article_id ? `<a href="/articles/${rule.article_id}" class="text-purple-600">${escapeHtml(rule.article_title || 'Article ' + rule.article_id)}</a>` : '<span class="italic" style="color: var(--text-muted-slate)">None (hand-authored draft)</span>'}</div>
             ${Number.isInteger(rule.workflow_execution_id) ? `<div><strong>Job:</strong> <a href="#executions" class="text-purple-600" onclick="closeModal(); switchTab('executions'); setTimeout(() => viewExecution(${rule.workflow_execution_id}), 100); return false;" title="Open workflow execution ${rule.workflow_execution_id}">Execution #${rule.workflow_execution_id}</a></div>` : ''}
@@ -878,6 +894,37 @@ async function rejectRule(ruleId) {
     }
 }
 
+// Lines for the rules submit-pr returned to review and the placement warnings
+// (e.g. an emerging-threat rule filed under _unsorted/), so neither is silent.
+function formatPublishReport(report) {
+    const lines = [];
+    const demoted = (report && report.demoted) || [];
+    if (demoted.length) {
+        lines.push(`Returned to review (${demoted.length}):`);
+        demoted.slice(0, 8).forEach(d => {
+            lines.push(`Rule #${d.id}${d.title ? ' (' + d.title + ')' : ''}: ${(d.reasons || []).join('; ')}`);
+        });
+        if (demoted.length > 8) lines.push(`...and ${demoted.length - 8} more.`);
+    }
+    ((report && report.warnings) || []).forEach(w => {
+        lines.push(`Warning, rule #${w.id} -> ${w.path}: ${(w.warnings || []).join('; ')}`);
+    });
+    return lines;
+}
+
+function formatSubmitBlocked(detail) {
+    const lines = [`❌ ${detail.message || 'PR submission blocked.'}`];
+    (detail.rules || []).forEach(r => lines.push(`Rule #${r.id}: ${r.reason}`));
+    const failures = detail.ci_failures || [];
+    failures.slice(0, 8).forEach(f => {
+        lines.push(`Rule #${f.id}${f.title ? ' (' + f.title + ')' : ''}: ${f.findings.map(x => x.message).join('; ')}`);
+    });
+    if (failures.length > 8) lines.push(`…and ${failures.length - 8} more rule(s) failing CI checks.`);
+    lines.push('Reject or un-approve the listed rules, then submit again.');
+    lines.push(...formatPublishReport(detail));
+    return lines.join('\n');
+}
+
 async function submitPR() {
     const btn = document.getElementById('submitPRBtn');
     if (!btn) return;
@@ -904,8 +951,15 @@ async function submitPR() {
         
         const result = await response.json();
         
-        if (result.success) {
-            showNotification('PR created successfully. Rules: ' + result.rules_count, 'success');
+        if (response.status === 409 && result.detail && typeof result.detail === 'object') {
+            showNotification(formatSubmitBlocked(result.detail), 'error');
+            await loadQueue();
+        } else if (result.success) {
+            const report = formatPublishReport(result);
+            showNotification(
+                ['PR created successfully. Rules: ' + result.rules_count, ...report].join('\n'),
+                report.length && (result.demoted || []).length ? 'warning' : 'success'
+            );
             // Reload queue to show updated status
             await loadQueue();
         } else {
@@ -913,7 +967,10 @@ async function submitPR() {
             if (result.branch) {
                 errorMsg += `\n\nBranch created: ${result.branch}\nYou may need to create the PR manually.`;
             }
+            const report = formatPublishReport(result);
+            if (report.length) errorMsg += '\n\n' + report.join('\n');
             showNotification(errorMsg, 'error');
+            await loadQueue();
         }
     } catch (error) {
         console.error('Error submitting PR:', error);
@@ -1783,6 +1840,7 @@ async function openEnrichModal() {
     // Reset state
     currentEnrichedYaml = null;
     enrichIteration = 0;
+    _renderEnrichValidation(null, null);
     
     // Set original rule YAML from current modal content (including unsaved edits)
     document.getElementById('enrichOriginalRule').value = getCurrentRuleYamlFromModal();
@@ -2738,12 +2796,13 @@ async function enrichRule() {
             
             // Update current enriched state
             currentEnrichedYaml = enrichedYaml;
-            
+
             // Set enriched rule in textarea
             textarea.value = enrichedYaml;
-            
+            _renderEnrichValidation(data.validation || null, enrichedYaml);
+
             setRawLLMResponse(rawResponse);
-            
+
             // Update labels and info based on iteration
             if (isIterative) {
                 leftLabel.textContent = `Previous (Iteration ${enrichIteration - 1})`;
@@ -2804,14 +2863,66 @@ async function enrichRule() {
     }
 }
 
+// pySigma result for the YAML the server last returned from /enrich: { yaml, validation }.
+let lastEnrichValidation = null;
+
+function _renderEnrichValidation(validation, yaml) {
+    lastEnrichValidation = validation ? { yaml, validation } : null;
+    const panel = document.getElementById('enrichValidation');
+    if (!panel) return;
+    panel.replaceChildren();
+    if (!validation) {
+        panel.classList.add('hidden');
+        return;
+    }
+    const ok = validation.is_valid === true;
+    panel.className = `mb-3 rounded-md border p-3 text-sm ${ok
+        ? 'border-green-300 bg-green-50 text-green-800 dark:border-green-700 dark:bg-green-900/30 dark:text-green-200'
+        : 'border-red-300 bg-red-50 text-red-800 dark:border-red-700 dark:bg-red-900/30 dark:text-red-200'}`;
+    const heading = document.createElement('p');
+    heading.className = 'font-semibold';
+    heading.textContent = ok
+        ? 'pySigma validation passed.'
+        : 'pySigma validation failed. Fix these before applying, or rerun enrichment:';
+    panel.appendChild(heading);
+    const errors = validation.errors || [];
+    if (!ok && errors.length) {
+        const list = document.createElement('ul');
+        list.className = 'mt-1 list-disc pl-5';
+        errors.forEach((error) => {
+            const item = document.createElement('li');
+            item.textContent = error;
+            list.appendChild(item);
+        });
+        panel.appendChild(list);
+    }
+    const warnings = validation.warnings || [];
+    if (warnings.length) {
+        const note = document.createElement('p');
+        note.className = 'mt-1 text-xs opacity-80';
+        note.textContent = `Warnings (non-blocking): ${warnings.join('; ')}`;
+        panel.appendChild(note);
+    }
+}
+
 async function applyEnrichedRule() {
     const enrichedYaml = document.getElementById('enrichedRuleYaml').value;
     if (!enrichedYaml.trim()) {
         showNotification('No enriched rule to apply', 'warning');
         return;
     }
-    
-    if (!await ModalManager.confirm('Apply the enriched rule? This will update the rule YAML.', { title: 'Apply Enriched Rule', confirmText: 'Apply', confirmClass: 'bg-purple-600 hover:bg-purple-700' })) return;
+
+    // Only trust the validation result if the operator hasn't edited the YAML since.
+    const knownInvalid = lastEnrichValidation
+        && lastEnrichValidation.yaml === enrichedYaml
+        && lastEnrichValidation.validation.is_valid === false;
+    const confirmMessage = knownInvalid
+        ? `This enriched rule failed pySigma validation: ${(lastEnrichValidation.validation.errors || []).join('; ')}. Apply it anyway?`
+        : 'Apply the enriched rule? This will update the rule YAML.';
+    const confirmOptions = knownInvalid
+        ? { title: 'Apply Invalid Rule?', confirmText: 'Apply anyway', confirmClass: 'bg-red-600 hover:bg-red-700' }
+        : { title: 'Apply Enriched Rule', confirmText: 'Apply', confirmClass: 'bg-purple-600 hover:bg-purple-700' };
+    if (!await ModalManager.confirm(confirmMessage, confirmOptions)) return;
     
     try {
         const response = await fetch(`/api/sigma-queue/${currentRuleId}/yaml`, {
@@ -2954,9 +3065,10 @@ async function enrichRuleFurther() {
             
             // Set enriched rule in textarea
             textarea.value = enrichedYaml;
-            
+            _renderEnrichValidation(data.validation || null, enrichedYaml);
+
             setRawLLMResponse(rawResponse);
-            
+
             // Update labels for iterative enrichment
             leftLabel.textContent = `Previous (Iteration ${enrichIteration - 1})`;
             rightLabel.textContent = `Enriched (Iteration ${enrichIteration})`;

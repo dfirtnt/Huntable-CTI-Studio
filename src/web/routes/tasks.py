@@ -42,7 +42,7 @@ def _worker_type_for_queue(queue: str) -> str:
 
 
 @router.get("/api/tasks/{task_id}/status")
-async def api_get_task_status(task_id: str):
+def api_get_task_status(task_id: str):
     """Get the status and result of a Celery task."""
     try:
         from celery import Celery
@@ -169,7 +169,7 @@ async def api_jobs_status():
 
 
 @router.get("/api/jobs/queues")
-async def api_jobs_queues():
+def api_jobs_queues():
     """Get queue information and lengths."""
     try:
         import redis
@@ -203,7 +203,7 @@ async def api_jobs_queues():
 
 
 @router.get("/api/jobs/history")
-async def api_jobs_history(limit: int = 50):
+def api_jobs_history(limit: int = 50):
     """Get recent job history from Redis."""
     try:
         import redis

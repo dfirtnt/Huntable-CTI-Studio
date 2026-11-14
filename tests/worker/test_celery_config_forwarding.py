@@ -41,7 +41,7 @@ class TestBrokerTransportOptionsForwarded:
         mod = _import_celery_app()
         opts = mod.celery_app.conf.broker_transport_options
         assert isinstance(opts, dict)
-        assert opts["visibility_timeout"] == 3600
+        assert opts["visibility_timeout"] == 6 * 3600
         assert opts["queue_order_strategy"] == "round_robin"
 
     def test_broker_connection_retry_on_startup_set(self):

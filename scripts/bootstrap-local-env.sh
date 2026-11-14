@@ -26,3 +26,5 @@ source "$VENV_DIR/bin/activate"
 
 python -m pip install --upgrade pip setuptools wheel
 python -m pip install --no-cache-dir -r requirements.txt
+# requirements.txt is exported without the local workspace package.
+python -m pip install --no-cache-dir --no-deps ./sigma_atom_similarity

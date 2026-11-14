@@ -181,7 +181,7 @@ python3 scripts/verify_backup.py /path/to/backup.tar.gz
 **Purpose**: Evaluate command-line extraction counts  
 **Usage**:
 ```bash
-python3 scripts/run_cmdline_count_eval.py \
+python3 scripts/archive/run_cmdline_count_eval.py \
     --article-id 68
 ```
 
@@ -457,7 +457,7 @@ python3 scripts/extraction_metrics_calculator.py
 **Purpose**: Compare Sigma rules  
 **Usage**:
 ```bash
-python3 scripts/compare_sigma_rules.py --rule1-id 1 --rule2-id 2
+python3 scripts/archive/compare_sigma_rules.py --rule1-id 1 --rule2-id 2
 ```
 
 ### `compare_evaluations.py`
@@ -506,7 +506,7 @@ python3 scripts/update_annotation_counts.py
 **Purpose**: Update source article counts  
 **Usage**:
 ```bash
-python3 scripts/update_source_counts.py
+python3 scripts/archive/update_source_counts.py
 ```
 
 ### `setup_deduplication.py`
@@ -548,7 +548,7 @@ python3 scripts/backfill_annotation_context.py
 **Purpose**: Backfill evaluation records  
 **Usage**:
 ```bash
-python3 scripts/backfill_eval_records.py
+python3 scripts/archive/backfill_eval_records.py
 ```
 
 ---
@@ -559,7 +559,7 @@ python3 scripts/backfill_eval_records.py
 **Purpose**: Manually trigger agentic workflow  
 **Usage**:
 ```bash
-python3 scripts/trigger_workflow.py --article-id 68
+python3 scripts/archive/trigger_workflow.py --article-id 68
 ```
 
 ### `trigger_stuck_executions.py`
@@ -580,14 +580,14 @@ python3 scripts/fix_workflow_execution_status.py
 **Purpose**: Check workflow execution details  
 **Usage**:
 ```bash
-python3 scripts/check_execution_details.py --execution-id 123
+python3 scripts/archive/check_execution_details.py --execution-id 123
 ```
 
 ### `trace_hunt_queries_execution.py`
 **Purpose**: Trace hunt queries execution  
 **Usage**:
 ```bash
-python3 scripts/trace_hunt_queries_execution.py --article-id 68
+python3 scripts/archive/trace_hunt_queries_execution.py --article-id 68
 ```
 
 ---

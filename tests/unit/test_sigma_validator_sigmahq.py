@@ -150,14 +150,14 @@ def test_foreign_custom_key_still_fails_next_to_pipeline_keys():
 
 def test_layer_degrades_loudly_when_plugin_missing(monkeypatch):
     monkeypatch.setattr(sv, "PYSIGMA_VALIDATION_AVAILABLE", False)
-    sv._load_sigmahq_blocking_config.cache_clear()
+    sv._installed_sigma_validators.cache_clear()
     try:
         result = validate_sigma_rule(CLEAN_RULE)
         assert result.is_valid
         assert result.metadata["sigmahq"]["available"] is False
         assert "unavailable" in result.metadata["sigmahq"]["reason"]
     finally:
-        sv._load_sigmahq_blocking_config.cache_clear()
+        sv._installed_sigma_validators.cache_clear()
 
 
 def test_canonical_sigma_rule_dict_strips_pipeline_keys_and_orders_fields():

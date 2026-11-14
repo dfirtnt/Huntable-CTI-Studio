@@ -21,6 +21,7 @@ from src.config.workflow_config_schema import (
     WorkflowConfigV2,
     normalize_agent_models_to_flat,
 )
+from src.utils.subagent_utils import SUBAGENT_TO_EXTRACT_AGENT
 
 pytestmark = pytest.mark.unit
 
@@ -116,8 +117,16 @@ class TestPresetsNeedNoEdit:
     def test_every_quickstart_preset_still_validates(self, preset_path: Path):
         config = load_workflow_config(json.loads(preset_path.read_text()))
         assert isinstance(config, WorkflowConfigV2)
-        assert all(agent.Effort is None for agent in config.Agents.values())
-        assert not any(key.endswith("_effort") for key in config.flatten_for_llm_service())
+        efforts = {name: agent.Effort for name, agent in config.Agents.items() if agent.Effort is not None}
+        flat_effort_keys = {key for key in config.flatten_for_llm_service() if key.endswith("_effort")}
+        if preset_path.name.startswith("Quickstart-codex-"):
+            # Codex presets pin every extractor to the lowest tier (ce1a8032) and nothing else.
+            extractors = set(SUBAGENT_TO_EXTRACT_AGENT.values())
+            assert efforts == dict.fromkeys(extractors, "low")
+            assert flat_effort_keys == {f"{name}_effort" for name in extractors}
+        else:
+            assert efforts == {}
+            assert flat_effort_keys == set()
 
 
 class TestUiOrderedPresetRoundTrip:
